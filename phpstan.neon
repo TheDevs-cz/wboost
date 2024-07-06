@@ -28,3 +28,4 @@ parameters:
     checkUninitializedProperties: true
     ignoreErrors:
         - "#^Call to an undefined method Symfony\\\\Config\\\\Framework\\\\Messenger#"
+        - "#is used zero times and is not analysed#"
