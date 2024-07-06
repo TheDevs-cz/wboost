@@ -1,1 +1,1 @@
-# brand-manuals
+# BrandManuals
