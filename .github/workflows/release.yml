@@ -62,6 +62,9 @@ jobs:
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         needs:
             - docker
+        environment:
+            name: prod
+            url: https://brand-manuals.janmikes.cz
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
