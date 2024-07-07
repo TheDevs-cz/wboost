@@ -45,6 +45,6 @@ jobs:
               extensions: mbstring, uuid # needed by phpunit
 
         -   run: composer install --dev --no-progress
-
         -   run: bin/console cache:warmup --env=dev
+
         -   run: composer run-script phpstan

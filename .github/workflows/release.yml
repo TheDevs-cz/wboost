@@ -3,8 +3,9 @@
 name: Release
 
 permissions:
-  deployments: write
-  packages: write
+    contents: read
+    deployments: write
+    packages: write
 
 on:
     workflow_run:
