@@ -29,7 +29,7 @@ jobs:
                 uses: docker/metadata-action@v5
                 with:
                     # list of Docker images to use as base name for tags
-                    images: ghcr.io/janmikes/brand-manuals
+                    images: ghcr.io/thedevs-cz/brand-manuals
                     # generate Docker tags based on the following events/attributes
                     tags: |
                         type=ref,event=branch
