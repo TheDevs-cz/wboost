@@ -1,0 +1,16 @@
+{% extends 'base.html.twig' %}
+
+{% block content %}
+    <p>
+        <a href="{{ path('homepage') }}">Zpět</a>
+    </p>
+
+    {{ form_start(edit_project_form) }}
+    {{ form_row(edit_project_form.name) }}
+
+    <p>
+        <input type="submit" name="submit" value="Uložit" />
+    </p>
+
+    {{ form_end(edit_project_form) }}
+{% endblock %}

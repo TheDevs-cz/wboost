@@ -19,7 +19,7 @@ services:
         environment:
             XDEBUG_CONFIG: "client_host=host.docker.internal"
             XDEBUG_MODE: debug
-            PHP_IDE_CONFIG: "serverName=brandmanuals"
+            PHP_IDE_CONFIG: "serverName=localhost"
 
     postgres:
         image: postgres:16.0

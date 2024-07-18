@@ -20,6 +20,9 @@
         {% endblock %}
     </head>
     <body>
+        <h1>Brand manuals</h1>
+        <p>Lukáš Rejdíńho</p>
+        <small><a href="{{ path('homepage') }}">Home</a></small>
 
         {% for label, messages in app.flashes %}
             <div class="container mt-4">
@@ -31,6 +34,7 @@
                 {% endfor %}
             </div>
         {% endfor %}
+
 
         {% block full_content %}
             <section class="container pt-4">

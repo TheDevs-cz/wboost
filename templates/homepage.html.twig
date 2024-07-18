@@ -1,8 +1,20 @@
 {% extends 'base.html.twig' %}
 
 {% block content %}
+    <p>
+        <a href="{{ path('add_project') }}">Vytvořit projekt</a>
+    </p>
+
     <ul>
-        <li>Seznam projektů</li>
-        <li>Přidat/editovat/smazat projekt</li>
+        {% for project in projects %}
+            <li>
+                <a href="{{ path('project_detail', {'projectId': project.id.toString}) }}">
+                    {{ project.name }}
+                </a>
+
+                <a href="{{ path('edit_project', {'projectId': project.id.toString}) }}">Přejmenovat</a>
+                <a href="{{ path('delete_project', {'projectId': project.id.toString}) }}">Smazat</a>
+            </li>
+        {% endfor %}
     </ul>
 {% endblock %}
