@@ -2,17 +2,19 @@
 
 {% block content %}
     <p>
-        <a href="{{ path('add_project') }}">Vytvořit projekt</a>
+        <a href="{{ path('add_project') }}">Vytvořit nový projekt</a>
     </p>
 
     <ul>
         {% for project in projects %}
             <li>
                 <a href="{{ path('project_detail', {'projectId': project.id.toString}) }}">
-                    {{ project.name }}
+                    Projekt: {{ project.name }}
                 </a>
 
+                /
                 <a href="{{ path('edit_project', {'projectId': project.id.toString}) }}">Přejmenovat</a>
+                /
                 <a href="{{ path('delete_project', {'projectId': project.id.toString}) }}">Smazat</a>
             </li>
         {% endfor %}

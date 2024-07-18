@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ app.request.locale }}">
+<html lang="{{ app.request.locale }}" data-layout="topnav">
     <head>
         <meta charset="UTF-8">
         <title>{% apply spaceless %}{% block title %}{% endblock %}{% endapply %}</title>
@@ -18,29 +18,76 @@
         {% block importmap %}
             {{ importmap('app') }}
         {% endblock %}
+
+        <!-- App favicon -->
+        <link rel="shortcut icon" href="{{ asset('theme/images/favicon.ico') }}">
+
+        <!-- Theme Config Js -->
+        <script src="{{ asset('theme/js/hyper-config.js') }}"></script>
+
+        <!-- App css -->
+        <link href="{{ asset('theme/css/app-creative.min.css') }}" rel="stylesheet" type="text/css" id="app-style" />
+
+        <!-- Icons css -->
+        <link href="{{ asset('theme/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
     </head>
     <body>
-        <h1>Brand manuals</h1>
-        <p>Lukáš Rejdíńho</p>
-        <small><a href="{{ path('homepage') }}">Home</a></small>
-
-        {% for label, messages in app.flashes %}
-            <div class="container mt-4">
-                {% for message in messages %}
-                    <div class="alert-dismissible fade show alert alert-{{ label }}" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div class="wrapper">
+            <div class="navbar-custom">
+                <div class="topbar container-fluid">
+                    <div class="d-flex align-items-center gap-lg-2 gap-1">
                     </div>
-                {% endfor %}
+
+                    <ul class="topbar-menu d-flex align-items-center gap-3">
+                        <li class="dropdown">
+                            <a class="nav-link dropdown-toggle arrow-none nav-user px-2" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="false" aria-expanded="false">
+                                <span class="account-user-avatar">
+                                    <img src="{{ asset('theme/images/users/avatar-1.jpg') }}" alt="user-image" width="32" class="rounded-circle">
+                                </span>
+                                <span class="d-lg-flex flex-column gap-1 d-none">
+                                    <h5 class="my-0">Lukáš Rejdińho</h5>
+                                    <h6 class="my-0 fw-normal">Admin</h6>
+                                </span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
-        {% endfor %}
+
+            <div class="topnav active">
+                <div class="container-fluid">
+                    <nav class="navbar navbar-expand-lg active">
+                        <div class="navbar-collapse collapse show" id="topnav-menu-content" style="">
+                            <ul class="navbar-nav active">
+                                <li class="nav-item">
+                                    <a class="nav-link active" href="{{ path('homepage') }}" role="button">
+                                        <i class="uil-copy-alt"></i>Projekty
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+
+            {% for label, messages in app.flashes %}
+                <div class="container mt-4">
+                    {% for message in messages %}
+                        <div class="alert-dismissible fade show alert alert-{{ label }}" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
 
 
-        {% block full_content %}
-            <section class="container pt-4">
-                {% block content %}{% endblock %}
-            </section>
-        {% endblock %}
+            {% block full_content %}
+                <section class="container pt-4">
+                    {% block content %}{% endblock %}
+                </section>
+            {% endblock %}
+        </div>
 
     </body>
 </html>
