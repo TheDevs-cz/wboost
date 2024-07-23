@@ -62,4 +62,18 @@ class Project
     {
         $this->name = $name;
     }
+
+    public function updateImages(
+        null|string $logoHorizontal,
+        null|string $logoVertical,
+        null|string $logoHorizontalWithClaim,
+        null|string $logoVerticalWithClaim,
+        null|string $logoSymbol,
+    ): void {
+        $this->logoHorizontal = $logoHorizontal;
+        $this->logoVertical = $logoVertical;
+        $this->logoHorizontalWithClaim = $logoHorizontalWithClaim;
+        $this->logoVerticalWithClaim = $logoVerticalWithClaim;
+        $this->logoSymbol = $logoSymbol;
+    }
 }

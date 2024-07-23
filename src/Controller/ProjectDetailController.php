@@ -6,16 +6,19 @@ namespace BrandManuals\Web\Controller;
 
 use BrandManuals\Web\FormData\ProjectImagesFormData;
 use BrandManuals\Web\FormType\ProjectImagesFormType;
+use BrandManuals\Web\Message\UpdateProjectImages;
 use BrandManuals\Web\Repository\ProjectRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class ProjectDetailController extends AbstractController
 {
     public function __construct(
         readonly private ProjectRepository $projectRepository,
+        readonly private MessageBusInterface $bus,
     ) {
     }
 
@@ -30,6 +33,10 @@ final class ProjectDetailController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->bus->dispatch(
+                UpdateProjectImages::fromFormData($projectId, $data),
+            );
+
             return $this->redirectToRoute('project_detail', [
                 'projectId' => $project->id->toString(),
             ]);

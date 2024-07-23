@@ -16,4 +16,8 @@
     </p>
 
     {{ form_end(project_images_form) }}
+
+    {% if project.logoHorizontal %}
+        <img src="{{ uploaded_asset(project.logoHorizontal) }}">
+    {% endif %}
 {% endblock %}

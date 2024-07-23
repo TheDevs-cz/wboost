@@ -21,15 +21,14 @@ return static function(ContainerConfigurator $configurator): void
 
     $parameters->set('doctrine.orm.enable_lazy_ghost_objects', true);
 
-    $parameters->set('uploadedAssetsBaseUrl', '%env(UPLOADS_BASE_URL)%/puzzle');
+    $parameters->set('uploadedAssetsBaseUrl', '%env(UPLOADS_BASE_URL)%/%env(S3_BUCKET_NAME)%');
 
     $services = $configurator->services();
 
     $services->defaults()
         ->autoconfigure()
         ->autowire()
-        ->public()
-        ->bind('$uploadedAssetsBaseUrl', '%uploadedAssetsBaseUrl%');
+        ->public();
 
     $services->set(PdoSessionHandler::class)
         ->args([
