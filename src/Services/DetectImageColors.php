@@ -13,7 +13,6 @@ readonly final class DetectImageColors
      * @return array<string>
      *
      * @throws UnsupportedImageFormat
-     *
      */
     public function fromImagePath(string $imagePath): array
     {
@@ -21,7 +20,10 @@ readonly final class DetectImageColors
             throw new UnsupportedImageFormat();
         }
 
-        $svg = new SimpleXMLElement(file_get_contents($imagePath));
+        $fileContent = file_get_contents($imagePath);
+        assert(is_string($fileContent));
+
+        $svg = new SimpleXMLElement($fileContent);
 
         return $this->extractColorsFromSvg($svg);
     }
