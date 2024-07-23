@@ -2,7 +2,15 @@
 
 {% block title %}Projekty{% endblock %}
 
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Manuály</a></li>
+        <li class="breadcrumb-item active">Projekty</li>
+    </ol>
+{% endblock %}
+
 {% block content %}
+
     <div class="row mb-2">
         <div class="col-sm-12">
             <a href="{{ path('add_project') }}" class="btn btn-danger rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový projekt</a>
