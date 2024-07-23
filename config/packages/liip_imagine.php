@@ -28,7 +28,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 'flysystem' => [
                     'filesystem_service' => 'oneup_flysystem.cached_filesystem',
                     'cache_prefix' => 'thumbnails',
-                    'root_url' => '%uploadedAssetsBaseUrl%',
+                    'root_url' => '%publicAssetsBaseUrl%',
                 ],
             ],
         ],

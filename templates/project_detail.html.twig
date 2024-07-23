@@ -1,8 +1,8 @@
 {% extends 'base.html.twig' %}
 
-{% block content %}
-    <h2>{{ project.name }}</h2>
+{% block title %}{{ project.name }}{% endblock %}
 
+{% block content %}
     {{ form_start(project_images_form) }}
 
     {{ form_row(project_images_form.logoHorizontal) }}

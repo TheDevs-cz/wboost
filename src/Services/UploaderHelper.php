@@ -9,14 +9,22 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 readonly final class UploaderHelper
 {
     public function __construct(
-        #[Autowire('%uploadedAssetsBaseUrl%')]
-        private string $uploadedAssetsBaseUrl,
+        #[Autowire('%publicAssetsBaseUrl%')]
+        private string $publicAssetsBaseUrl,
+        #[Autowire('%internalAssetsBaseUrl%')]
+        private string $internalAssetsBaseUrl,
     ) {
     }
 
 
     public function getPublicPath(string $path): string
     {
-        return $this->uploadedAssetsBaseUrl . '/' . $path;
+        return $this->publicAssetsBaseUrl . '/' . $path;
+    }
+
+
+    public function getInternalPath(string $path): string
+    {
+        return $this->internalAssetsBaseUrl . '/' . $path;
     }
 }

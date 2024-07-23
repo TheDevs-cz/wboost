@@ -1,22 +1,61 @@
 {% extends 'base.html.twig' %}
 
+{% block title %}Projekty{% endblock %}
+
 {% block content %}
-    <p>
-        <a href="{{ path('add_project') }}">Vytvořit nový projekt</a>
-    </p>
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            <a href="{{ path('add_project') }}" class="btn btn-danger rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový projekt</a>
+        </div>
+    </div>
 
-    <ul>
+    <div class="row">
         {% for project in projects %}
-            <li>
-                <a href="{{ path('project_detail', {'projectId': project.id.toString}) }}">
-                    Projekt: {{ project.name }}
-                </a>
+            <div class="col-md-6 col-xxl-3">
+                <div class="card d-block">
+                    <a href="{{ path('project_detail', {projectId: project.id.toString}) }}">
+                        {% if project.logoHorizontal %}
+                            <img class="card-img-top" src="{{ uploaded_asset(project.logoHorizontal) }}" alt="{{ project.name }}">
+                        {% elseif project.logoHorizontalWithClaim %}
+                            <img class="card-img-top" src="{{ uploaded_asset(project.logoHorizontalWithClaim) }}" alt="{{ project.name }}">
+                        {% elseif project.logoSymbol %}
+                            <img class="card-img-top" src="{{ uploaded_asset(project.logoSymbol) }}" alt="{{ project.name }}">
+                        {% elseif project.logoVertical %}
+                            <img class="card-img-top" src="{{ uploaded_asset(project.logoVertical) }}" alt="{{ project.name }}">
+                        {% elseif project.logoVerticalWithClaim %}
+                            <img class="card-img-top" src="{{ uploaded_asset(project.logoVerticalWithClaim) }}" alt="{{ project.name }}">
+                        {% else %}
+                            <img class="card-img-top" src="{{ asset('images/project-placeholder.jpg') }}" alt="{{ project.name }}">
+                        {% endif %}
+                    </a>
 
-                /
-                <a href="{{ path('edit_project', {'projectId': project.id.toString}) }}">Přejmenovat</a>
-                /
-                <a href="{{ path('delete_project', {'projectId': project.id.toString}) }}">Smazat</a>
-            </li>
+                    <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                        <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="ri-more-fill"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a href="{{ path('edit_project', {'projectId': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                            <a href="{{ path('delete_project', {'projectId': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                        </div>
+                    </div>
+
+                    <a href="{{ path('project_detail', {projectId: project.id.toString}) }}" class="text-body">
+                        <div class="card-body position-relative">
+                            <h4 class="mt-0">
+                                {{ project.name }}
+                            </h4>
+
+                            {% if project.colors %}
+                                <div id="tooltip-container">
+                                    {% for color in project.colors %}
+                                        <span class="d-inline-block rounded-circle avatar-xs" style="background: red;"></span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </a>
+                </div>
+            </div>
         {% endfor %}
-    </ul>
+    </div>
 {% endblock %}

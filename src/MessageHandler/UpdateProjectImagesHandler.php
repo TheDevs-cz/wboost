@@ -10,6 +10,7 @@ use BrandManuals\Web\Message\UpdateProjectImages;
 use BrandManuals\Web\Repository\ProjectRepository;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -30,36 +31,64 @@ readonly final class UpdateProjectImagesHandler
     public function __invoke(UpdateProjectImages $message): void
     {
         $project = $this->projectRepository->get($message->projectId);
-        $timestamp = $this->clock->now()->getTimestamp();
 
         $logoHorizontalPath = $project->logoHorizontal;
+        $logoVerticalPath = $project->logoVertical;
+        $logoHorizontalWithClaimPath = $project->logoHorizontalWithClaim;
+        $logoVerticalWithClaimPath = $project->logoVerticalWithClaim;
+        $logoSymbolPath = $project->logoSymbol;
 
         if ($message->logoHorizontal !== null) {
-            $extension = $message->logoHorizontal->guessExtension();
-            $logoHorizontalPath = "projects/$message->projectId/logo-horizontal-$timestamp.$extension";
+            $logoHorizontalPath = $this->uploadImage($message->logoHorizontal, $message->projectId, 'logo-horizontal');
+        }
 
-            // Stream is better because it is memory safe
-            $stream = fopen($message->logoHorizontal->getPathname(), 'rb');
-            $this->filesystem->writeStream($logoHorizontalPath, $stream);
+        if ($message->logoVertical !== null) {
+            $logoVerticalPath = $this->uploadImage($message->logoVertical, $message->projectId, 'logo-vertical');
+        }
 
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
+        if ($message->logoHorizontalWithClaim !== null) {
+            $logoHorizontalWithClaimPath = $this->uploadImage($message->logoHorizontalWithClaim, $message->projectId, 'logo-horizontal-claim');
+        }
 
-            $this->bus->dispatch(
-                new AddImageColorsToProject(
-                    $message->projectId,
-                    $logoHorizontalPath,
-                ),
-            );
+        if ($message->logoVerticalWithClaim !== null) {
+            $logoVerticalWithClaimPath = $this->uploadImage($message->logoVerticalWithClaim, $message->projectId, 'logo-vertical-claim');
+        }
+
+        if ($message->logoSymbol !== null) {
+            $logoSymbolPath = $this->uploadImage($message->logoSymbol, $message->projectId, 'logo-symbol');
         }
 
         $project->updateImages(
             $logoHorizontalPath,
-            null,
-            null,
-            null,
-            null,
+            $logoVerticalPath,
+            $logoHorizontalWithClaimPath,
+            $logoVerticalWithClaimPath,
+            $logoSymbolPath,
         );
+    }
+
+    private function uploadImage(UploadedFile $image, string $projectId, string $imagePrefix): string
+    {
+        $timestamp = $this->clock->now()->getTimestamp();
+
+        $extension = $image->guessExtension();
+        $path = "projects/$projectId/$imagePrefix-$timestamp.$extension";
+
+        // Stream is better because it is memory safe
+        $stream = fopen($image->getPathname(), 'rb');
+        $this->filesystem->writeStream($path, $stream);
+
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+
+        $this->bus->dispatch(
+            new AddImageColorsToProject(
+                $projectId,
+                $path,
+            ),
+        );
+
+        return $path;
     }
 }

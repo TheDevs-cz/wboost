@@ -20,7 +20,7 @@ class Project
      */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
-    private array $colors = [];
+    public array $colors = [];
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(nullable: true)]
