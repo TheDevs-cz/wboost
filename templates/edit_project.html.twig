@@ -1,5 +1,16 @@
 {% extends 'base.html.twig' %}
 
+{% block title %}Editace projektu{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Manuály</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
 {% block content %}
     <p>
         <a href="{{ path('homepage') }}">Zpět</a>

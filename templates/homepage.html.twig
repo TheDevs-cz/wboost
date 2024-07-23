@@ -5,7 +5,7 @@
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Manuály</a></li>
-        <li class="breadcrumb-item active">Projekty</li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 

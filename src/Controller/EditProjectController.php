@@ -44,6 +44,7 @@ final class EditProjectController extends AbstractController
 
         return $this->render('edit_project.html.twig', [
             'edit_project_form' => $form,
+            'project' => $project,
         ]);
     }
 }
