@@ -13,7 +13,7 @@
 
     <div class="row mb-2">
         <div class="col-sm-12">
-            <a href="{{ path('add_project') }}" class="btn btn-danger rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový projekt</a>
+            <a href="{{ path('add_project') }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový projekt</a>
         </div>
     </div>
 
@@ -30,8 +30,9 @@
                             <i class="ri-more-fill"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
-                            <a href="{{ path('edit_project', {'projectId': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                            <a href="{{ path('delete_project', {'projectId': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                            <a href="{{ path('project_manual', {projectId: project.id.toString}) }}" class="dropdown-item" target="_blank"><i class="ri-eye-fill me-1"></i>Zobrazit manuál</a>
+                            <a href="{{ path('edit_project', {projectId: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                            <a href="{{ path('delete_project', {projectId: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
                         </div>
                     </div>
 
@@ -44,7 +45,7 @@
                             {% if project.colors %}
                                 <div id="tooltip-container">
                                     {% for color in project.colors %}
-                                        <span class="d-inline-block avatar-xs rounded-circle" style="background: {{ color }};"></span>
+                                        <span class="d-inline-block avatar-xs rounded-circle" style="background: {{ '#' ~ color.hex }};"></span>
                                     {% endfor %}
                                 </div>
                             {% endif %}

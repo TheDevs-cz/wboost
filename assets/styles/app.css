@@ -1,0 +1,8 @@
+.manual-page {
+    min-height: 100vh;
+}
+
+.manual-scrollspy {
+    height: 100vh;
+    overflow: auto;
+}

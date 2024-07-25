@@ -11,16 +11,14 @@
 {% endblock %}
 
 {% block content %}
-    <p>
-        <a href="{{ path('homepage') }}">Zpět</a>
-    </p>
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(add_project_form) }}
+            {{ form_row(add_project_form.name) }}
 
-    {{ form_start(add_project_form) }}
-    {{ form_row(add_project_form.name) }}
+            <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
 
-    <p>
-        <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
-    </p>
-
-    {{ form_end(add_project_form) }}
+            {{ form_end(add_project_form) }}
+        </div>
+    </div>
 {% endblock %}

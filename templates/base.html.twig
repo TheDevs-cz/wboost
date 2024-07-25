@@ -9,7 +9,6 @@
         <meta name="description" content="{% apply spaceless %}{% block meta_description %}{% endblock %}{% endapply %}">
         <meta name="keywords" content="{% apply spaceless %}{% block meta_keywords %}{% endblock %}{% endapply %}">
 
-        <link rel="manifest" href="{{ asset('assets/manifest.json') }}">
         <meta name="msapplication-TileColor" content="#ffffff">
         <meta name="theme-color" content="#ffffff">
 
@@ -50,179 +49,184 @@
         <link href="{{ asset('theme/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
     </head>
     <body>
-    <!-- Begin page -->
-    <div class="wrapper">
+    {% block full_content %}
+        <!-- Begin page -->
+        <div class="wrapper">
 
-        <!-- ========== Topbar Start ========== -->
-        <div class="navbar-custom">
-            <div class="topbar container-fluid">
-                <div class="d-flex align-items-center gap-lg-2 gap-1">
+            <!-- ========== Topbar Start ========== -->
+            <div class="navbar-custom">
+                <div class="topbar container-fluid">
+                    <div class="d-flex align-items-center gap-lg-2 gap-1">
 
-                    <!-- Topbar Brand Logo -->
-                    <div class="logo-topbar">
-                        <!-- Logo light -->
-                        <a href="{{ path('homepage') }}" class="logo-light">
-                            <span class="logo-lg">
-                                <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
-                            </span>
-                            <span class="logo-sm">
-                                <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                            </span>
-                        </a>
-
-                        <!-- Logo Dark -->
-                        <a href="{{ path('homepage') }}" class="logo-dark">
-                            <span class="logo-lg">
-                                <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
-                            </span>
-                            <span class="logo-sm">
-                                <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                            </span>
-                        </a>
-                    </div>
-
-                    <!-- Sidebar Menu Toggle Button -->
-                    <button class="button-toggle-menu d-xl-none">
-                        <i class="mdi mdi-menu"></i>
-                    </button>
-                </div>
-
-                <ul class="topbar-menu d-flex align-items-center gap-3">
-                    <li class="dropdown">
-                        <a class="nav-link dropdown-toggle arrow-none nav-user px-2" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="false" aria-expanded="false">
-                                <span class="account-user-avatar">
-                                    <img src="{{ asset('theme/images/users/avatar-1.jpg') }}" alt="user-image" width="32" class="rounded-circle">
+                        <!-- Topbar Brand Logo -->
+                        <div class="logo-topbar">
+                            <!-- Logo light -->
+                            <a href="{{ path('homepage') }}" class="logo-light">
+                                <span class="logo-lg">
+                                    <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
                                 </span>
-                            <span class="d-lg-flex flex-column gap-1 d-none">
-                                    <h5 class="my-0">Lukáš Rejda</h5>
-                                    <h6 class="my-0 fw-normal">Admin</h6>
+                                <span class="logo-sm">
+                                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
                                 </span>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated profile-dropdown">
-                            <!-- item-->
-                            <a href="#" class="dropdown-item">
-                                <i class="mdi mdi-account-circle me-1"></i>
-                                <span>Můj účet</span>
                             </a>
 
-                            <!-- item-->
-                            <a href="#" class="dropdown-item">
-                                <i class="mdi mdi-logout me-1"></i>
-                                <span>Odhlásit se</span>
+                            <!-- Logo Dark -->
+                            <a href="{{ path('homepage') }}" class="logo-dark">
+                                <span class="logo-lg">
+                                    <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
+                                </span>
+                                <span class="logo-sm">
+                                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
+                                </span>
                             </a>
                         </div>
-                    </li>
-                </ul>
+
+                        <!-- Sidebar Menu Toggle Button -->
+                        <button class="button-toggle-menu d-xl-none">
+                            <i class="mdi mdi-menu"></i>
+                        </button>
+                    </div>
+
+                    <ul class="topbar-menu d-flex align-items-center gap-3">
+                        <li class="dropdown">
+                            <a class="nav-link dropdown-toggle arrow-none nav-user px-2" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="false" aria-expanded="false">
+                                    <span class="account-user-avatar">
+                                        <img src="{{ asset('theme/images/users/avatar-1.jpg') }}" alt="user-image" width="32" class="rounded-circle">
+                                    </span>
+                                <span class="d-lg-flex flex-column gap-1 d-none">
+                                        <h5 class="my-0">Lukáš Rejda</h5>
+                                        <h6 class="my-0 fw-normal">Admin</h6>
+                                    </span>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated profile-dropdown">
+                                <!-- item-->
+                                <a href="#" class="dropdown-item">
+                                    <i class="mdi mdi-account-circle me-1"></i>
+                                    <span>Můj účet</span>
+                                </a>
+
+                                <!-- item-->
+                                <a href="#" class="dropdown-item">
+                                    <i class="mdi mdi-logout me-1"></i>
+                                    <span>Odhlásit se</span>
+                                </a>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
             </div>
-        </div>
-        <!-- ========== Topbar End ========== -->
+            <!-- ========== Topbar End ========== -->
 
-        <!-- ========== Left Sidebar Start ========== -->
-        <div class="leftside-menu">
+            <!-- ========== Left Sidebar Start ========== -->
+            <div class="leftside-menu">
 
-            <!-- Brand Logo Light -->
-            <a href="{{ path('homepage') }}" class="logo logo-light">
-                <span class="logo-lg">
-                    <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
-                </span>
-                <span class="logo-sm">
-                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                </span>
-            </a>
+                <!-- Brand Logo Light -->
+                <a href="{{ path('homepage') }}" class="logo logo-light">
+                    <span class="logo-lg">
+                        <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
+                    </span>
+                    <span class="logo-sm">
+                        <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
+                    </span>
+                </a>
 
-            <!-- Brand Logo Dark -->
-            <a href="{{ path('homepage') }}" class="logo logo-dark">
-                <span class="logo-lg">
-                    <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
-                </span>
-                <span class="logo-sm">
-                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                </span>
-            </a>
+                <!-- Brand Logo Dark -->
+                <a href="{{ path('homepage') }}" class="logo logo-dark">
+                    <span class="logo-lg">
+                        <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
+                    </span>
+                    <span class="logo-sm">
+                        <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
+                    </span>
+                </a>
 
-            <!-- Sidebar Hover Menu Toggle Button -->
-            <div class="button-sm-hover" data-bs-toggle="tooltip" data-bs-placement="right" title="Show Full Sidebar">
-                <i class="ri-checkbox-blank-circle-line align-middle"></i>
+                <!-- Sidebar Hover Menu Toggle Button -->
+                <div class="button-sm-hover" data-bs-toggle="tooltip" data-bs-placement="right" title="Show Full Sidebar">
+                    <i class="ri-checkbox-blank-circle-line align-middle"></i>
+                </div>
+
+                <!-- Full Sidebar Menu Close Button -->
+                <div class="button-close-fullsidebar">
+                    <i class="ri-close-fill align-middle"></i>
+                </div>
+
+                <!-- Sidebar -left -->
+                <div class="h-100" id="leftside-menu-container" data-simplebar>
+                    <!--- Sidemenu -->
+                    <ul class="side-nav">
+                        <li class="side-nav-item">
+                            <a href="{{ path('homepage') }}" class="side-nav-link">
+                                <i class="uil-copy-alt"></i>
+                                <span> Manuály </span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="uil-facebook"></i>
+                                <span> Sociální sítě </span>
+                            </a>
+                        </li>
+                    </ul>
+                    <!--- End Sidemenu -->
+
+                    <div class="clearfix"></div>
+                </div>
             </div>
+            <!-- ========== Left Sidebar End ========== -->
 
-            <!-- Full Sidebar Menu Close Button -->
-            <div class="button-close-fullsidebar">
-                <i class="ri-close-fill align-middle"></i>
-            </div>
+            <!-- ============================================================== -->
+            <!-- Start Page Content here -->
+            <!-- ============================================================== -->
 
-            <!-- Sidebar -left -->
-            <div class="h-100" id="leftside-menu-container" data-simplebar>
-                <!--- Sidemenu -->
-                <ul class="side-nav">
-                    <li class="side-nav-item">
-                        <a href="{{ path('homepage') }}" class="side-nav-link">
-                            <i class="uil-copy-alt"></i>
-                            <span> Manuály </span>
-                        </a>
-                    </li>
+            <div class="content-page">
+                <div class="content">
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="uil-facebook"></i>
-                            <span> Sociální sítě </span>
-                        </a>
-                    </li>
-                </ul>
-                <!--- End Sidemenu -->
+                    <!-- Start Content-->
+                    <div class="container-fluid">
 
-                <div class="clearfix"></div>
-            </div>
-        </div>
-        <!-- ========== Left Sidebar End ========== -->
+                        <!-- start page title -->
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="page-title-box">
+                                    <h1 class="page-title">{{ block('title') }}</h1>
 
-        <!-- ============================================================== -->
-        <!-- Start Page Content here -->
-        <!-- ============================================================== -->
-
-        <div class="content-page">
-            <div class="content">
-
-                <!-- Start Content-->
-                <div class="container-fluid">
-
-                    <!-- start page title -->
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="page-title-box">
-                                <h1 class="page-title">{{ block('title') }}</h1>
-
-                                {% block breadcrumb %}{% endblock %}
+                                    {% block breadcrumb %}{% endblock %}
+                                </div>
+                            </div>
+                            <div class="col-sm-6 pt-0 pt-sm-4">
+                                {% block title_actions %}{% endblock %}
                             </div>
                         </div>
+                        <!-- end page title -->
+
+                        {% for label, messages in app.flashes %}
+                            <div class="container mt-4">
+                                {% for message in messages %}
+                                    <div class="alert-dismissible fade show alert alert-{{ label }}" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        {% block content %}{% endblock %}
                     </div>
-                    <!-- end page title -->
+                    <!-- container -->
 
-                    {% for label, messages in app.flashes %}
-                        <div class="container mt-4">
-                            {% for message in messages %}
-                                <div class="alert-dismissible fade show alert alert-{{ label }}" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
-
-                    {% block content %}{% endblock %}
                 </div>
-                <!-- container -->
+                <!-- content -->
 
             </div>
-            <!-- content -->
+
+            <!-- ============================================================== -->
+            <!-- End Page content -->
+            <!-- ============================================================== -->
 
         </div>
-
-        <!-- ============================================================== -->
-        <!-- End Page content -->
-        <!-- ============================================================== -->
-
-    </div>
-    <!-- END wrapper -->
+        <!-- END wrapper -->
+    {% endblock %}
 
     <!-- Vendor js -->
     <script src="{{ asset('theme/js/vendor.min.js') }}"></script>

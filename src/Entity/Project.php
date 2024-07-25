@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace BrandManuals\Web\Entity;
 
+use BrandManuals\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
@@ -20,7 +21,7 @@ class Project
      */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
-    public array $colors = [];
+    private array $colors = [];
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(nullable: true)]
@@ -77,6 +78,17 @@ class Project
         $this->logoSymbol = $logoSymbol;
     }
 
+    /**
+     * @return array<Color>
+     */
+    public function colors(): array
+    {
+        return array_map(
+            fn(string $hex): Color => new Color($hex),
+            $this->colors,
+        );
+    }
+
     public function logosCount(): int
     {
         $logos = array_filter([
@@ -92,13 +104,13 @@ class Project
 
     public function introLogo(): null|string
     {
-        $logos = array_filter([
+        $logos = array_values(array_filter([
             $this->logoHorizontal,
             $this->logoHorizontalWithClaim,
             $this->logoSymbol,
             $this->logoVertical,
             $this->logoVerticalWithClaim,
-        ]);
+        ]));
 
         return $logos[0] ?? null;
     }

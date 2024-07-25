@@ -1,4 +1,4 @@
-{% extends 'base.html.twig' %}
+{% extends 'base_project.html.twig' %}
 
 {% block title %}{{ project.name }}{% endblock %}
 
@@ -22,8 +22,14 @@
                 <div id="tooltip-container">
                     {% for color in project.colors %}
                         <div class="card">
-                            <div class="card-body">
-                                <span class="d-inline-block avatar-sm rounded-circle" style="background: {{ color }};"></span>
+                            <div class="card-body d-flex align-items-center">
+                                <span class="d-inline-block avatar-sm rounded-circle me-3" style="background: {{ '#' ~ color.hex }};"></span>
+                                <div>
+                                    <span class="d-block fs-4 fw-bold">Barva {{ loop.index }}</span>
+                                    <span class="d-inline-block text-muted pe-3"><span class="fw-bold">HEX:</span> {{ '#' ~ color.hex|upper }}</span>
+                                    <span class="d-inline-block text-muted pe-3"><span class="fw-bold">RGB:</span> ({{ color.rgb|join(', ') }})</span>
+                                    <span class="d-inline-block text-muted pe-3"><span class="fw-bold">CMYK:</span> {{ color.cmyk|join('-') }}</span>
+                                </div>
                             </div>
                         </div>
                     {% endfor %}
