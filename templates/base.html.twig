@@ -13,7 +13,25 @@
         <meta name="msapplication-TileColor" content="#ffffff">
         <meta name="theme-color" content="#ffffff">
 
-        <link type="text/plain" rel="author" href="{{ asset('humans.txt') }}" />
+        <link rel="apple-touch-icon" sizes="57x57" href="{{ asset('apple-icon-57x57.png') }}">
+        <link rel="apple-touch-icon" sizes="60x60" href="{{ asset('apple-icon-60x60.png') }}">
+        <link rel="apple-touch-icon" sizes="72x72" href="{{ asset('apple-icon-72x72.png') }}">
+        <link rel="apple-touch-icon" sizes="76x76" href="{{ asset('apple-icon-76x76.png') }}">
+        <link rel="apple-touch-icon" sizes="114x114" href="{{ asset('apple-icon-114x114.png') }}">
+        <link rel="apple-touch-icon" sizes="120x120" href="{{ asset('apple-icon-120x120.png') }}">
+        <link rel="apple-touch-icon" sizes="144x144" href="{{ asset('apple-icon-144x144.png') }}">
+        <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('apple-icon-152x152.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-icon-180x180.png') }}">
+        <link rel="icon" type="image/png" sizes="192x192"  href="{{ asset('android-icon-192x192.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
+        <link rel="icon" type="image/png" sizes="96x96" href="{{ asset('favicon-96x96.png') }}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
+        <meta name="msapplication-TileColor" content="#ffffff">
+        <meta name="msapplication-TileImage" content="{{ asset('ms-icon-144x144.png') }}">
+        <meta name="theme-color" content="#ffffff">
+
+        <link type="text/plain" rel="author" href="{{ asset('humans.txt') }}">
 
         {% block importmap %}
             {{ importmap('app') }}
@@ -45,20 +63,20 @@
                         <!-- Logo light -->
                         <a href="{{ path('homepage') }}" class="logo-light">
                             <span class="logo-lg">
-                                <img src="{{ asset('images/logo.svg') }}" alt="logo">
+                                <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
                             </span>
                             <span class="logo-sm">
-                                <img src="{{ asset('images/logo.svg') }}" alt="small logo">
+                                <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
                             </span>
                         </a>
 
                         <!-- Logo Dark -->
                         <a href="{{ path('homepage') }}" class="logo-dark">
                             <span class="logo-lg">
-                                <img src="{{ asset('images/logo.svg') }}" alt="dark logo">
+                                <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
                             </span>
                             <span class="logo-sm">
-                                <img src="{{ asset('images/logo.svg') }}" alt="small logo">
+                                <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
                             </span>
                         </a>
                     </div>
@@ -105,21 +123,21 @@
             <!-- Brand Logo Light -->
             <a href="{{ path('homepage') }}" class="logo logo-light">
                 <span class="logo-lg">
-                    <img src="{{ asset('images/logo.svg') }}" alt="logo">
+                    <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
                 </span>
                 <span class="logo-sm">
-                    <img src="{{ asset('images/logo.svg') }}" alt="small logo">
+                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
                 </span>
             </a>
 
             <!-- Brand Logo Dark -->
             <a href="{{ path('homepage') }}" class="logo logo-dark">
-                    <span class="logo-lg">
-                        <img src="{{ asset('images/logo.svg') }}" alt="dark logo">
-                    </span>
+                <span class="logo-lg">
+                    <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
+                </span>
                 <span class="logo-sm">
-                        <img src="{{ asset('images/logo.svg') }}" alt="small logo">
-                    </span>
+                    <img src="{{ asset('images/logo-sm.svg') }}" alt="small logo">
+                </span>
             </a>
 
             <!-- Sidebar Hover Menu Toggle Button -->
@@ -171,11 +189,9 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="page-title-box">
-                                <div class="page-title-right">
-                                    {% block breadcrumb %}{% endblock %}
-                                </div>
+                                <h1 class="page-title">{{ block('title') }}</h1>
 
-                                <h4 class="page-title">{{ block('title') }}</h4>
+                                {% block breadcrumb %}{% endblock %}
                             </div>
                         </div>
                     </div>
