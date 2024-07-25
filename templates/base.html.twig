@@ -31,14 +31,14 @@
         <meta name="msapplication-TileImage" content="{{ asset('ms-icon-144x144.png') }}">
         <meta name="theme-color" content="#ffffff">
 
+        <link rel="shortcut icon" href="{{ asset('favicon-96x96.png') }}">
+
         <link type="text/plain" rel="author" href="{{ asset('humans.txt') }}">
 
         {% block importmap %}
             {{ importmap('app') }}
         {% endblock %}
 
-        <!-- App favicon -->
-        <link rel="shortcut icon" href="{{ asset('theme/images/favicon.ico') }}">
 
         <!-- Theme Config Js -->
         <script src="{{ asset('theme/js/hyper-config.js') }}"></script>
@@ -136,7 +136,7 @@
                     <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
                 </span>
                 <span class="logo-sm">
-                    <img src="{{ asset('images/logo-sm.svg') }}" alt="small logo">
+                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
                 </span>
             </a>
 

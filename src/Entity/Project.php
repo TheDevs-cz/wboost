@@ -76,4 +76,30 @@ class Project
         $this->logoVerticalWithClaim = $logoVerticalWithClaim;
         $this->logoSymbol = $logoSymbol;
     }
+
+    public function logosCount(): int
+    {
+        $logos = array_filter([
+            $this->logoHorizontal,
+            $this->logoVertical,
+            $this->logoHorizontalWithClaim,
+            $this->logoVerticalWithClaim,
+            $this->logoSymbol,
+        ]);
+
+        return count($logos);
+    }
+
+    public function introLogo(): null|string
+    {
+        $logos = array_filter([
+            $this->logoHorizontal,
+            $this->logoHorizontalWithClaim,
+            $this->logoSymbol,
+            $this->logoVertical,
+            $this->logoVerticalWithClaim,
+        ]);
+
+        return $logos[0] ?? null;
+    }
 }

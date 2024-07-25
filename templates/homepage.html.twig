@@ -22,19 +22,7 @@
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
                     <a href="{{ path('project_detail', {projectId: project.id.toString}) }}">
-                        {% if project.logoHorizontal %}
-                            <img class="card-img-top" src="{{ uploaded_asset(project.logoHorizontal) }}" alt="{{ project.name }}">
-                        {% elseif project.logoHorizontalWithClaim %}
-                            <img class="card-img-top" src="{{ uploaded_asset(project.logoHorizontalWithClaim) }}" alt="{{ project.name }}">
-                        {% elseif project.logoSymbol %}
-                            <img class="card-img-top" src="{{ uploaded_asset(project.logoSymbol) }}" alt="{{ project.name }}">
-                        {% elseif project.logoVertical %}
-                            <img class="card-img-top" src="{{ uploaded_asset(project.logoVertical) }}" alt="{{ project.name }}">
-                        {% elseif project.logoVerticalWithClaim %}
-                            <img class="card-img-top" src="{{ uploaded_asset(project.logoVerticalWithClaim) }}" alt="{{ project.name }}">
-                        {% else %}
-                            <img class="card-img-top" src="{{ asset('images/project-placeholder.png') }}" alt="{{ project.name }}">
-                        {% endif %}
+                        <img class="card-img-top" src="{{ project.introLogo ? uploaded_asset(project.introLogo) : asset('images/project-placeholder.png') }}" alt="{{ project.name }}">
                     </a>
 
                     <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
