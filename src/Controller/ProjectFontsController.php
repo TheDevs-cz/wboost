@@ -14,37 +14,20 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
-final class ProjectDetailController extends AbstractController
+final class ProjectFontsController extends AbstractController
 {
     public function __construct(
         readonly private ProjectRepository $projectRepository,
-        readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/project-detail/{projectId}', name: 'project_detail', methods: ['GET', 'POST'])]
+    #[Route(path: '/project/{projectId}/fonts', name: 'project_fonts', methods: ['GET'])]
     public function __invoke(Request $request, string $projectId): Response
     {
         $project = $this->projectRepository->get($projectId);
 
-        $data = new ProjectImagesFormData();
-
-        $form = $this->createForm(ProjectImagesFormType::class, $data);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $this->bus->dispatch(
-                UpdateProjectImages::fromFormData($projectId, $data),
-            );
-
-            return $this->redirectToRoute('project_detail', [
-                'projectId' => $project->id->toString(),
-            ]);
-        }
-
-        return $this->render('project_detail.html.twig', [
+        return $this->render('project_fonts.html.twig', [
             'project' => $project,
-            'project_images_form' => $form,
         ]);
     }
 }

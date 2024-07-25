@@ -21,7 +21,7 @@
         {% for project in projects %}
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
-                    <a href="{{ path('project_detail', {projectId: project.id.toString}) }}">
+                    <a href="{{ path('project_logos', {projectId: project.id.toString}) }}">
                         <img class="card-img-top" src="{{ project.introLogo ? uploaded_asset(project.introLogo) : asset('images/project-placeholder.png') }}" alt="{{ project.name }}">
                     </a>
 
@@ -35,7 +35,7 @@
                         </div>
                     </div>
 
-                    <a href="{{ path('project_detail', {projectId: project.id.toString}) }}" class="text-body">
+                    <a href="{{ path('project_logos', {projectId: project.id.toString}) }}" class="text-body">
                         <div class="card-body position-relative">
                             <h4 class="mt-0">
                                 {{ project.name }}
@@ -44,7 +44,7 @@
                             {% if project.colors %}
                                 <div id="tooltip-container">
                                     {% for color in project.colors %}
-                                        <span class="d-inline-block rounded-circle avatar-xs" style="background: red;"></span>
+                                        <span class="d-inline-block avatar-xs rounded-circle" style="background: {{ color }};"></span>
                                     {% endfor %}
                                 </div>
                             {% endif %}

@@ -37,7 +37,7 @@ final class EditProjectController extends AbstractController
             $project->edit($data->name);
             $this->entityManager->flush();
 
-            return $this->redirectToRoute('project_detail', [
+            return $this->redirectToRoute('project_logos', [
                 'projectId' => $project->id->toString(),
             ]);
         }

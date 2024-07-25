@@ -32,5 +32,7 @@ readonly final class AddImageColorsToProjectHandler
         $colors = $this->detectImageColors->fromImagePath(
             $this->uploaderHelper->getInternalPath($message->imagePath),
         );
+
+        $project->addColors($colors);
     }
 }

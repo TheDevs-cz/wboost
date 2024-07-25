@@ -102,4 +102,16 @@ class Project
 
         return $logos[0] ?? null;
     }
+
+    /**
+     * @param array<string> $colors
+     */
+    public function addColors(array $colors): void
+    {
+        foreach ($colors as $color) {
+            if (!in_array($color, $this->colors, true)) {
+                $this->colors[] = $color;
+            }
+        }
+    }
 }

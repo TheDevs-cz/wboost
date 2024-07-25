@@ -18,17 +18,6 @@
         </div>
 
         <div class="col-xxl-9">
-            {% if project.colors %}
-                <div id="tooltip-container">
-                    {% for color in project.colors %}
-                        <div class="card">
-                            <div class="card-body">
-                                <span class="d-inline-block avatar-sm rounded-circle" style="background: {{ color }};"></span>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
         </div>
     </div>
 {% endblock %}

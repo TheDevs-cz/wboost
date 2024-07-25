@@ -37,7 +37,7 @@ final class AddProjectController extends AbstractController
 
             $this->projectRepository->save($project);
 
-            return $this->redirectToRoute('project_detail', [
+            return $this->redirectToRoute('project_logos', [
                 'projectId' => $project->id->toString(),
             ]);
         }

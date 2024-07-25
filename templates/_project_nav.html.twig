@@ -1,0 +1,52 @@
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="header-title">Editace manuálu</h4>
+
+        <div class="dropdown">
+            <a href="#" class="dropdown-toggle arrow-none card-drop p-0" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="mdi mdi-dots-vertical"></i>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end">
+                <a href="{{ path('edit_project', {projectId: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                <a href="{{ path('delete_project', {projectId: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body pt-1">
+
+        <a href="{{ path('project_logos', {projectId: project.id.toString}) }}">
+            <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'project_logos' ? 'bg-primary-lighten' }}">
+                <div class="flex-shrink-0 me-2">
+                    <i class="ri-shield-cross-line widget-icon rounded-circle"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="fw-semibold my-0">Logotypy ({{ project.logosCount }})</h5>
+                </div>
+            </div>
+        </a>
+
+        <a href="{{ path('project_fonts', {projectId: project.id.toString}) }}">
+            <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'project_fonts' ? 'bg-primary-lighten' }}">
+                <div class="flex-shrink-0 me-2">
+                    <i class="ri-font-size widget-icon rounded-circle"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="fw-semibold my-0">Font (0)</h5>
+                </div>
+            </div>
+        </a>
+
+        <a href="{{ path('project_colors', {projectId: project.id.toString}) }}">
+            <div class="d-flex align-items-center border border-light rounded p-2 {{ app.request.get('_route') == 'project_colors' ? 'bg-primary-lighten' }}">
+                <div class="flex-shrink-0 me-2">
+                    <i class="ri-sip-line widget-icon rounded-circle"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="fw-semibold my-0">Barevná paleta ({{ project.colors|length }})</h5>
+                </div>
+            </div>
+        </a>
+
+    </div>
+</div>
