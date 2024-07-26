@@ -29,7 +29,7 @@ jobs:
                 uses: docker/metadata-action@v5
                 with:
                     # list of Docker images to use as base name for tags
-                    images: ghcr.io/thedevs-cz/brand-manuals
+                    images: ghcr.io/thedevs-cz/wboost
                     # generate Docker tags based on the following events/attributes
                     tags: |
                         type=ref,event=branch
@@ -64,7 +64,7 @@ jobs:
             - docker
         environment:
             name: prod
-            url: https://brand-manuals.janmikes.cz
+            url: https://wboost.cz
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
@@ -75,4 +75,4 @@ jobs:
                     username: ${{ secrets.DEPLOY_USERNAME }}
                     key: ${{ secrets.DEPLOY_PRIVATE_KEY }}
                     script_stop: true
-                    script: cd /deployment/brand-manuals && ./deploy.sh
+                    script: cd /deployment/wboost && ./deploy.sh
