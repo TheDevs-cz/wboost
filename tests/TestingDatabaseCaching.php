@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Tests;
+namespace WBoost\Web\Tests;
 
 use Symfony\Component\Finder\Finder;
 

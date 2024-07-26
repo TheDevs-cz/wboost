@@ -5,7 +5,7 @@ declare(strict_types=1);
 use AsyncAws\Core\Configuration;
 use AsyncAws\S3\S3Client;
 use Monolog\Processor\PsrLogMessageProcessor;
-use BrandManuals\Web\Services\SentryApiClient;
+use WBoost\Web\Services\SentryApiClient;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\env;
@@ -40,26 +40,26 @@ return static function(ContainerConfigurator $configurator): void
         ->tag('monolog.processor');
 
     // Controllers
-    $services->load('BrandManuals\\Web\\Controller\\', __DIR__ . '/../src/Controller/{*Controller.php}');
+    $services->load('WBoost\\Web\\Controller\\', __DIR__ . '/../src/Controller/{*Controller.php}');
 
     // Twig extensions
-    $services->load('BrandManuals\\Web\\Twig\\', __DIR__ . '/../src/Twig/{*TwigExtension.php}');
+    $services->load('WBoost\\Web\\Twig\\', __DIR__ . '/../src/Twig/{*TwigExtension.php}');
 
     // Repositories
-    $services->load('BrandManuals\\Web\\Repository\\', __DIR__ . '/../src/Repository/{*Repository.php}');
+    $services->load('WBoost\\Web\\Repository\\', __DIR__ . '/../src/Repository/{*Repository.php}');
 
     // Form types
-    $services->load('BrandManuals\\Web\\FormType\\', __DIR__ . '/../src/FormType/**/{*.php}');
+    $services->load('WBoost\\Web\\FormType\\', __DIR__ . '/../src/FormType/**/{*.php}');
 
     // Message handlers
-    $services->load('BrandManuals\\Web\\MessageHandler\\', __DIR__ . '/../src/MessageHandler/**/{*.php}');
+    $services->load('WBoost\\Web\\MessageHandler\\', __DIR__ . '/../src/MessageHandler/**/{*.php}');
 
     // Console commands
-    $services->load('BrandManuals\\Web\\ConsoleCommands\\', __DIR__ . '/../src/ConsoleCommands/**/{*.php}');
+    $services->load('WBoost\\Web\\ConsoleCommands\\', __DIR__ . '/../src/ConsoleCommands/**/{*.php}');
 
     // Services
-    $services->load('BrandManuals\\Web\\Services\\', __DIR__ . '/../src/Services/**/{*.php}');
-    $services->load('BrandManuals\\Web\\Query\\', __DIR__ . '/../src/Query/**/{*.php}');
+    $services->load('WBoost\\Web\\Services\\', __DIR__ . '/../src/Services/**/{*.php}');
+    $services->load('WBoost\\Web\\Query\\', __DIR__ . '/../src/Query/**/{*.php}');
 
     $services->set(S3Client::class)
         ->args([

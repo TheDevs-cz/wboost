@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use BrandManuals\Web\SymfonyApplicationKernel;
-use BrandManuals\Web\Tests\TestingDatabaseCaching;
+use WBoost\Web\SymfonyApplicationKernel;
+use WBoost\Web\Tests\TestingDatabaseCaching;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Dotenv\Dotenv;

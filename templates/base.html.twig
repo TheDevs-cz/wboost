@@ -48,7 +48,7 @@
         <!-- Icons css -->
         <link href="{{ asset('theme/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
     </head>
-    <body>
+    <body class="{% block body_class %}{% endblock %}">
     {% block full_content %}
         <!-- Begin page -->
         <div class="wrapper">

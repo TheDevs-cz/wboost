@@ -1,6 +1,6 @@
 <?php
 
-use BrandManuals\Web\SymfonyApplicationKernel;
+use WBoost\Web\SymfonyApplicationKernel;
 use Symfony\Component\Dotenv\Dotenv;
 
 require __DIR__ . '/../vendor/autoload.php';

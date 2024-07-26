@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Entity;
+namespace WBoost\Web\Entity;
 
 trait HasEvents
 {

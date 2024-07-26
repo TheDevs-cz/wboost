@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use BrandManuals\Web\SymfonyApplicationKernel;
+use WBoost\Web\SymfonyApplicationKernel;
 
 require_once dirname(__DIR__).'/vendor/autoload_runtime.php';
 

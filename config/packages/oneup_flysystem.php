@@ -12,7 +12,7 @@ return static function (OneupFlysystemConfig $config): void {
     $config->adapter('minio')
         ->asyncAwsS3()
             ->client(S3Client::class)
-            ->bucket('brand-manuals');
+            ->bucket('wboost');
 
     $config->filesystem('minio')
         ->adapter('minio')

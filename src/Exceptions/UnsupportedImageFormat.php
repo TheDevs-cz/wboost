@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Exceptions;
+namespace WBoost\Web\Exceptions;
 
 final class UnsupportedImageFormat extends \Exception
 {

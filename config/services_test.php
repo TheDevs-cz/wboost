@@ -14,5 +14,5 @@ return static function(ContainerConfigurator $configurator): void
         ->public();
 
     // Data fixtures
-    $services->load('BrandManuals\\Web\\Tests\\DataFixtures\\', __DIR__ . '/../tests/DataFixtures/{*.php}');
+    $services->load('WBoost\\Web\\Tests\\DataFixtures\\', __DIR__ . '/../tests/DataFixtures/{*.php}');
 };

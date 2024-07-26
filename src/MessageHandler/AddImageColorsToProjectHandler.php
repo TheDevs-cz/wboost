@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\MessageHandler;
+namespace WBoost\Web\MessageHandler;
 
-use BrandManuals\Web\Exceptions\ProjectNotFound;
-use BrandManuals\Web\Message\AddImageColorsToProject;
-use BrandManuals\Web\Repository\ProjectRepository;
-use BrandManuals\Web\Services\DetectImageColors;
-use BrandManuals\Web\Services\UploaderHelper;
+use WBoost\Web\Exceptions\ProjectNotFound;
+use WBoost\Web\Message\AddImageColorsToProject;
+use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\DetectImageColors;
+use WBoost\Web\Services\UploaderHelper;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]

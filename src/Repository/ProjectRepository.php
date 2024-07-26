@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Repository;
+namespace WBoost\Web\Repository;
 
-use BrandManuals\Web\Entity\Project;
-use BrandManuals\Web\Exceptions\ProjectNotFound;
+use WBoost\Web\Entity\Project;
+use WBoost\Web\Exceptions\ProjectNotFound;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 

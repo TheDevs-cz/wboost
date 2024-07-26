@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Controller;
+namespace WBoost\Web\Controller;
 
-use BrandManuals\Web\Entity\Project;
-use BrandManuals\Web\FormData\ProjectFormData;
-use BrandManuals\Web\FormType\ProjectFormType;
-use BrandManuals\Web\Repository\ProjectRepository;
+use WBoost\Web\Entity\Project;
+use WBoost\Web\FormData\ProjectFormData;
+use WBoost\Web\FormType\ProjectFormType;
+use WBoost\Web\Repository\ProjectRepository;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;

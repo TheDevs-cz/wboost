@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Twig;
+namespace WBoost\Web\Twig;
 
-use BrandManuals\Web\Services\UploaderHelper;
+use WBoost\Web\Services\UploaderHelper;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 

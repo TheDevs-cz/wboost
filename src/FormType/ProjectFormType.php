@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\FormType;
+namespace WBoost\Web\FormType;
 
-use BrandManuals\Web\FormData\ProjectFormData;
+use WBoost\Web\FormData\ProjectFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;

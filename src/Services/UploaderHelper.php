@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Services;
+namespace WBoost\Web\Services;
 
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 

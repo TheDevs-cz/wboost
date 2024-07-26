@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Message;
+namespace WBoost\Web\Message;
 
 readonly final class AddImageColorsToProject
 {

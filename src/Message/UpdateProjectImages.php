@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Message;
+namespace WBoost\Web\Message;
 
-use BrandManuals\Web\FormData\ProjectImagesFormData;
+use WBoost\Web\FormData\ProjectImagesFormData;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 readonly final class UpdateProjectImages

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Services;
+namespace WBoost\Web\Services;
 
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\PostFlushEventArgs;
@@ -10,7 +10,7 @@ use Doctrine\ORM\Event\PostPersistEventArgs;
 use Doctrine\ORM\Event\PostRemoveEventArgs;
 use Doctrine\ORM\Event\PostUpdateEventArgs;
 use Doctrine\ORM\Events;
-use BrandManuals\Web\Entity\EntityWithEvents;
+use WBoost\Web\Entity\EntityWithEvents;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsDoctrineListener(event: Events::postPersist)]

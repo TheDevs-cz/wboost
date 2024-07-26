@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Value;
+namespace WBoost\Web\Value;
 
 readonly final class Color
 {

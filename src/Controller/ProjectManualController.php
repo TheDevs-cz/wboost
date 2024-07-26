@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Controller;
+namespace WBoost\Web\Controller;
 
-use BrandManuals\Web\Repository\ProjectRepository;
+use WBoost\Web\Repository\ProjectRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

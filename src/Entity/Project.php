@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Entity;
+namespace WBoost\Web\Entity;
 
-use BrandManuals\Web\Value\Color;
+use WBoost\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\MessageHandler;
+namespace WBoost\Web\MessageHandler;
 
-use BrandManuals\Web\Exceptions\ProjectNotFound;
-use BrandManuals\Web\Message\AddImageColorsToProject;
-use BrandManuals\Web\Message\UpdateProjectImages;
-use BrandManuals\Web\Repository\ProjectRepository;
+use WBoost\Web\Exceptions\ProjectNotFound;
+use WBoost\Web\Message\AddImageColorsToProject;
+use WBoost\Web\Message\UpdateProjectImages;
+use WBoost\Web\Repository\ProjectRepository;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;

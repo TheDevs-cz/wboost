@@ -1,6 +1,6 @@
 <?php
 
-namespace BrandManuals\Web;
+namespace WBoost\Web;
 
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;

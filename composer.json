@@ -1,5 +1,5 @@
 {
-    "name": "janmikes/brand-manuals",
+    "name": "thedevs-cz/wboost",
     "type": "project",
     "description": "",
     "authors": [
@@ -90,12 +90,12 @@
     },
     "autoload": {
         "psr-4": {
-            "BrandManuals\\Web\\": "src"
+            "WBoost\\Web\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "BrandManuals\\Web\\Tests\\": "tests"
+            "WBoost\\Web\\Tests\\": "tests"
         }
     },
     "scripts": {

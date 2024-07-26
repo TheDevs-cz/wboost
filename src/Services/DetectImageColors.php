@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BrandManuals\Web\Services;
+namespace WBoost\Web\Services;
 
-use BrandManuals\Web\Exceptions\UnsupportedImageFormat;
+use WBoost\Web\Exceptions\UnsupportedImageFormat;
 use SimpleXMLElement;
 
 readonly final class DetectImageColors

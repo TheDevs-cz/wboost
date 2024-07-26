@@ -2,11 +2,24 @@
 
 declare(strict_types=1);
 
+use Symfony\Config\Security\PasswordHasherConfig;
+use WBoost\Web\Entity\User;
+use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Config\SecurityConfig;
 
 return static function (SecurityConfig $securityConfig): void {
+    $securityConfig->provider('user_provider')
+        ->entity()
+            ->class(User::class)
+            ->property('email');
+
+    /** @var PasswordHasherConfig $hasher */
+    $hasher = $securityConfig->passwordHasher(PasswordAuthenticatedUserInterface::class);
+    $hasher->algorithm('auto');
+
     $securityConfig->firewall('dev')
-        ->pattern('^/(_(profiler|wdt)|css|images|js)/')
+        ->pattern('^/(_profiler|_wdt|css|images|js|theme|assets)/')
         ->security(false);
 
     $securityConfig->firewall('stateless')
@@ -14,13 +27,25 @@ return static function (SecurityConfig $securityConfig): void {
         ->stateless(true)
         ->security(false);
 
-    /*
+    $mainFirewall = $securityConfig->firewall('main')
+        ->lazy(true)
+        ->provider('user_provider');
+
+    $mainFirewall->formLogin()
+        ->loginPath('login')
+        ->checkPath('login')
+        ->defaultTargetPath('/uzivatel/muj-ucet')
+        ->enableCsrf(true);
+
+    $mainFirewall->logout()
+        ->path('logout')
+        ->target('/');
+
     $securityConfig->accessControl()
-        ->path('^/(muj-profil|upravit-profil|pridat-cas|puzzle-stopky|zapnout-stopky|stopky|upravit-cas|smazat-cas|ulozit-stopky|porovnat-s-puzzlerem|pridat-hrace-k-oblibenym|odebrat-hrace-z-oblibenych|feedback|notifikace)|(en/(save-stopwatch|add-time|compare-with-puzzler|delete-time|edit-profile|edit-time|my-profile|stopwatch|start-stopwatch|puzzle-stopwatch|add-player-to-favorites|remove-player-from-favorites|feedback|notifications))')
-        ->roles([AuthenticatedVoter::IS_AUTHENTICATED_FULLY]);
+        ->path('^/(login|registrace|zapomenute-heslo|obnoveni-hesla)')
+        ->roles([AuthenticatedVoter::PUBLIC_ACCESS]);
 
     $securityConfig->accessControl()
         ->path('^/')
-        ->roles([AuthenticatedVoter::PUBLIC_ACCESS]);
-    */
+        ->roles([AuthenticatedVoter::IS_AUTHENTICATED_FULLY]);
 };
