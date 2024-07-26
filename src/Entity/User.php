@@ -21,6 +21,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Column(type: 'json')]
     private array $roles = [];
 
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column]
+    public string $password = '';
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -30,11 +34,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         #[Immutable]
         #[Column(length: 180, unique: true)]
         public string $email,
-
-        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-        #[Column]
-        public string $password,
     ) {
+    }
+
+    public function changePassword(string $hashedPassword): void
+    {
+        $this->password = $hashedPassword;
     }
 
     public function getUserIdentifier(): string

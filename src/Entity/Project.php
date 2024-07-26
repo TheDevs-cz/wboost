@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Entity;
 
+use Doctrine\ORM\Mapping\JoinColumn;
+use Doctrine\ORM\Mapping\ManyToOne;
 use WBoost\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
@@ -48,6 +50,11 @@ class Project
         #[Immutable]
         #[Column(type: UuidType::NAME, unique: true)]
         public UuidInterface $id,
+
+        #[ManyToOne]
+        #[JoinColumn(nullable: false)]
+        #[Immutable]
+        public User $owner,
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column]

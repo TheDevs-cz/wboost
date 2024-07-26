@@ -34,7 +34,7 @@ return static function (SecurityConfig $securityConfig): void {
     $mainFirewall->formLogin()
         ->loginPath('login')
         ->checkPath('login')
-        ->defaultTargetPath('/uzivatel/muj-ucet')
+        ->defaultTargetPath('/')
         ->enableCsrf(true);
 
     $mainFirewall->logout()

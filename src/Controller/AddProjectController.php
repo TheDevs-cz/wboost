@@ -4,41 +4,45 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller;
 
-use WBoost\Web\Entity\Project;
+use Ramsey\Uuid\Uuid;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use WBoost\Web\Entity\User;
 use WBoost\Web\FormData\ProjectFormData;
 use WBoost\Web\FormType\ProjectFormType;
-use WBoost\Web\Repository\ProjectRepository;
-use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use WBoost\Web\Message\Project\AddProject;
 
 final class AddProjectController extends AbstractController
 {
     public function __construct(
-        readonly private ProjectRepository $projectRepository,
+        readonly private MessageBusInterface $bus,
     ) {
     }
 
     #[Route(path: '/add-project', name: 'add_project', methods: ['GET', 'POST'])]
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request, #[CurrentUser] User $user): Response
     {
         $data = new ProjectFormData();
         $form = $this->createForm(ProjectFormType::class, $data);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $project = new Project(
-                Uuid::uuid7(),
-                $data->name,
-                new \DateTimeImmutable(),
+            $projectId = Uuid::uuid7();
+
+            $this->bus->dispatch(
+                new AddProject(
+                    $projectId,
+                    $user->id,
+                    $data->name,
+                ),
             );
 
-            $this->projectRepository->save($project);
-
             return $this->redirectToRoute('project_logos', [
-                'projectId' => $project->id->toString(),
+                'projectId' => $projectId->toString(),
             ]);
         }
 
