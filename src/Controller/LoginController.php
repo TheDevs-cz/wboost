@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller;
 
-use WBoost\Web\Repository\ProjectRepository;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use WBoost\Web\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -17,8 +18,12 @@ final class LoginController extends AbstractController
     }
 
     #[Route(path: '/login', name: 'login')]
-    public function __invoke(): Response
+    public function __invoke(#[CurrentUser] null|User $user): Response
     {
+        if ($user !== null) {
+            return $this->redirectToRoute('homepage');
+        }
+
         $error = $this->authenticationUtils->getLastAuthenticationError();
         $lastUsername = $this->authenticationUtils->getLastUsername();
 

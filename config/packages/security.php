@@ -42,7 +42,7 @@ return static function (SecurityConfig $securityConfig): void {
         ->target('/');
 
     $securityConfig->accessControl()
-        ->path('^/(login|registrace|zapomenute-heslo|obnoveni-hesla)')
+        ->path('^/(login|registration|forgotten-password|reset-password)')
         ->roles([AuthenticatedVoter::PUBLIC_ACCESS]);
 
     $securityConfig->accessControl()

@@ -44,7 +44,7 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    <a href="pages-recoverpw.html" class="text-muted float-end"><small>Zapomněli jste heslo?</small></a>
+                                    <a href="{{ path('forgotten_password') }}" class="text-muted float-end"><small>Zapomněli jste heslo?</small></a>
                                     <label for="password" class="form-label">Heslo</label>
                                     <div class="input-group input-group-merge">
                                         <input type="password" id="password" class="form-control" name="_password" placeholder="Zadejte vaše heslo">
@@ -66,7 +66,7 @@
 
                     <div class="row mt-3">
                         <div class="col-12 text-center">
-                            <p class="text-muted">Nemáte účet? <a href="pages-register.html" class="text-muted ms-1"><b>Zaregistrujte se</b></a></p>
+                            <p class="text-muted">Nemáte účet? <a href="{{ path('registration') }}" class="text-muted ms-1"><b>Zaregistrujte se</b></a></p>
                         </div> <!-- end col -->
                     </div>
                     <!-- end row -->
