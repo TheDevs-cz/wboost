@@ -40,10 +40,7 @@ return static function(ContainerConfigurator $configurator): void
         ->tag('monolog.processor');
 
     // Controllers
-    $services->load('WBoost\\Web\\Controller\\', __DIR__ . '/../src/Controller/{*Controller.php}');
-
-    // Twig extensions
-    $services->load('WBoost\\Web\\Twig\\', __DIR__ . '/../src/Twig/{*TwigExtension.php}');
+    $services->load('WBoost\\Web\\Controller\\', __DIR__ . '/../src/Controller/**/{*Controller.php}');
 
     // Repositories
     $services->load('WBoost\\Web\\Repository\\', __DIR__ . '/../src/Repository/{*Repository.php}');

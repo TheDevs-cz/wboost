@@ -1,0 +1,61 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Můj účet{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-copy-alt"></i> <a href="{{ path('homepage') }}">Manuály</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-sm-12">
+            <!-- Profile -->
+            <div class="card bg-primary">
+                <div class="card-body profile-user-box">
+                    <div class="row">
+                        <div class="col-sm-8">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    <div class="avatar-md">
+                                        <img src="{{ asset('theme/images/users/avatar-2.jpg') }}" alt="" class="rounded-circle img-thumbnail">
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div>
+                                        <h4 class="mt-1 mb-1 text-white">{{ app.user.displayName }}</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div> <!-- end col-->
+
+                        <div class="col-sm-4">
+                            <div class="text-center mt-sm-0 mt-3 text-sm-end">
+                                <a href="{{ path('change_password') }}" type="button" class="btn btn-light me-1">
+                                    <i class="mdi mdi-key me-1"></i> Změnit heslo
+                                </a>
+                                <a href="{{ path('edit_profile') }}" type="button" class="btn btn-light">
+                                    <i class="mdi mdi-account-edit me-1"></i> Upravit profil
+                                </a>
+                            </div>
+                        </div> <!-- end col-->
+                    </div> <!-- end row -->
+
+                </div> <!-- end card-body/ profile-user-box-->
+            </div><!--end profile/ card -->
+        </div> <!-- end col-->
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="text-start">
+                <p class="text-muted"><strong>E-mail:</strong> <span class="ms-2">{{ app.user.email }}</span></p>
+                <p class="text-muted"><strong>Jméno:</strong> <span class="ms-2">{{ app.user.name ?: '-' }}</span></p>
+                <p class="text-muted"><strong>Registrován:</strong> <span class="ms-2">{{ app.user.registeredAt|date('H:i d.m.Y') }}</span></p>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

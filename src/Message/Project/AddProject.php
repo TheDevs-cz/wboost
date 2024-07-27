@@ -10,7 +10,7 @@ readonly final class AddProject
 {
     public function __construct(
         public UuidInterface $projectId,
-        public UuidInterface $createdByUserId,
+        public string $ownerEmail,
         public string $name,
     ) {
     }

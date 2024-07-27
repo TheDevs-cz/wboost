@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Entity;
 
+use DateTimeImmutable;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Id;
@@ -25,6 +27,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Column]
     public string $password = '';
 
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true)]
+    public null|string $name = null;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true)]
+    public null|string $avatar = null;
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -34,6 +44,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         #[Immutable]
         #[Column(length: 180, unique: true)]
         public string $email,
+
+        #[Immutable]
+        #[Column(type: Types::DATETIME_IMMUTABLE)]
+        public DateTimeImmutable $registeredAt,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(options: ['default' => true])]
+        public bool $confirmed = true,
     ) {
     }
 
@@ -68,5 +86,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function eraseCredentials(): void
     {
         // Just to satisfy the interface ...
+    }
+
+    public function getDisplayName(): string
+    {
+        return $this->name ?? $this->email;
+    }
+
+    public function editProfile(
+        null|string $name,
+    ): void {
+        $this->name = $name;
     }
 }

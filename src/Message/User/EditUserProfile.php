@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Message\User;
 
-readonly final class ChangePassword
+readonly final class EditUserProfile
 {
     public function __construct(
         public string $userEmail,
-        public string $newPlainTextPassword,
+        public null|string $name,
     ) {
     }
 }

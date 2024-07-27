@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Twig;
+namespace WBoost\Web\Services\Twig;
 
-use WBoost\Web\Services\UploaderHelper;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
+use WBoost\Web\Services\UploaderHelper;
 
 final class UploadTwigExtension extends AbstractExtension
 {

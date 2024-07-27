@@ -94,13 +94,13 @@
                                         <img src="{{ asset('theme/images/users/avatar-1.jpg') }}" alt="user-image" width="32" class="rounded-circle">
                                     </span>
                                 <span class="d-lg-flex flex-column gap-1 d-none">
-                                        <h5 class="my-0">Lukáš Rejda</h5>
+                                        <h5 class="my-0">{{ app.user.displayName }}</h5>
                                         <h6 class="my-0 fw-normal">Admin</h6>
                                     </span>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated profile-dropdown">
                                 <!-- item-->
-                                <a href="#" class="dropdown-item">
+                                <a href="{{ path('user_profile') }}" class="dropdown-item">
                                     <i class="mdi mdi-account-circle me-1"></i>
                                     <span>Můj účet</span>
                                 </a>
@@ -201,7 +201,7 @@
                         <!-- end page title -->
 
                         {% for label, messages in app.flashes %}
-                            <div class="container mt-4">
+                            <div class="mb-3">
                                 {% for message in messages %}
                                     <div class="alert-dismissible fade show alert alert-{{ label }}" role="alert">
                                         {{ message }}

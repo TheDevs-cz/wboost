@@ -27,7 +27,7 @@ readonly final class AddProjectHandler
      */
     public function __invoke(AddProject $message): void
     {
-        $user = $this->userRepository->get($message->createdByUserId);
+        $user = $this->userRepository->get($message->ownerEmail);
 
         $project = new Project(
             $message->projectId,

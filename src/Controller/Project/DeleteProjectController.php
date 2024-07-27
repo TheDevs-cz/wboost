@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Controller;
+namespace WBoost\Web\Controller\Project;
 
-use WBoost\Web\Repository\ProjectRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use WBoost\Web\Repository\ProjectRepository;
 
 final class DeleteProjectController extends AbstractController
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Controller;
+namespace WBoost\Web\Controller\Project;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;

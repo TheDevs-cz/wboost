@@ -2,41 +2,42 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Controller;
+namespace WBoost\Web\Controller\Project;
 
-use Ramsey\Uuid\Uuid;
-use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Security\Http\Attribute\CurrentUser;
-use WBoost\Web\Entity\User;
-use WBoost\Web\FormData\ProjectFormData;
-use WBoost\Web\FormType\ProjectFormType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use WBoost\Web\FormData\ProjectFormData;
+use WBoost\Web\FormType\ProjectFormType;
 use WBoost\Web\Message\Project\AddProject;
+use WBoost\Web\Services\ProvideIdentity;
 
 final class AddProjectController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
+        readonly private ProvideIdentity $provideIdentity,
     ) {
     }
 
     #[Route(path: '/add-project', name: 'add_project', methods: ['GET', 'POST'])]
-    public function __invoke(Request $request, #[CurrentUser] User $user): Response
+    public function __invoke(Request $request, #[CurrentUser] UserInterface $user): Response
     {
         $data = new ProjectFormData();
         $form = $this->createForm(ProjectFormType::class, $data);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $projectId = Uuid::uuid7();
+            $projectId = $this->provideIdentity->next();
 
             $this->bus->dispatch(
                 new AddProject(
                     $projectId,
-                    $user->id,
+                    $user->getUserIdentifier(),
                     $data->name,
                 ),
             );

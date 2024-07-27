@@ -49,12 +49,10 @@ readonly final class ProjectRepository
     public function save(Project $project): void
     {
         $this->entityManager->persist($project);
-        $this->entityManager->flush();
     }
 
     public function remove(Project $project): void
     {
         $this->entityManager->remove($project);
-        $this->entityManager->flush();
     }
 }

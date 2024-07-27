@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Repository;
 
-use Ramsey\Uuid\UuidInterface;
+use Doctrine\ORM\NoResultException;
 use WBoost\Web\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
-use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Exceptions\UserNotFound;
 
 readonly final class UserRepository
@@ -25,14 +24,21 @@ readonly final class UserRepository
     /**
      * @throws UserNotFound
      */
-    public function get(UuidInterface $userId): User
+    public function get(string $email): User
     {
-        $user = $this->entityManager->find(User::class, $userId);
+        try {
+            $row = $this->entityManager->createQueryBuilder()
+                ->from(User::class, 'u')
+                ->select('u')
+                ->where('u.email = :email')
+                ->setParameter('email', $email)
+                ->getQuery()
+                ->getSingleResult();
 
-        if ($user === null) {
-            throw new ProjectNotFound();
+            assert($row instanceof User);
+            return $row;
+        } catch (NoResultException) {
+            throw new UserNotFound();
         }
-
-        return $user;
     }
 }
