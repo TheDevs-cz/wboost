@@ -27,6 +27,8 @@
                         </div>
 
                         <div class="card-body p-4">
+                            {{ include('_flashes.html.twig') }}
+
                             {% if error %}
                                 <div class="alert alert-danger small">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
                             {% endif %}
@@ -55,7 +57,7 @@
                                 </div>
 
                                 <div class="mb-3 mb-0 text-center">
-                                    <button class="btn btn-dark" type="submit"> Přihlásit se </button>
+                                    <button class="btn btn-primary" type="submit"> Přihlásit se </button>
                                 </div>
 
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">

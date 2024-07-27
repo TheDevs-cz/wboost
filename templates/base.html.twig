@@ -200,16 +200,7 @@
                         </div>
                         <!-- end page title -->
 
-                        {% for label, messages in app.flashes %}
-                            <div class="mb-3">
-                                {% for message in messages %}
-                                    <div class="alert-dismissible fade show alert alert-{{ label }}" role="alert">
-                                        {{ message }}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endfor %}
+                        {{ include('_flashes.html.twig') }}
 
                         {% block content %}{% endblock %}
                     </div>
