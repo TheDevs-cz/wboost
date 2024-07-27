@@ -40,7 +40,6 @@ final class RegisterUserConsoleCommand extends Command
                 $email,
                 $plainTextPassword,
                 null,
-                null,
             ),
         );
 

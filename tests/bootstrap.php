@@ -7,8 +7,11 @@ use WBoost\Web\Tests\TestingDatabaseCaching;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Dotenv\Dotenv;
+use Symfony\Component\ErrorHandler\ErrorHandler;
 
 require_once __DIR__ . '/../vendor/autoload.php';
+
+set_exception_handler([new ErrorHandler(), 'handleException']);
 
 $_ENV['APP_ENV'] = 'test';
 (new Dotenv())->loadEnv(__DIR__ . '/../.env');
