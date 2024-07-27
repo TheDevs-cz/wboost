@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Exceptions;
 
-use Symfony\Component\Security\Core\Exception\UserNotFoundException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\WithHttpStatus;
 
-final class UserNotRegistered extends UserNotFoundException
+#[WithHttpStatus(Response::HTTP_NOT_FOUND)]
+final class UserNotRegistered extends \Exception
 {
 }

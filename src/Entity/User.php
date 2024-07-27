@@ -19,6 +19,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\Table(name: '`user`')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
+    public const string ROLE_ADMIN = 'ROLE_ADMIN';
+
     /** @var array<string> */
     #[Column(type: 'json')]
     private array $roles = [];

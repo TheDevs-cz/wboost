@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class UserProfileController extends AbstractController
 {
-    #[Route(path: '/user-profile', name: 'user_profile', methods: ['GET', 'POST'])]
+    #[Route(path: '/user-profile', name: 'user_profile')]
     public function __invoke(#[CurrentUser] User $user): Response
     {
         return $this->render('user_profile.html.twig');

@@ -22,7 +22,7 @@ final class ChangeUserPasswordController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/change-password', name: 'change_password', methods: ['GET', 'POST'])]
+    #[Route(path: '/change-password', name: 'change_password')]
     public function __invoke(Request $request, #[CurrentUser] UserInterface $user): Response
     {
         $formData = new ChangePasswordFormData();

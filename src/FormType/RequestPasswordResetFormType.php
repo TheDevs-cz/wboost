@@ -13,7 +13,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 /**
  * @extends AbstractType<RequestPasswordResetFormData>
  */
-class RequestPasswordResetFormType extends AbstractType
+final class RequestPasswordResetFormType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {

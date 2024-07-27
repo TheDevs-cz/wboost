@@ -6,7 +6,7 @@
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-copy-alt"></i> <a href="{{ path('homepage') }}">Manuály</a></li>
         <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_logos', {projectId: project.id.toString}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_logos', {id: project.id.toString}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
@@ -14,12 +14,12 @@
 {% block content %}
     <div class="card">
         <div class="card-body">
-            {{ form_start(edit_project_form) }}
-            {{ form_row(edit_project_form.name) }}
+            {{ form_start(form) }}
+            {{ form_row(form.name) }}
 
             <input type="submit" name="submit" value="Uložit" class="btn btn-primary">
 
-            {{ form_end(edit_project_form) }}
+            {{ form_end(form) }}
         </div>
     </div>
 {% endblock %}

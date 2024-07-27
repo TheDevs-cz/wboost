@@ -13,12 +13,12 @@
 {% block content %}
     <div class="card">
         <div class="card-body">
-            {{ form_start(add_project_form) }}
-            {{ form_row(add_project_form.name) }}
+            {{ form_start(form) }}
+            {{ form_row(form.name) }}
 
             <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
 
-            {{ form_end(add_project_form) }}
+            {{ form_end(form) }}
         </div>
     </div>
 {% endblock %}

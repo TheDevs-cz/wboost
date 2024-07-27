@@ -2,17 +2,18 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\MessageHandler;
+namespace WBoost\Web\MessageHandler\Project;
 
-use WBoost\Web\Exceptions\ProjectNotFound;
-use WBoost\Web\Message\AddImageColorsToProject;
-use WBoost\Web\Message\UpdateProjectImages;
-use WBoost\Web\Repository\ProjectRepository;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
+use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
+use WBoost\Web\Exceptions\ProjectNotFound;
+use WBoost\Web\Message\Project\AddImageColorsToProject;
+use WBoost\Web\Message\Project\UpdateProjectImages;
+use WBoost\Web\Repository\ProjectRepository;
 
 #[AsMessageHandler]
 readonly final class UpdateProjectImagesHandler
@@ -67,7 +68,7 @@ readonly final class UpdateProjectImagesHandler
         );
     }
 
-    private function uploadImage(UploadedFile $image, string $projectId, string $imagePrefix): string
+    private function uploadImage(UploadedFile $image, UuidInterface $projectId, string $imagePrefix): string
     {
         $timestamp = $this->clock->now()->getTimestamp();
 

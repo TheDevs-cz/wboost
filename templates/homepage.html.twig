@@ -21,7 +21,7 @@
         {% for project in projects %}
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
-                    <a href="{{ path('project_logos', {projectId: project.id.toString}) }}">
+                    <a href="{{ path('project_logos', {id: project.id.toString}) }}">
                         <img class="card-img-top" src="{{ project.introLogo ? uploaded_asset(project.introLogo) : asset('images/project-placeholder.png') }}" alt="{{ project.name }}">
                     </a>
 
@@ -30,13 +30,13 @@
                             <i class="ri-more-fill"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
-                            <a href="{{ path('project_manual', {projectId: project.id.toString}) }}" class="dropdown-item" target="_blank"><i class="ri-eye-fill me-1"></i>Zobrazit manuál</a>
-                            <a href="{{ path('edit_project', {projectId: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                            <a href="{{ path('delete_project', {projectId: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                            <a href="{{ path('project_manual', {id: project.id.toString}) }}" class="dropdown-item" target="_blank"><i class="ri-eye-fill me-1"></i>Zobrazit manuál</a>
+                            <a href="{{ path('edit_project', {id: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                            <a href="{{ path('delete_project', {id: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
                         </div>
                     </div>
 
-                    <a href="{{ path('project_logos', {projectId: project.id.toString}) }}" class="text-body">
+                    <a href="{{ path('project_logos', {id: project.id.toString}) }}" class="text-body">
                         <div class="card-body position-relative">
                             <h4 class="mt-0">
                                 {{ project.name }}

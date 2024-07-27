@@ -9,24 +9,26 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\FormData\ProjectImagesFormData;
 use WBoost\Web\FormType\ProjectImagesFormType;
-use WBoost\Web\Message\UpdateProjectImages;
-use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Message\Project\UpdateProjectImages;
+use WBoost\Web\Services\Security\ProjectVoter;
 
 final class ProjectLogosController extends AbstractController
 {
     public function __construct(
-        readonly private ProjectRepository $projectRepository,
         readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/project/{projectId}/logos', name: 'project_logos', methods: ['GET', 'POST'])]
-    public function __invoke(Request $request, string $projectId): Response
-    {
-        $project = $this->projectRepository->get($projectId);
-
+    #[Route(path: '/project/{id}/logos', name: 'project_logos')]
+    #[IsGranted(ProjectVoter::EDIT, 'project')]
+    public function __invoke(
+        Request $request,
+        Project $project,
+    ): Response {
         $data = new ProjectImagesFormData();
 
         $form = $this->createForm(ProjectImagesFormType::class, $data);
@@ -34,11 +36,11 @@ final class ProjectLogosController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->bus->dispatch(
-                UpdateProjectImages::fromFormData($projectId, $data),
+                UpdateProjectImages::fromFormData($project->id, $data),
             );
 
             return $this->redirectToRoute('project_logos', [
-                'projectId' => $project->id->toString(),
+                'id' => $project->id->toString(),
             ]);
         }
 

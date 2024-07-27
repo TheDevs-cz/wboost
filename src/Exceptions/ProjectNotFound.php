@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Exceptions;
 
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\WithHttpStatus;
 
-final class ProjectNotFound extends NotFoundHttpException
+#[WithHttpStatus(Response::HTTP_NOT_FOUND)]
+final class ProjectNotFound extends \Exception
 {
 }

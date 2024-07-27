@@ -21,7 +21,7 @@ final class EditUserProfileController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/edit-profile', name: 'edit_profile', methods: ['GET', 'POST'])]
+    #[Route(path: '/edit-profile', name: 'edit_profile')]
     public function __invoke(Request $request, #[CurrentUser] User $user): Response
     {
         $formData = UserProfileFormData::fromUser($user);

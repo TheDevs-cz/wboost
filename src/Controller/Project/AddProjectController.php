@@ -24,7 +24,7 @@ final class AddProjectController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/add-project', name: 'add_project', methods: ['GET', 'POST'])]
+    #[Route(path: '/add-project', name: 'add_project')]
     public function __invoke(Request $request, #[CurrentUser] UserInterface $user): Response
     {
         $data = new ProjectFormData();
@@ -43,12 +43,12 @@ final class AddProjectController extends AbstractController
             );
 
             return $this->redirectToRoute('project_logos', [
-                'projectId' => $projectId->toString(),
+                'id' => $projectId,
             ]);
         }
 
         return $this->render('add_project.html.twig', [
-            'add_project_form' => $form,
+            'form' => $form,
         ]);
     }
 }

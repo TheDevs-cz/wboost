@@ -36,6 +36,6 @@ readonly final class AddProjectHandler
             $this->clock->now(),
         );
 
-        $this->projectRepository->save($project);
+        $this->projectRepository->add($project);
     }
 }

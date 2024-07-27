@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\MessageHandler;
+namespace WBoost\Web\MessageHandler\Project;
 
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\ProjectNotFound;
-use WBoost\Web\Message\AddImageColorsToProject;
+use WBoost\Web\Message\Project\AddImageColorsToProject;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\DetectImageColors;
 use WBoost\Web\Services\UploaderHelper;
-use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
 readonly final class AddImageColorsToProjectHandler
@@ -18,8 +18,7 @@ readonly final class AddImageColorsToProjectHandler
         private DetectImageColors $detectImageColors,
         private ProjectRepository $projectRepository,
         private UploaderHelper $uploaderHelper,
-    )
-    {
+    ) {
     }
 
     /**

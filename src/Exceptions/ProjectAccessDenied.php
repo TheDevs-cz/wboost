@@ -7,7 +7,7 @@ namespace WBoost\Web\Exceptions;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\WithHttpStatus;
 
-#[WithHttpStatus(Response::HTTP_NOT_FOUND)]
-final class UserNotFound extends \Exception
+#[WithHttpStatus(Response::HTTP_FORBIDDEN)]
+final class ProjectAccessDenied extends \Exception
 {
 }

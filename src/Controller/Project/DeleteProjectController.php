@@ -6,24 +6,29 @@ namespace WBoost\Web\Controller\Project;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use WBoost\Web\Repository\ProjectRepository;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use WBoost\Web\Entity\Project;
+use WBoost\Web\Message\Project\DeleteProject;
+use WBoost\Web\Services\Security\ProjectVoter;
 
 final class DeleteProjectController extends AbstractController
 {
     public function __construct(
-        readonly private ProjectRepository $projectRepository,
+        readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/delete-project/{projectId}', name: 'delete_project', methods: ['GET'])]
-    public function __invoke(string $projectId): Response
+    #[Route(path: '/delete-project/{id}', name: 'delete_project')]
+    #[IsGranted(ProjectVoter::EDIT, 'project')]
+    public function __invoke(Project $project): Response
     {
-        $project = $this->projectRepository->get($projectId);
+        $this->bus->dispatch(
+            new DeleteProject($project->id),
+        );
 
-        $this->projectRepository->remove($project);
-
-        $this->addFlash('success', 'Projekt smazán z povrchu zemského');
+        $this->addFlash('success', 'Projekt smazán');
 
         return $this->redirectToRoute('homepage');
     }

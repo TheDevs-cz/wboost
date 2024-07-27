@@ -17,11 +17,13 @@ final class ProjectsController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/projects', name: 'projects', methods: ['GET'])]
+    #[Route(path: '/projects', name: 'projects')]
     public function __invoke(#[CurrentUser] User $user): Response
     {
+        $projects = $this->getProjects->allForUser($user->id);
+
         return $this->render('homepage.html.twig', [
-            'projects' => $this->getProjects->allForUser($user->id),
+            'projects' => $projects,
         ]);
     }
 }

@@ -4,28 +4,29 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\Project;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\FormData\ProjectFormData;
 use WBoost\Web\FormType\ProjectFormType;
-use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Message\Project\EditProject;
+use WBoost\Web\Services\Security\ProjectVoter;
 
 final class EditProjectController extends AbstractController
 {
     public function __construct(
-        readonly private ProjectRepository $projectRepository,
-        readonly private EntityManagerInterface $entityManager,
+        readonly private MessageBusInterface $bus,  
     ) {
     }
-
-    #[Route(path: '/edit-project/{projectId}', name: 'edit_project', methods: ['GET', 'POST'])]
-    public function __invoke(Request $request, string $projectId): Response
+    
+    #[Route(path: '/edit-project/{id}', name: 'edit_project')]
+    #[IsGranted(ProjectVoter::EDIT, 'project')]
+    public function __invoke(Request $request, Project $project): Response
     {
-        $project = $this->projectRepository->get($projectId);
-
         $data = new ProjectFormData();
         $data->name = $project->name;
 
@@ -33,16 +34,20 @@ final class EditProjectController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $project->edit($data->name);
-            $this->entityManager->flush();
+            $this->bus->dispatch(
+                new EditProject(
+                    $project->id,
+                    $data->name,
+                ),  
+            );
 
             return $this->redirectToRoute('project_logos', [
-                'projectId' => $project->id->toString(),
+                'id' => $project->id->toString(),
             ]);
         }
 
         return $this->render('edit_project.html.twig', [
-            'edit_project_form' => $form,
+            'form' => $form,
             'project' => $project,
         ]);
     }

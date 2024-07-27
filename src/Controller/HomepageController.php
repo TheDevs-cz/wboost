@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class HomepageController extends AbstractController
 {
-    #[Route(path: '/', name: 'homepage', methods: ['GET'])]
+    #[Route(path: '/', name: 'homepage')]
     public function __invoke(#[CurrentUser] User $user): Response
     {
         return $this->redirectToRoute('projects');

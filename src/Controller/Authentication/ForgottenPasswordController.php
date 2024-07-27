@@ -23,7 +23,7 @@ final class ForgottenPasswordController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/forgotten-password', name: 'forgotten_password', methods: ['GET', 'POST'])]
+    #[Route(path: '/forgotten-password', name: 'forgotten_password')]
     public function __invoke(Request $request, #[CurrentUser] null|UserInterface $user): Response
     {
         if ($user !== null) {
