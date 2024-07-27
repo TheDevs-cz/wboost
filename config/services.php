@@ -5,11 +5,10 @@ declare(strict_types=1);
 use AsyncAws\Core\Configuration;
 use AsyncAws\S3\S3Client;
 use Monolog\Processor\PsrLogMessageProcessor;
-use WBoost\Web\Services\SentryApiClient;
+use WBoost\Web\Services\Doctrine\FixDoctrineMigrationTableSchema;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\env;
-use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 return static function(ContainerConfigurator $configurator): void
@@ -57,6 +56,14 @@ return static function(ContainerConfigurator $configurator): void
     // Services
     $services->load('WBoost\\Web\\Services\\', __DIR__ . '/../src/Services/**/{*.php}');
     $services->load('WBoost\\Web\\Query\\', __DIR__ . '/../src/Query/**/{*.php}');
+
+    /** @see https://github.com/doctrine/migrations/issues/1406 */
+    if ('prod' !== $configurator->env()) {
+        $services->set(FixDoctrineMigrationTableSchema::class)
+            ->autoconfigure(false)
+            ->arg('$dependencyFactory', service('doctrine.migrations.dependency_factory'))
+            ->tag('doctrine.event_listener', ['event' => 'postGenerateSchema']);
+    }
 
     $services->set(S3Client::class)
         ->args([
