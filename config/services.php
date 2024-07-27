@@ -58,12 +58,10 @@ return static function(ContainerConfigurator $configurator): void
     $services->load('WBoost\\Web\\Query\\', __DIR__ . '/../src/Query/**/{*.php}');
 
     /** @see https://github.com/doctrine/migrations/issues/1406 */
-    if ('prod' !== $configurator->env()) {
-        $services->set(FixDoctrineMigrationTableSchema::class)
-            ->autoconfigure(false)
-            ->arg('$dependencyFactory', service('doctrine.migrations.dependency_factory'))
-            ->tag('doctrine.event_listener', ['event' => 'postGenerateSchema']);
-    }
+    $services->set(FixDoctrineMigrationTableSchema::class)
+        ->autoconfigure(false)
+        ->arg('$dependencyFactory', service('doctrine.migrations.dependency_factory'))
+        ->tag('doctrine.event_listener', ['event' => 'postGenerateSchema']);
 
     $services->set(S3Client::class)
         ->args([
