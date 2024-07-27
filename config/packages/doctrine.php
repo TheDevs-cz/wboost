@@ -13,7 +13,6 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             'types' => [
                 'uuid' => UuidType::class,
             ],
-            'schema_filter' =>' ~^(?!doctrine_migration)~',
         ],
         'orm' => [
             'report_fields_where_declared' => true,
