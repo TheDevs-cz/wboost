@@ -61,17 +61,38 @@ services:
             - postgres-data:/data
 
     minio:
-        restart: always
+        restart: unless-stopped
         image: minio/minio:latest
         environment:
             MINIO_DOMAIN: "localhost:19000"
             MINIO_SERVER_URL: "http://minio:9000"
             MINIO_BROWSER_REDIRECT_URL: "http://localhost:19001"
-            MINIO_ROOT_USER: "minioadmin"
-            MINIO_ROOT_PASSWORD: "minioadmin"
+            MINIO_ROOT_USER: "wboost"
+            MINIO_ROOT_PASSWORD: "wboostminio"
         command: ["server", "/data", "--console-address", ":9001"]
         ports:
             - 19000:9000
             - 19001:9001
         volumes:
             - .docker-data/minio-data:/data
+        healthcheck:
+            test: "mc ready local"
+            start_period: 5s
+            timeout: 5s
+            interval: 10s
+            retries: 2
+
+    minio_setup:
+        image: minio/mc:latest
+        restart: no
+        depends_on:
+            minio:
+                condition: service_healthy
+        volumes:
+            - .docker/setup-minio.sh:/setup-minio.sh
+        environment:
+            MINIO_SERVER_URL: "http://minio:9000"
+            MINIO_ACCESS_KEY: "wboost"
+            MINIO_SECRET_KEY: "wboostminio"
+            BUCKET_NAME: "wboost"
+        entrypoint: ["sh", "/setup-minio.sh"]

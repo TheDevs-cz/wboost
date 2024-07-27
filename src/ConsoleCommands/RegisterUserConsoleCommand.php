@@ -43,6 +43,8 @@ final class RegisterUserConsoleCommand extends Command
             ),
         );
 
+        $output->writeln('<info>User successfully registered</info>');
+
         return self::SUCCESS;
     }
 }
