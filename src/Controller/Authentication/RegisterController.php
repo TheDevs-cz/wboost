@@ -12,6 +12,6 @@ final class RegisterController extends AbstractController
     #[Route(path: '/registration', name: 'registration')]
     public function __invoke(): Response
     {
-        throw $this->createNotFoundException();
+        return $this->render('registration.html.twig');
     }
 }
