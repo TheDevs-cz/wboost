@@ -36,17 +36,11 @@ jobs:
 
   phpstan:
       runs-on: ubuntu-latest
+      container: ghcr.io/myspeedpuzzling/web-base:main
       steps:
         -   uses: actions/checkout@v4
-        -   uses: shivammathur/setup-php@v2
-            with:
-              php-version: 8.3
-              coverage: none # default is xdebug
-              extensions: mbstring, uuid # needed by phpunit
-
         -   run: composer install --dev --no-progress
         -   run: bin/console cache:warmup --env=dev
-
         -   run: composer run-script phpstan
 
   migrations-up-to-date:
