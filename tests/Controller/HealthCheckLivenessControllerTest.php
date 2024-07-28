@@ -10,9 +10,9 @@ final class HealthCheckLivenessControllerTest extends WebTestCase
 {
     public function testResponseIsOk(): void
     {
-        $client = self::createClient();
+        $browser = self::createClient();
 
-        $client->request('GET', '/-/health-check/liveness');
+        $browser->request('GET', '/-/health-check/liveness');
 
         $this->assertResponseIsSuccessful();
     }
