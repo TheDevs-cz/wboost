@@ -30,7 +30,7 @@ jobs:
               restore-keys: |
                   ${{ runner.os }}-composer-
 
-      -   run: composer install --dev --no-progress
+      -   run: composer install --no-progress
       -   run: bin/console importmap:install
       -   run: bin/console asset-map:compile
 
@@ -48,7 +48,7 @@ jobs:
                 restore-keys: |
                     ${{ runner.os }}-composer-
 
-        -   run: composer install --dev --no-progress
+        -   run: composer install --no-progress
         -   run: bin/console cache:warmup --env=dev
         -   run: composer run-script phpstan
 
@@ -71,7 +71,7 @@ jobs:
                   restore-keys: |
                       ${{ runner.os }}-composer-
 
-          -   run: composer install --dev --no-progress
+          -   run: composer install --no-progress
 
           -   run: bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
           -   run: bin/console doctrine:schema:update --dump-sql
