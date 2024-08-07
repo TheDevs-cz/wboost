@@ -14,6 +14,7 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\ManualType;
 
 #[Entity]
 class Manual
@@ -21,7 +22,6 @@ class Manual
     /**
      * @var array<string>
      */
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
     private array $colors = [];
 
@@ -49,25 +49,28 @@ class Manual
         #[Id]
         #[Immutable]
         #[Column(type: UuidType::NAME, unique: true)]
-        public UuidInterface $id,
+        readonly public UuidInterface $id,
 
         #[ManyToOne]
         #[JoinColumn(nullable: false)]
-        #[Immutable]
-        public User $owner,
+        readonly public Project $project,
+
+        #[Column(type: Types::DATETIME_IMMUTABLE)]
+        readonly public \DateTimeImmutable $createdAt,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column]
+        public ManualType $type,
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column]
         public string $name,
-
-        #[Immutable]
-        #[Column(type: Types::DATETIME_IMMUTABLE)]
-        public \DateTimeImmutable $createdAt,
     ) {
     }
 
-    public function edit(string $name): void
+    public function edit(ManualType $type, string $name): void
     {
+        $this->type = $type;
         $this->name = $name;
     }
 

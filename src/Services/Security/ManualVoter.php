@@ -7,13 +7,13 @@ namespace WBoost\Web\Services\Security;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
-use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\User;
 
 /**
- * @extends Voter<string, Project>
+ * @extends Voter<string, Manual>
  */
-final class ProjectVoter extends Voter
+final class ManualVoter extends Voter
 {
     public const string VIEW = 'view';
     public const string EDIT = 'edit';
@@ -29,7 +29,7 @@ final class ProjectVoter extends Voter
             return false;
         }
 
-        return $subject instanceof Project;
+        return $subject instanceof Manual;
     }
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool
@@ -44,6 +44,6 @@ final class ProjectVoter extends Voter
             return true;
         }
 
-        return $subject->owner === $user;
+        return $subject->project->owner === $user;
     }
 }

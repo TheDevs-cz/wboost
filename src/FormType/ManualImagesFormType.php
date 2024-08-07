@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormType;
 
-use WBoost\Web\FormData\ProjectImagesFormData;
+use WBoost\Web\FormData\ManualImagesFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -12,9 +12,9 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Image;
 
 /**
- * @extends AbstractType<ProjectImagesFormData>
+ * @extends AbstractType<ManualImagesFormData>
  */
-final class ProjectImagesFormType extends AbstractType
+final class ManualImagesFormType extends AbstractType
 {
     /**
      * @param mixed[] $options
@@ -85,7 +85,7 @@ final class ProjectImagesFormType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
-            'data_class' => ProjectImagesFormData::class,
+            'data_class' => ManualImagesFormData::class,
         ]);
     }
 }

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Message\Project;
+namespace WBoost\Web\Message\Manual;
 
 use Ramsey\Uuid\UuidInterface;
 
-readonly final class AddImageColorsToProject
+readonly final class AddImageColorsToManual
 {
     public function __construct(
-        public UuidInterface $projectId,
+        public UuidInterface $manualId,
         public string $imagePath,
     ) {
     }

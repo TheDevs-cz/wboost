@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Manuály{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            <a href="{{ path('add_manual', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový manuál</a>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for manual in manuals %}
+            <div class="col-md-6 col-xxl-3">
+                <div class="card d-block">
+                    <a href="{{ path('manual_logos', {id: manual.id.toString}) }}">
+                        <img class="card-img-top" src="{{ manual.introLogo ? uploaded_asset(manual.introLogo) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
+                    </a>
+
+                    <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                        <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="ri-more-fill"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a href="{{ path('manual_preview', {id: manual.id.toString}) }}" class="dropdown-item" target="_blank"><i class="ri-eye-fill me-1"></i>Zobrazit manuál</a>
+                            <a href="{{ path('edit_manual', {id: manual.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                            <a href="{{ path('delete_manual', {id: manual.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                        </div>
+                    </div>
+
+                    <a href="{{ path('manual_logos', {id: manual.id.toString}) }}" class="text-body">
+                        <div class="card-body position-relative">
+                            <h4 class="mt-0">
+                                {{ manual.name }}
+                            </h4>
+
+                            {% if manual.colors %}
+                                <div id="tooltip-container">
+                                    {% for color in manual.colors %}
+                                        <span class="d-inline-block avatar-xs rounded-circle" style="background: {{ '#' ~ color.hex }};"></span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

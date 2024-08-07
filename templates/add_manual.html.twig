@@ -5,6 +5,8 @@
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
@@ -14,6 +16,7 @@
         <div class="card-body">
             {{ form_start(form) }}
             {{ form_row(form.name) }}
+            {{ form_row(form.type) }}
 
             <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
 

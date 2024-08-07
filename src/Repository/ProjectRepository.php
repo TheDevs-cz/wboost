@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace WBoost\Web\Repository;
 
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Entity\Manual;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use Doctrine\ORM\EntityManagerInterface;
-use Ramsey\Uuid\Uuid;
 
 readonly final class ProjectRepository
 {
@@ -20,23 +19,23 @@ readonly final class ProjectRepository
     /**
      * @throws ProjectNotFound
      */
-    public function get(UuidInterface $projectId): Manual
+    public function get(UuidInterface $projectId): Project
     {
-        $project = $this->entityManager->find(Manual::class, $projectId);
+        $project = $this->entityManager->find(Project::class, $projectId);
 
-        if ($project instanceof Manual) {
+        if ($project instanceof Project) {
             return $project;
         }
 
         throw new ProjectNotFound();
     }
 
-    public function add(Manual $project): void
+    public function add(Project $project): void
     {
         $this->entityManager->persist($project);
     }
 
-    public function remove(Manual $project): void
+    public function remove(Project $project): void
     {
         $this->entityManager->remove($project);
     }

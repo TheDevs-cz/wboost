@@ -6,7 +6,7 @@ namespace WBoost\Web\MessageHandler\Project;
 
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use WBoost\Web\Entity\Manual;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\Exceptions\UserNotFound;
 use WBoost\Web\Message\Project\AddProject;
 use WBoost\Web\Repository\ProjectRepository;
@@ -29,11 +29,11 @@ readonly final class AddProjectHandler
     {
         $user = $this->userRepository->get($message->ownerEmail);
 
-        $project = new Manual(
+        $project = new Project(
             $message->projectId,
             $user,
-            $message->name,
             $this->clock->now(),
+            $message->name,
         );
 
         $this->projectRepository->add($project);

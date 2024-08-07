@@ -2,36 +2,36 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\MessageHandler\Project;
+namespace WBoost\Web\MessageHandler\Manual;
 
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use WBoost\Web\Exceptions\ProjectNotFound;
-use WBoost\Web\Message\Project\AddImageColorsToProject;
-use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Exceptions\ManualNotFound;
+use WBoost\Web\Message\Manual\AddImageColorsToManual;
+use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Services\DetectImageColors;
 use WBoost\Web\Services\UploaderHelper;
 
 #[AsMessageHandler]
-readonly final class AddImageColorsToProjectHandler
+readonly final class AddImageColorsToManualHandler
 {
     public function __construct(
         private DetectImageColors $detectImageColors,
-        private ProjectRepository $projectRepository,
+        private ManualRepository $manualRepository,
         private UploaderHelper $uploaderHelper,
     ) {
     }
 
     /**
-     * @throws ProjectNotFound
+     * @throws ManualNotFound
      */
-    public function __invoke(AddImageColorsToProject $message): void
+    public function __invoke(AddImageColorsToManual $message): void
     {
-        $project = $this->projectRepository->get($message->projectId);
+        $manual = $this->manualRepository->get($message->manualId);
 
         $colors = $this->detectImageColors->fromImagePath(
             $this->uploaderHelper->getInternalPath($message->imagePath),
         );
 
-        $project->addColors($colors);
+        $manual->addColors($colors);
     }
 }

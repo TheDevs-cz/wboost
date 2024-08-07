@@ -6,7 +6,7 @@ namespace WBoost\Web\FormData;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
-final class ProjectImagesFormData
+final class ManualImagesFormData
 {
     public null|UploadedFile $logoHorizontal = null;
     public null|UploadedFile $logoVertical = null;

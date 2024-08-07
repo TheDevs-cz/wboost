@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Message\Project;
+namespace WBoost\Web\Message\Manual;
 
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use WBoost\Web\FormData\ProjectImagesFormData;
+use WBoost\Web\FormData\ManualImagesFormData;
 
-readonly final class UpdateProjectImages
+readonly final class UpdateManualImages
 {
     public function __construct(
-        public UuidInterface $projectId,
+        public UuidInterface $manualId,
         public null|UploadedFile $logoHorizontal,
         public null|UploadedFile $logoVertical,
         public null|UploadedFile $logoHorizontalWithClaim,
@@ -20,10 +20,10 @@ readonly final class UpdateProjectImages
     ) {
     }
 
-    public static function fromFormData(UuidInterface $projectId, ProjectImagesFormData $formData): self
+    public static function fromFormData(UuidInterface $manualId, ManualImagesFormData $formData): self
     {
         return new self(
-            projectId: $projectId,
+            manualId: $manualId,
             logoHorizontal: $formData->logoHorizontal,
             logoVertical: $formData->logoVertical,
             logoHorizontalWithClaim: $formData->logoHorizontalWithClaim,

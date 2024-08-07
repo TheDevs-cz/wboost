@@ -1,0 +1,53 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+
+        <div class="col-sm-6 col-lg-3">
+            <a href="{{ path('manuals_list', {'id': project.id}) }}">
+                <div class="card tilebox-one text-center">
+                    <div class="card-body">
+                        <i class="uil-copy-alt position-relative" style="right: auto;"></i>
+                        <h2 class="my-2 mt-0">{{ manuals|length }}</h2>
+                        <h6 class="text-uppercase mb-0">Manuály</h6>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <a href="#">
+                <div class="card tilebox-one text-center">
+                    <div class="card-body">
+                        <i class="uil-facebook position-relative" style="right: auto;"></i>
+                        <h2 class="my-2 mt-0">0</h2>
+                        <h6 class="text-uppercase mb-0">Sociální sítě</h6>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <a href="#">
+                <div class="card tilebox-one text-center">
+                    <div class="card-body">
+                        <i class="ri-font-family position-relative" style="right: auto;"></i>
+                        <h2 class="my-2 mt-0">0</h2>
+                        <h6 class="text-uppercase mb-0">Fonty</h6>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+    </div>
+
+{% endblock %}

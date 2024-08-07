@@ -7,27 +7,28 @@
                 <i class="mdi mdi-dots-vertical"></i>
             </a>
             <div class="dropdown-menu dropdown-menu-end">
-                <a href="{{ path('edit_project', {id: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                <a href="{{ path('delete_project', {id: project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                <a href="{{ path('edit_manual', {id: manual.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                <a href="{{ path('delete_manual', {id: manual.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
             </div>
         </div>
     </div>
 
     <div class="card-body pt-1">
 
-        <a href="{{ path('project_logos', {id: project.id.toString}) }}">
-            <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'project_logos' ? 'bg-primary-lighten' }}">
+        <a href="{{ path('manual_logos', {id: manual.id}) }}">
+            <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'manual_logos' ? 'bg-primary-lighten' }}">
                 <div class="flex-shrink-0 me-2">
                     <i class="ri-shield-cross-line widget-icon rounded-circle"></i>
                 </div>
                 <div class="flex-grow-1">
-                    <h5 class="fw-semibold my-0">Logotypy ({{ project.logosCount }})</h5>
+                    <h5 class="fw-semibold my-0">Logotypy ({{ manual.logosCount }})</h5>
                 </div>
             </div>
         </a>
 
-        <a href="{{ path('project_fonts', {id: project.id.toString}) }}">
-            <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'project_fonts' ? 'bg-primary-lighten' }}">
+        {#
+        <a href="{{ path('manual_fonts', {id: manual.id}) }}">
+            <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'manual_fonts' ? 'bg-primary-lighten' }}">
                 <div class="flex-shrink-0 me-2">
                     <i class="ri-font-size widget-icon rounded-circle"></i>
                 </div>
@@ -36,14 +37,15 @@
                 </div>
             </div>
         </a>
+        #}
 
-        <a href="{{ path('project_colors', {id: project.id.toString}) }}">
-            <div class="d-flex align-items-center border border-light rounded p-2 {{ app.request.get('_route') == 'project_colors' ? 'bg-primary-lighten' }}">
+        <a href="{{ path('manual_colors', {id: manual.id}) }}">
+            <div class="d-flex align-items-center border border-light rounded p-2 {{ app.request.get('_route') == 'manual_colors' ? 'bg-primary-lighten' }}">
                 <div class="flex-shrink-0 me-2">
                     <i class="ri-sip-line widget-icon rounded-circle"></i>
                 </div>
                 <div class="flex-grow-1">
-                    <h5 class="fw-semibold my-0">Barevná paleta ({{ project.colors|length }})</h5>
+                    <h5 class="fw-semibold my-0">Barevná paleta ({{ manual.colors|length }})</h5>
                 </div>
             </div>
         </a>

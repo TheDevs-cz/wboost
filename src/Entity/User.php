@@ -41,15 +41,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         #[Id]
         #[Immutable]
         #[Column(type: UuidType::NAME, unique: true)]
-        public UuidInterface $id,
+        readonly public UuidInterface $id,
 
-        #[Immutable]
         #[Column(length: 180, unique: true)]
-        public string $email,
+        readonly public string $email,
 
-        #[Immutable]
         #[Column(type: Types::DATETIME_IMMUTABLE)]
-        public DateTimeImmutable $registeredAt,
+        readonly public DateTimeImmutable $registeredAt,
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(options: ['default' => true])]

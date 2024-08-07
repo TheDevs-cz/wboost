@@ -155,18 +155,36 @@
                     <!--- Sidemenu -->
                     <ul class="side-nav">
                         <li class="side-nav-item">
-                            <a href="{{ path('homepage') }}" class="side-nav-link">
-                                <i class="uil-copy-alt"></i>
-                                <span> Manuály </span>
+                            <a href="{{ path('projects') }}" class="side-nav-link">
+                                <i class="uil-home-alt"></i>
+                                <span> Projekty </span>
                             </a>
                         </li>
 
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="uil-facebook"></i>
-                                <span> Sociální sítě </span>
-                            </a>
-                        </li>
+                        {% if project is defined %}
+                            <li class="side-nav-title">{{ project.name }}</li>
+
+                            <li class="side-nav-item">
+                                <a href="{{ path('manuals_list', {'id': project.id}) }}" class="side-nav-link">
+                                    <i class="uil-copy-alt"></i>
+                                    <span> Manuály </span>
+                                </a>
+                            </li>
+
+                            <li class="side-nav-item">
+                                <a href="#" class="side-nav-link">
+                                    <i class="uil-facebook"></i>
+                                    <span> Sociální sítě </span>
+                                </a>
+                            </li>
+
+                            <li class="side-nav-item">
+                                <a href="#" class="side-nav-link">
+                                    <i class="ri-font-family"></i>
+                                    <span> Fonty</span>
+                                </a>
+                            </li>
+                        {% endif %}
                     </ul>
                     <!--- End Sidemenu -->
 

@@ -30,16 +30,13 @@ class PasswordResetToken
 
         #[ManyToOne]
         #[JoinColumn(nullable: false)]
-        #[Immutable]
-        public User $user,
+        readonly public User $user,
 
-        #[Immutable]
         #[Column(type: Types::DATETIME_IMMUTABLE)]
-        public DateTimeImmutable $requestedAt,
+        readonly public DateTimeImmutable $requestedAt,
 
-        #[Immutable]
         #[Column(type: Types::DATETIME_IMMUTABLE)]
-        public DateTimeImmutable $validUntil,
+        readonly public DateTimeImmutable $validUntil,
     ) {
     }
 

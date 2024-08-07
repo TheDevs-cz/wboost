@@ -13,6 +13,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use WBoost\Web\FormData\ProjectFormData;
 use WBoost\Web\FormType\ProjectFormType;
+use WBoost\Web\Message\Manual\AddManual;
 use WBoost\Web\Message\Project\AddProject;
 use WBoost\Web\Services\ProvideIdentity;
 
@@ -42,7 +43,7 @@ final class AddProjectController extends AbstractController
                 ),
             );
 
-            return $this->redirectToRoute('project_logos', [
+            return $this->redirectToRoute('project_dashboard', [
                 'id' => $projectId,
             ]);
         }

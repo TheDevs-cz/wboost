@@ -1,5 +1,7 @@
 {% extends 'base.html.twig' %}
 
+{% block title %}{{ manual.name }}{% endblock %}
+
 {% block full_content %}
     <div class="row g-0">
         <div class="col-md-1 bg-dark d-none d-md-block">
@@ -19,7 +21,7 @@
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ project.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
                                 <span class="d-inline-block float-end fs-4">Logo manuál</span>
                             </div>
@@ -29,23 +31,23 @@
                                     Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
                                 </div>
                                 <div class="page-designs col-9">
-                                    {% if project.logoHorizontal %}
+                                    {% if manual.logoHorizontal %}
                                         <div class="border border-2 p-4 rounded-4 mb-4">
-                                            <img src="{{ project.logoHorizontal ? uploaded_asset(project.logoHorizontal) }}">
+                                            <img src="{{ manual.logoHorizontal ? uploaded_asset(manual.logoHorizontal) }}">
                                         </div>
                                     {% endif %}
 
-                                    {% if project.logoSymbol %}
+                                    {% if manual.logoSymbol %}
                                         <div class="row">
                                             <div class="col-6">
                                                 <div class="border border-2 p-4 rounded-4">
-                                                    <img src="{{ project.logoSymbol ? uploaded_asset(project.logoSymbol) }}">
+                                                    <img src="{{ manual.logoSymbol ? uploaded_asset(manual.logoSymbol) }}">
                                                 </div>
                                             </div>
 
                                             <div class="col-6">
                                                 <div class="border border-2 p-4 rounded-4">
-                                                    <img src="{{ project.logoSymbol ? uploaded_asset(project.logoSymbol) }}">
+                                                    <img src="{{ manual.logoSymbol ? uploaded_asset(manual.logoSymbol) }}">
                                                 </div>
                                             </div>
                                         </div>
