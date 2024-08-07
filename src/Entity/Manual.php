@@ -25,6 +25,28 @@ class Manual
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
     private array $colors = [];
 
+    /**
+     * @var array<array{source: string, target: string}>
+     */
+    #[Column(type: Types::JSON, options: ['default' => '[]'])]
+    public array $colorMapping = [];
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true)]
+    public null|string $color1 = null;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true)]
+    public null|string $color2 = null;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true)]
+    public null|string $color3 = null;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true)]
+    public null|string $color4 = null;
+
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(nullable: true)]
     public null|string $logoHorizontal = null;
@@ -135,5 +157,50 @@ class Manual
                 $this->colors[] = $color;
             }
         }
+    }
+
+    /**
+     * @param array<string, string> $mapping
+     */
+    public function mapColors(
+        null|string $color1,
+        null|string $color2,
+        null|string $color3,
+        null|string $color4,
+        array $mapping,
+    ): void
+    {
+        $this->color1 = $color1;
+        $this->color2 = $color2;
+        $this->color3 = $color3;
+        $this->color4 = $color4;
+
+        $colorMapping = [];
+
+        foreach ($mapping as $color => $target) {
+            if ($target !== '') {
+                $colorMapping[] = ['source' => strtolower($color), 'target' => $target];
+            }
+        }
+
+        $this->colorMapping = $colorMapping;
+    }
+
+    public function getMappedColorTarget(string $color): null|string
+    {
+        $color = strtolower($color);
+
+        foreach ($this->colorMapping as $mapping) {
+            if ($color === $mapping['source']) {
+                return $mapping['target'];
+            }
+        }
+
+        return null;
+    }
+
+    public function colorsMappedCorrectly(): bool
+    {
+        return false;
     }
 }

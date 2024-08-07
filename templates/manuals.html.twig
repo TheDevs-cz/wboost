@@ -22,7 +22,7 @@
         {% for manual in manuals %}
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
-                    <a href="{{ path('manual_logos', {id: manual.id.toString}) }}">
+                    <a href="{{ path('manual_dashboard', {id: manual.id.toString}) }}">
                         <img class="card-img-top" src="{{ manual.introLogo ? uploaded_asset(manual.introLogo) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
                     </a>
 
@@ -37,7 +37,7 @@
                         </div>
                     </div>
 
-                    <a href="{{ path('manual_logos', {id: manual.id.toString}) }}" class="text-body">
+                    <a href="{{ path('manual_dashboard', {id: manual.id.toString}) }}" class="text-body">
                         <div class="card-body position-relative">
                             <h4 class="mt-0">
                                 {{ manual.name }}

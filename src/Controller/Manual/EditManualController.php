@@ -43,7 +43,7 @@ final class EditManualController extends AbstractController
                 ),
             );
 
-            return $this->redirectToRoute('manual_logos', [
+            return $this->redirectToRoute('manual_dashboard', [
                 'id' => $manual->id->toString(),
             ]);
         }

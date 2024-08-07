@@ -39,7 +39,7 @@ final class ManualLogosController extends AbstractController
                 UpdateManualImages::fromFormData($manual->id, $data),
             );
 
-            return $this->redirectToRoute('manual_dashboard', [
+            return $this->redirectToRoute('manual_logos', [
                 'id' => $manual->id->toString(),
             ]);
         }
