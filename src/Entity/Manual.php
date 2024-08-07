@@ -16,7 +16,7 @@ use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 
 #[Entity]
-class Project
+class Manual
 {
     /**
      * @var array<string>

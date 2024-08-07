@@ -7,7 +7,7 @@ use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Ramsey\Uuid\Uuid;
-use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\User;
 
 final class TestDataFixture extends Fixture
@@ -33,7 +33,7 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($user1);
 
-        $project1 = new Project(
+        $project1 = new Manual(
             Uuid::fromString(self::PROJECT_1_ID),
             $user1,
             'Project 1',
@@ -49,7 +49,7 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($user2);
 
-        $project2 = new Project(
+        $project2 = new Manual(
             Uuid::fromString(self::PROJECT_2_ID),
             $user2,
             'Project 2',

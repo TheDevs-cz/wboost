@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\FormData\ProjectImagesFormData;
 use WBoost\Web\FormType\ProjectImagesFormType;
 use WBoost\Web\Message\Project\UpdateProjectImages;
@@ -27,7 +27,7 @@ final class ProjectLogosController extends AbstractController
     #[IsGranted(ProjectVoter::EDIT, 'project')]
     public function __invoke(
         Request $request,
-        Project $project,
+        Manual $project,
     ): Response {
         $data = new ProjectImagesFormData();
 

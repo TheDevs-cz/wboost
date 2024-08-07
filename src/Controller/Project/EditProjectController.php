@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\FormData\ProjectFormData;
 use WBoost\Web\FormType\ProjectFormType;
 use WBoost\Web\Message\Project\EditProject;
@@ -25,7 +25,7 @@ final class EditProjectController extends AbstractController
     
     #[Route(path: '/edit-project/{id}', name: 'edit_project')]
     #[IsGranted(ProjectVoter::EDIT, 'project')]
-    public function __invoke(Request $request, Project $project): Response
+    public function __invoke(Request $request, Manual $project): Response
     {
         $data = new ProjectFormData();
         $data->name = $project->name;
