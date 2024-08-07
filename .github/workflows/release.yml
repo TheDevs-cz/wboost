@@ -66,9 +66,6 @@ jobs:
             name: prod
             url: https://wboost.cz
         steps:
-            -   name: Checkout
-                uses: actions/checkout@v4
-
             -   uses: appleboy/ssh-action@master
                 with:
                     host: spare.srv.thedevs.cz
