@@ -7,9 +7,12 @@
         <div class="col-md-1 bg-dark d-none d-md-block">
             <nav id="manual-navbar" class="h-100 flex-column align-items-stretch border-end text-center">
                 <nav class="nav nav-pills flex-column">
-                    {% for page in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] %}
+                    {% set page = 0 %}
+
+                    {% if manual.logoHorizontal %}
+                        {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endfor %}
+                    {% endif %}
                 </nav>
             </nav>
         </div>
@@ -17,7 +20,10 @@
         <div class="col-md-11">
             <div data-bs-spy="scroll" data-bs-target="#manual-navbar" data-bs-offset="0" class="manual-scrollspy">
                 <div class="container">
-                    {% for page in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] %}
+                    {% set page = 0 %}
+
+                    {% if manual.logoHorizontal %}
+                        {% set page = page+1 %}
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
@@ -34,6 +40,12 @@
                                     {% if manual.logoHorizontal %}
                                         <div class="border border-2 p-4 rounded-4 mb-4">
                                             <img src="{{ manual.logoHorizontal ? uploaded_asset(manual.logoHorizontal) }}">
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C2', 'C2': 'C1', 'C3': 'C2', 'C4': 'C1'} %}
+
+                                        <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
+                                            <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
                                         </div>
                                     {% endif %}
 
@@ -55,7 +67,7 @@
                                 </div>
                             </div>
                         </div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
             </div>
         </div>
