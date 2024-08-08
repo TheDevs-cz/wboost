@@ -9,7 +9,47 @@
                 <nav class="nav nav-pills flex-column">
                     {% set page = 0 %}
 
+                    {% if manual.logoHorizontal or manual.logoVertical or manual.logoSymbol %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
+                    {% if manual.logoHorizontalWithClaim or manual.logoVerticalWithClaim %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
                     {% if manual.logoHorizontal %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
+                    {% if manual.logoHorizontalWithClaim %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
+                    {% if manual.logoVertical %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
+                    {% if manual.logoVerticalWithClaim %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
+                    {% if manual.logoHorizontal or manual.logoHorizontalWithClaim %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
+                    {% if manual.logoVertical or manual.logoVerticalWithClaim %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
+                    {% if manual.logoSymbol %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
@@ -22,7 +62,7 @@
                 <div class="container">
                     {% set page = 0 %}
 
-                    {% if manual.logoHorizontal %}
+                    {% if manual.logoHorizontal or manual.logoVertical or manual.logoSymbol %}
                         {% set page = page+1 %}
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
@@ -38,32 +78,467 @@
                                 </div>
                                 <div class="page-designs col-9">
                                     {% if manual.logoHorizontal %}
-                                        <div class="border border-2 p-4 rounded-4 mb-4">
-                                            <img src="{{ manual.logoHorizontal ? uploaded_asset(manual.logoHorizontal) }}">
-                                        </div>
+                                        {% set colorsMapping = {} %}
 
-                                        {% set colorsMapping = {'C1': 'C2', 'C2': 'C1', 'C3': 'C2', 'C4': 'C1'} %}
-
-                                        <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
+                                        <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
                                             <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
                                         </div>
                                     {% endif %}
 
-                                    {% if manual.logoSymbol %}
+                                    {% if manual.logoVertical or manual.logoSymbol %}
+                                        <div class="row">
+                                            {% if manual.logoVertical %}
+                                                <div class="col-6">
+                                                    <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                        <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+
+                                            {% if manual.logoSymbol %}
+                                                <div class="col-6">
+                                                    <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                        <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoHorizontalWithClaim or manual.logoVerticalWithClaim %}
+                        {% set page = page+1 %}
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+                                    {% if manual.logoHorizontalWithClaim %}
+                                        {% set colorsMapping = {} %}
+
+                                        <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                            <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                        </div>
+                                    {% endif %}
+
+                                    {% if manual.logoVerticalWithClaim %}
                                         <div class="row">
                                             <div class="col-6">
-                                                <div class="border border-2 p-4 rounded-4">
-                                                    <img src="{{ manual.logoSymbol ? uploaded_asset(manual.logoSymbol) }}">
-                                                </div>
-                                            </div>
-
-                                            <div class="col-6">
-                                                <div class="border border-2 p-4 rounded-4">
-                                                    <img src="{{ manual.logoSymbol ? uploaded_asset(manual.logoSymbol) }}">
+                                                <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                    <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         </div>
                                     {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoHorizontal %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C2', 'C2': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoHorizontalWithClaim %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    {% set colorsMapping = {} %}
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C4': 'C3', 'C2': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1', 'C4': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1', 'C4': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoVertical %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    {% set colorsMapping = {} %}
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C2', 'C2': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoVerticalWithClaim %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    {% set colorsMapping = {} %}
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C4': 'C3', 'C2': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1', 'C4': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1', 'C4': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoHorizontal or manual.logoHorizontalWithClaim %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: #000000">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: #ffffff">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: #000000">
+                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoVertical or manual.logoVerticalWithClaim %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: #000000">
+                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: #ffffff">
+                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: #000000">
+                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logoSymbol %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    {% set colorsMapping = {} %}
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C2'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4 mb-4" style="background: {{ '#' ~ manual.color3 }}">
+                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: #ffffff">
+                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+
+                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+
+                                        <div class="col-6">
+                                            <div class="border border-2 p-4 rounded-4" style="background: #000000">
+                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>

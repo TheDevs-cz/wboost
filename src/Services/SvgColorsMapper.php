@@ -27,15 +27,27 @@ final class SvgColorsMapper
     {
         $svgContent = $this->getSvgContent($image);
 
-        $mapFrom = [];
-        $mapTo = [];
+        if ($replacementMap !== []) {
+            $mapFrom = [];
+            $mapTo = [];
 
-        foreach ($manual->colorMapping as $mapping) {
-            $mapFrom[] = $mapping['source'];
-            $mapTo[] = $this->matchColor($manual, $replacementMap[$mapping['target']]);
+            foreach ($manual->colorMapping as $mapping) {
+                if (!isset($replacementMap[$mapping['target']])) {
+                    continue;
+                }
+
+                if (str_starts_with($replacementMap[$mapping['target']], '#')) {
+                    $mapToColor = $replacementMap[$mapping['target']];
+                } else {
+                    $mapToColor = $this->matchColor($manual, $replacementMap[$mapping['target']]);
+                }
+
+                $mapFrom[] = $mapping['source'];
+                $mapTo[] = $mapToColor;
+            }
+
+            $svgContent = str_replace($mapFrom, $mapTo, $svgContent);
         }
-
-        $svgContent = str_replace($mapFrom, $mapTo, $svgContent);
 
         return 'data:image/svg+xml;base64,' . base64_encode($svgContent);
     }

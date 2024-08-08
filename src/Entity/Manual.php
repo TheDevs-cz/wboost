@@ -179,7 +179,7 @@ class Manual
 
         foreach ($mapping as $color => $target) {
             if ($target !== '') {
-                $colorMapping[] = ['source' => strtolower($color), 'target' => $target];
+                $colorMapping[] = ['source' => strtolower((string) $color), 'target' => $target];
             }
         }
 
