@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
+use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\ManyToOne;
 use WBoost\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
@@ -67,11 +70,16 @@ class Manual
     #[Column(nullable: true)]
     public null|string $logoSymbol = null;
 
+    /** @var Collection<int, FontFamily>  */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[ManyToMany(targetEntity: FontFamily::class, cascade: ['persist', 'remove'])]
+    public Collection $fonts;
+
     public function __construct(
         #[Id]
         #[Immutable]
         #[Column(type: UuidType::NAME, unique: true)]
-        readonly public UuidInterface $id,
+        public UuidInterface $id,
 
         #[ManyToOne]
         #[JoinColumn(nullable: false)]
@@ -88,6 +96,7 @@ class Manual
         #[Column]
         public string $name,
     ) {
+        $this->fonts = new ArrayCollection();
     }
 
     public function edit(ManualType $type, string $name): void
