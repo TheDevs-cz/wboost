@@ -37,7 +37,7 @@ final class SvgColorsMapper
                 }
 
                 if (str_starts_with($replacementMap[$mapping['target']], '#')) {
-                    $mapToColor = $replacementMap[$mapping['target']];
+                    $mapToColor = trim($replacementMap[$mapping['target']], '#');
                 } else {
                     $mapToColor = $this->matchColor($manual, $replacementMap[$mapping['target']]);
                 }
