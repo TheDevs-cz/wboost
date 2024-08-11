@@ -22,7 +22,7 @@
         {% for font in available_fonts %}
             <div>
                 <strong>{{ font.name }}</strong>  <br>
-                <input type="checkbox" id="switch-{{ font.id }}" checked data-switch="bool"/>
+                <input type="checkbox" id="switch-{{ font.id }}" {{ manual.fontEnabled(font) ? 'checked' }} data-switch="bool"/>
                 <label for="switch-{{ font.id }}" data-on-label="On" data-off-label="Off"></label>
                 <br>
                 <p>

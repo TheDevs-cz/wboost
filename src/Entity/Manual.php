@@ -231,4 +231,9 @@ class Manual
     {
         return $this->fonts->count();
     }
+
+    public function isFontEnabled(Font $font): bool
+    {
+        return $this->fonts->contains($font);
+    }
 }
