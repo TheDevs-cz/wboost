@@ -5,6 +5,7 @@ namespace WBoost\Web\Controller\Project;
 
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +16,7 @@ final class ProjectDashboardController extends AbstractController
 {
     public function __construct(
         readonly private GetManuals $getManuals,
+        readonly private GetFonts $getFonts,
     ) {
     }
 
@@ -25,6 +27,7 @@ final class ProjectDashboardController extends AbstractController
         return $this->render('project_dashboard.html.twig', [
             'project' => $project,
             'manuals' => $this->getManuals->allForProject($project->id),
+            'fonts' => $this->getFonts->allForProject($project->id),
         ]);
     }
 }

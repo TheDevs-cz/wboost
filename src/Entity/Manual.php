@@ -70,9 +70,9 @@ class Manual
     #[Column(nullable: true)]
     public null|string $logoSymbol = null;
 
-    /** @var Collection<int, FontFamily>  */
+    /** @var Collection<int, Font>  */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[ManyToMany(targetEntity: FontFamily::class, cascade: ['persist', 'remove'])]
+    #[ManyToMany(targetEntity: Font::class, cascade: ['persist', 'remove'])]
     public Collection $fonts;
 
     public function __construct(
@@ -211,5 +211,24 @@ class Manual
     public function colorsMappedCorrectly(): bool
     {
         return false;
+    }
+
+    public function enableFont(Font $font): void
+    {
+        if (!$this->fonts->contains($font)) {
+            $this->fonts->add($font);
+        }
+    }
+
+    public function disableFont(Font $font): void
+    {
+        if ($this->fonts->contains($font)) {
+            $this->fonts->removeElement($font);
+        }
+    }
+
+    public function enabledFontsCount(): int
+    {
+        return $this->fonts->count();
     }
 }

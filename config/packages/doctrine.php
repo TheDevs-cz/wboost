@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Ramsey\Uuid\Doctrine\UuidType;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
-use WBoost\Web\Doctrine\FontsDoctrineType;
+use WBoost\Web\Doctrine\FontFacesDoctrineType;
 
 return static function (ContainerConfigurator $containerConfigurator): void {
 
@@ -13,7 +13,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             'url' => '%env(resolve:DATABASE_URL)%',
             'types' => [
                 UuidType::NAME => UuidType::class,
-                FontsDoctrineType::NAME => FontsDoctrineType::class,
+                FontFacesDoctrineType::NAME => FontFacesDoctrineType::class,
             ],
         ],
         'orm' => [

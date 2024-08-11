@@ -26,18 +26,16 @@
             </div>
         </a>
 
-        {#
         <a href="{{ path('manual_fonts', {id: manual.id}) }}">
             <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'manual_fonts' ? 'bg-primary-lighten' }}">
                 <div class="flex-shrink-0 me-2">
                     <i class="ri-font-size widget-icon rounded-circle"></i>
                 </div>
                 <div class="flex-grow-1">
-                    <h5 class="fw-semibold my-0">Font (0)</h5>
+                    <h5 class="fw-semibold my-0">Fonty ({{ manual.enabledFontsCount }})</h5>
                 </div>
             </div>
         </a>
-        #}
 
         <a href="{{ path('manual_colors', {id: manual.id}) }}">
             <div class="d-flex align-items-center border border-light rounded p-2 {{ app.request.get('_route') == 'manual_colors' ? 'bg-primary-lighten' }}">
@@ -46,6 +44,17 @@
                 </div>
                 <div class="flex-grow-1">
                     <h5 class="fw-semibold my-0">Barevná paleta ({{ manual.colors|length }})</h5>
+                </div>
+            </div>
+        </a>
+
+        <a href="#">
+            <div class="d-flex align-items-center border border-light rounded p-2">
+                <div class="flex-shrink-0 me-2">
+                    <i class="mdi mdi-book-open-page-variant-outline widget-icon rounded-circle"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h5 class="fw-semibold my-0">Stránky s mockupy (0)</h5>
                 </div>
             </div>
         </a>

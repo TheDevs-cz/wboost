@@ -13,18 +13,19 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Doctrine\FontsDoctrineType;
-use WBoost\Web\Value\Font;
+use WBoost\Web\Doctrine\FontFacesDoctrineType;
+use WBoost\Web\Exceptions\FontAlreadyHasFontFace;
+use WBoost\Web\Value\FontFace;
 
 #[Entity]
-class FontFamily
+class Font
 {
     /**
-     * @var array<Font>
+     * @var array<FontFace>
      */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: FontsDoctrineType::NAME)]
-    public array $fonts = [];
+    #[Column(type: FontFacesDoctrineType::NAME)]
+    public array $faces;
 
     public function __construct(
         #[Id]
@@ -42,6 +43,23 @@ class FontFamily
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column]
         public string $name,
+
+        FontFace $fontFace,
     ) {
+        $this->faces = [$fontFace];
+    }
+
+    /**
+     * @throws FontAlreadyHasFontFace
+     */
+    public function addFontFace(FontFace $fontFace): void
+    {
+        foreach ($this->faces as $existingFontFace) {
+            if ($existingFontFace->name === $fontFace->name) {
+                throw new FontAlreadyHasFontFace();
+            }
+        }
+
+        $this->faces[] = $fontFace;
     }
 }

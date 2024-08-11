@@ -7,13 +7,13 @@ namespace WBoost\Web\Services\Security;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
-use WBoost\Web\Entity\FontFamily;
+use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\User;
 
 /**
- * @extends Voter<string, FontFamily>
+ * @extends Voter<string, Font>
  */
-final class FontFamilyVoter extends Voter
+final class FontVoter extends Voter
 {
     public const string VIEW = 'view';
     public const string EDIT = 'edit';
@@ -29,7 +29,7 @@ final class FontFamilyVoter extends Voter
             return false;
         }
 
-        return $subject instanceof FontFamily;
+        return $subject instanceof Font;
     }
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token): bool

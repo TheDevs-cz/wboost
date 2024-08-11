@@ -8,14 +8,14 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
-use WBoost\Web\Value\Font;
+use WBoost\Web\Value\FontFace;
 
-final class FontsDoctrineType extends JsonType
+final class FontFacesDoctrineType extends JsonType
 {
-    public const string NAME = 'fonts[]';
+    public const string NAME = 'font_faces';
 
     /**
-     * @return null|array<Font>
+     * @return null|array<FontFace>
      *
      * @throws ConversionException
      */
@@ -31,12 +31,13 @@ final class FontsDoctrineType extends JsonType
         $fonts = [];
 
         foreach ($jsonData as $fontData) {
-            /** @var array{file: string, weight: int, style: string} $fontData */
+            /** @var array{name: string, file: string, weight: int, style: string} $fontData */
 
-            $fonts[] = new Font(
-                file: $fontData['file'],
+            $fonts[] = new FontFace(
+                name: $fontData['name'],
                 weight: $fontData['weight'],
                 style: $fontData['style'],
+                file: $fontData['file'],
             );
         }
 
@@ -44,7 +45,7 @@ final class FontsDoctrineType extends JsonType
     }
 
     /**
-     * @param null|array<Font> $value
+     * @param null|array<FontFace> $value
      * @throws ConversionException
      */
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
@@ -56,14 +57,15 @@ final class FontsDoctrineType extends JsonType
         $data = [];
 
         foreach ($value as $font) {
-            if (!is_a($font, Font::class)) {
-                throw InvalidType::new($value, self::NAME, [Font::class]);
+            if (!is_a($font, FontFace::class)) {
+                throw InvalidType::new($value, self::NAME, [FontFace::class]);
             }
 
             $data[] = [
-                'file' => $font->file,
+                'name' => $font->name,
                 'weight' => $font->weight,
                 'style' => $font->style,
+                'file' => $font->file,
             ];
         }
 
