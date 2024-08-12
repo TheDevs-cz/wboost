@@ -1,0 +1,32 @@
+{% extends 'base_manual.html.twig' %}
+
+{% block title %}Stránky s mockupy - {{ manual.name }}{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('manual_dashboard', {'id': manual.id}) }}">{{ manual.name }}</a></li>
+        <li class="breadcrumb-item active">Stránky s mockupy</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    <div class="row">
+        <div class="col-xxl-3">
+            {{ include('_manual_nav.html.twig') }}
+        </div>
+
+        <div class="col-xxl-9">
+            <div class="row mb-2">
+                <div class="col-sm-12">
+                    <a href="{{ path('add_manual_mockup_page', {'id': manual.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat stránku</a>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+{% endblock %}
