@@ -30,7 +30,7 @@ final class ToggleManualFontController extends AbstractController
     public function __invoke(
         Request $request,
         Manual $manual,
-        #[MapEntity(mapping: ['fontId' => 'id'])]
+        #[MapEntity(id: 'fontId')]
         Font $font,
     ): Response {
         /** @var string $routeName */

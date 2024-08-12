@@ -2,6 +2,21 @@
 
 {% block title %}{{ manual.name }}{% endblock %}
 
+{% block custom_styles %}
+    <style>
+        {% for font in manual.fonts %}
+            {% for font_face in font.faces %}
+                @font-face {
+                    font-family: '{{ font.name }}';
+                    src: url('{{ uploaded_asset(font_face.file) }}');
+                    font-weight: {{ font_face.weight }};
+                    {# TODO: font-style: normal; #}
+                }
+            {% endfor %}
+        {% endfor %}
+    </style>
+{% endblock %}
+
 {% block full_content %}
     <div class="row g-0">
         <div class="col-md-1 bg-dark d-none d-md-block">
@@ -58,6 +73,11 @@
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
+
+                    {% for font in manual.fonts %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endfor %}
                 </nav>
             </nav>
         </div>
@@ -595,6 +615,42 @@
                             </div>
                         </div>
                     {% endif %}
+
+                    {% for font in manual.fonts %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    <div class="row">
+                                        <div class="col-12">
+                                            Rodina {{ font.name }}
+
+                                            {% for font_face in font.faces %}
+                                                <p style="font-family: '{{ font.name }}', sans-serif;font-weight: {{ font_face.weight }};font-size: 32px;">
+                                                    {{ font_face.name }}<br>
+                                                    ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>
+                                                    abcdefghijklmnopqrstuvwxyz
+                                                </p>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>

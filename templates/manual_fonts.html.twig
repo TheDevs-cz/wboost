@@ -27,8 +27,7 @@
                            data-controller="checkbox-toggle"
                            data-url-checked="{{ path('enable_manual_font', {'id': manual.id, 'fontId': font.id}) }}"
                            data-url-unchecked="{{ path('disable_manual_font', {'id': manual.id, 'fontId': font.id}) }}"
-                           data-checkbox-toggle-target="checkbox"
-                    >
+                           data-action="change->checkbox-toggle#toggle">
                     <label for="switch-{{ font.id }}" data-on-label="On" data-off-label="Off"></label>
                     <br>
                     <p>
