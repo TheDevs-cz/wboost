@@ -47,6 +47,8 @@
 
         <!-- Icons css -->
         <link href="{{ asset('theme/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
+
+        {{ ux_controller_link_tags() }}
     </head>
     <body class="{% block body_class %}{% endblock %}">
     {% block full_content %}

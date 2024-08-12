@@ -20,17 +20,24 @@
 
     <div class="col-xxl-9">
         {% for font in available_fonts %}
-            <div>
-                <strong>{{ font.name }}</strong>  <br>
-                <input type="checkbox" id="switch-{{ font.id }}" {{ manual.fontEnabled(font) ? 'checked' }} data-switch="bool"/>
-                <label for="switch-{{ font.id }}" data-on-label="On" data-off-label="Off"></label>
-                <br>
-                <p>
-                    {% for font_face in font.faces %}
-                        {{ font_face.name }}
-                        <br>
-                    {% endfor %}
-                </p>
+            <div class="card">
+                <div class="card-body">
+                    <strong>{{ font.name }}</strong>  <br>
+                    <input type="checkbox" id="switch-{{ font.id }}" {{ manual.fontEnabled(font) ? 'checked' }} data-switch="bool"
+                           data-controller="checkbox-toggle"
+                           data-url-checked="{{ path('enable_manual_font', {'id': manual.id, 'fontId': font.id}) }}"
+                           data-url-unchecked="{{ path('disable_manual_font', {'id': manual.id, 'fontId': font.id}) }}"
+                           data-checkbox-toggle-target="checkbox"
+                    >
+                    <label for="switch-{{ font.id }}" data-on-label="On" data-off-label="Off"></label>
+                    <br>
+                    <p>
+                        {% for font_face in font.faces %}
+                            {{ font_face.name }}
+                            <br>
+                        {% endfor %}
+                    </p>
+                </div>
             </div>
         {% endfor %}
     </div>

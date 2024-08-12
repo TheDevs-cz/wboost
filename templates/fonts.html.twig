@@ -19,15 +19,17 @@
     </div>
 
     {% for font in fonts %}
-        <div>
-            <strong>{{ font.name }}</strong><br>
-            <p>
-                {% for font_face in font.faces %}
-                    {{ font_face.name }}
-                    <a href="#">Smazat</a>
-                    <br>
-                {% endfor %}
-            </p>
+        <div class="card">
+            <div class="card-body">
+                <strong>{{ font.name }}</strong><br>
+                <p>
+                    {% for font_face in font.faces %}
+                        {{ font_face.name }}
+                        <a href="#">Smazat</a>
+                        <br>
+                    {% endfor %}
+                </p>
+            </div>
         </div>
     {% endfor %}
 
