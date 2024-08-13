@@ -4,25 +4,15 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services;
 
-use WBoost\Web\Exceptions\UnsupportedImageFormat;
 use SimpleXMLElement;
 
 readonly final class DetectImageColors
 {
     /**
      * @return array<string>
-     *
-     * @throws UnsupportedImageFormat
      */
-    public function fromImagePath(string $imagePath): array
+    public function fromSvg(string $fileContent): array
     {
-        if (str_ends_with($imagePath, '.svg') === false) {
-            throw new UnsupportedImageFormat();
-        }
-
-        $fileContent = file_get_contents($imagePath);
-        assert(is_string($fileContent));
-
         $svg = new SimpleXMLElement($fileContent);
 
         return $this->extractColorsFromSvg($svg);

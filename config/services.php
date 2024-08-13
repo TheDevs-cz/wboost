@@ -21,7 +21,6 @@ return static function(ContainerConfigurator $configurator): void
     $parameters->set('doctrine.orm.enable_lazy_ghost_objects', true);
 
     $parameters->set('publicAssetsBaseUrl', '%env(UPLOADS_BASE_URL)%/%env(S3_BUCKET_NAME)%');
-    $parameters->set('internalAssetsBaseUrl', '%env(S3_ENDPOINT)%/%env(S3_BUCKET_NAME)%');
 
     $services = $configurator->services();
 

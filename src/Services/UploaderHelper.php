@@ -11,8 +11,6 @@ readonly final class UploaderHelper
     public function __construct(
         #[Autowire('%publicAssetsBaseUrl%')]
         private string $publicAssetsBaseUrl,
-        #[Autowire('%internalAssetsBaseUrl%')]
-        private string $internalAssetsBaseUrl,
     ) {
     }
 
@@ -20,11 +18,5 @@ readonly final class UploaderHelper
     public function getPublicPath(string $path): string
     {
         return $this->publicAssetsBaseUrl . '/' . $path;
-    }
-
-
-    public function getInternalPath(string $path): string
-    {
-        return $this->internalAssetsBaseUrl . '/' . $path;
     }
 }

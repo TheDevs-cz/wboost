@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services;
 
+use League\Flysystem\Filesystem;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Exceptions\InvalidColorMapping;
 
@@ -15,7 +16,7 @@ final class SvgColorsMapper
     private array $images = [];
 
     public function __construct(
-        readonly private UploaderHelper $uploaderHelper,
+        readonly private Filesystem $filesystem,
     ) {
     }
 
@@ -69,8 +70,7 @@ final class SvgColorsMapper
     private function getSvgContent(string $filePath): string
     {
         if (!isset($this->images[$filePath])) {
-            $svgContent = file_get_contents($this->uploaderHelper->getInternalPath($filePath));
-            assert($svgContent !== false);
+            $svgContent = $this->filesystem->read($filePath);
 
             $this->images[$filePath] = $svgContent;
         }

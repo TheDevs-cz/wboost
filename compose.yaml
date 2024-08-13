@@ -58,7 +58,7 @@ services:
             MP_SMTP_AUTH_ALLOW_INSECURE: 1
             MP_DATABASE: "/data/mailpit.db"
         volumes:
-            - postgres-data:/data
+            - mailpit-data:/data
 
     minio:
         restart: unless-stopped

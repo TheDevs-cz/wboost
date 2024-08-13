@@ -6,23 +6,22 @@ namespace WBoost\Web\MessageHandler\Manual;
 
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
-use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Messenger\MessageBusInterface;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\Exceptions\ManualNotFound;
-use WBoost\Web\Message\Manual\AddImageColorsToManual;
 use WBoost\Web\Message\Manual\UpdateManualImages;
 use WBoost\Web\Repository\ManualRepository;
+use WBoost\Web\Services\DetectImageColors;
 
 #[AsMessageHandler]
 readonly final class UpdateManualImagesHandler
 {
     public function __construct(
-        private MessageBusInterface $bus,
         private ClockInterface $clock,
         private Filesystem $filesystem,
         private ManualRepository $manualRepository,
+        private DetectImageColors $detectImageColors,
     ) {
     }
 
@@ -40,23 +39,23 @@ readonly final class UpdateManualImagesHandler
         $logoSymbolPath = $manual->logoSymbol;
 
         if ($message->logoHorizontal !== null) {
-            $logoHorizontalPath = $this->uploadImage($message->logoHorizontal, $message->manualId, 'logo-horizontal');
+            $logoHorizontalPath = $this->uploadImage($manual, $message->logoHorizontal, 'logo-horizontal');
         }
 
         if ($message->logoVertical !== null) {
-            $logoVerticalPath = $this->uploadImage($message->logoVertical, $message->manualId, 'logo-vertical');
+            $logoVerticalPath = $this->uploadImage($manual, $message->logoVertical, 'logo-vertical');
         }
 
         if ($message->logoHorizontalWithClaim !== null) {
-            $logoHorizontalWithClaimPath = $this->uploadImage($message->logoHorizontalWithClaim, $message->manualId, 'logo-horizontal-claim');
+            $logoHorizontalWithClaimPath = $this->uploadImage($manual, $message->logoHorizontalWithClaim, 'logo-horizontal-claim');
         }
 
         if ($message->logoVerticalWithClaim !== null) {
-            $logoVerticalWithClaimPath = $this->uploadImage($message->logoVerticalWithClaim, $message->manualId, 'logo-vertical-claim');
+            $logoVerticalWithClaimPath = $this->uploadImage($manual, $message->logoVerticalWithClaim, 'logo-vertical-claim');
         }
 
         if ($message->logoSymbol !== null) {
-            $logoSymbolPath = $this->uploadImage($message->logoSymbol, $message->manualId, 'logo-symbol');
+            $logoSymbolPath = $this->uploadImage($manual, $message->logoSymbol, 'logo-symbol');
         }
 
         $manual->updateImages(
@@ -68,27 +67,19 @@ readonly final class UpdateManualImagesHandler
         );
     }
 
-    private function uploadImage(UploadedFile $image, UuidInterface $manualId, string $imagePrefix): string
+    private function uploadImage(Manual $manual, UploadedFile $image, string $imagePrefix): string
     {
         $timestamp = $this->clock->now()->getTimestamp();
 
         $extension = $image->guessExtension();
-        $path = "manuals/$manualId/$imagePrefix-$timestamp.$extension";
+        $path = "manuals/$manual->id/$imagePrefix-$timestamp.$extension";
 
-        // Stream is better because it is memory safe
-        $stream = fopen($image->getPathname(), 'rb');
-        $this->filesystem->writeStream($path, $stream);
+        $fileContent = $image->getContent();
+        $this->filesystem->write($path, $fileContent);
 
-        if (is_resource($stream)) {
-            fclose($stream);
-        }
+        $colors = $this->detectImageColors->fromSvg($fileContent);
 
-        $this->bus->dispatch(
-            new AddImageColorsToManual(
-                $manualId,
-                $path,
-            ),
-        );
+        $manual->addColors($colors);
 
         return $path;
     }
