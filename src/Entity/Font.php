@@ -34,7 +34,7 @@ class Font
         readonly public UuidInterface $id,
 
         #[ManyToOne]
-        #[JoinColumn(nullable: false)]
+        #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public Project $project,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]

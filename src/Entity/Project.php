@@ -24,7 +24,7 @@ class Project
         public UuidInterface $id,
 
         #[ManyToOne]
-        #[JoinColumn(nullable: false)]
+        #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public User $owner,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]

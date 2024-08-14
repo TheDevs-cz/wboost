@@ -25,7 +25,7 @@ class ManualMockupPage
         public UuidInterface $id,
 
         #[ManyToOne]
-        #[JoinColumn(nullable: false)]
+        #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public Manual $manual,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
