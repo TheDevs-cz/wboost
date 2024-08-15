@@ -28,7 +28,7 @@
 
             {% for page in pages %}
                 <p>
-                    {{ page.name }} / <a href="#">Upravit</a> / <a href="#">Smazat</a>
+                    {{ page.name }} / <a href="#">Upravit</a> / <a href="{{ path('delete_manual_mockup_page', {'id': page.id}) }}">Smazat</a>
                 </p>
             {% endfor %}
         </div>
