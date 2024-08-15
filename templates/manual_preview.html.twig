@@ -78,6 +78,11 @@
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endfor %}
+
+                    {% for mockup_page in manual.pages %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endfor %}
                 </nav>
             </nav>
         </div>
@@ -94,7 +99,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -141,7 +146,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -179,7 +184,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -233,7 +238,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -289,7 +294,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -345,7 +350,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -401,7 +406,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -457,7 +462,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -513,7 +518,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -577,7 +582,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -626,7 +631,7 @@
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                                 <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">Logo manuál</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
@@ -647,6 +652,38 @@
                                                 </p>
                                             {% endfor %}
                                         </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+
+                    {% for mockup_page in manual.pages %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">{{ mockup_page.name }}</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    <div class="row">
+                                        {% for image in mockup_page.images %}
+                                            <div class="col-4">
+                                                {% if image %}
+                                                    <img src="{{ uploaded_asset(image) }}" style="max-width: 100%;">
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
                                     </div>
 
                                 </div>
