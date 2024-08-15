@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\ManyToOne;
+use Doctrine\ORM\Mapping\OneToMany;
 use WBoost\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
@@ -72,8 +73,13 @@ class Manual
 
     /** @var Collection<int, Font>  */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[ManyToMany(targetEntity: Font::class, cascade: ['persist', 'remove'])]
+    #[ManyToMany(targetEntity: Font::class, cascade: ['persist', 'remove'], fetch: 'EXTRA_LAZY')]
     public Collection $fonts;
+
+    /** @var Collection<int, ManualMockupPage>  */
+    #[Immutable]
+    #[OneToMany(targetEntity: ManualMockupPage::class, mappedBy: 'manual', fetch: 'EXTRA_LAZY')]
+    public Collection $pages;
 
     public function __construct(
         #[Id]
@@ -97,6 +103,7 @@ class Manual
         public string $name,
     ) {
         $this->fonts = new ArrayCollection();
+        $this->pages = new ArrayCollection();
     }
 
     public function edit(ManualType $type, string $name): void
@@ -235,5 +242,15 @@ class Manual
     public function isFontEnabled(Font $font): bool
     {
         return $this->fonts->contains($font);
+    }
+
+    public function isBrandManual(): bool
+    {
+        return $this->type === ManualType::Brand;
+    }
+
+    public function pagesCount(): int
+    {
+        return $this->pages->count();
     }
 }

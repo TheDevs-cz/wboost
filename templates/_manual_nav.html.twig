@@ -26,16 +26,18 @@
             </div>
         </a>
 
-        <a href="{{ path('manual_fonts', {'id': manual.id}) }}">
-            <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'manual_fonts' ? 'bg-primary-lighten' }}">
-                <div class="flex-shrink-0 me-2">
-                    <i class="ri-font-size widget-icon rounded-circle"></i>
+        {% if manual.brandManual  %}
+            <a href="{{ path('manual_fonts', {'id': manual.id}) }}">
+                <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'manual_fonts' ? 'bg-primary-lighten' }}">
+                    <div class="flex-shrink-0 me-2">
+                        <i class="ri-font-size widget-icon rounded-circle"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="fw-semibold my-0">Fonty ({{ manual.enabledFontsCount }})</h5>
+                    </div>
                 </div>
-                <div class="flex-grow-1">
-                    <h5 class="fw-semibold my-0">Fonty ({{ manual.enabledFontsCount }})</h5>
-                </div>
-            </div>
-        </a>
+            </a>
+        {% endif %}
 
         <a href="{{ path('manual_colors', {'id': manual.id}) }}">
             <div class="d-flex align-items-center border border-light rounded p-2 mb-2 {{ app.request.get('_route') == 'manual_colors' ? 'bg-primary-lighten' }}">
@@ -48,16 +50,18 @@
             </div>
         </a>
 
-        <a href="{{ path('manual_mockup_pages', {'id': manual.id}) }}">
-            <div class="d-flex align-items-center border border-light rounded p-2 {{ app.request.get('_route') == 'manual_mockup_pages' ? 'bg-primary-lighten' }}">
-                <div class="flex-shrink-0 me-2">
-                    <i class="mdi mdi-book-open-page-variant-outline widget-icon rounded-circle"></i>
+        {% if manual.brandManual  %}
+            <a href="{{ path('manual_mockup_pages', {'id': manual.id}) }}">
+                <div class="d-flex align-items-center border border-light rounded p-2 {{ app.request.get('_route') == 'manual_mockup_pages' ? 'bg-primary-lighten' }}">
+                    <div class="flex-shrink-0 me-2">
+                        <i class="mdi mdi-book-open-page-variant-outline widget-icon rounded-circle"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5 class="fw-semibold my-0">Stránky s mockupy ({{ manual.pagesCount }})</h5>
+                    </div>
                 </div>
-                <div class="flex-grow-1">
-                    <h5 class="fw-semibold my-0">Stránky s mockupy (0)</h5>
-                </div>
-            </div>
-        </a>
+            </a>
+        {% endif %}
 
     </div>
 </div>

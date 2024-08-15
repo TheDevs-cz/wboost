@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Entity;
 
+use DateTimeImmutable;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
@@ -24,12 +25,12 @@ class ManualMockupPage
         #[Column(type: UuidType::NAME, unique: true)]
         public UuidInterface $id,
 
-        #[ManyToOne]
+        #[ManyToOne(inversedBy: 'pages')]
         #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public Manual $manual,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
-        readonly public \DateTimeImmutable $createdAt,
+        readonly public DateTimeImmutable $createdAt,
 
         #[Column]
         readonly public MockupPageLayout $layout,
@@ -37,6 +38,12 @@ class ManualMockupPage
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column]
         public string $name,
+
+        /**
+         * @var array<int, string|null>
+         */
+        #[Column(type: Types::JSON)]
+        public array $images,
     ) {
     }
 }

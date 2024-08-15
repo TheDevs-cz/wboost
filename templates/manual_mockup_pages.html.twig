@@ -26,7 +26,11 @@
                 </div>
             </div>
 
-
+            {% for page in pages %}
+                <p>
+                    {{ page.name }} / <a href="#">Upravit</a> / <a href="#">Smazat</a>
+                </p>
+            {% endfor %}
         </div>
     </div>
 {% endblock %}

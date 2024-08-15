@@ -9,7 +9,6 @@ use FontLib\Table\Type\name;
 use FontLib\Table\Type\nameRecord;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
-use Ramsey\Uuid\Uuid;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Exceptions\FontAlreadyHasFontFace;
@@ -19,6 +18,7 @@ use WBoost\Web\Message\Font\AddFont;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FontRepository;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Value\FontFace;
 
 #[AsMessageHandler]
@@ -30,6 +30,7 @@ readonly final class AddFontHandler
         private Filesystem $filesystem,
         private FontRepository $fontRepository,
         private GetFonts $getFonts,
+        private ProvideIdentity $provideIdentity,
     ) {
     }
 
@@ -75,7 +76,7 @@ readonly final class AddFontHandler
             $font->addFontFace($fontFace);
         } catch (FontNotFound) {
             $font = new Font(
-                Uuid::uuid7(),
+                $this->provideIdentity->next(),
                 $project,
                 $now,
                 $fontName,

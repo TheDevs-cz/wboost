@@ -10,11 +10,13 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Query\GetManualMockupPages;
 use WBoost\Web\Services\Security\ManualVoter;
 
 final class ManualMockupPagesController extends AbstractController
 {
     public function __construct(
+        readonly private GetManualMockupPages $getManualMockupPages,
     ) {
     }
 
@@ -27,7 +29,7 @@ final class ManualMockupPagesController extends AbstractController
         return $this->render('manual_mockup_pages.html.twig', [
             'project' => $manual->project,
             'manual' => $manual,
-            'mockup_pages' => [],
+            'pages' => $this->getManualMockupPages->allForManual($manual->id),
         ]);
     }
 }
