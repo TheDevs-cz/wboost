@@ -594,19 +594,23 @@
                                     {% set colorsMapping = {} %}
 
                                     <div class="row">
-                                        <div class="col-12">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                        {% if logoHorizontal %}
+                                            <div class="col-12">
+                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                    OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
+                                                    <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                                </div>
                                             </div>
-                                        </div>
+                                        {% endif %}
 
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
-                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                        {% if logoVertical %}
+                                            <div class="col-6">
+                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                    OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
+                                                    <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                                </div>
                                             </div>
-                                        </div>
+                                        {% endif %}
 
                                         {% if manual.logoSymbol %}
                                             <div class="col-6">
