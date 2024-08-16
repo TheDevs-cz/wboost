@@ -6,7 +6,7 @@ namespace WBoost\Web\Message\Manual;
 
 use Ramsey\Uuid\UuidInterface;
 
-readonly final class MapColors
+readonly final class EditManualColors
 {
     public function __construct(
         public UuidInterface $manualId,
@@ -16,6 +16,8 @@ readonly final class MapColors
         public null|string $color4,
         /** @var array<string, string> */
         public array $mapping,
+        /** @var array<string> */
+        public array $secondaryColors,
     ) {
     }
 }

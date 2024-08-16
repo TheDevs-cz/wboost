@@ -23,6 +23,8 @@
         <div class="col-xxl-4">
             <div class="card">
                 <div class="card-body">
+                    <h4 class="header-title">Primární barvy</h4>
+
                     <div class="d-flex align-items-center">
                         <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.color1 }};"></span>
                         {{ form_row(form.c1) }}
@@ -41,6 +43,26 @@
                     <div class="d-flex align-items-center">
                         <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.color4 }};"></span>
                         {{ form_row(form.c4) }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="header-title">Sekundární barvy</h4>
+
+                    <div data-controller="form-collection"
+                         data-form-collection-target="collection"
+                         data-prototype="{{ '<div class="form-group input-group mb-3">' ~ form_widget(form.secondaryColors.vars.prototype) ~ '<button type="button" class="btn btn-danger" data-action="form-collection#remove">Odstranit</button></div>' }}">
+
+                        {% for colorForm in form.secondaryColors %}
+                            <div class="form-group input-group mb-3">
+                                {{ form_widget(colorForm) }}
+                                <button type="button" class="btn btn-danger" data-action="form-collection#remove">Odstranit</button>
+                            </div>
+                        {% endfor %}
+
+                        <button type="button" class="btn btn-primary" data-action="form-collection#add">Přidat sekundární barvu</button>
                     </div>
                 </div>
             </div>

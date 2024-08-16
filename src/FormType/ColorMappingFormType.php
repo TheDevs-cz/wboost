@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormType;
 
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use WBoost\Web\FormData\ColorMappingFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -38,6 +39,18 @@ final class ColorMappingFormType extends AbstractType
         $builder->add('c4', TextType::class, [
             'label' => 'C4',
             'required' => false,
+        ]);
+
+        $builder->add('secondaryColors', CollectionType::class, [
+            'label' => 'Sekundární barvy',
+            'entry_type' => TextType::class,
+            'entry_options' => [
+                'required' => false,
+                'label' => false,
+            ],
+            'allow_add' => true,
+            'allow_delete' => true,
+            'attr' => ['data-controller' => 'form-collection'],
         ]);
     }
 

@@ -10,4 +10,7 @@ final class ColorMappingFormData
     public null|string $c2 = null;
     public null|string $c3 = null;
     public null|string $c4 = null;
+
+    /** @var array<string> */
+    public array $secondaryColors = [];
 }

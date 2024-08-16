@@ -13,7 +13,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\FormData\ColorMappingFormData;
 use WBoost\Web\FormType\ColorMappingFormType;
-use WBoost\Web\Message\Manual\MapColors;
+use WBoost\Web\Message\Manual\EditManualColors;
 use WBoost\Web\Services\Security\ManualVoter;
 
 final class ManualColorsController extends AbstractController
@@ -32,6 +32,7 @@ final class ManualColorsController extends AbstractController
         $data->c2 = $manual->color2;
         $data->c3 = $manual->color3;
         $data->c4 = $manual->color4;
+        $data->secondaryColors = $manual->secondaryColors;
 
         $form = $this->createForm(ColorMappingFormType::class, $data);
         $form->handleRequest($request);
@@ -41,15 +42,18 @@ final class ManualColorsController extends AbstractController
             $mapping = $form->getExtraData()['mapping'] ?? [];
 
             $this->bus->dispatch(
-                new MapColors(
+                new EditManualColors(
                     $manual->id,
                     $data->c1,
                     $data->c2,
                     $data->c3,
                     $data->c4,
                     $mapping,
+                    $data->secondaryColors,
                 ),
             );
+
+            $this->addFlash('success', 'Barvy manuálu uloženy!');
 
             return $this->redirectToRoute('manual_colors', [
                 'id' => $manual->id->toString(),

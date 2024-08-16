@@ -29,6 +29,13 @@ class Manual
     private array $colors = [];
 
     /**
+     * @var array<string>
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::JSON, options: ['default' => '[]'])]
+    public array $secondaryColors = [];
+
+    /**
      * @var array<array{source: string, target: string}>
      */
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
@@ -180,19 +187,22 @@ class Manual
 
     /**
      * @param array<string, string> $mapping
+     * @param array<string> $secondaryColors
      */
-    public function mapColors(
+    public function editColors(
         null|string $color1,
         null|string $color2,
         null|string $color3,
         null|string $color4,
         array $mapping,
+        array $secondaryColors,
     ): void
     {
         $this->color1 = $color1;
         $this->color2 = $color2;
         $this->color3 = $color3;
         $this->color4 = $color4;
+        $this->secondaryColors = $secondaryColors;
 
         $colorMapping = [];
 
