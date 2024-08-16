@@ -25,7 +25,7 @@
                 <p>
                     {% for font_face in font.faces %}
                         {{ font_face.name }}
-                        <a href="#">Smazat</a>
+                        <a href="{{ path('delete_font', {'fontId': font.id}) }}">Smazat</a>
                         <br>
                     {% endfor %}
                 </p>
