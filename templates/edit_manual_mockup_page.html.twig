@@ -1,6 +1,6 @@
 {% extends 'base_manual.html.twig' %}
 
-{% block title %}Přidat stránku s mockupy - {{ manual.name }}{% endblock %}
+{% block title %}Editace stránky s mockupy - {{ mockup_page.name }}{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
@@ -9,7 +9,7 @@
         <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
         <li class="breadcrumb-item"><a href="{{ path('manual_dashboard', {'id': manual.id}) }}">{{ manual.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('manual_mockup_pages', {'id': manual.id}) }}">Stránky s mockupy</a></li>
-        <li class="breadcrumb-item active">Přidat stránku</li>
+        <li class="breadcrumb-item active">Editace stránky</li>
     </ol>
 {% endblock %}
 
@@ -23,22 +23,12 @@
         <div class="col-xxl-9">
             <div class="card">
                 <div class="card-body">
-                    {% if selected_layout is null %}
-                        {% for layout in layouts %}
-                            <a href="{{ path('add_manual_mockup_page', {'id': manual.id, 'mockupPageLayout': layout.value}) }}">
-                                {{ layout.name }}
-                            </a><br>
-                        {% endfor %}
-                    {% else %}
-                        Vybrán: {{ selected_layout.name }}
+                    {{ form_start(form) }}
 
-                        {{ form_start(form) }}
+                    {{ form_widget(form) }}
 
-                        {{ form_widget(form) }}
-
-                        <button class="btn btn-primary" type="submit">Uložit</button>
-                        {{ form_end(form) }}
-                    {% endif %}
+                    <button class="btn btn-primary" type="submit">Uložit</button>
+                    {{ form_end(form) }}
                 </div>
             </div>
         </div>

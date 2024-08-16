@@ -46,4 +46,13 @@ class ManualMockupPage
         public array $images,
     ) {
     }
+
+    /**
+     * @param array<int, string|null> $images
+     */
+    public function edit(string $name, array $images): void
+    {
+        $this->name = $name;
+        $this->images = $images;
+    }
 }

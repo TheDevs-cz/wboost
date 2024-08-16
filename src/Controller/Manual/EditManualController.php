@@ -43,6 +43,8 @@ final class EditManualController extends AbstractController
                 ),
             );
 
+            $this->addFlash('success', 'Manuál upraven!');
+
             return $this->redirectToRoute('manual_dashboard', [
                 'id' => $manual->id->toString(),
             ]);

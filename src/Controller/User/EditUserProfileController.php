@@ -36,7 +36,7 @@ final class EditUserProfileController extends AbstractController
                 ),
             );
 
-            $this->addFlash('success', 'Profil upraven');
+            $this->addFlash('success', 'Profil upraven!');
 
             return $this->redirectToRoute('user_profile');
         }

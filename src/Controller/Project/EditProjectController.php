@@ -41,6 +41,8 @@ final class EditProjectController extends AbstractController
                 ),  
             );
 
+            $this->addFlash('success', 'Projekt upraven!');
+
             return $this->redirectToRoute('project_dashboard', [
                 'id' => $project->id->toString(),
             ]);

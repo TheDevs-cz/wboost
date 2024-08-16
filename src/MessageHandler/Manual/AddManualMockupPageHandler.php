@@ -43,7 +43,6 @@ readonly final class AddManualMockupPageHandler
             }
 
             $imageNumber = $index + 1;
-
             $extension = $image->guessExtension();
             $path = "manuals/$manual->id/pages/$pageId/image-$imageNumber-$timestamp.$extension";
 
