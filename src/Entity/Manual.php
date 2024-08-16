@@ -147,6 +147,11 @@ class Manual
         );
     }
 
+    public function colorsCount(): int
+    {
+        return count($this->colors) + count($this->secondaryColors);
+    }
+
     public function logosCount(): int
     {
         $logos = array_filter([
