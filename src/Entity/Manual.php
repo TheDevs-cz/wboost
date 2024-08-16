@@ -7,7 +7,6 @@ namespace WBoost\Web\Entity;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
-use Doctrine\ORM\Mapping\ManyToMany;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
 use WBoost\Web\Value\Color;
@@ -71,10 +70,15 @@ class Manual
     #[Column(nullable: true)]
     public null|string $logoSymbol = null;
 
-    /** @var Collection<int, Font>  */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[ManyToMany(targetEntity: Font::class, cascade: ['persist', 'remove'], fetch: 'EXTRA_LAZY')]
-    public Collection $fonts;
+    #[ManyToOne(targetEntity: Font::class, fetch: 'EXTRA_LAZY')]
+    #[JoinColumn(onDelete: 'SET NULL')]
+    public null|Font $primaryFont = null;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[ManyToOne(targetEntity: Font::class, fetch: 'EXTRA_LAZY')]
+    #[JoinColumn(onDelete: 'SET NULL')]
+    public null|Font $secondaryFont = null;
 
     /** @var Collection<int, ManualMockupPage>  */
     #[Immutable]
@@ -102,7 +106,6 @@ class Manual
         #[Column]
         public string $name,
     ) {
-        $this->fonts = new ArrayCollection();
         $this->pages = new ArrayCollection();
     }
 
@@ -220,28 +223,37 @@ class Manual
         return false;
     }
 
-    public function enableFont(Font $font): void
+    /**
+     * @return array<Font>
+     */
+    public function getFonts(): array
     {
-        if (!$this->fonts->contains($font)) {
-            $this->fonts->add($font);
+        $fonts = [];
+
+        if ($this->primaryFont !== null) {
+            $fonts[] = $this->primaryFont;
         }
-    }
 
-    public function disableFont(Font $font): void
-    {
-        if ($this->fonts->contains($font)) {
-            $this->fonts->removeElement($font);
+        if ($this->secondaryFont !== null) {
+            $fonts[] = $this->secondaryFont;
         }
+
+        return $fonts;
     }
 
-    public function enabledFontsCount(): int
+    public function fontsCount(): int
     {
-        return $this->fonts->count();
-    }
+        $count = 0;
 
-    public function isFontEnabled(Font $font): bool
-    {
-        return $this->fonts->contains($font);
+        if ($this->primaryFont !== null) {
+            $count++;
+        }
+
+        if ($this->secondaryFont !== null) {
+            $count++;
+        }
+
+        return $count;
     }
 
     public function isBrandManual(): bool
@@ -252,5 +264,11 @@ class Manual
     public function pagesCount(): int
     {
         return $this->pages->count();
+    }
+
+    public function editFonts(null|Font $primaryFont, null|Font $secondaryFont): void
+    {
+        $this->primaryFont = $primaryFont;
+        $this->secondaryFont = $secondaryFont;
     }
 }

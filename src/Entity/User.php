@@ -41,7 +41,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         #[Id]
         #[Immutable]
         #[Column(type: UuidType::NAME, unique: true)]
-        readonly public UuidInterface $id,
+        public UuidInterface $id,
 
         #[Column(length: 180, unique: true)]
         readonly public string $email,

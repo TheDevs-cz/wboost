@@ -19,26 +19,16 @@
     </div>
 
     <div class="col-xxl-9">
-        {% for font in available_fonts %}
-            <div class="card">
-                <div class="card-body">
-                    <strong>{{ font.name }}</strong>  <br>
-                    <input type="checkbox" id="switch-{{ font.id }}" {{ manual.fontEnabled(font) ? 'checked' }} data-switch="bool"
-                           data-controller="checkbox-toggle"
-                           data-url-checked="{{ path('enable_manual_font', {'id': manual.id, 'fontId': font.id}) }}"
-                           data-url-unchecked="{{ path('disable_manual_font', {'id': manual.id, 'fontId': font.id}) }}"
-                           data-action="change->checkbox-toggle#toggle">
-                    <label for="switch-{{ font.id }}" data-on-label="On" data-off-label="Off"></label>
-                    <br>
-                    <p>
-                        {% for font_face in font.faces %}
-                            {{ font_face.name }}
-                            <br>
-                        {% endfor %}
-                    </p>
-                </div>
+        <div class="card">
+            <div class="card-body">
+                {{ form_start(form) }}
+
+                {{ form_widget(form) }}
+
+                <button class="btn btn-primary" type="submit">Uložit</button>
+                {{ form_end(form) }}
             </div>
-        {% endfor %}
+        </div>
     </div>
 </div>
 {% endblock %}
