@@ -42,7 +42,7 @@ final class ColorMappingFormType extends AbstractType
         ]);
 
         $builder->add('secondaryColors', CollectionType::class, [
-            'label' => 'Sekundární barvy',
+            'label' => false,
             'entry_type' => TextType::class,
             'entry_options' => [
                 'required' => false,
