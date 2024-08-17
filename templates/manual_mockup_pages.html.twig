@@ -26,11 +26,18 @@
                 </div>
             </div>
 
-            {% for page in pages %}
-                <p>
-                    {{ page.name }} / <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}">Upravit</a> / <a href="{{ path('delete_manual_mockup_page', {'id': page.id}) }}">Smazat</a>
-                </p>
-            {% endfor %}
+            <div class="row">
+                {% for page in pages %}
+                <div class="col-sm-6 col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <img class="mb-2" src="{{ asset('images/' ~ page.layout.value ~ '.svg') }}">
+                            {{ page.name }} / <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}">Upravit</a> / <a href="{{ path('delete_manual_mockup_page', {'id': page.id}) }}">Smazat</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 {% endblock %}
