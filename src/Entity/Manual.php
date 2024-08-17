@@ -152,7 +152,13 @@ class Manual
 
     public function colorsMappedCorrectly(): bool
     {
-        return false;
+        foreach ($this->logo->getDetectedColors() as $detectedColor) {
+            if ($this->getColorMappedPrimaryColorNumber($detectedColor->hex) === null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -45,7 +45,7 @@
                     <i class="ri-sip-line widget-icon rounded-circle"></i>
                 </div>
                 <div class="flex-grow-1">
-                    <h5 class="fw-semibold my-0">Barevná paleta ({{ manual.colorsCount }})</h5>
+                    <h5 class="fw-semibold my-0">Barevná paleta ({{ manual.colorsCount }}){% if not manual.colorsMappedCorrectly %} <i class="text-danger uil-exclamation-triangle"></i>{% endif %}</h5>
                 </div>
             </div>
         </a>

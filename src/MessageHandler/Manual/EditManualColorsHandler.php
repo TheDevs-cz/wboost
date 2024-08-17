@@ -32,7 +32,7 @@ readonly final class EditManualColorsHandler
                 continue;
             }
 
-            $mapping[] = new ColorMapping($hex, (int) $primaryColorNumber);
+            $mapping[] = new ColorMapping((string) $hex, (int) $primaryColorNumber);
         }
 
         $manual->editColors(

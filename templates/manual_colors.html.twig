@@ -59,7 +59,7 @@
             {% if detected_colors %}
                 <div class="card">
                     <div class="card-body">
-                        <h4 class="header-title">Mapování detekovaných barev</h4>
+                        <h4 class="header-title">Mapování detekovaných barev{% if not manual.colorsMappedCorrectly %} <i class="text-danger uil-exclamation-triangle"></i>{% endif %}</h4>
 
                         {% for color in detected_colors %}
                             <div class="d-flex align-items-center {{ not loop.first ? 'mt-3'}}">

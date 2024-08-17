@@ -14,7 +14,7 @@ readonly final class EditManualColors
         public array $primaryColors,
         /** @var array<string> */
         public array $secondaryColors,
-        /** @var array<string, string> */
+        /** @var array<string|int, string> */
         public array $mapping,
     ) {
     }
