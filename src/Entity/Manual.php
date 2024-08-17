@@ -33,6 +33,13 @@ class Manual
      */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
+    public array $primaryColors = [];
+
+    /**
+     * @var array<string>
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $secondaryColors = [];
 
     /**
