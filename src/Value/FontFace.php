@@ -10,7 +10,7 @@ readonly final class FontFace
         public string $name,
         public int $weight,
         public string $style,
-        public string $file,
+        public string $filePath,
     ) {
     }
 }

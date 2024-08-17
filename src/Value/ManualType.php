@@ -8,4 +8,9 @@ enum ManualType: string
 {
     case Logo = 'logo';
     case Brand = 'brand';
+
+    public function primaryColorsCount(): int
+    {
+        return 4;
+    }
 }

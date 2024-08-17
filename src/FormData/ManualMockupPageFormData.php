@@ -17,6 +17,6 @@ final class ManualMockupPageFormData
     public function __construct(
         null|MockupPageLayout $layout,
     ) {
-        $this->images = array_fill(0, $layout?->getUploadInputsCount() ?? 0, null);
+        $this->images = array_fill(0, $layout?->uploadInputsCount() ?? 0, null);
     }
 }

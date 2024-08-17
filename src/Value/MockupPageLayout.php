@@ -13,7 +13,7 @@ enum MockupPageLayout: string
     case Layout5 = 'layout-5';
     case Layout6 = 'layout-6';
 
-    public function getUploadInputsCount(): int
+    public function uploadInputsCount(): int
     {
         return match ($this) {
             self::Layout1 => 4,

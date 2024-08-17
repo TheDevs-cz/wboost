@@ -28,7 +28,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logoHorizontal ? uploaded_asset(manual.logoHorizontal) : asset('images/logo-placeholder.png') }}">
+                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.horizontal ? uploaded_asset(manual.logo.horizontal) : asset('images/logo-placeholder.png') }}">
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoHorizontal) }}
@@ -43,7 +43,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logoVertical ? uploaded_asset(manual.logoVertical) : asset('images/logo-placeholder.png') }}">
+                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.vertical ? uploaded_asset(manual.logo.vertical) : asset('images/logo-placeholder.png') }}">
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoVertical) }}
@@ -58,7 +58,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logoHorizontalWithClaim ? uploaded_asset(manual.logoHorizontalWithClaim) : asset('images/logo-placeholder.png') }}">
+                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.horizontalWithClaim ? uploaded_asset(manual.logo.horizontalWithClaim) : asset('images/logo-placeholder.png') }}">
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoHorizontalWithClaim) }}
@@ -73,7 +73,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logoVerticalWithClaim ? uploaded_asset(manual.logoVerticalWithClaim) : asset('images/logo-placeholder.png') }}">
+                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.verticalWithClaim ? uploaded_asset(manual.logo.verticalWithClaim) : asset('images/logo-placeholder.png') }}">
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoVerticalWithClaim) }}
@@ -88,7 +88,7 @@
                         <div class="card-body">
                             <div class="row">
                                 <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logoSymbol ? uploaded_asset(manual.logoSymbol) : asset('images/logo-placeholder.png') }}">
+                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.symbol ? uploaded_asset(manual.logo.symbol) : asset('images/logo-placeholder.png') }}">
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoSymbol) }}

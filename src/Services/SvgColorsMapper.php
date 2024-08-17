@@ -21,8 +21,7 @@ final class SvgColorsMapper
     }
 
     /**
-     * @param array<string, string> $replacementMap
-     * @throws InvalidColorMapping
+     * @param array<int, int|string> $replacementMap
      */
     public function map(string $image, Manual $manual, array $replacementMap): string
     {
@@ -32,39 +31,27 @@ final class SvgColorsMapper
             $mapFrom = [];
             $mapTo = [];
 
-            foreach ($manual->colorMapping as $mapping) {
-                if (!isset($replacementMap[$mapping['target']])) {
+            foreach ($manual->colorsMapping as $mapping) {
+                $sourcePrimaryColorNumber = $replacementMap[$mapping->targetPrimaryColorNumber] ?? null;
+
+                if ($sourcePrimaryColorNumber === null) {
                     continue;
                 }
 
-                if (str_starts_with($replacementMap[$mapping['target']], '#')) {
-                    $mapToColor = trim($replacementMap[$mapping['target']], '#');
+                if (is_int($sourcePrimaryColorNumber)) {
+                    $colorToReplaceWith = $manual->getPrimaryColor($sourcePrimaryColorNumber)?->hex;
                 } else {
-                    $mapToColor = $this->matchColor($manual, $replacementMap[$mapping['target']]);
+                    $colorToReplaceWith = trim($sourcePrimaryColorNumber, '#');
                 }
 
-                $mapFrom[] = $mapping['source'];
-                $mapTo[] = $mapToColor;
+                $mapFrom[] = $mapping->colorHex;
+                $mapTo[] = $colorToReplaceWith;
             }
 
             $svgContent = str_replace($mapFrom, $mapTo, $svgContent);
         }
 
         return 'data:image/svg+xml;base64,' . base64_encode($svgContent);
-    }
-
-    /**
-     * @throws InvalidColorMapping
-     */
-    private function matchColor(Manual $manual, string $colorName): null|string
-    {
-        return match (strtoupper($colorName)) {
-            'C1' => $manual->color1,
-            'C2' => $manual->color2,
-            'C3' => $manual->color3,
-            'C4' => $manual->color4,
-            default => throw new InvalidColorMapping(),
-        };
     }
 
     private function getSvgContent(string $filePath): string

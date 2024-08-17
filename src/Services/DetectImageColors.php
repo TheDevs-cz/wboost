@@ -15,18 +15,10 @@ readonly final class DetectImageColors
     {
         $svg = new SimpleXMLElement($fileContent);
 
-        return $this->extractColorsFromSvg($svg);
-    }
+        $colorsFromAttributes = $this->extractColorsFromAttributes($svg);
+        $colorsFromStyles = $this->extractColorsFromStyles($svg);
 
-    /**
-     * @return string[]
-     */
-    public function extractColorsFromSvg(SimpleXMLElement $svg): array
-    {
-        $colors = [];
-
-        $colors = array_merge($colors, $this->extractColorsFromAttributes($svg));
-        $colors = array_merge($colors, $this->extractColorsFromStyles($svg));
+        $colors = array_merge($colorsFromAttributes, $colorsFromStyles);
 
         return array_unique($colors);
     }

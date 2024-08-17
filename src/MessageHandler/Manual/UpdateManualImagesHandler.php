@@ -13,6 +13,8 @@ use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\UpdateManualImages;
 use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Services\DetectImageColors;
+use WBoost\Web\Value\Logo;
+use WBoost\Web\Value\SvgImage;
 
 #[AsMessageHandler]
 readonly final class UpdateManualImagesHandler
@@ -32,42 +34,44 @@ readonly final class UpdateManualImagesHandler
     {
         $manual = $this->manualRepository->get($message->manualId);
 
-        $logoHorizontalPath = $manual->logoHorizontal;
-        $logoVerticalPath = $manual->logoVertical;
-        $logoHorizontalWithClaimPath = $manual->logoHorizontalWithClaim;
-        $logoVerticalWithClaimPath = $manual->logoVerticalWithClaim;
-        $logoSymbolPath = $manual->logoSymbol;
+        $logoHorizontal = $manual->logo->horizontal;
+        $logoVertical = $manual->logo->vertical;
+        $logoHorizontalWithClaim = $manual->logo->horizontalWithClaim;
+        $logoVerticalWithClaim = $manual->logo->verticalWithClaim;
+        $logoSymbol = $manual->logo->symbol;
 
         if ($message->logoHorizontal !== null) {
-            $logoHorizontalPath = $this->uploadImage($manual, $message->logoHorizontal, 'logo-horizontal');
+            $logoHorizontal = $this->uploadImage($manual, $message->logoHorizontal, 'logo-horizontal');
         }
 
         if ($message->logoVertical !== null) {
-            $logoVerticalPath = $this->uploadImage($manual, $message->logoVertical, 'logo-vertical');
+            $logoVertical = $this->uploadImage($manual, $message->logoVertical, 'logo-vertical');
         }
 
         if ($message->logoHorizontalWithClaim !== null) {
-            $logoHorizontalWithClaimPath = $this->uploadImage($manual, $message->logoHorizontalWithClaim, 'logo-horizontal-claim');
+            $logoHorizontalWithClaim = $this->uploadImage($manual, $message->logoHorizontalWithClaim, 'logo-horizontal-claim');
         }
 
         if ($message->logoVerticalWithClaim !== null) {
-            $logoVerticalWithClaimPath = $this->uploadImage($manual, $message->logoVerticalWithClaim, 'logo-vertical-claim');
+            $logoVerticalWithClaim = $this->uploadImage($manual, $message->logoVerticalWithClaim, 'logo-vertical-claim');
         }
 
         if ($message->logoSymbol !== null) {
-            $logoSymbolPath = $this->uploadImage($manual, $message->logoSymbol, 'logo-symbol');
+            $logoSymbol = $this->uploadImage($manual, $message->logoSymbol, 'logo-symbol');
         }
 
-        $manual->updateImages(
-            $logoHorizontalPath,
-            $logoVerticalPath,
-            $logoHorizontalWithClaimPath,
-            $logoVerticalWithClaimPath,
-            $logoSymbolPath,
+        $manual->editLogo(
+            new Logo(
+                horizontal: $logoHorizontal,
+                vertical: $logoVertical,
+                horizontalWithClaim: $logoHorizontalWithClaim,
+                verticalWithClaim: $logoVerticalWithClaim,
+                symbol: $logoSymbol,
+            )
         );
     }
 
-    private function uploadImage(Manual $manual, UploadedFile $image, string $imagePrefix): string
+    private function uploadImage(Manual $manual, UploadedFile $image, string $imagePrefix): SvgImage
     {
         $timestamp = $this->clock->now()->getTimestamp();
 
@@ -76,11 +80,11 @@ readonly final class UpdateManualImagesHandler
 
         $fileContent = $image->getContent();
         $this->filesystem->write($path, $fileContent);
+        $detectedColors = $this->detectImageColors->fromSvg($fileContent);
 
-        $colors = $this->detectImageColors->fromSvg($fileContent);
-
-        $manual->addColors($colors);
-
-        return $path;
+        return new SvgImage(
+            filePath: $path,
+            detectedColors: $detectedColors,
+        );
     }
 }

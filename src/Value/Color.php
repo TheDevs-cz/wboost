@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Value;
 
-readonly final class Color
+use Stringable;
+
+readonly final class Color implements Stringable
 {
     public string $hex;
     /** @var int[]  */
@@ -70,5 +72,10 @@ readonly final class Color
             (int) round($y * 100),
             (int) round($k * 100)
         ];
+    }
+
+    public function __toString(): string
+    {
+        return $this->hex;
     }
 }

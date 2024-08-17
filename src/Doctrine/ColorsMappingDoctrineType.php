@@ -8,14 +8,14 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
-use WBoost\Web\Value\FontFace;
+use WBoost\Web\Value\ColorMapping;
 
-final class FontFacesDoctrineType extends JsonType
+final class ColorsMappingDoctrineType extends JsonType
 {
-    public const string NAME = 'font_faces';
+    public const string NAME = 'colors_mapping';
 
     /**
-     * @return null|array<FontFace>
+     * @return null|array<ColorMapping>
      *
      * @throws ConversionException
      */
@@ -28,24 +28,22 @@ final class FontFacesDoctrineType extends JsonType
         $jsonData = parent::convertToPHPValue($value, $platform);
         assert(is_array($jsonData));
 
-        $fonts = [];
+        $mappings = [];
 
-        foreach ($jsonData as $fontData) {
-            /** @var array{name: string, filePath: string, weight: int, style: string} $fontData */
+        foreach ($jsonData as $mapping) {
+            /** @var array{colorHex: string, targetPrimaryColorNumber: int} $mapping */
 
-            $fonts[] = new FontFace(
-                name: $fontData['name'],
-                weight: $fontData['weight'],
-                style: $fontData['style'],
-                filePath: $fontData['filePath'],
+            $mappings[] = new ColorMapping(
+                colorHex: $mapping['colorHex'],
+                targetPrimaryColorNumber: $mapping['targetPrimaryColorNumber'],
             );
         }
 
-        return $fonts;
+        return $mappings;
     }
 
     /**
-     * @param null|array<FontFace> $value
+     * @param null|array<ColorMapping> $value
      * @throws ConversionException
      */
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
@@ -56,16 +54,14 @@ final class FontFacesDoctrineType extends JsonType
 
         $data = [];
 
-        foreach ($value as $font) {
-            if (!is_a($font, FontFace::class)) {
-                throw InvalidType::new($value, self::NAME, [FontFace::class]);
+        foreach ($value as $mapping) {
+            if (!is_a($mapping, ColorMapping::class)) {
+                throw InvalidType::new($value, self::NAME, [ColorMapping::class]);
             }
 
             $data[] = [
-                'name' => $font->name,
-                'weight' => $font->weight,
-                'style' => $font->style,
-                'filePath' => $font->filePath,
+                'colorHex' => $mapping->colorHex,
+                'targetPrimaryColorNumber' => $mapping->targetPrimaryColorNumber,
             ];
         }
 

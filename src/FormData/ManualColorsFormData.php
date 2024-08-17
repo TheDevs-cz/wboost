@@ -2,20 +2,15 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Message\Manual;
+namespace WBoost\Web\FormData;
 
-use Ramsey\Uuid\UuidInterface;
-
-readonly final class EditManualColors
+final class ManualColorsFormData
 {
     public function __construct(
-        public UuidInterface $manualId,
         /** @var non-empty-array<null|string> */
         public array $primaryColors,
         /** @var array<string> */
         public array $secondaryColors,
-        /** @var array<string, string> */
-        public array $mapping,
     ) {
     }
 }

@@ -8,6 +8,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\EditManualColors;
 use WBoost\Web\Repository\ManualRepository;
+use WBoost\Web\Value\ColorMapping;
 
 #[AsMessageHandler]
 readonly final class EditManualColorsHandler
@@ -24,13 +25,20 @@ readonly final class EditManualColorsHandler
     {
         $manual = $this->manualRepository->get($message->manualId);
 
+        $mapping = [];
+
+        foreach ($message->mapping as $hex => $primaryColorNumber) {
+            if ($primaryColorNumber === '') {
+                continue;
+            }
+
+            $mapping[] = new ColorMapping($hex, (int) $primaryColorNumber);
+        }
+
         $manual->editColors(
-            $message->color1,
-            $message->color2,
-            $message->color3,
-            $message->color4,
-            $message->mapping,
+            $message->primaryColors,
             $message->secondaryColors,
+            $mapping,
         );
     }
 }

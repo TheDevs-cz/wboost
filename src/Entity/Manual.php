@@ -9,6 +9,8 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
+use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
+use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
@@ -17,23 +19,19 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\ColorMapping;
+use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\ManualType;
 
 #[Entity]
 class Manual
 {
     /**
-     * @var array<string>
-     */
-    #[Column(type: Types::JSON, options: ['default' => '[]'])]
-    private array $colors = [];
-
-    /**
-     * @var array<string>
+     * @var non-empty-array<string|null>
      */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
-    public array $primaryColors = [];
+    public array $primaryColors;
 
     /**
      * @var array<string>
@@ -43,46 +41,14 @@ class Manual
     public array $secondaryColors = [];
 
     /**
-     * @var array<array{source: string, target: string}>
+     * @var array<ColorMapping>
      */
-    #[Column(type: Types::JSON, options: ['default' => '[]'])]
-    public array $colorMapping = [];
+    #[Column(type: ColorsMappingDoctrineType::NAME, options: ['default' => '[]'])]
+    public array $colorsMapping = [];
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $color1 = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $color2 = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $color3 = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $color4 = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $logoHorizontal = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $logoVertical = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $logoHorizontalWithClaim = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $logoVerticalWithClaim = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(nullable: true)]
-    public null|string $logoSymbol = null;
+    #[Column(type: LogoDoctrineType::NAME, nullable: false)]
+    public Logo $logo;
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[ManyToOne(targetEntity: Font::class, fetch: 'EXTRA_LAZY')]
@@ -121,6 +87,11 @@ class Manual
         public string $name,
     ) {
         $this->pages = new ArrayCollection();
+        $this->logo = Logo::withoutImages();
+
+        /** @var non-empty-array<int, null> $emptyColors */
+        $emptyColors = array_fill(0, $type->primaryColorsCount(), null);
+        $this->primaryColors = $emptyColors;
     }
 
     public function edit(ManualType $type, string $name): void
@@ -129,111 +100,50 @@ class Manual
         $this->name = $name;
     }
 
-    public function updateImages(
-        null|string $logoHorizontal,
-        null|string $logoVertical,
-        null|string $logoHorizontalWithClaim,
-        null|string $logoVerticalWithClaim,
-        null|string $logoSymbol,
-    ): void {
-        $this->logoHorizontal = $logoHorizontal;
-        $this->logoVertical = $logoVertical;
-        $this->logoHorizontalWithClaim = $logoHorizontalWithClaim;
-        $this->logoVerticalWithClaim = $logoVerticalWithClaim;
-        $this->logoSymbol = $logoSymbol;
+    public function editLogo(Logo $logo): void
+    {
+        $this->logo = $logo;
     }
 
-    /**
-     * @return array<Color>
-     */
-    public function colors(): array
+    public function getPrimaryColor(int $number): null|Color
     {
-        return array_map(
-            fn(string $hex): Color => new Color($hex),
-            $this->colors,
-        );
+        $colorHex = $this->primaryColors[$number-1] ?? null;
+
+        if ($colorHex === null) {
+            return null;
+        }
+
+        return new Color($colorHex);
     }
 
     public function colorsCount(): int
     {
-        return count($this->colors) + count($this->secondaryColors);
-    }
-
-    public function logosCount(): int
-    {
-        $logos = array_filter([
-            $this->logoHorizontal,
-            $this->logoVertical,
-            $this->logoHorizontalWithClaim,
-            $this->logoVerticalWithClaim,
-            $this->logoSymbol,
-        ]);
-
-        return count($logos);
-    }
-
-    public function introLogo(): null|string
-    {
-        $logos = array_values(array_filter([
-            $this->logoHorizontal,
-            $this->logoHorizontalWithClaim,
-            $this->logoSymbol,
-            $this->logoVertical,
-            $this->logoVerticalWithClaim,
-        ]));
-
-        return $logos[0] ?? null;
+        return count($this->primaryColors) + count($this->secondaryColors);
     }
 
     /**
-     * @param array<string> $colors
-     */
-    public function addColors(array $colors): void
-    {
-        foreach ($colors as $color) {
-            if (!in_array($color, $this->colors, true)) {
-                $this->colors[] = $color;
-            }
-        }
-    }
-
-    /**
-     * @param array<string, string> $mapping
-     * @param array<string> $secondaryColors
+     * @param non-empty-array<null|string> $primaryColors
+     * @param array<null|string> $secondaryColors
+     * @param array<ColorMapping> $colorsMapping
      */
     public function editColors(
-        null|string $color1,
-        null|string $color2,
-        null|string $color3,
-        null|string $color4,
-        array $mapping,
+        array $primaryColors,
         array $secondaryColors,
+        array $colorsMapping,
     ): void
     {
-        $this->color1 = $color1;
-        $this->color2 = $color2;
-        $this->color3 = $color3;
-        $this->color4 = $color4;
-        $this->secondaryColors = $secondaryColors;
-
-        $colorMapping = [];
-
-        foreach ($mapping as $color => $target) {
-            if ($target !== '') {
-                $colorMapping[] = ['source' => strtolower((string) $color), 'target' => $target];
-            }
-        }
-
-        $this->colorMapping = $colorMapping;
+        $this->primaryColors = $primaryColors;
+        $this->secondaryColors = array_values(array_filter($secondaryColors));
+        $this->colorsMapping = $colorsMapping;
     }
 
-    public function getMappedColorTarget(string $color): null|string
+    public function getColorMappedPrimaryColorNumber(string $color): null|int
     {
         $color = strtolower($color);
 
-        foreach ($this->colorMapping as $mapping) {
-            if ($color === $mapping['source']) {
-                return $mapping['target'];
+        foreach ($this->colorsMapping as $mapping) {
+            if ($color === strtolower($mapping->colorHex)) {
+                return $mapping->targetPrimaryColorNumber;
             }
         }
 

@@ -8,7 +8,7 @@
             {% for font_face in font.faces %}
                 @font-face {
                     font-family: '{{ font.name }}';
-                    src: url('{{ uploaded_asset(font_face.file) }}');
+                    src: url('{{ uploaded_asset(font_face.filePath) }}');
                     font-weight: {{ font_face.weight }};
                     {# TODO: font-style: normal; #}
                 }
@@ -24,57 +24,57 @@
                 <nav class="nav nav-pills flex-column">
                     {% set page = 0 %}
 
-                    {% if manual.logoHorizontal or manual.logoVertical or manual.logoSymbol %}
+                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoHorizontalWithClaim or manual.logoVerticalWithClaim %}
+                    {% if manual.logo.horizontalWithClaim or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoHorizontal %}
+                    {% if manual.logo.horizontal %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoHorizontalWithClaim %}
+                    {% if manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoVertical %}
+                    {% if manual.logo.vertical %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoVerticalWithClaim %}
+                    {% if manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoHorizontal or manual.logoHorizontalWithClaim %}
+                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoVertical or manual.logoVerticalWithClaim %}
+                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoSymbol %}
+                    {% if manual.logo.symbol %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logoHorizontal or manual.logoVertical or manual.logoSymbol %}
+                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.color2 or manual.color3 or manual.color4 %}
+                    {% if manual.primaryColor(2) or manual.primaryColor(3) or manual.primaryColor(4) %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
@@ -102,7 +102,7 @@
                 <div class="container">
                     {% set page = 0 %}
 
-                    {% if manual.logoHorizontal or manual.logoVertical or manual.logoSymbol %}
+                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
@@ -117,28 +117,28 @@
                                     Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
                                 </div>
                                 <div class="page-designs col-9">
-                                    {% if manual.logoHorizontal %}
+                                    {% if manual.logo.horizontal %}
                                         {% set colorsMapping = {} %}
 
-                                        <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                            <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                        <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                         </div>
                                     {% endif %}
 
-                                    {% if manual.logoVertical or manual.logoSymbol %}
+                                    {% if manual.logo.vertical or manual.logo.symbol %}
                                         <div class="row">
-                                            {% if manual.logoVertical %}
+                                            {% if manual.logo.vertical %}
                                                 <div class="col-6">
-                                                    <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                        <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                                    <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                        <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                                     </div>
                                                 </div>
                                             {% endif %}
 
-                                            {% if manual.logoSymbol %}
+                                            {% if manual.logo.symbol %}
                                                 <div class="col-6">
-                                                    <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                        <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                                    <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                                     </div>
                                                 </div>
                                             {% endif %}
@@ -149,7 +149,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoHorizontalWithClaim or manual.logoVerticalWithClaim %}
+                    {% if manual.logo.horizontalWithClaim or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
@@ -164,19 +164,19 @@
                                     Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
                                 </div>
                                 <div class="page-designs col-9">
-                                    {% if manual.logoHorizontalWithClaim %}
+                                    {% if manual.logo.horizontalWithClaim %}
                                         {% set colorsMapping = {} %}
 
-                                        <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                            <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                        <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                         </div>
                                     {% endif %}
 
-                                    {% if manual.logoVerticalWithClaim %}
+                                    {% if manual.logo.verticalWithClaim %}
                                         <div class="row">
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                    <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                                <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         </div>
@@ -186,7 +186,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoHorizontal %}
+                    {% if manual.logo.horizontal %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -205,32 +205,32 @@
 
                                     <div class="row">
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C2', 'C2': 'C1'} %}
+                                        {% set colorsMapping = {1: 2, 2: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1'} %}
+                                        {% set colorsMapping = {1: 3, 3: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1'} %}
+                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -240,7 +240,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoHorizontalWithClaim %}
+                    {% if manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -261,32 +261,32 @@
 
                                     <div class="row">
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C4': 'C3', 'C2': 'C1'} %}
+                                        {% set colorsMapping = {4: 3, 2: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1', 'C4': 'C1'} %}
+                                        {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1', 'C4': 'C1'} %}
+                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -296,7 +296,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoVertical %}
+                    {% if manual.logo.vertical %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -317,32 +317,32 @@
 
                                     <div class="row">
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C2', 'C2': 'C1'} %}
+                                        {% set colorsMapping = {1: 2, 2: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1'} %}
+                                        {% set colorsMapping = {1: 3, 3: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1'} %}
+                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -352,7 +352,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoVerticalWithClaim %}
+                    {% if manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -373,32 +373,32 @@
 
                                     <div class="row">
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C4': 'C3', 'C2': 'C1'} %}
+                                        {% set colorsMapping = {4: 3, 2: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1', 'C4': 'C1'} %}
+                                        {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color3 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C4', 'C3': 'C1', 'C2': 'C1', 'C4': 'C1'} %}
+                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color4 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -408,7 +408,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoHorizontal or manual.logoHorizontalWithClaim %}
+                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -425,36 +425,96 @@
                                 </div>
                                 <div class="page-designs col-9">
 
-                                    {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+                                    <div class="row">
+                                        {% if manual.logo.horizontal %}
+                                            {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
+                                            <div class="col-6">
+                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                </div>
+                                            </div>
+                                        {% endif %}
+
+                                        {% if manual.logo.horizontal %}
+                                            {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+                                            <div class="col-6">
+                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: #000000">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                </div>
+                                            </div>
+                                        {% endif %}
+
+                                        {% if manual.logo.horizontalWithClaim %}
+                                            {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
+                                            <div class="col-6">
+                                                <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                </div>
+                                            </div>
+                                        {% endif %}
+
+                                        {% if manual.logo.horizontalWithClaim %}
+                                            {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+                                            <div class="col-6">
+                                                <div class="border border-2 p-5 rounded-4" style="background: #000000">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
 
                                     <div class="row">
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+                                        {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
 
                                         <div class="col-6">
                                             <div class="border border-2 p-5 rounded-4 mb-4" style="background: #000000">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+                                        {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
 
                                         <div class="col-6">
                                             <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+                                        {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
 
                                         <div class="col-6">
                                             <div class="border border-2 p-5 rounded-4" style="background: #000000">
-                                                <img src="{{ remap_svg_colors(manual.logoHorizontalWithClaim, manual, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -464,63 +524,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoVertical or manual.logoVerticalWithClaim %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
-
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-
-                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
-
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: #000000">
-                                                <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-
-                                        {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
-
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
-                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-
-                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
-
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: #000000">
-                                                <img src="{{ remap_svg_colors(manual.logoVerticalWithClaim, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logoSymbol %}
+                    {% if manual.logo.symbol %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -541,40 +545,40 @@
 
                                     <div class="row">
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C2'} %}
+                                        {% set colorsMapping = {1: 2} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color2 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C1': 'C3', 'C3': 'C1'} %}
+                                        {% set colorsMapping = {1: 3, 3: 1} %}
 
                                         <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color3 }}">
-                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C2': '#000000', 'C3': '#000000', 'C4': '#000000'} %}
+                                        {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
 
                                         <div class="col-6">
                                             <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
-                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = {'C2': '#ffffff', 'C3': '#ffffff', 'C4': '#ffffff'} %}
+                                        {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
 
                                         <div class="col-6">
                                             <div class="border border-2 p-5 rounded-4" style="background: #000000">
-                                                <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -584,7 +588,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logoHorizontal or manual.logoVertical or manual.logoSymbol %}
+                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -604,29 +608,29 @@
                                     {% set colorsMapping = {} %}
 
                                     <div class="row">
-                                        {% if manual.logoHorizontal %}
+                                        {% if manual.logo.horizontal %}
                                             <div class="col-12">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                     OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
-                                                    <img src="{{ remap_svg_colors(manual.logoHorizontal, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
-                                        {% if manual.logoVertical %}
+                                        {% if manual.logo.vertical %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                     OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
-                                                    <img src="{{ remap_svg_colors(manual.logoVertical, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
-                                        {% if manual.logoSymbol %}
+                                        {% if manual.logo.symbol %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.color1 }}">
+                                                <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                     OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
-                                                    <img src="{{ remap_svg_colors(manual.logoSymbol, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -637,7 +641,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.color2 or manual.color3 or manual.color4 %}
+                    {% if manual.primaryColor(2) or manual.primaryColor(3) or manual.primaryColor(4) %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -653,16 +657,16 @@
                                     Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
                                 </div>
                                 <div class="page-designs col-9">
-                                    {% if manual.color2 %}
-                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.color2 }};"></span>
+                                    {% if manual.primaryColor(2) %}
+                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.primaryColor(2) }};"></span>
                                     {% endif %}
 
-                                    {% if manual.color3 %}
-                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.color3 }};"></span>
+                                    {% if manual.primaryColor(3) %}
+                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.primaryColor(3) }};"></span>
                                     {% endif %}
 
-                                    {% if manual.color4 %}
-                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.color4 }};"></span>
+                                    {% if manual.primaryColor(4) %}
+                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.primaryColor(4) }};"></span>
                                     {% endif %}
                                 </div>
                             </div>
