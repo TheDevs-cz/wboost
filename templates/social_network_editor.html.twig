@@ -1,0 +1,98 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editor - {{ template.name }}{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('social_network_templates', {'projectId': project.id}) }}">Sociální sítě</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <style>
+        {% for font in fonts %}
+            {% for font_face in font.faces %}
+            @font-face {
+                font-family: '{{ font.name }}';
+                src: url('{{ uploaded_asset(font_face.filePath) }}');
+                font-weight: {{ font_face.weight }};
+            {# TODO: font-style: normal; #}
+            }
+            {% endfor %}
+        {% endfor %}
+    </style>
+
+    <div class="card">
+        <div class="card-body">
+            <div
+                 id="canvas-container"
+                 data-controller="canvas-editor"
+                 data-canvas-editor-background-image-value="{{ template.backgroundImage ? uploaded_asset(template.backgroundImage) : '' }}"
+                 data-canvas-editor-custom-fonts-value='["Arial", "Roboto"]'
+            >
+                {{ form_start(form) }}
+
+                <div class="canvas-wrapper">
+                    <canvas id="c" width="600" height="600"></canvas>
+                </div>
+
+                <button type="button" data-action="canvas-editor#addText">Add Text</button>
+                <button type="button" data-action="canvas-editor#bringToFront">Bring to Front</button>
+                <button type="button" data-action="canvas-editor#sendToBack">Send to Back</button>
+                <button type="button" data-action="canvas-editor#deleteObject">Delete Object</button>
+
+                <div id="font-controls" style="display: none;">
+                    <!-- Max Length Control -->
+                    <label for="max-length">Max Length:</label>
+                    <input type="number" id="max-length" data-action="input->canvas-editor#updateMaxLength">
+
+                    <label for="font-size">Font Size:</label>
+                    <input type="number" id="font-size" data-action="input->canvas-editor#updateFontSize">
+
+                    <label for="font-color">Font Color:</label>
+                    <input type="color" id="font-color" data-action="input->canvas-editor#updateFontColor">
+
+                    <label for="text-align">Text Align:</label>
+                    <select id="text-align" data-action="change->canvas-editor#updateTextAlign">
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                        <option value="justify">Justify</option>
+                    </select>
+
+                    <label for="font-family">Font Family:</label>
+                    <select id="font-family" data-action="change->canvas-editor#updateFontFamily">
+                        <!-- Options will be populated dynamically by Stimulus -->
+                    </select>
+
+                    <label for="text-decoration">Text Decoration:</label>
+                    <select id="text-decoration" data-action="change->canvas-editor#updateTextDecoration">
+                        <option value="none">None</option>
+                        <option value="underline">Underline</option>
+                        <option value="line-through">Line Through</option>
+                        <option value="overline">Overline</option>
+                    </select>
+
+                    <!-- Font Weight Control -->
+                    <label for="font-weight">Font Weight:</label>
+                    <select id="font-weight" data-action="change->canvas-editor#updateFontWeight">
+                        <option value="300">Light</option>
+                        <option value="normal">Regular</option>
+                        <option value="700">Bold</option>
+                    </select>
+                </div>
+
+                {{ form_widget(form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}
+                {{ form_widget(form.textInputs, { attr: { 'data-canvas-editor-target': 'textInputs' } }) }}
+
+                <button data-action="canvas-editor#submitForm" type="button" class="btn btn-primary">Uložit</button>
+
+                {{ form_end(form) }}
+            </div>
+
+        </div>
+    </div>
+{% endblock %}

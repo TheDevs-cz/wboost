@@ -6,3 +6,8 @@
     height: 100vh;
     overflow: auto;
 }
+
+.canvas-wrapper {
+    border: 2px solid #222;
+    display: inline-block;
+}

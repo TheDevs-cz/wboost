@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sociální sítě{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            <a href="{{ path('add_social_network_template', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona</a>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for template in templates %}
+            <div class="col-md-6 col-xxl-3">
+                <div class="card d-block">
+                    <a href="{{ path('social_network_editor', {'templateId': template.id}) }}">{{ template.name }}</a> / <a href="#">Upravit</a> / <a href="#">Smazat</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}
