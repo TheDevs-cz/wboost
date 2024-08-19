@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 use Stringable;
+use WBoost\Web\Exceptions\InvalidColorHex;
 
 readonly final class Color implements Stringable
 {
@@ -23,10 +24,13 @@ readonly final class Color implements Stringable
         $this->cmyk = $this->rgbToCmyk($this->rgb);
     }
 
+    /**
+     * @throws InvalidColorHex
+     */
     private function validateHex(string $hex): string
     {
-        if (!preg_match('/^#?[0-9A-Fa-f]{6}$/', $hex)) {
-            throw new \InvalidArgumentException("Invalid hex color code");
+        if (!preg_match('/^#?[0-9A-Fa-f]{3,6}$/', $hex)) {
+            throw new InvalidColorHex();
         }
 
         return ltrim($hex, '#');
