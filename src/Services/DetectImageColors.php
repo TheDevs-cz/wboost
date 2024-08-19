@@ -20,7 +20,7 @@ readonly final class DetectImageColors
 
         $colors = array_merge($colorsFromAttributes, $colorsFromStyles);
 
-        return array_unique($colors);
+        return array_values(array_unique($colors));
     }
 
     /**
