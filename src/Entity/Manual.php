@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
 use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
+use WBoost\Web\Exceptions\InvalidColorHex;
 use WBoost\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
@@ -113,7 +114,11 @@ class Manual
             return null;
         }
 
-        return new Color($colorHex);
+        try {
+            return new Color($colorHex);
+        } catch (InvalidColorHex) {
+            return null;
+        }
     }
 
     public function colorsCount(): int

@@ -46,6 +46,7 @@
                             <div class="form-group input-group mb-3">
                                 {{ form_widget(colorForm) }}
                                 <button type="button" class="btn btn-danger" data-action="form-collection#remove">Odstranit</button>
+                                {{ form_errors(colorForm) }}
                             </div>
                         {% endfor %}
 

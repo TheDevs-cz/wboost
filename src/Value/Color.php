@@ -10,30 +10,35 @@ use WBoost\Web\Exceptions\InvalidColorHex;
 readonly final class Color implements Stringable
 {
     public string $hex;
-    /** @var int[]  */
 
+    /** @var int[]  */
     public array $rgb;
 
     /** @var int[]  */
     public array $cmyk;
 
-    public function __construct(string $hex)
-    {
-        $this->hex = $this->validateHex($hex);
+    /**
+     * @throws InvalidColorHex
+     */
+    public function __construct(
+        string $hex
+    ) {
+        if (!self::isValidHex($hex)) {
+            throw new InvalidColorHex();
+        }
+
+        $this->hex = ltrim($hex, '#');
         $this->rgb = $this->hexToRgb($this->hex);
         $this->cmyk = $this->rgbToCmyk($this->rgb);
     }
 
-    /**
-     * @throws InvalidColorHex
-     */
-    private function validateHex(string $hex): string
+    public static function isValidHex(string $hex): bool
     {
         if (!preg_match('/^#?[0-9A-Fa-f]{3,6}$/', $hex)) {
-            throw new InvalidColorHex();
+            return false;
         }
 
-        return ltrim($hex, '#');
+        return true;
     }
 
 

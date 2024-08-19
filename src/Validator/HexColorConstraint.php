@@ -1,0 +1,14 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WBoost\Web\Validator;
+
+use Attribute;
+use Symfony\Component\Validator\Constraint;
+
+#[Attribute]
+final class HexColorConstraint extends Constraint
+{
+    public string $message = 'Hodnota {{ value }} není validní HEX kód barvy.';
+}
