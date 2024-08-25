@@ -40,7 +40,7 @@ export default class extends Controller {
     setBackgroundImage(imageUrl) {
         fabric.Image.fromURL(imageUrl, (img) => {
             this.canvas.setBackgroundImage(img, this.canvas.renderAll.bind(this.canvas));
-        });
+        }, {crossOrigin: 'anonymous'});
     }
 
     async loadFontsAndPopulateSelect() {
@@ -153,6 +153,7 @@ export default class extends Controller {
             document.getElementById('text-decoration').value = activeObject.textDecoration || 'none';
             document.getElementById('font-weight').value = activeObject.fontWeight || 'normal';
             document.getElementById('max-length').value = activeObject.maxLength || '';
+            document.getElementById('locked').checked = activeObject.locked || false;
         } else {
             fontControls.style.display = 'none';
         }
@@ -263,21 +264,54 @@ export default class extends Controller {
         }
     }
 
+    updateLocked(event) {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject && activeObject.type === 'textbox') {
+            activeObject.locked = event.target.checked;
+            activeObject.set({
+                lockMovementX: activeObject.locked,
+                lockMovementY: activeObject.locked,
+                lockScalingX: activeObject.locked,
+                lockScalingY: activeObject.locked,
+                lockRotation: activeObject.locked,
+                hasControls: !activeObject.locked,
+            });
+            this.canvas.renderAll();
+        }
+    }
+
     submitForm(event) {
         event.preventDefault(); // Prevent the default form submission
 
         // Serialize the canvas JSON
-        const canvasJSON = this.canvas.toJSON(['name', 'maxLength']);
+        const canvasJSON = this.canvas.toJSON(['name', 'maxLength', 'locked']);
         this.canvasTarget.value = JSON.stringify(canvasJSON);
 
         // Serialize only the text inputs
         const textInputs = this.canvas.getObjects('textbox').map(textbox => ({
             name: textbox.name,
             maxLength: textbox.maxLength || null,
+            locked: textbox.locked || false,
         }));
         this.textInputsTarget.value = JSON.stringify(textInputs);
 
         // Submit the form programmatically
         this.canvasTarget.closest('form').submit();
+    }
+
+    exportAsImage() {
+        // Convert the canvas to a data URL in PNG format
+        const dataURL = this.canvas.toDataURL({
+            format: 'png',
+            quality: 1.0,
+        });
+
+        // Create a link element to download the image
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = 'canvas.png'; // The name of the downloaded file
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 }

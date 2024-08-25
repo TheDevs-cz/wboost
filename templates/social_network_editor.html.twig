@@ -83,6 +83,10 @@
                         <option value="normal">Regular</option>
                         <option value="700">Bold</option>
                     </select>
+
+                    <!-- Locked Control -->
+                    <label for="locked">Locked:</label>
+                    <input type="checkbox" id="locked" data-action="change->canvas-editor#updateLocked">
                 </div>
 
                 {{ form_widget(form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}
@@ -91,6 +95,8 @@
                 <button data-action="canvas-editor#submitForm" type="button" class="btn btn-primary">Uložit</button>
 
                 {{ form_end(form) }}
+
+                <button type="button" data-action="canvas-editor#exportAsImage">Export as Image</button>
             </div>
 
         </div>
