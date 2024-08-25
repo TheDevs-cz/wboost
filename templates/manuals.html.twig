@@ -12,32 +12,36 @@
 
 {% block content %}
 
-    <div class="row mb-2">
-        <div class="col-sm-12">
-            <a href="{{ path('add_manual', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový manuál</a>
+    {% if is_granted('ROLE_DESIGNER') %}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_manual', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový manuál</a>
+            </div>
         </div>
-    </div>
+    {% endif %}
 
     <div class="row">
         {% for manual in manuals %}
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
-                    <a href="{{ path('manual_dashboard', {'id': manual.id}) }}">
+                    <a href="{{ is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'id': manual.id}) }}">
                         <img class="card-img-top" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
                     </a>
 
-                    <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                        <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="ri-more-fill"></i>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-end">
-                            <a href="{{ path('manual_preview', {'id': manual.id}) }}" class="dropdown-item" target="_blank"><i class="ri-eye-fill me-1"></i>Zobrazit manuál</a>
-                            <a href="{{ path('edit_manual', {'id': manual.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                            <a href="{{ path('delete_manual', {'id': manual.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                    {% if is_granted('manual_edit', manual) %}
+                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="ri-more-fill"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a href="{{ path('manual_preview', {'id': manual.id}) }}" class="dropdown-item" target="_blank"><i class="ri-eye-fill me-1"></i>Zobrazit manuál</a>
+                                <a href="{{ path('edit_manual', {'id': manual.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                                <a href="{{ path('delete_manual', {'id': manual.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
 
-                    <a href="{{ path('manual_dashboard', {'id': manual.id}) }}" class="text-body">
+                    <a href="{{ is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'id': manual.id}) }}" class="text-body">
                         <div class="card-body position-relative">
                             <h4 class="mt-0">
                                 {{ manual.name }}

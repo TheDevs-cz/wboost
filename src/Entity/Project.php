@@ -15,6 +15,7 @@ use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
 use WBoost\Web\Value\ProjectSharing;
+use WBoost\Web\Value\SharingLevel;
 
 #[Entity]
 class Project
@@ -48,11 +49,11 @@ class Project
         $this->name = $name;
     }
 
-    public function getSharingWithUser(User $user): null|ProjectSharing
+    public function getUserSharingLevel(User $user): null|SharingLevel
     {
         foreach ($this->sharing as $sharing) {
             if ($sharing->userId->equals($user->id)) {
-                return $sharing;
+                return $sharing->level;
             }
         }
 

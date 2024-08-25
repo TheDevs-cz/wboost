@@ -12,11 +12,13 @@
 
 {% block content %}
 
-    <div class="row mb-2">
-        <div class="col-sm-12">
-            <a href="{{ path('add_font', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat font</a>
+    {% if is_granted('ROLE_DESIGNER') %}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_font', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat font</a>
+            </div>
         </div>
-    </div>
+    {% endif %}
 
     {% for font in fonts %}
         <div class="card">
@@ -25,7 +27,9 @@
                 <p>
                     {% for font_face in font.faces %}
                         {{ font_face.name }}
-                        <a href="{{ path('delete_font', {'fontId': font.id}) }}">Smazat</a>
+                        {% if is_granted('font_edit', font) %}
+                            <a href="{{ path('delete_font', {'fontId': font.id}) }}">Smazat</a>
+                        {% endif %}
                         <br>
                     {% endfor %}
                 </p>

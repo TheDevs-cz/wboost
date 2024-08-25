@@ -12,17 +12,22 @@
 
 {% block content %}
 
-    <div class="row mb-2">
-        <div class="col-sm-12">
-            <a href="{{ path('add_social_network_template', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona</a>
+    {% if is_granted('ROLE_DESIGNER') %}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_social_network_template', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona</a>
+            </div>
         </div>
-    </div>
+    {% endif %}
 
     <div class="row">
         {% for template in templates %}
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
-                    <a href="{{ path('social_network_editor', {'templateId': template.id}) }}">{{ template.name }}</a> / <a href="#">Upravit</a> / <a href="#">Smazat</a>
+                    <a href="{{ path('social_network_editor', {'templateId': template.id}) }}">{{ template.name }}</a>
+                    {% if is_granted('social_edit', template) %}
+                        / <a href="#">Upravit</a> / <a href="#">Smazat</a>
+                    {% endif %}
                 </div>
             </div>
         {% endfor %}

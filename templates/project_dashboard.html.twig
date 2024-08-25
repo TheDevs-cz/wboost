@@ -25,11 +25,11 @@
         </div>
 
         <div class="col-sm-6 col-lg-3">
-            <a href="#">
+            <a href="{{ path('social_network_templates', {'projectId': project.id}) }}">
                 <div class="card tilebox-one text-center">
                     <div class="card-body">
                         <i class="uil-facebook position-relative" style="right: auto;"></i>
-                        <h2 class="my-2 mt-0">0</h2>
+                        <h2 class="my-2 mt-0">{{ social_templates|length }}</h2>
                         <h6 class="text-uppercase mb-0">Sociální sítě</h6>
                     </div>
                 </div>
