@@ -14,6 +14,11 @@ final class FontFacesDoctrineType extends JsonType
 {
     public const string NAME = 'font_faces';
 
+    public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
+    {
+        return 'JSONB';
+    }
+
     /**
      * @return null|array<FontFace>
      *

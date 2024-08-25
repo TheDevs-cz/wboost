@@ -14,6 +14,11 @@ final class LogoDoctrineType extends JsonType
 {
     public const string NAME = 'logo';
 
+    public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
+    {
+        return 'JSONB';
+    }
+
     /**
      * @throws ConversionException
      */

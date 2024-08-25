@@ -15,8 +15,8 @@ use WBoost\Web\Entity\User;
  */
 final class FontVoter extends Voter
 {
-    public const string VIEW = 'view';
-    public const string EDIT = 'edit';
+    public const string VIEW = 'font_view';
+    public const string EDIT = 'font_edit';
 
     public function __construct(
         readonly private Security $security,

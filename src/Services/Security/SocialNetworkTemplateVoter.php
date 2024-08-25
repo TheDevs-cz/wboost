@@ -15,8 +15,9 @@ use WBoost\Web\Entity\User;
  */
 final class SocialNetworkTemplateVoter extends Voter
 {
-    public const string VIEW = 'view';
-    public const string EDIT = 'edit';
+    public const string ADD = 'social_add';
+    public const string VIEW = 'social_view';
+    public const string EDIT = 'social_edit';
 
     public function __construct(
         readonly private Security $security,

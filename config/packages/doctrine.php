@@ -7,6 +7,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
+use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
 
 return static function (ContainerConfigurator $containerConfigurator): void {
 
@@ -18,6 +19,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 FontFacesDoctrineType::NAME => FontFacesDoctrineType::class,
                 LogoDoctrineType::NAME => LogoDoctrineType::class,
                 ColorsMappingDoctrineType::NAME => ColorsMappingDoctrineType::class,
+                ProjectSharingDoctrineType::NAME => ProjectSharingDoctrineType::class,
             ],
         ],
         'orm' => [

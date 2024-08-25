@@ -13,10 +13,17 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
+use WBoost\Web\Value\ProjectSharing;
 
 #[Entity]
 class Project
 {
+    /** @var array<ProjectSharing> */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: ProjectSharingDoctrineType::NAME, options: ['default' => '[]'])]
+    public array $sharing = [];
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -39,5 +46,16 @@ class Project
     public function edit(string $name): void
     {
         $this->name = $name;
+    }
+
+    public function getSharingWithUser(User $user): null|ProjectSharing
+    {
+        foreach ($this->sharing as $sharing) {
+            if ($sharing->userId->equals($user->id)) {
+                return $sharing;
+            }
+        }
+
+        return null;
     }
 }

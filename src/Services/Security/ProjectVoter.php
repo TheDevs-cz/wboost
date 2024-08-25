@@ -15,8 +15,8 @@ use WBoost\Web\Entity\User;
  */
 final class ProjectVoter extends Voter
 {
-    public const string VIEW = 'view';
-    public const string EDIT = 'edit';
+    public const string VIEW = 'project_view';
+    public const string EDIT = 'project_edit';
 
     public function __construct(
         readonly private Security $security,

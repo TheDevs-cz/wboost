@@ -10,25 +10,29 @@
 
 {% block content %}
 
-    <div class="row mb-2">
-        <div class="col-sm-12">
-            <a href="{{ path('add_project') }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový projekt</a>
+    {% if is_granted('ROLE_DESIGNER')%}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_project') }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový projekt</a>
+            </div>
         </div>
-    </div>
+    {% endif %}
 
     <div class="row">
         {% for project in projects %}
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
-                    <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                        <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="ri-more-fill"></i>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-end">
-                            <a href="{{ path('edit_project', {'id': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                            <a href="{{ path('delete_project', {'id': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                    {% if is_granted('project_edit', project) %}
+                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="ri-more-fill"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a href="{{ path('edit_project', {'id': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                                <a href="{{ path('delete_project', {'id': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
 
                     <a href="{{ path('project_dashboard', {'id': project.id.toString}) }}" class="text-body">
                         <div class="card-body">

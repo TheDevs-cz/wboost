@@ -18,26 +18,27 @@ readonly final class GetProjects
     }
 
     /**
-     * @throws ProjectNotFound
+     * @return array<string>
      */
-    public function oneForUser(UuidInterface $userId, UuidInterface $projectId): Project
+    public function sharedWithUser(UuidInterface $userId): array
     {
-        try {
-            $row = $this->entityManager->createQueryBuilder()
-                ->from(Project::class, 'p')
-                ->select('p')
-                ->where('p.owner = :userId')
-                ->setParameter('userId', $userId->toString())
-                ->andWhere('p.id = :projectId')
-                ->setParameter('projectId', $projectId->toString())
-                ->getQuery()
-                ->getSingleResult();
+        $sql = <<<SQL
+SELECT id
+FROM project,
+    jsonb_array_elements(sharing) AS elem
+WHERE elem->>'userId' = :userId
+SQL;
 
-            assert($row instanceof Project);
-            return $row;
-        } catch (NoResultException) {
-            throw new ProjectNotFound();
-        }
+        /**
+         * @var array<string> $rows
+         */
+        $rows = $this->entityManager->getConnection()
+            ->executeQuery($sql, [
+                'userId' => $userId->toString(),
+            ])
+            ->fetchFirstColumn();
+
+        return $rows;
     }
 
     /**
@@ -45,11 +46,15 @@ readonly final class GetProjects
      */
     public function allForUser(UuidInterface $userId): array
     {
+        $sharedProjects = $this->sharedWithUser($userId);
+
         return $this->entityManager->createQueryBuilder()
             ->from(Project::class, 'p')
             ->select('p')
             ->where('p.owner = :userId')
+            ->orWhere('p.id IN (:sharedProjects)')
             ->setParameter('userId', $userId->toString())
+            ->setParameter('sharedProjects', $sharedProjects)
             ->getQuery()
             ->getResult();
     }

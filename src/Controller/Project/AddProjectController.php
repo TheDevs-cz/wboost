@@ -11,11 +11,14 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use WBoost\Web\Entity\User;
 use WBoost\Web\FormData\ProjectFormData;
 use WBoost\Web\FormType\ProjectFormType;
 use WBoost\Web\Message\Manual\AddManual;
 use WBoost\Web\Message\Project\AddProject;
 use WBoost\Web\Services\ProvideIdentity;
+use WBoost\Web\Services\Security\ProjectVoter;
 
 final class AddProjectController extends AbstractController
 {
@@ -26,6 +29,7 @@ final class AddProjectController extends AbstractController
     }
 
     #[Route(path: '/add-project', name: 'add_project')]
+    #[IsGranted(User::ROLE_DESIGNER)]
     public function __invoke(Request $request, #[CurrentUser] UserInterface $user): Response
     {
         $data = new ProjectFormData();

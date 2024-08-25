@@ -15,8 +15,8 @@ use WBoost\Web\Entity\User;
  */
 final class ManualMockupPageVoter extends Voter
 {
-    public const string VIEW = 'view';
-    public const string EDIT = 'edit';
+    public const string VIEW = 'mockup_page_view';
+    public const string EDIT = 'mockup_page_edit';
 
     public function __construct(
         readonly private Security $security,

@@ -8,11 +8,13 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
-use WBoost\Web\Value\ColorMapping;
+use Ramsey\Uuid\Uuid;
+use WBoost\Web\Value\ProjectSharing;
+use WBoost\Web\Value\SharingLevel;
 
-final class ColorsMappingDoctrineType extends JsonType
+final class ProjectSharingDoctrineType extends JsonType
 {
-    public const string NAME = 'colors_mapping';
+    public const string NAME = 'project_sharing';
 
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
@@ -20,7 +22,7 @@ final class ColorsMappingDoctrineType extends JsonType
     }
 
     /**
-     * @return null|array<ColorMapping>
+     * @return null|array<ProjectSharing>
      *
      * @throws ConversionException
      */
@@ -33,22 +35,22 @@ final class ColorsMappingDoctrineType extends JsonType
         $jsonData = parent::convertToPHPValue($value, $platform);
         assert(is_array($jsonData));
 
-        $mappings = [];
+        $sharing = [];
 
-        foreach ($jsonData as $mapping) {
-            /** @var array{colorHex: string, targetPrimaryColorNumber: int} $mapping */
+        foreach ($jsonData as $sharingData) {
+            /** @var array{userId: string, level: string} $sharingData */
 
-            $mappings[] = new ColorMapping(
-                colorHex: $mapping['colorHex'],
-                targetPrimaryColorNumber: $mapping['targetPrimaryColorNumber'],
+            $sharing[] = new ProjectSharing(
+                userId: Uuid::fromString($sharingData['userId']),
+                level: SharingLevel::from($sharingData['level']),
             );
         }
 
-        return $mappings;
+        return $sharing;
     }
 
     /**
-     * @param null|array<ColorMapping> $value
+     * @param null|array<ProjectSharing> $value
      * @throws ConversionException
      */
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
@@ -59,14 +61,14 @@ final class ColorsMappingDoctrineType extends JsonType
 
         $data = [];
 
-        foreach ($value as $mapping) {
-            if (!is_a($mapping, ColorMapping::class)) {
-                throw InvalidType::new($value, self::NAME, [ColorMapping::class]);
+        foreach ($value as $sharing) {
+            if (!is_a($sharing, ProjectSharing::class)) {
+                throw InvalidType::new($value, self::NAME, [ProjectSharing::class]);
             }
 
             $data[] = [
-                'colorHex' => $mapping->colorHex,
-                'targetPrimaryColorNumber' => $mapping->targetPrimaryColorNumber,
+                'userId' => $sharing->userId->toString(),
+                'level' => $sharing->level->value,
             ];
         }
 
