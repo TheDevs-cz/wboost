@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\SocialNetwork;
 
+use Psr\Clock\ClockInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,17 +16,20 @@ use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\FormData\SocialNetworkTemplateVariantEditorFormData;
 use WBoost\Web\FormType\SocialNetworkTemplateVariantEditorFormType;
+use WBoost\Web\FormType\UploadProjectFileFormType;
 use WBoost\Web\Message\SocialNetwork\SaveSocialNetworkTemplateVariantEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVoter;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\FileSource;
 
 final class SocialNetworkTemplateVariantEditorController extends AbstractController
 {
     public function __construct(
         readonly private GetFonts $getFonts,
         readonly private MessageBusInterface $bus,
+        readonly private ClockInterface $clock,
     ) {
     }
 
@@ -38,11 +42,11 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
     ): Response {
         $template = $variant->template;
         $formData = new SocialNetworkTemplateVariantEditorFormData();
-        $form = $this->createForm(SocialNetworkTemplateVariantEditorFormType::class, $formData);
+        $editorForm = $this->createForm(SocialNetworkTemplateVariantEditorFormType::class, $formData);
 
-        $form->handleRequest($request);
+        $editorForm->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        if ($editorForm->isSubmitted() && $editorForm->isValid()) {
             assert(is_string($formData->canvas));
             assert(is_string($formData->textInputs));
 
@@ -54,6 +58,14 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
                 ),
             );
 
+            if ($formData->event === 'autosave') {
+                return $this->json([
+                    'status' => 'success',
+                    'message' => 'Autosave successful!',
+                    'lastSaved' => $this->clock->now()->format('Y-m-d H:i:s'),
+                ]);
+            }
+
             $this->addFlash('success', 'Editor uložen!');
 
             return $this->redirectToRoute('social_network_template_variants', [
@@ -61,12 +73,20 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             ]);
         }
 
+        $uploadForm = $this->createForm(UploadProjectFileFormType::class, options: [
+            'action' => $this->generateUrl('project_upload_file', [
+                'projectId' => $template->project->id,
+                'source' => FileSource::SocialNetworkImage->value,
+            ]),
+        ]);
+
         return $this->render('social_network_template_variant_editor.html.twig', [
             'project' => $template->project,
             'template' => $template,
             'variant' => $variant,
             'fonts' => $this->getFonts->allForProject($template->project->id),
-            'form' => $form,
+            'editor_form' => $editorForm,
+            'upload_form' => $uploadForm,
         ]);
     }
 }

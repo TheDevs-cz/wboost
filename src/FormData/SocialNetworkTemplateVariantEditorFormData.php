@@ -12,4 +12,5 @@ final class SocialNetworkTemplateVariantEditorFormData
     public null|string $canvas = null;
     #[NotBlank]
     public null|string $textInputs = null;
+    public null|string $event = null;
 }

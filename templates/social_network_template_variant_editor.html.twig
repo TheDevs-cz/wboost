@@ -35,11 +35,21 @@
         data-canvas-editor-custom-fonts-value='["Arial", "Roboto"]'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
     >
-        {{ form_start(form) }}
+        {{ form_start(editor_form) }}
 
-        <div class="row">
+        <div class="row position-relative">
 
             <div class="col-2">
+
+                <div data-canvas-editor-target="autosaveMessage" class="d-none position-fixed alert alert-info d-flex align-items-center opacity-75" role="alert" style="width: 135px;left: 50%;top: 100px;margin-left:-63px;z-index: 1000;">
+                    <div class="spinner-border text-success spinner-border-sm flex-shrink-0 me-2" role="status"></div>
+                    <div>
+                        Ukládání...
+                    </div>
+                </div>
+
+                <p data-canvas-editor-target="lastAutosave" class="d-block mt-2 small text-muted"></p>
+
                 <div class="card">
                     <div class="card-body">
                         <p class="card-title">
@@ -47,6 +57,7 @@
                         </p>
 
                         <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-action="canvas-editor#addText"><i class="uil-text-fields"></i> Přidat text</button>
+                        <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-bs-toggle="modal" data-bs-target="#imageUploadModal"><i class="uil-image"></i> Přidat obrázek</button>
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="bringToFrontButton" data-action="canvas-editor#bringToFront">Vrstva do popředí</button>
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="sendToBackButton" data-action="canvas-editor#sendToBack">Vrstva do pozadí</button>
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="deleteObjectButton" data-action="canvas-editor#deleteObject"><i class="uil-trash-alt"></i> Smazat objekt</button>
@@ -66,8 +77,8 @@
 
                             <!-- Font Color Control -->
                             <div class="mb-2">
-                                <label for="font-color" class="form-label small">Font Color:</label>
-                                <input type="color" id="font-color" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontColor">
+                                <label for="font-color" class="form-label small">Font Color (Hex):</label>
+                                <input type="text" id="font-color" class="form-control form-control-sm" data-action="blur->canvas-editor#updateFontColor">
                             </div>
 
                             <!-- Text Align Control -->
@@ -119,8 +130,6 @@
 
                     </div>
                 </div>
-
-                <button data-action="canvas-editor#submitForm" type="button" class="btn btn-primary">Uložit</button>
             </div>
 
             <div class="col-10">
@@ -128,11 +137,33 @@
                     <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
                 </div>
 
-                {{ form_widget(form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}
-                {{ form_widget(form.textInputs, { attr: { 'data-canvas-editor-target': 'textInputs' } }) }}
+                {{ form_widget(editor_form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}
+                {{ form_widget(editor_form.textInputs, { attr: { 'data-canvas-editor-target': 'textInputs' } }) }}
+                {{ form_widget(editor_form.event, { attr: { 'data-canvas-editor-target': 'event' } }) }}
             </div>
         </div>
 
-        {{ form_end(form) }}
+        {{ form_end(editor_form) }}
+
+        <div class="modal fade" id="imageUploadModal" tabindex="-1" aria-labelledby="imageUploadModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="imageUploadModalLabel">Nahrát obrázek</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        {{ form_start(upload_form, { 'attr': { 'id': 'image-upload-form' } }) }}
+                        {{ form_row(upload_form.file) }}
+                        {{ form_end(upload_form) }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
+                        <button type="button" class="btn btn-primary" data-action="canvas-editor#uploadImage">Nahrát</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 {% endblock %}

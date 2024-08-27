@@ -22,6 +22,7 @@ final class SocialNetworkTemplateVariantEditorFormType extends AbstractType
     {
         $builder->add('canvas', HiddenType::class);
         $builder->add('textInputs', HiddenType::class);
+        $builder->add('event', HiddenType::class);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

@@ -3,7 +3,7 @@ import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
-    static targets = ["canvas", "textInputs", "bringToFrontButton", "sendToBackButton", "deleteObjectButton"];
+    static targets = ["canvas", "textInputs", "event", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave"];
 
     static values = {
         backgroundImage: String,
@@ -11,13 +11,11 @@ export default class extends Controller {
     }
 
     connect() {
+        this.autosaveTimeout = null;
+        this.lastAutosaveTime = 0;
         this.canvas = new fabric.Canvas('c'); // Initialize the Fabric.js canvas
 
         this.loadFontsAndPopulateSelect();
-
-        this.canvas.on('selection:created', this.updateControlsVisibility.bind(this));
-        this.canvas.on('selection:updated', this.updateControlsVisibility.bind(this));
-        this.canvas.on('selection:cleared', this.updateControlsVisibility.bind(this));
 
         // Initially hide buttons since no object is selected
         this.hideActionButtons();
@@ -30,6 +28,12 @@ export default class extends Controller {
         } else {
             this.initializeNewCanvas();
         }
+
+        this.canvas.on('selection:created', this.updateControlsVisibility.bind(this));
+        this.canvas.on('selection:updated', this.updateControlsVisibility.bind(this));
+        this.canvas.on('selection:cleared', this.updateControlsVisibility.bind(this));
+        this.canvas.on('object:modified', () => this.scheduleAutosave());
+        this.canvas.on('text:changed', () => this.scheduleAutosave());
     }
 
     disconnect() {
@@ -205,10 +209,24 @@ export default class extends Controller {
     }
 
     updateFontColor(event) {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject && activeObject.type === 'textbox') {
-            activeObject.set({ fill: event.target.value });
-            this.canvas.renderAll();
+        let color = event.target.value.trim();
+
+        // Add '#' if it's missing and the input is a valid hex color
+        if (color && !color.startsWith('#')) {
+            color = '#' + color;
+        }
+
+        // Validate hex color format (supports 3 or 6 character hex codes)
+        const isValidHex = /^#([0-9A-F]{3}){1,2}$/i.test(color);
+
+        if (isValidHex) {
+            const activeObject = this.canvas.getActiveObject();
+            if (activeObject && activeObject.type === 'textbox') {
+                activeObject.set({ fill: color });
+                this.canvas.renderAll();
+            }
+        } else {
+            alert('Please enter a valid hex color code.');
         }
     }
 
@@ -317,8 +335,63 @@ export default class extends Controller {
         }
     }
 
-    submitForm(event) {
-        event.preventDefault(); // Prevent the default form submission
+    scheduleAutosave() {
+        const now = Date.now(); // Current timestamp in milliseconds
+        const timeSinceLastSave = now - this.lastAutosaveTime;
+
+        console.log('Time since last save:', timeSinceLastSave, 'ms');
+        console.log('Last autosave time:', this.lastAutosaveTime);
+        console.log('Current time:', now);
+
+        // Clear any existing timeout to debounce the autosave
+        if (this.autosaveTimeout) {
+            console.log('Clearing existing timeout');
+            clearTimeout(this.autosaveTimeout);
+        }
+
+        if (timeSinceLastSave >= 5000) {
+            console.log('Autosaving immediately');
+            this.autosave();  // Autosave immediately if 10s have passed
+        } else {
+            console.log('Scheduling autosave in', 5000 - timeSinceLastSave, 'ms');
+            // Schedule autosave to run after 10s if not enough time has passed
+            this.autosaveTimeout = setTimeout(() => {
+                console.log('Timeout reached, performing autosave');
+                this.autosave();
+            }, 5000 - timeSinceLastSave);
+        }
+    }
+
+    autosave() {
+        clearTimeout(this.autosaveTimeout);
+        this.autosaveTimeout = null;
+
+        this.showAutosavingMessage();
+
+        this.eventTarget.value = 'autosave';
+        this.submitForm();
+        this.eventTarget.value = '';
+
+    }
+
+    showAutosavingMessage() {
+        this.autosaveMessageTarget.classList.remove('d-none');
+    }
+
+    showLastAutosaveTime() {
+        this.lastAutosaveTime = Date.now();
+        const lastSaveDate = new Date(this.lastAutosaveTime); // Convert timestamp to Date object
+        const hours = lastSaveDate.getHours().toString().padStart(2, '0');
+        const minutes = lastSaveDate.getMinutes().toString().padStart(2, '0');
+        const seconds = lastSaveDate.getSeconds().toString().padStart(2, '0');
+
+        const formattedTime = `${hours}:${minutes}:${seconds}`;
+        this.lastAutosaveTarget.textContent = `Automaticky uloženo: ${formattedTime}`;
+        this.autosaveMessageTarget.classList.add('d-none');
+    }
+
+    submitForm() {
+        const form = this.canvasTarget.closest('form');
 
         // Serialize the canvas JSON
         const canvasJSON = this.canvas.toJSON(['name', 'maxLength', 'locked']);
@@ -332,7 +405,68 @@ export default class extends Controller {
         }));
         this.textInputsTarget.value = JSON.stringify(textInputs);
 
-        // Submit the form programmatically
-        this.canvasTarget.closest('form').submit();
+        // Submit the form with fetch
+        fetch(form.action, {
+            method: form.method,
+            body: new FormData(form),
+            headers: {
+                'Accept': 'application/json',
+            },
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    this.showLastAutosaveTime();
+                } else {
+                    console.error('Autosave failed:', data.message);
+                    alert('Autosave failed. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error during autosave:', error);
+                alert('Autosave failed. Please try again.');
+            });
+    }
+
+    uploadImage(event) {
+        event.preventDefault();
+
+        const form = this.element.querySelector('#image-upload-form');
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.filePath) {
+                    this.addImageToCanvas(data.filePath);
+                    const modalElement = this.element.querySelector('#imageUploadModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                } else {
+                    alert('Image upload failed.');
+                }
+            })
+            .catch(error => {
+                console.error('Error uploading image:', error);
+                alert('Error uploading image.');
+            });
+    }
+
+    addImageToCanvas(imageUrl) {
+        fabric.Image.fromURL(imageUrl, (img) => {
+            img.set({
+                left: 100,
+                top: 100,
+                angle: 0,
+                padding: 10,
+                cornersize: 10,
+                hasRotatingPoint: true,
+            });
+            this.canvas.add(img);
+            this.canvas.renderAll();
+        });
     }
 }
