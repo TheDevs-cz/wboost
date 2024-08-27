@@ -36,7 +36,6 @@ export default class extends Controller {
         this.canvas.on('object:removed', () => this.scheduleAutosave());
         this.canvas.on('object:modified', () => this.scheduleAutosave());
         this.canvas.on('text:changed', () => this.scheduleAutosave());
-        this.canvas.on('after:changed', () => this.scheduleAutosave());
     }
 
     disconnect() {
@@ -143,6 +142,7 @@ export default class extends Controller {
         this.canvas.add(textBox);
         this.canvas.setActiveObject(textBox);
         this.canvas.renderAll();
+        this.scheduleAutosave()
     }
 
     bringToFront() {
@@ -151,6 +151,7 @@ export default class extends Controller {
             activeObject.bringToFront();
             this.canvas.discardActiveObject();
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -160,6 +161,7 @@ export default class extends Controller {
             activeObject.sendToBack();
             this.canvas.discardActiveObject();
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -216,6 +218,7 @@ export default class extends Controller {
         if (activeObject && activeObject.type === 'textbox') {
             activeObject.set({ fontSize: event.target.value });
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -235,6 +238,7 @@ export default class extends Controller {
             if (activeObject && activeObject.type === 'textbox') {
                 activeObject.set({ fill: color });
                 this.canvas.renderAll();
+                this.scheduleAutosave()
             }
         }
     }
@@ -244,6 +248,7 @@ export default class extends Controller {
         if (activeObject && activeObject.type === 'textbox') {
             activeObject.set({ textAlign: event.target.value });
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -252,6 +257,7 @@ export default class extends Controller {
         if (activeObject && activeObject.type === 'textbox') {
             activeObject.set({ fontFamily: event.target.value });
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -281,6 +287,7 @@ export default class extends Controller {
             }
 
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -291,6 +298,7 @@ export default class extends Controller {
 
             activeObject.set({fontWeight: fontWeight});
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -308,6 +316,7 @@ export default class extends Controller {
             }
 
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -341,6 +350,7 @@ export default class extends Controller {
                 hasControls: !activeObject.locked,
             });
             this.canvas.renderAll();
+            this.scheduleAutosave()
         }
     }
 
@@ -348,24 +358,16 @@ export default class extends Controller {
         const now = Date.now(); // Current timestamp in milliseconds
         const timeSinceLastSave = now - this.lastAutosaveTime;
 
-        console.log('Time since last save:', timeSinceLastSave, 'ms');
-        console.log('Last autosave time:', this.lastAutosaveTime);
-        console.log('Current time:', now);
-
         // Clear any existing timeout to debounce the autosave
         if (this.autosaveTimeout) {
-            console.log('Clearing existing timeout');
             clearTimeout(this.autosaveTimeout);
         }
 
         if (timeSinceLastSave >= 5000) {
-            console.log('Autosaving immediately');
             this.autosave();  // Autosave immediately if 10s have passed
         } else {
-            console.log('Scheduling autosave in', 5000 - timeSinceLastSave, 'ms');
             // Schedule autosave to run after 10s if not enough time has passed
             this.autosaveTimeout = setTimeout(() => {
-                console.log('Timeout reached, performing autosave');
                 this.autosave();
             }, 5000 - timeSinceLastSave);
         }
@@ -470,12 +472,13 @@ export default class extends Controller {
                 left: 100,
                 top: 100,
                 angle: 0,
-                padding: 10,
                 cornersize: 10,
                 hasRotatingPoint: true,
             });
             this.canvas.add(img);
+            this.canvas.setActiveObject(img);
             this.canvas.renderAll();
+            this.scheduleAutosave()
         });
     }
 }
