@@ -32,8 +32,11 @@ export default class extends Controller {
         this.canvas.on('selection:created', this.updateControlsVisibility.bind(this));
         this.canvas.on('selection:updated', this.updateControlsVisibility.bind(this));
         this.canvas.on('selection:cleared', this.updateControlsVisibility.bind(this));
+        this.canvas.on('object:added', () => this.scheduleAutosave());
+        this.canvas.on('object:removed', () => this.scheduleAutosave());
         this.canvas.on('object:modified', () => this.scheduleAutosave());
         this.canvas.on('text:changed', () => this.scheduleAutosave());
+        this.canvas.on('after:changed', () => this.scheduleAutosave());
     }
 
     disconnect() {
@@ -54,7 +57,14 @@ export default class extends Controller {
     }
 
     handleKeydown(event) {
-        if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Check if the focus is on an input, textarea, or contenteditable element
+        const activeElement = document.activeElement;
+        const isInputField = activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.isContentEditable;
+
+        if (!isInputField && (event.key === 'Delete' || event.key === 'Backspace')) {
+            event.preventDefault(); // Prevent default browser behavior
             this.deleteObject();
         }
     }
@@ -115,6 +125,7 @@ export default class extends Controller {
             top: 100,
             width: 200,
             fontFamily: 'Arial',
+            fill: '#000000',
             fontSize: 24,
             textAlign: 'left',
             editable: true,
@@ -217,7 +228,7 @@ export default class extends Controller {
         }
 
         // Validate hex color format (supports 3 or 6 character hex codes)
-        const isValidHex = /^#([0-9A-F]{3}){1,2}$/i.test(color);
+        const isValidHex = /^#([0-9A-F]{3,6})$/i.test(color);
 
         if (isValidHex) {
             const activeObject = this.canvas.getActiveObject();
@@ -225,8 +236,6 @@ export default class extends Controller {
                 activeObject.set({ fill: color });
                 this.canvas.renderAll();
             }
-        } else {
-            alert('Please enter a valid hex color code.');
         }
     }
 

@@ -58,6 +58,9 @@
 
                         <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-action="canvas-editor#addText"><i class="uil-text-fields"></i> Přidat text</button>
                         <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-bs-toggle="modal" data-bs-target="#imageUploadModal"><i class="uil-image"></i> Přidat obrázek</button>
+
+                        <hr>
+
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="bringToFrontButton" data-action="canvas-editor#bringToFront">Vrstva do popředí</button>
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="sendToBackButton" data-action="canvas-editor#sendToBack">Vrstva do pozadí</button>
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="deleteObjectButton" data-action="canvas-editor#deleteObject"><i class="uil-trash-alt"></i> Smazat objekt</button>
@@ -78,7 +81,7 @@
                             <!-- Font Color Control -->
                             <div class="mb-2">
                                 <label for="font-color" class="form-label small">Font Color (Hex):</label>
-                                <input type="text" id="font-color" class="form-control form-control-sm" data-action="blur->canvas-editor#updateFontColor">
+                                <input type="text" id="font-color" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontColor">
                             </div>
 
                             <!-- Text Align Control -->
