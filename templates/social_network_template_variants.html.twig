@@ -19,7 +19,7 @@
     <div class="row">
         {% for dimension in dimensions %}
             <div class="col-md-4">
-                <h2 class="h3">{{ dimension.value }}</h2>
+                <h2 class="h3">Varianta {{ dimension.value }}</h2>
 
                 {% if is_granted('ROLE_DESIGNER')%}
                     <p>
