@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\SocialNetwork;
 
-use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\SocialNetworkTemplate;
@@ -20,7 +19,6 @@ readonly final class AddSocialNetworkTemplateHandler
         private SocialNetworkTemplateRepository $socialNetworkTemplateRepository,
         private ProjectRepository $projectRepository,
         private ClockInterface $clock,
-        private Filesystem $filesystem,
     ) {
     }
 
@@ -31,23 +29,12 @@ readonly final class AddSocialNetworkTemplateHandler
     {
         $project = $this->projectRepository->get($message->projectId);
         $templateId = $message->templateId;
-        $backgroundImage = $message->backgroundImage;
-        $backgroundImagePath = null;
-
-        if ($backgroundImage !== null) {
-            $timestamp = $this->clock->now()->getTimestamp();
-
-            $extension = $backgroundImage->guessExtension();
-            $backgroundImagePath = "social-networks/$templateId/background-$timestamp.$extension";
-            $this->filesystem->write($backgroundImagePath, $backgroundImage->getContent());
-        }
 
         $template = new SocialNetworkTemplate(
             $templateId,
             $project,
             $this->clock->now(),
             $message->name,
-            $backgroundImagePath,
         );
 
         $this->socialNetworkTemplateRepository->add($template);

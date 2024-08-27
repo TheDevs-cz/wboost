@@ -1,0 +1,77 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Export{% endblock %}
+{% set active_menu_item = 'social_networks' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('social_network_templates', {'projectId': project.id}) }}">Sociální sítě</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('social_network_template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <style>
+        {% for font in fonts %}
+        {% for font_face in font.faces %}
+        @font-face {
+            font-family: '{{ font.name }}';
+            src: url('{{ uploaded_asset(font_face.filePath) }}');
+            font-weight: {{ font_face.weight }};
+        {# TODO: font-style: normal; #}
+        }
+        {% endfor %}
+        {% endfor %}
+    </style>
+
+    <div
+        id="canvas-container"
+        data-controller="canvas-template-export"
+        data-canvas-template-export-custom-fonts='["Arial", "Roboto"]'
+        data-canvas-template-export-canvas-json="{{ variant.canvas }}"
+    >
+        <div class="row">
+
+            <div class="col-2">
+                <div class="card">
+                    <div class="card-body">
+                        <p class="card-title">
+                            Varianta {{ variant.dimension.value}} ({{ variant.dimension.width }}x{{ variant.dimension.height }})
+                        </p>
+
+                        <div id="text-inputs-container">
+                            {% for input in variant.inputs %}
+                                {% if not input.locked %}
+                                    <div class="mb-2">
+                                        <label class="form-label small" for="text-input-{{ loop.index0 }}">{{ input.name }}</label>
+                                        <input
+                                            type="text"
+                                            class="form-control form-control-sm"
+                                            id="text-input-{{ loop.index0 }}"
+                                            data-index="{{ loop.index0 }}"
+                                            value="{{ input.name }}"
+                                            data-action="input->canvas-template-export#updateCanvasText"
+                                            {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif%}
+                                        >
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                    </div>
+                </div>
+
+                <button data-action="canvas-template-export#exportAsImage" class="btn btn-primary">Export</button>
+            </div>
+
+            <div class="col-10">
+                <div class="canvas-wrapper">
+                    <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

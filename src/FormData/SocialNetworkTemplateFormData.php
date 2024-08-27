@@ -9,5 +9,4 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 final class SocialNetworkTemplateFormData
 {
     public string $name = '';
-    public null|UploadedFile $backgroundImage = null;
 }

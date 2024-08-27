@@ -1,5 +1,7 @@
 {% extends 'base.html.twig' %}
 
+{% set active_menu_item = 'social_networks' %}
+
 {% block title %}Sociální sítě{% endblock %}
 
 {% block breadcrumb %}
@@ -24,10 +26,25 @@
         {% for template in templates %}
             <div class="col-md-6 col-xxl-3">
                 <div class="card d-block">
-                    <a href="{{ path('social_network_editor', {'templateId': template.id}) }}">{{ template.name }}</a>
                     {% if is_granted('social_edit', template) %}
-                        / <a href="#">Upravit</a> / <a href="#">Smazat</a>
+                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="ri-more-fill"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a href="{{ path('edit_social_network_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                                <a href="{{ path('delete_social_network_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                            </div>
+                        </div>
                     {% endif %}
+
+                    <a href="{{ path('social_network_template_variants', {'templateId': template.id}) }}" class="text-body">
+                        <div class="card-body">
+                            <h4 class="mt-0">
+                                {{ template.name }}
+                            </h4>
+                        </div>
+                    </a>
                 </div>
             </div>
         {% endfor %}

@@ -46,11 +46,10 @@ final class AddSocialNetworkTemplateController extends AbstractController
                     $project->id,
                     $templateId,
                     $data->name,
-                    $data->backgroundImage,
                 ),
             );
 
-            return $this->redirectToRoute('social_network_editor', [
+            return $this->redirectToRoute('social_network_template_variants', [
                 'templateId' => $templateId,
             ]);
         }

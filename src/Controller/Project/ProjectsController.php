@@ -22,7 +22,7 @@ final class ProjectsController extends AbstractController
     {
         $projects = $this->getProjects->allForUser($user->id);
 
-        return $this->render('homepage.html.twig', [
+        return $this->render('projects.html.twig', [
             'projects' => $projects,
         ]);
     }

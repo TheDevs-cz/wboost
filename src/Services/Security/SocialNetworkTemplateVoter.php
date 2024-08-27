@@ -45,6 +45,22 @@ final class SocialNetworkTemplateVoter extends Voter
             return true;
         }
 
-        return $subject->project->owner === $user;
+        if ($subject->project->owner === $user) {
+            return true;
+        }
+
+        $sharingLevel = $subject->project->getUserSharingLevel($user);
+
+        // Project not shared at all
+        if ($sharingLevel === null) {
+            return false;
+        }
+
+        // Project is shared, view is the least and any sharing allows viewing
+        if ($attribute === self::VIEW) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace WBoost\Web\FormType;
 
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
-use WBoost\Web\FormData\SocialNetworkEditorFormData;
+use WBoost\Web\FormData\SocialNetworkTemplateVariantEditorFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
- * @extends AbstractType<SocialNetworkEditorFormData>
+ * @extends AbstractType<SocialNetworkTemplateVariantEditorFormData>
  */
-final class SocialNetworkEditorFormType extends AbstractType
+final class SocialNetworkTemplateVariantEditorFormType extends AbstractType
 {
     /**
      * @param mixed[] $options
@@ -27,7 +27,7 @@ final class SocialNetworkEditorFormType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
-            'data_class' => SocialNetworkEditorFormData::class,
+            'data_class' => SocialNetworkTemplateVariantEditorFormData::class,
         ]);
     }
 }

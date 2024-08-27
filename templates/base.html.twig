@@ -51,8 +51,6 @@
         <!-- Icons css -->
         <link href="{{ asset('theme/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
 
-        {{ ux_controller_link_tags() }}
-
         {% block custom_styles %}{% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}">
@@ -161,7 +159,7 @@
                 <div class="h-100" id="leftside-menu-container" data-simplebar>
                     <!--- Sidemenu -->
                     <ul class="side-nav">
-                        <li class="side-nav-item">
+                        <li class="side-nav-item {{ active_menu_item|default == 'projects' ? 'menuitem-active' }}">
                             <a href="{{ path('projects') }}" class="side-nav-link">
                                 <i class="uil-home-alt"></i>
                                 <span> Projekty </span>
@@ -171,28 +169,28 @@
                         {% if project is defined %}
                             <li class="side-nav-title">{{ project.name }}</li>
 
-                            <li class="side-nav-item">
+                            <li class="side-nav-item {{ active_menu_item|default == 'manuals' ? 'menuitem-active' }}">
                                 <a href="{{ path('manuals_list', {'id': project.id}) }}" class="side-nav-link">
                                     <i class="uil-copy-alt"></i>
                                     <span> Manuály </span>
                                 </a>
                             </li>
 
-                            <li class="side-nav-item">
+                            <li class="side-nav-item {{ active_menu_item|default == 'social_networks' ? 'menuitem-active' }}">
                                 <a href="{{ path('social_network_templates', {'projectId': project.id}) }}" class="side-nav-link">
                                     <i class="uil-facebook"></i>
                                     <span> Sociální sítě </span>
                                 </a>
                             </li>
 
-                            <li class="side-nav-item">
+                            <li class="side-nav-item {{ active_menu_item|default == 'calendars' ? 'menuitem-active' }}">
                                 <a href="#" class="side-nav-link">
                                     <i class="uil-calendar-alt"></i>
                                     <span> Kalendáře </span>
                                 </a>
                             </li>
 
-                            <li class="side-nav-item">
+                            <li class="side-nav-item {{ active_menu_item|default == 'fonts' ? 'menuitem-active' }}">
                                 <a href="{{ path('fonts_list', {'id': project.id}) }}" class="side-nav-link">
                                     <i class="ri-font-family"></i>
                                     <span> Fonty</span>

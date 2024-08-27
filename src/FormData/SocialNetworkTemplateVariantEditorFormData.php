@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormData;
 
-final class SocialNetworkEditorFormData
+use Symfony\Component\Validator\Constraints\NotBlank;
+
+final class SocialNetworkTemplateVariantEditorFormData
 {
+    #[NotBlank]
     public null|string $canvas = null;
+    #[NotBlank]
     public null|string $textInputs = null;
 }

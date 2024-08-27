@@ -1,0 +1,138 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'social_networks' %}
+
+{% block title %}Editor{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('social_network_templates', {'projectId': project.id}) }}">Sociální sítě</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('social_network_template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <style>
+        {% for font in fonts %}
+            {% for font_face in font.faces %}
+            @font-face {
+                font-family: '{{ font.name }}';
+                src: url('{{ uploaded_asset(font_face.filePath) }}');
+                font-weight: {{ font_face.weight }};
+            {# TODO: font-style: normal; #}
+            }
+            {% endfor %}
+        {% endfor %}
+    </style>
+
+    <div
+        id="canvas-container"
+        data-controller="canvas-editor"
+        data-canvas-editor-background-image-value="{{ uploaded_asset(variant.backgroundImage) }}"
+        data-canvas-editor-custom-fonts-value='["Arial", "Roboto"]'
+        data-canvas-editor-canvas-json="{{ variant.canvas }}"
+    >
+        {{ form_start(form) }}
+
+        <div class="row">
+
+            <div class="col-2">
+                <div class="card">
+                    <div class="card-body">
+                        <p class="card-title">
+                            Varianta {{ variant.dimension.value}} ({{ variant.dimension.width }}x{{ variant.dimension.height }})
+                        </p>
+
+                        <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-action="canvas-editor#addText">Add Text</button>
+                        <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="bringToFrontButton" data-action="canvas-editor#bringToFront">Bring to Front</button>
+                        <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="sendToBackButton" data-action="canvas-editor#sendToBack">Send to Back</button>
+                        <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="deleteObjectButton" data-action="canvas-editor#deleteObject">Delete Object</button>
+
+                        <div id="font-controls" class="mt-1" style="display: none;">
+                            <!-- Max Length Control -->
+                            <div class="mb-2">
+                                <label for="max-length" class="form-label small">Max Length:</label>
+                                <input type="number" id="max-length" class="form-control form-control-sm" data-action="blur->canvas-editor#updateMaxLength">
+                            </div>
+
+                            <!-- Font Size Control -->
+                            <div class="mb-2">
+                                <label for="font-size" class="form-label small">Font Size:</label>
+                                <input type="number" id="font-size" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontSize">
+                            </div>
+
+                            <!-- Font Color Control -->
+                            <div class="mb-2">
+                                <label for="font-color" class="form-label small">Font Color:</label>
+                                <input type="color" id="font-color" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontColor">
+                            </div>
+
+                            <!-- Text Align Control -->
+                            <div class="mb-2">
+                                <label for="text-align" class="form-label small">Text Align:</label>
+                                <select id="text-align" class="form-select form-select-sm" data-action="change->canvas-editor#updateTextAlign">
+                                    <option value="left">Left</option>
+                                    <option value="center">Center</option>
+                                    <option value="right">Right</option>
+                                    <option value="justify">Justify</option>
+                                </select>
+                            </div>
+
+                            <!-- Font Family Control -->
+                            <div class="mb-2">
+                                <label for="font-family" class="form-label small">Font Family:</label>
+                                <select id="font-family" class="form-select form-select-sm" data-action="change->canvas-editor#updateFontFamily">
+                                    <!-- Options will be populated dynamically by Stimulus -->
+                                </select>
+                            </div>
+
+                            <!-- Text Decoration Control -->
+                            <div class="mb-2">
+                                <label for="text-decoration" class="form-label small">Text Decoration:</label>
+                                <select id="text-decoration" class="form-select form-select-sm" data-action="change->canvas-editor#updateTextDecoration">
+                                    <option value="none">None</option>
+                                    <option value="underline">Underline</option>
+                                    <option value="line-through">Line Through</option>
+                                    <option value="overline">Overline</option>
+                                </select>
+                            </div>
+
+                            <!-- Font Weight Control -->
+                            <div class="mb-2">
+                                <label for="font-weight" class="form-label small">Font Weight:</label>
+                                <select id="font-weight" class="form-select form-select-sm" data-action="change->canvas-editor#updateFontWeight">
+                                    <option value="300">Light</option>
+                                    <option value="normal">Regular</option>
+                                    <option value="700">Bold</option>
+                                </select>
+                            </div>
+
+                            <!-- Locked Control -->
+                            <div class="mb-0 form-check">
+                                <input type="checkbox" id="locked" class="form-check-input" data-action="change->canvas-editor#updateLocked">
+                                <label for="locked" class="form-check-label small">Locked</label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <button data-action="canvas-editor#submitForm" type="button" class="btn btn-primary">Uložit</button>
+            </div>
+
+            <div class="col-10">
+                <div class="canvas-wrapper">
+                    <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
+                </div>
+
+                {{ form_widget(form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}
+                {{ form_widget(form.textInputs, { attr: { 'data-canvas-editor-target': 'textInputs' } }) }}
+            </div>
+        </div>
+
+        {{ form_end(form) }}
+    </div>
+{% endblock %}

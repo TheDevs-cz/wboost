@@ -3,7 +3,7 @@ import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
-    static targets = ["canvas", "textInputs"];
+    static targets = ["canvas", "textInputs", "bringToFrontButton", "sendToBackButton", "deleteObjectButton"];
 
     static values = {
         backgroundImage: String,
@@ -13,22 +13,40 @@ export default class extends Controller {
     connect() {
         this.canvas = new fabric.Canvas('c'); // Initialize the Fabric.js canvas
 
-        if (this.backgroundImageValue) {
-            this.setBackgroundImage(this.backgroundImageValue);
-        }
-
         this.loadFontsAndPopulateSelect();
 
         this.canvas.on('selection:created', this.updateControlsVisibility.bind(this));
         this.canvas.on('selection:updated', this.updateControlsVisibility.bind(this));
         this.canvas.on('selection:cleared', this.updateControlsVisibility.bind(this));
 
+        // Initially hide buttons since no object is selected
+        this.hideActionButtons();
+
         window.addEventListener('keydown', this.handleKeydown.bind(this));
+
+        const canvasJson = this.element.dataset.canvasEditorCanvasJson;
+        if (canvasJson && canvasJson.trim() !== '') {
+            this.loadCanvasFromJson(canvasJson);
+        } else {
+            this.initializeNewCanvas();
+        }
     }
 
     disconnect() {
         // Clean up the event listener when the controller is disconnected
         window.removeEventListener('keydown', this.handleKeydown.bind(this));
+    }
+
+    loadCanvasFromJson(canvasJson) {
+        this.canvas.loadFromJSON(JSON.parse(canvasJson), () => {
+            this.canvas.renderAll();
+        });
+    }
+
+    initializeNewCanvas() {
+        if (this.backgroundImageValue) {
+            this.setBackgroundImage(this.backgroundImageValue);
+        }
     }
 
     handleKeydown(event) {
@@ -135,12 +153,31 @@ export default class extends Controller {
         if (activeObject) {
             this.canvas.remove(activeObject);
             this.canvas.renderAll();
+            this.hideActionButtons(); // Hide buttons after deletion
         }
+    }
+
+    showActionButtons() {
+        this.bringToFrontButtonTarget.style.display = 'inline-block';
+        this.sendToBackButtonTarget.style.display = 'inline-block';
+        this.deleteObjectButtonTarget.style.display = 'inline-block';
+    }
+
+    hideActionButtons() {
+        this.bringToFrontButtonTarget.style.display = 'none';
+        this.sendToBackButtonTarget.style.display = 'none';
+        this.deleteObjectButtonTarget.style.display = 'none';
     }
 
     updateControlsVisibility() {
         const activeObject = this.canvas.getActiveObject();
         const fontControls = document.getElementById('font-controls');
+
+        if (activeObject) {
+            this.showActionButtons();
+        } else {
+            this.hideActionButtons();
+        }
 
         if (activeObject && activeObject.type === 'textbox') {
             fontControls.style.display = 'block';
@@ -297,21 +334,5 @@ export default class extends Controller {
 
         // Submit the form programmatically
         this.canvasTarget.closest('form').submit();
-    }
-
-    exportAsImage() {
-        // Convert the canvas to a data URL in PNG format
-        const dataURL = this.canvas.toDataURL({
-            format: 'png',
-            quality: 1.0,
-        });
-
-        // Create a link element to download the image
-        const link = document.createElement('a');
-        link.href = dataURL;
-        link.download = 'canvas.png'; // The name of the downloaded file
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     }
 }

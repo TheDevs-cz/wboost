@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'social_networks' %}
+
+{% block title %}Sociální sítě - varianty{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('social_network_templates', {'projectId': project.id}) }}">Sociální sítě</a></li>
+        <li class="breadcrumb-item active">{{ template.name }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+
+    <div class="row">
+        {% for dimension in dimensions %}
+            <div class="col-md-4">
+                <h2 class="h3">{{ dimension.value }}</h2>
+
+                {% if is_granted('ROLE_DESIGNER')%}
+                    <p>
+                        <a href="{{ path('add_social_network_template_variant', {'templateId': template.id, 'dimension': dimension.value}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat variantu</a>
+                    </p>
+                {% endif %}
+
+                <div class="row">
+                    {% for variant in variants %}
+                        {% if variant.dimension == dimension %}
+                            <div class="col-6">
+                                <div class="card d-block">
+                                    {% if is_granted('project_edit', project) %}
+                                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="ri-more-fill"></i>
+                                            </a>
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-export me-1"></i>Export</a>
+                                                <a href="{{ path('delete_social_network_template_variant', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    <a href="{{ is_granted('social_variant_edit', variant) ? path('social_network_template_variant_editor', {'variantId': variant.id}) : path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="text-body">
+                                        <div class="card-body">
+                                            <img src="{{ uploaded_asset(variant.backgroundImage) }}" style="max-width: 100%;">
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

@@ -1,6 +1,7 @@
 {% extends 'base.html.twig' %}
 
 {% block title %}Projekty{% endblock %}
+{% set active_menu_item = 'projects' %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
@@ -28,13 +29,13 @@
                                 <i class="ri-more-fill"></i>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">
-                                <a href="{{ path('edit_project', {'id': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                                <a href="{{ path('delete_project', {'id': project.id.toString}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                                <a href="{{ path('delete_project', {'id': project.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
                             </div>
                         </div>
                     {% endif %}
 
-                    <a href="{{ path('project_dashboard', {'id': project.id.toString}) }}" class="text-body">
+                    <a href="{{ path('project_dashboard', {'id': project.id}) }}" class="text-body">
                         <div class="card-body">
                             <h4 class="mt-0">
                                 {{ project.name }}

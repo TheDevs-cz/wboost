@@ -28,7 +28,7 @@ final class DeleteManualController extends AbstractController
             new DeleteManual($manual->id),
         );
 
-        $this->addFlash('success', 'Manuál smazán');
+        $this->addFlash('success', 'Manuál smazán!');
 
         return $this->redirectToRoute('manuals_list', [
             'id' => $manual->project->id,

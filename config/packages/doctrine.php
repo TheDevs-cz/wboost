@@ -5,9 +5,11 @@ declare(strict_types=1);
 use Ramsey\Uuid\Doctrine\UuidType;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
+use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
+use WBoost\Web\Doctrine\SocialNetworkTemplateVariantsDoctrineType;
 
 return static function (ContainerConfigurator $containerConfigurator): void {
 
@@ -20,6 +22,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 LogoDoctrineType::NAME => LogoDoctrineType::class,
                 ColorsMappingDoctrineType::NAME => ColorsMappingDoctrineType::class,
                 ProjectSharingDoctrineType::NAME => ProjectSharingDoctrineType::class,
+                EditorTextInputsDoctrineType::NAME => EditorTextInputsDoctrineType::class,
             ],
         ],
         'orm' => [
