@@ -23,7 +23,7 @@
 
                 {% if is_granted('ROLE_DESIGNER')%}
                     <p>
-                        <a href="{{ path('add_social_network_template_variant', {'templateId': template.id, 'dimension': dimension.value}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat variantu</a>
+                        <a href="{{ path('add_social_network_template_variant', {'templateId': template.id, 'dimension': dimension.value}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat</a>
                     </p>
                 {% endif %}
 
