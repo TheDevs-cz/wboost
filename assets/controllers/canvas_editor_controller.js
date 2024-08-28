@@ -16,8 +16,11 @@ export default class extends Controller {
         const canvasJson = this.element.dataset.canvasEditorCanvasJson;
         if (canvasJson && canvasJson.trim() !== '') {
             this.loadCanvasWithoutHistory(canvasJson);
-        } else {
-            this.initializeNewCanvas();
+        }
+
+        // Always override background when loaded
+        if (this.backgroundImageValue) {
+            this.setBackgroundImage(this.backgroundImageValue);
         }
 
         this.autosaveTimeout = null;
@@ -69,12 +72,6 @@ export default class extends Controller {
             this.canvas.renderAll();
             this.loadingCanvas = false;
         });
-    }
-
-    initializeNewCanvas() {
-        if (this.backgroundImageValue) {
-            this.setBackgroundImage(this.backgroundImageValue);
-        }
     }
 
     handleKeydown(event) {

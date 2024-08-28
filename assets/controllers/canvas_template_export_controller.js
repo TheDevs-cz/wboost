@@ -62,4 +62,24 @@ export default class extends Controller {
         link.click();
         document.body.removeChild(link);
     }
+
+    exportAsSvg() {
+        // Generate SVG data from the canvas
+        const svgData = this.canvas.toSVG();
+
+        // Create a Blob from the SVG data
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+
+        // Create a download link
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(svgBlob);
+        link.href = url;
+        link.download = 'canvas.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Revoke the object URL after download
+        URL.revokeObjectURL(url);
+    }
 }
