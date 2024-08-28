@@ -3,7 +3,7 @@ import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
-    static targets = ["canvas", "textInputs", "event", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave"];
+    static targets = ["canvas", "textInputs", "event", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave", "undoButton", "redoButton"];
 
     static values = {
         backgroundImage: String,
@@ -11,9 +11,20 @@ export default class extends Controller {
     }
 
     connect() {
+        this.canvas = new fabric.Canvas('c'); // Initialize the Fabric.js canvas
+
+        const canvasJson = this.element.dataset.canvasEditorCanvasJson;
+        if (canvasJson && canvasJson.trim() !== '') {
+            this.loadCanvasWithoutHistory(canvasJson);
+        } else {
+            this.initializeNewCanvas();
+        }
+
         this.autosaveTimeout = null;
         this.lastAutosaveTime = 0;
-        this.canvas = new fabric.Canvas('c'); // Initialize the Fabric.js canvas
+        this.history = [];
+        this.redoStack = [];
+        this.maxHistorySize = 20;
 
         this.loadFontsAndPopulateSelect();
 
@@ -22,20 +33,29 @@ export default class extends Controller {
 
         window.addEventListener('keydown', this.handleKeydown.bind(this));
 
-        const canvasJson = this.element.dataset.canvasEditorCanvasJson;
-        if (canvasJson && canvasJson.trim() !== '') {
-            this.loadCanvasFromJson(canvasJson);
-        } else {
-            this.initializeNewCanvas();
-        }
-
         this.canvas.on('selection:created', this.updateControlsVisibility.bind(this));
         this.canvas.on('selection:updated', this.updateControlsVisibility.bind(this));
         this.canvas.on('selection:cleared', this.updateControlsVisibility.bind(this));
-        this.canvas.on('object:added', () => this.scheduleAutosave());
-        this.canvas.on('object:removed', () => this.scheduleAutosave());
-        this.canvas.on('object:modified', () => this.scheduleAutosave());
         this.canvas.on('text:changed', () => this.scheduleAutosave());
+
+        this.canvas.on('object:removed', () => {
+            this.addToHistory();
+            this.scheduleAutosave();
+        });
+
+        this.canvas.on('object:modified', () => {
+            this.addToHistory();
+            this.scheduleAutosave();
+        });
+
+        this.canvas.on('object:added', () => {
+            if (!this.loadingCanvas) {
+                this.addToHistory();
+                this.scheduleAutosave();
+            }
+        });
+
+        this.addToHistory();
     }
 
     disconnect() {
@@ -43,9 +63,11 @@ export default class extends Controller {
         window.removeEventListener('keydown', this.handleKeydown.bind(this));
     }
 
-    loadCanvasFromJson(canvasJson) {
-        this.canvas.loadFromJSON(JSON.parse(canvasJson), () => {
+    loadCanvasWithoutHistory(canvasJson) {
+        this.loadingCanvas = true;
+        this.canvas.loadFromJSON(canvasJson, () => {
             this.canvas.renderAll();
+            this.loadingCanvas = false;
         });
     }
 
@@ -480,5 +502,53 @@ export default class extends Controller {
             this.canvas.renderAll();
             this.scheduleAutosave()
         });
+    }
+
+    addToHistory() {
+        if (this.history.length >= this.maxHistorySize) {
+            this.history.shift(); // Remove the oldest entry if history size is exceeded
+        }
+
+        this.history.push(this.canvas.toJSON(['name', 'maxLength', 'locked']));
+        this.redoStack = []; // Clear the redo stack when a new action is performed
+        this.updateButtonStates(); // Update button states
+    }
+
+    undo() {
+        if (this.history.length > 1) { // Keep at least one state in history
+            const currentState = this.history.pop(); // Remove the current state from history
+            this.redoStack.push(currentState); // Move the current state to the redo stack
+
+            const previousState = this.history[this.history.length - 1]; // Get the previous state
+            this.loadCanvasWithoutHistory(previousState);
+
+            this.updateButtonStates(); // Update button states
+        }
+    }
+
+    redo() {
+        if (this.redoStack.length > 0) {
+            const nextState = this.redoStack.pop(); // Get the next state from the redo stack
+            this.history.push(nextState); // Push it to the history stack
+
+            this.loadCanvasWithoutHistory(nextState);
+
+            this.updateButtonStates(); // Update button states
+        }
+    }
+
+    updateButtonStates() {
+        if (this.history.length > 1) {
+            console.log(this.history.length);
+            this.undoButtonTarget.classList.remove('disabled');
+        } else {
+            this.undoButtonTarget.classList.add('disabled');
+        }
+
+        if (this.redoStack.length > 0) {
+            this.redoButtonTarget.classList.remove('disabled');
+        } else {
+            this.redoButtonTarget.classList.add('disabled');
+        }
     }
 }

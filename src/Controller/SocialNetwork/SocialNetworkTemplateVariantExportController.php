@@ -26,11 +26,19 @@ final class SocialNetworkTemplateVariantExportController extends AbstractControl
         #[MapEntity(id: 'variantId')]
         SocialNetworkTemplateVariant $variant,
     ): Response {
+        $template = $variant->template;
+        $fonts = $this->getFonts->allForProject($template->project->id);
+        $fontNames = [];
+        foreach ($fonts as $font) {
+            $fontNames[] = $font->name;
+        }
+
         return $this->render('social_network_template_variant_export.html.twig', [
-            'project' => $variant->template->project,
-            'template' => $variant->template,
+            'project' => $template->project,
+            'template' => $template,
             'variant' => $variant,
-            'fonts' => $this->getFonts->allForProject($variant->template->project->id),
+            'fonts' => $fonts,
+            'fonts_json' => json_encode($fontNames),
         ]);
     }
 }

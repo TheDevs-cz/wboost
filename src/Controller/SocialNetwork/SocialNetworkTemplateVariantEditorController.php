@@ -20,7 +20,6 @@ use WBoost\Web\FormType\UploadProjectFileFormType;
 use WBoost\Web\Message\SocialNetwork\SaveSocialNetworkTemplateVariantEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
-use WBoost\Web\Services\Security\SocialNetworkTemplateVoter;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
 
@@ -80,13 +79,20 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             ]),
         ]);
 
+        $fonts = $this->getFonts->allForProject($template->project->id);
+        $fontNames = [];
+        foreach ($fonts as $font) {
+            $fontNames[] = $font->name;
+        }
+
         return $this->render('social_network_template_variant_editor.html.twig', [
             'project' => $template->project,
             'template' => $template,
             'variant' => $variant,
-            'fonts' => $this->getFonts->allForProject($template->project->id),
+            'fonts' => $fonts,
             'editor_form' => $editorForm,
             'upload_form' => $uploadForm,
+            'fonts_json' => json_encode($fontNames),
         ]);
     }
 }
