@@ -22,13 +22,14 @@
                 <div class="card">
                     <div class="card-body">
 
-                        <h2 class="h3">Varianta {{ dimension.value }}</h2>
+                        <h2 class="h3 mb-3">
+                            Varianta {{ dimension.value }}
 
-                        {% if is_granted('ROLE_DESIGNER')%}
-                            <p>
-                                <a href="{{ path('add_social_network_template_variant', {'templateId': template.id, 'dimension': dimension.value}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat</a>
-                            </p>
-                        {% endif %}
+                            {% if is_granted('ROLE_DESIGNER')%}
+                                    <a href="{{ path('add_social_network_template_variant', {'templateId': template.id, 'dimension': dimension.value}) }}" class="btn btn-outline-primary rounded-pill float-end btn-sm"><i class="mdi mdi-plus"></i> Přidat</a>
+                            {% endif %}
+                        </h2>
+
 
                         <div class="row">
                             {% for variant in variants %}
