@@ -12,7 +12,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\FormData\SocialNetworkTemplateVariantEditorFormData;
 use WBoost\Web\FormType\SocialNetworkTemplateVariantEditorFormType;
@@ -80,9 +79,11 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
         ]);
 
         $fonts = $this->getFonts->allForProject($template->project->id);
-        $fontNames = [];
+        $fontFaceNames = [];
         foreach ($fonts as $font) {
-            $fontNames[] = $font->name;
+            foreach ($font->faces as $fontFace) {
+                $fontFaceNames[] = "$font->name ($fontFace->name)";
+            }
         }
 
         return $this->render('social_network_template_variant_editor.html.twig', [
@@ -92,7 +93,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             'fonts' => $fonts,
             'editor_form' => $editorForm,
             'upload_form' => $uploadForm,
-            'fonts_json' => json_encode($fontNames),
+            'font_faces' => $fontFaceNames,
         ]);
     }
 }

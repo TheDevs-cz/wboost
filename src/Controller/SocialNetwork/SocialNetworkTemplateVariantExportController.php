@@ -28,9 +28,11 @@ final class SocialNetworkTemplateVariantExportController extends AbstractControl
     ): Response {
         $template = $variant->template;
         $fonts = $this->getFonts->allForProject($template->project->id);
-        $fontNames = [];
+        $fontFaceNames = [];
         foreach ($fonts as $font) {
-            $fontNames[] = $font->name;
+            foreach ($font->faces as $fontFace) {
+                $fontFaceNames[] = "$font->name ($fontFace->name)";
+            }
         }
 
         return $this->render('social_network_template_variant_export.html.twig', [
@@ -38,7 +40,7 @@ final class SocialNetworkTemplateVariantExportController extends AbstractControl
             'template' => $template,
             'variant' => $variant,
             'fonts' => $fonts,
-            'fonts_json' => json_encode($fontNames),
+            'font_faces' => $fontFaceNames,
         ]);
     }
 }

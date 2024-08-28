@@ -101,20 +101,15 @@ export default class extends Controller {
         fontFamilySelect.innerHTML = ''; // Clear existing options
 
         const fontPromises = this.customFontsValue.map(font => {
-            if (this.isSystemFont(font)) {
-                // Directly add system fonts without loading
+
+            const fontObserver = new FontFaceObserver(font);
+            return fontObserver.load().then(() => {
+                console.log(`${font} has loaded.`);
                 this.addFontOption(fontFamilySelect, font);
-                return Promise.resolve(); // System fonts don't require loading
-            } else {
-                // Use FontFaceObserver for custom fonts
-                const fontObserver = new FontFaceObserver(font);
-                return fontObserver.load().then(() => {
-                    console.log(`${font} has loaded.`);
-                    this.addFontOption(fontFamilySelect, font);
-                }).catch(err => {
-                    console.error(`Font ${font} failed to load:`, err);
-                });
-            }
+            }).catch(err => {
+                console.error(`Font ${font} failed to load:`, err);
+            });
+
         });
 
         // Wait for all custom fonts to be loaded
@@ -128,24 +123,21 @@ export default class extends Controller {
         selectElement.appendChild(option);
     }
 
-    isSystemFont(font) {
-        // Define your list of common system fonts
-        const systemFonts = [
-            'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia', 'Palatino', 'Garamond',
-            'Comic Sans MS', 'Trebuchet MS', 'Arial Black', 'Impact'
-        ];
-        return systemFonts.includes(font);
-    }
-
     addText() {
         // Prompt the user for the text name
         const inputName = prompt("Prosím zadejte název textového pole:");
+
+        // Determine the font family: use the first custom font, or fall back to 'Arial' if none are provided
+        const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
+        console.log(this.customFontsValue);
+        console.log(this.customFontsValue.length);
+        console.log(fontFamily);
 
         const textBox = new fabric.Textbox(inputName, {
             left: 100,
             top: 100,
             width: 200,
-            fontFamily: 'Arial',
+            fontFamily: fontFamily,
             fill: '#000000',
             fontSize: 24,
             textAlign: 'left',
@@ -164,7 +156,7 @@ export default class extends Controller {
         this.canvas.add(textBox);
         this.canvas.setActiveObject(textBox);
         this.canvas.renderAll();
-        this.scheduleAutosave()
+        this.scheduleAutosave();
     }
 
     bringToFront() {
@@ -221,13 +213,16 @@ export default class extends Controller {
         if (activeObject && activeObject.type === 'textbox') {
             fontControls.style.display = 'block';
 
+            const defaultFont = this.customFontsValue.length > 0 ? this.customFontsValue[0] : '';
+            console.log(this.customFontsValue);
+            console.log(defaultFont);
+
             // Set input values based on the active object's current properties
             document.getElementById('font-size').value = activeObject.fontSize;
             document.getElementById('font-color').value = activeObject.fill || '#000000';
             document.getElementById('text-align').value = activeObject.textAlign;
-            document.getElementById('font-family').value = activeObject.fontFamily || 'Arial';
+            document.getElementById('font-family').value = activeObject.fontFamily || defaultFont;
             document.getElementById('text-decoration').value = activeObject.textDecoration || 'none';
-            document.getElementById('font-weight').value = activeObject.fontWeight || 'normal';
             document.getElementById('max-length').value = activeObject.maxLength || '';
             document.getElementById('locked').checked = activeObject.locked || false;
         } else {
@@ -308,17 +303,6 @@ export default class extends Controller {
                     break;
             }
 
-            this.canvas.renderAll();
-            this.scheduleAutosave()
-        }
-    }
-
-    updateFontWeight(event) {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject && activeObject.type === 'textbox') {
-            let fontWeight = event.target.value;
-
-            activeObject.set({fontWeight: fontWeight});
             this.canvas.renderAll();
             this.scheduleAutosave()
         }

@@ -18,12 +18,10 @@
     <style>
         {% for font in fonts %}
             {% for font_face in font.faces %}
-            @font-face {
-                font-family: '{{ font.name }}';
-                src: url('{{ uploaded_asset(font_face.filePath) }}');
-                font-weight: {{ font_face.weight }};
-            {# TODO: font-style: normal; #}
-            }
+                @font-face {
+                    font-family: '{{ font.name }} ({{ font_face.name }})';
+                    src: url('{{ uploaded_asset(font_face.filePath) }}');
+                }
             {% endfor %}
         {% endfor %}
     </style>
@@ -32,7 +30,7 @@
         id="canvas-container"
         data-controller="canvas-editor"
         data-canvas-editor-background-image-value="{{ uploaded_asset(variant.backgroundImage) }}"
-        data-canvas-editor-custom-fonts-value='{{ fonts_json }}'
+        data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
     >
         {{ form_start(editor_form) }}
@@ -46,8 +44,13 @@
 
         <div class="card mb-2">
             <div class="card-body p-2">
+                <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button"><i class="mdi mdi-image"></i> Pozadí</button>
+
                 <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="undoButton" data-action="canvas-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
-                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="redoButton" data-action="canvas-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
+                <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button" data-canvas-editor-target="redoButton" data-action="canvas-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
+
+                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button"><i class="ri-zoom-out-line"></i></button>
+                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button"><i class="ri-zoom-in-line"></i></button>
 
                 <p data-canvas-editor-target="lastAutosave" class="d-inline-block my-0 ms-3 small text-muted"></p>
             </div>
@@ -75,10 +78,12 @@
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="deleteObjectButton" data-action="canvas-editor#deleteObject"><i class="uil-trash-alt"></i> Smazat objekt</button>
 
                         <div id="font-controls" class="mt-1" style="display: none;">
-                            <!-- Max Length Control -->
+                            <!-- Font Family Control -->
                             <div class="mb-2">
-                                <label for="max-length" class="form-label small">Max Length:</label>
-                                <input type="number" id="max-length" class="form-control form-control-sm" data-action="blur->canvas-editor#updateMaxLength">
+                                <label for="font-family" class="form-label small">Font Family:</label>
+                                <select id="font-family" class="form-select form-select-sm" data-action="change->canvas-editor#updateFontFamily">
+                                    <!-- Options will be populated dynamically by Stimulus -->
+                                </select>
                             </div>
 
                             <!-- Font Size Control -->
@@ -104,14 +109,6 @@
                                 </select>
                             </div>
 
-                            <!-- Font Family Control -->
-                            <div class="mb-2">
-                                <label for="font-family" class="form-label small">Font Family:</label>
-                                <select id="font-family" class="form-select form-select-sm" data-action="change->canvas-editor#updateFontFamily">
-                                    <!-- Options will be populated dynamically by Stimulus -->
-                                </select>
-                            </div>
-
                             <!-- Text Decoration Control -->
                             <div class="mb-2">
                                 <label for="text-decoration" class="form-label small">Text Decoration:</label>
@@ -123,14 +120,10 @@
                                 </select>
                             </div>
 
-                            <!-- Font Weight Control -->
+                            <!-- Max Length Control -->
                             <div class="mb-2">
-                                <label for="font-weight" class="form-label small">Font Weight:</label>
-                                <select id="font-weight" class="form-select form-select-sm" data-action="change->canvas-editor#updateFontWeight">
-                                    <option value="300">Light</option>
-                                    <option value="normal">Regular</option>
-                                    <option value="700">Bold</option>
-                                </select>
+                                <label for="max-length" class="form-label small">Max Length:</label>
+                                <input type="number" id="max-length" class="form-control form-control-sm" data-action="blur->canvas-editor#updateMaxLength">
                             </div>
 
                             <!-- Locked Control -->

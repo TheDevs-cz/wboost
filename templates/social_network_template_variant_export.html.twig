@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Export{% endblock %}
+{% block title %}Export - Varianta {{ variant.dimension.value}} ({{ variant.dimension.width }}x{{ variant.dimension.height }}){% endblock %}
 {% set active_menu_item = 'social_networks' %}
 
 {% block breadcrumb %}
@@ -16,21 +16,19 @@
 {% block content %}
     <style>
         {% for font in fonts %}
-        {% for font_face in font.faces %}
-        @font-face {
-            font-family: '{{ font.name }}';
-            src: url('{{ uploaded_asset(font_face.filePath) }}');
-            font-weight: {{ font_face.weight }};
-        {# TODO: font-style: normal; #}
-        }
-        {% endfor %}
+            {% for font_face in font.faces %}
+                @font-face {
+                    font-family: '{{ font.name }} ({{ font_face.name }})';
+                    src: url('{{ uploaded_asset(font_face.filePath) }}');
+                }
+            {% endfor %}
         {% endfor %}
     </style>
 
     <div
         id="canvas-container"
         data-controller="canvas-template-export"
-        data-canvas-template-export-custom-fonts='["Arial", "Roboto"]'
+        data-canvas-template-export-custom-fonts='{{ font_faces|json_encode }}'
         data-canvas-template-export-canvas-json="{{ variant.canvas }}"
     >
         <div class="row">
@@ -38,10 +36,6 @@
             <div class="col-2">
                 <div class="card">
                     <div class="card-body">
-                        <p class="card-title">
-                            Varianta {{ variant.dimension.value}} ({{ variant.dimension.width }}x{{ variant.dimension.height }})
-                        </p>
-
                         <div id="text-inputs-container">
                             {% for input in variant.inputs %}
                                 {% if not input.locked %}

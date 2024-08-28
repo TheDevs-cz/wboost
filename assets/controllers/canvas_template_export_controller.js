@@ -23,19 +23,13 @@ export default class extends Controller {
     }
 
     loadFonts(fonts) {
-        const systemFonts = ['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana']; // List of common system fonts
         const fontPromises = fonts.map(font => {
-            if (systemFonts.includes(font)) {
-                console.log(`Skipping system font: ${font}`);
-                return Promise.resolve(); // Skip loading system fonts
-            } else {
-                const fontObserver = new FontFaceObserver(font);
-                return fontObserver.load().then(() => {
-                    console.log(`Loaded custom font: ${font}`);
-                }).catch(err => {
-                    console.error(`Failed to load custom font: ${font}`, err);
-                });
-            }
+            const fontObserver = new FontFaceObserver(font);
+            return fontObserver.load().then(() => {
+                console.log(`Loaded custom font: ${font}`);
+            }).catch(err => {
+                console.error(`Failed to load custom font: ${font}`, err);
+            });
         });
 
         return Promise.all(fontPromises);
