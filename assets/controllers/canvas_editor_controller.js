@@ -3,7 +3,7 @@ import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
-    static targets = ["canvas", "textInputs", "event", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave", "undoButton", "redoButton"];
+    static targets = ["canvas", "textInputs", "event", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay"];
 
     static values = {
         backgroundImage: String,
@@ -366,7 +366,10 @@ export default class extends Controller {
         if (timeSinceLastSave >= 5000) {
             this.autosave();  // Autosave immediately if 10s have passed
         } else {
-            // Schedule autosave to run after 10s if not enough time has passed
+            // Schedule autosave to run after x if not enough time has passed
+
+            this.autosaveDelayTarget.classList.remove('d-none');
+
             this.autosaveTimeout = setTimeout(() => {
                 this.autosave();
             }, 5000 - timeSinceLastSave);
@@ -399,6 +402,7 @@ export default class extends Controller {
         const formattedTime = `${hours}:${minutes}:${seconds}`;
         this.lastAutosaveTarget.textContent = `Automaticky uloženo: ${formattedTime}`;
         this.autosaveMessageTarget.classList.add('d-none');
+        this.autosaveDelayTarget.classList.add('d-none');
     }
 
     submitForm() {
@@ -516,6 +520,7 @@ export default class extends Controller {
     }
 
     updateButtonStates() {
+        /*
         if (this.history.length > 1) {
             console.log(this.history.length);
             this.undoButtonTarget.classList.remove('disabled');
@@ -528,5 +533,6 @@ export default class extends Controller {
         } else {
             this.redoButtonTarget.classList.add('disabled');
         }
+        */
     }
 }
