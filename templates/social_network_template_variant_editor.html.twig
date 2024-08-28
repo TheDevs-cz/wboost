@@ -44,7 +44,7 @@
 
         <div class="card mb-2" style="position: sticky;top: 70px;z-index: 999;">
             <div class="card-body p-2">
-                <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button"><i class="mdi mdi-image"></i> Pozadí</button>
+                <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#backgroundModal" type="button"><i class="mdi mdi-image"></i> Pozadí</button>
 
                 <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="undoButton" data-action="canvas-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
                 <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button" data-canvas-editor-target="redoButton" data-action="canvas-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
@@ -146,6 +146,27 @@
         </div>
 
         {{ form_end(editor_form) }}
+
+        <!-- Background modal -->
+        <div class="modal fade" id="backgroundModal" tabindex="-1" aria-labelledby="backgroundModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="backgroundModalLabel">Nahrát pozadí</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        {{ form_start(background_form, { 'attr': { 'id': 'background-form' } }) }}
+                        {{ form_row(background_form.backgroundImage) }}
+                        {{ form_end(background_form) }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
+                        <button type="button" class="btn btn-primary" data-action="canvas-editor#uploadBackground">Nahrát</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Image upload modal -->
         <div class="modal fade" id="imageUploadModal" tabindex="-1" aria-labelledby="imageUploadModalLabel" aria-hidden="true">

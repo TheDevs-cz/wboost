@@ -52,12 +52,17 @@ class SocialNetworkTemplateVariant
     /**
      * @param array<EditorTextInput> $inputs
      */
-    public function edit(
+    public function editCanvas(
         string $canvas,
         array $inputs,
     ): void
     {
         $this->canvas = $canvas;
         $this->inputs = $inputs;
+    }
+
+    public function edit(string $backgroundImagePath): void
+    {
+        $this->backgroundImage = $backgroundImagePath;
     }
 }

@@ -15,8 +15,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\FormData\SocialNetworkTemplateVariantEditorFormData;
 use WBoost\Web\FormType\SocialNetworkTemplateVariantEditorFormType;
+use WBoost\Web\FormType\SocialNetworkTemplateVariantFormType;
 use WBoost\Web\FormType\UploadProjectFileFormType;
-use WBoost\Web\Message\SocialNetwork\SaveSocialNetworkTemplateVariantEditor;
+use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Value\EditorTextInput;
@@ -49,7 +50,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             assert(is_string($formData->textInputs));
 
             $this->bus->dispatch(
-                new SaveSocialNetworkTemplateVariantEditor(
+                new EditSocialNetworkTemplateVariantCanvasEditor(
                     $variant->id,
                     $formData->canvas,
                     EditorTextInput::createCollectionFromJson($formData->textInputs),
@@ -78,6 +79,12 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             ]),
         ]);
 
+        $backgroundForm = $this->createForm(SocialNetworkTemplateVariantFormType::class, options: [
+            'action' => $this->generateUrl('edit_social_network_template_variant', [
+                'variantId' => $variant->id,
+            ]),
+        ]);
+
         $fonts = $this->getFonts->allForProject($template->project->id);
         $fontFaceNames = [];
         foreach ($fonts as $font) {
@@ -93,6 +100,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             'fonts' => $fonts,
             'editor_form' => $editorForm,
             'upload_form' => $uploadForm,
+            'background_form' => $backgroundForm,
             'font_faces' => $fontFaceNames,
         ]);
     }

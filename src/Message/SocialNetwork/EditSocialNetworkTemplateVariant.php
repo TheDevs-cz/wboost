@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace WBoost\Web\Message\SocialNetwork;
 
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Value\EditorTextInput;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
-readonly final class SaveSocialNetworkTemplateVariantEditor
+readonly final class EditSocialNetworkTemplateVariant
 {
     public function __construct(
         public UuidInterface $variantId,
-        public string $canvas,
-        /** @var array<EditorTextInput> */
-        public array $inputs,
+        public null|UploadedFile $backgroundImage,
     ) {
     }
 }

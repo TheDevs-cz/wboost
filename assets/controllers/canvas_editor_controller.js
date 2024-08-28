@@ -474,6 +474,33 @@ export default class extends Controller {
             });
     }
 
+    uploadBackground(event) {
+        event.preventDefault();
+
+        const form = this.element.querySelector('#background-form');
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.filePath) {
+                    this.setBackgroundImage(data.filePath);
+                    const modalElement = this.element.querySelector('#backgroundModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    modal.hide();
+                } else {
+                    alert('Image upload failed.');
+                }
+            })
+            .catch(error => {
+                console.error('Error uploading image:', error);
+                alert('Error uploading image.');
+            });
+    }
+
     addImageToCanvas(imageUrl) {
         fabric.Image.fromURL(imageUrl, (img) => {
             img.set({
