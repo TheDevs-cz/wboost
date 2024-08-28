@@ -7,14 +7,14 @@ namespace WBoost\Web\Value;
 readonly final class EditorTextInput
 {
     public function __construct(
-        public string $name,
+        public null|string $name,
         public null|int $maxLength,
         public bool $locked,
     ) {
     }
 
     /**
-     * @return array{name: string, maxLength: null|int, locked: bool}
+     * @return array{name: null|string, maxLength: null|int, locked: bool}
      */
     public function toArray(): array
     {
@@ -26,7 +26,7 @@ readonly final class EditorTextInput
     }
 
     /**
-     * @param array{name: string, maxLength: null|int, locked: bool} $data
+     * @param array{name: null|string, maxLength: null|int, locked: bool} $data
      */
     public static function fromArray(array $data): self
     {
@@ -42,7 +42,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{name: string, maxLength: null|int, locked: bool}> $data */
+        /** @var array<array{name: null|string, maxLength: null|int, locked: bool}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

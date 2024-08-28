@@ -41,13 +41,18 @@ class SocialNetworkTemplate
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column]
         public string $name,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(nullable: true)]
+        public null|string $image,
     ) {
         $this->variants = new ArrayCollection();
     }
 
-    public function edit(string $name): void
+    public function edit(string $name, null|string $imagePath): void
     {
         $this->name = $name;
+        $this->image = $imagePath;
     }
 
     /**

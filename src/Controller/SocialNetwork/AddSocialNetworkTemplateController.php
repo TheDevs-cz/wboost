@@ -46,6 +46,7 @@ final class AddSocialNetworkTemplateController extends AbstractController
                     $project->id,
                     $templateId,
                     $data->name,
+                    $data->image,
                 ),
             );
 

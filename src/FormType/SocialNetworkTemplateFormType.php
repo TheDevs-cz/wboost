@@ -26,6 +26,16 @@ final class SocialNetworkTemplateFormType extends AbstractType
             'label' => 'Název šablony',
             'required' => true,
         ]);
+
+        $builder->add('image', FileType::class, [
+            'label' => 'Úvodní obrázek',
+            'required' => false,
+            'constraints' => [
+                new Image(
+                    maxSize: '2m',
+                ),
+            ],
+        ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

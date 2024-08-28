@@ -44,6 +44,8 @@
                                 {{ template.name }}
                             </h4>
                         </div>
+
+                        <img class="card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
                     </a>
                 </div>
             </div>

@@ -43,6 +43,7 @@ final class EditSocialNetworkTemplateController extends AbstractController
                 new EditSocialNetworkTemplate(
                     $template->id,
                     $data->name,
+                    $data->image,
                 ),
             );
 
