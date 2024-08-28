@@ -81,10 +81,46 @@ export default class extends Controller {
             activeElement.tagName === 'TEXTAREA' ||
             activeElement.isContentEditable;
 
+        // Handle Delete or Backspace for object deletion
         if (!isInputField && (event.key === 'Delete' || event.key === 'Backspace')) {
             event.preventDefault(); // Prevent default browser behavior
             this.deleteObject();
+            return;
         }
+
+        // Check if there is an active object on the canvas
+        const activeObject = this.canvas.getActiveObject();
+
+        // Handle arrow keys for moving the selected object only if an object is selected
+        if (activeObject && !isInputField && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+            event.preventDefault(); // Prevent scrolling or other default actions only if an object is selected
+            this.moveSelectedObject(event.key);
+        }
+    }
+
+    moveSelectedObject(key) {
+        const activeObject = this.canvas.getActiveObject();
+        if (!activeObject) return; // No object selected, nothing to move
+
+        // Adjust the object's position based on the arrow key pressed
+        switch (key) {
+            case 'ArrowLeft':
+                activeObject.set('left', activeObject.left - 1);
+                break;
+            case 'ArrowRight':
+                activeObject.set('left', activeObject.left + 1);
+                break;
+            case 'ArrowUp':
+                activeObject.set('top', activeObject.top - 1);
+                break;
+            case 'ArrowDown':
+                activeObject.set('top', activeObject.top + 1);
+                break;
+        }
+
+        activeObject.setCoords(); // Update the object's coordinates
+        this.canvas.renderAll(); // Re-render the canvas to reflect the changes
+        this.scheduleAutosave(); // Optionally save the state after moving
     }
 
     setBackgroundImage(imageUrl) {
