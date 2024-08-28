@@ -123,13 +123,29 @@ export default class extends Controller {
     }
 
     addText() {
-        // Prompt the user for the text name
-        const inputName = prompt("Prosím zadejte název textového pole:");
+        // Show the Bootstrap modal
+        const addTextModal = new bootstrap.Modal(document.getElementById('addTextModal'));
+        addTextModal.show();
+    }
+
+    toggleNameInput(event) {
+        const nameInputGroup = document.getElementById('nameInputGroup');
+        if (event.target.checked) {
+            nameInputGroup.style.display = 'none'; // Hide the name input if "Locked" is checked
+        } else {
+            nameInputGroup.style.display = 'block'; // Show the name input if "Locked" is unchecked
+        }
+    }
+
+    submitAddText(event) {
+        const form = document.getElementById('addTextForm');
+        const locked = document.getElementById('lockedCheckbox').checked;
+        const inputName = document.getElementById('textName').value || 'Text'; // Default name if empty
 
         // Determine the font family: use the first custom font, or fall back to 'Arial' if none are provided
         const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
 
-        const textBox = new fabric.Textbox(inputName, {
+        const textBox = new fabric.Textbox(locked ? 'Text' : inputName, {
             left: 100,
             top: 100,
             width: 200,
@@ -138,21 +154,30 @@ export default class extends Controller {
             fontSize: 24,
             textAlign: 'left',
             editable: true,
-            lockScalingX: true,  // Prevent scaling in the X direction
-            lockScalingY: true,  // Prevent scaling in the Y direction
-            lockScalingFlip: true, // Prevent flipping while scaling
-            lockRotation: true,  // Optional: Prevent rotation
-            hasControls: true, // Enable controls (if you still want them for positioning)
-            cornerStyle: 'circle', // Optional: Customize corner controls
-            cornerSize: 8,  // Size of the control corners
-            selectable: true, // Keep it selectable for moving
-            name: inputName // Store the name as metadata
+            lockScalingX: true,
+            lockScalingY: true,
+            lockScalingFlip: true,
+            lockRotation: true,
+            hasControls: true,
+            cornerStyle: 'circle',
+            cornerSize: 8,
+            selectable: true, // Make it non-selectable if locked
+            name: locked ? '' : inputName, // Store the name as metadata
+            locked: locked
         });
 
         this.canvas.add(textBox);
         this.canvas.setActiveObject(textBox);
         this.canvas.renderAll();
         this.scheduleAutosave();
+
+        // Hide the modal after submission
+        const addTextModal = bootstrap.Modal.getInstance(document.getElementById('addTextModal'));
+        addTextModal.hide();
+
+        // Clear the form inputs
+        form.reset();
+        document.getElementById('nameInputGroup').style.display = 'block'; // Ensure the name input is visible for the next use
     }
 
     bringToFront() {
@@ -218,7 +243,6 @@ export default class extends Controller {
             document.getElementById('font-family').value = activeObject.fontFamily || defaultFont;
             document.getElementById('text-decoration').value = activeObject.textDecoration || 'none';
             document.getElementById('max-length').value = activeObject.maxLength || '';
-            document.getElementById('locked').checked = activeObject.locked || false;
         } else {
             fontControls.style.display = 'none';
         }
@@ -334,23 +358,6 @@ export default class extends Controller {
                 editable: true,      // Keep text editable
                 hasControls: false   // Disable resize controls
             });
-        }
-    }
-
-    updateLocked(event) {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject && activeObject.type === 'textbox') {
-            activeObject.locked = event.target.checked;
-            activeObject.set({
-                lockMovementX: activeObject.locked,
-                lockMovementY: activeObject.locked,
-                lockScalingX: activeObject.locked,
-                lockScalingY: activeObject.locked,
-                lockRotation: activeObject.locked,
-                hasControls: !activeObject.locked,
-            });
-            this.canvas.renderAll();
-            this.scheduleAutosave()
         }
     }
 
