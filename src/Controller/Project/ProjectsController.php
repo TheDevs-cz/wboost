@@ -22,6 +22,13 @@ final class ProjectsController extends AbstractController
     {
         $projects = $this->getProjects->allForUser($user->id);
 
+        // For read-only users redirect directly to the project
+        if (count($projects) === 1 && !$this->isGranted('ROLE_DESIGNER')) {
+            return $this->redirectToRoute('project_dashboard', [
+                'id' => $projects[array_key_first($projects)]->id,
+            ]);
+        }
+
         return $this->render('projects.html.twig', [
             'projects' => $projects,
         ]);
