@@ -6,8 +6,6 @@ export default class extends Controller {
     connect() {
         const customFonts = JSON.parse(this.element.dataset.canvasTemplateExportCustomFonts);
 
-        console.log(customFonts);
-
         this.loadFonts(customFonts).then(() => {
             this.canvas = new fabric.Canvas('c', {
                 selection: false // Disable group selection

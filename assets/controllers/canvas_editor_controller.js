@@ -104,7 +104,6 @@ export default class extends Controller {
 
             const fontObserver = new FontFaceObserver(font);
             return fontObserver.load().then(() => {
-                console.log(`${font} has loaded.`);
                 this.addFontOption(fontFamilySelect, font);
             }).catch(err => {
                 console.error(`Font ${font} failed to load:`, err);
@@ -129,9 +128,6 @@ export default class extends Controller {
 
         // Determine the font family: use the first custom font, or fall back to 'Arial' if none are provided
         const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
-        console.log(this.customFontsValue);
-        console.log(this.customFontsValue.length);
-        console.log(fontFamily);
 
         const textBox = new fabric.Textbox(inputName, {
             left: 100,
@@ -214,8 +210,6 @@ export default class extends Controller {
             fontControls.style.display = 'block';
 
             const defaultFont = this.customFontsValue.length > 0 ? this.customFontsValue[0] : '';
-            console.log(this.customFontsValue);
-            console.log(defaultFont);
 
             // Set input values based on the active object's current properties
             document.getElementById('font-size').value = activeObject.fontSize;
@@ -485,7 +479,7 @@ export default class extends Controller {
             this.canvas.setActiveObject(img);
             this.canvas.renderAll();
             this.scheduleAutosave()
-        });
+        }, {crossOrigin: 'anonymous'});
     }
 
     addToHistory() {
