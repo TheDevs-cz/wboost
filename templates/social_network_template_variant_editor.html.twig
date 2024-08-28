@@ -42,7 +42,7 @@
             </div>
         </div>
 
-        <div class="card mb-2">
+        <div class="card mb-2" style="position: sticky;top: 70px;z-index: 999;">
             <div class="card-body p-2">
                 <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button"><i class="mdi mdi-image"></i> Pozadí</button>
 
@@ -58,9 +58,8 @@
 
         <div class="row">
             <div class="col-2">
-                <div class="card">
+                <div class="card" style="position: sticky;top: 130px;z-index: 999;">
                     <div class="card-body">
-
                         {% if fonts|length == 0 %}
                             <p class="text-danger">
                                 <i class="text-danger uil-exclamation-triangle me-1"></i> Nejsou nahrány fonty
