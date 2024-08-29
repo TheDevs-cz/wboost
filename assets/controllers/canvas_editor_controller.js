@@ -3,7 +3,10 @@ import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
-    static targets = ["canvas", "textInputs", "event", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay"];
+    static targets = [
+        "canvas", "textInputs", "event", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "scaleDisplay",
+        "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay", "zoomInButton", "zoomOutButton", "canvasContainer"
+    ];
 
     static values = {
         backgroundImage: String,
@@ -28,6 +31,9 @@ export default class extends Controller {
         this.history = [];
         this.redoStack = [];
         this.maxHistorySize = 20;
+        this.currentScale = 1;
+        this.minScale = 0.5;
+        this.maxScale = 1.0;
 
         this.loadFontsAndPopulateSelect();
 
@@ -121,6 +127,33 @@ export default class extends Controller {
         activeObject.setCoords(); // Update the object's coordinates
         this.canvas.renderAll(); // Re-render the canvas to reflect the changes
         this.scheduleAutosave(); // Optionally save the state after moving
+    }
+
+    zoomIn() {
+        if (this.currentScale < this.maxScale) {
+            this.currentScale += 0.1;
+            this.applyScale();
+        }
+    }
+
+    applyScale() {
+        // Ensure scale is within bounds
+        this.currentScale = Math.max(this.minScale, Math.min(this.maxScale, this.currentScale));
+
+        // Apply the scale to the canvas container
+        this.canvasContainerTarget.style.transform = `scale(${this.currentScale})`;
+
+        this.updateButtonStates(); // Update the state of the buttons
+
+        const scalePercentage = Math.round(this.currentScale * 100);
+        this.scaleDisplayTarget.textContent = `${scalePercentage}%`;
+    }
+
+    zoomOut() {
+        if (this.currentScale > this.minScale) {
+            this.currentScale -= 0.1;
+            this.applyScale();
+        }
     }
 
     setBackgroundImage(imageUrl) {
@@ -647,5 +680,18 @@ export default class extends Controller {
             this.redoButtonTarget.classList.add('disabled');
         }
         */
+
+        if ((this.currentScale - 0.01) <= this.minScale) {
+            this.zoomOutButtonTarget.classList.add('disabled');
+        } else {
+            this.zoomOutButtonTarget.classList.remove('disabled');
+        }
+
+        // Disable the zoom-in button if the scale is at the maximum
+        if ((this.currentScale + 0.01) >= this.maxScale) {
+            this.zoomInButtonTarget.classList.add('disabled');
+        } else {
+            this.zoomInButtonTarget.classList.remove('disabled');
+        }
     }
 }

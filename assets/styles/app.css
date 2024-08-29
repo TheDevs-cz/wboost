@@ -9,4 +9,6 @@
 
 .canvas-wrapper {
     display: inline-block;
+    transform-origin: top left;
 }
+

@@ -49,8 +49,10 @@
                 <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="undoButton" data-action="canvas-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
                 <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button" data-canvas-editor-target="redoButton" data-action="canvas-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
 
-                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button"><i class="ri-zoom-out-line"></i></button>
-                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button"><i class="ri-zoom-in-line"></i></button>
+                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-editor#zoomOut" data-canvas-editor-target="zoomOutButton"><i class="ri-zoom-out-line"></i></button>
+                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-editor#zoomIn" data-canvas-editor-target="zoomInButton"><i class="ri-zoom-in-line"></i></button>
+
+                <p class="d-inline-block my-0 small text-muted" data-canvas-editor-target="scaleDisplay">100%</p>
 
                 <p data-canvas-editor-target="lastAutosave" class="d-inline-block my-0 ms-3 small text-muted"></p>
 
@@ -137,7 +139,7 @@
             </div>
 
             <div class="col-10">
-                <div class="canvas-wrapper">
+                <div class="canvas-wrapper" data-canvas-editor-target="canvasContainer">
                     <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
                 </div>
 
