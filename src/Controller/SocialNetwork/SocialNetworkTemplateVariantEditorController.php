@@ -59,7 +59,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
                 ),
             );
 
-            if ($formData->event === 'autosave') {
+            if ($request->headers->get('accept') === 'application/json') {
                 return $this->json([
                     'status' => 'success',
                     'message' => 'Autosave successful!',

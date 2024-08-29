@@ -4,7 +4,7 @@ import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
     static targets = [
-        "canvas", "textInputs", "event", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "scaleDisplay",
+        "canvas", "textInputs", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "scaleDisplay",
         "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay", "zoomInButton", "zoomOutButton", "canvasContainer"
     ];
 
@@ -465,10 +465,7 @@ export default class extends Controller {
 
         this.showAutosavingMessage();
 
-        this.eventTarget.value = 'autosave';
         this.submitForm();
-        this.eventTarget.value = '';
-
     }
 
     showAutosavingMessage() {
@@ -501,8 +498,8 @@ export default class extends Controller {
             maxLength: textbox.maxLength || null,
             locked: textbox.locked || false,
         }));
-        this.textInputsTarget.value = JSON.stringify(textInputs);
 
+        this.textInputsTarget.value = JSON.stringify(textInputs);
         this.previewImageTarget.value = this.getScaledCanvasDataURI(400); // 400px max-width
 
         // Submit the form with fetch
@@ -643,30 +640,30 @@ export default class extends Controller {
     }
 
     undo() {
-        if (this.history.length > 1) { // Keep at least one state in history
-            const currentState = this.history.pop(); // Remove the current state from history
-            this.redoStack.push(currentState); // Move the current state to the redo stack
+        if (this.history.length > 1) {
+            const currentState = this.history.pop();
+            this.redoStack.push(currentState);
 
-            const previousState = this.history[this.history.length - 1]; // Get the previous state
+            const previousState = this.history[this.history.length - 1];
             this.loadCanvasWithoutHistory(previousState);
 
-            this.updateButtonStates(); // Update button states
+            this.updateButtonStates();
         }
     }
 
     redo() {
         if (this.redoStack.length > 0) {
-            const nextState = this.redoStack.pop(); // Get the next state from the redo stack
-            this.history.push(nextState); // Push it to the history stack
+            const nextState = this.redoStack.pop();
+            this.history.push(nextState);
 
             this.loadCanvasWithoutHistory(nextState);
 
-            this.updateButtonStates(); // Update button states
+            this.updateButtonStates();
         }
     }
 
     updateButtonStates() {
-        /*
+        // History
         if (this.history.length > 1) {
             console.log(this.history.length);
             this.undoButtonTarget.classList.remove('disabled');
@@ -679,15 +676,14 @@ export default class extends Controller {
         } else {
             this.redoButtonTarget.classList.add('disabled');
         }
-        */
 
+        // Zoom
         if ((this.currentScale - 0.01) <= this.minScale) {
             this.zoomOutButtonTarget.classList.add('disabled');
         } else {
             this.zoomOutButtonTarget.classList.remove('disabled');
         }
 
-        // Disable the zoom-in button if the scale is at the maximum
         if ((this.currentScale + 0.01) >= this.maxScale) {
             this.zoomInButtonTarget.classList.add('disabled');
         } else {
