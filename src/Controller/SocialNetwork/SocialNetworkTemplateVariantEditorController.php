@@ -48,12 +48,14 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
         if ($editorForm->isSubmitted() && $editorForm->isValid()) {
             assert(is_string($formData->canvas));
             assert(is_string($formData->textInputs));
+            assert(is_string($formData->imagePreview));
 
             $this->bus->dispatch(
                 new EditSocialNetworkTemplateVariantCanvasEditor(
                     $variant->id,
                     $formData->canvas,
                     EditorTextInput::createCollectionFromJson($formData->textInputs),
+                    $formData->imagePreview,
                 ),
             );
 

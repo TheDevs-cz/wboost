@@ -3,7 +3,7 @@ import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
-    static targets = ["canvas", "textInputs", "event", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay"];
+    static targets = ["canvas", "textInputs", "event", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay"];
 
     static values = {
         backgroundImage: String,
@@ -470,6 +470,8 @@ export default class extends Controller {
         }));
         this.textInputsTarget.value = JSON.stringify(textInputs);
 
+        this.previewImageTarget.value = this.getScaledCanvasDataURI(400); // 400px max-width
+
         // Submit the form with fetch
         fetch(form.action, {
             method: form.method,
@@ -491,6 +493,38 @@ export default class extends Controller {
                 console.error('Error during autosave:', error);
                 alert('Autosave failed. Please try again.');
             });
+    }
+
+    getScaledCanvasDataURI(maxWidth) {
+        // Deselect all objects to hide controls
+        const previousActiveObject = this.canvas.getActiveObject();
+        this.canvas.discardActiveObject();
+        this.canvas.renderAll();
+
+        const originalWidth = this.canvas.width;
+        const originalHeight = this.canvas.height;
+        const aspectRatio = originalWidth / originalHeight;
+
+        let newWidth = maxWidth;
+        let newHeight = maxWidth / aspectRatio;
+
+        // Create an off-screen canvas
+        const offScreenCanvas = document.createElement('canvas');
+        offScreenCanvas.width = newWidth;
+        offScreenCanvas.height = newHeight;
+        const ctx = offScreenCanvas.getContext('2d');
+
+        // Draw the scaled canvas
+        ctx.drawImage(this.canvas.getElement(), 0, 0, newWidth, newHeight);
+
+        // Convert the off-screen canvas to a Data URI
+        const dataURI = offScreenCanvas.toDataURL('image/png');
+
+        // Restore any previous selection if needed (optional)
+        this.canvas.setActiveObject(previousActiveObject);
+        this.canvas.renderAll();
+
+        return dataURI;
     }
 
     uploadImage(event) {

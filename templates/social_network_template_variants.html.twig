@@ -50,7 +50,7 @@
 
                                             <a href="{{ is_granted('social_variant_edit', variant) ? path('social_network_template_variant_editor', {'variantId': variant.id}) : path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="text-body">
                                                 <div class="card-body p-1 shadow-lg">
-                                                    <img src="{{ uploaded_asset(variant.backgroundImage) }}" style="max-width: 100%;">
+                                                    <img src="{{ variant.previewImage ?: uploaded_asset(variant.backgroundImage) }}" style="max-width: 100%;">
                                                 </div>
                                             </a>
                                         </div>

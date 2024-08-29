@@ -20,10 +20,16 @@ use WBoost\Web\Value\TemplateDimension;
 #[Entity]
 class SocialNetworkTemplateVariant
 {
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::TEXT)]
     public string $canvas = '';
 
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::TEXT, nullable: true)]
+    public null|string $previewImage = null;
+
     /** @var array<EditorTextInput> */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: EditorTextInputsDoctrineType::NAME)]
     public array $inputs = [];
 
@@ -55,10 +61,12 @@ class SocialNetworkTemplateVariant
     public function editCanvas(
         string $canvas,
         array $inputs,
+        string $previewImage,
     ): void
     {
         $this->canvas = $canvas;
         $this->inputs = $inputs;
+        $this->previewImage = $previewImage;
     }
 
     public function edit(string $backgroundImagePath): void

@@ -24,6 +24,6 @@ readonly final class EditSocialNetworkTemplateVariantCanvasHandler
     {
         $variant = $this->variantRepository->get($message->variantId);
 
-        $variant->editCanvas($message->canvas, $message->inputs);
+        $variant->editCanvas($message->canvas, $message->inputs, $message->previewImage);
     }
 }

@@ -14,6 +14,7 @@ readonly final class EditSocialNetworkTemplateVariantCanvasEditor
         public string $canvas,
         /** @var array<EditorTextInput> */
         public array $inputs,
+        public string $previewImage,
     ) {
     }
 }
