@@ -155,10 +155,20 @@ export default class extends Controller {
         selectElement.appendChild(option);
     }
 
-    addText() {
+    showAddTextModal() {
+        const modal = new bootstrap.Modal('#addTextModal');
+        modal.show();
+    }
+
+    showBackgroundModal() {
+        const modal = new bootstrap.Modal('#backgroundModal');
+        modal.show();
+    }
+
+    showAddImageModal() {
         // Show the Bootstrap modal
-        const addTextModal = new bootstrap.Modal(document.getElementById('addTextModal'));
-        addTextModal.show();
+        const modal = new bootstrap.Modal('#imageUploadModal');
+        modal.show();
     }
 
     toggleNameInput(event) {
@@ -205,8 +215,8 @@ export default class extends Controller {
         this.scheduleAutosave();
 
         // Hide the modal after submission
-        const addTextModal = bootstrap.Modal.getInstance(document.getElementById('addTextModal'));
-        addTextModal.hide();
+        const modal = bootstrap.Modal.getInstance('#addTextModal');
+        modal.hide();
 
         // Clear the form inputs
         form.reset();
@@ -497,9 +507,10 @@ export default class extends Controller {
             .then(data => {
                 if (data.filePath) {
                     this.addImageToCanvas(data.filePath);
-                    const modalElement = this.element.querySelector('#imageUploadModal');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    // Hide the modal after submission
+                    const modal = bootstrap.Modal.getInstance('#imageUploadModal');
                     modal.hide();
+                    form.reset();
                 } else {
                     alert('Image upload failed.');
                 }
@@ -524,9 +535,10 @@ export default class extends Controller {
             .then(data => {
                 if (data.filePath) {
                     this.setBackgroundImage(data.filePath);
-                    const modalElement = this.element.querySelector('#backgroundModal');
-                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    // Hide the modal after submission
+                    const modal = bootstrap.Modal.getInstance('#backgroundModal');
                     modal.hide();
+                    form.reset();
                 } else {
                     alert('Image upload failed.');
                 }
