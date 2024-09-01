@@ -206,6 +206,8 @@ export default class extends Controller {
     }
 
     submitAddText(event) {
+        event.preventDefault();
+
         const form = document.getElementById('addTextForm');
         const locked = document.getElementById('lockedCheckbox').checked;
         const inputName = document.getElementById('textName').value || 'Text'; // Default name if empty

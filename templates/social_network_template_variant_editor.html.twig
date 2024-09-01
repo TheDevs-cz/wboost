@@ -173,7 +173,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        {{ form_start(background_form, { 'attr': { 'id': 'background-form' } }) }}
+                        {{ form_start(background_form, { 'attr': { 'id': 'background-form', 'data-action': 'canvas-editor#uploadBackground' } }) }}
                         {{ form_row(background_form.backgroundImage) }}
                         {{ form_end(background_form) }}
                     </div>
