@@ -54,13 +54,19 @@
 
                 <p class="d-inline-block my-0 small text-muted" data-canvas-editor-target="scaleDisplay">100%</p>
 
-                <p data-canvas-editor-target="lastAutosave" class="d-inline-block my-0 ms-3 small text-muted"></p>
+                <p data-canvas-editor-target="lastAutosave" class="d-none d-inline-block my-0 ms-3 small text-muted"></p>
 
                 <div data-canvas-editor-target="autosaveDelay" class="d-none ms-2 spinner-grow spinner-grow-sm text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
 
-                <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="btn btn-sm btn-outline-secondary me-1 float-end">Export</a>
+                <div class="d-inline-block float-end">
+                    <p data-canvas-editor-target="unsavedChangesMessage" class="d-inline-block d-none my-0 me-2 small fw-bold text-danger">Neuložené změny</p>
+
+                    <button class="btn btn-sm btn-primary me-1" type="button" data-action="canvas-editor#submitForm" data-canvas-editor-target="zoomInButton">Uložit</button>
+
+                    <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="btn btn-sm btn-outline-secondary me-1">Export</a>
+                </div>
             </div>
         </div>
 

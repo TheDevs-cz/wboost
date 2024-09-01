@@ -5,7 +5,8 @@ import FontFaceObserver from 'fontfaceobserver';
 export default class extends Controller {
     static targets = [
         "canvas", "textInputs", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "scaleDisplay",
-        "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay", "zoomInButton", "zoomOutButton", "canvasContainer"
+        "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay", "zoomInButton", "zoomOutButton", "canvasContainer",
+        "unsavedChangesMessage"
     ];
 
     static values = {
@@ -438,6 +439,11 @@ export default class extends Controller {
     }
 
     scheduleAutosave() {
+        this.unsavedChangesMessageTarget.classList.remove('d-none')
+
+        // AUTOSAVE MECHANISM DISABLED
+        return;
+
         const now = Date.now(); // Current timestamp in milliseconds
         const timeSinceLastSave = now - this.lastAutosaveTime;
 
@@ -462,9 +468,7 @@ export default class extends Controller {
     autosave() {
         clearTimeout(this.autosaveTimeout);
         this.autosaveTimeout = null;
-
         this.showAutosavingMessage();
-
         this.submitForm();
     }
 
@@ -473,6 +477,11 @@ export default class extends Controller {
     }
 
     showLastAutosaveTime() {
+        this.unsavedChangesMessageTarget.classList.add('d-none')
+
+        // FOR NOW DISABLED AUTOSAVE MECHANISM
+        return;
+
         this.lastAutosaveTime = Date.now();
         const lastSaveDate = new Date(this.lastAutosaveTime); // Convert timestamp to Date object
         const hours = lastSaveDate.getHours().toString().padStart(2, '0');
