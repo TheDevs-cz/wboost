@@ -205,15 +205,6 @@ export default class extends Controller {
         modal.show();
     }
 
-    toggleNameInput(event) {
-        const nameInputGroup = document.getElementById('nameInputGroup');
-        if (event.target.checked) {
-            nameInputGroup.style.display = 'none'; // Hide the name input if "Locked" is checked
-        } else {
-            nameInputGroup.style.display = 'block'; // Show the name input if "Locked" is unchecked
-        }
-    }
-
     submitAddText(event) {
         const form = document.getElementById('addTextForm');
         const locked = document.getElementById('lockedCheckbox').checked;
@@ -254,7 +245,6 @@ export default class extends Controller {
 
         // Clear the form inputs
         form.reset();
-        document.getElementById('nameInputGroup').style.display = 'block'; // Ensure the name input is visible for the next use
     }
 
     bringToFront() {
@@ -320,6 +310,7 @@ export default class extends Controller {
             document.getElementById('font-family').value = activeObject.fontFamily || defaultFont;
             document.getElementById('text-decoration').value = activeObject.textDecoration || 'none';
             document.getElementById('max-length').value = activeObject.maxLength || '';
+            document.getElementById('locked').checked = activeObject.locked || false;
         } else {
             fontControls.style.display = 'none';
         }
@@ -697,6 +688,14 @@ export default class extends Controller {
             this.zoomInButtonTarget.classList.add('disabled');
         } else {
             this.zoomInButtonTarget.classList.remove('disabled');
+        }
+    }
+
+    updateLocked(event) {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject && activeObject.type === 'textbox') {
+            activeObject.locked = event.target.checked;
+            this.canvas.renderAll();
         }
     }
 }

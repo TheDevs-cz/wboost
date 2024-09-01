@@ -91,6 +91,13 @@
                         <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="deleteObjectButton" data-action="canvas-editor#deleteObject"><i class="uil-trash-alt"></i> Smazat objekt</button>
 
                         <div id="font-controls" class="mt-1" style="display: none;">
+                            <!-- Locked Control -->
+                            <div class="mb-2 form-check">
+                                <input type="checkbox" id="locked" class="form-check-input" data-action="change->canvas-editor#updateLocked">
+                                <label for="locked" class="form-check-label small">Uzamčeno</label>
+                            </div>
+
+
                             <!-- Font Family Control -->
                             <div class="mb-2">
                                 <label for="font-family" class="form-label small">Font Family:</label>
@@ -187,7 +194,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        {{ form_start(upload_form, { 'attr': { 'id': 'image-upload-form' } }) }}
+                        {{ form_start(upload_form, { 'attr': { 'id': 'image-upload-form', 'data-action': 'submit->canvas-editor#uploadImage' } }) }}
                         {{ form_row(upload_form.file) }}
                         {{ form_end(upload_form) }}
                     </div>
@@ -208,15 +215,15 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <form id="addTextForm">
+                        <form id="addTextForm" data-action="submit->canvas-editor#submitAddText">
                             <div class="mb-3">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="lockedCheckbox" data-action="change->canvas-editor#toggleNameInput">
+                                    <input class="form-check-input" type="checkbox" id="lockedCheckbox">
                                     <label class="form-check-label" for="lockedCheckbox">Zamknout editaci textu</label>
                                 </div>
                             </div>
-                            <div class="mb-3" id="nameInputGroup">
-                                <label for="textName" class="form-label">Název textového pole</label>
+                            <div class="mb-3">
+                                <label for="textName" class="form-label" for="textName">Název textového pole</label>
                                 <input type="text" class="form-control" id="textName">
                             </div>
                         </form>
