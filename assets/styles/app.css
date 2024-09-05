@@ -1,5 +1,6 @@
 .manual-page {
     min-height: 100vh;
+    margin-bottom: 50px;
 }
 
 .manual-scrollspy {
@@ -17,4 +18,8 @@
     color: #fff;
     min-height: 600px;
     padding: 40px 0;
+}
+
+.manual-font {
+    word-wrap: anywhere;
 }

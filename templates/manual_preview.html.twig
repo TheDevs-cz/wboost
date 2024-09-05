@@ -8,10 +8,8 @@
         {% for font in manual.fonts %}
             {% for font_face in font.faces %}
                 @font-face {
-                    font-family: '{{ font.name }}';
+                    font-family: '{{ font.name }} ({{ font_face.name }})';
                     src: url('{{ uploaded_asset(font_face.filePath) }}');
-                    font-weight: {{ font_face.weight }};
-                    {# TODO: font-style: normal; #}
                 }
             {% endfor %}
         {% endfor %}
@@ -27,67 +25,67 @@
 
                     {% if manual.introImage %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.horizontalWithClaim or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.symbol %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.primaryColor(2) or manual.primaryColor(3) or manual.primaryColor(4) %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% if manual.secondaryColors %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
                     {% for font in manual.fonts %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endfor %}
 
                     {% for mockup_page in manual.pages %}
                         {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endfor %}
                 </nav>
             </nav>
@@ -626,30 +624,24 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
+                                <div class="page-description col-6 fs-5 fst-italic">
                                     Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
                                 </div>
-                                <div class="page-designs col-9">
+                            </div>
 
-                                    <div class="row">
-                                        <div class="col-12">
-                                            Rodina {{ font.name }}
-
-                                            {% for font_face in font.faces %}
-                                                <p style="font-family: '{{ font.name }}', sans-serif;font-weight: {{ font_face.weight }};font-size: 32px;">
-                                                    {{ font_face.name }}<br>
-                                                    ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>
-                                                    abcdefghijklmnopqrstuvwxyz
-                                                </p>
-                                            {% endfor %}
-                                        </div>
+                            <div class="row mt-1 gx-5 gy-5">
+                                {% for font_face in font.faces %}
+                                    <div class="col-4 manual-font" style="font-family: '{{ font.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ manual.primaryColor(2) }}">
+                                        {{ font_face.name }}<br>
+                                        <span style="display: inline-block;font-size: 82px;">Aa</span><br>
+                                        aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžaábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzž1234567890?!&*
                                     </div>
-
-                                </div>
+                                {% endfor %}
                             </div>
                         </div>
                     {% endfor %}
 
+                    {#
                     {% for font in manual.fonts %}
                         {% set page = page+1 %}
 
@@ -685,6 +677,7 @@
                             </div>
                         </div>
                     {% endfor %}
+                    #}
 
                     {% for mockup_page in manual.pages %}
                         {% set page = page+1 %}
@@ -700,14 +693,37 @@
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-designs col-12">
 
-                                    <div class="row">
-                                        {% for image in mockup_page.images %}
+                                    <div class="row gy-3 gx-3">
+                                        {% if mockup_page.layout.value == 'layout-1' %}
                                             <div class="col-4">
-                                                {% if image %}
-                                                    <img src="{{ uploaded_asset(image) }}" style="max-width: 100%;">
+                                                {% if mockup_page.images[0] %}
+                                                    <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;max-height: 400px;">
                                                 {% endif %}
                                             </div>
-                                        {% endfor %}
+                                            <div class="col-8">
+                                                {% if mockup_page.images[1] %}
+                                                    <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;max-height: 400px;">
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-8">
+                                                {% if mockup_page.images[2] %}
+                                                    <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;max-height: 400px;">
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-4">
+                                                {% if mockup_page.images[3] %}
+                                                    <img src="{{ uploaded_asset(mockup_page.images[3]) }}" style="max-width: 100%;max-height: 400px;">
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            {% for image in mockup_page.images %}
+                                                <div class="col-4">
+                                                    {% if image %}
+                                                        <img src="{{ uploaded_asset(image) }}" style="max-width: 100%;">
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        {% endif %}
                                     </div>
 
                                 </div>
