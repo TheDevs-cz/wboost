@@ -127,14 +127,14 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga.
                                 </div>
                                 <div class="page-designs col-9">
                                     {% if manual.logo.horizontal %}
                                         {% set colorsMapping = {} %}
 
-                                        <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                        <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                             <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                         </div>
                                     {% endif %}
@@ -143,7 +143,7 @@
                                         <div class="row">
                                             {% if manual.logo.vertical %}
                                                 <div class="col-6">
-                                                    <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                    <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                         <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                                     </div>
                                                 </div>
@@ -151,7 +151,7 @@
 
                                             {% if manual.logo.symbol %}
                                                 <div class="col-6">
-                                                    <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                    <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                         <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                                     </div>
                                                 </div>
@@ -174,14 +174,14 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Logotyp lze použít také ve variantě se sloganem (claimem), a to v horizontální nebo vertikální variantě, dle maximální výraznosti a čitelnosti logotypu.
                                 </div>
                                 <div class="page-designs col-9">
                                     {% if manual.logo.horizontalWithClaim %}
                                         {% set colorsMapping = {} %}
 
-                                        <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                        <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                             <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                         </div>
                                     {% endif %}
@@ -189,7 +189,7 @@
                                     {% if manual.logo.verticalWithClaim %}
                                         <div class="row">
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -212,7 +212,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Ukázka použití horizontálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná část s barevným podkladem).
                                 </div>
                                 <div class="page-designs col-9">
@@ -220,34 +220,34 @@
                                     <div class="row">
                                         <div class="col-sm-6">
                                             {% set colorsMapping = {1: 2, 2: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 3, 3: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                            <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
                                         <div class="col-sm-6">
                                             {% set colorsMapping = {4: 3, 2: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                            <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
@@ -270,7 +270,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Ukázka použití vertikálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná jeho část s barevným podkladem).
                                 </div>
                                 <div class="page-designs col-9">
@@ -278,34 +278,34 @@
                                     <div class="row">
                                         <div class="col-sm-6">
                                             {% set colorsMapping = {1: 2, 2: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 3, 3: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                            <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
 
                                         <div class="col-sm-6">
                                             {% set colorsMapping = {4: 3, 2: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
 
                                             {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
+                                            <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
@@ -327,7 +327,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
                                     <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
                                     <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
@@ -338,7 +338,7 @@
                                         {% if manual.logo.horizontal %}
                                             {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -347,7 +347,7 @@
                                         {% if manual.logo.horizontalWithClaim %}
                                             {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
+                                                <div class="border border-1 p-5 rounded-4" style="background: #ffffff">
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -356,7 +356,7 @@
                                         {% if manual.logo.horizontal %}
                                             {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: #000000">
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -365,7 +365,7 @@
                                         {% if manual.logo.horizontalWithClaim %}
                                             {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4" style="background: #000000">
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -389,7 +389,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
                                     <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
                                     <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
@@ -401,7 +401,7 @@
                                     <div class="row">
                                         {% if manual.logo.vertical %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -411,7 +411,7 @@
                                             {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
 
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: #000000">
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -421,7 +421,7 @@
                                         {% if manual.logo.verticalWithClaim %}
                                             {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
+                                                <div class="border border-1 p-5 rounded-4" style="background: #ffffff">
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -430,7 +430,7 @@
                                         {% if manual.logo.verticalWithClaim %}
                                             {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4" style="background: #000000">
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -453,60 +453,49 @@
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                            <div class="page-content pt-4 row">
+                                <div class="page-description col-3 pe-4 fs-5 fst-italic">
                                     Symbol lze použít samostatně v případech, kdy je značka již dobře zavedená a rozpoznatelná, například na propagačních předmětech (vhodný pro použití v malých formátech, kde by plné logo mohlo být nečitelné), aplikacích, profilech na sociálních sítích nebo jako ikona aplikace.
                                 </div>
-                                <div class="page-designs col-9">
-
-                                    {% set colorsMapping = {} %}
-
+                                <div class="page-designs col-8 offset-1">
                                     <div class="row">
-                                        {% if manual.logo.symbol %}
-                                            <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
-                                                </div>
+                                        {% set colorsMapping = {} %}
+                                        <div class="col-6">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                             </div>
-                                        {% endif %}
+                                        </div>
 
-                                        {% if manual.logo.symbol %}
-                                            {% set colorsMapping = {1: 2} %}
-                                            <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
-                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
-                                                </div>
+                                        {% set colorsMapping = {2: 1} %}
+                                        <div class="col-6">
+                                            <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                             </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.symbol %}
-                                            {% set colorsMapping = {1: 3, 3: 1} %}
-                                            <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
-                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.symbol %}
-                                            {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
-                                            <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
-                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.symbol %}
-                                            {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
-                                            <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: #000000">
-                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
+                                        </div>
                                     </div>
+                                </div>
+                            </div>
 
+                            <div class="row">
+                                {% set colorsMapping = {1: 3, 3: 1} %}
+                                <div class="col-4">
+                                    <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                    </div>
+                                </div>
+
+                                {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
+                                <div class="col-4">
+                                    <div class="border border-1 p-5 rounded-4" style="background: #ffffff">
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                    </div>
+                                </div>
+
+                                {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+                                <div class="col-4">
+                                    <div class="border border-1 p-5 rounded-4" style="background: #000000">
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -524,7 +513,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Ochranná zóna logotypu je prostor kolem loga, který musí zůstat volný, bez jakýchkoli grafických prvků, textů nebo jiných vizuálních elementů. Tato zóna je určena k zajištění toho, že logo bude vždy dobře čitelné a vizuálně výrazné, a že nebude rušeno okolními prvky
                                 </div>
                                 <div class="page-designs col-9">
@@ -534,8 +523,8 @@
                                     <div class="row">
                                         {% if manual.logo.horizontal %}
                                             <div class="col-12">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                    OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
+                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                    {# OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY) #}
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -543,8 +532,8 @@
 
                                         {% if manual.logo.vertical %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                    OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
+                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                    {# OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY) #}
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -552,8 +541,8 @@
 
                                         {% if manual.logo.symbol %}
                                             <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                    OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY)
+                                                <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                    {# OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY) #}
                                                     <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -577,21 +566,21 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Barevná paleta značky je klíčovým prvkem vizuální identity, který zajišťuje konzistentní a rozpoznatelné vystupování značky napříč všemi médii a komunikačními kanály.
                                 </div>
                                 <div class="page-designs col-9">
-                                    {% if manual.primaryColor(2) %}
-                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.primaryColor(2) }};"></span>
-                                    {% endif %}
-
-                                    {% if manual.primaryColor(3) %}
-                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.primaryColor(3) }};"></span>
-                                    {% endif %}
-
-                                    {% if manual.primaryColor(4) %}
-                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ manual.primaryColor(4) }};"></span>
-                                    {% endif %}
+                                    <div class="row">
+                                        {% for colorIndex in [2, 3, 4] %}
+                                            {% if manual.primaryColor(colorIndex) %}
+                                                <div class="col">
+                                                    <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ manual.primaryColor(colorIndex) }};">
+                                                        <strong>HEX:</strong> {{ manual.primaryColor(colorIndex) }}
+                                                    </div>
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -609,12 +598,16 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Sekundární barvy doplňují primární paletu a jsou určeny k použití ve vedlejších grafických prvcích, ikonách, tlačítkách a dalších podpůrných elementech. Jejich cílem je rozšířit barevný rozsah značky a umožnit flexibilnější aplikace, aniž by byla narušena vizuální soudržnost.
                                 </div>
                                 <div class="page-designs col-9">
                                     {% for secondary_color in manual.secondaryColors %}
-                                        <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ secondary_color }};"></span>
+                                        <div class="col">
+                                            <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ secondary_color }};">
+                                                <strong>HEX:</strong> {{ secondary_color }}
+                                            </div>
+                                        </div>
                                     {% endfor %}
                                 </div>
                             </div>
@@ -633,7 +626,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
                                 </div>
                                 <div class="page-designs col-9">
@@ -669,7 +662,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
+                                <div class="page-description col-3 fs-5 fst-italic">
                                     Sekundární písmo slouží jako doplněk k primárnímu písmu a poskytuje značce větší flexibilitu při komunikaci. Obvykle je vybráno z písem, která jsou standardně dostupná na stolních počítačích. To je zvláště užitečné při jednoduché korespondenci, kdy materiály vytváří širší okruh lidí na různých zařízeních.
                                 </div>
                                 <div class="page-designs col-9">

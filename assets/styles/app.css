@@ -12,3 +12,9 @@
     transform-origin: top left;
 }
 
+.manual-preview-color {
+    text-align: center;
+    color: #fff;
+    min-height: 600px;
+    padding: 40px 0;
+}
