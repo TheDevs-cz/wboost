@@ -52,6 +52,7 @@ final class TestDataFixture extends Fixture
             $date,
             ManualType::Logo,
             'Manual 1',
+            null,
         );
         $manager->persist($manual1);
 
@@ -72,11 +73,12 @@ final class TestDataFixture extends Fixture
         $manager->persist($project2);
 
         $manual2 = new Manual(
-            Uuid::fromString(self::PROJECT_2_ID),
+            Uuid::fromString(self::MANUAL_2_ID),
             $project2,
             $date,
             ManualType::Logo,
             'Manual 2',
+            null,
         );
         $manager->persist($manual2);
 
