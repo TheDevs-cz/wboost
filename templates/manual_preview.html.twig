@@ -25,6 +25,11 @@
                 <nav class="nav nav-pills flex-column">
                     {% set page = 0 %}
 
+                    {% if manual.introImage %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
+
                     {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
@@ -101,8 +106,25 @@
         <div class="col-md-11">
             <div data-bs-spy="scroll" data-bs-target="#manual-navbar" data-bs-offset="0" class="manual-scrollspy">
                 <div class="container">
-                    {% set colorsMapping = {} %}
                     {% set page = 0 %}
+
+                    {% if manual.introImage %}
+                        {% set page = page+1 %}
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Úvod</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-12 text-center">
+                                    <img src="{{ uploaded_asset(manual.introImage) }}" style="max-width: 100%;" alt="Úvod">
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
 
                     {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                         {% set page = page+1 %}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Message\Manual;
 
 use Ramsey\Uuid\UuidInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Value\ManualType;
 
 readonly final class AddManual
@@ -14,6 +15,7 @@ readonly final class AddManual
         public UuidInterface $projectId,
         public ManualType $type,
         public string $name,
+        public null|UploadedFile $introImage,
     ) {
     }
 }

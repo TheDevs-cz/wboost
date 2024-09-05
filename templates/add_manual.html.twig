@@ -16,8 +16,9 @@
     <div class="card">
         <div class="card-body">
             {{ form_start(form) }}
-            {{ form_row(form.name) }}
             {{ form_row(form.type) }}
+            {{ form_row(form.name) }}
+            {{ form_row(form.introImage) }}
 
             <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
 

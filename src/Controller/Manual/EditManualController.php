@@ -40,6 +40,7 @@ final class EditManualController extends AbstractController
                     $manual->id,
                     $data->type,
                     $data->name,
+                    $data->introImage,
                 ),
             );
 

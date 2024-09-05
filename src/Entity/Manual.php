@@ -86,6 +86,10 @@ class Manual
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column]
         public string $name,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(nullable: true)]
+        public null|string $introImage,
     ) {
         $this->pages = new ArrayCollection();
         $this->logo = Logo::withoutImages();
@@ -95,10 +99,11 @@ class Manual
         $this->primaryColors = $emptyColors;
     }
 
-    public function edit(ManualType $type, string $name): void
+    public function edit(ManualType $type, string $name, null|string $introImage): void
     {
         $this->type = $type;
         $this->name = $name;
+        $this->introImage = $introImage;
     }
 
     public function editLogo(Logo $logo): void
