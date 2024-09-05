@@ -40,22 +40,12 @@
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logo.horizontal %}
+                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.logo.horizontalWithClaim %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.vertical %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.verticalWithClaim %}
+                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
@@ -132,13 +122,13 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga.
                                 </div>
                                 <div class="page-designs col-9">
                                     {% if manual.logo.horizontal %}
@@ -179,13 +169,13 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy se sloganem</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Logotyp lze použít také ve variantě se sloganem (claimem), a to v horizontální nebo vertikální variantě, dle maximální výraznosti a čitelnosti logotypu.
                                 </div>
                                 <div class="page-designs col-9">
                                     {% if manual.logo.horizontalWithClaim %}
@@ -210,105 +200,53 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logo.horizontal %}
+                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Horizontální logotyp - barevné pozadí</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Ukázka použití horizontálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná část s barevným podkladem).
                                 </div>
                                 <div class="page-designs col-9">
 
                                     <div class="row">
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-
-                                        {% set colorsMapping = {1: 2, 2: 1} %}
-
-                                        <div class="col-6">
+                                        <div class="col-sm-6">
+                                            {% set colorsMapping = {1: 2, 2: 1} %}
                                             <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 3, 3: 1} %}
-
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            {% set colorsMapping = {1: 3, 3: 1} %}
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
-
-                                        <div class="col-6">
+                                            {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
                                             <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                             </div>
                                         </div>
-                                    </div>
 
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logo.horizontalWithClaim %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    {% set colorsMapping = {} %}
-
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-
-                                        {% set colorsMapping = {4: 3, 2: 1} %}
-
-                                        <div class="col-6">
+                                        <div class="col-sm-6">
+                                            {% set colorsMapping = {4: 3, 2: 1} %}
                                             <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
-
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
-
-                                        <div class="col-6">
+                                            {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
                                             <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
                                             </div>
@@ -320,113 +258,58 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.logo.vertical %}
+                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Vertikální logotyp - barevné pozadí</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Ukázka použití vertikálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná jeho část s barevným podkladem).
                                 </div>
                                 <div class="page-designs col-9">
 
-                                    {% set colorsMapping = {} %}
-
                                     <div class="row">
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-
-                                        {% set colorsMapping = {1: 2, 2: 1} %}
-
-                                        <div class="col-6">
+                                        <div class="col-sm-6">
+                                            {% set colorsMapping = {1: 2, 2: 1} %}
                                             <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 3, 3: 1} %}
-
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            {% set colorsMapping = {1: 3, 3: 1} %}
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
-
-                                        <div class="col-6">
+                                            {% set colorsMapping = {1: 4, 3: 1, 2: 1} %}
                                             <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
                                             </div>
                                         </div>
-                                    </div>
 
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logo.verticalWithClaim %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    {% set colorsMapping = {} %}
-
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
-                                                <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
-                                            </div>
-                                        </div>
-
-                                        {% set colorsMapping = {4: 3, 2: 1} %}
-
-                                        <div class="col-6">
+                                        <div class="col-sm-6">
+                                            {% set colorsMapping = {4: 3, 2: 1} %}
                                             <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(2) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
-
-                                        <div class="col-6">
-                                            <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                            {% set colorsMapping = {1: 3, 3: 1, 4: 1} %}
+                                            <div class="border border-2 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
-                                        </div>
 
-                                        {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
-
-                                        <div class="col-6">
+                                            {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %}
                                             <div class="border border-2 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(4) }}">
                                                 <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
-
                                 </div>
                             </div>
                         </div>
@@ -439,13 +322,15 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Horizontální logotyp - Černobílé použití</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
+                                    <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
+                                    <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
                                 </div>
                                 <div class="page-designs col-9">
 
@@ -459,20 +344,20 @@
                                             </div>
                                         {% endif %}
 
-                                        {% if manual.logo.horizontal %}
-                                            {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
-                                            <div class="col-6">
-                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: #000000">
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
                                         {% if manual.logo.horizontalWithClaim %}
                                             {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
                                             <div class="col-6">
                                                 <div class="border border-2 p-5 rounded-4" style="background: #ffffff">
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                </div>
+                                            </div>
+                                        {% endif %}
+
+                                        {% if manual.logo.horizontal %}
+                                            {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+                                            <div class="col-6">
+                                                <div class="border border-2 p-5 rounded-4 mb-4" style="background: #000000">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -499,13 +384,15 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Vertikální logotyp - Černobílé použití</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
+                                    <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
+                                    <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
                                 </div>
                                 <div class="page-designs col-9">
 
@@ -562,13 +449,13 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Symbol</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Symbol lze použít samostatně v případech, kdy je značka již dobře zavedená a rozpoznatelná, například na propagačních předmětech (vhodný pro použití v malých formátech, kde by plné logo mohlo být nečitelné), aplikacích, profilech na sociálních sítích nebo jako ikona aplikace.
                                 </div>
                                 <div class="page-designs col-9">
 
@@ -632,13 +519,13 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Ochranná zóna logotypu je prostor kolem loga, který musí zůstat volný, bez jakýchkoli grafických prvků, textů nebo jiných vizuálních elementů. Tato zóna je určena k zajištění toho, že logo bude vždy dobře čitelné a vizuálně výrazné, a že nebude rušeno okolními prvky
                                 </div>
                                 <div class="page-designs col-9">
 
@@ -685,13 +572,13 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Primární barevná paleta</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Barevná paleta značky je klíčovým prvkem vizuální identity, který zajišťuje konzistentní a rozpoznatelné vystupování značky napříč všemi médii a komunikačními kanály.
                                 </div>
                                 <div class="page-designs col-9">
                                     {% if manual.primaryColor(2) %}
@@ -717,13 +604,13 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Sekundární barevná paleta</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Sekundární barvy doplňují primární paletu a jsou určeny k použití ve vedlejších grafických prvcích, ikonách, tlačítkách a dalších podpůrných elementech. Jejich cílem je rozšířit barevný rozsah značky a umožnit flexibilnější aplikace, aniž by byla narušena vizuální soudržnost.
                                 </div>
                                 <div class="page-designs col-9">
                                     {% for secondary_color in manual.secondaryColors %}
@@ -741,13 +628,49 @@
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotyp</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Primární písmo</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
+                                    Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
+                                </div>
+                                <div class="page-designs col-9">
+
+                                    <div class="row">
+                                        <div class="col-12">
+                                            Rodina {{ font.name }}
+
+                                            {% for font_face in font.faces %}
+                                                <p style="font-family: '{{ font.name }}', sans-serif;font-weight: {{ font_face.weight }};font-size: 32px;">
+                                                    {{ font_face.name }}<br>
+                                                    ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>
+                                                    abcdefghijklmnopqrstuvwxyz
+                                                </p>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+
+                    {% for font in manual.fonts %}
+                        {% set page = page+1 %}
+
+                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                            <div class="page-heading py-3 border-bottom">
+                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">Sekundární písmo</span>
+                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                            </div>
+
+                            <div class="page-content py-4 gx-5 row">
+                                <div class="page-description col-3 fs-4">
+                                    Sekundární písmo slouží jako doplněk k primárnímu písmu a poskytuje značce větší flexibilitu při komunikaci. Obvykle je vybráno z písem, která jsou standardně dostupná na stolních počítačích. To je zvláště užitečné při jednoduché korespondenci, kdy materiály vytváří širší okruh lidí na různých zařízeních.
                                 </div>
                                 <div class="page-designs col-9">
 
@@ -782,10 +705,7 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-4">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga. Primární je vždy horizontální verze.
-                                </div>
-                                <div class="page-designs col-9">
+                                <div class="page-designs col-12">
 
                                     <div class="row">
                                         {% for image in mockup_page.images %}
