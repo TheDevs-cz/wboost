@@ -14,7 +14,6 @@ use WBoost\Web\Services\Security\ManualVoter;
 final class ManualPreviewController extends AbstractController
 {
     #[Route(path: '/manual/{id}/preview', name: 'manual_preview')]
-    #[IsGranted(ManualVoter::VIEW, 'manual')]
     public function __invoke(Manual $manual): Response
     {
         return $this->render('manual_preview.html.twig', [
