@@ -12,6 +12,7 @@ enum MockupPageLayout: string
     case Layout4 = 'layout-4';
     case Layout5 = 'layout-5';
     case Layout6 = 'layout-6';
+    case Layout7 = 'layout-7';
 
     public function uploadInputsCount(): int
     {
@@ -22,6 +23,7 @@ enum MockupPageLayout: string
             self::Layout4 => 5,
             self::Layout5 => 4,
             self::Layout6 => 6,
+            self::Layout7 => 1,
         };
     }
 }
