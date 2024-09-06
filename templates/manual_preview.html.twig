@@ -78,10 +78,15 @@
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% for font in manual.fonts %}
+                    {% if manual.primaryFont %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endfor %}
+                    {% endif %}
+
+                    {% if manual.secondaryFont %}
+                        {% set page = page+1 %}
+                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
+                    {% endif %}
 
                     {% for mockup_page in manual.pages %}
                         {% set page = page+1 %}
@@ -524,27 +529,27 @@
                                     <div class="row">
                                         {% if manual.logo.horizontal %}
                                             <div class="col-12">
-                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 bg-dark-lighten">
                                                     {# OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY) #}
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.vertical %}
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 bg-dark-lighten">
                                                     {# OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY) #}
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.symbol %}
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4" style="background: {{ '#' ~ manual.primaryColor(1) }}">
+                                                <div class="border border-1 p-5 rounded-4 bg-dark-lighten">
                                                     {# OCHRANNÁ ZÓNA 1/3 VÝŠKY LOGA (Z KAŽDÉ STRANY) #}
-                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}" style="background: {{ '#' ~ manual.primaryColor(1) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -603,19 +608,21 @@
                                     Sekundární barvy doplňují primární paletu a jsou určeny k použití ve vedlejších grafických prvcích, ikonách, tlačítkách a dalších podpůrných elementech. Jejich cílem je rozšířit barevný rozsah značky a umožnit flexibilnější aplikace, aniž by byla narušena vizuální soudržnost.
                                 </div>
                                 <div class="page-designs col-9">
-                                    {% for secondary_color in manual.secondaryColors %}
-                                        <div class="col">
-                                            <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ secondary_color }};">
-                                                <strong>HEX:</strong> {{ secondary_color }}
+                                    <div class="row">
+                                        {% for secondary_color in manual.secondaryColors %}
+                                            <div class="col">
+                                                <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ secondary_color }};">
+                                                    <strong>HEX:</strong> {{ secondary_color }}
+                                                </div>
                                             </div>
-                                        </div>
-                                    {% endfor %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     {% endif %}
 
-                    {% for font in manual.fonts %}
+                    {% if manual.primaryFont %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -633,8 +640,8 @@
                             </div>
 
                             <div class="row mt-1 gx-5 gy-5">
-                                {% for font_face in font.faces %}
-                                    <div class="col-4 manual-font" style="font-family: '{{ font.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ manual.primaryColor(2) }}">
+                                {% for font_face in manual.primaryFont.faces %}
+                                    <div class="col-4 manual-font" style="font-family: '{{ manual.primaryFont.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ manual.primaryColor(2) }}">
                                         {{ font_face.name }}<br>
                                         <span style="display: inline-block;font-size: 82px;">Aa</span><br>
                                         aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžaábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzž1234567890?!&*
@@ -642,10 +649,9 @@
                                 {% endfor %}
                             </div>
                         </div>
-                    {% endfor %}
+                    {% endif %}
 
-                    {#
-                    {% for font in manual.fonts %}
+                    {% if manual.secondaryFont %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -657,30 +663,22 @@
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Sekundární písmo slouží jako doplněk k primárnímu písmu a poskytuje značce větší flexibilitu při komunikaci. Obvykle je vybráno z písem, která jsou standardně dostupná na stolních počítačích. To je zvláště užitečné při jednoduché korespondenci, kdy materiály vytváří širší okruh lidí na různých zařízeních.
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    <div class="row">
-                                        <div class="col-12">
-                                            Rodina {{ font.name }}
-
-                                            {% for font_face in font.faces %}
-                                                <p style="font-family: '{{ font.name }}', sans-serif;font-weight: {{ font_face.weight }};font-size: 32px;">
-                                                    {{ font_face.name }}<br>
-                                                    ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>
-                                                    abcdefghijklmnopqrstuvwxyz
-                                                </p>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-
+                                <div class="page-description col-6 fs-5 fst-italic">
+                                    Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
                                 </div>
                             </div>
+
+                            <div class="row mt-1 gx-5 gy-5">
+                                {% for font_face in manual.secondaryFont.faces %}
+                                    <div class="col-4 manual-font" style="font-family: '{{ manual.secondaryFont.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ manual.primaryColor(2) }}">
+                                        {{ font_face.name }}<br>
+                                        <span style="display: inline-block;font-size: 82px;">Aa</span><br>
+                                        aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžaábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzž1234567890?!&*
+                                    </div>
+                                {% endfor %}
+                            </div>
                         </div>
-                    {% endfor %}
-                    #}
+                    {% endif %}
 
                     {% for mockup_page in manual.pages %}
                         {% set page = page+1 %}
