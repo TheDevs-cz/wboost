@@ -27,11 +27,11 @@
 
                 <div class="row">
                     {% for layout in layouts %}
-                        <div class="col-sm-6 col-md-4">
+                        <div class="col-sm-4 col-md-3">
                             <a href="{{ path('add_manual_mockup_page', {'id': manual.id, 'mockupPageLayout': layout.value}) }}">
                                 <div class="card">
                                     <div class="card-body">
-                                        <img src="{{ asset('images/' ~ layout.value ~ '.svg') }}">
+                                        <img src="{{ asset('images/' ~ layout.value ~ '.svg') }}" style="width: 100%;">
                                     </div>
                                 </div>
                             </a>
