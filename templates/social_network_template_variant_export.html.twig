@@ -29,34 +29,35 @@
         id="canvas-container"
         data-controller="canvas-template-export"
         data-canvas-template-export-custom-fonts='{{ font_faces|json_encode }}'
-        data-canvas-template-export-canvas-json="{{ variant.canvas }}"
+        data-canvas-template-export-canvas-json='{{ variant.canvas ?: include('_empty_canvas.html.twig') }}'
     >
         <div class="row">
 
             <div class="col-2">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="text-inputs-container">
-                            {% for input in variant.inputs %}
-                                {% if not input.locked %}
-                                    <div class="mb-2">
-                                        <label class="form-label small" for="text-input-{{ loop.index0 }}">{{ input.name }}</label>
-                                        <input
-                                            type="text"
-                                            class="form-control form-control-sm"
-                                            id="text-input-{{ loop.index0 }}"
-                                            data-index="{{ loop.index0 }}"
-                                            value="{{ input.name }}"
-                                            data-action="input->canvas-template-export#updateCanvasText"
-                                            {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif%}
-                                        >
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
+                {% if variant.inputs %}
+                    <div class="card">
+                        <div class="card-body">
+                            <div id="text-inputs-container">
+                                {% for input in variant.inputs %}
+                                    {% if not input.locked %}
+                                        <div class="mb-2">
+                                            <label class="form-label small" for="text-input-{{ loop.index0 }}">{{ input.name }}</label>
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm"
+                                                id="text-input-{{ loop.index0 }}"
+                                                data-index="{{ loop.index0 }}"
+                                                value="{{ input.name }}"
+                                                data-action="input->canvas-template-export#updateCanvasText"
+                                                {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif%}
+                                            >
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
                         </div>
-
                     </div>
-                </div>
+                {% endif %}
 
                 <button data-action="canvas-template-export#exportAsImage" class="btn btn-primary me-1 mb-1">Export do PNG</button>
                 <!--
