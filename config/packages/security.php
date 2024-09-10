@@ -42,7 +42,7 @@ return static function (SecurityConfig $securityConfig): void {
         ->target('/');
 
     $securityConfig->accessControl()
-        ->path('^/(login|registration|forgotten-password|reset-password)')
+        ->path('^/(login|registration|forgotten-password|reset-password|.*/preview)')
         ->roles([AuthenticatedVoter::PUBLIC_ACCESS]);
 
     $securityConfig->accessControl()
