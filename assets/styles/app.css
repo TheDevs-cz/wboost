@@ -44,6 +44,14 @@
     max-height: 200px;
 }
 
+.manual-image-wrapper.manual-image-square-symbol {
+    height: 416px;
+}
+
+.manual-image-wrapper.manual-image-square-symbol img {
+    max-height: 200px;
+}
+
 .manual-image-wrapper.manual-image-vertical-big img {
     max-height: 200px;
 }
