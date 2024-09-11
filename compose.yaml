@@ -23,7 +23,7 @@ services:
             PHP_IDE_CONFIG: "serverName=localhost"
 
     postgres:
-        image: postgres:16.0
+        image: postgres:16.1
         environment:
             POSTGRES_USER: postgres
             POSTGRES_PASSWORD: postgres

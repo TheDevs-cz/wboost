@@ -40,7 +40,7 @@
 
                     <a href="{{ is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'id': manual.id}) }}" class="text-body">
                         <div class="card-body position-relative">
-                            <img src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
+                            <img style="width: 100%;" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
 
                             <h4 class="mt-2">
                                 {{ manual.name }}

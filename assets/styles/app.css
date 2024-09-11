@@ -23,3 +23,27 @@
 .manual-font {
     word-wrap: anywhere;
 }
+
+.manual-image-wrapper {
+    text-align: center;
+}
+
+.manual-image-wrapper img {
+    max-height: 319px;
+}
+
+.manual-image-wrapper.manual-image-square img {
+    max-height: 319px;
+}
+
+.manual-image-wrapper.manual-image-horizontal img {
+    max-height: 120px;
+}
+
+.manual-image-wrapper.manual-image-square-smaller img {
+    max-height: 200px;
+}
+
+.manual-image-wrapper.manual-image-vertical-big img {
+    max-height: 200px;
+}

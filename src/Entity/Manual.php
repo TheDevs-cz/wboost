@@ -126,9 +126,14 @@ class Manual
         }
     }
 
+    public function primaryColorsCount(): int
+    {
+        return count(array_filter($this->primaryColors));
+    }
+
     public function colorsCount(): int
     {
-        return count($this->primaryColors) + count($this->secondaryColors);
+        return $this->primaryColorsCount() + count($this->secondaryColors);
     }
 
     /**
