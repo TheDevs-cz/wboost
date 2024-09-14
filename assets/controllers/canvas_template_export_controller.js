@@ -44,7 +44,14 @@ export default class extends Controller {
         const index = event.target.dataset.index;
         const textbox = this.canvas.getObjects('textbox')[index];
         if (textbox) {
+            const uppercase = textbox.uppercase || false
+
             textbox.text = event.target.value;
+
+            if (uppercase) {
+                textbox.text = textbox.text.toUpperCase();
+            }
+
             this.canvas.renderAll();
         }
     }

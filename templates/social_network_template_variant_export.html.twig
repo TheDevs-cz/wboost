@@ -41,7 +41,12 @@
                                 {% for input in variant.inputs %}
                                     {% if not input.locked %}
                                         <div class="mb-2">
-                                            <label class="form-label small" for="text-input-{{ loop.index0 }}">{{ input.name }}</label>
+                                            <label class="form-label small" for="text-input-{{ loop.index0 }}">
+                                                {{ input.name }}
+                                                {% if input.description %}
+                                                    <br><small class="text-muted">{{ input.description }}</small>
+                                                {% endif %}
+                                            </label>
                                             <input
                                                 type="text"
                                                 class="form-control form-control-sm"

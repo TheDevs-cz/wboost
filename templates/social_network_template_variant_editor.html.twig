@@ -93,35 +93,34 @@
                         <div id="font-controls" class="mt-1" style="display: none;">
                             <!-- Locked Control -->
                             <div class="mb-2 form-check">
-                                <input type="checkbox" id="locked" class="form-check-input" data-action="change->canvas-editor#updateLocked">
-                                <label for="locked" class="form-check-label small">Uzamčeno</label>
+                                <input type="checkbox" id="locked-control" class="form-check-input" data-action="change->canvas-editor#updateLocked">
+                                <label for="locked-control" class="form-check-label small">Uzamčeno</label>
                             </div>
-
 
                             <!-- Font Family Control -->
                             <div class="mb-2">
-                                <label for="font-family" class="form-label small">Font Family:</label>
-                                <select id="font-family" class="form-select form-select-sm" data-action="change->canvas-editor#updateFontFamily">
+                                <label for="font-family-control" class="form-label small">Font Family:</label>
+                                <select id="font-family-control" class="form-select form-select-sm" data-action="change->canvas-editor#updateFontFamily">
                                     <!-- Options will be populated dynamically by Stimulus -->
                                 </select>
                             </div>
 
                             <!-- Font Size Control -->
                             <div class="mb-2">
-                                <label for="font-size" class="form-label small">Font Size:</label>
-                                <input type="number" id="font-size" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontSize">
+                                <label for="font-size-control" class="form-label small">Font Size:</label>
+                                <input type="number" id="font-size-control" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontSize">
                             </div>
 
                             <!-- Font Color Control -->
                             <div class="mb-2">
-                                <label for="font-color" class="form-label small">Font Color (Hex):</label>
-                                <input type="text" id="font-color" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontColor">
+                                <label for="font-color-control" class="form-label small">Font Color (Hex):</label>
+                                <input type="text" id="font-color-control" class="form-control form-control-sm" data-action="input->canvas-editor#updateFontColor">
                             </div>
 
                             <!-- Text Align Control -->
                             <div class="mb-2">
-                                <label for="text-align" class="form-label small">Text Align:</label>
-                                <select id="text-align" class="form-select form-select-sm" data-action="change->canvas-editor#updateTextAlign">
+                                <label for="text-align-control" class="form-label small">Text Align:</label>
+                                <select id="text-align-control" class="form-select form-select-sm" data-action="change->canvas-editor#updateTextAlign">
                                     <option value="left">Left</option>
                                     <option value="center">Center</option>
                                     <option value="right">Right</option>
@@ -131,8 +130,8 @@
 
                             <!-- Text Decoration Control -->
                             <div class="mb-2">
-                                <label for="text-decoration" class="form-label small">Text Decoration:</label>
-                                <select id="text-decoration" class="form-select form-select-sm" data-action="change->canvas-editor#updateTextDecoration">
+                                <label for="text-decoration-control" class="form-label small">Text Decoration:</label>
+                                <select id="text-decoration-control" class="form-select form-select-sm" data-action="change->canvas-editor#updateTextDecoration">
                                     <option value="none">None</option>
                                     <option value="underline">Underline</option>
                                     <option value="line-through">Line Through</option>
@@ -142,8 +141,26 @@
 
                             <!-- Max Length Control -->
                             <div class="mb-2">
-                                <label for="max-length" class="form-label small">Max Length:</label>
-                                <input type="number" id="max-length" class="form-control form-control-sm" data-action="blur->canvas-editor#updateMaxLength">
+                                <label for="max-length-control" class="form-label small">Max Length:</label>
+                                <input type="number" id="max-length-control" class="form-control form-control-sm" data-action="blur->canvas-editor#updateMaxLength">
+                            </div>
+
+                            <!-- Name Control -->
+                            <div class="mb-2">
+                                <label for="name-control" class="form-label small">Název:</label>
+                                <input type="text" id="name-control" class="form-control form-control-sm" data-action="blur->canvas-editor#updateName">
+                            </div>
+
+                            <!-- Name Control -->
+                            <div class="mb-2">
+                                <label for="description-control" class="form-label small">Popis:</label>
+                                <input type="text" id="description-control" class="form-control form-control-sm" data-action="blur->canvas-editor#updateDescription">
+                            </div>
+
+                            <!-- Uppercase Control -->
+                            <div class="mb-2 form-check">
+                                <input type="checkbox" id="uppercase-control" class="form-check-input" data-action="change->canvas-editor#updateUppercase">
+                                <label for="uppercase-control" class="form-check-label small">Verzálky</label>
                             </div>
                         </div>
 
@@ -223,8 +240,18 @@
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label for="textName" class="form-label" for="textName">Název textového pole</label>
+                                <label for="textName" class="form-label">Název textového pole</label>
                                 <input type="text" class="form-control" id="textName">
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Popis</label>
+                                <textarea type="text" class="form-control" id="description"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="uppercaseCheckbox">
+                                    <label class="form-check-label" for="uppercaseCheckbox">Verzálky</label>
+                                </div>
                             </div>
                         </form>
                     </div>

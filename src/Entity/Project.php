@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
 use WBoost\Web\Value\ProjectSharing;
 use WBoost\Web\Value\SharingLevel;
@@ -24,6 +25,10 @@ class Project
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: ProjectSharingDoctrineType::NAME, options: ['default' => '[]'])]
     public array $sharing = [];
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(options: ['default' => ''])]
+    public string $slug;
 
     public function __construct(
         #[Id]
@@ -42,11 +47,12 @@ class Project
         #[Column]
         public string $name,
     ) {
+        $this->changeName($this->name);
     }
 
     public function edit(string $name): void
     {
-        $this->name = $name;
+        $this->changeName($name);;
     }
 
     public function getUserSharingLevel(User $user): null|SharingLevel
@@ -58,5 +64,11 @@ class Project
         }
 
         return null;
+    }
+
+    private function changeName(string $name): void
+    {
+        $this->name = $name;
+        $this->slug = (string) (new AsciiSlugger())->slug($name);
     }
 }

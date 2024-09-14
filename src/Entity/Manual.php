@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Exceptions\InvalidColorHex;
@@ -66,6 +67,10 @@ class Manual
     #[OneToMany(targetEntity: ManualMockupPage::class, mappedBy: 'manual', fetch: 'EXTRA_LAZY')]
     public Collection $pages;
 
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(options: ['default' => ''])]
+    public string $slug;
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -93,6 +98,7 @@ class Manual
     ) {
         $this->pages = new ArrayCollection();
         $this->logo = Logo::withoutImages();
+        $this->changeName($this->name);
 
         /** @var non-empty-array<int, null> $emptyColors */
         $emptyColors = array_fill(0, $type->primaryColorsCount(), null);
@@ -102,8 +108,8 @@ class Manual
     public function edit(ManualType $type, string $name, null|string $introImage): void
     {
         $this->type = $type;
-        $this->name = $name;
         $this->introImage = $introImage;
+        $this->changeName($this->name);
     }
 
     public function editLogo(Logo $logo): void
@@ -223,5 +229,11 @@ class Manual
     {
         $this->primaryFont = $primaryFont;
         $this->secondaryFont = $secondaryFont;
+    }
+
+    private function changeName(string $name): void
+    {
+        $this->name = $name;
+        $this->slug = (string) (new AsciiSlugger())->slug($name);
     }
 }

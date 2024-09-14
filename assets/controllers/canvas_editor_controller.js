@@ -47,6 +47,7 @@ export default class extends Controller {
         this.canvas.on('selection:updated', this.updateControlsVisibility.bind(this));
         this.canvas.on('selection:cleared', this.updateControlsVisibility.bind(this));
         this.canvas.on('text:changed', () => this.scheduleAutosave());
+        this.canvas.on('text:changed', () => this.applyTextTransformOnInput());
 
         this.canvas.on('object:removed', () => {
             this.addToHistory();
@@ -164,7 +165,7 @@ export default class extends Controller {
     }
 
     async loadFontsAndPopulateSelect() {
-        const fontFamilySelect = document.getElementById('font-family');
+        const fontFamilySelect = document.getElementById('font-family-control');
         fontFamilySelect.innerHTML = ''; // Clear existing options
 
         const fontPromises = this.customFontsValue.map(font => {
@@ -210,12 +211,14 @@ export default class extends Controller {
 
         const form = document.getElementById('addTextForm');
         const locked = document.getElementById('lockedCheckbox').checked;
+        const uppercase = document.getElementById('uppercaseCheckbox').checked;
+        const description = document.getElementById('description').value || null;
         const inputName = document.getElementById('textName').value || 'Text'; // Default name if empty
 
         // Determine the font family: use the first custom font, or fall back to 'Arial' if none are provided
         const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
 
-        const textBox = new fabric.Textbox(locked ? 'Text' : inputName, {
+        const textBox = new fabric.Textbox(inputName, {
             left: 100,
             top: 100,
             width: 200,
@@ -231,9 +234,11 @@ export default class extends Controller {
             hasControls: true,
             cornerStyle: 'circle',
             cornerSize: 8,
-            selectable: true, // Make it non-selectable if locked
-            name: locked ? '' : inputName, // Store the name as metadata
-            locked: locked
+            selectable: true,
+            name: inputName,
+            locked: locked,
+            uppercase: uppercase,
+            description: description
         });
 
         this.canvas.add(textBox);
@@ -306,13 +311,18 @@ export default class extends Controller {
             const defaultFont = this.customFontsValue.length > 0 ? this.customFontsValue[0] : '';
 
             // Set input values based on the active object's current properties
-            document.getElementById('font-size').value = activeObject.fontSize;
-            document.getElementById('font-color').value = activeObject.fill || '#000000';
-            document.getElementById('text-align').value = activeObject.textAlign;
-            document.getElementById('font-family').value = activeObject.fontFamily || defaultFont;
-            document.getElementById('text-decoration').value = activeObject.textDecoration || 'none';
-            document.getElementById('max-length').value = activeObject.maxLength || '';
-            document.getElementById('locked').checked = activeObject.locked || false;
+            document.getElementById('font-size-control').value = activeObject.fontSize;
+            document.getElementById('font-color-control').value = activeObject.fill || '#000000';
+            document.getElementById('text-align-control').value = activeObject.textAlign;
+            document.getElementById('font-family-control').value = activeObject.fontFamily || defaultFont;
+            document.getElementById('text-decoration-control').value = activeObject.textDecoration || 'none';
+            document.getElementById('max-length-control').value = activeObject.maxLength || '';
+            document.getElementById('locked-control').checked = activeObject.locked || false;
+            document.getElementById('uppercase-control').checked = activeObject.uppercase || false;
+            document.getElementById('name-control').value = activeObject.name || '';
+            document.getElementById('description-control').value = activeObject.description || '';
+
+            console.log(activeObject.description);
         } else {
             fontControls.style.display = 'none';
         }
@@ -491,7 +501,7 @@ export default class extends Controller {
         const form = this.canvasTarget.closest('form');
 
         // Serialize the canvas JSON
-        const canvasJSON = this.canvas.toJSON(['name', 'maxLength', 'locked']);
+        const canvasJSON = this.canvas.toJSON(['name', 'maxLength', 'locked', 'uppercase', 'description']);
         this.canvasTarget.value = JSON.stringify(canvasJSON);
 
         // Serialize only the text inputs
@@ -499,6 +509,8 @@ export default class extends Controller {
             name: textbox.name,
             maxLength: textbox.maxLength || null,
             locked: textbox.locked || false,
+            uppercase: textbox.uppercase || false,
+            description: textbox.description || '',
         }));
 
         this.textInputsTarget.value = JSON.stringify(textInputs);
@@ -517,13 +529,13 @@ export default class extends Controller {
                 if (data.status === 'success') {
                     this.showLastAutosaveTime();
                 } else {
-                    console.error('Autosave failed:', data.message);
-                    alert('Autosave failed. Please try again.');
+                    console.error('Ukládání se nepovedlo:', data.message);
+                    alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
                 }
             })
             .catch(error => {
                 console.error('Error during autosave:', error);
-                alert('Autosave failed. Please try again.');
+                alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
             });
     }
 
@@ -636,7 +648,7 @@ export default class extends Controller {
             this.history.shift(); // Remove the oldest entry if history size is exceeded
         }
 
-        this.history.push(this.canvas.toJSON(['name', 'maxLength', 'locked']));
+        this.history.push(this.canvas.toJSON(['name', 'maxLength', 'locked', 'uppercase', 'description']));
         this.redoStack = []; // Clear the redo stack when a new action is performed
         this.updateButtonStates(); // Update button states
     }
@@ -698,6 +710,54 @@ export default class extends Controller {
         if (activeObject && activeObject.type === 'textbox') {
             activeObject.locked = event.target.checked;
             this.canvas.renderAll();
+        }
+    }
+
+    updateName(event) {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject && activeObject.type === 'textbox') {
+            activeObject.name = event.target.value;
+
+            this.scheduleAutosave();
+            this.canvas.renderAll();
+        }
+    }
+
+    updateDescription(event) {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject && activeObject.type === 'textbox') {
+            activeObject.description = event.target.value;
+
+            this.scheduleAutosave();
+            this.canvas.renderAll();
+        }
+    }
+
+    updateUppercase(event) {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject && activeObject.type === 'textbox') {
+            activeObject.uppercase = event.target.checked;
+
+            this.applyUppercase(activeObject);
+            this.scheduleAutosave();
+        }
+    }
+
+    applyUppercase(textbox) {
+        let uppercase = textbox.uppercase || false
+
+        if (uppercase) {
+            textbox.text = textbox.text.toUpperCase();
+        }
+
+        this.canvas.renderAll();
+    }
+
+    applyTextTransformOnInput() {
+        const activeObject = this.canvas.getActiveObject();
+
+        if (activeObject && activeObject.type === 'textbox') {
+            this.applyUppercase(activeObject);
         }
     }
 }
