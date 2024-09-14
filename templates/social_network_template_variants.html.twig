@@ -37,11 +37,17 @@
                                     <div class="col-6">
                                         <div class="card d-block">
                                             {% if is_granted('project_edit', project) %}
-                                                <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                                                    <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <div class="card-img-overlay dropdown card-widgets p-2" style="left: auto;bottom: auto;">
+                                                    <a href="#" class="dropdown-toggle arrow-none d-inline-block bg-light text-center rounded-4 text-black" data-bs-toggle="dropdown" aria-expanded="false" style="width: 30px;height: 30px;line-height: 30px;">
                                                         <i class="ri-more-fill"></i>
                                                     </a>
                                                     <div class="dropdown-menu dropdown-menu-end">
+                                                        <a href="{{ path('copy_social_network_template_variant', {'variantId': variant.id, 'dimension': variant.dimension.value}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
+                                                        {% for dimension in dimensions %}
+                                                            {% if dimension != variant.dimension %}
+                                                                <a href="{{ path('copy_social_network_template_variant', {'variantId': variant.id, 'dimension': dimension.value}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat do {{ dimension.value }}</a>
+                                                            {% endif %}
+                                                        {% endfor %}
                                                         <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-export me-1"></i>Export</a>
                                                         <a href="{{ path('delete_social_network_template_variant', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
                                                     </div>

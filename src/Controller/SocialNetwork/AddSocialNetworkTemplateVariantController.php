@@ -12,14 +12,10 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\SocialNetworkTemplate;
-use WBoost\Web\FormData\SocialNetworkTemplateFormData;
 use WBoost\Web\FormData\SocialNetworkTemplateVariantFormData;
-use WBoost\Web\FormType\SocialNetworkTemplateFormType;
 use WBoost\Web\FormType\SocialNetworkTemplateVariantFormType;
-use WBoost\Web\Message\SocialNetwork\AddSocialNetworkTemplate;
 use WBoost\Web\Message\SocialNetwork\AddSocialNetworkTemplateVariant;
 use WBoost\Web\Services\ProvideIdentity;
-use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVoter;
 use WBoost\Web\Value\TemplateDimension;
 
