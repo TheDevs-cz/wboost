@@ -13,8 +13,8 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
-use Symfony\Component\String\Slugger\AsciiSlugger;
 use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
+use WBoost\Web\Services\Slugify;
 use WBoost\Web\Value\ProjectSharing;
 use WBoost\Web\Value\SharingLevel;
 
@@ -69,6 +69,6 @@ class Project
     private function changeName(string $name): void
     {
         $this->name = $name;
-        $this->slug = (string) (new AsciiSlugger())->slug($name);
+        $this->slug = Slugify::string($name);
     }
 }

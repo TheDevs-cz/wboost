@@ -27,6 +27,7 @@ final class ManualFormType extends AbstractType
         $builder->add('name', TextType::class, [
             'label' => 'Název manuálu',
             'required' => true,
+            'empty_data' => ''
         ]);
 
         $builder->add('type', EnumType::class, [

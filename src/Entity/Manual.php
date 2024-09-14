@@ -9,10 +9,11 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
-use Symfony\Component\String\Slugger\AsciiSlugger;
 use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Exceptions\InvalidColorHex;
+use WBoost\Web\Repository\ManualDoctrineRepository;
+use WBoost\Web\Services\Slugify;
 use WBoost\Web\Value\Color;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
@@ -25,7 +26,7 @@ use WBoost\Web\Value\ColorMapping;
 use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\ManualType;
 
-#[Entity]
+#[Entity(repositoryClass: ManualDoctrineRepository::class)]
 class Manual
 {
     /**
@@ -234,6 +235,6 @@ class Manual
     private function changeName(string $name): void
     {
         $this->name = $name;
-        $this->slug = (string) (new AsciiSlugger())->slug($name);
+        $this->slug = Slugify::string($name);
     }
 }

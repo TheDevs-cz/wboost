@@ -45,6 +45,7 @@
         "symfony/dependency-injection": "^7.0",
         "symfony/doctrine-messenger": "^7.0",
         "symfony/dotenv": "^7.0",
+        "symfony/expression-language": "7.*",
         "symfony/flex": "^2.1",
         "symfony/form": "^7.0",
         "symfony/framework-bundle": "^7.0",

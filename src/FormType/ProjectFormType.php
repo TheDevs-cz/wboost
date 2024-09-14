@@ -23,6 +23,7 @@ final class ProjectFormType extends AbstractType
         $builder->add('name', TextType::class, [
             'label' => 'Název projektu',
             'required' => true,
+            'empty_data' => ''
         ]);
     }
 

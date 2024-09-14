@@ -25,6 +25,7 @@ final class SocialNetworkTemplateFormType extends AbstractType
         $builder->add('name', TextType::class, [
             'label' => 'Název šablony',
             'required' => true,
+            'empty_data' => ''
         ]);
 
         $builder->add('image', FileType::class, [
