@@ -24,6 +24,7 @@
     <div class="row">
         {% for manual in manuals %}
             <div class="col-md-6 col-xxl-3">
+
                 <div class="card d-block">
                     {% if is_granted('manual_edit', manual) %}
                         <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
@@ -39,10 +40,8 @@
                     {% endif %}
 
                     <a href="{{ is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'id': manual.id}) }}" class="text-body">
-                        <div class="card-body position-relative">
-                            <img style="width: 100%;" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
-
-                            <h4 class="mt-2">
+                        <div class="card-body pb-2">
+                            <h4 class="mt-0">
                                 {{ manual.name }}
                                 <br><small>{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</small>
                             </h4>
@@ -50,11 +49,13 @@
                             {% if manual.primaryColors %}
                                 <div id="tooltip-container">
                                     {% for color in manual.primaryColors %}
-                                        <span class="d-inline-block avatar-xs rounded-circle" style="background: {{ color }};"></span>
+                                        <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ color }};"></span>
                                     {% endfor %}
                                 </div>
                             {% endif %}
                         </div>
+
+                        <img class="card-img-bottom" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
                     </a>
                 </div>
             </div>
