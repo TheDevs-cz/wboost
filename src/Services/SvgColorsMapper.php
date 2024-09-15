@@ -51,6 +51,16 @@ final class SvgColorsMapper
             $svgContent = str_replace($mapFrom, $mapTo, $svgContent);
         }
 
+        return $svgContent;
+    }
+
+    /**
+     * @param array<int, int|string> $replacementMap
+     */
+    public function mapToDataUri(string $image, Manual $manual, array $replacementMap): string
+    {
+        $svgContent = $this->map($image, $manual, $replacementMap);
+
         return 'data:image/svg+xml;base64,' . base64_encode($svgContent);
     }
 

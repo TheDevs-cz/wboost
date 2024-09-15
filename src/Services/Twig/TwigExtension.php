@@ -24,7 +24,7 @@ final class TwigExtension extends AbstractExtension
     {
         return [
             new TwigFunction('uploaded_asset', $this->uploaderHelper->getPublicPath(...)),
-            new TwigFunction('remap_svg_colors', $this->svgColorsMapper->map(...)),
+            new TwigFunction('remap_svg_colors', $this->svgColorsMapper->mapToDataUri(...)),
         ];
     }
 }

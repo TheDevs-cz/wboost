@@ -26,6 +26,7 @@
 
 .manual-image-wrapper {
     text-align: center;
+    position: relative;
 }
 
 .manual-image-wrapper img {
