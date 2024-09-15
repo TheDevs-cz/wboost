@@ -12,6 +12,15 @@ use WBoost\Web\Entity\Manual;
 
 final class ManualPreviewController extends AbstractController
 {
+    #[Route(path: '/manual/{id}/preview', name: 'legacy_manual_preview')]
+    public function legacyAction(Manual $manual): Response
+    {
+        return $this->redirectToRoute('manual_preview', [
+            'projectSlug' => $manual->project->slug,
+            'manualSlug' => $manual->slug,
+        ]);
+    }
+
     #[Route(path: '/manual/{projectSlug}/{manualSlug}', name: 'manual_preview')]
     public function __invoke(
         #[MapEntity(expr: 'repository.getBySlug(manualSlug, projectSlug)')]
