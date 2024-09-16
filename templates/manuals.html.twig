@@ -40,7 +40,7 @@
                     {% endif %}
 
                     <a href="{{ is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="text-body">
-                        <div class="card-body pb-2">
+                        <div class="card-body pb-0">
                             <h4 class="mt-0">
                                 {{ manual.name }}
                                 <br><small>{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</small>
@@ -55,7 +55,7 @@
                             {% endif %}
                         </div>
 
-                        <img class="card-img-bottom" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
+                        <img class="p-2 card-img-bottom" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
                     </a>
                 </div>
             </div>

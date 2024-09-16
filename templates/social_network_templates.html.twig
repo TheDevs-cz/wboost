@@ -39,13 +39,13 @@
                     {% endif %}
 
                     <a href="{{ path('social_network_template_variants', {'templateId': template.id}) }}" class="text-body">
-                        <div class="card-body">
+                        <div class="card-body pb-0">
                             <h4 class="m-0">
                                 {{ template.name }}
                             </h4>
                         </div>
 
-                        <img class="card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
+                        <img class="p-2 card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
                     </a>
                 </div>
             </div>
