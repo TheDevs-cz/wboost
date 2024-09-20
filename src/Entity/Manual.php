@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
 use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
+use WBoost\Web\Doctrine\ManualColorsDoctrineType;
 use WBoost\Web\Exceptions\InvalidColorHex;
 use WBoost\Web\Repository\ManualDoctrineRepository;
 use WBoost\Web\Services\Slugify;
@@ -24,6 +25,7 @@ use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Value\ColorMapping;
 use WBoost\Web\Value\Logo;
+use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualType;
 
 #[Entity(repositoryClass: ManualDoctrineRepository::class)]
@@ -42,6 +44,15 @@ class Manual
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::JSON, options: ['default' => '[]'])]
     public array $secondaryColors = [];
+
+    /** @var array<ManualColor> */
+    #[Column(type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
+    private array $detectedColors = [];
+
+    /** @var array<ManualColor> */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
+    public array $customColors = [];
 
     /**
      * @var array<ColorMapping>
@@ -159,28 +170,9 @@ class Manual
         $this->colorsMapping = $colorsMapping;
     }
 
-    public function getColorMappedPrimaryColorNumber(string $color): null|int
-    {
-        $color = strtolower($color);
-
-        foreach ($this->colorsMapping as $mapping) {
-            if ($color === strtolower($mapping->colorHex)) {
-                return $mapping->targetPrimaryColorNumber;
-            }
-        }
-
-        return null;
-    }
-
     public function colorsMappedCorrectly(): bool
     {
-        foreach ($this->logo->getDetectedColors() as $detectedColor) {
-            if ($this->getColorMappedPrimaryColorNumber($detectedColor->hex) === null) {
-                return false;
-            }
-        }
-
-        return true;
+        return false;
     }
 
     /**
@@ -230,6 +222,30 @@ class Manual
     {
         $this->primaryFont = $primaryFont;
         $this->secondaryFont = $secondaryFont;
+    }
+
+    /** @return array<ManualColor> */
+    public function detectedColors(): array
+    {
+        /** @var array<string> $detectedColorsHex */
+        $detectedColorsHex = [];
+
+        /** @return array<ManualColor> */
+        $detectedColors = [];
+
+        foreach ($this->detectedColors as $detectedColor) {
+            $detectedColors[] = $detectedColor;
+            $detectedColorsHex[] = $detectedColor->color->hex;
+        }
+
+        foreach ($this->logo->getDetectedColors() as $detectedColor) {
+            if (!in_array($detectedColor->hex, $detectedColorsHex)) {
+                $detectedColors[] = new ManualColor($detectedColor, null);
+                $detectedColorsHex[] = $detectedColor->hex;
+            }
+        }
+
+        return $detectedColors;
     }
 
     private function changeName(string $name): void

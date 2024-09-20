@@ -27,21 +27,17 @@ final class ManualColorsController extends AbstractController
     #[IsGranted(ManualVoter::EDIT, 'manual')]
     public function __invoke(Request $request, Manual $manual): Response
     {
-        $data = new ManualColorsFormData($manual->primaryColors, $manual->secondaryColors);
+        $data = ManualColorsFormData::fromManual($manual);
 
         $form = $this->createForm(ManualColorsFormType::class, $data);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            /** @var array<string, string> $mapping */
-            $mapping = $form->getExtraData()['mapping'] ?? [];
-
             $this->bus->dispatch(
                 new EditManualColors(
                     $manual->id,
-                    $data->primaryColors,
-                    $data->secondaryColors,
-                    $mapping,
+                    $data->manualDetectedColors(),
+                    $data->manualCustomColors(),
                 ),
             );
 

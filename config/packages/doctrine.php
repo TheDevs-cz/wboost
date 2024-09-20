@@ -8,6 +8,7 @@ use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
 use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
+use WBoost\Web\Doctrine\ManualColorsDoctrineType;
 use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
 use WBoost\Web\Doctrine\SocialNetworkTemplateVariantsDoctrineType;
 
@@ -23,6 +24,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 ColorsMappingDoctrineType::NAME => ColorsMappingDoctrineType::class,
                 ProjectSharingDoctrineType::NAME => ProjectSharingDoctrineType::class,
                 EditorTextInputsDoctrineType::NAME => EditorTextInputsDoctrineType::class,
+                ManualColorsDoctrineType::NAME => ManualColorsDoctrineType::class,
             ],
         ],
         'orm' => [
