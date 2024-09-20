@@ -21,7 +21,7 @@ final class ManualPreviewController extends AbstractController
         ]);
     }
 
-    #[Route(path: '/manual/{projectSlug}/{manualSlug}', name: 'manual_preview')]
+    #[Route(path: '/nahled-manualu/{projectSlug}/{manualSlug}', name: 'manual_preview')]
     public function __invoke(
         #[MapEntity(expr: 'repository.getBySlug(manualSlug, projectSlug)')]
         Manual $manual,
