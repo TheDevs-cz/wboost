@@ -401,7 +401,12 @@
 
                                     <div class="row">
                                         {% if manual.logo.horizontal %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#000000', 3: '#000000'} : {2: '#000000', 3: '#FFFFFF', 4: '#000000'} %}
+                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#000000', 3: '#000000'} : {2: '#000000', 3: '#000000', 4: '#000000'} %}
+
+                                            {% manual.id.value == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
+                                                {% set colorsMapping = {2: '#000000', 3: '#FFFFFF', 4: '#000000'} %}
+                                            {% endif %}
+
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: #ffffff;">
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
@@ -413,7 +418,12 @@
                                         {% endif %}
 
                                         {% if manual.logo.horizontalWithClaim %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#000000', 3: '#000000'} : {2: '#000000', 3: '#FFFFFF', 4: '#000000'} %}
+                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#000000', 3: '#000000'} : {2: '#000000', 3: '#000000', 4: '#000000'} %}
+
+                                            {% manual.id.value == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
+                                                {% set colorsMapping = {2: '#000000', 3: '#FFFFFF', 4: '#000000'} %}
+                                            {% endif %}
+
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: #ffffff">
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
@@ -425,7 +435,12 @@
                                         {% endif %}
 
                                         {% if manual.logo.horizontal %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {2: '#ffffff', 3: '#000000', 4: '#ffffff'} %}
+                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+
+                                            {% manual.id.value == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
+                                            {% set colorsMapping = {2: '#ffffff', 3: '#000000', 4: '#ffffff'} %}
+                                        {% endif %}
+
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: #000000">
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
@@ -437,7 +452,11 @@
                                         {% endif %}
 
                                         {% if manual.logo.horizontalWithClaim %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {2: '#ffffff', 3: '#000000', 4: '#ffffff'} %}
+                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+
+                                            {% manual.id.value == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
+                                                {% set colorsMapping = {2: '#ffffff', 3: '#000000', 4: '#ffffff'} %}
+                                            {% endif %}
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: #000000">
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
@@ -782,7 +801,7 @@
                             <div class="row mt-1 gx-5 gy-5">
                                 {% for font_face in manual.secondaryFont.faces %}
                                     {% if loop.index < 7 %}
-                                        <div class="col-4 manual-font" style="font-family: '{{ manual.secondaryFont.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ manual.primaryColor(2) }}">
+                                        <div class="col-4 manual-font" style="font-family: '{{ manual.secondaryFont.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;">
                                             {{ font_face.name }}<br>
                                             <span style="display: inline-block;font-size: 82px;">Aa</span><br>
                                             aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžaábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzž1234567890?!&*
