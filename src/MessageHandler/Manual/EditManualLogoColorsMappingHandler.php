@@ -6,11 +6,11 @@ namespace WBoost\Web\MessageHandler\Manual;
 
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\ManualNotFound;
-use WBoost\Web\Message\Manual\EditManualColors;
+use WBoost\Web\Message\Manual\EditManualLogoColorsMapping;
 use WBoost\Web\Repository\ManualRepository;
 
 #[AsMessageHandler]
-readonly final class EditManualColorsHandler
+readonly final class EditManualLogoColorsMappingHandler
 {
     public function __construct(
         private ManualRepository $manualRepository,
@@ -20,13 +20,15 @@ readonly final class EditManualColorsHandler
     /**
      * @throws ManualNotFound
      */
-    public function __invoke(EditManualColors $message): void
+    public function __invoke(EditManualLogoColorsMapping $message): void
     {
         $manual = $this->manualRepository->get($message->manualId);
 
-        $manual->editColors(
-            $message->detectedColors,
-            $message->customColors,
+        $manual->updateColorMapping(
+            $message->logoTypeVariant,
+            $message->logoColorVariant,
+            $message->background,
+            $message->mapping,
         );
     }
 }

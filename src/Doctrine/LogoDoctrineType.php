@@ -30,11 +30,11 @@ final class LogoDoctrineType extends JsonType
 
         /**
          * @var array{
-         *     horizontal: null|array{filePath: string, detectedColors: array<string>},
-         *     vertical: null|array{filePath: string, detectedColors: array<string>},
-         *     horizontalWithClaim: null|array{filePath: string, detectedColors: array<string>},
-         *     verticalWithClaim: null|array{filePath: string, detectedColors: array<string>},
-         *     symbol: null|array{filePath: string, detectedColors: array<string>},
+         *     horizontal: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
+         *     vertical: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
+         *     horizontalWithClaim: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
+         *     verticalWithClaim: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
+         *     symbol: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
          * } $jsonData
          */
         $jsonData = parent::convertToPHPValue($value, $platform);

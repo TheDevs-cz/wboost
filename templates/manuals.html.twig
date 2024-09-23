@@ -46,10 +46,10 @@
                                 <br><small>{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</small>
                             </h4>
 
-                            {% if manual.primaryColors %}
+                            {% if manual.detectedColors %}
                                 <div id="tooltip-container">
-                                    {% for color in manual.primaryColors %}
-                                        <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ color }};"></span>
+                                    {% for detectedColor in manual.detectedColors %}
+                                        <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColor.color.hex }};"></span>
                                     {% endfor %}
                                 </div>
                             {% endif %}

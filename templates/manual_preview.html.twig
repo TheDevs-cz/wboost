@@ -68,7 +68,7 @@
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.primaryColor(2) or manual.primaryColor(3) or manual.primaryColor(4) %}
+                    {% if manual.primaryColors %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
@@ -141,7 +141,7 @@
                                             <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                 <i class="mdi mdi-download"></i>
                                             </a>
-                                            <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                         </div>
                                     {% endif %}
 
@@ -153,7 +153,7 @@
                                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                             <i class="mdi mdi-download"></i>
                                                         </a>
-                                                        <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
+                                                        <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                     </div>
                                                 </div>
                                             {% endif %}
@@ -164,7 +164,7 @@
                                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                             <i class="mdi mdi-download"></i>
                                                         </a>
-                                                        <img style="max-height: 319px;" src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                                        <img style="max-height: 319px;" src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                                     </div>
                                                 </div>
                                             {% endif %}
@@ -197,7 +197,7 @@
                                             <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                 <i class="mdi mdi-download"></i>
                                             </a>
-                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                         </div>
                                     {% endif %}
 
@@ -208,7 +208,7 @@
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         </div>
@@ -238,73 +238,74 @@
                                     <div class="row">
                                         {% if manual.logo.horizontal %}
                                             <div class="col-sm-6">
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {3: '#ffffff'} : {1: 2, 2: 1} %}
+                                                {% set colorsMapping = manual.logoColorMapping('horizontal', 'darkBackground') %}
 
-                                                {% if manual.id.toString == '0191d6c9-c728-7112-b20f-d6b4f839d040' %}
-                                                    {% set colorsMapping = {2: '#7D927F', 3: '#ffffff'} %}
-                                                {% endif %}
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'darkBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="darkBackground" />
 
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ manual.primaryColorsCount == 3 ? '#751318' : '#' ~ manual.primaryColor(2) }}">
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#c6c6c6', 3: '#ffffff'} : {1: 3, 3: 1} %}
+                                                {% set colorsMapping = manual.logoColorMapping('horizontal', 'lightBackground') %}
 
-                                                {% if manual.id.toString == '0191d6c9-c728-7112-b20f-d6b4f839d040' %}
-                                                    {% set colorsMapping = {2: '#94a9bb', 3: 1} %}
-                                                {% endif %}
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="lightBackground" />
 
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.primaryColor(3) }}">
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {1: 4, 3: 4, 2: 1} %}
+                                                {% set colorsMapping = manual.logoColorMapping('horizontal', 'oneColor') %}
 
-                                                {% if manual.id.toString == '0191d6c9-c728-7112-b20f-d6b4f839d040' %}
-                                                    {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
-                                                {% endif %}
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="oneColor" />
 
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ manual.primaryColorsCount == 3 ? '#' ~ manual.primaryColor(2) : '#' ~ manual.primaryColor(4) }}">
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.horizontalWithClaim %}
                                             <div class="col-sm-6">
-                                                {# {% set colorsMapping = {4: 3, 2: 1} %} #}
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {3: '#ffffff'} : {2: 1} %}
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ manual.primaryColorsCount == 3 ? '#751318' : '#' ~ manual.primaryColor(2) }}">
+                                                {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'darkBackground') %}
+
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="darkBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#c6c6c6', 3: '#ffffff'} : {1: 3, 3: 1, 4: 1} %}
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'lightBackground') %}
+
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="lightBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {# {% set colorsMapping = {1: 4, 3: 1, 2: 1, 4: 1} %} #}
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {1: 4, 3: 4, 2: 1, 4: 1} %}
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ manual.primaryColorsCount == 3 ? '#' ~ manual.primaryColor(2) : '#' ~ manual.primaryColor(4) }}">
+                                                {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'oneColor') %}
+
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="oneColor" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -335,68 +336,74 @@
                                     <div class="row">
                                         {% if manual.logo.vertical %}
                                             <div class="col-sm-6">
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {3: '#ffffff'} : {1: 2, 2: 1} %}
+                                                {% set colorsMapping = manual.logoColorMapping('vertical', 'darkBackground') %}
 
-                                                {% if manual.id.toString == '0191d6c9-c728-7112-b20f-d6b4f839d040' %}
-                                                    {% set colorsMapping = {2: '#7D927F', 3: '#ffffff'} %}
-                                                {% endif %}
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ manual.primaryColorsCount == 3 ? '#751318' : '#' ~ manual.primaryColor(2) }}">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'darkBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="darkBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#c6c6c6', 3: '#ffffff'} : {1: 3, 3: 1} %}
+                                                {% set colorsMapping = manual.logoColorMapping('vertical', 'lightBackground') %}
 
-                                                {% if manual.id.toString == '0191d6c9-c728-7112-b20f-d6b4f839d040' %}
-                                                    {% set colorsMapping = {2: '#94a9bb', 3: 1} %}
-                                                {% endif %}
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'lightBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="lightBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {1: 4, 3: 1, 2: 1} %}
+                                                {% set colorsMapping = manual.logoColorMapping('vertical', 'oneColor') %}
 
-                                                {% if manual.id.toString == '0191d6c9-c728-7112-b20f-d6b4f839d040' %}
-                                                    {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
-                                                {% endif %}
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ manual.primaryColorsCount == 3 ? '#' ~ manual.primaryColor(2) : '#' ~ manual.primaryColor(4) }}">
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'oneColor') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="oneColor" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.verticalWithClaim %}
                                             <div class="col-sm-6">
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {3: '#ffffff'} : {4: 3, 2: 1} %}
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ manual.primaryColorsCount == 3 ? '#751318' : '#' ~ manual.primaryColor(2) }}">
+                                                {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'darkBackground') %}
+
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'darkBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="darkBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#c6c6c6', 3: '#ffffff'} : {1: 3, 3: 1, 4: 1} %}
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                                {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'lightBackground') %}
+
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'lightBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="lightBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
-                                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {1: 4, 3: 1, 2: 1, 4: 1} %}
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ manual.primaryColorsCount == 3 ? '#' ~ manual.primaryColor(2) : '#' ~ manual.primaryColor(4) }}">
+                                                {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'oneColor') %}
+
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'oneColor') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="oneColor" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         </div>
@@ -427,68 +434,61 @@
 
                                     <div class="row">
                                         {% if manual.logo.horizontal %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#000000', 3: '#000000'} : {2: '#000000', 3: '#000000', 4: '#000000'} %}
-
-                                            {% if manual.id.toString == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
-                                                {% set colorsMapping = {2: '#000000', 3: '#FFFFFF', 4: '#000000'} %}
-                                            {% endif %}
+                                            {% set colorsMapping = manual.logoColorMapping('horizontal', 'whiteBackground') %}
 
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: #ffffff;">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'whiteBackground') }};">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="whiteBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.horizontalWithClaim %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#000000', 3: '#000000'} : {2: '#000000', 3: '#000000', 4: '#000000'} %}
-
-                                            {% if manual.id.toString == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
-                                                {% set colorsMapping = {2: '#000000', 3: '#FFFFFF', 4: '#000000'} %}
-                                            {% endif %}
+                                            {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'whiteBackground') %}
 
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: #ffffff">
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="whiteBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.horizontal %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
-
-                                            {% if manual.id.toString == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
-                                                {% set colorsMapping = {2: '#ffffff', 3: '#000000', 4: '#ffffff'} %}
-                                            {% endif %}
+                                            {% set colorsMapping = manual.logoColorMapping('horizontal', 'blackBackground') %}
 
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'blackBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="blackBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.horizontalWithClaim %}
-                                            {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#ffffff', 3: '#ffffff'} : {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+                                            {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'blackBackground') %}
 
-                                            {% if manual.id.toString == '019169c0-805a-7189-8e23-fb20bb50fc57' %}
-                                                {% set colorsMapping = {2: '#ffffff', 3: '#000000', 4: '#ffffff'} %}
-                                            {% endif %}
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="blackBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -518,53 +518,62 @@
                                 </div>
                                 <div class="page-designs col-9">
 
-                                    {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
+                                    {% set colorsMapping = manual.logoColorMapping('vertical', 'whiteBackground') %}
 
                                     <div class="row">
                                         {% if manual.logo.vertical %}
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'whiteBackground') }};">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="whiteBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.verticalWithClaim %}
-                                            {% set colorsMapping = {2: '#000000', 3: '#000000', 4: '#000000'} %}
+                                            {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'whiteBackground') %}
+
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff">
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="{{ '#' ~ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="whiteBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.vertical %}
-                                            {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+                                            {% set colorsMapping = manual.logoColorMapping('vertical', 'blackBackground') %}
 
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'blackBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="blackBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
 
                                         {% if manual.logo.verticalWithClaim %}
-                                            {% set colorsMapping = {2: '#ffffff', 3: '#ffffff', 4: '#ffffff'} %}
+                                            {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'blackBackground') %}
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #000000">
+                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'blackBackground') }}">
+                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="blackBackground" />
+
                                                     <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                         <i class="mdi mdi-download"></i>
                                                     </a>
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim, manual, colorsMapping) }}">
+                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -592,23 +601,26 @@
                                 </div>
                                 <div class="page-designs col-8 offset-1">
                                     <div class="row">
-                                        {% set colorsMapping = manual.primaryColorsCount == 3 ? {} : {} %}
+                                        {% set colorsMapping = {} %}
                                         <div class="col-6">
-                                            <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ manual.primaryColorsCount == 3 ? '#751318' : '#' ~ manual.primaryColor(1) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: #ffffff">
                                                 <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                     <i class="mdi mdi-download"></i>
                                                 </a>
-                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                             </div>
                                         </div>
 
-                                        {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: 1} : {2: 1} %}
+                                        {% set colorsMapping = manual.logoColorMapping('symbol', 'darkBackground') %}
+
                                         <div class="col-6">
-                                            <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.primaryColor(2) }}">
+                                            <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'darkBackground') }}">
+                                                <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="darkBackground" />
+
                                                 <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                     <i class="mdi mdi-download"></i>
                                                 </a>
-                                                <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                             </div>
                                         </div>
                                     </div>
@@ -616,33 +628,40 @@
                             </div>
 
                             <div class="row">
-                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {2: '#c6c6c6'} : {1: 3, 3: 1} %}
+                                {% set colorsMapping = manual.logoColorMapping('symbol', 'lightBackground') %}
+
                                 <div class="col-4">
-                                    <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.primaryColor(3) }}">
+                                    <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'lightBackground') }}">
+                                        <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="lightBackground" />
+
                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                             <i class="mdi mdi-download"></i>
                                         </a>
-                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                     </div>
                                 </div>
 
-                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {} : {2: '#000000', 3: '#ffffff', 4: '#000000'} %}
+                                {% set colorsMapping = manual.logoColorMapping('symbol', 'whiteBackground') %}
                                 <div class="col-4">
-                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: #ffffff">
+                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'whiteBackground') }}">
+                                        <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="whiteBackground" />
+
                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                             <i class="mdi mdi-download"></i>
                                         </a>
-                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                     </div>
                                 </div>
 
-                                {% set colorsMapping = manual.primaryColorsCount == 3 ? {} : {2: '#ffffff', 3: '#000000', 4: '#ffffff'} %}
+                                {% set colorsMapping = manual.logoColorMapping('symbol', 'blackBackground') %}
                                 <div class="col-4">
-                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: #000000">
+                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'blackBackground') }}">
+                                        <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="blackBackground" />
+
                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                             <i class="mdi mdi-download"></i>
                                         </a>
-                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}">
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                     </div>
                                 </div>
                             </div>
@@ -676,7 +695,7 @@
                                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                             <i class="mdi mdi-download"></i>
                                                         </a>
-                                                        <img src="{{ remap_svg_colors(manual.logo.horizontal, manual, colorsMapping) }}">
+                                                        <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                     </div>
                                                 </div>
                                             </div>
@@ -689,7 +708,7 @@
                                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                             <i class="mdi mdi-download"></i>
                                                         </a>
-                                                        <img src="{{ remap_svg_colors(manual.logo.vertical, manual, colorsMapping) }}" style="background: #ffffff;">
+                                                        <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}" style="background: #ffffff;">
                                                     </div>
                                                 </div>
                                             </div>
@@ -702,7 +721,7 @@
                                                         <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
                                                             <i class="mdi mdi-download"></i>
                                                         </a>
-                                                        <img src="{{ remap_svg_colors(manual.logo.symbol, manual, colorsMapping) }}" style="background: #ffffff;">
+                                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}" style="background: #ffffff;">
                                                     </div>
                                                 </div>
                                             </div>
@@ -714,7 +733,7 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.primaryColor(2) or manual.primaryColor(3) or manual.primaryColor(4) %}
+                    {% if manual.primaryColors %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -731,14 +750,12 @@
                                 </div>
                                 <div class="page-designs col-9">
                                     <div class="row">
-                                        {% for colorIndex in [2, 3, 4] %}
-                                            {% if manual.primaryColor(colorIndex) %}
-                                                <div class="col">
-                                                    <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ manual.primaryColor(colorIndex) }};">
-                                                        <strong>HEX:</strong> {{ manual.primaryColor(colorIndex) }}
-                                                    </div>
+                                        {% for primary_color in manual.primaryColors %}
+                                            <div class="col">
+                                                <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ primary_color }};">
+                                                    <strong>HEX:</strong> {{ primary_color }}
                                                 </div>
-                                            {% endif %}
+                                            </div>
                                         {% endfor %}
                                     </div>
                                 </div>

@@ -32,11 +32,17 @@ final class ManualColorFormType extends AbstractType
         $builder->add('color', $colorInputType, [
             'label' => 'HEX',
             'required' => true,
+            'attr' => [
+                'placeholder' => 'HEX',
+            ],
         ]);
 
-       $builder->add('type', ChoiceType::class, [
+        $builder->add('type', ChoiceType::class, [
             'label' => 'Mapování',
             'required' => false,
+            'attr' => [
+                'placeholder' => 'Mapování',
+            ],
             'choices' => [
                '-' => '',
                'Primární' => ManualColorType::Primary->value,

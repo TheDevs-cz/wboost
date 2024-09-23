@@ -25,13 +25,23 @@
             <div class="row">
                 <div class="col-sm-6">
                     <div class="card">
-                        <div class="card-body">
-                            <h4 class="header-title">Detekované barvy</h4>
+                        <div class="card-body" data-controller="colors-dragula" data-colors-dragula-target="container">
+                            <h4 class="header-title mb-3">Detekované barvy</h4>
 
                             {% for detectedColorForm in form.detectedColors %}
-                                <div class="d-flex align-items-center">
-                                    <span class="d-inline-block avatar-sm rounded-circle me-3 border" style="background: {{ '#' ~ detectedColorForm.color.vars.value }};"></span>
-                                    {{ form_row(detectedColorForm) }}
+                                <div class="d-flex align-items-center justify-content-between mb-2" data-order-field-target>
+                                    <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColorForm.color.vars.value }};"></span>
+                                    <div style="width: 100px;">
+                                        <span class="text-muted">HEX</span><br>{{ detectedColorForm.color.vars.value|upper }}
+                                    </div>
+
+                                    <div class="form-floating">
+                                        {{ form_widget(detectedColorForm.type) }}
+                                        {{ form_label(detectedColorForm.type) }}
+                                    </div>
+
+                                    {{ form_widget(detectedColorForm.order) }}
+                                    {{ form_widget(detectedColorForm.color) }}
                                     <span class="dragula-handle"></span>
                                 </div>
                             {% endfor %}
@@ -42,21 +52,31 @@
                 <div class="col-sm-6">
                     <div class="card">
                         <div class="card-body">
-                            <h4 class="header-title">Vlastní barvy</h4>
+                            <h4 class="header-title mb-3">Vlastní barvy</h4>
 
-                            <div data-controller="form-collection"
+                            <div data-controller="colors-dragula form-collection"
+                                 data-colors-dragula-target="container"
                                  data-form-collection-target="collection"
-                                 data-prototype="{{ '<div class="form-group mb-3">' ~ form_widget(form.customColors.vars.prototype.order) ~ form_widget(form.customColors.vars.prototype.color) ~ form_widget(form.customColors.vars.prototype.type) ~ '<button type="button" class="btn btn-danger" data-action="form-collection#remove">Odstranit</button><span class="dragula-handle"></span></div>' }}">
+                                 data-prototype="{{ '<div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color" data-order-field-target><span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: #ffffff;" data-custom-color-target="colorDisplay"></span>' ~ form_widget(form.customColors.vars.prototype.order) ~ '<div class="form-floating" style="width: 100px;">' ~ form_widget(form.customColors.vars.prototype.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) ~ form_label(form.customColors.vars.prototype.color) ~ '</div><div class="form-floating">' ~ form_widget(form.customColors.vars.prototype.type) ~ form_label(form.customColors.vars.prototype.type) ~ '</div><button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button><span class="dragula-handle"></span></div>' }}">
 
                                 {% for customColorForm in form.customColors %}
-                                    <div class="form-group input-group mb-3">
-                                        {{ form_widget(customColorForm) }}
-                                        <button type="button" class="btn btn-danger" data-action="form-collection#remove">Odstranit</button>
-                                        {{ form_errors(customColorForm) }}
+                                    <div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color" data-order-field-target>
+                                        <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ customColorForm.color.vars.value }};" data-custom-color-target="colorDisplay"></span>
+                                        <div class="form-floating" style="width: 100px;">
+                                            {{ form_widget(customColorForm.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) }}
+                                            {{ form_label(customColorForm.color) }}
+                                        </div>
+                                        <div class="form-floating">
+                                            {{ form_widget(customColorForm.type) }}
+                                            {{ form_label(customColorForm.type) }}
+                                        </div>
+                                        {{ form_widget(customColorForm.order) }}
+                                        <button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button>
+                                        <span class="dragula-handle"></span>
                                     </div>
                                 {% endfor %}
 
-                                <button type="button" class="btn btn-primary" data-action="form-collection#add">Další vlastní barva</button>
+                                <button type="button" class="btn btn-outline-primary mt-2" data-action="form-collection#add">Další vlastní barva</button>
                             </div>
                         </div>
                     </div>

@@ -21,7 +21,6 @@ return static function (ContainerConfigurator $containerConfigurator): void {
                 UuidType::NAME => UuidType::class,
                 FontFacesDoctrineType::NAME => FontFacesDoctrineType::class,
                 LogoDoctrineType::NAME => LogoDoctrineType::class,
-                ColorsMappingDoctrineType::NAME => ColorsMappingDoctrineType::class,
                 ProjectSharingDoctrineType::NAME => ProjectSharingDoctrineType::class,
                 EditorTextInputsDoctrineType::NAME => EditorTextInputsDoctrineType::class,
                 ManualColorsDoctrineType::NAME => ManualColorsDoctrineType::class,

@@ -40,6 +40,9 @@ return static function(ContainerConfigurator $configurator): void
     // Controllers
     $services->load('WBoost\\Web\\Controller\\', __DIR__ . '/../src/Controller/**/{*Controller.php}');
 
+    // Components
+    $services->load('WBoost\\Web\\Twig\\Components\\', __DIR__ . '/../src/Twig/Components/**/{*.php}');
+
     // Repositories
     $services->load('WBoost\\Web\\Repository\\', __DIR__ . '/../src/Repository/{*Repository.php}');
 

@@ -23,12 +23,15 @@ final class ManualColorsFormData
     public static function fromManual(Manual $manual): self
     {
         $detectedColors = [];
+        $customColors = [];
 
         foreach ($manual->detectedColors() as $index => $detectedColor) {
             $detectedColors[] = new ManualColorFormData($detectedColor->color->hex, $index, $detectedColor->type?->value);
         }
 
-        $customColors = [];
+        foreach ($manual->customColors as $index => $customColor) {
+            $customColors[] = new ManualColorFormData($customColor->color->hex, $index, $customColor->type?->value);
+        }
 
         return new self($detectedColors, $customColors);
     }
@@ -53,6 +56,8 @@ final class ManualColorsFormData
                 $manualColors[] = $manualColor;
             }
         }
+
+        ksort($manualColors);
 
         return $manualColors;
     }
@@ -81,6 +86,8 @@ final class ManualColorsFormData
                 $manualColors[] = $manualColor;
             }
         }
+
+        ksort($manualColors);
 
         return $manualColors;
     }
