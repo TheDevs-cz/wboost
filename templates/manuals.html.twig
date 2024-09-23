@@ -55,7 +55,7 @@
                             {% endif %}
                         </div>
 
-                        <img class="p-2 card-img-bottom" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
+                        <img class="p-2 card-img-bottom" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage.filePath) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
                     </a>
                 </div>
             </div>
