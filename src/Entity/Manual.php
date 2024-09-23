@@ -92,14 +92,14 @@ class Manual
     ) {
         $this->pages = new ArrayCollection();
         $this->logo = Logo::withoutImages();
-        $this->changeName($this->name);
+        $this->changeName($name);
     }
 
     public function edit(ManualType $type, string $name, null|string $introImage): void
     {
         $this->type = $type;
         $this->introImage = $introImage;
-        $this->changeName($this->name);
+        $this->changeName($name);
     }
 
     public function editLogo(Logo $logo): void
