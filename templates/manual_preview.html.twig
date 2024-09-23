@@ -88,7 +88,7 @@
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% for mockup_page in manual.pages %}
+                    {% for mockup_page in mockup_pages %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endfor %}
@@ -855,7 +855,7 @@
                         </div>
                     {% endif %}
 
-                    {% for mockup_page in manual.pages %}
+                    {% for mockup_page in mockup_pages %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">

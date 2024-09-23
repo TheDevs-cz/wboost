@@ -25,6 +25,7 @@ readonly final class GetManualMockupPages
             ->select('p')
             ->join('p.manual', 'm')
             ->where('m.id = :manualId')
+            ->orderBy('p.position', 'ASC')
             ->setParameter('manualId', $manualId)
             ->getQuery()
             ->getResult();
