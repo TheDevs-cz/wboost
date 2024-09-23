@@ -26,7 +26,7 @@ final class DownloadManualSvgController extends AbstractController
         string $logo,
         Request $request,
     ): Response {
-        /** @var null|array<int, int|string> $colorsMapping */
+        /** @var null|array<string, string> $colorsMapping */
         $colorsMapping = $request->get('colorsMapping');
 
         if (is_array($colorsMapping) === false) {
@@ -46,7 +46,7 @@ final class DownloadManualSvgController extends AbstractController
             throw $this->createNotFoundException('Logo type not uploaded');
         }
 
-        $svgContent = $this->svgColorsMapper->map($image->filePath, $manual, $colorsMapping);
+        $svgContent = $this->svgColorsMapper->map($image->filePath, $colorsMapping);
 
         $downloadedFileName = $manual->project->slug . "-logo-" . $logo;
 

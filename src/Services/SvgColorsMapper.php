@@ -21,45 +21,28 @@ final class SvgColorsMapper
     }
 
     /**
-     * @param array<int, int|string> $replacementMap
+     * @param array<string, string> $replacementMap
      */
-    public function map(string $image, Manual $manual, array $replacementMap): string
+    public function map(string $image, array $replacementMap): string
     {
         $svgContent = $this->getSvgContent($image);
 
         if ($replacementMap !== []) {
-            $mapFrom = [];
-            $mapTo = [];
+            $mapFrom = array_keys($replacementMap);
+            $mapTo = array_values($replacementMap);
 
-            foreach ($manual->colorsMapping as $mapping) {
-                $sourcePrimaryColorNumber = $replacementMap[$mapping->targetPrimaryColorNumber] ?? null;
-
-                if ($sourcePrimaryColorNumber === null) {
-                    continue;
-                }
-
-                if (is_int($sourcePrimaryColorNumber)) {
-                    $colorToReplaceWith = $manual->getPrimaryColor($sourcePrimaryColorNumber)?->hex;
-                } else {
-                    $colorToReplaceWith = trim($sourcePrimaryColorNumber, '#');
-                }
-
-                $mapFrom[] = $mapping->colorHex;
-                $mapTo[] = $colorToReplaceWith;
-            }
-
-            $svgContent = str_replace($mapFrom, $mapTo, $svgContent);
+            $svgContent = str_ireplace($mapFrom, $mapTo, $svgContent);
         }
 
         return $svgContent;
     }
 
     /**
-     * @param array<int, int|string> $replacementMap
+     * @param array<string, string> $replacementMap
      */
-    public function mapToDataUri(string $image, Manual $manual, array $replacementMap): string
+    public function mapToDataUri(string $image, array $replacementMap): string
     {
-        $svgContent = $this->map($image, $manual, $replacementMap);
+        $svgContent = $this->map($image, $replacementMap);
 
         return 'data:image/svg+xml;base64,' . base64_encode($svgContent);
     }

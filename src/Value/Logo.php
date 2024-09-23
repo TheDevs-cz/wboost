@@ -20,6 +20,17 @@ readonly final class Logo
         return new self(null, null, null, null, null);
     }
 
+    public function variant(LogoTypeVariant $variant): null|SvgImage
+    {
+        return match ($variant) {
+            LogoTypeVariant::Horizontal => $this->horizontal,
+            LogoTypeVariant::HorizontalWithClaim => $this->horizontalWithClaim,
+            LogoTypeVariant::Vertical => $this->vertical,
+            LogoTypeVariant::VerticalWithClaim => $this->horizontalWithClaim,
+            LogoTypeVariant::Symbol => $this->symbol,
+        };
+    }
+
     public function imagesCount(): int
     {
         $logos = array_filter([

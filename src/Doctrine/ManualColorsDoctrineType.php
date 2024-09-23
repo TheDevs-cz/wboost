@@ -8,11 +8,13 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
-use WBoost\Web\Value\ColorMapping;
+use WBoost\Web\Value\Color;
+use WBoost\Web\Value\ManualColor;
+use WBoost\Web\Value\ManualColorType;
 
-final class ColorsMappingDoctrineType extends JsonType
+final class ManualColorsDoctrineType extends JsonType
 {
-    public const string NAME = 'colors_mapping';
+    public const string NAME = 'manual_colors';
 
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
@@ -20,7 +22,7 @@ final class ColorsMappingDoctrineType extends JsonType
     }
 
     /**
-     * @return null|array<ColorMapping>
+     * @return null|array<ManualColor>
      *
      * @throws ConversionException
      */
@@ -33,22 +35,22 @@ final class ColorsMappingDoctrineType extends JsonType
         $jsonData = parent::convertToPHPValue($value, $platform);
         assert(is_array($jsonData));
 
-        $mappings = [];
+        $colors = [];
 
-        foreach ($jsonData as $mapping) {
-            /** @var array{colorHex: string, targetPrimaryColorNumber: int} $mapping */
+        foreach ($jsonData as $color) {
+            /** @var array{color: string, type: null|string} $color */
 
-            $mappings[] = new ColorMapping(
-                colorHex: $mapping['colorHex'],
-                targetPrimaryColorNumber: $mapping['targetPrimaryColorNumber'],
+            $colors[] = new ManualColor(
+                color: new Color($color['color']),
+                type: $color['type'] === null ? null : ManualColorType::from($color['type']),
             );
         }
 
-        return $mappings;
+        return $colors;
     }
 
     /**
-     * @param null|array<ColorMapping> $value
+     * @param null|array<ManualColor> $value
      * @throws ConversionException
      */
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
@@ -59,14 +61,14 @@ final class ColorsMappingDoctrineType extends JsonType
 
         $data = [];
 
-        foreach ($value as $mapping) {
-            if (!is_a($mapping, ColorMapping::class)) {
-                throw InvalidType::new($value, self::NAME, [ColorMapping::class]);
+        foreach ($value as $color) {
+            if (!is_a($color, ManualColor::class)) {
+                throw InvalidType::new($value, self::NAME, [ManualColor::class]);
             }
 
             $data[] = [
-                'colorHex' => $mapping->colorHex,
-                'targetPrimaryColorNumber' => $mapping->targetPrimaryColorNumber,
+                'color' => (string) $color->color,
+                'type' => $color->type?->value,
             ];
         }
 

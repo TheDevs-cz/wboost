@@ -9,9 +9,9 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
-use WBoost\Web\Doctrine\ColorsMappingDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
-use WBoost\Web\Exceptions\InvalidColorHex;
+use WBoost\Web\Doctrine\ManualColorsDoctrineType;
+use WBoost\Web\Exceptions\MissingManualColor;
 use WBoost\Web\Repository\ManualDoctrineRepository;
 use WBoost\Web\Services\Slugify;
 use WBoost\Web\Value\Color;
@@ -22,32 +22,25 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Value\ColorMapping;
+use WBoost\Web\Value\DefaultLogoColors;
 use WBoost\Web\Value\Logo;
+use WBoost\Web\Value\LogoColorVariant;
+use WBoost\Web\Value\LogoTypeVariant;
+use WBoost\Web\Value\ManualColor;
+use WBoost\Web\Value\ManualColorType;
 use WBoost\Web\Value\ManualType;
 
 #[Entity(repositoryClass: ManualDoctrineRepository::class)]
 class Manual
 {
-    /**
-     * @var non-empty-array<string|null>
-     */
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: Types::JSON, options: ['default' => '[]'])]
-    public array $primaryColors;
+    /** @var array<ManualColor> */
+    #[Column(type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
+    private array $detectedColors = [];
 
-    /**
-     * @var array<string>
-     */
+    /** @var array<ManualColor> */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: Types::JSON, options: ['default' => '[]'])]
-    public array $secondaryColors = [];
-
-    /**
-     * @var array<ColorMapping>
-     */
-    #[Column(type: ColorsMappingDoctrineType::NAME, options: ['default' => '[]'])]
-    public array $colorsMapping = [];
+    #[Column(type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
+    public array $customColors = [];
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: LogoDoctrineType::NAME, nullable: false)]
@@ -100,10 +93,6 @@ class Manual
         $this->pages = new ArrayCollection();
         $this->logo = Logo::withoutImages();
         $this->changeName($this->name);
-
-        /** @var non-empty-array<int, null> $emptyColors */
-        $emptyColors = array_fill(0, $type->primaryColorsCount(), null);
-        $this->primaryColors = $emptyColors;
     }
 
     public function edit(ManualType $type, string $name, null|string $introImage): void
@@ -118,69 +107,71 @@ class Manual
         $this->logo = $logo;
     }
 
-    public function getPrimaryColor(int $number): null|Color
+    /**
+     * @throws MissingManualColor
+     */
+    public function color(int $number): Color
     {
-        $colorHex = $this->primaryColors[$number-1] ?? null;
+        /** @var array<ManualColor> $colors */
+        $colors = array_merge($this->detectedColors(), $this->customColors);
 
-        if ($colorHex === null) {
-            return null;
-        }
-
-        try {
-            return new Color($colorHex);
-        } catch (InvalidColorHex) {
-            return null;
-        }
-    }
-
-    public function primaryColorsCount(): int
-    {
-        return count(array_filter($this->primaryColors));
+        return ($colors[$number - 1] ?? throw new MissingManualColor())->color;
     }
 
     public function colorsCount(): int
     {
-        return $this->primaryColorsCount() + count($this->secondaryColors);
+        return count($this->detectedColors()) + count($this->customColors);
     }
 
     /**
-     * @param non-empty-array<null|string> $primaryColors
-     * @param array<null|string> $secondaryColors
-     * @param array<ColorMapping> $colorsMapping
+     * @throws MissingManualColor
+     */
+    public function logoBackground(string $logoType, string $logoColor): string
+    {
+        $typeVariant = LogoTypeVariant::from($logoType);
+        $colorVariant = LogoColorVariant::from($logoColor);
+
+        $colorsMapping = $this->logo->variant($typeVariant)?->colorsMapping;
+        $background = $colorsMapping[$colorVariant->value]->background ?? null;
+
+        if ($background !== null) {
+            return $background;
+        }
+
+        return DefaultLogoColors::background($typeVariant, $colorVariant, $this);
+    }
+
+    /**
+     * @throws MissingManualColor
+     * @return array<string, string>
+     */
+    public function logoColorMapping(string $logoType, string $logoColor): array
+    {
+        $typeVariant = LogoTypeVariant::from($logoType);
+        $colorVariant = LogoColorVariant::from($logoColor);
+
+        $mapping = DefaultLogoColors::mapping($typeVariant, $colorVariant, $this);
+
+        $customMapping = $this->logo->variant($typeVariant)?->colorsMapping[$colorVariant->value]->colors ?? [];
+
+        foreach ($customMapping as $from => $to) {
+            $mapping[strtoupper($from)] = strtoupper($to);
+        }
+
+        return $mapping;
+    }
+
+    /**
+     * @param array<ManualColor> $detectedColors
+     * @param array<ManualColor> $customColors
      */
     public function editColors(
-        array $primaryColors,
-        array $secondaryColors,
-        array $colorsMapping,
+        array $detectedColors,
+        array $customColors,
     ): void
     {
-        $this->primaryColors = $primaryColors;
-        $this->secondaryColors = array_values(array_filter($secondaryColors));
-        $this->colorsMapping = $colorsMapping;
-    }
-
-    public function getColorMappedPrimaryColorNumber(string $color): null|int
-    {
-        $color = strtolower($color);
-
-        foreach ($this->colorsMapping as $mapping) {
-            if ($color === strtolower($mapping->colorHex)) {
-                return $mapping->targetPrimaryColorNumber;
-            }
-        }
-
-        return null;
-    }
-
-    public function colorsMappedCorrectly(): bool
-    {
-        foreach ($this->logo->getDetectedColors() as $detectedColor) {
-            if ($this->getColorMappedPrimaryColorNumber($detectedColor->hex) === null) {
-                return false;
-            }
-        }
-
-        return true;
+        $this->detectedColors = $detectedColors;
+        $this->customColors = $customColors;
     }
 
     /**
@@ -232,9 +223,99 @@ class Manual
         $this->secondaryFont = $secondaryFont;
     }
 
+    /** @return array<ManualColor> */
+    public function detectedColors(): array
+    {
+        /** @var array<string> $detectedColorsHex */
+        $detectedColorsHex = [];
+
+        /** @return array<ManualColor> */
+        $detectedColors = [];
+
+        foreach ($this->detectedColors as $detectedColor) {
+            $detectedColors[] = $detectedColor;
+            $detectedColorsHex[] = $detectedColor->color->hex;
+        }
+
+        foreach ($this->logo->getDetectedColors() as $detectedColor) {
+            if (!in_array($detectedColor->hex, $detectedColorsHex)) {
+                $detectedColors[] = new ManualColor($detectedColor, null);
+                $detectedColorsHex[] = $detectedColor->hex;
+            }
+        }
+
+        return $detectedColors;
+    }
+
+    /**
+     * @return array<Color>
+     */
+    public function primaryColors(): array
+    {
+        /** @var array<ManualColor> $manualColors */
+        $manualColors = array_merge($this->detectedColors, $this->customColors);
+        $colors = [];
+
+        foreach ($manualColors as $manualColor) {
+            if ($manualColor->type === ManualColorType::Primary) {
+                $colors[] = $manualColor->color;
+            }
+        }
+
+        return $colors;
+    }
+
+    /**
+     * @return array<Color>
+     */
+    public function secondaryColors(): array
+    {
+        /** @var array<ManualColor> $manualColors */
+        $manualColors = array_merge($this->detectedColors, $this->customColors);
+        $colors = [];
+
+        foreach ($manualColors as $manualColor) {
+            if ($manualColor->type === ManualColorType::Secondary) {
+                $colors[] = $manualColor->color;
+            }
+        }
+
+        return $colors;
+    }
+
     private function changeName(string $name): void
     {
         $this->name = $name;
         $this->slug = Slugify::string($name);
+    }
+
+    /**
+     * @param array<string, string> $mapping
+     */
+    public function updateColorMapping(
+        LogoTypeVariant $typeVariant,
+        LogoColorVariant $colorVariant,
+        string $background,
+        array $mapping,
+    ): void
+    {
+        foreach ($mapping as $from => $to) {
+            if (strtoupper($from) === strtoupper($to)) {
+                unset($mapping[$from]);
+            }
+        }
+
+        if ($background === DefaultLogoColors::background($typeVariant, $colorVariant, $this)) {
+            $background = null;
+        }
+
+        $newLogo = clone $this->logo;
+        $newLogo->variant($typeVariant)?->updateColorsMapping(
+            $colorVariant,
+            $background,
+            $mapping,
+        );
+
+        $this->logo = $newLogo;
     }
 }

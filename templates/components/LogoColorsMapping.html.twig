@@ -1,0 +1,82 @@
+{% if is_granted('manual_edit', manual) %}
+    <div {{ attributes }}>
+        <!-- Button to trigger modal -->
+        <button type="button" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 55px; top: 10px;" data-bs-toggle="modal" data-bs-target="#logoColorsModal-{{ logoVariant }}-{{ colorVariant }}">
+            <i class="mdi mdi-pencil"></i>
+        </button>
+
+        <!-- Modal -->
+        <div class="modal fade" id="logoColorsModal-{{ logoVariant }}-{{ colorVariant }}" tabindex="-1" data-controller="modal">
+            <div class="modal-dialog">
+                {{ form_start(form, {
+                    attr: {
+                        'data-action': 'live#action:prevent',
+                        'data-live-action-param': 'save',
+                        'data-bs-dismiss': isSuccessful ? 'modal' : ''
+                    }
+                }) }}
+
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Mapování barev loga - {{ logoVariant }} {{ colorVariant }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body text-start">
+                        <h5>Pozadí</h5>
+
+                        <div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color">
+                            <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ defaultBackground }};"></span>
+
+                            <div style="width: 60px;">
+                                <span class="text-muted">HEX</span><br>{{ defaultBackground|upper }}
+                            </div>
+
+                            <span class="d-block text-center" style="width: 120px;">
+                                <i class="mdi mdi-arrow-right"></i>
+                            </span>
+
+                            <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ form.background.vars.value }};" data-custom-color-target="colorDisplay"></span>
+
+                            <div class="form-floating" style="width: 100px;">
+                                {{ form_widget(form.background, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) }}
+                                {{ form_label(form.background) }}
+                            </div>
+                        </div>
+
+                        <h5 class="mt-3">Barvy loga</h5>
+                        {% for colorForm in form.colors %}
+                            <div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color">
+                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColors[loop.index0] ?? 'ffffff' }};"></span>
+
+                                <div style="width: 60px;">
+                                    <span class="text-muted">HEX</span><br>{{ (detectedColors[loop.index0] ?? 'ffffff')|upper }}
+                                </div>
+
+                                <span class="d-block text-center" style="width: 120px;">
+                                    <i class="mdi mdi-arrow-right"></i>
+                                </span>
+
+                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ colorForm.vars.value }};" data-custom-color-target="colorDisplay"></span>
+
+                                <div class="form-floating" style="width: 100px;">
+                                    {{ form_widget(colorForm, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) }}
+                                    {{ form_label(colorForm) }}
+                                </div>
+                            </div>
+                        {% endfor %}
+
+                        {{ form_widget(form) }}
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zavřít</button>
+                        <button type="submit" class="btn btn-primary">Uložit</button>
+                    </div>
+                </div>
+            </div>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endif %}

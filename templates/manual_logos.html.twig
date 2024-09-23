@@ -33,6 +33,12 @@
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoHorizontal) }}
+
+                                    {% if manual.logo.horizontal %}
+                                        {% for detectedColor in manual.logo.horizontal.detectedColors %}
+                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -48,6 +54,12 @@
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoVertical) }}
+
+                                    {% if manual.logo.vertical %}
+                                        {% for detectedColor in manual.logo.vertical.detectedColors %}
+                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -63,6 +75,12 @@
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoHorizontalWithClaim) }}
+
+                                    {% if manual.logo.horizontalWithClaim %}
+                                        {% for detectedColor in manual.logo.horizontalWithClaim.detectedColors %}
+                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -78,6 +96,12 @@
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoVerticalWithClaim) }}
+
+                                    {% if manual.logo.verticalWithClaim %}
+                                        {% for detectedColor in manual.logo.verticalWithClaim.detectedColors %}
+                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -93,6 +117,12 @@
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoSymbol) }}
+
+                                    {% if manual.logo.symbol %}
+                                        {% for detectedColor in manual.logo.symbol.detectedColors %}
+                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
+                                        {% endfor %}
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

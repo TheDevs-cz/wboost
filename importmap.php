@@ -41,4 +41,25 @@ return [
     'fontfaceobserver' => [
         'version' => '2.3.0',
     ],
+    'dragula' => [
+        'version' => '3.7.3',
+    ],
+    'contra/emitter' => [
+        'version' => '1.9.4',
+    ],
+    'crossvent' => [
+        'version' => '1.5.5',
+    ],
+    'atoa' => [
+        'version' => '1.0.0',
+    ],
+    'ticky' => [
+        'version' => '1.0.1',
+    ],
+    'custom-event' => [
+        'version' => '1.0.1',
+    ],
+    '@symfony/ux-live-component' => [
+        'path' => './vendor/symfony/ux-live-component/assets/dist/live_controller.js',
+    ],
 ];
