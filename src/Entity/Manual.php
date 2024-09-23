@@ -131,6 +131,13 @@ class Manual
         $typeVariant = LogoTypeVariant::from($logoType);
         $colorVariant = LogoColorVariant::from($logoColor);
 
+        $colorsMapping = $this->logo->variant($typeVariant)?->colorsMapping;
+        $background = $colorsMapping[$colorVariant->value]->background ?? null;
+
+        if ($background !== null) {
+            return $background;
+        }
+
         return DefaultLogoColors::background($typeVariant, $colorVariant, $this);
     }
 
@@ -143,7 +150,15 @@ class Manual
         $typeVariant = LogoTypeVariant::from($logoType);
         $colorVariant = LogoColorVariant::from($logoColor);
 
-        return DefaultLogoColors::mapping($typeVariant, $colorVariant, $this);
+        $mapping = DefaultLogoColors::mapping($typeVariant, $colorVariant, $this);
+
+        $customMapping = $this->logo->variant($typeVariant)?->colorsMapping[$colorVariant->value]->colors ?? [];
+
+        foreach ($customMapping as $from => $to) {
+            $mapping[strtoupper($from)] = strtoupper($to);
+        }
+
+        return $mapping;
     }
 
     /**
