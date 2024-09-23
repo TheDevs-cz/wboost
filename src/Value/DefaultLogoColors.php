@@ -39,9 +39,9 @@ readonly final class DefaultLogoColors
 
         if ($colorVariant === LogoColorVariant::BlackBackground) {
             return [
-                $manual->color(1)->hex => 'FFFFFF',
-                $manual->color(2)->hex => 'FFFFFF',
-                $manual->color(3)->hex => 'FFFFFF',
+                $manual->color(1)->hex => 'ffffff',
+                $manual->color(2)->hex => 'ffffff',
+                $manual->color(3)->hex => 'ffffff',
             ];
         }
 
@@ -52,7 +52,7 @@ readonly final class DefaultLogoColors
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::LightBackground => [
-                        $manual->color(1)->hex => 'c6c6c6',
+                        $manual->color(1)->hex => 'ffffff',
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::OneColor => [
@@ -65,7 +65,7 @@ readonly final class DefaultLogoColors
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::LightBackground => [
-                        $manual->color(1)->hex => 'c6c6c6',
+                        $manual->color(1)->hex => 'ffffff',
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::OneColor => [
@@ -78,7 +78,7 @@ readonly final class DefaultLogoColors
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::LightBackground => [
-                        $manual->color(1)->hex => 'c6c6c6',
+                        $manual->color(1)->hex => 'ffffff',
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::OneColor => [
@@ -91,7 +91,7 @@ readonly final class DefaultLogoColors
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::LightBackground => [
-                        $manual->color(1)->hex => 'c6c6c6',
+                        $manual->color(1)->hex => 'ffffff',
                         $manual->color(2)->hex => 'ffffff',
                     ],
                     LogoColorVariant::OneColor => [
@@ -104,7 +104,7 @@ readonly final class DefaultLogoColors
                         $manual->color(1)->hex => 'ffffff',
                     ],
                     LogoColorVariant::LightBackground => [
-                        $manual->color(1)->hex => 'c6c6c6',
+                        $manual->color(1)->hex => 'ffffff',
                     ],
                     LogoColorVariant::OneColor => [],
                 },
