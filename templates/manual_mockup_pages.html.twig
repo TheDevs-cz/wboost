@@ -27,16 +27,21 @@
                 </div>
             </div>
 
-            <div class="row">
+            <div class="row" data-controller="mockup-pages-dragula"
+                 data-mockup-pages-dragula-sort-url-value="{{ path('sort_manual_mockup_pages', {'manualId': manual.id}) }}"
+                 data-mockup-pages-dragula-target="container">
                 {% for page in pages %}
-                <div class="col-sm-6 col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <img class="mb-2" src="{{ asset('images/' ~ page.layout.value ~ '.svg') }}">
-                            {{ page.name }} / <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}">Upravit</a> / <a href="{{ path('delete_manual_mockup_page', {'id': page.id}) }}">Smazat</a>
+                    <div class="col-sm-6 col-md-4" data-entity-id="{{ page.id }}">
+                        <div class="card">
+                            <div class="card-body">
+                                <span class="dragula-handle"></span>
+                                <img class="mb-2 w-100" src="{{ asset('images/' ~ page.layout.value ~ '.svg') }}">
+                                {{ page.name }} /
+                                <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}">Upravit</a> /
+                                <a href="{{ path('delete_manual_mockup_page', {'id': page.id}) }}">Smazat</a>
+                            </div>
                         </div>
                     </div>
-                </div>
                 {% endfor %}
             </div>
         </div>

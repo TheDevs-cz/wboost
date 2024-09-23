@@ -39,4 +39,17 @@ readonly final class ManualMockupPageRepository
     {
         $this->entityManager->remove($page);
     }
+
+    public function count(): int
+    {
+        $count = $this->entityManager->createQueryBuilder()
+            ->select('COUNT(page)')
+            ->from(ManualMockupPage::class, 'page')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        assert(is_int($count));
+
+        return $count;
+    }
 }

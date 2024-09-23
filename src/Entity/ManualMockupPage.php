@@ -44,6 +44,9 @@ class ManualMockupPage
          */
         #[Column(type: Types::JSON)]
         public array $images,
+
+        #[Column(options: ['default' => 0])]
+        public int $position,
     ) {
     }
 
@@ -54,5 +57,10 @@ class ManualMockupPage
     {
         $this->name = $name;
         $this->images = $images;
+    }
+
+    public function sort(int $position): void
+    {
+        $this->position = $position;
     }
 }

@@ -305,12 +305,6 @@ class Manual
         array $mapping,
     ): void
     {
-        foreach ($mapping as $from => $to) {
-            if (strtoupper($from) === strtoupper($to)) {
-                unset($mapping[$from]);
-            }
-        }
-
         if ($background === DefaultLogoColors::background($typeVariant, $colorVariant, $this)) {
             $background = null;
         }

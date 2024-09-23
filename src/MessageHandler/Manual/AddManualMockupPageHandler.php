@@ -51,6 +51,8 @@ readonly final class AddManualMockupPageHandler
             $images[] = $path;
         }
 
+        $nextPosition = $this->manualMockupPageRepository->count();
+
         $page = new ManualMockupPage(
             $pageId,
             $manual,
@@ -58,6 +60,7 @@ readonly final class AddManualMockupPageHandler
             $message->layout,
             $message->name,
             $images,
+            $nextPosition,
         );
 
         $this->manualMockupPageRepository->add($page);
