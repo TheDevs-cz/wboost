@@ -54,6 +54,8 @@
                         <div class="card-body">
                             <h4 class="header-title mb-3">Vlastní barvy</h4>
 
+                            {% if manual.colorsCount < 3 %}<p class="text-danger"><i class="uil-exclamation-triangle"></i> Prosím přidejte vlastní barvu pro správné zobrazení v manuálu</p>{% endif %}
+
                             <div data-controller="colors-dragula form-collection"
                                  data-colors-dragula-target="container"
                                  data-form-collection-target="collection"
@@ -76,7 +78,7 @@
                                     </div>
                                 {% endfor %}
 
-                                <button type="button" class="btn btn-outline-primary mt-2" data-action="form-collection#add">Další vlastní barva</button>
+                                <button type="button" class="btn btn-outline-primary mt-2" data-action="form-collection#add"><i class="uil uil-plus"></i> Přidat barvu</button>
                             </div>
                         </div>
                     </div>
