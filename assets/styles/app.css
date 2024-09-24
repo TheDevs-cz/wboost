@@ -51,21 +51,9 @@
     margin-bottom: 50px;
 }
 
-/* Styles for screens larger than 1400px */
-@media (max-width: 1400px) {
-    .manual-preview-navbar {
-        height: 100vh;
-        overflow: auto;
-    }
-}
-
 @media (min-width: 1400px) {
     .manual-preview-navbar, .manual-scrollspy {
         height: 100vh;
         overflow: auto;
-    }
-
-    .manual-page {
-        min-height: 100vh;
     }
 }
