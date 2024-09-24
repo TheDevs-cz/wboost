@@ -151,13 +151,13 @@ class Manual
         $mapping = DefaultLogoColors::mapping($typeVariant, $colorVariant, $this);
 
         foreach ($mapping as $from => $to) {
-            $finalMapping[strtoupper($from)] = strtoupper($to);
+            $finalMapping[strtoupper((string) $from)] = strtoupper($to);
         }
 
         $customMapping = $this->logo->variant($typeVariant)?->colorsMapping[$colorVariant->value]->colors ?? [];
 
         foreach ($customMapping as $from => $to) {
-            $finalMapping[strtoupper($from)] = strtoupper($to);
+            $finalMapping[strtoupper((string) $from)] = strtoupper($to);
         }
 
         return $finalMapping;
