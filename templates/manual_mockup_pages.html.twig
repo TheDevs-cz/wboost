@@ -31,14 +31,32 @@
                  data-mockup-pages-dragula-sort-url-value="{{ path('sort_manual_mockup_pages', {'manualId': manual.id}) }}"
                  data-mockup-pages-dragula-target="container">
                 {% for page in pages %}
-                    <div class="col-sm-6 col-md-4" data-entity-id="{{ page.id }}">
+                    <div class="col-sm-6 col-md-4 position-relative" data-entity-id="{{ page.id }}">
                         <div class="card">
+                            {% if is_granted('mockup_page_edit', page) %}
+                                <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+
+                                    <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="ri-more-fill"></i>
+                                    </a>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                                        <a href="{{ path('delete_manual_mockup_page', {'id': page.id}) }}"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                    </div>
+                                </div>
+                            {% endif %}
+
                             <div class="card-body">
-                                <span class="dragula-handle"></span>
-                                <img class="mb-2 w-100" src="{{ asset('images/' ~ page.layout.value ~ '.svg') }}">
-                                {{ page.name }} /
-                                <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}">Upravit</a> /
-                                <a href="{{ path('delete_manual_mockup_page', {'id': page.id}) }}">Smazat</a>
+                                <h4 class="mt-0">
+                                    <span class="dragula-handle"></span>
+
+                                    <span class="ps-4 d-inline-block">{{ page.name }}</span>
+                                </h4>
+
+                                {{ include('_mockup_page.html.twig', {
+                                    'mockup_page': page,
+                                    'gutter': 1,
+                                }) }}
                             </div>
                         </div>
                     </div>

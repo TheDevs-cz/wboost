@@ -1,11 +1,11 @@
 import { Controller } from '@hotwired/stimulus';
-import { Modal } from 'bootstrap';
 
 export default class extends Controller {
     modal = null;
 
     initialize() {
-        this.modal = Modal.getOrCreateInstance(this.element);
+        // Use the global Bootstrap instance
+        this.modal = window.bootstrap.Modal.getOrCreateInstance(this.element);
         window.addEventListener('modal:close', () => this.hideModals() );
     }
 

@@ -1,0 +1,214 @@
+<div class="row g-{{ gutter|default('3') }}">
+    {% if mockup_page.layout.value == 'layout-1' %}
+        <div class="col-4">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-8">
+            {% if mockup_page.images[1] %}
+                <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-8">
+            {% if mockup_page.images[2] %}
+                <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[3] %}
+                <img src="{{ uploaded_asset(mockup_page.images[3]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-2'  %}
+        <div class="col-4">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-8">
+            <div class="row gx-0 gy-{{ gutter|default('3') }}">
+                <div class="col-12">
+                    {% if mockup_page.images[1] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    {% if mockup_page.images[2] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-3'  %}
+        <div class="col-4">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[1] %}
+                <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[2] %}
+                <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-4'  %}
+        <div class="col-4">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-8">
+            <div class="row gx-{{ gutter|default('3') }} gy-{{ gutter|default('3') }}">
+                <div class="col-6">
+                    {% if mockup_page.images[1] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-6">
+                    {% if mockup_page.images[2] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-6">
+                    {% if mockup_page.images[3] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[3]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-6">
+                    {% if mockup_page.images[4] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[4]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-5'  %}
+        <div class="col-4">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-8">
+            <div class="row gx-{{ gutter|default('3') }} gy-{{ gutter|default('3') }}">
+                <div class="col-6">
+                    {% if mockup_page.images[1] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-6">
+                    {% if mockup_page.images[2] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    {% if mockup_page.images[3] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[3]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-6'  %}
+        <div class="col-4">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[1] %}
+                <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[2] %}
+                <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[3] %}
+                <img src="{{ uploaded_asset(mockup_page.images[3]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[4] %}
+                <img src="{{ uploaded_asset(mockup_page.images[4]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[5] %}
+                <img src="{{ uploaded_asset(mockup_page.images[5]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-7'  %}
+        <div class="col-12">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-8'  %}
+        <div class="col-4">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-8">
+            {% if mockup_page.images[1] %}
+                <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-9'  %}
+        <div class="col-8">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            {% if mockup_page.images[1] %}
+                <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-10'  %}
+        <div class="col-8">
+            {% if mockup_page.images[0] %}
+                <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+        <div class="col-4">
+            <div class="row gx-0 gy-{{ gutter|default('3') }}">
+                <div class="col-12">
+                    {% if mockup_page.images[1] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    {% if mockup_page.images[2] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% elseif mockup_page.layout.value == 'layout-11'  %}
+        <div class="col-4">
+            <div class="row gx-0 gy-{{ gutter|default('3') }}">
+                <div class="col-12">
+                    {% if mockup_page.images[0] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[0]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    {% if mockup_page.images[1] %}
+                        <img src="{{ uploaded_asset(mockup_page.images[1]) }}" style="max-width: 100%;">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-8">
+            {% if mockup_page.images[2] %}
+                <img src="{{ uploaded_asset(mockup_page.images[2]) }}" style="max-width: 100%;">
+            {% endif %}
+        </div>
+    {% endif %}
+</div>

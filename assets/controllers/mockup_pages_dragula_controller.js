@@ -8,7 +8,8 @@ export default class extends Controller {
     connect() {
         // Initialize Dragula with the container
         this.drake = dragula([this.containerTarget], {
-            moves: (el, source, handle) => handle.classList.contains('dragula-handle')
+            moves: (el, source, handle) => handle.classList.contains('dragula-handle'),
+            direction: 'horizontal'
         });
 
         // Listen to the drop event and trigger the order update
