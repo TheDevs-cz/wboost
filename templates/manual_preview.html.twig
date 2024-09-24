@@ -4,7 +4,7 @@
 {% set active_menu_item = 'manuals' %}
 
 {% block meta_viewport %}
-    <meta name="viewport" content="width=1400, initial-scale=1, maximum-scale=1">
+    <meta name="viewport" content="width=1400, initial-scale=0.25, maximum-scale=1">
 {% endblock %}
 
 {% block custom_styles %}
@@ -23,7 +23,7 @@
 {% block full_content %}
     <div class="row g-0" style="min-width: 1400px;">
         <div class="col-md-1 bg-dark d-none d-md-block">
-            <nav id="manual-navbar" class="flex-column align-items-stretch border-end text-center" style="height: 100vh;overflow: auto;">
+            <nav id="manual-navbar" class="flex-column align-items-stretch border-end text-center manual-preview-navbar">
                 <nav class="nav nav-pills flex-column">
                     {% set page = 0 %}
 

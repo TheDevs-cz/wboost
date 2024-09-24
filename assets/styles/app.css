@@ -3,11 +3,6 @@
     margin-bottom: 50px;
 }
 
-.manual-scrollspy {
-    height: 100vh;
-    overflow: auto;
-}
-
 .canvas-wrapper {
     display: inline-block;
     transform-origin: top left;
@@ -55,4 +50,12 @@
 
 .manual-image-wrapper.manual-image-vertical-big img {
     max-height: 200px;
+}
+
+/* Styles for screens larger than 1400px */
+@media (min-width: 1400px) {
+    .manual-preview-navbar, .manual-scrollspy {
+        height: 100vh;
+        overflow: auto;
+    }
 }
