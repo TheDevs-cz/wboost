@@ -23,7 +23,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public const string ROLE_ADMIN = 'ROLE_ADMIN';
 
     /** @var array<string> */
-    #[Column(type: 'json')]
+    #[Column(type: Types::JSON)]
     private array $roles = [];
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
