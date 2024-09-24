@@ -22,7 +22,7 @@
     <div class="row">
         {% for project in projects %}
             <div class="col-md-6 col-xxl-3">
-                <div class="card d-block">
+                <div class="card">
                     {% if is_granted('project_edit', project) %}
                         <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
                             <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
