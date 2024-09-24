@@ -123,9 +123,6 @@ class Manual
         return count($this->detectedColors()) + count($this->customColors);
     }
 
-    /**
-     * @throws MissingManualColor
-     */
     public function logoBackground(string $logoType, string $logoColor): string
     {
         $typeVariant = LogoTypeVariant::from($logoType);
@@ -134,15 +131,14 @@ class Manual
         $colorsMapping = $this->logo->variant($typeVariant)?->colorsMapping;
         $background = $colorsMapping[$colorVariant->value]->background ?? null;
 
-        if ($background !== null) {
-            return $background;
+        if ($background === null) {
+            $background = DefaultLogoColors::background($typeVariant, $colorVariant, $this);
         }
 
-        return DefaultLogoColors::background($typeVariant, $colorVariant, $this);
+        return strtoupper($background);
     }
 
     /**
-     * @throws MissingManualColor
      * @return array<string, string>
      */
     public function logoColorMapping(string $logoType, string $logoColor): array

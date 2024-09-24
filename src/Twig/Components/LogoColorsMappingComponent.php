@@ -75,10 +75,16 @@ final class LogoColorsMappingComponent extends AbstractController
             $colors[$detectedColor] = $detectedColor;
         }
 
-
-        // The overwrite with already mapped values
+        // Override with already mapped values with custom mapping
         foreach ($mappedColors as $mapFrom => $mapTo) {
-            $colors[strtoupper($mapFrom)] = strtoupper($mapTo);
+            $mapFrom = strtoupper($mapFrom);
+
+            // Might be outdated customization -> skip
+            if (in_array($mapFrom, $this->detectedColors, true) === false) {
+                continue;
+            }
+
+            $colors[$mapFrom] = strtoupper($mapTo);
         }
 
         $formData = new LogoColorsFormData($background, $colors);
