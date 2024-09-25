@@ -67,6 +67,7 @@ readonly final class GetFonts
             ->join('f.project', 'p')
             ->where('p.id = :projectId')
             ->setParameter('projectId', $projectId->toString())
+            ->orderBy('f.name')
             ->getQuery()
             ->getResult();
     }

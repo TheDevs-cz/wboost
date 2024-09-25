@@ -25,7 +25,7 @@ class ManualFont
         #[Column(type: UuidType::NAME, unique: true)]
         public UuidInterface $id,
 
-        #[ManyToOne(fetch: 'EXTRA_LAZY')]
+        #[ManyToOne(fetch: 'EXTRA_LAZY', inversedBy: 'fonts')]
         #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public Manual $manual,
 
@@ -42,17 +42,51 @@ class ManualFont
         #[Column(nullable: true)]
         public null|string $color,
 
-        /** @var array<string> */
-        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-        #[Column(type: Types::JSON)]
-        public array $fontFaces,
+        #[Column(options: ['default' => 0])]
+        public int $position,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public DateTimeImmutable $createdAt,
 
-        #[Column(options: ['default' => 0])]
-        public int $position,
+        /** @var array<string> */
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::JSON)]
+        public array $fontFaces = [],
     ) {
+    }
+
+    public function isPrimary(): bool
+    {
+        return $this->type === ManualFontType::Primary;
+    }
+
+    public function isSecondary(): bool
+    {
+        return $this->type === ManualFontType::Secondary;
+    }
+
+    public function edit(
+        Font $font,
+        ManualFontType $type,
+        null|string $color,
+    ): void
+    {
+        // When changing font, remove all enabled font faces
+        if ($font->id->equals($this->id) === false) {
+            $this->fontFaces = [];
+        }
+
+        $this->font = $font;
+        $this->type = $type;
+        $this->color = $color;
+    }
+
+    /**
+     * @param array<string> $fontFaces
+     */
+    public function editFontFaces(array $fontFaces): void
+    {
+        $this->fontFaces = $fontFaces;
     }
 
     public function sort(int $position): void

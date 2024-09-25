@@ -1,0 +1,37 @@
+{% extends 'base_manual.html.twig' %}
+
+{% block title %}Přidat font - {{ manual.name }}{% endblock %}
+{% set active_menu_item = 'manuals' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('manual_dashboard', {'id': manual.id}) }}">{{ manual.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('manual_fonts', {'id': manual.id}) }}">Fonty</a></li>
+        <li class="breadcrumb-item active">Přidat font</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    <div class="row">
+        <div class="col-xxl-3">
+            {{ include('_manual_nav.html.twig') }}
+        </div>
+
+        <div class="col-xxl-9">
+
+            <div class="card">
+                <div class="card-body">
+                    {{ form_start(form) }}
+                    {{ form_widget(form) }}
+                    <button class="btn btn-primary" type="submit">Uložit</button>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+
+        </div>
+    </div>
+{% endblock %}

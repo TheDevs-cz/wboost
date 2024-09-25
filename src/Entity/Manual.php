@@ -46,15 +46,10 @@ class Manual
     #[Column(type: LogoDoctrineType::NAME, nullable: false)]
     public Logo $logo;
 
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[ManyToOne(targetEntity: Font::class, fetch: 'EXTRA_LAZY')]
-    #[JoinColumn(onDelete: 'SET NULL')]
-    public null|Font $primaryFont = null;
-
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[ManyToOne(targetEntity: Font::class, fetch: 'EXTRA_LAZY')]
-    #[JoinColumn(onDelete: 'SET NULL')]
-    public null|Font $secondaryFont = null;
+    /** @var Collection<int, ManualFont>  */
+    #[Immutable]
+    #[OneToMany(targetEntity: ManualFont::class, mappedBy: 'manual', fetch: 'EXTRA_LAZY')]
+    public Collection $fonts;
 
     /** @var Collection<int, ManualMockupPage>  */
     #[Immutable]
@@ -91,6 +86,7 @@ class Manual
         public null|string $introImage,
     ) {
         $this->pages = new ArrayCollection();
+        $this->fonts = new ArrayCollection();
         $this->logo = Logo::withoutImages();
         $this->changeName($name);
     }
@@ -176,39 +172,6 @@ class Manual
         $this->customColors = $customColors;
     }
 
-    /**
-     * @return array<Font>
-     */
-    public function getFonts(): array
-    {
-        $fonts = [];
-
-        if ($this->primaryFont !== null) {
-            $fonts[] = $this->primaryFont;
-        }
-
-        if ($this->secondaryFont !== null) {
-            $fonts[] = $this->secondaryFont;
-        }
-
-        return $fonts;
-    }
-
-    public function fontsCount(): int
-    {
-        $count = 0;
-
-        if ($this->primaryFont !== null) {
-            $count++;
-        }
-
-        if ($this->secondaryFont !== null) {
-            $count++;
-        }
-
-        return $count;
-    }
-
     public function isBrandManual(): bool
     {
         return $this->type === ManualType::Brand;
@@ -219,10 +182,9 @@ class Manual
         return $this->pages->count();
     }
 
-    public function editFonts(null|Font $primaryFont, null|Font $secondaryFont): void
+    public function fontsCount(): int
     {
-        $this->primaryFont = $primaryFont;
-        $this->secondaryFont = $secondaryFont;
+        return $this->fonts->count();
     }
 
     /** @return array<ManualColor> */

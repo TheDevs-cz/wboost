@@ -20,16 +20,61 @@
     </div>
 
     <div class="col-xxl-9">
-        <div class="card">
-            <div class="card-body">
-                {{ form_start(form) }}
 
-                {{ form_widget(form) }}
-
-                <button class="btn btn-primary" type="submit">Uložit</button>
-                {{ form_end(form) }}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_manual_font', {'id': manual.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat font</a>
             </div>
         </div>
+
+        <div class="row" data-controller="dragula"
+             data-dragula-sort-url-value="{{ path('sort_manual_fonts', {'manualId': manual.id}) }}"
+             data-dragula-direction-value="horizontal"
+             data-dragula-target="container">
+            {% for manual_font in fonts %}
+                <div class="col-sm-6">
+                    <div class="card" data-entity-id="{{ manual_font.id }}">
+                        {% if is_granted('manual_font_edit', manual_font) %}
+                            <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+
+                                <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="ri-more-fill"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-end">
+                                    <a href="{{ path('edit_manual_font', {'id': manual_font.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                                    <a href="{{ path('delete_manual_font', {'id': manual_font.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <div class="card-body">
+                            <h4 class="mt-0 mb-0">
+                                {% if is_granted('manual_font_edit', manual_font) %}
+                                    <span class="dragula-handle position-absolute" style="left: 0;top: 20px;"></span>
+                                {% endif %}
+
+                                <span class="d-flex">
+                                    <span class="ps-3 d-inline-block">{{ manual_font.font.name }} ({{ manual_font.primary ? 'Primární' }}{{ manual_font.secondary ? 'Sekundární' }})</span>
+                                    <span class="ms-2 d-inline-block avatar-xs rounded-circle shadow-sm" style="margin-top: -2px;border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ (manual_font.color ?? '6c757d') }};"></span>
+                                </span>
+                            </h4>
+
+                            <div class="mt-3">
+                                {% for font_face in manual_font.font.faces %}
+                                    <p class="mb-0 mt-2 position-relative" style="line-height: 22px;">
+                                        <input type="checkbox" id="font-switch-{{ loop.index }}" checked data-switch="primary">
+                                        <label class="float-start me-2" for="font-switch-{{ loop.index }}" data-on-label="On" data-off-label="Off"></label>
+
+                                        {{ font_face.name }}
+                                    </p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
     </div>
 </div>
 {% endblock %}

@@ -3,36 +3,35 @@ import dragula from 'dragula';
 
 export default class extends Controller {
     static targets = ['container'];
-    static values = { sortUrl: String }; // Define a value for the sort URL
+    static values = {
+        sortUrl: String,
+        direction: { type: String, default: 'vertical' }
+    };
 
     connect() {
-        // Initialize Dragula with the container
         this.drake = dragula([this.containerTarget], {
             moves: (el, source, handle) => handle.classList.contains('dragula-handle'),
-            direction: 'horizontal'
+            direction: this.directionValue
         });
 
-        // Listen to the drop event and trigger the order update
         this.drake.on('drop', this.updateOrder.bind(this));
     }
 
     updateOrder() {
-        // Collect just the IDs in their new order
-        const orderedIds = Array.from(this.containerTarget.querySelectorAll('[data-entity-id]'))
+        const sorted = Array.from(this.containerTarget.querySelectorAll('[data-entity-id]'))
             .map(element => element.dataset.entityId);
 
-        // Send the reordered IDs array to the backend
-        this.sendOrderToBackend(orderedIds);
+        this.sendOrderToBackend(sorted);
     }
 
-    sendOrderToBackend(orderedIds) {
+    sendOrderToBackend(sorted) {
         fetch(this.sortUrlValue, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: JSON.stringify({ orderedIds }) // Send as a JSON object with the key "orderedIds"
+            body: JSON.stringify({ sorted })
         })
             .then(response => {
                 if (!response.ok) {

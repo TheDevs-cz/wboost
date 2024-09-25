@@ -9,10 +9,10 @@
 
 {% block custom_styles %}
     <style>
-        {% for font in manual.fonts %}
-            {% for font_face in font.faces %}
+        {% for manual_font in fonts %}
+            {% for font_face in manual_font.font.faces %}
                 @font-face {
-                    font-family: '{{ font.name }} ({{ font_face.name }})';
+                    font-family: '{{ manual_font.font.name }} ({{ font_face.name }})';
                     src: url('{{ uploaded_asset(font_face.filePath) }}');
                 }
             {% endfor %}
@@ -82,15 +82,10 @@
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
                     {% endif %}
 
-                    {% if manual.primaryFont %}
+                    {% for manual_font in fonts %}
                         {% set page = page+1 %}
                         <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.secondaryFont %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
+                    {% endfor %}
 
                     {% for mockup_page in mockup_pages %}
                         {% set page = page+1 %}
@@ -797,67 +792,39 @@
                         </div>
                     {% endif %}
 
-                    {% if manual.primaryFont %}
+                    {% for manual_font in fonts %}
                         {% set page = page+1 %}
 
                         <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                             <div class="page-heading py-3 border-bottom">
                                 <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
                                 <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Primární písmo</span>
+                                <span class="d-inline-block pe-4 fs-4 fw-bold">{{ manual_font.primary ? 'Primární' }}{{ manual_font.secondary ? 'Sekundární' }} písmo</span>
                                 <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             </div>
 
                             <div class="page-content py-4 gx-5 row">
                                 <div class="page-description col-6 fs-5 fst-italic">
-                                    Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
+                                    {% if manual_font.primary %}
+                                        Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
+                                    {% endif %}
+                                    {% if manual_font.secondary %}
+                                        Sekundární písmo slouží jako doplněk k primárnímu písmu a poskytuje značce větší flexibilitu při komunikaci. Obvykle je vybráno z písem, která jsou standardně dostupná na stolních počítačích. To je zvláště užitečné při jednoduché korespondenci, kdy materiály vytváří širší okruh lidí na různých zařízeních.
+                                    {% endif %}
                                 </div>
                             </div>
 
-                            <div class="row mt-1 gx-5 gy-5">
-                                {% for font_face in manual.primaryFont.faces %}
-                                    {% if loop.index < 7 %}
-                                        <div class="col-4 manual-font" style="font-family: '{{ manual.primaryFont.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;">
-                                            {{ font_face.name }}<br>
-                                            <span style="display: inline-block;font-size: 82px;">Aa</span><br>
-                                            aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžaábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzž1234567890?!&*
-                                        </div>
-                                    {% endif %}
+                            <div class="row mt-1 gx-5 gy-5 pb-5">
+                                {% for font_face in manual_font.font.faces %}
+                                    <div class="col-4 manual-font" style="font-family: '{{ manual_font.font.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ (manual_font.color ?? '6c757d') }};">
+                                        {{ font_face.name }}<br>
+                                        <span style="display: inline-block;font-size: 82px;">Aa</span><br>
+                                        aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžAÁBCČDEÉĚFGHIÍJKLMNOPQRŘSŠTUÚŮVWXYÝZŽ1234567890?!&*
+                                    </div>
                                 {% endfor %}
                             </div>
                         </div>
-                    {% endif %}
-
-                    {% if manual.secondaryFont %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Sekundární písmo</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-6 fs-5 fst-italic">
-                                    Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
-                                </div>
-                            </div>
-
-                            <div class="row mt-1 gx-5 gy-5">
-                                {% for font_face in manual.secondaryFont.faces %}
-                                    {% if loop.index < 7 %}
-                                        <div class="col-4 manual-font" style="font-family: '{{ manual.secondaryFont.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;">
-                                            {{ font_face.name }}<br>
-                                            <span style="display: inline-block;font-size: 82px;">Aa</span><br>
-                                            aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžaábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzž1234567890?!&*
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
+                    {% endfor %}
 
                     {% for mockup_page in mockup_pages %}
                         {% set page = page+1 %}

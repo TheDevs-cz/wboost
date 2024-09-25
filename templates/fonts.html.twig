@@ -16,26 +16,43 @@
     {% if is_granted('ROLE_DESIGNER') %}
         <div class="row mb-2">
             <div class="col-sm-12">
-                <a href="{{ path('add_font', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat font</a>
+                <a href="{{ path('add_font_face', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat font</a>
             </div>
         </div>
     {% endif %}
 
-    {% for font in fonts %}
-        <div class="card">
-            <div class="card-body">
-                <strong>{{ font.name }}</strong><br>
-                <p>
-                    {% for font_face in font.faces %}
-                        {{ font_face.name }}
-                        {% if is_granted('font_edit', font) %}
-                            <a href="{{ path('delete_font', {'fontId': font.id}) }}">Smazat</a>
-                        {% endif %}
-                        <br>
-                    {% endfor %}
-                </p>
+    <div class="row">
+        {% for font in fonts %}
+            <div class="col-sm-3">
+                <div class="card">
+                    <div class="card-body"
+                         data-controller="dragula"
+                         data-dragula-sort-url-value="{{ path('sort_font_faces', {'fontId': font.id}) }}"
+                         data-dragula-target="container"
+                    >
+                        <h4 class="mt-0">{{ font.name }}</h4>
+
+                        {% for font_face in font.faces %}
+                            <div class="mb-2 d-flex align-items-center justify-content-between" data-entity-id="{{ font_face.name }}">
+                                <span>
+                                    {{ font_face.name }}
+
+                                    {% if is_granted('font_edit', font) %}
+                                        <a class="ms-2 btn btn-sm btn-outline-danger px-1 py-0" href="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}">
+                                            <i class="mdi mdi-delete"></i>
+                                        </a>
+                                    {% endif %}
+                                </span>
+
+                                {% if is_granted('font_edit', font) %}
+                                    <span class="dragula-handle me-2"></span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-        </div>
-    {% endfor %}
+        {% endfor %}
+    </div>
 
 {% endblock %}

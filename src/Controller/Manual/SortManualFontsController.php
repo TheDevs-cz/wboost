@@ -12,17 +12,17 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
-use WBoost\Web\Message\Manual\SortManualMockupPages;
+use WBoost\Web\Message\Manual\SortManualFonts;
 use WBoost\Web\Services\Security\ManualVoter;
 
-final class SortManualMockupPagesController extends AbstractController
+final class SortManualFontsController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/sort-manual-mockup-pages/{manualId}', name: 'sort_manual_mockup_pages', methods: ['POST'])]
+    #[Route(path: '/sort-manual-fonts/{manualId}', name: 'sort_manual_fonts', methods: ['POST'])]
     #[IsGranted(ManualVoter::EDIT, 'manual')]
     public function __invoke(
         #[MapEntity(id: 'manualId')]
@@ -35,7 +35,7 @@ final class SortManualMockupPagesController extends AbstractController
         $sorted = $data['sorted'] ?? [];
 
         $this->bus->dispatch(
-            new SortManualMockupPages($sorted)
+            new SortManualFonts($sorted),
         );
 
         return new JsonResponse(['status' => 'success']);

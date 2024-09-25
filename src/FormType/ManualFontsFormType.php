@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormType;
 
-use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\FormData\ManualFontsFormData;
-use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Value\ManualFontType;
 
 /**
  * @extends AbstractType<ManualFontsFormData>
@@ -31,18 +31,26 @@ final class ManualFontsFormType extends AbstractType
             $choices[$font->name] = $font->id->toString();
         }
 
-        $builder->add('primaryFont', ChoiceType::class, [
-            'label' => 'Primární font',
-            'required' => false,
+        $builder->add('font', ChoiceType::class, [
+            'label' => 'Font',
+            'required' => true,
             'placeholder' => '- Vybrat -',
             'choices' => $choices,
         ]);
 
-        $builder->add('secondaryFont', ChoiceType::class, [
-            'label' => 'Sekundární font',
-            'required' => false,
+        $builder->add('type', ChoiceType::class, [
+            'label' => 'Typ',
+            'required' => true,
             'placeholder' => '- Vybrat -',
-            'choices' => $choices,
+            'choices' => [
+                'Primární' => ManualFontType::Primary->value,
+                'Sekundární' => ManualFontType::Secondary->value,
+            ],
+        ]);
+
+        $builder->add('color', TextType::class, [
+            'label' => 'Barva',
+            'required' => false,
         ]);
     }
 

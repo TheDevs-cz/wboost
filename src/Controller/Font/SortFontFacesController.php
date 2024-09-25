@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Controller\Manual;
+namespace WBoost\Web\Controller\Font;
 
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -11,22 +11,22 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\Manual;
-use WBoost\Web\Message\Manual\SortManualMockupPages;
-use WBoost\Web\Services\Security\ManualVoter;
+use WBoost\Web\Entity\Font;
+use WBoost\Web\Message\Font\SortFontFaces;
+use WBoost\Web\Services\Security\FontVoter;
 
-final class SortManualMockupPagesController extends AbstractController
+final class SortFontFacesController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/sort-manual-mockup-pages/{manualId}', name: 'sort_manual_mockup_pages', methods: ['POST'])]
-    #[IsGranted(ManualVoter::EDIT, 'manual')]
+    #[Route(path: '/sort-font-faces/{fontId}', name: 'sort_font_faces', methods: ['POST'])]
+    #[IsGranted(FontVoter::EDIT, 'font')]
     public function __invoke(
-        #[MapEntity(id: 'manualId')]
-        Manual $manual,
+        #[MapEntity(id: 'fontId')]
+        Font $font,
         Request $request,
     ): JsonResponse
     {
@@ -35,7 +35,7 @@ final class SortManualMockupPagesController extends AbstractController
         $sorted = $data['sorted'] ?? [];
 
         $this->bus->dispatch(
-            new SortManualMockupPages($sorted)
+            new SortFontFaces($font->id, $sorted),
         );
 
         return new JsonResponse(['status' => 'success']);

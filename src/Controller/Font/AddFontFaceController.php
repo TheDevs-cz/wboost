@@ -18,14 +18,14 @@ use WBoost\Web\FormType\FontFormType;
 use WBoost\Web\Message\Font\AddFont;
 use WBoost\Web\Services\Security\ProjectVoter;
 
-final class AddFontController extends AbstractController
+final class AddFontFaceController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/project/{id}/add-font', name: 'add_font')]
+    #[Route(path: '/project/{id}/add-font-face', name: 'add_font_face')]
     #[IsGranted(ProjectVoter::EDIT, 'project')]
     public function __invoke(
         Request $request,
@@ -59,7 +59,7 @@ final class AddFontController extends AbstractController
             ]);
         }
 
-        return $this->render('add_font.html.twig', [
+        return $this->render('add_font_face.html.twig', [
             'project' => $project,
             'form' => $form,
         ]);

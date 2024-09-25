@@ -62,4 +62,38 @@ class Font
 
         $this->faces[] = $fontFace;
     }
+
+    public function removeFontFace(string $fontFaceName): void
+    {
+        $faces = [];
+
+        foreach ($this->faces as $existingFontFace) {
+            if ($existingFontFace->name === $fontFaceName) {
+                continue;
+            }
+
+            $faces[] = $existingFontFace;
+        }
+
+        $this->faces = $faces;
+    }
+
+    /**
+     * @param array<string> $faceNames
+     */
+    public function sortFaces(array $faceNames): void
+    {
+        $newFaces = [];
+        $faces = [];
+
+        foreach ($this->faces as $face) {
+            $faces[$face->name] = $face;
+        }
+
+        foreach ($faceNames as $faceName) {
+            $newFaces[] = $faces[$faceName];
+        }
+
+        $this->faces = $newFaces;
+    }
 }

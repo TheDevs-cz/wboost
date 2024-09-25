@@ -25,7 +25,7 @@ class ManualMockupPage
         #[Column(type: UuidType::NAME, unique: true)]
         public UuidInterface $id,
 
-        #[ManyToOne(inversedBy: 'pages')]
+        #[ManyToOne(fetch: 'EXTRA_LAZY', inversedBy: 'pages')]
         #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public Manual $manual,
 

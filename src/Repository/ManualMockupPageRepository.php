@@ -40,11 +40,13 @@ readonly final class ManualMockupPageRepository
         $this->entityManager->remove($page);
     }
 
-    public function count(): int
+    public function count(UuidInterface $manualId): int
     {
         $count = $this->entityManager->createQueryBuilder()
             ->select('COUNT(page)')
             ->from(ManualMockupPage::class, 'page')
+            ->where('page.manual = :manualId')
+            ->setParameter('manualId', $manualId)
             ->getQuery()
             ->getSingleScalarResult();
 

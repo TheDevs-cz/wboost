@@ -51,7 +51,7 @@ readonly final class AddManualMockupPageHandler
             $images[] = $path;
         }
 
-        $nextPosition = $this->manualMockupPageRepository->count();
+        $nextPosition = $this->manualMockupPageRepository->count($manual->id);
 
         $page = new ManualMockupPage(
             $pageId,

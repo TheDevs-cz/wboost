@@ -9,12 +9,14 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Query\GetManualFonts;
 use WBoost\Web\Query\GetManualMockupPages;
 
 final class ManualPreviewController extends AbstractController
 {
     public function __construct(
         readonly private GetManualMockupPages $getManualMockupPages,
+        readonly private GetManualFonts $getManualFonts,
     ) {
     }
 
@@ -35,6 +37,7 @@ final class ManualPreviewController extends AbstractController
         return $this->render('manual_preview.html.twig', [
             'project' => $manual->project,
             'manual' => $manual,
+            'fonts' => $this->getManualFonts->allForManual($manual->id),
             'mockup_pages' => $this->getManualMockupPages->allForManual($manual->id),
         ]);
     }

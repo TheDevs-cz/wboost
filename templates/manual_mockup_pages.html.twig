@@ -27,9 +27,10 @@
                 </div>
             </div>
 
-            <div class="row" data-controller="mockup-pages-dragula"
-                 data-mockup-pages-dragula-sort-url-value="{{ path('sort_manual_mockup_pages', {'manualId': manual.id}) }}"
-                 data-mockup-pages-dragula-target="container">
+            <div class="row" data-controller="dragula"
+                 data-dragula-sort-url-value="{{ path('sort_manual_mockup_pages', {'manualId': manual.id}) }}"
+                 data-dragula-direction-value="horizontal"
+                 data-dragula-target="container">
                 {% for page in pages %}
                     <div class="col-sm-6 col-md-4 position-relative" data-entity-id="{{ page.id }}">
                         <div class="card">
