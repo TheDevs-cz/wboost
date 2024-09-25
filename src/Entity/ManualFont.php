@@ -81,10 +81,15 @@ class ManualFont
         $this->color = $color;
     }
 
+    public function faceEnabled(string $faceName): bool
+    {
+        return in_array($faceName, $this->fontFaces, true);
+    }
+
     /**
      * @param array<string> $fontFaces
      */
-    public function editFontFaces(array $fontFaces): void
+    public function enableFontFaces(array $fontFaces): void
     {
         $this->fontFaces = $fontFaces;
     }

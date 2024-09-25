@@ -59,11 +59,11 @@
                                 </span>
                             </h4>
 
-                            <div class="mt-3">
+                            <div class="mt-3" data-controller="manual-font-faces-toggle" data-manual-font-faces-toggle-url-value="{{ path('update_manual_font_faces', {'manualFontId': manual_font.id}) }}">
                                 {% for font_face in manual_font.font.faces %}
                                     <p class="mb-0 mt-2 position-relative" style="line-height: 22px;">
-                                        <input type="checkbox" id="font-switch-{{ loop.index }}" checked data-switch="primary">
-                                        <label class="float-start me-2" for="font-switch-{{ loop.index }}" data-on-label="On" data-off-label="Off"></label>
+                                        <input data-manual-font-faces-toggle-target="checkbox" type="checkbox" id="{{ manual_font.id }}font-switch-{{ loop.index }}" {% if manual_font.faceEnabled(font_face.name) %}checked{% endif %} data-switch="primary" value="{{ font_face.name }}">
+                                        <label class="float-start me-2" for="{{ manual_font.id }}font-switch-{{ loop.index }}" data-on-label="On" data-off-label="Off"></label>
 
                                         {{ font_face.name }}
                                     </p>
