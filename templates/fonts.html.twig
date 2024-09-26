@@ -25,6 +25,17 @@
         {% for font in fonts %}
             <div class="col-sm-3">
                 <div class="card">
+                    {% if is_granted('font_edit', font) %}
+                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="ri-more-fill"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a href="{{ path('delete_font', {'fontId': font.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                            </div>
+                        </div>
+                    {% endif %}
+
                     <div class="card-body"
                          data-controller="dragula"
                          data-dragula-sort-url-value="{{ path('sort_font_faces', {'fontId': font.id}) }}"
@@ -33,14 +44,15 @@
                         <h4 class="mt-0">{{ font.name }}</h4>
 
                         {% for font_face in font.faces %}
-                            <div class="mb-2 d-flex align-items-center justify-content-between" data-entity-id="{{ font_face.name }}">
+                            <div class="mt-2 d-flex align-items-center justify-content-between" data-entity-id="{{ font_face.name }}">
                                 <span>
                                     {{ font_face.name }}
 
                                     {% if is_granted('font_edit', font) %}
-                                        <a class="ms-2 btn btn-sm btn-outline-danger px-1 py-0" href="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}">
-                                            <i class="mdi mdi-delete"></i>
-                                        </a>
+                                        <twig:ConfirmModal
+                                            url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
+                                            linkClasses="btn btn-outline-danger ms-2 btn btn-sm px-1 py-0"
+                                            confirmationText="Opravdu chcete smazat tento řez fontu?" />
                                     {% endif %}
                                 </span>
 
