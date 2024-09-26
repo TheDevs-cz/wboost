@@ -35,6 +35,10 @@ class SocialNetworkTemplate
         #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public Project $project,
 
+        #[ManyToOne]
+        #[JoinColumn(onDelete: "SET NULL")]
+        readonly public null|SocialNetworkCategory $category,
+
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public \DateTimeImmutable $createdAt,
 

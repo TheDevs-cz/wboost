@@ -46,6 +46,7 @@ readonly final class AddSocialNetworkTemplateHandler
         $template = new SocialNetworkTemplate(
             $templateId,
             $project,
+            null,
             $this->clock->now(),
             $message->name,
             $imagePath,
