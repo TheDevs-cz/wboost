@@ -691,14 +691,18 @@
                                     <div class="row">
                                         {% if manual.logo.horizontal %}
                                             <div class="col-12">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 bg-dark-lighten manual-image-wrapper manual-image-vertical-big position-relative">
-                                                    <div class="p-5" style="background: #ffffff;">
-                                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                            <i class="mdi mdi-download"></i>
-                                                        </a>
-                                                        <span class="protected-zone-x">1.3%</span>
-                                                        <span class="protected-zone-y">1.3% výšky loga</span>
-                                                        <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big position-relative">
+                                                    <div class="p-5 bg-dark-lighten">
+                                                        <div style="background: #ffffff;">
+                                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
+                                                                <i class="mdi mdi-download"></i>
+                                                            </a>
+                                                            <span class="protected-zone-top">1/3 výšky loga</span>
+                                                            <span class="protected-zone-bottom">1/3</span>
+                                                            <span class="protected-zone-left">1/3</span>
+                                                            <span class="protected-zone-right">1/3</span>
+                                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -706,14 +710,18 @@
 
                                         {% if manual.logo.vertical %}
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 bg-dark-lighten manual-image-wrapper manual-image-square-smaller position-relative">
-                                                    <div class="p-5" style="background: #ffffff;">
-                                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                            <i class="mdi mdi-download"></i>
-                                                        </a>
-                                                        <span class="protected-zone-x">1.3%</span>
-                                                        <span class="protected-zone-y">1.3% výšky loga</span>
-                                                        <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
+                                                    <div class="p-5 bg-dark-lighten">
+                                                        <div style="background: #ffffff;">
+                                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
+                                                                <i class="mdi mdi-download"></i>
+                                                            </a>
+                                                            <span class="protected-zone-top">1/3 výšky loga</span>
+                                                            <span class="protected-zone-bottom">1/3</span>
+                                                            <span class="protected-zone-left">1/3</span>
+                                                            <span class="protected-zone-right">1/3</span>
+                                                            <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -721,14 +729,18 @@
 
                                         {% if manual.logo.symbol %}
                                             <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 bg-dark-lighten manual-image-wrapper manual-image-square-smaller position-relative">
-                                                    <div class="p-5" style="background: #ffffff;">
-                                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                            <i class="mdi mdi-download"></i>
-                                                        </a>
-                                                        <span class="protected-zone-x">1.3%</span>
-                                                        <span class="protected-zone-y">1.3% výšky loga</span>
-                                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
+                                                    <div class="p-5 bg-dark-lighten">
+                                                        <div style="background: #ffffff;">
+                                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
+                                                                <i class="mdi mdi-download"></i>
+                                                            </a>
+                                                            <span class="protected-zone-top">1/3 výšky loga</span>
+                                                            <span class="protected-zone-bottom">1/3</span>
+                                                            <span class="protected-zone-left">1/3</span>
+                                                            <span class="protected-zone-right">1/3</span>
+                                                            <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
