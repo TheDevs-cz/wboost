@@ -64,12 +64,12 @@
 .protected-zone-right {
     position: absolute;
     display: block;
-    color: #000000;
+    color: #ffffff;
     font-size: 12px;
 }
 
 .protected-zone-top {
-    border-left: 1px solid #000000;
+    border-left: 1px solid #ffffff;
     left: 250px;
     top: 72px;
     height: 72px;
@@ -78,7 +78,7 @@
 }
 
 .protected-zone-bottom {
-    border-left: 1px solid #000000;
+    border-left: 1px solid #ffffff;
     left: 250px;
     bottom: 72px;
     height: 72px;
@@ -87,7 +87,7 @@
 }
 
 .protected-zone-left {
-    border-bottom: 1px solid #000000;
+    border-bottom: 1px solid #ffffff;
     left: 72px;
     top: 40%;
     width: 72px;
@@ -95,7 +95,7 @@
 }
 
 .protected-zone-right {
-    border-bottom: 1px solid #000000;
+    border-bottom: 1px solid #ffffff;
     right: 72px;
     top: 40%;
     width: 72px;
