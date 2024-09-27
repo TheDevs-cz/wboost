@@ -8,9 +8,17 @@
             </a>
             <div class="dropdown-menu dropdown-menu-end">
                 <a href="{{ path('edit_manual', {'id': manual.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                <a href="{{ path('delete_manual', {'id': manual.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                <a href="#"
+                   class="dropdown-item"
+                   data-modal-id="{{ manual.id }}"
+                   data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete me-1"></i>Smazat</a>
             </div>
         </div>
+
+        <twig:ConfirmModal
+            id="{{ manual.id }}"
+            url="{{ path('delete_manual', {'id': manual.id}) }}"
+            confirmationText="Opravdu chcete smazat manuál včetně všech náležitostí?" />
     </div>
 
     <div class="card-body pt-1">

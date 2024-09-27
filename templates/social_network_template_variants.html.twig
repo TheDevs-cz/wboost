@@ -49,9 +49,19 @@
                                                             {% endif %}
                                                         {% endfor %}
                                                         <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-export me-1"></i>Export</a>
-                                                        <a href="{{ path('delete_social_network_template_variant', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                                        <a href="#"
+                                                           class="dropdown-item"
+                                                           data-modal-id="{{ variant.id }}"
+                                                           data-action="click->confirm-modal#showModal">
+                                                            <i class="mdi mdi-delete me-1"></i> Smazat
+                                                        </a>
                                                     </div>
                                                 </div>
+
+                                                <twig:ConfirmModal
+                                                    id="{{ variant.id }}"
+                                                    url="{{ path('delete_social_network_template_variant', {'variantId': variant.id}) }}"
+                                                    confirmationText="Opravdu chcete smazat tuto variantu šablony?" />
                                             {% endif %}
 
                                             <a href="{{ is_granted('social_variant_edit', variant) ? path('social_network_template_variant_editor', {'variantId': variant.id}) : path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="text-body">

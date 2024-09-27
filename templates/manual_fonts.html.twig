@@ -42,9 +42,19 @@
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-end">
                                     <a href="{{ path('edit_manual_font', {'id': manual_font.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                                    <a href="{{ path('delete_manual_font', {'id': manual_font.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                    <a href="#"
+                                       class="dropdown-item"
+                                       data-modal-id="{{ manual_font.id }}"
+                                       data-action="click->confirm-modal#showModal">
+                                        <i class="mdi mdi-delete me-1"></i> Smazat
+                                    </a>
                                 </div>
                             </div>
+
+                            <twig:ConfirmModal
+                                id="{{ manual_font.id }}"
+                                url="{{ path('delete_manual_font', {'id': manual_font.id}) }}"
+                                confirmationText="Opravdu chcete smazat tento font z manuálu?" />
                         {% endif %}
 
                         <div class="card-body">

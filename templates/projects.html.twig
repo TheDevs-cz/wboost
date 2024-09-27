@@ -30,9 +30,19 @@
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">
                                 <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                                <a href="{{ path('delete_project', {'id': project.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                <a href="#"
+                                   class="dropdown-item"
+                                   data-modal-id="{{ project.id }}"
+                                   data-action="click->confirm-modal#showModal">
+                                    <i class="mdi mdi-delete me-1"></i> Smazat
+                                </a>
                             </div>
                         </div>
+
+                        <twig:ConfirmModal
+                            id="{{ project.id }}"
+                            url="{{ path('delete_project', {'id': project.id}) }}"
+                            confirmationText="Opravdu chcete smazat tento projekt včetně všech náležitostí?" />
                     {% endif %}
 
                     <a href="{{ path('project_dashboard', {'id': project.id}) }}" class="text-body">

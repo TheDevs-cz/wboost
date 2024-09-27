@@ -34,9 +34,14 @@
                         <div>
                             <h4 class="mt-0 d-inline">{{ category.name }}</h4>
                             <a href="{{ path('edit_social_network_category', {'categoryId': category.id}) }}" class="btn btn-outline-secondary ms-2 btn btn-sm px-1 py-0"><i class="mdi mdi-pencil"></i></a>
+                            <a href="#"
+                               class="btn btn-outline-danger ms-1 btn btn-sm px-1 py-0"
+                               data-modal-id="{{ category.id }}"
+                               data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete"></i></a>
+
                             <twig:ConfirmModal
+                                id="{{ category.id }}"
                                 url="{{ path('delete_social_network_category', {'categoryId': category.id}) }}"
-                                linkClasses="btn btn-outline-danger ms-1 btn btn-sm px-1 py-0"
                                 confirmationText="Opravdu chcete smazat tuto kategorii? Šablony v této kategorii nebudou smazány a zůstanou zachovány bez kategorie." />
                         </div>
                         <span class="dragula-handle me-2"></span>
