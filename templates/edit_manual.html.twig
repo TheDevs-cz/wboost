@@ -21,6 +21,12 @@
             {{ form_row(form.name) }}
             {{ form_row(form.introImage) }}
 
+            {% if manual.introImage %}
+                <div style="width: 200px;" class="mb-3">
+                    <img class="img-thumbnail" src="{{ uploaded_asset(manual.introImage) }}">
+                </div>
+            {% endif %}
+
             <button class="btn btn-primary" type="submit">Uložit</button>
 
             {{ form_end(form) }}
