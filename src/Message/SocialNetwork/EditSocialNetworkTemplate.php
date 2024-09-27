@@ -11,6 +11,7 @@ readonly final class EditSocialNetworkTemplate
 {
     public function __construct(
         public UuidInterface $templateId,
+        public null|UuidInterface $categoryId,
         public string $name,
         public null|UploadedFile $image,
     ) {

@@ -6,6 +6,7 @@ namespace WBoost\Web\MessageHandler\Manual;
 
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use WBoost\Web\Exceptions\ManualFontNotFound;
 use WBoost\Web\Message\Manual\SortManualFonts;
 use WBoost\Web\Repository\ManualFontRepository;
 
@@ -17,6 +18,9 @@ readonly final class SortManualFontsHandler
     ) {
     }
 
+    /**
+     * @throws ManualFontNotFound
+     */
     public function __invoke(SortManualFonts $message): void
     {
         foreach ($message->manualFonts as $position => $manualFontId) {

@@ -6,6 +6,7 @@ namespace WBoost\Web\MessageHandler\Manual;
 
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use WBoost\Web\Exceptions\ManualMockupPageNotFound;
 use WBoost\Web\Message\Manual\SortManualMockupPages;
 use WBoost\Web\Repository\ManualMockupPageRepository;
 
@@ -17,6 +18,9 @@ readonly final class SortManualMockupPagesHandler
     ) {
     }
 
+    /**
+     * @throws ManualMockupPageNotFound
+     */
     public function __invoke(SortManualMockupPages $message): void
     {
         foreach ($message->pages as $position => $pageId) {

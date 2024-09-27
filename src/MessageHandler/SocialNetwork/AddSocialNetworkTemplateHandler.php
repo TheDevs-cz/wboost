@@ -9,8 +9,10 @@ use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Exceptions\ProjectNotFound;
+use WBoost\Web\Exceptions\SocialNetworkCategoryNotFound;
 use WBoost\Web\Message\SocialNetwork\AddSocialNetworkTemplate;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Repository\SocialNetworkCategoryRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 
 #[AsMessageHandler]
@@ -18,6 +20,7 @@ readonly final class AddSocialNetworkTemplateHandler
 {
     public function __construct(
         private SocialNetworkTemplateRepository $socialNetworkTemplateRepository,
+        private SocialNetworkCategoryRepository $socialNetworkCategoryRepository,
         private ProjectRepository $projectRepository,
         private ClockInterface $clock,
         private Filesystem $filesystem,
@@ -26,6 +29,7 @@ readonly final class AddSocialNetworkTemplateHandler
 
     /**
      * @throws ProjectNotFound
+     * @throws SocialNetworkCategoryNotFound
      */
     public function __invoke(AddSocialNetworkTemplate $message): void
     {
@@ -43,13 +47,19 @@ readonly final class AddSocialNetworkTemplateHandler
             $this->filesystem->write($imagePath, $image->getContent());
         }
 
+        $nextPosition = $this->socialNetworkTemplateRepository->count($project->id);
+        $category = $message->categoryId !== null
+            ? $this->socialNetworkCategoryRepository->get($message->categoryId)
+            : null;
+
         $template = new SocialNetworkTemplate(
             $templateId,
             $project,
-            null,
+            $category,
             $this->clock->now(),
             $message->name,
             $imagePath,
+            $nextPosition,
         );
 
         $this->socialNetworkTemplateRepository->add($template);

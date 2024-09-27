@@ -10,7 +10,7 @@ use WBoost\Web\Query\GetManuals;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use WBoost\Web\Query\GetSocialNetworks;
+use WBoost\Web\Query\GetSocialNetworkTemplates;
 use WBoost\Web\Services\Security\ProjectVoter;
 
 final class ProjectDashboardController extends AbstractController
@@ -18,7 +18,7 @@ final class ProjectDashboardController extends AbstractController
     public function __construct(
         readonly private GetManuals $getManuals,
         readonly private GetFonts $getFonts,
-        readonly private GetSocialNetworks $getSocialNetworks,
+        readonly private GetSocialNetworkTemplates $getSocialNetworkTemplates,
     ) {
     }
 
@@ -30,7 +30,7 @@ final class ProjectDashboardController extends AbstractController
             'project' => $project,
             'manuals' => $this->getManuals->allForProject($project->id),
             'fonts' => $this->getFonts->allForProject($project->id),
-            'social_templates' => $this->getSocialNetworks->allForProject($project->id),
+            'social_templates' => $this->getSocialNetworkTemplates->allForProject($project->id),
         ]);
     }
 }

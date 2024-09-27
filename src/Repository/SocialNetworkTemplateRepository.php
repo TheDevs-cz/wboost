@@ -39,4 +39,19 @@ readonly final class SocialNetworkTemplateRepository
     {
         $this->entityManager->remove($template);
     }
+
+    public function count(UuidInterface $projectId): int
+    {
+        $count = $this->entityManager->createQueryBuilder()
+            ->select('COUNT(template)')
+            ->from(SocialNetworkTemplate::class, 'template')
+            ->where('template.project = :projectId')
+            ->setParameter('projectId', $projectId)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        assert(is_int($count));
+
+        return $count;
+    }
 }

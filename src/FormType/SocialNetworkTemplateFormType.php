@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormType;
 
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use WBoost\Web\Entity\SocialNetworkCategory;
 use WBoost\Web\FormData\SocialNetworkTemplateFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
@@ -22,6 +24,21 @@ final class SocialNetworkTemplateFormType extends AbstractType
      */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        /** @var array<SocialNetworkCategory> $categories */
+        $categories = $options['categories'];
+        $choices = [];
+
+        foreach ($categories as $category) {
+            $choices[$category->name] = $category->id->toString();
+        }
+
+        $builder->add('category', ChoiceType::class, [
+            'label' => 'Kategorie',
+            'required' => false,
+            'placeholder' => '- Bez kategorie -',
+            'choices' => $choices,
+        ]);
+
         $builder->add('name', TextType::class, [
             'label' => 'Název šablony',
             'required' => true,
@@ -43,6 +60,7 @@ final class SocialNetworkTemplateFormType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class' => SocialNetworkTemplateFormData::class,
+            'categories' => [],
         ]);
     }
 }

@@ -12,6 +12,7 @@ readonly final class AddSocialNetworkTemplate
     public function __construct(
         public UuidInterface $projectId,
         public UuidInterface $templateId,
+        public null|UuidInterface $categoryId,
         public string $name,
         public null|UploadedFile $image,
     ) {

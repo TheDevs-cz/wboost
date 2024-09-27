@@ -1,0 +1,48 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'social_networks' %}
+
+{% block title %}Kategorie sociálních sítí{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('social_network_templates', {'projectId': project.id}) }}">Sociální sítě</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            <a href="{{ path('add_social_network_category', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová kategorie</a>
+        </div>
+    </div>
+
+    <div class="row"
+         data-controller="dragula"
+         data-dragula-sort-url-value="{{ path('sort_social_network_categories', {'projectId': project.id}) }}"
+         data-dragula-direction-value="horizontal"
+         data-dragula-target="container"
+    >
+        {% for category in categories %}
+            <div class="col-sm-3">
+                <div class="card">
+                    <div class="card-body d-flex align-items-center justify-content-between" data-entity-id="{{ category.id }}">
+                        <div>
+                            <h4 class="mt-0 d-inline">{{ category.name }}</h4>
+                            <a href="{{ path('edit_social_network_category', {'categoryId': category.id}) }}" class="btn btn-outline-secondary ms-2 btn btn-sm px-1 py-0"><i class="mdi mdi-pencil"></i></a>
+                            <twig:ConfirmModal
+                                url="{{ path('delete_social_network_category', {'categoryId': category.id}) }}"
+                                linkClasses="btn btn-outline-danger ms-1 btn btn-sm px-1 py-0"
+                                confirmationText="Opravdu chcete smazat tuto kategorii? Šablony v této kategorii nebudou smazány a zůstanou zachovány bez kategorie." />
+                        </div>
+                        <span class="dragula-handle me-2"></span>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

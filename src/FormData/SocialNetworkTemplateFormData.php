@@ -14,4 +14,5 @@ final class SocialNetworkTemplateFormData
     #[Length(min: 3, max: 30)]
     public string $name = '';
     public null|UploadedFile $image = null;
+    public null|string $category = null;
 }

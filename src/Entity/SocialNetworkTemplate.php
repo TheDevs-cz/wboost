@@ -35,9 +35,10 @@ class SocialNetworkTemplate
         #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         readonly public Project $project,
 
-        #[ManyToOne]
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[ManyToOne(inversedBy: 'templates')]
         #[JoinColumn(onDelete: "SET NULL")]
-        readonly public null|SocialNetworkCategory $category,
+        public null|SocialNetworkCategory $category,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public \DateTimeImmutable $createdAt,
@@ -49,12 +50,20 @@ class SocialNetworkTemplate
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(nullable: true)]
         public null|string $image,
+
+        #[Column(options: ['default' => 0])]
+        public int $position,
     ) {
         $this->variants = new ArrayCollection();
     }
 
-    public function edit(string $name, null|string $imagePath): void
+    public function edit(
+        null|SocialNetworkCategory $category,
+        string $name,
+        null|string $imagePath,
+    ): void
     {
+        $this->category = $category;
         $this->name = $name;
         $this->image = $imagePath;
     }
@@ -65,5 +74,10 @@ class SocialNetworkTemplate
     public function variants(): array
     {
         return $this->variants->toArray();
+    }
+
+    public function sort(int $position): void
+    {
+        $this->position = $position;
     }
 }

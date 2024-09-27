@@ -6,9 +6,9 @@ namespace WBoost\Web\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Entity\SocialNetworkTemplate;
+use WBoost\Web\Entity\SocialNetworkCategory;
 
-readonly final class GetSocialNetworks
+readonly final class GetSocialNetworkCategories
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -16,16 +16,19 @@ readonly final class GetSocialNetworks
     }
 
     /**
-     * @return array<SocialNetworkTemplate>
+     * @return array<SocialNetworkCategory>
      */
     public function allForProject(UuidInterface $projectId): array
     {
         return $this->entityManager->createQueryBuilder()
-            ->from(SocialNetworkTemplate::class, 's')
-            ->select('s')
-            ->join('s.project', 'p')
-            ->where('p.id = :projectId')
+            ->from(SocialNetworkCategory::class, 'category')
+            ->select('category', 'template')
+            ->join('category.project', 'project')
+            ->leftJoin('category.templates', 'template')
+            ->where('project.id = :projectId')
             ->setParameter('projectId', $projectId->toString())
+            ->orderBy('category.position')
+            ->addOrderBy('template.position')
             ->getQuery()
             ->getResult();
     }

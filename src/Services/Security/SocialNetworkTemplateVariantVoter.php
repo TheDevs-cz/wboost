@@ -26,7 +26,7 @@ final class SocialNetworkTemplateVariantVoter extends Voter
 
     protected function supports(string $attribute, mixed $subject): bool
     {
-        if (!in_array($attribute, [self::VIEW, self::EDIT])) {
+        if (!in_array($attribute, [self::ADD, self::VIEW, self::EDIT])) {
             return false;
         }
 

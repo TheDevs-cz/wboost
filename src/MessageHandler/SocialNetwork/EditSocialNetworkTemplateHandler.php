@@ -7,8 +7,10 @@ namespace WBoost\Web\MessageHandler\SocialNetwork;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use WBoost\Web\Exceptions\SocialNetworkCategoryNotFound;
 use WBoost\Web\Exceptions\SocialNetworkTemplateNotFound;
 use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplate;
+use WBoost\Web\Repository\SocialNetworkCategoryRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 
 #[AsMessageHandler]
@@ -16,6 +18,7 @@ readonly final class EditSocialNetworkTemplateHandler
 {
     public function __construct(
         private SocialNetworkTemplateRepository $socialNetworkTemplateRepository,
+        private SocialNetworkCategoryRepository $socialNetworkCategoryRepository,
         private ClockInterface $clock,
         private Filesystem $filesystem,
     ) {
@@ -23,6 +26,7 @@ readonly final class EditSocialNetworkTemplateHandler
 
     /**
      * @throws SocialNetworkTemplateNotFound
+     * @throws SocialNetworkCategoryNotFound
      */
     public function __invoke(EditSocialNetworkTemplate $message): void
     {
@@ -39,6 +43,10 @@ readonly final class EditSocialNetworkTemplateHandler
             $this->filesystem->write($imagePath, $image->getContent());
         }
 
-        $template->edit($message->name, $imagePath);
+        $category = $message->categoryId !== null
+            ? $this->socialNetworkCategoryRepository->get($message->categoryId)
+            : null;
+
+        $template->edit($category, $message->name, $imagePath);
     }
 }
