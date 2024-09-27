@@ -6,7 +6,15 @@ export default class extends Controller {
     showModal(event) {
         event.preventDefault();
 
-        const modal = window.bootstrap.Modal.getOrCreateInstance(this.modalTarget);
-        modal.show();
+        // Get the modal ID from the clicked link
+        const modalId = event.currentTarget.getAttribute('data-modal-id');
+
+        // Find the corresponding modal by data-id
+        const modal = this.modalTargets.find(modal => modal.dataset.id === modalId);
+
+        if (modal) {
+            const bootstrapModal = window.bootstrap.Modal.getOrCreateInstance(modal);
+            bootstrapModal.show();
+        }
     }
 }

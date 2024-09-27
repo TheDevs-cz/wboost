@@ -31,9 +31,19 @@
                                 <i class="ri-more-fill"></i>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">
-                                <a href="{{ path('delete_font', {'fontId': font.id}) }}" class="dropdown-item"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                                <a href="#"
+                                   class="dropdown-item"
+                                   data-modal-id="{{ font.id }}"
+                                   data-action="click->confirm-modal#showModal">
+                                    <i class="mdi mdi-delete me-1"></i> Smazat
+                                </a>
                             </div>
                         </div>
+
+                        <twig:ConfirmModal
+                            id="{{ font.id }}"
+                            url="{{ path('delete_font', {'fontId': font.id}) }}"
+                            confirmationText="Opravdu chcete smazat tento font včetně všech rezů?" />
                     {% endif %}
 
                     <div class="card-body"
@@ -49,9 +59,14 @@
                                     {{ font_face.name }}
 
                                     {% if is_granted('font_edit', font) %}
+                                        <a href="#"
+                                           class="btn btn-outline-danger ms-2 btn btn-sm px-1 py-0"
+                                           data-modal-id="{{ font.id }}-{{ loop.index }}"
+                                           data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete"></i></a>
+
                                         <twig:ConfirmModal
+                                            id="{{ font.id }}-{{ loop.index }}"
                                             url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
-                                            linkClasses="btn btn-outline-danger ms-2 btn btn-sm px-1 py-0"
                                             confirmationText="Opravdu chcete smazat tento řez fontu?" />
                                     {% endif %}
                                 </span>
