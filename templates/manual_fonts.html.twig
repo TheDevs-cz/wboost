@@ -38,7 +38,7 @@
                             <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
 
                                 <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="ri-more-fill"></i>
+                                    <i class="ri-more-fill text-lighter"></i>
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-end">
                                     <a href="{{ path('edit_manual_font', {'id': manual_font.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
@@ -60,7 +60,7 @@
                         <div class="card-body">
                             <h4 class="mt-0 mb-0">
                                 {% if is_granted('manual_font_edit', manual_font) %}
-                                    <span class="dragula-handle position-absolute" style="left: 0;top: 20px;"></span>
+                                    <span class="dragula-handle text-lighter position-absolute" style="left: 0;top: 20px;"></span>
                                 {% endif %}
 
                                 <span class="d-flex">

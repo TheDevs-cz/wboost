@@ -3,7 +3,7 @@
         {% if is_granted('social_template_edit', template) %}
             <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
                 <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="ri-more-fill"></i>
+                    <i class="ri-more-fill text-lighter"></i>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
                     <a href="{{ path('edit_social_network_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
@@ -24,14 +24,14 @@
             <div class="card-body pb-0">
                 <h4 class="m-0 ps-3">
                     {% if is_granted('social_template_edit', template) %}
-                        <span class="dragula-handle position-absolute" style="left: 0;top: 20px;"></span>
+                        <span class="dragula-handle text-lighter position-absolute" style="left: 0;top: 20px;"></span>
                     {% endif %}
 
                     {{ template.name }}
                 </h4>
             </div>
 
-            <img class="p-2 card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
+            <img class="p-3 card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
         </a>
     </div>
 </div>

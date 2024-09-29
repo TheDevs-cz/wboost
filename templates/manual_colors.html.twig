@@ -42,7 +42,7 @@
 
                                     {{ form_widget(detectedColorForm.order) }}
                                     {{ form_widget(detectedColorForm.color) }}
-                                    <span class="dragula-handle"></span>
+                                    <span class="dragula-handle text-lighter"></span>
                                 </div>
                             {% endfor %}
                         </div>
@@ -59,7 +59,7 @@
                             <div data-controller="colors-dragula form-collection"
                                  data-colors-dragula-target="container"
                                  data-form-collection-target="collection"
-                                 data-prototype="{{ '<div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color" data-order-field-target><span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: #ffffff;" data-custom-color-target="colorDisplay"></span>' ~ form_widget(form.customColors.vars.prototype.order) ~ '<div class="form-floating" style="width: 100px;">' ~ form_widget(form.customColors.vars.prototype.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) ~ form_label(form.customColors.vars.prototype.color) ~ '</div><div class="form-floating">' ~ form_widget(form.customColors.vars.prototype.type) ~ form_label(form.customColors.vars.prototype.type) ~ '</div><button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button><span class="dragula-handle"></span></div>' }}">
+                                 data-prototype="{{ '<div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color" data-order-field-target><span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: #ffffff;" data-custom-color-target="colorDisplay"></span>' ~ form_widget(form.customColors.vars.prototype.order) ~ '<div class="form-floating" style="width: 100px;">' ~ form_widget(form.customColors.vars.prototype.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) ~ form_label(form.customColors.vars.prototype.color) ~ '</div><div class="form-floating">' ~ form_widget(form.customColors.vars.prototype.type) ~ form_label(form.customColors.vars.prototype.type) ~ '</div><button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button><span class="dragula-handle text-lighter"></span></div>' }}">
 
                                 {% for customColorForm in form.customColors %}
                                     <div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color" data-order-field-target>
@@ -74,7 +74,7 @@
                                         </div>
                                         {{ form_widget(customColorForm.order) }}
                                         <button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button>
-                                        <span class="dragula-handle"></span>
+                                        <span class="dragula-handle text-lighter"></span>
                                     </div>
                                 {% endfor %}
 

@@ -101,3 +101,7 @@
     width: 72px;
     text-align: center;
 }
+
+.text-lighter {
+    color: #bbb !important;
+}

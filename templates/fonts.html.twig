@@ -28,7 +28,7 @@
                     {% if is_granted('font_edit', font) %}
                         <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
                             <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="ri-more-fill"></i>
+                                <i class="ri-more-fill text-lighter"></i>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">
                                 <a href="#"
@@ -72,7 +72,7 @@
                                 </span>
 
                                 {% if is_granted('font_edit', font) %}
-                                    <span class="dragula-handle me-2"></span>
+                                    <span class="dragula-handle text-lighter me-2"></span>
                                 {% endif %}
                             </div>
                         {% endfor %}

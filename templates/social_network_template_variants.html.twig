@@ -22,7 +22,7 @@
                 <div class="card">
                     <div class="card-body">
 
-                        <h2 class="h3 mb-3">
+                        <h2 class="h3 mt-0 mb-3">
                             Varianta {{ dimension.value }}
 
                             {% if is_granted('ROLE_DESIGNER')%}
@@ -39,7 +39,7 @@
                                             {% if is_granted('project_edit', project) %}
                                                 <div class="card-img-overlay dropdown card-widgets p-2" style="left: auto;bottom: auto;">
                                                     <a href="#" class="dropdown-toggle arrow-none d-inline-block bg-light text-center rounded-4 text-black" data-bs-toggle="dropdown" aria-expanded="false" style="width: 30px;height: 30px;line-height: 30px;">
-                                                        <i class="ri-more-fill"></i>
+                                                        <i class="ri-more-fill text-lighter"></i>
                                                     </a>
                                                     <div class="dropdown-menu dropdown-menu-end">
                                                         <a href="{{ path('copy_social_network_template_variant', {'variantId': variant.id, 'dimension': variant.dimension.value}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
