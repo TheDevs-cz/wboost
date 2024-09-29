@@ -50,22 +50,21 @@
                     {% endif %}
 
                     <a href="{{ is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="text-body">
-                        <div class="card-body pb-0">
+                        <div class="card-body pb-2">
                             <h4 class="mt-0">
                                 {{ manual.name }}
-                                <br><small>{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</small>
+                                <br><small class="text-muted fw-normal">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</small>
                             </h4>
 
+                            <img class="my-1 mb-2" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage.filePath) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
+
                             {% if manual.detectedColors %}
-                                <div id="tooltip-container">
-                                    {% for detectedColor in manual.detectedColors %}
-                                        <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColor.color.hex }};"></span>
-                                    {% endfor %}
-                                </div>
+                                {% for detectedColor in manual.detectedColors %}
+                                    <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColor.color.hex }};"></span>
+                                {% endfor %}
                             {% endif %}
                         </div>
 
-                        <img class="p-2 card-img-bottom" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage.filePath) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
                     </a>
                 </div>
             </div>
