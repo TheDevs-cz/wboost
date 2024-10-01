@@ -105,3 +105,10 @@
 .text-lighter {
     color: #bbb !important;
 }
+
+.dragula-handle-absolute-left {
+    text-align: left !important;
+    left: -6px !important;
+    width: 30px !important;
+    color: #bbb !important;
+}

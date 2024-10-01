@@ -19,7 +19,7 @@ final class DownloadManualSvgController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/manual/{manualId}/svg/{logo}', name: 'download_manual_svg')]
+    #[Route(path: '/stahnout-logo/{manualId}/svg/{logo}', name: 'download_manual_svg')]
     public function __invoke(
         #[MapEntity(id: 'manualId')]
         Manual $manual,
