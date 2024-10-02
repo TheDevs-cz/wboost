@@ -6,6 +6,7 @@
                     <i class="ri-more-fill text-lighter"></i>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
+                    <a href="{{ path('copy_social_network_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
                     <a href="{{ path('edit_social_network_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
                     <a href="#"
                        class="dropdown-item"

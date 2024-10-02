@@ -10,13 +10,12 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
-use WBoost\Web\Message\SocialNetwork\CopySocialNetworkTemplateVariant;
+use WBoost\Web\Entity\SocialNetworkTemplate;
+use WBoost\Web\Message\SocialNetwork\CopySocialNetworkTemplate;
 use WBoost\Web\Services\ProvideIdentity;
-use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Services\Security\SocialNetworkTemplateVoter;
 
-final class DuplicateSocialNetworkTemplateVariantController extends AbstractController
+final class DuplicateSocialNetworkTemplateController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
@@ -24,27 +23,25 @@ final class DuplicateSocialNetworkTemplateVariantController extends AbstractCont
     ) {
     }
 
-    #[Route(path: '/social-network-template-variant/{variantId}/copy/{dimension}', name: 'copy_social_network_template_variant')]
-    #[IsGranted(SocialNetworkTemplateVariantVoter::EDIT, 'variant')]
+    #[Route(path: '/social-network-template/{templateId}/copy', name: 'copy_social_network_template')]
+    #[IsGranted(SocialNetworkTemplateVoter::EDIT, 'template')]
     public function __invoke(
-        #[MapEntity(id: 'variantId')]
-        SocialNetworkTemplateVariant $variant,
-        TemplateDimension $dimension,
+        #[MapEntity(id: 'templateId')]
+        SocialNetworkTemplate $template,
     ): Response {
         $newId = $this->provideIdentity->next();
 
         $this->bus->dispatch(
-            new CopySocialNetworkTemplateVariant(
-                $variant->id,
+            new CopySocialNetworkTemplate(
+                $template->id,
                 $newId,
-                $dimension,
             ),
         );
 
-        $this->addFlash('success', 'Varianta šablony zduplikována.');
+        $this->addFlash('success', 'Šablona zduplikována.');
 
         return $this->redirectToRoute('social_network_template_variants', [
-            'templateId' => $variant->template->id,
+            'templateId' => $newId,
         ]);
     }
 }
