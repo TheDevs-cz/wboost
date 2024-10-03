@@ -139,9 +139,8 @@
                                         {% set colorsMapping = {} %}
 
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
-                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                <i class="mdi mdi-download"></i>
-                                            </a>
+                                            <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+
                                             <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                         </div>
                                     {% endif %}
@@ -151,9 +150,7 @@
                                             {% if manual.logo.vertical %}
                                                 <div class="col-6">
                                                     <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
-                                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                            <i class="mdi mdi-download"></i>
-                                                        </a>
+                                                        <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                         <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                     </div>
                                                 </div>
@@ -162,9 +159,7 @@
                                             {% if manual.logo.symbol %}
                                                 <div class="col-6">
                                                     <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
-                                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                            <i class="mdi mdi-download"></i>
-                                                        </a>
+                                                        <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                         <img style="max-height: 319px;" src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                                     </div>
                                                 </div>
@@ -195,9 +190,7 @@
                                         {% set colorsMapping = {} %}
 
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
-                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                <i class="mdi mdi-download"></i>
-                                            </a>
+                                            <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                             <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                         </div>
                                     {% endif %}
@@ -206,9 +199,7 @@
                                         <div class="row">
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -243,10 +234,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'darkBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="darkBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -254,10 +242,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="lightBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -265,10 +250,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="oneColor" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -280,10 +262,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="darkBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -291,10 +270,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="lightBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -302,10 +278,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="oneColor" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -341,10 +314,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'darkBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="darkBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -352,10 +322,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'lightBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="lightBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -363,10 +330,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'oneColor') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="oneColor" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -378,10 +342,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'darkBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="darkBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -389,10 +350,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'lightBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="lightBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
 
@@ -400,10 +358,7 @@
 
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'oneColor') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="oneColor" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -440,10 +395,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'whiteBackground') }};">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="whiteBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -455,10 +407,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="whiteBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -470,10 +419,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'blackBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="blackBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -485,10 +431,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="blackBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -526,10 +469,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'whiteBackground') }};">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="whiteBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -541,10 +481,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="{{ '#' ~ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="whiteBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -556,10 +493,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'blackBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="blackBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -570,10 +504,7 @@
                                             <div class="col-6">
                                                 <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'blackBackground') }}">
                                                     <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="blackBackground" />
-
-                                                    <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'verticalWithClaim', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                        <i class="mdi mdi-download"></i>
-                                                    </a>
+                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                                 </div>
                                             </div>
@@ -605,9 +536,7 @@
                                         {% set colorsMapping = {} %}
                                         <div class="col-6">
                                             <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: #ffffff">
-                                                <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                    <i class="mdi mdi-download"></i>
-                                                </a>
+                                                <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                 <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                             </div>
                                         </div>
@@ -617,10 +546,7 @@
                                         <div class="col-6">
                                             <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'darkBackground') }}">
                                                 <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="darkBackground" />
-
-                                                <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                    <i class="mdi mdi-download"></i>
-                                                </a>
+                                                <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                 <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                             </div>
                                         </div>
@@ -634,10 +560,7 @@
                                 <div class="col-4">
                                     <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'lightBackground') }}">
                                         <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="lightBackground" />
-
-                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                            <i class="mdi mdi-download"></i>
-                                        </a>
+                                        <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                         <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                     </div>
                                 </div>
@@ -646,10 +569,7 @@
                                 <div class="col-4">
                                     <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'whiteBackground') }}">
                                         <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="whiteBackground" />
-
-                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                            <i class="mdi mdi-download"></i>
-                                        </a>
+                                        <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                         <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                     </div>
                                 </div>
@@ -658,10 +578,7 @@
                                 <div class="col-4">
                                     <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'blackBackground') }}">
                                         <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="blackBackground" />
-
-                                        <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                            <i class="mdi mdi-download"></i>
-                                        </a>
+                                        <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                         <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                     </div>
                                 </div>
@@ -694,9 +611,7 @@
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big position-relative">
                                                     <div class="p-5 bg-dark-lighten">
                                                         <div style="background: #ffffff;">
-                                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'horizontal', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                                <i class="mdi mdi-download"></i>
-                                                            </a>
+                                                            <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                             <span class="protected-zone-top">1/3 výšky loga</span>
                                                             <span class="protected-zone-bottom">1/3</span>
                                                             <span class="protected-zone-left">1/3</span>
@@ -713,9 +628,7 @@
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
                                                     <div class="p-5 bg-dark-lighten">
                                                         <div style="background: #ffffff;">
-                                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'vertical', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                                <i class="mdi mdi-download"></i>
-                                                            </a>
+                                                            <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                             <span class="protected-zone-top">1/3 výšky loga</span>
                                                             <span class="protected-zone-bottom">1/3</span>
                                                             <span class="protected-zone-left">1/3</span>
@@ -732,9 +645,7 @@
                                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
                                                     <div class="p-5 bg-dark-lighten">
                                                         <div style="background: #ffffff;">
-                                                            <a href="{{ path('download_manual_svg', {'manualId': manual.id, 'logo': 'symbol', 'colorsMapping': colorsMapping}) }}" class="btn btn-sm btn-soft-primary p-1 px-2 position-absolute" style="right: 10px; top: 10px;">
-                                                                <i class="mdi mdi-download"></i>
-                                                            </a>
+                                                            <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                             <span class="protected-zone-top">1/3 výšky loga</span>
                                                             <span class="protected-zone-bottom">1/3</span>
                                                             <span class="protected-zone-left">1/3</span>

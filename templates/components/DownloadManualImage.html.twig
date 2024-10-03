@@ -1,0 +1,20 @@
+<div class="dropdown position-absolute" style="right: 10px; top: 10px;">
+    <a href="#" class="dropdown-toggle arrow-none btn btn-sm btn-soft-primary p-1 px-2" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="mdi mdi-download"></i>
+    </a>
+
+    <div class="dropdown-menu dropdown-menu-end">
+        <a data-turbo="false" class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background, 'format': 'svg'}) }}">
+            <i class="mdi mdi-download me-1"></i> Stáhnout SVG
+        </a>
+
+        <a data-turbo="false" class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background, 'format': 'png'}) }}">
+            <i class="mdi mdi-download me-1"></i> Stáhnout PNG
+        </a>
+
+        <a data-turbo="false" class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background, 'format': 'jpg'}) }}">
+            <i class="mdi mdi-download me-1"></i> Stáhnout JPG
+        </a>
+    </div>
+</div>
+
