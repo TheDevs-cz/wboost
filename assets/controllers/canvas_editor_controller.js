@@ -2,17 +2,20 @@ import { Controller } from "@hotwired/stimulus";
 import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
+const customProperties = ['name', 'maxLength', 'locked', 'uppercase', 'description'];
+
 export default class extends Controller {
     static targets = [
         "canvas", "textInputs", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "scaleDisplay",
         "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay", "zoomInButton", "zoomOutButton", "canvasContainer",
-        "unsavedChangesMessage"
+        "unsavedChangesMessage", "duplicateButton"
     ];
 
     static values = {
         backgroundImage: String,
         customFonts: Array
     }
+
 
     connect() {
         this.clipboard = null;
@@ -86,22 +89,29 @@ export default class extends Controller {
     handleKeydown(event) {
         // Check if the focus is on an input, textarea, or contenteditable element
         const activeElement = document.activeElement;
-        const isInputField = activeElement.tagName === 'INPUT' ||
+        const isInputFocused = activeElement.tagName === 'INPUT' ||
             activeElement.tagName === 'TEXTAREA' ||
             activeElement.isContentEditable;
 
+        const activeObject = this.canvas.getActiveObject();
+        const isEditingText = activeElement && activeElement.isEditing;
+
+        if (isInputFocused || isEditingText) {
+            // Allow default behavior (do not prevent default)
+            return;
+        }
+
         // Handle Delete or Backspace for object deletion
-        if (!isInputField && (event.key === 'Delete' || event.key === 'Backspace')) {
+        if (event.key === 'Delete' || event.key === 'Backspace') {
             event.preventDefault(); // Prevent default browser behavior
             this.deleteObject();
             return;
         }
 
         // Check if there is an active object on the canvas
-        const activeObject = this.canvas.getActiveObject();
 
         // Handle arrow keys for moving the selected object only if an object is selected
-        if (activeObject && !isInputField && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        if (activeObject && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
             event.preventDefault(); // Prevent scrolling or other default actions only if an object is selected
             this.moveSelectedObject(event.key);
         }
@@ -314,6 +324,8 @@ export default class extends Controller {
             this.hideActionButtons();
         }
 
+        this.updateDuplicateButton();
+
         if (activeObject && activeObject.type === 'textbox') {
             fontControls.style.display = 'block';
 
@@ -510,7 +522,7 @@ export default class extends Controller {
         const form = this.canvasTarget.closest('form');
 
         // Serialize the canvas JSON
-        const canvasJSON = this.canvas.toJSON(['name', 'maxLength', 'locked', 'uppercase', 'description']);
+        const canvasJSON = this.canvas.toJSON(customProperties);
         this.canvasTarget.value = JSON.stringify(canvasJSON);
 
         // Serialize only the text inputs
@@ -657,7 +669,7 @@ export default class extends Controller {
             this.history.shift(); // Remove the oldest entry if history size is exceeded
         }
 
-        this.history.push(this.canvas.toJSON(['name', 'maxLength', 'locked', 'uppercase', 'description']));
+        this.history.push(this.canvas.toJSON(customProperties));
         this.redoStack = []; // Clear the redo stack when a new action is performed
         this.updateButtonStates(); // Update button states
     }
@@ -773,7 +785,13 @@ export default class extends Controller {
     copy() {
         const activeObject = this.canvas.getActiveObject();
         if (activeObject) {
+            // Temporarily extend toObject method to include custom properties
+            this.extendToObject(activeObject);
+
             activeObject.clone((cloned) => {
+                // Restore the original toObject method
+                this.restoreToObject(activeObject);
+
                 this.clipboard = cloned;
             });
         }
@@ -781,7 +799,13 @@ export default class extends Controller {
 
     paste() {
         if (this.clipboard) {
+            // Temporarily extend toObject method to include custom properties
+            this.extendToObject(this.clipboard);
+
             this.clipboard.clone((clonedObj) => {
+                // Restore the original toObject method
+                this.restoreToObject(this.clipboard);
+
                 this.canvas.discardActiveObject();
 
                 clonedObj.set({
@@ -802,7 +826,56 @@ export default class extends Controller {
 
                 this.canvas.setActiveObject(clonedObj);
                 this.canvas.requestRenderAll();
+
             });
+        }
+    }
+
+    duplicate() {
+        this.copy();
+        this.paste();
+    }
+
+    updateDuplicateButton() {
+        const activeObject = this.canvas.getActiveObject();
+
+        if (activeObject) {
+            // Enable the duplicate button
+            this.duplicateButtonTarget.removeAttribute('disabled');
+            this.duplicateButtonTarget.classList.remove('disabled');
+        } else {
+            // Disable the duplicate button
+            this.duplicateButtonTarget.setAttribute('disabled', 'disabled');
+            this.duplicateButtonTarget.classList.add('disabled');
+        }
+    }
+
+    // Helper methods to extend and restore toObject
+    extendToObject(object) {
+        // Save the original toObject method
+        object._originalToObject = object.toObject;
+
+        // Override toObject to include custom properties
+        object.toObject = function (propertiesToInclude) {
+            return object._originalToObject.call(this, (propertiesToInclude || []).concat(customProperties));
+        };
+
+        // If the object is a group or activeSelection, apply recursively
+        if (object._objects && object._objects.length) {
+            object._objects.forEach((obj) => this.extendToObject(obj));
+        }
+    }
+
+    restoreToObject(object) {
+        if (object._originalToObject) {
+            // Restore the original toObject method
+            object.toObject = object._originalToObject;
+            delete object._originalToObject;
+        }
+
+        // If the object is a group or activeSelection, apply recursively
+        if (object._objects && object._objects.length) {
+            object._objects.forEach((obj) => this.restoreToObject(obj));
         }
     }
 }
