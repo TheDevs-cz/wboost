@@ -15,6 +15,7 @@ export default class extends Controller {
     }
 
     connect() {
+        this.clipboard = null;
         this.canvas = new fabric.Canvas('c'); // Initialize the Fabric.js canvas
 
         const canvasJson = this.element.dataset.canvasEditorCanvasJson;
@@ -103,6 +104,14 @@ export default class extends Controller {
         if (activeObject && !isInputField && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
             event.preventDefault(); // Prevent scrolling or other default actions only if an object is selected
             this.moveSelectedObject(event.key);
+        }
+
+        if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+            event.preventDefault();
+            this.copy();
+        } else if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+            event.preventDefault();
+            this.paste();
         }
     }
 
@@ -758,6 +767,42 @@ export default class extends Controller {
 
         if (activeObject && activeObject.type === 'textbox') {
             this.applyUppercase(activeObject);
+        }
+    }
+
+    copy() {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject) {
+            activeObject.clone((cloned) => {
+                this.clipboard = cloned;
+            });
+        }
+    }
+
+    paste() {
+        if (this.clipboard) {
+            this.clipboard.clone((clonedObj) => {
+                this.canvas.discardActiveObject();
+
+                clonedObj.set({
+                    left: clonedObj.left + 10,
+                    top: clonedObj.top + 10,
+                    evented: true,
+                });
+
+                if (clonedObj.type === 'activeSelection') {
+                    clonedObj.canvas = this.canvas;
+                    clonedObj.forEachObject((obj) => {
+                        this.canvas.add(obj);
+                    });
+                    clonedObj.setCoords();
+                } else {
+                    this.canvas.add(clonedObj);
+                }
+
+                this.canvas.setActiveObject(clonedObj);
+                this.canvas.requestRenderAll();
+            });
         }
     }
 }
