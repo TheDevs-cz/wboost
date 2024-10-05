@@ -4,9 +4,11 @@
 {% set active_menu_item = 'social_networks' %}
 
 {% block title_actions %}
-    <div class="text-sm-end mb-3">
-        <a href="{{ path('social_network_template_variant_editor', {'variantId': variant.id}) }}" class="btn btn-primary"><i class="mdi mdi-pencil"></i> Zpět na editor</a>
-    </div>
+    {% if is_granted('social_variant_edit', variant) %}
+        <div class="text-sm-end mb-3">
+            <a href="{{ path('social_network_template_variant_editor', {'variantId': variant.id}) }}" class="btn btn-primary"><i class="mdi mdi-pencil"></i> Zpět na editor</a>
+        </div>
+    {% endif %}
 {% endblock %}
 
 {% block breadcrumb %}
