@@ -222,8 +222,6 @@
                             <div class="col-sm-6">
                                 <div class="page-title-box">
                                     <h1 class="page-title">{{ block('title') }}</h1>
-
-                                    {% block breadcrumb %}{% endblock %}
                                 </div>
                             </div>
                             <div class="col-sm-6 pt-0 pt-sm-4">
@@ -231,6 +229,8 @@
                             </div>
                         </div>
                         <!-- end page title -->
+
+                        {% block breadcrumb %}{% endblock %}
 
                         {{ include('_flashes.html.twig') }}
 

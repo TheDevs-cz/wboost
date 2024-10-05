@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 
 {% block title_actions %}
-    <div class="text-sm-end mb-3">
+    <div class="text-sm-end">
         <a href="{{ path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="btn btn-primary" target="_blank"><i class="ri-eye-fill"></i> Zobrazit manuál</a>
     </div>
 {% endblock %}
