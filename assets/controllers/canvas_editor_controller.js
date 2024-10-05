@@ -8,7 +8,7 @@ export default class extends Controller {
     static targets = [
         "canvas", "textInputs", "previewImage", "bringToFrontButton", "sendToBackButton", "deleteObjectButton", "scaleDisplay",
         "autosaveMessage", "lastAutosave", "undoButton", "redoButton", "autosaveDelay", "zoomInButton", "zoomOutButton", "canvasContainer",
-        "unsavedChangesMessage", "duplicateButton"
+        "unsavedChangesMessage", "duplicateButton", "alignLeftButton", "alignRightButton", "alignCenterButton", "alignTopButton", "alignBottomButton", "alignMiddleButton"
     ];
 
     static values = {
@@ -305,15 +305,49 @@ export default class extends Controller {
     }
 
     showActionButtons() {
-        this.bringToFrontButtonTarget.style.display = 'inline-block';
-        this.sendToBackButtonTarget.style.display = 'inline-block';
-        this.deleteObjectButtonTarget.style.display = 'inline-block';
+        this.bringToFrontButtonTarget.removeAttribute('disabled');
+        this.bringToFrontButtonTarget.classList.remove('disabled');
+        this.sendToBackButtonTarget.removeAttribute('disabled');
+        this.sendToBackButtonTarget.classList.remove('disabled');
+        this.sendToBackButtonTarget.removeAttribute('disabled');
+        this.deleteObjectButtonTarget.classList.remove('disabled');
+
+        this.alignLeftButtonTarget.removeAttribute('disabled');
+        this.alignLeftButtonTarget.classList.remove('disabled');
+        this.alignRightButtonTarget.removeAttribute('disabled');
+        this.alignRightButtonTarget.classList.remove('disabled');
+        this.alignCenterButtonTarget.removeAttribute('disabled');
+        this.alignCenterButtonTarget.classList.remove('disabled');
+
+        this.alignTopButtonTarget.removeAttribute('disabled');
+        this.alignTopButtonTarget.classList.remove('disabled');
+        this.alignBottomButtonTarget.removeAttribute('disabled');
+        this.alignBottomButtonTarget.classList.remove('disabled');
+        this.alignMiddleButtonTarget.removeAttribute('disabled');
+        this.alignMiddleButtonTarget.classList.remove('disabled');
     }
 
     hideActionButtons() {
-        this.bringToFrontButtonTarget.style.display = 'none';
-        this.sendToBackButtonTarget.style.display = 'none';
-        this.deleteObjectButtonTarget.style.display = 'none';
+        this.bringToFrontButtonTarget.setAttribute('disabled', 'disabled');
+        this.bringToFrontButtonTarget.classList.add('disabled');
+        this.sendToBackButtonTarget.setAttribute('disabled', 'disabled');
+        this.sendToBackButtonTarget.classList.add('disabled');
+        this.sendToBackButtonTarget.setAttribute('disabled', 'disabled');
+        this.deleteObjectButtonTarget.classList.add('disabled');
+
+        this.alignLeftButtonTarget.setAttribute('disabled', 'disabled');
+        this.alignLeftButtonTarget.classList.add('disabled');
+        this.alignRightButtonTarget.setAttribute('disabled', 'disabled');
+        this.alignRightButtonTarget.classList.add('disabled');
+        this.alignCenterButtonTarget.setAttribute('disabled', 'disabled');
+        this.alignCenterButtonTarget.classList.add('disabled');
+
+        this.alignTopButtonTarget.setAttribute('disabled', 'disabled');
+        this.alignTopButtonTarget.classList.add('disabled');
+        this.alignBottomButtonTarget.setAttribute('disabled', 'disabled');
+        this.alignBottomButtonTarget.classList.add('disabled');
+        this.alignMiddleButtonTarget.setAttribute('disabled', 'disabled');
+        this.alignMiddleButtonTarget.classList.add('disabled');
     }
 
     updateControlsVisibility() {
@@ -889,5 +923,29 @@ export default class extends Controller {
         if (object._objects && object._objects.length) {
             object._objects.forEach((obj) => this.restoreToObject(obj));
         }
+    }
+
+    alignLeft() {
+        this.alignObjects('left');
+    }
+
+    alignCenter() {
+        this.alignObjects('center');
+    }
+
+    alignRight() {
+        this.alignObjects('right');
+    }
+
+    alignTop() {
+        this.alignObjects('top');
+    }
+
+    alignMiddle() {
+        this.alignObjects('middle');
+    }
+
+    alignBottom() {
+        this.alignObjects('bottom');
     }
 }

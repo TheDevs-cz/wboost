@@ -42,39 +42,58 @@
             </div>
         </div>
 
-        <div class="card mb-2" style="position: sticky;top: 70px;z-index: 999;">
+        <div class="card mb-2" style="position: sticky;top: 0px;z-index: 99999;">
             <div class="card-body p-2">
-                <button class="btn btn-sm btn-outline-secondary me-2" data-action="canvas-editor#showBackgroundModal" type="button"><i class="mdi mdi-image"></i> Pozadí</button>
+                <div class="mb-1">
+                    <button class="btn btn-sm btn-outline-secondary me-3" data-action="canvas-editor#showBackgroundModal" type="button"><i class="mdi mdi-image"></i> Pozadí</button>
 
-                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="undoButton" data-action="canvas-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
-                <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button" data-canvas-editor-target="redoButton" data-action="canvas-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="undoButton" data-action="canvas-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button" data-canvas-editor-target="redoButton" data-action="canvas-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
 
-                <button class="btn btn-sm btn-outline-secondary me-2 disabled" type="button" data-canvas-editor-target="duplicateButton" data-action="canvas-editor#duplicate"><i class="mdi mdi-content-copy"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-canvas-editor-target="duplicateButton" data-action="canvas-editor#duplicate"><i class="mdi mdi-content-copy"></i></button>
 
-                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-editor#zoomOut" data-canvas-editor-target="zoomOutButton"><i class="ri-zoom-out-line"></i></button>
-                <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-editor#zoomIn" data-canvas-editor-target="zoomInButton"><i class="ri-zoom-in-line"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-editor#zoomOut" data-canvas-editor-target="zoomOutButton"><i class="ri-zoom-out-line"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-editor#zoomIn" data-canvas-editor-target="zoomInButton"><i class="ri-zoom-in-line"></i></button>
 
-                <p class="d-inline-block my-0 small text-muted" data-canvas-editor-target="scaleDisplay">100%</p>
+                    <p class="d-inline-block my-0 small text-muted" data-canvas-editor-target="scaleDisplay">100%</p>
 
-                <p data-canvas-editor-target="lastAutosave" class="d-none d-inline-block my-0 ms-3 small text-muted"></p>
+                    <p data-canvas-editor-target="lastAutosave" class="d-none d-inline-block my-0 ms-3 small text-muted"></p>
 
-                <div data-canvas-editor-target="autosaveDelay" class="d-none ms-2 spinner-grow spinner-grow-sm text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
+                    <div data-canvas-editor-target="autosaveDelay" class="d-none ms-2 spinner-grow spinner-grow-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+
+                    <div class="d-inline-block float-end">
+                        <p data-canvas-editor-target="unsavedChangesMessage" class="d-inline-block d-none my-0 me-2 small fw-bold text-danger">Neuložené změny</p>
+
+                        <button class="btn btn-sm btn-primary me-1" type="button" data-action="canvas-editor#submitForm" data-canvas-editor-target="zoomInButton">Uložit</button>
+
+                        <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="btn btn-sm btn-outline-secondary me-1">Export</a>
+                    </div>
                 </div>
 
-                <div class="d-inline-block float-end">
-                    <p data-canvas-editor-target="unsavedChangesMessage" class="d-inline-block d-none my-0 me-2 small fw-bold text-danger">Neuložené změny</p>
+                <div>
+                    <!-- Horizontal Alignment -->
+                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-editor-target="alignLeftButton" data-action="canvas-editor#alignLeft"><i class="mdi mdi-format-horizontal-align-left"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-editor-target="alignCenterButton" data-action="canvas-editor#alignCenter"><i class="mdi mdi-format-horizontal-align-center"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-3" data-canvas-editor-target="alignRightButton" data-action="canvas-editor#alignRight"><i class="mdi mdi-format-horizontal-align-right"></i></button>
 
-                    <button class="btn btn-sm btn-primary me-1" type="button" data-action="canvas-editor#submitForm" data-canvas-editor-target="zoomInButton">Uložit</button>
+                    <!-- Vertical Alignment -->
+                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-editor-target="alignTopButton" data-action="canvas-editor#alignTop"><i class="mdi mdi-format-vertical-align-top"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-editor-target="alignMiddleButton" data-action="canvas-editor#alignMiddle"><i class="mdi mdi-format-vertical-align-center"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-3" data-canvas-editor-target="alignBottomButton" data-action="canvas-editor#alignBottom"><i class="mdi mdi-format-vertical-align-bottom"></i></button>
 
-                    <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="btn btn-sm btn-outline-secondary me-1">Export</a>
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="bringToFrontButton" data-action="canvas-editor#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="sendToBackButton" data-action="canvas-editor#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-editor-target="deleteObjectButton" data-action="canvas-editor#deleteObject"><i class="mdi mdi-delete"></i></button>
                 </div>
+
             </div>
         </div>
 
         <div class="row">
             <div class="col-2">
-                <div class="card" style="position: sticky;top: 130px;z-index: 999;">
+                <div class="card" style="position: sticky;top: 93px;z-index: 999;">
                     <div class="card-body">
                         {% if fonts|length == 0 %}
                             <p class="text-danger">
@@ -86,11 +105,6 @@
 
                         <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image"></i> Přidat obrázek</button>
 
-                        <hr>
-
-                        <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="bringToFrontButton" data-action="canvas-editor#bringToFront">Vrstva do popředí</button>
-                        <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="sendToBackButton" data-action="canvas-editor#sendToBack">Vrstva do pozadí</button>
-                        <button style="display: none;" class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-canvas-editor-target="deleteObjectButton" data-action="canvas-editor#deleteObject"><i class="uil-trash-alt"></i> Smazat objekt</button>
 
                         <div id="font-controls" class="mt-1" style="display: none;">
                             <!-- Locked Control -->
