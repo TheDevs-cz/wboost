@@ -33,6 +33,28 @@
             </div>
 
             <img class="p-3 card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
+
+            {% if template.variants|length %}
+                <div class="card-body pt-0 pb-2">
+                    {% for dimension in dimensions %}
+                        {% if template.dimensionVariants(dimension)|length %}
+                            <div class="d-flex align-items-center mt-0">
+                                <div class="flex-shrink-0">
+                                    <h5 class="font-13 text-muted my-0">Varianta {{ dimension.value }}</h5>
+                                </div>
+
+                                <div class="flex-grow-1 ms-2"></div>
+
+                                <div class="text-end">
+                                    {% for variant in template.dimensionVariants(dimension) %}
+                                        <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ variant.previewImage ?: uploaded_asset(variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
         </a>
     </div>
 </div>

@@ -16,13 +16,14 @@ use Doctrine\ORM\Mapping\OneToMany;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\TemplateDimension;
 
 #[Entity]
 class SocialNetworkTemplate
 {
     /** @var Collection<int, SocialNetworkTemplateVariant>  */
     #[Immutable]
-    #[OneToMany(targetEntity: SocialNetworkTemplateVariant::class, mappedBy: 'template', fetch: 'EXTRA_LAZY')]
+    #[OneToMany(targetEntity: SocialNetworkTemplateVariant::class, mappedBy: 'template', fetch: 'EAGER')]
     private Collection $variants;
 
     public function __construct(
@@ -74,6 +75,22 @@ class SocialNetworkTemplate
     public function variants(): array
     {
         return $this->variants->toArray();
+    }
+
+    /**
+     * @return array<SocialNetworkTemplateVariant>
+     */
+    public function dimensionVariants(TemplateDimension $dimension): array
+    {
+        $variants = [];
+
+        foreach ($this->variants() as $variant) {
+            if ($variant->dimension === $dimension) {
+                $variants[] = $variant;
+            }
+        }
+
+        return $variants;
     }
 
     public function sort(int $position): void
