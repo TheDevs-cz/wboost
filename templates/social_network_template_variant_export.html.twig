@@ -58,6 +58,12 @@
                                             >
                                         </div>
                                     {% endif %}
+                                    {% if input.hidable %}
+                                        <div class="mb-2 form-check">
+                                            <input data-index="{{ loop.index0 }}" type="checkbox" id="hide-control-{{ loop.index0 }}" class="form-check-input" data-action="change->canvas-template-export#updateCanvasTextVisibility">
+                                            <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
+                                        </div>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                         </div>

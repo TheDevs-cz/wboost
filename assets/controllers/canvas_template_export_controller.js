@@ -56,6 +56,15 @@ export default class extends Controller {
         }
     }
 
+    updateCanvasTextVisibility(event) {
+        const index = event.target.dataset.index;
+        const textbox = this.canvas.getObjects('textbox')[index];
+        if (textbox) {
+            textbox.visible = !event.target.checked;
+            this.canvas.renderAll();
+        }
+    }
+
     exportAsImage() {
         const dataURL = this.canvas.toDataURL({
             format: 'png',

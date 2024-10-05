@@ -99,6 +99,12 @@
                                 <label for="locked-control" class="form-check-label small">Uzamčeno</label>
                             </div>
 
+                            <!-- Hidable Control -->
+                            <div class="mb-2 form-check">
+                                <input type="checkbox" id="hidable-control" class="form-check-input" data-action="change->canvas-editor#updateHidable">
+                                <label for="hidable-control" class="form-check-label small">Schovatelnost</label>
+                            </div>
+
                             <!-- Font Family Control -->
                             <div class="mb-2">
                                 <label for="font-family-control" class="form-label small">Font Family:</label>
@@ -239,6 +245,10 @@
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="lockedCheckbox">
                                     <label class="form-check-label" for="lockedCheckbox">Zamknout editaci textu</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="hidableCheckbox">
+                                    <label class="form-check-label" for="hidableCheckbox">Povolit schovávatelnost</label>
                                 </div>
                             </div>
                             <div class="mb-3">

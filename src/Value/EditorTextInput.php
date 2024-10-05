@@ -12,11 +12,12 @@ readonly final class EditorTextInput
         public bool $locked,
         public bool $uppercase,
         public null|string $description,
+        public bool $hidable,
     ) {
     }
 
     /**
-     * @return array{name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string}
+     * @return array{name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool}
      */
     public function toArray(): array
     {
@@ -26,11 +27,12 @@ readonly final class EditorTextInput
             'locked' => $this->locked,
             'uppercase' => $this->uppercase,
             'description' => $this->description,
+            'hidable' => $this->hidable,
         ];
     }
 
     /**
-     * @param array{name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string} $data
+     * @param array{name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool} $data
      */
     public static function fromArray(array $data): self
     {
@@ -40,6 +42,7 @@ readonly final class EditorTextInput
             locked: $data['locked'],
             uppercase: $data['uppercase'] ?? false,
             description: $data['description'] ?? null,
+            hidable: $data['hidable'] ?? false,
         );
     }
 
@@ -48,7 +51,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string}> $data */
+        /** @var array<array{name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

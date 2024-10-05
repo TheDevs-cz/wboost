@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
-const customProperties = ['name', 'maxLength', 'locked', 'uppercase', 'description'];
+const customProperties = ['name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable'];
 
 export default class extends Controller {
     static targets = [
@@ -233,6 +233,7 @@ export default class extends Controller {
         const uppercase = document.getElementById('uppercaseCheckbox').checked;
         const description = document.getElementById('description').value || null;
         const inputName = document.getElementById('textName').value || 'Text'; // Default name if empty
+        const hidable = document.getElementById('hidableCheckbox').checked;
 
         // Determine the font family: use the first custom font, or fall back to 'Arial' if none are provided
         const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
@@ -257,7 +258,8 @@ export default class extends Controller {
             name: inputName,
             locked: locked,
             uppercase: uppercase,
-            description: description
+            description: description,
+            hidable: hidable,
         });
 
         this.canvas.add(textBox);
@@ -342,6 +344,7 @@ export default class extends Controller {
             document.getElementById('uppercase-control').checked = activeObject.uppercase || false;
             document.getElementById('name-control').value = activeObject.name || '';
             document.getElementById('description-control').value = activeObject.description || '';
+            document.getElementById('hidable-control').checked = activeObject.hidable || false;
 
             console.log(activeObject.description);
         } else {
@@ -532,6 +535,7 @@ export default class extends Controller {
             locked: textbox.locked || false,
             uppercase: textbox.uppercase || false,
             description: textbox.description || '',
+            hidable: textbox.hidable || false,
         }));
 
         this.textInputsTarget.value = JSON.stringify(textInputs);
@@ -730,6 +734,14 @@ export default class extends Controller {
         const activeObject = this.canvas.getActiveObject();
         if (activeObject && activeObject.type === 'textbox') {
             activeObject.locked = event.target.checked;
+            this.canvas.renderAll();
+        }
+    }
+
+    updateHidable(event) {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject && activeObject.type === 'textbox') {
+            activeObject.hidable = event.target.checked;
             this.canvas.renderAll();
         }
     }
