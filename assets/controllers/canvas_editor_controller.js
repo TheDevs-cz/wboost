@@ -948,4 +948,68 @@ export default class extends Controller {
     alignBottom() {
         this.alignObjects('bottom');
     }
+
+    alignObjects(alignment) {
+        const activeObject = this.canvas.getActiveObject();
+        if (activeObject && activeObject.type === 'activeSelection') {
+            const objects = activeObject.getObjects();
+
+            let positionValue;
+            if (alignment === 'left' || alignment === 'right' || alignment === 'center') {
+                // Horizontal Alignment
+                const positions = objects.map(obj => obj.getBoundingRect());
+                if (alignment === 'left') {
+                    positionValue = Math.min(...positions.map(pos => pos.left));
+                } else if (alignment === 'right') {
+                    positionValue = Math.max(...positions.map(pos => pos.left + pos.width));
+                } else if (alignment === 'center') {
+                    const minLeft = Math.min(...positions.map(pos => pos.left));
+                    const maxRight = Math.max(...positions.map(pos => pos.left + pos.width));
+                    positionValue = (minLeft + maxRight) / 2;
+                }
+
+                objects.forEach(obj => {
+                    const boundingRect = obj.getBoundingRect();
+                    let deltaX;
+                    if (alignment === 'left') {
+                        deltaX = positionValue - boundingRect.left;
+                    } else if (alignment === 'right') {
+                        deltaX = positionValue - (boundingRect.left + boundingRect.width);
+                    } else if (alignment === 'center') {
+                        deltaX = positionValue - (boundingRect.left + boundingRect.width / 2);
+                    }
+                    obj.left += deltaX;
+                    obj.setCoords();
+                });
+            } else {
+                // Vertical Alignment
+                const positions = objects.map(obj => obj.getBoundingRect());
+                if (alignment === 'top') {
+                    positionValue = Math.min(...positions.map(pos => pos.top));
+                } else if (alignment === 'bottom') {
+                    positionValue = Math.max(...positions.map(pos => pos.top + pos.height));
+                } else if (alignment === 'middle') {
+                    const minTop = Math.min(...positions.map(pos => pos.top));
+                    const maxBottom = Math.max(...positions.map(pos => pos.top + pos.height));
+                    positionValue = (minTop + maxBottom) / 2;
+                }
+
+                objects.forEach(obj => {
+                    const boundingRect = obj.getBoundingRect();
+                    let deltaY;
+                    if (alignment === 'top') {
+                        deltaY = positionValue - boundingRect.top;
+                    } else if (alignment === 'bottom') {
+                        deltaY = positionValue - (boundingRect.top + boundingRect.height);
+                    } else if (alignment === 'middle') {
+                        deltaY = positionValue - (boundingRect.top + boundingRect.height / 2);
+                    }
+                    obj.top += deltaY;
+                    obj.setCoords();
+                });
+            }
+
+            this.canvas.requestRenderAll();
+        }
+    }
 }
