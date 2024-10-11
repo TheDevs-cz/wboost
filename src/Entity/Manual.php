@@ -101,6 +101,24 @@ class Manual
     public function editLogo(Logo $logo): void
     {
         $this->logo = $logo;
+
+        /** @var array<string> $detectedColorsHexFromLogos */
+        $detectedColorsHexFromLogos = [];
+        $detectedColors = $this->detectedColors;
+
+        foreach ($logo->getDetectedColors() as $detectedColor) {
+            if (!in_array($detectedColor->hex, $detectedColorsHexFromLogos)) {
+                $detectedColorsHexFromLogos[] = $detectedColor->hex;
+            }
+        }
+
+        foreach ($detectedColors as $key => $detectedColor) {
+            if (!in_array($detectedColor->color->hex, $detectedColorsHexFromLogos, true)) {
+                unset($detectedColors[$key]);
+            }
+        }
+
+        $this->detectedColors = array_values($detectedColors);
     }
 
     /**
@@ -193,6 +211,9 @@ class Manual
         /** @var array<string> $detectedColorsHex */
         $detectedColorsHex = [];
 
+        /** @var array<string> $detectedColorsHexFromLogos */
+        $detectedColorsHexFromLogos = [];
+
         /** @return array<ManualColor> */
         $detectedColors = [];
 
@@ -206,9 +227,19 @@ class Manual
                 $detectedColors[] = new ManualColor($detectedColor, null);
                 $detectedColorsHex[] = $detectedColor->hex;
             }
+
+            if (!in_array($detectedColor->hex, $detectedColorsHexFromLogos)) {
+                $detectedColorsHexFromLogos[] = $detectedColor->hex;
+            }
         }
 
-        return $detectedColors;
+        foreach ($detectedColors as $key => $detectedColor) {
+            if (!in_array($detectedColor->color->hex, $detectedColorsHexFromLogos, true)) {
+                unset($detectedColors[$key]);
+            }
+        }
+
+        return array_values($detectedColors);
     }
 
     /**
