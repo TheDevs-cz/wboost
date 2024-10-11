@@ -54,7 +54,7 @@ final class LogoColorsMappingComponent extends AbstractController
     }
 
     /**
-     * @return FormInterface<LogoColorsFormType>
+     * @return FormInterface<LogoColorsFormData>
      */
     protected function instantiateForm(): FormInterface
     {
