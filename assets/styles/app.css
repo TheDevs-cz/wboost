@@ -51,13 +51,6 @@
     margin-bottom: 50px;
 }
 
-@media (min-width: 1400px) {
-    .manual-preview-navbar, .manual-scrollspy {
-        height: 100vh;
-        overflow: auto;
-    }
-}
-
 .protected-zone-top,
 .protected-zone-bottom,
 .protected-zone-left,

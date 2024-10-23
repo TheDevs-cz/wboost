@@ -21,766 +21,687 @@
 {% endblock %}
 
 {% block full_content %}
-    <div class="row g-0" style="min-width: 1400px;">
-        <div class="col-1 bg-dark">
-            <nav id="manual-navbar" class="flex-column align-items-stretch border-end text-center manual-preview-navbar">
-                <nav class="nav nav-pills flex-column">
-                    {% set page = 0 %}
+    <div style="min-width: 1400px;">
+        <div class="container-fluid" style="max-width: 1320px;">
+            {% set page = 0 %}
 
-                    {% if manual.introImage %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
+            {% if manual.introImage %}
+                {% set page = page+1 %}
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Úvod</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
 
-                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.horizontalWithClaim or manual.logo.verticalWithClaim %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.symbol %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.primaryColors %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% if manual.secondaryColors %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endif %}
-
-                    {% for manual_font in fonts %}
-                        {% if manual_font.fontFaces|length > 0 %}
-                            {% set page = page+1 %}
-                            <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% for mockup_page in mockup_pages %}
-                        {% set page = page+1 %}
-                        <a class="nav-link rounded-0 py-3" data-turbo="false" href="#page-{{ page }}">Page {{ "%02d"|format(page) }}</a>
-                    {% endfor %}
-                </nav>
-            </nav>
-        </div>
-
-        <div class="col-11">
-            <div data-bs-spy="scroll" data-bs-target="#manual-navbar" data-bs-offset="0" class="manual-scrollspy">
-                <div class="container-fluid" style="max-width: 1320px;">
-                    {% set page = 0 %}
-
-                    {% if manual.introImage %}
-                        {% set page = page+1 %}
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Úvod</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-12 text-center">
-                                    <img src="{{ uploaded_asset(manual.introImage) }}" style="max-width: 100%;" alt="Úvod">
-                                </div>
-                            </div>
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-12 text-center">
+                            <img src="{{ uploaded_asset(manual.introImage) }}" style="max-width: 100%;" alt="Úvod">
                         </div>
-                    {% endif %}
+                    </div>
+                </div>
+            {% endif %}
 
-                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
-                        {% set page = page+1 %}
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
+            {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
+                {% set page = page+1 %}
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
 
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga.
-                                </div>
-                                <div class="page-designs col-9">
-                                    {% if manual.logo.horizontal %}
-                                        {% set colorsMapping = {} %}
-
-                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
-                                            <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-
-                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
-                                        </div>
-                                    {% endif %}
-
-                                    {% if manual.logo.vertical or manual.logo.symbol %}
-                                        <div class="row">
-                                            {% if manual.logo.vertical %}
-                                                <div class="col-6">
-                                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
-                                                        <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                        <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
-                                                    </div>
-                                                </div>
-                                            {% endif %}
-
-                                            {% if manual.logo.symbol %}
-                                                <div class="col-6">
-                                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
-                                                        <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                        <img style="max-height: 319px;" src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
-                                                    </div>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga.
                         </div>
-                    {% endif %}
+                        <div class="page-designs col-9">
+                            {% if manual.logo.horizontal %}
+                                {% set colorsMapping = {} %}
 
-                    {% if manual.logo.horizontalWithClaim or manual.logo.verticalWithClaim %}
-                        {% set page = page+1 %}
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy se sloganem</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
+                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
+                                    <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
 
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Logotyp lze použít také ve variantě se sloganem (claimem), a to v horizontální nebo vertikální variantě, dle maximální výraznosti a čitelnosti logotypu.
+                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
                                 </div>
-                                <div class="page-designs col-9">
-                                    {% if manual.logo.horizontalWithClaim %}
-                                        {% set colorsMapping = {} %}
+                            {% endif %}
 
-                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
-                                            <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
-                                        </div>
-                                    {% endif %}
-
-                                    {% if manual.logo.verticalWithClaim %}
-                                        <div class="row">
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
-                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Horizontální logotyp - barevné pozadí</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Ukázka použití horizontálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná část s barevným podkladem).
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    <div class="row">
-                                        {% if manual.logo.horizontal %}
-                                            <div class="col-sm-6">
-                                                {% set colorsMapping = manual.logoColorMapping('horizontal', 'darkBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'darkBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="darkBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('horizontal', 'lightBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="lightBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('horizontal', 'oneColor') %}
-
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="oneColor" />
-                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.horizontalWithClaim %}
-                                            <div class="col-sm-6">
-                                                {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'darkBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="darkBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'lightBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="lightBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'oneColor') %}
-
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="oneColor" />
-                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Vertikální logotyp - barevné pozadí</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Ukázka použití vertikálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná jeho část s barevným podkladem).
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    <div class="row">
-                                        {% if manual.logo.vertical %}
-                                            <div class="col-sm-6">
-                                                {% set colorsMapping = manual.logoColorMapping('vertical', 'darkBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'darkBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="darkBackground" />
-                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('vertical', 'lightBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'lightBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="lightBackground" />
-                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('vertical', 'oneColor') %}
-
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'oneColor') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="oneColor" />
-                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.verticalWithClaim %}
-                                            <div class="col-sm-6">
-                                                {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'darkBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'darkBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="darkBackground" />
-                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'lightBackground') %}
-
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'lightBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="lightBackground" />
-                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-
-                                                {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'oneColor') %}
-
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'oneColor') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="oneColor" />
-                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Horizontální logotyp - Černobílé použití</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
-                                    <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
-                                    <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    <div class="row">
-                                        {% if manual.logo.horizontal %}
-                                            {% set colorsMapping = manual.logoColorMapping('horizontal', 'whiteBackground') %}
-
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'whiteBackground') }};">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="whiteBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.horizontalWithClaim %}
-                                            {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'whiteBackground') %}
-
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="whiteBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.horizontal %}
-                                            {% set colorsMapping = manual.logoColorMapping('horizontal', 'blackBackground') %}
-
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'blackBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="blackBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.horizontalWithClaim %}
-                                            {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'blackBackground') %}
-
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="blackBackground" />
-                                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Vertikální logotyp - Černobílé použití</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
-                                    <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
-                                    <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    {% set colorsMapping = manual.logoColorMapping('vertical', 'whiteBackground') %}
-
-                                    <div class="row">
-                                        {% if manual.logo.vertical %}
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'whiteBackground') }};">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="whiteBackground" />
-                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.verticalWithClaim %}
-                                            {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'whiteBackground') %}
-
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="{{ '#' ~ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="whiteBackground" />
-                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.vertical %}
-                                            {% set colorsMapping = manual.logoColorMapping('vertical', 'blackBackground') %}
-
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'blackBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="blackBackground" />
-                                                    <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.verticalWithClaim %}
-                                            {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'blackBackground') %}
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'blackBackground') }}">
-                                                    <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="blackBackground" />
-                                                    <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                    <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.logo.symbol %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Symbol</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content pt-4 row">
-                                <div class="page-description col-3 pe-4 fs-5 fst-italic">
-                                    Symbol lze použít samostatně v případech, kdy je značka již dobře zavedená a rozpoznatelná, například na propagačních předmětech (vhodný pro použití v malých formátech, kde by plné logo mohlo být nečitelné), aplikacích, profilech na sociálních sítích nebo jako ikona aplikace.
-                                </div>
-                                <div class="page-designs col-8 offset-1">
-                                    <div class="row">
-                                        {% set colorsMapping = {} %}
+                            {% if manual.logo.vertical or manual.logo.symbol %}
+                                <div class="row">
+                                    {% if manual.logo.vertical %}
                                         <div class="col-6">
-                                            <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: #ffffff">
+                                            <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
+                                                <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                                <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
+                                            </div>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if manual.logo.symbol %}
+                                        <div class="col-6">
+                                            <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
                                                 <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                                                <img style="max-height: 319px;" src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                             </div>
                                         </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
 
-                                        {% set colorsMapping = manual.logoColorMapping('symbol', 'darkBackground') %}
+            {% if manual.logo.horizontalWithClaim or manual.logo.verticalWithClaim %}
+                {% set page = page+1 %}
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy se sloganem</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
 
-                                        <div class="col-6">
-                                            <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'darkBackground') }}">
-                                                <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="darkBackground" />
-                                                <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
-                                            </div>
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            Logotyp lze použít také ve variantě se sloganem (claimem), a to v horizontální nebo vertikální variantě, dle maximální výraznosti a čitelnosti logotypu.
+                        </div>
+                        <div class="page-designs col-9">
+                            {% if manual.logo.horizontalWithClaim %}
+                                {% set colorsMapping = {} %}
+
+                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
+                                    <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                    <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
+                                </div>
+                            {% endif %}
+
+                            {% if manual.logo.verticalWithClaim %}
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
+                                            <twig:DownloadManualImage logoVariant="verticalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Horizontální logotyp - barevné pozadí</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            Ukázka použití horizontálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná část s barevným podkladem).
+                        </div>
+                        <div class="page-designs col-9">
 
                             <div class="row">
-                                {% set colorsMapping = manual.logoColorMapping('symbol', 'lightBackground') %}
+                                {% if manual.logo.horizontal %}
+                                    <div class="col-sm-6">
+                                        {% set colorsMapping = manual.logoColorMapping('horizontal', 'darkBackground') %}
 
-                                <div class="col-4">
-                                    <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'lightBackground') }}">
-                                        <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="lightBackground" />
-                                        <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
-                                    </div>
-                                </div>
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'darkBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="darkBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                        </div>
 
-                                {% set colorsMapping = manual.logoColorMapping('symbol', 'whiteBackground') %}
-                                <div class="col-4">
-                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'whiteBackground') }}">
-                                        <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="whiteBackground" />
-                                        <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
-                                    </div>
-                                </div>
+                                        {% set colorsMapping = manual.logoColorMapping('horizontal', 'lightBackground') %}
 
-                                {% set colorsMapping = manual.logoColorMapping('symbol', 'blackBackground') %}
-                                <div class="col-4">
-                                    <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'blackBackground') }}">
-                                        <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="blackBackground" />
-                                        <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="lightBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                        </div>
+
+                                        {% set colorsMapping = manual.logoColorMapping('horizontal', 'oneColor') %}
+
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="oneColor" />
+                                            <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                        </div>
                                     </div>
-                                </div>
+                                {% endif %}
+
+                                {% if manual.logo.horizontalWithClaim %}
+                                    <div class="col-sm-6">
+                                        {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'darkBackground') %}
+
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="darkBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+
+                                        {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'lightBackground') %}
+
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="lightBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+
+                                        {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'oneColor') %}
+
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="oneColor" />
+                                            <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
                             </div>
+
                         </div>
-                    {% endif %}
-
-                    {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Ochranná zóna logotypu je prostor kolem loga, který musí zůstat volný, bez jakýchkoli grafických prvků, textů nebo jiných vizuálních elementů. Tato zóna je určena k zajištění toho, že logo bude vždy dobře čitelné a vizuálně výrazné, a že nebude rušeno okolními prvky
-                                </div>
-                                <div class="page-designs col-9">
-
-                                    {% set colorsMapping = {} %}
-
-                                    <div class="row">
-                                        {% if manual.logo.horizontal %}
-                                            <div class="col-12">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big position-relative">
-                                                    <div class="p-5 bg-dark-lighten">
-                                                        <div style="background: #ffffff;">
-                                                            <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                            <span class="protected-zone-top">1/3 výšky loga</span>
-                                                            <span class="protected-zone-bottom">1/3</span>
-                                                            <span class="protected-zone-left">1/3</span>
-                                                            <span class="protected-zone-right">1/3</span>
-                                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.vertical %}
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
-                                                    <div class="p-5 bg-dark-lighten">
-                                                        <div style="background: #ffffff;">
-                                                            <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                            <span class="protected-zone-top">1/3 výšky loga</span>
-                                                            <span class="protected-zone-bottom">1/3</span>
-                                                            <span class="protected-zone-left">1/3</span>
-                                                            <span class="protected-zone-right">1/3</span>
-                                                            <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}" style="background: #ffffff;">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        {% endif %}
-
-                                        {% if manual.logo.symbol %}
-                                            <div class="col-6">
-                                                <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
-                                                    <div class="p-5 bg-dark-lighten">
-                                                        <div style="background: #ffffff;">
-                                                            <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                            <span class="protected-zone-top">1/3 výšky loga</span>
-                                                            <span class="protected-zone-bottom">1/3</span>
-                                                            <span class="protected-zone-left">1/3</span>
-                                                            <span class="protected-zone-right">1/3</span>
-                                                            <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}" style="background: #ffffff;">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.primaryColors %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Primární barevná paleta</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Barevná paleta značky je klíčovým prvkem vizuální identity, který zajišťuje konzistentní a rozpoznatelné vystupování značky napříč všemi médii a komunikačními kanály.
-                                </div>
-                                <div class="page-designs col-9">
-                                    <div class="row">
-                                        {% for primary_color in manual.primaryColors %}
-                                            <div class="col">
-                                                <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ primary_color }};">
-                                                    <strong>HEX:</strong> {{ primary_color }}
-                                                </div>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% if manual.secondaryColors %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">Sekundární barevná paleta</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-description col-3 fs-5 fst-italic">
-                                    Sekundární barvy doplňují primární paletu a jsou určeny k použití ve vedlejších grafických prvcích, ikonách, tlačítkách a dalších podpůrných elementech. Jejich cílem je rozšířit barevný rozsah značky a umožnit flexibilnější aplikace, aniž by byla narušena vizuální soudržnost.
-                                </div>
-                                <div class="page-designs col-9">
-                                    <div class="row">
-                                        {% for secondary_color in manual.secondaryColors %}
-                                            <div class="col">
-                                                <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ secondary_color }};">
-                                                    <strong>HEX:</strong> {{ secondary_color }}
-                                                </div>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {% for manual_font in fonts %}
-                        {% if manual_font.fontFaces|length > 0 %}
-                            {% set page = page+1 %}
-
-                            <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                                <div class="page-heading py-3 border-bottom">
-                                    <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                    <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                    <span class="d-inline-block pe-4 fs-4 fw-bold">{{ manual_font.primary ? 'Primární' }}{{ manual_font.secondary ? 'Sekundární' }} písmo</span>
-                                    <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                                </div>
-
-                                <div class="page-content py-4 gx-5 row">
-                                    <div class="page-description col-6 fs-5 fst-italic">
-                                        {% if manual_font.primary %}
-                                            Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
-                                        {% endif %}
-                                        {% if manual_font.secondary %}
-                                            Sekundární písmo slouží jako doplněk k primárnímu písmu a poskytuje značce větší flexibilitu při komunikaci. Obvykle je vybráno z písem, která jsou standardně dostupná na stolních počítačích. To je zvláště užitečné při jednoduché korespondenci, kdy materiály vytváří širší okruh lidí na různých zařízeních.
-                                        {% endif %}
-                                    </div>
-                                </div>
-
-                                <div class="row mt-1 gx-5 gy-5 pb-5">
-                                    {% for font_face in manual_font.font.faces %}
-                                        {% if manual_font.faceEnabled(font_face.name) %}
-                                            <div class="col-4 manual-font" style="font-family: '{{ manual_font.font.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ (manual_font.color ?? '6c757d') }};">
-                                                {{ font_face.name }}<br>
-                                                <span style="display: inline-block;font-size: 82px;">Aa</span><br>
-                                                aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžAÁBCČDEÉĚFGHIÍJKLMNOPQRŘSŠTUÚŮVWXYÝZŽ1234567890?!&*
-                                            </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% for mockup_page in mockup_pages %}
-                        {% set page = page+1 %}
-
-                        <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                            <div class="page-heading py-3 border-bottom">
-                                <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                                <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                                <span class="d-inline-block pe-4 fs-4 fw-bold">{{ mockup_page.name }}</span>
-                                <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                            </div>
-
-                            <div class="page-content py-4 gx-5 row">
-                                <div class="page-designs col-12">
-                                    {{ include('_mockup_page.html.twig') }}
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
+                    </div>
                 </div>
-            </div>
+            {% endif %}
+
+            {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Vertikální logotyp - barevné pozadí</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            Ukázka použití vertikálního logotypu na jiném než bílém pozadí. V každém případě je nutné aby logotyp na zvoleném pozadí měl správný kontrast (nezanikala žádná jeho část s barevným podkladem).
+                        </div>
+                        <div class="page-designs col-9">
+
+                            <div class="row">
+                                {% if manual.logo.vertical %}
+                                    <div class="col-sm-6">
+                                        {% set colorsMapping = manual.logoColorMapping('vertical', 'darkBackground') %}
+
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'darkBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="darkBackground" />
+                                            <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
+                                        </div>
+
+                                        {% set colorsMapping = manual.logoColorMapping('vertical', 'lightBackground') %}
+
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'lightBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="lightBackground" />
+                                            <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
+                                        </div>
+
+                                        {% set colorsMapping = manual.logoColorMapping('vertical', 'oneColor') %}
+
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'oneColor') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="oneColor" />
+                                            <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.verticalWithClaim %}
+                                    <div class="col-sm-6">
+                                        {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'darkBackground') %}
+
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'darkBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="darkBackground" />
+                                            <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+
+                                        {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'lightBackground') %}
+
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'lightBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="lightBackground" />
+                                            <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+
+                                        {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'oneColor') %}
+
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'oneColor') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="oneColor" />
+                                            <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Horizontální logotyp - Černobílé použití</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
+                            <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
+                            <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
+                        </div>
+                        <div class="page-designs col-9">
+
+                            <div class="row">
+                                {% if manual.logo.horizontal %}
+                                    {% set colorsMapping = manual.logoColorMapping('horizontal', 'whiteBackground') %}
+
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'whiteBackground') }};">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="whiteBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.horizontalWithClaim %}
+                                    {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'whiteBackground') %}
+
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="whiteBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.horizontal %}
+                                    {% set colorsMapping = manual.logoColorMapping('horizontal', 'blackBackground') %}
+
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'blackBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="blackBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.horizontalWithClaim %}
+                                    {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'blackBackground') %}
+
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="blackBackground" />
+                                            <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.horizontalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Vertikální logotyp - Černobílé použití</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            <p>Černobílá varianta loga je určena pro použití v situacích, kde nelze aplikovat plnobarevnou verzi loga, například na tiskovinách, kde je omezená barevná paleta, nebo na propagačních materiálech, které vyžadují jednobarevné zpracování.</p>
+                            <p><strong>Pozitivní verze (černé logo na bílém podkladu):</strong> Tato verze se používá na světlém podkladu, kde černá barva loga vynikne a zaručí maximální čitelnost.</p>
+                            <p><strong>Negativní verze (bílé logo na černém podkladu):</strong> Tato verze je určena pro použití na tmavém podkladu, kde bílá barva loga kontrastuje s pozadím a zachovává viditelnost a čitelnost loga.</p>
+                        </div>
+                        <div class="page-designs col-9">
+
+                            {% set colorsMapping = manual.logoColorMapping('vertical', 'whiteBackground') %}
+
+                            <div class="row">
+                                {% if manual.logo.vertical %}
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'whiteBackground') }};">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="whiteBackground" />
+                                            <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.verticalWithClaim %}
+                                    {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'whiteBackground') %}
+
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="{{ '#' ~ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="whiteBackground" />
+                                            <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.vertical %}
+                                    {% set colorsMapping = manual.logoColorMapping('vertical', 'blackBackground') %}
+
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'blackBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="blackBackground" />
+                                            <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.verticalWithClaim %}
+                                    {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'blackBackground') %}
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'blackBackground') }}">
+                                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="blackBackground" />
+                                            <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                            <img src="{{ remap_svg_colors(manual.logo.verticalWithClaim.filePath, colorsMapping) }}">
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if manual.logo.symbol %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Symbol</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content pt-4 row">
+                        <div class="page-description col-3 pe-4 fs-5 fst-italic">
+                            Symbol lze použít samostatně v případech, kdy je značka již dobře zavedená a rozpoznatelná, například na propagačních předmětech (vhodný pro použití v malých formátech, kde by plné logo mohlo být nečitelné), aplikacích, profilech na sociálních sítích nebo jako ikona aplikace.
+                        </div>
+                        <div class="page-designs col-8 offset-1">
+                            <div class="row">
+                                {% set colorsMapping = {} %}
+                                <div class="col-6">
+                                    <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: #ffffff">
+                                        <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                                    </div>
+                                </div>
+
+                                {% set colorsMapping = manual.logoColorMapping('symbol', 'darkBackground') %}
+
+                                <div class="col-6">
+                                    <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'darkBackground') }}">
+                                        <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="darkBackground" />
+                                        <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                        <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        {% set colorsMapping = manual.logoColorMapping('symbol', 'lightBackground') %}
+
+                        <div class="col-4">
+                            <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'lightBackground') }}">
+                                <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="lightBackground" />
+                                <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                            </div>
+                        </div>
+
+                        {% set colorsMapping = manual.logoColorMapping('symbol', 'whiteBackground') %}
+                        <div class="col-4">
+                            <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'whiteBackground') }}">
+                                <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="whiteBackground" />
+                                <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                            </div>
+                        </div>
+
+                        {% set colorsMapping = manual.logoColorMapping('symbol', 'blackBackground') %}
+                        <div class="col-4">
+                            <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'blackBackground') }}">
+                                <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="blackBackground" />
+                                <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Základní logotypy</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            Ochranná zóna logotypu je prostor kolem loga, který musí zůstat volný, bez jakýchkoli grafických prvků, textů nebo jiných vizuálních elementů. Tato zóna je určena k zajištění toho, že logo bude vždy dobře čitelné a vizuálně výrazné, a že nebude rušeno okolními prvky
+                        </div>
+                        <div class="page-designs col-9">
+
+                            {% set colorsMapping = {} %}
+
+                            <div class="row">
+                                {% if manual.logo.horizontal %}
+                                    <div class="col-12">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big position-relative">
+                                            <div class="p-5 bg-dark-lighten">
+                                                <div style="background: #ffffff;">
+                                                    <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                                    <span class="protected-zone-top">1/3 výšky loga</span>
+                                                    <span class="protected-zone-bottom">1/3</span>
+                                                    <span class="protected-zone-left">1/3</span>
+                                                    <span class="protected-zone-right">1/3</span>
+                                                    <img src="{{ remap_svg_colors(manual.logo.horizontal.filePath, colorsMapping) }}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.vertical %}
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
+                                            <div class="p-5 bg-dark-lighten">
+                                                <div style="background: #ffffff;">
+                                                    <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                                    <span class="protected-zone-top">1/3 výšky loga</span>
+                                                    <span class="protected-zone-bottom">1/3</span>
+                                                    <span class="protected-zone-left">1/3</span>
+                                                    <span class="protected-zone-right">1/3</span>
+                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                {% if manual.logo.symbol %}
+                                    <div class="col-6">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative">
+                                            <div class="p-5 bg-dark-lighten">
+                                                <div style="background: #ffffff;">
+                                                    <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                                                    <span class="protected-zone-top">1/3 výšky loga</span>
+                                                    <span class="protected-zone-bottom">1/3</span>
+                                                    <span class="protected-zone-left">1/3</span>
+                                                    <span class="protected-zone-right">1/3</span>
+                                                    <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if manual.primaryColors %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Primární barevná paleta</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            Barevná paleta značky je klíčovým prvkem vizuální identity, který zajišťuje konzistentní a rozpoznatelné vystupování značky napříč všemi médii a komunikačními kanály.
+                        </div>
+                        <div class="page-designs col-9">
+                            <div class="row">
+                                {% for primary_color in manual.primaryColors %}
+                                    <div class="col">
+                                        <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ primary_color }};">
+                                            <strong>HEX:</strong> {{ primary_color }}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if manual.secondaryColors %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Sekundární barevná paleta</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-description col-3 fs-5 fst-italic">
+                            Sekundární barvy doplňují primární paletu a jsou určeny k použití ve vedlejších grafických prvcích, ikonách, tlačítkách a dalších podpůrných elementech. Jejich cílem je rozšířit barevný rozsah značky a umožnit flexibilnější aplikace, aniž by byla narušena vizuální soudržnost.
+                        </div>
+                        <div class="page-designs col-9">
+                            <div class="row">
+                                {% for secondary_color in manual.secondaryColors %}
+                                    <div class="col">
+                                        <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ secondary_color }};">
+                                            <strong>HEX:</strong> {{ secondary_color }}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% for manual_font in fonts %}
+                {% if manual_font.fontFaces|length > 0 %}
+                    {% set page = page+1 %}
+
+                    <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                        <div class="page-heading py-3 border-bottom">
+                            <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                            <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                            <span class="d-inline-block pe-4 fs-4 fw-bold">{{ manual_font.primary ? 'Primární' }}{{ manual_font.secondary ? 'Sekundární' }} písmo</span>
+                            <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                        </div>
+
+                        <div class="page-content py-4 gx-5 row">
+                            <div class="page-description col-6 fs-5 fst-italic">
+                                {% if manual_font.primary %}
+                                    Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.
+                                {% endif %}
+                                {% if manual_font.secondary %}
+                                    Sekundární písmo slouží jako doplněk k primárnímu písmu a poskytuje značce větší flexibilitu při komunikaci. Obvykle je vybráno z písem, která jsou standardně dostupná na stolních počítačích. To je zvláště užitečné při jednoduché korespondenci, kdy materiály vytváří širší okruh lidí na různých zařízeních.
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mt-1 gx-5 gy-5 pb-5">
+                            {% for font_face in manual_font.font.faces %}
+                                {% if manual_font.faceEnabled(font_face.name) %}
+                                    <div class="col-4 manual-font" style="font-family: '{{ manual_font.font.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ (manual_font.color ?? '6c757d') }};">
+                                        {{ font_face.name }}<br>
+                                        <span style="display: inline-block;font-size: 82px;">Aa</span><br>
+                                        aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžAÁBCČDEÉĚFGHIÍJKLMNOPQRŘSŠTUÚŮVWXYÝZŽ1234567890?!&*
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            {% for mockup_page in mockup_pages %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">{{ mockup_page.name }}</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+                        <div class="page-designs col-12">
+                            {{ include('_mockup_page.html.twig') }}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
         </div>
     </div>
 {% endblock %}
