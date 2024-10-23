@@ -56,7 +56,7 @@
                                 <br><small class="text-muted fw-normal">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</small>
                             </h4>
 
-                            <img class="my-1 mb-2" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage.filePath) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
+                            <img class="img-fluid my-1 mb-2" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage.filePath) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
 
                             {% if manual.detectedColors %}
                                 {% for detectedColor in manual.detectedColors %}
