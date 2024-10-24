@@ -605,8 +605,14 @@
                             <div class="row">
                                 {% for primary_color in manual.primaryColors %}
                                     <div class="col">
-                                        <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ primary_color }};">
-                                            <strong>HEX:</strong> {{ primary_color }}
+                                        <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ primary_color.color }};">
+                                            <strong>HEX:</strong> {{ primary_color.color }}<br>
+                                            {% if primary_color.cmyk %}
+                                                <strong>CMYK:</strong> {{ primary_color.cmyk[0] ~ '-' ~ primary_color.cmyk[1] ~ '-' ~ primary_color.cmyk[2] ~ '-' ~ primary_color.cmyk[3] }}<br>
+                                            {% endif %}
+                                            {% if primary_color.pantone %}
+                                                <strong>Pantone:</strong> {{ primary_color.pantone }}
+                                            {% endif %}
                                         </div>
                                     </div>
                                 {% endfor %}
@@ -635,8 +641,14 @@
                             <div class="row">
                                 {% for secondary_color in manual.secondaryColors %}
                                     <div class="col">
-                                        <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ secondary_color }};">
-                                            <strong>HEX:</strong> {{ secondary_color }}
+                                        <div class="manual-preview-color rounded-4" style="background: {{ '#' ~ secondary_color.color }};">
+                                            <strong>HEX:</strong> {{ secondary_color.color }}<br>
+                                            {% if secondary_color.cmyk %}
+                                                <strong>CMYK:</strong> {{ secondary_color.cmyk[0] ~ '-' ~ secondary_color.cmyk[1] ~ '-' ~ secondary_color.cmyk[2] ~ '-' ~ secondary_color.cmyk[3] }}<br>
+                                            {% endif %}
+                                            {% if secondary_color.pantone %}
+                                                <strong>Pantone:</strong> {{ secondary_color.pantone }}
+                                            {% endif %}
                                         </div>
                                     </div>
                                 {% endfor %}

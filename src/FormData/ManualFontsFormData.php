@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormData;
 
-use WBoost\Web\Validator\HexColorConstraint;
+use WBoost\Web\Validation\HexColorConstraint;
 
 final class ManualFontsFormData
 {

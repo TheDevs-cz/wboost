@@ -29,20 +29,52 @@
                             <h4 class="header-title mb-3">Detekované barvy</h4>
 
                             {% for detectedColorForm in form.detectedColors %}
-                                <div class="d-flex align-items-center justify-content-between mb-2" data-order-field-target>
+                                <div class="d-flex align-items-center justify-content-between mt-3" data-order-field-target>
                                     <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColorForm.color.vars.value }};"></span>
                                     <div style="width: 100px;">
                                         <span class="text-muted">HEX</span><br>{{ detectedColorForm.color.vars.value|upper }}
                                     </div>
 
-                                    <div class="form-floating">
-                                        {{ form_widget(detectedColorForm.type) }}
-                                        {{ form_label(detectedColorForm.type) }}
+                                    <div>
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="form-floating" style="width: 90px;">
+                                                {{ form_widget(detectedColorForm.pantone) }}
+                                                {{ form_label(detectedColorForm.pantone) }}
+                                            </div>
+
+                                            <div class="form-floating">
+                                                {{ form_widget(detectedColorForm.type) }}
+                                                {{ form_label(detectedColorForm.type) }}
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex align-items-center justify-content-between mt-1">
+                                            <div class="form-floating" style="width: 65px;">
+                                                {{ form_widget(detectedColorForm.c) }}
+                                                {{ form_label(detectedColorForm.c) }}
+                                            </div>
+
+                                            <div class="form-floating ms-1" style="width: 65px;">
+                                                {{ form_widget(detectedColorForm.m) }}
+                                                {{ form_label(detectedColorForm.m) }}
+                                            </div>
+
+                                            <div class="form-floating ms-1" style="width: 65px;">
+                                                {{ form_widget(detectedColorForm.y) }}
+                                                {{ form_label(detectedColorForm.y) }}
+                                            </div>
+
+                                            <div class="form-floating ms-1" style="width: 65px;">
+                                                {{ form_widget(detectedColorForm.k) }}
+                                                {{ form_label(detectedColorForm.k) }}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {{ form_widget(detectedColorForm.order) }}
                                     {{ form_widget(detectedColorForm.color) }}
-                                    <span class="dragula-handle text-lighter"></span>
+
+                                    <span style="margin-left: -15px;" class="dragula-handle text-lighter"></span>
                                 </div>
                             {% endfor %}
                         </div>
@@ -59,22 +91,74 @@
                             <div data-controller="colors-dragula form-collection"
                                  data-colors-dragula-target="container"
                                  data-form-collection-target="collection"
-                                 data-prototype="{{ '<div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color" data-order-field-target><span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: #ffffff;" data-custom-color-target="colorDisplay"></span>' ~ form_widget(form.customColors.vars.prototype.order) ~ '<div class="form-floating" style="width: 100px;">' ~ form_widget(form.customColors.vars.prototype.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) ~ form_label(form.customColors.vars.prototype.color) ~ '</div><div class="form-floating">' ~ form_widget(form.customColors.vars.prototype.type) ~ form_label(form.customColors.vars.prototype.type) ~ '</div><button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button><span class="dragula-handle text-lighter"></span></div>' }}">
+                                 data-prototype="{{ '
+                                 <div class="form-group d-flex align-items-center justify-content-between mt-3" data-controller="custom-color" data-order-field-target>
+                                    <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: #ffffff;" data-custom-color-target="colorDisplay"></span>' ~ form_widget(form.customColors.vars.prototype.order) ~ '
+                                    <div>
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="form-floating" style="width: 100px;">' ~ form_widget(form.customColors.vars.prototype.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) ~ form_label(form.customColors.vars.prototype.color) ~ '</div>
+                                            <div class="form-floating ms-1" style="width: 90px;">' ~ form_widget(form.customColors.vars.prototype.pantone) ~ form_label(form.customColors.vars.prototype.pantone) ~ '</div>
+                                            <div class="form-floating ms-1">' ~ form_widget(form.customColors.vars.prototype.type) ~ form_label(form.customColors.vars.prototype.type) ~ '</div>
+                                        </div>
+                                        <div class="d-flex align-items-center justify-content-between mt-1">
+                                            <div class="form-floating" style="width: 65px;">' ~ form_widget(form.customColors.vars.prototype.c) ~ form_label(form.customColors.vars.prototype.c) ~ '</div>
+                                            <div class="form-floating ms-1" style="width: 65px;">' ~ form_widget(form.customColors.vars.prototype.m) ~ form_label(form.customColors.vars.prototype.m) ~ '</div>
+                                            <div class="form-floating ms-1" style="width: 65px;">' ~ form_widget(form.customColors.vars.prototype.y) ~ form_label(form.customColors.vars.prototype.y) ~ '</div>
+                                            <div class="form-floating ms-1" style="width: 65px;">' ~ form_widget(form.customColors.vars.prototype.k) ~ form_label(form.customColors.vars.prototype.k) ~ '</div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button>
+                                    <span style="margin-left: -15px;" class="dragula-handle text-lighter"></span>
+                                </div>
+                            '}}">
 
                                 {% for customColorForm in form.customColors %}
-                                    <div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color" data-order-field-target>
+                                    <div class="form-group d-flex align-items-center justify-content-between mt-3" data-controller="custom-color" data-order-field-target>
                                         <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ customColorForm.color.vars.value }};" data-custom-color-target="colorDisplay"></span>
-                                        <div class="form-floating" style="width: 100px;">
-                                            {{ form_widget(customColorForm.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) }}
-                                            {{ form_label(customColorForm.color) }}
+
+                                        <div>
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div class="form-floating" style="width: 100px;">
+                                                    {{ form_widget(customColorForm.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) }}
+                                                    {{ form_label(customColorForm.color) }}
+                                                </div>
+                                                <div class="form-floating ms-1" style="width: 90px;">
+                                                    {{ form_widget(customColorForm.pantone) }}
+                                                    {{ form_label(customColorForm.pantone) }}
+                                                </div>
+                                                <div class="form-floating ms-1">
+                                                    {{ form_widget(customColorForm.type) }}
+                                                    {{ form_label(customColorForm.type) }}
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex align-items-center justify-content-between mt-1">
+                                                <div class="form-floating" style="width: 65px;">
+                                                    {{ form_widget(customColorForm.c) }}
+                                                    {{ form_label(customColorForm.c) }}
+                                                </div>
+
+                                                <div class="form-floating ms-1" style="width: 65px;">
+                                                    {{ form_widget(customColorForm.m) }}
+                                                    {{ form_label(customColorForm.m) }}
+                                                </div>
+
+                                                <div class="form-floating ms-1" style="width: 65px;">
+                                                    {{ form_widget(customColorForm.y) }}
+                                                    {{ form_label(customColorForm.y) }}
+                                                </div>
+
+                                                <div class="form-floating ms-1" style="width: 65px;">
+                                                    {{ form_widget(customColorForm.k) }}
+                                                    {{ form_label(customColorForm.k) }}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="form-floating">
-                                            {{ form_widget(customColorForm.type) }}
-                                            {{ form_label(customColorForm.type) }}
-                                        </div>
+
                                         {{ form_widget(customColorForm.order) }}
+
                                         <button type="button" class="btn btn-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i></button>
-                                        <span class="dragula-handle text-lighter"></span>
+                                        <span style="margin-left: -15px;" class="dragula-handle text-lighter"></span>
                                     </div>
                                 {% endfor %}
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Validator;
+namespace WBoost\Web\Validation;
 
 use Attribute;
 use Symfony\Component\Validator\Constraint;

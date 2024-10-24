@@ -55,6 +55,9 @@ return static function(ContainerConfigurator $configurator): void
     // Console commands
     $services->load('WBoost\\Web\\ConsoleCommands\\', __DIR__ . '/../src/ConsoleCommands/**/{*.php}');
 
+    // Validators
+    $services->load('WBoost\\Web\\Validation\\', __DIR__ . '/../src/Validation/**/{*Validator.php}');
+
     // Services
     $services->load('WBoost\\Web\\Services\\', __DIR__ . '/../src/Services/**/{*.php}');
     $services->load('WBoost\\Web\\Query\\', __DIR__ . '/../src/Query/**/{*.php}');

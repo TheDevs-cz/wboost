@@ -224,7 +224,7 @@ class Manual
 
         foreach ($this->logo->getDetectedColors() as $detectedColor) {
             if (!in_array($detectedColor->hex, $detectedColorsHex)) {
-                $detectedColors[] = new ManualColor($detectedColor, null);
+                $detectedColors[] = new ManualColor($detectedColor, null, null, null);
                 $detectedColorsHex[] = $detectedColor->hex;
             }
 
@@ -243,7 +243,7 @@ class Manual
     }
 
     /**
-     * @return array<Color>
+     * @return array<ManualColor>
      */
     public function primaryColors(): array
     {
@@ -253,7 +253,7 @@ class Manual
 
         foreach ($manualColors as $manualColor) {
             if ($manualColor->type === ManualColorType::Primary) {
-                $colors[] = $manualColor->color;
+                $colors[] = $manualColor;
             }
         }
 
@@ -261,7 +261,7 @@ class Manual
     }
 
     /**
-     * @return array<Color>
+     * @return array<ManualColor>
      */
     public function secondaryColors(): array
     {
@@ -271,7 +271,7 @@ class Manual
 
         foreach ($manualColors as $manualColor) {
             if ($manualColor->type === ManualColorType::Secondary) {
-                $colors[] = $manualColor->color;
+                $colors[] = $manualColor;
             }
         }
 

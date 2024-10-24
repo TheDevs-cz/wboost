@@ -6,7 +6,7 @@ namespace WBoost\Web\FormData;
 
 use Symfony\Component\Validator\Constraints\All;
 use Symfony\Component\Validator\Constraints\NotBlank;
-use WBoost\Web\Validator\HexColorConstraint;
+use WBoost\Web\Validation\HexColorConstraint;
 
 final class LogoColorsFormData
 {

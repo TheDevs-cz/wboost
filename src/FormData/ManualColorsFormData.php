@@ -26,11 +26,29 @@ final class ManualColorsFormData
         $customColors = [];
 
         foreach ($manual->detectedColors() as $index => $detectedColor) {
-            $detectedColors[] = new ManualColorFormData($detectedColor->color->hex, $index, $detectedColor->type?->value);
+            $detectedColors[] = new ManualColorFormData(
+                $detectedColor->color->hex,
+                $index,
+                $detectedColor->type?->value,
+                $detectedColor->pantone,
+                $detectedColor->cmyk[0] ?? null,
+                $detectedColor->cmyk[1] ?? null,
+                $detectedColor->cmyk[2] ?? null,
+                $detectedColor->cmyk[3] ?? null,
+            );
         }
 
         foreach ($manual->customColors as $index => $customColor) {
-            $customColors[] = new ManualColorFormData($customColor->color->hex, $index, $customColor->type?->value);
+            $customColors[] = new ManualColorFormData(
+                $customColor->color->hex,
+                $index,
+                $customColor->type?->value,
+                $customColor->pantone,
+                $customColor->cmyk[0] ?? null,
+                $customColor->cmyk[1] ?? null,
+                $customColor->cmyk[2] ?? null,
+                $customColor->cmyk[3] ?? null,
+            );
         }
 
         return new self($detectedColors, $customColors);
@@ -45,9 +63,12 @@ final class ManualColorsFormData
 
         foreach ($this->detectedColors as $detectedColor) {
             $order = $detectedColor->order;
+
             $manualColor = new ManualColor(
                 new Color($detectedColor->color),
                 $detectedColor->type ? ManualColorType::tryFrom($detectedColor->type) : null,
+                $detectedColor->pantone,
+                [$detectedColor->c, $detectedColor->m, $detectedColor->y, $detectedColor->k],
             );
 
             if ($order !== null) {
@@ -75,9 +96,12 @@ final class ManualColorsFormData
             }
 
             $order = $customColor->order;
+
             $manualColor = new ManualColor(
                 new Color($customColor->color),
                 $customColor->type ? ManualColorType::tryFrom($customColor->type) : null,
+                $customColor->pantone,
+                [$customColor->c, $customColor->m, $customColor->y, $customColor->k],
             );
 
             if ($order !== null) {

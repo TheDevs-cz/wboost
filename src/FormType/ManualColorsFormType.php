@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\FormType;
 
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
+use Symfony\Component\Validator\Constraints\Valid;
 use WBoost\Web\FormData\ManualColorsFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -31,6 +32,10 @@ final class ManualColorsFormType extends AbstractType
             'allow_add' => false,
             'allow_delete' => false,
             'prototype' => false,
+            'by_reference' => false,
+            'constraints' => [
+                new Valid(),
+            ],
         ]);
 
         $builder->add('customColors', CollectionType::class, [
@@ -44,6 +49,10 @@ final class ManualColorsFormType extends AbstractType
             'allow_add' => true,
             'allow_delete' => true,
             'attr' => ['data-controller' => 'form-collection'],
+            'by_reference' => false,
+            'constraints' => [
+                new Valid(),
+            ],
         ]);
     }
 
