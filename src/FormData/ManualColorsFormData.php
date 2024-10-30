@@ -43,11 +43,11 @@ final class ManualColorsFormData
                 color: $customColor->color->hex,
                 order: $index,
                 type: $customColor->type?->value,
-                c: $customColor->pantone,
-                m: $customColor->cmyk[0] ?? null,
-                y: $customColor->cmyk[1] ?? null,
-                k: $customColor->cmyk[2] ?? null,
-                pantone: $customColor->cmyk[3] ?? null,
+                c: $customColor->cmyk[0] ?? null,
+                m: $customColor->cmyk[1] ?? null,
+                y: $customColor->cmyk[2] ?? null,
+                k: $customColor->cmyk[3] ?? null,
+                pantone: $customColor->pantone,
             );
         }
 
