@@ -27,27 +27,27 @@ final class ManualColorsFormData
 
         foreach ($manual->detectedColors() as $index => $detectedColor) {
             $detectedColors[] = new ManualColorFormData(
-                $detectedColor->color->hex,
-                $index,
-                $detectedColor->type?->value,
-                $detectedColor->pantone,
-                $detectedColor->cmyk[0] ?? null,
-                $detectedColor->cmyk[1] ?? null,
-                $detectedColor->cmyk[2] ?? null,
-                $detectedColor->cmyk[3] ?? null,
+                color: $detectedColor->color->hex,
+                order: $index,
+                type: $detectedColor->type?->value,
+                c: $detectedColor->cmyk[0] ?? null,
+                m: $detectedColor->cmyk[1] ?? null,
+                y: $detectedColor->cmyk[2] ?? null,
+                k: $detectedColor->cmyk[3] ?? null,
+                pantone: $detectedColor->pantone,
             );
         }
 
         foreach ($manual->customColors as $index => $customColor) {
             $customColors[] = new ManualColorFormData(
-                $customColor->color->hex,
-                $index,
-                $customColor->type?->value,
-                $customColor->pantone,
-                $customColor->cmyk[0] ?? null,
-                $customColor->cmyk[1] ?? null,
-                $customColor->cmyk[2] ?? null,
-                $customColor->cmyk[3] ?? null,
+                color: $customColor->color->hex,
+                order: $index,
+                type: $customColor->type?->value,
+                c: $customColor->pantone,
+                m: $customColor->cmyk[0] ?? null,
+                y: $customColor->cmyk[1] ?? null,
+                k: $customColor->cmyk[2] ?? null,
+                pantone: $customColor->cmyk[3] ?? null,
             );
         }
 
