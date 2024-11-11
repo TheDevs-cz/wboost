@@ -87,7 +87,7 @@ final class DownloadLogoImageController extends AbstractController
         ]);
     }
 
-    function inlineSvg(string $svgContent): string
+    private function inlineSvg(string $svgContent): string
     {
         // Suppress libxml errors and allow user to handle them
         libxml_use_internal_errors(true);
@@ -116,52 +116,57 @@ final class DownloadLogoImageController extends AbstractController
             }
         }
 
-        // If there's no CSS to process, return the original SVG content
-        if (trim($cssText) === '') {
-            return $svgContent;
-        }
-
-        // Parse CSS styles
-        preg_match_all('/([^{]+)\{([^}]+)\}/', $cssText, $matches, PREG_SET_ORDER);
+        // If there's no CSS to process, proceed with inline styles only
+        $hasCssStyles = trim($cssText) !== '';
 
         $classStyles = [];
 
-        foreach ($matches as $match) {
-            $selectors = $match[1];
-            $styleRules = trim($match[2]);
+        if ($hasCssStyles) {
+            // Parse CSS styles
+            preg_match_all('/([^{]+)\{([^}]+)\}/', $cssText, $matches, PREG_SET_ORDER);
 
-            // Split selectors by commas to handle multiple selectors
-            $selectorArray = explode(',', $selectors);
-            foreach ($selectorArray as $selector) {
-                $selector = trim($selector);
+            foreach ($matches as $match) {
+                $selectors = $match[1];
+                $styleRules = trim($match[2]);
 
-                // Only process class selectors (starting with '.')
-                if (!str_contains($selector, '.')) {
-                    continue; // Skip non-class selectors
+                // Skip if selectors or styleRules are empty
+                if (trim($selectors) === '' || trim($styleRules) === '') {
+                    continue;
                 }
 
-                // Remove any pseudo-classes or combinators
-                $selector = preg_replace('/(:[\w-]+)|(\s+[>+~]?\s+)/', '', $selector);
+                // Split selectors by commas to handle multiple selectors
+                $selectorArray = explode(',', $selectors);
+                foreach ($selectorArray as $selector) {
+                    $selector = trim($selector);
 
-                // Extract class names
-                preg_match_all('/\.([a-zA-Z0-9_-]+)/', $selector ?? '', $classMatches);
-                if (!empty($classMatches[1])) {
-                    foreach ($classMatches[1] as $className) {
-                        // Initialize styles array for the class if not already
-                        if (!isset($classStyles[$className])) {
-                            $classStyles[$className] = [];
-                        }
+                    // Only process class selectors (starting with '.')
+                    if (!str_contains($selector, '.')) {
+                        continue; // Skip non-class selectors
+                    }
 
-                        // Split style declarations
-                        $styleDeclarations = explode(';', $styleRules);
-                        foreach ($styleDeclarations as $declaration) {
-                            if (str_contains($declaration, ':')) {
-                                list($property, $value) = explode(':', $declaration, 2);
-                                $property = trim($property);
-                                $value = trim($value);
-                                if ($property !== '' && $value !== '') {
-                                    // Overwrite property if it already exists (later rules take precedence)
-                                    $classStyles[$className][$property] = $value;
+                    // Remove any pseudo-classes or combinators
+                    $selector = preg_replace('/(:[\w-]+)|(\s+[>+~]?\s+)/', '', $selector);
+
+                    // Extract class names
+                    preg_match_all('/\.([a-zA-Z0-9_-]+)/', $selector ?? '', $classMatches);
+                    if (!empty($classMatches[1])) {
+                        foreach ($classMatches[1] as $className) {
+                            // Initialize styles array for the class if not already
+                            if (!isset($classStyles[$className])) {
+                                $classStyles[$className] = [];
+                            }
+
+                            // Split style declarations
+                            $styleDeclarations = explode(';', $styleRules);
+                            foreach ($styleDeclarations as $declaration) {
+                                if (str_contains($declaration, ':')) {
+                                    list($property, $value) = explode(':', $declaration, 2);
+                                    $property = trim($property);
+                                    $value = trim($value);
+                                    if ($property !== '' && $value !== '') {
+                                        // Overwrite property if it already exists (later rules take precedence)
+                                        $classStyles[$className][$property] = $value;
+                                    }
                                 }
                             }
                         }
@@ -170,22 +175,45 @@ final class DownloadLogoImageController extends AbstractController
             }
         }
 
-        // Apply styles to elements with matching classes
+        // Apply styles to elements with matching classes or styles
         $xpath = new \DOMXPath($doc);
-        $elements = $xpath->query('//*[@class]');
+        $elements = $xpath->query('//*[@class or @style]');
 
         if ($elements !== false) {
             foreach ($elements as $element) {
                 /** @var \DOMElement $element */
-                $classAttr = $element->getAttribute('class');
-                $classNames = preg_split('/[\s,]+/', $classAttr) ?: [];
-
                 $styles = [];
-                foreach ($classNames as $className) {
-                    if (isset($classStyles[$className])) {
-                        // Merge styles, later classes overwrite earlier ones
-                        $styles = array_merge($styles, $classStyles[$className]);
+
+                // If element has a 'class' attribute
+                if ($element->hasAttribute('class')) {
+                    $classAttr = $element->getAttribute('class');
+                    $classNames = preg_split('/[\s,]+/', $classAttr) ?: [];
+
+                    foreach ($classNames as $className) {
+                        if (isset($classStyles[$className])) {
+                            // Merge styles, later classes overwrite earlier ones
+                            $styles = array_merge($styles, $classStyles[$className]);
+                        }
                     }
+                }
+
+                // Parse inline style attribute
+                if ($element->hasAttribute('style')) {
+                    $inlineStyle = $element->getAttribute('style');
+                    if ($inlineStyle !== '') {
+                        $inlineStyles = $this->parseCssDeclarations($inlineStyle);
+                        // Inline styles have higher specificity
+                        $styles = array_merge($styles, $inlineStyles);
+                    }
+                }
+
+                // Check if 'display' is set to 'none'
+                if (isset($styles['display']) && strtolower($styles['display']) === 'none') {
+                    // Remove the element from the DOM
+                    if ($element->parentNode !== null) {
+                        $element->parentNode->removeChild($element);
+                    }
+                    continue; // Skip further processing for this element
                 }
 
                 // Set the styles as attributes on the element
@@ -193,12 +221,33 @@ final class DownloadLogoImageController extends AbstractController
                     $element->setAttribute($property, $value);
                 }
 
-                // Remove the 'class' attribute
+                // Remove the 'class' and 'style' attributes
                 $element->removeAttribute('class');
+                $element->removeAttribute('style');
             }
         }
 
         // Return the modified SVG content
         return $doc->saveXML($doc->documentElement) ?: '';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function parseCssDeclarations(string $styleString): array
+    {
+        $styles = [];
+        $declarations = explode(';', $styleString);
+        foreach ($declarations as $declaration) {
+            if (str_contains($declaration, ':')) {
+                list($property, $value) = explode(':', $declaration, 2);
+                $property = trim($property);
+                $value = trim($value);
+                if ($property !== '' && $value !== '') {
+                    $styles[$property] = $value;
+                }
+            }
+        }
+        return $styles;
     }
 }
