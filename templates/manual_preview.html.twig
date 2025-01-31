@@ -43,6 +43,8 @@
                 </div>
             {% endif %}
 
+            {% set colorsMapping = {} %}
+
             {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                 {% set page = page+1 %}
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -58,9 +60,8 @@
                             Dle konkrétní aplikace je možné zvolit horizontální nebo vertikální variantu loga, případně samostatný symbol. Variantu loga je nutné zvolit tak, aby byla zajištěna maximální výraznost a čitelnost loga.
                         </div>
                         <div class="page-designs col-9">
-                            {% if manual.logo.horizontal %}
-                                {% set colorsMapping = {} %}
 
+                            {% if manual.logo.horizontal %}
                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
                                     <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
 
