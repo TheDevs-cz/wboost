@@ -30,8 +30,14 @@ final class SvgColorsMapper
         if ($replacementMap !== []) {
             $mapFrom = array_keys($replacementMap);
             $mapTo = array_values($replacementMap);
+            $placeholders = [];
 
-            $svgContent = str_ireplace($mapFrom, $mapTo, $svgContent);
+            foreach ($mapTo as $key => $_) {
+                $placeholders[$key] = "__TMPCOLOR_{$key}__";
+            }
+
+            $svgContent = str_ireplace($mapFrom, $placeholders, $svgContent);
+            $svgContent = str_ireplace($placeholders, $mapTo, $svgContent);
         }
 
         return $svgContent;
