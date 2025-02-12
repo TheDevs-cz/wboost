@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Export - E-mail Patička{% endblock %}
+{% set active_menu_item = 'emails' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('emails_list', {'id': project.id}) }}">E-maily</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    <div
+        data-controller=""
+    >
+        <div class="row">
+
+            <div class="col-2">
+
+                <div class="card">
+                    <div class="card-body">
+                        <div id="text-inputs-container">
+
+                            {% for input in inputs %}
+                                <div class="mb-2">
+                                    <label class="form-label small" for="text-input-{{ loop.index0 }}">
+                                        {{ input.name }}
+                                        {% if input.description %}
+                                            <br><small class="text-muted">{{ input.description }}</small>
+                                        {% endif %}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="form-control form-control-sm"
+                                        id="text-input-{{ loop.index0 }}"
+                                        data-index="{{ loop.index0 }}"
+                                        {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif%}
+                                    >
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="col-10">
+                <h5>Náhled:</h5>
+
+                <div class="card" style="max-width: 600px;">
+                    <div class="card-body">
+                        <img style="height: 250px;" class="img-fluid mt-1" src="https://img.wboost.cz/wboost/manuals/0192ae55-8ea6-70f8-bebc-b1235570ceb7/logo-horizontal-1734459747.svg" alt="">
+                    </div>
+                </div>
+
+                <h5>HTML kód:</h5>
+
+                <div>
+                    <textarea class="form-control font-monospace"><code></code></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}E-maily{% endblock %}
+{% set active_menu_item = 'emails' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    {% if is_granted('ROLE_ADMIN') and project.id == '0192ae49-669e-731c-a22d-849a1febc53b' %}
+
+        <div class="row">
+
+            <div class="col-md-6 col-xxl-3">
+
+                <div class="card">
+                    <a href="{{ path('email_export', {'id': project.id}) }}" class="text-body">
+                        <div class="card-body pb-2">
+                            <h4 class="mt-0">
+                                E-mail patička
+                            </h4>
+
+                            <img class="img-fluid mt-1" src="https://img.wboost.cz/wboost/manuals/0192ae55-8ea6-70f8-bebc-b1235570ceb7/logo-horizontal-1734459747.svg" alt="">
+                        </div>
+
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    {% endif %}
+
+{% endblock %}

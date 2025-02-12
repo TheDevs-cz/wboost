@@ -31,6 +31,7 @@ final class ProjectDashboardController extends AbstractController
             'manuals' => $this->getManuals->allForProject($project->id),
             'fonts' => $this->getFonts->allForProject($project->id),
             'social_templates' => $this->getSocialNetworkTemplates->allForProject($project->id),
+            'emails' => $project->id->toString() === '0192ae49-669e-731c-a22d-849a1febc53b' ? ['x'] : [],
         ]);
     }
 }
