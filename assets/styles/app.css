@@ -20,11 +20,11 @@
 }
 
 .manual-image-wrapper img {
-    max-height: 319px;
+    max-height: 200px;
 }
 
 .manual-image-wrapper.manual-image-square img {
-    max-height: 319px;
+    max-height: 200px;
 }
 
 .manual-image-wrapper.manual-image-horizontal img {
