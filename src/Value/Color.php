@@ -51,6 +51,13 @@ readonly final class Color implements Stringable
         ];
     }
 
+    public function isWhite(): bool
+    {
+        $hex = strtolower($this->hex);
+
+        return $hex === 'fff' || $hex === 'ffffff';
+    }
+
     public function __toString(): string
     {
         return $this->hex;
