@@ -84,7 +84,7 @@
                                         <div class="col-6">
                                             <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
                                                 <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                <img style="max-height: 319px;" src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
+                                                <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}">
                                             </div>
                                         </div>
                                     {% endif %}
