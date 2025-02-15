@@ -10,6 +10,18 @@ use Doctrine\DBAL\Types\JsonType;
 use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\SvgImage;
 
+/**
+ * @phpstan-type LogoArray null|array{
+ *     filePath: string,
+ *     detectedColors: array<string>,
+ *     colorsMapping?: array<string, array{
+ *          background: null|string,
+ *          colors: array<string, string>,
+ *     }>,
+ *     widthInfo?: null|string,
+ *     heightInfo?: null|string,
+ *  }
+ */
 final class LogoDoctrineType extends JsonType
 {
     public const string NAME = 'logo';
@@ -30,11 +42,11 @@ final class LogoDoctrineType extends JsonType
 
         /**
          * @var array{
-         *     horizontal: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
-         *     vertical: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
-         *     horizontalWithClaim: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
-         *     verticalWithClaim: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
-         *     symbol: null|array{filePath: string, detectedColors: array<string>, colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>},
+         *     horizontal: LogoArray,
+         *     vertical: LogoArray,
+         *     horizontalWithClaim: LogoArray,
+         *     verticalWithClaim: LogoArray,
+         *     symbol: LogoArray,
          * } $jsonData
          */
         $jsonData = parent::convertToPHPValue($value, $platform);

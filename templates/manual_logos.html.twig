@@ -34,6 +34,15 @@
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoHorizontal) }}
 
+                                    <div class="d-flex">
+                                        <div class="me-1">
+                                            {{ form_row(form.logoHorizontalWidthInfo) }}
+                                        </div>
+                                        <div class="ms-1">
+                                            {{ form_row(form.logoHorizontalHeightInfo) }}
+                                        </div>
+                                    </div>
+
                                     {% if manual.logo.horizontal %}
                                         {% for detectedColor in manual.logo.horizontal.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -54,6 +63,15 @@
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoVertical) }}
+
+                                    <div class="d-flex">
+                                        <div class="me-1">
+                                            {{ form_row(form.logoVerticalWidthInfo) }}
+                                        </div>
+                                        <div class="ms-1">
+                                            {{ form_row(form.logoVerticalHeightInfo) }}
+                                        </div>
+                                    </div>
 
                                     {% if manual.logo.vertical %}
                                         {% for detectedColor in manual.logo.vertical.detectedColors %}
@@ -76,6 +94,15 @@
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoHorizontalWithClaim) }}
 
+                                    <div class="d-flex">
+                                        <div class="me-1">
+                                            {{ form_row(form.logoHorizontalWithClaimWidthInfo) }}
+                                        </div>
+                                        <div class="ms-1">
+                                            {{ form_row(form.logoHorizontalWithClaimHeightInfo) }}
+                                        </div>
+                                    </div>
+
                                     {% if manual.logo.horizontalWithClaim %}
                                         {% for detectedColor in manual.logo.horizontalWithClaim.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -97,6 +124,15 @@
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoVerticalWithClaim) }}
 
+                                    <div class="d-flex">
+                                        <div class="me-1">
+                                            {{ form_row(form.logoVerticalWithClaimWidthInfo) }}
+                                        </div>
+                                        <div class="ms-1">
+                                            {{ form_row(form.logoVerticalWithClaimHeightInfo) }}
+                                        </div>
+                                    </div>
+
                                     {% if manual.logo.verticalWithClaim %}
                                         {% for detectedColor in manual.logo.verticalWithClaim.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -117,6 +153,15 @@
                                 </div>
                                 <div class="col-sm-9">
                                     {{ form_row(form.logoSymbol) }}
+
+                                    <div class="d-flex">
+                                        <div class="me-1">
+                                            {{ form_row(form.logoSymbolWidthInfo) }}
+                                        </div>
+                                        <div class="ms-1">
+                                            {{ form_row(form.logoSymbolHeightInfo) }}
+                                        </div>
+                                    </div>
 
                                     {% if manual.logo.symbol %}
                                         {% for detectedColor in manual.logo.symbol.detectedColors %}

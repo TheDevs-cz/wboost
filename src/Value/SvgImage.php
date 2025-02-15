@@ -15,6 +15,8 @@ final class SvgImage
         /** @var array<string, ColorMapping> */
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         public array $colorsMapping = [],
+        public null|string $widthInfo = null,
+        public null|string $heightInfo = null,
     ) {
     }
 
@@ -23,6 +25,8 @@ final class SvgImage
      *     filePath: string,
      *     detectedColors: array<string>,
      *     colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>,
+     *     widthInfo?: null|string,
+     *     heightInfo?: null|string,
      * } $data
      */
     public static function fromArray(array $data): self
@@ -33,14 +37,22 @@ final class SvgImage
             $colorMapping[$colorVariant] = ColorMapping::fromArray($mapping);
         }
 
-        return new self($data['filePath'], $data['detectedColors'], $colorMapping);
+        return new self(
+            filePath: $data['filePath'],
+            detectedColors: $data['detectedColors'],
+            colorsMapping: $colorMapping,
+            widthInfo: $data['widthInfo'] ?? null,
+            heightInfo: $data['heightInfo'] ?? null,
+        );
     }
 
     /**
      * @return array{
-     *      filePath: string,
-     *      detectedColors: array<string>,
-     *      colorsMapping: array<string, array{background: null|string, colors: array<string, string>}>,
+     *     filePath: string,
+     *     detectedColors: array<string>,
+     *     colorsMapping: array<string, array{background: null|string, colors: array<string, string>}>,
+     *     widthInfo: null|string,
+     *     heightInfo: null|string,
      *   }
      */
     public function toArray(): array
@@ -55,6 +67,8 @@ final class SvgImage
             'filePath' => $this->filePath,
             'detectedColors' => $this->detectedColors,
             'colorsMapping' => $colorMapping,
+            'widthInfo' => $this->widthInfo,
+            'heightInfo' => $this->heightInfo,
         ];
     }
 
@@ -69,5 +83,11 @@ final class SvgImage
     public function updateColorsMapping(LogoColorVariant $colorVariant, null|string $background, array $colors): void
     {
         $this->colorsMapping[$colorVariant->value] = new ColorMapping($background, $colors);
+    }
+
+    public function updateDimensionsInfo(null|string $width, null|string $height): void
+    {
+        $this->widthInfo = $width;
+        $this->heightInfo = $height;
     }
 }

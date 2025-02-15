@@ -29,7 +29,7 @@ final class ManualLogosController extends AbstractController
         Request $request,
         Manual $manual,
     ): Response {
-        $data = new ManualImagesFormData();
+        $data = ManualImagesFormData::fromManual($manual);
 
         $form = $this->createForm(ManualImagesFormType::class, $data);
         $form->handleRequest($request);

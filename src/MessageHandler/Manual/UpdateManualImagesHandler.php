@@ -60,6 +60,12 @@ readonly final class UpdateManualImagesHandler
             $logoSymbol = $this->uploadImage($manual, $message->logoSymbol, 'logo-symbol');
         }
 
+        $logoHorizontal?->updateDimensionsInfo($message->logoHorizontalWidthInfo, $message->logoHorizontalHeightInfo);
+        $logoVertical?->updateDimensionsInfo($message->logoVerticalWidthInfo, $message->logoVerticalHeightInfo);
+        $logoHorizontalWithClaim?->updateDimensionsInfo($message->logoHorizontalWithClaimWidthInfo, $message->logoHorizontalWithClaimHeightInfo);
+        $logoVerticalWithClaim?->updateDimensionsInfo($message->logoVerticalWithClaimWidthInfo, $message->logoVerticalWithClaimHeightInfo);
+        $logoSymbol?->updateDimensionsInfo($message->logoSymbolWidthInfo, $message->logoSymbolHeightInfo);
+
         $manual->editLogo(
             new Logo(
                 horizontal: $logoHorizontal,
@@ -71,7 +77,11 @@ readonly final class UpdateManualImagesHandler
         );
     }
 
-    private function uploadImage(Manual $manual, UploadedFile $image, string $imagePrefix): SvgImage
+    private function uploadImage(
+        Manual $manual,
+        UploadedFile $image,
+        string $imagePrefix,
+    ): SvgImage
     {
         $timestamp = $this->clock->now()->getTimestamp();
 

@@ -17,7 +17,13 @@ readonly final class Logo
 
     public static function withoutImages(): self
     {
-        return new self(null, null, null, null, null);
+        return new self(
+            null,
+            null,
+            null,
+            null,
+            null,
+        );
     }
 
     public function variant(LogoTypeVariant $variant): null|SvgImage

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormType;
 
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use WBoost\Web\FormData\ManualImagesFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
@@ -33,6 +34,16 @@ final class ManualImagesFormType extends AbstractType
             ],
         ]);
 
+        $builder->add('logoHorizontalWidthInfo', TextType::class, [
+            'label' => 'Šířka',
+            'required' => false,
+        ]);
+
+        $builder->add('logoHorizontalHeightInfo', TextType::class, [
+            'label' => 'Výška',
+            'required' => false,
+        ]);
+
         $builder->add('logoVertical', FileType::class, [
             'label' => 'Logo vertikální',
             'required' => false,
@@ -43,6 +54,16 @@ final class ManualImagesFormType extends AbstractType
                     mimeTypesMessage: 'Soubor není validní SVG obrázek.',
                 ),
             ],
+        ]);
+
+        $builder->add('logoVerticalWidthInfo', TextType::class, [
+            'label' => 'Šířka',
+            'required' => false,
+        ]);
+
+        $builder->add('logoVerticalHeightInfo', TextType::class, [
+            'label' => 'Výška',
+            'required' => false,
         ]);
 
         $builder->add('logoHorizontalWithClaim', FileType::class, [
@@ -57,6 +78,16 @@ final class ManualImagesFormType extends AbstractType
             ],
         ]);
 
+        $builder->add('logoHorizontalWithClaimWidthInfo', TextType::class, [
+            'label' => 'Šířka',
+            'required' => false,
+        ]);
+
+        $builder->add('logoHorizontalWithClaimHeightInfo', TextType::class, [
+            'label' => 'Výška',
+            'required' => false,
+        ]);
+
         $builder->add('logoVerticalWithClaim', FileType::class, [
             'label' => 'Logo vertikální se sloganem',
             'required' => false,
@@ -69,6 +100,16 @@ final class ManualImagesFormType extends AbstractType
             ],
         ]);
 
+        $builder->add('logoVerticalWithClaimWidthInfo', TextType::class, [
+            'label' => 'Šířka',
+            'required' => false,
+        ]);
+
+        $builder->add('logoVerticalWithClaimHeightInfo', TextType::class, [
+            'label' => 'Výška',
+            'required' => false,
+        ]);
+
         $builder->add('logoSymbol', FileType::class, [
             'label' => 'Symbol',
             'required' => false,
@@ -79,6 +120,16 @@ final class ManualImagesFormType extends AbstractType
                     mimeTypesMessage: 'Soubor není validní SVG obrázek.',
                 ),
             ],
+        ]);
+
+        $builder->add('logoSymbolWidthInfo', TextType::class, [
+            'label' => 'Šířka',
+            'required' => false,
+        ]);
+
+        $builder->add('logoSymbolHeightInfo', TextType::class, [
+            'label' => 'Výška',
+            'required' => false,
         ]);
     }
 
