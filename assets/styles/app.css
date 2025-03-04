@@ -53,8 +53,8 @@
 }
 
 .protected-zone-wrapper img {
-    width: 100%;
-    max-height: unset;
+    width: 100% !important;
+    max-height: unset !important;
 }
 
 .protected-zone-top,
