@@ -64,7 +64,7 @@
 
 .protected-zone-top {
     border-left: 1px solid #ffffff;
-    left: 250px;
+    left: 30%;
     top: 0;
     height: 72px;
     line-height: 72px;
@@ -73,7 +73,7 @@
 
 .protected-zone-bottom {
     border-left: 1px solid #ffffff;
-    left: 250px;
+    left: 30%;
     bottom: 0;
     height: 72px;
     line-height: 72px;
