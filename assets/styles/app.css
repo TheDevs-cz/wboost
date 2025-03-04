@@ -52,6 +52,11 @@
     margin-bottom: 50px;
 }
 
+.protected-zone-wrapper img {
+    width: 100%;
+    max-height: unset;
+}
+
 .protected-zone-top,
 .protected-zone-bottom,
 .protected-zone-left,
