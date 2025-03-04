@@ -65,7 +65,7 @@
 .protected-zone-top {
     border-left: 1px solid #ffffff;
     left: 250px;
-    top: 72px;
+    top: 0;
     height: 72px;
     line-height: 72px;
     padding-left: 10px;
@@ -74,7 +74,7 @@
 .protected-zone-bottom {
     border-left: 1px solid #ffffff;
     left: 250px;
-    bottom: 72px;
+    bottom: 0;
     height: 72px;
     line-height: 72px;
     padding-left: 10px;
@@ -82,7 +82,7 @@
 
 .protected-zone-left {
     border-bottom: 1px solid #ffffff;
-    left: 72px;
+    left: 0;
     top: 40%;
     width: 72px;
     text-align: center;
@@ -90,7 +90,7 @@
 
 .protected-zone-right {
     border-bottom: 1px solid #ffffff;
-    right: 72px;
+    right: 0;
     top: 40%;
     width: 72px;
     text-align: center;
