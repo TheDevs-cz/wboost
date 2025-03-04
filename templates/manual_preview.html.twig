@@ -533,7 +533,7 @@
                                 {% if manual.logo.horizontal %}
                                     <div class="col-12">
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big position-relative d-flex justify-content-center">
-                                            <div class="p-5 bg-dark-lighten">
+                                            <div class="p-5 bg-dark-lighten position-relative">
                                                 <div style="background: #ffffff;">
                                                     <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <span class="protected-zone-top">1/3 výšky loga</span>
@@ -550,7 +550,7 @@
                                 {% if manual.logo.vertical %}
                                     <div class="col-6">
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative d-flex justify-content-center">
-                                            <div class="p-5 bg-dark-lighten">
+                                            <div class="p-5 bg-dark-lighten position-relative">
                                                 <div style="background: #ffffff;">
                                                     <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <span class="protected-zone-top">1/3 výšky loga</span>
@@ -567,7 +567,7 @@
                                 {% if manual.logo.symbol %}
                                     <div class="col-6">
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-smaller position-relative d-flex justify-content-center">
-                                            <div class="p-5 bg-dark-lighten">
+                                            <div class="p-5 bg-dark-lighten position-relative">
                                                 <div style="background: #ffffff;">
                                                     <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                                                     <span class="protected-zone-top">1/3 výšky loga</span>
