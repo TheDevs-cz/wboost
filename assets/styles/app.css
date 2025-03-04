@@ -21,6 +21,7 @@
 
 .manual-image-wrapper img {
     max-height: 200px;
+    max-width: 100%;
 }
 
 .manual-image-wrapper.manual-image-square img {
