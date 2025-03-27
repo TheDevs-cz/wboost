@@ -32,7 +32,7 @@ readonly final class Logo
             LogoTypeVariant::Horizontal => $this->horizontal,
             LogoTypeVariant::HorizontalWithClaim => $this->horizontalWithClaim,
             LogoTypeVariant::Vertical => $this->vertical,
-            LogoTypeVariant::VerticalWithClaim => $this->horizontalWithClaim,
+            LogoTypeVariant::VerticalWithClaim => $this->verticalWithClaim,
             LogoTypeVariant::Symbol => $this->symbol,
         };
     }
