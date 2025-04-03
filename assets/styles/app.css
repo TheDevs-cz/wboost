@@ -22,6 +22,7 @@
 .manual-image-wrapper img {
     max-height: 200px;
     max-width: 100%;
+    width: 100%;
 }
 
 .manual-image-wrapper.manual-image-square img {
@@ -46,6 +47,18 @@
 
 .manual-image-wrapper.manual-image-vertical-big img {
     max-height: 120px;
+}
+
+.manual-kozelsky-koupelny-logomanual .manual-image-vertical-big.protected-zone-wrapper img {
+    width: 400px !important;
+}
+
+.manual-kozelsky-koupelny-logomanual .manual-image-symbol.protected-zone-wrapper img {
+    width: 110px !important;
+}
+
+.manual-kozelsky-koupelny-logomanual .manual-image-vertical.protected-zone-wrapper img {
+    width: 400px !important;
 }
 
 .manual-page {

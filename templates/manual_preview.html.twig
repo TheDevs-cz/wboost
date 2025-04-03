@@ -21,7 +21,7 @@
 {% endblock %}
 
 {% block full_content %}
-    <div style="min-width: 1400px;">
+    <div style="min-width: 1400px;" class="manual-{{ manual.slug }}">
         <div class="container-fluid" style="max-width: 1320px;">
             {% set page = 0 %}
 
@@ -549,7 +549,7 @@
 
                                 {% if manual.logo.vertical %}
                                     <div class="col-6">
-                                        <div class="border border-1 p-5 rounded-4 mb-4 protected-zone-wrapper manual-image-wrapper manual-image-square-smaller position-relative d-flex justify-content-center">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 protected-zone-wrapper manual-image-wrapper manual-image-square-smaller manual-image-vertical position-relative d-flex justify-content-center">
                                             <div class="p-5 bg-dark-lighten position-relative">
                                                 <div style="background: #ffffff;">
                                                     <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
@@ -566,7 +566,7 @@
 
                                 {% if manual.logo.symbol %}
                                     <div class="col-6">
-                                        <div class="border border-1 p-5 rounded-4 mb-4 protected-zone-wrapper manual-image-wrapper manual-image-square-smaller position-relative d-flex justify-content-center">
+                                        <div class="border border-1 p-5 rounded-4 mb-4 protected-zone-wrapper manual-image-wrapper manual-image-square-smaller manual-image-symbol position-relative d-flex justify-content-center">
                                             <div class="p-5 bg-dark-lighten position-relative">
                                                 <div style="background: #ffffff;">
                                                     <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
