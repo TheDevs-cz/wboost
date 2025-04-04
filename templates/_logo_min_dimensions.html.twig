@@ -1,0 +1,23 @@
+<div class="col-6">
+    <div class="border border-1 p-4 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
+        {% set colorsMapping = {} %}
+
+        <div class="{{ logo.widthInfo ? 'with-width-info' }} {{ logo.heightInfo ? 'with-height-info' }}">
+            <div class="position-relative">
+                {% if logo.widthInfo %}
+                    <div class="logo-width-info">
+                        {{ logo.widthInfo }}
+                    </div>
+                {% endif %}
+
+                {% if logo.heightInfo %}
+                    <div class="logo-height-info">
+                        {{ logo.heightInfo }}
+                    </div>
+                {% endif %}
+
+                <img src="{{ remap_svg_colors(logo.filePath, colorsMapping) }}">
+            </div>
+        </div>
+    </div>
+</div>

@@ -697,6 +697,48 @@
                 {% endif %}
             {% endfor %}
 
+            {% if
+                (manual.logo.symbol and (manual.logo.symbol.widthInfo or manual.logo.symbol.heightInfo))
+                or (manual.logo.horizontal and (manual.logo.horizontal.widthInfo or manual.logo.horizontal.heightInfo))
+                or (manual.logo.vertical and (manual.logo.vertical.widthInfo or manual.logo.vertical.heightInfo))
+                or (manual.logo.horizontalWithClaim and (manual.logo.horizontalWithClaim.widthInfo or manual.logo.horizontalWithClaim.heightInfo))
+                or (manual.logo.verticalWithClaim and (manual.logo.verticalWithClaim.widthInfo or manual.logo.verticalWithClaim.heightInfo))
+            %}
+                {% set page = page+1 %}
+
+                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                    <div class="page-heading py-3 border-bottom">
+                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                        <span class="d-inline-block pe-4 fs-4 fw-bold">Minimální rozměry loga</span>
+                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                    </div>
+
+                    <div class="page-content py-4 gx-5 row">
+
+                        {% if manual.logo.symbol and (manual.logo.symbol.widthInfo or manual.logo.symbol.heightInfo) %}
+                            {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.symbol}) }}
+                        {% endif %}
+
+                        {% if manual.logo.horizontal and (manual.logo.horizontal.widthInfo or manual.logo.horizontal.heightInfo) %}
+                            {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.horizontal}) }}
+                        {% endif %}
+
+                        {% if manual.logo.vertical and (manual.logo.vertical.widthInfo or manual.logo.vertical.heightInfo) %}
+                            {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.vertical}) }}
+                        {% endif %}
+
+                        {% if manual.logo.horizontalWithClaim and (manual.logo.horizontalWithClaim.widthInfo or manual.logo.horizontalWithClaim.heightInfo) %}
+                            {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.horizontalWithClaim}) }}
+                        {% endif %}
+
+                        {% if manual.logo.verticalWithClaim and (manual.logo.verticalWithClaim.widthInfo or manual.logo.verticalWithClaim.heightInfo) %}
+                            {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.verticalWithClaim}) }}
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
             {% for mockup_page in mockup_pages %}
                 {% set page = page+1 %}
 
