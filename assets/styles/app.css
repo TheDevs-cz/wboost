@@ -170,9 +170,11 @@
     text-align: center;
     border-right: 2px solid #ccc;
     width: 85px;
-    padding-top: 38px;
     height: 100%;
     font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 

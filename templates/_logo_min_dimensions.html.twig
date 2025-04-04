@@ -2,8 +2,8 @@
     <div class="border border-1 p-4 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
         {% set colorsMapping = {} %}
 
-        <div class="{{ logo.widthInfo ? 'with-width-info' }} {{ logo.heightInfo ? 'with-height-info' }}">
-            <div class="position-relative">
+        <div class="{{ logo.widthInfo ? 'with-width-info' }} {{ logo.heightInfo ? 'with-height-info' }} d-inline-block">
+            <div class="position-relative d-inline-block">
                 {% if logo.widthInfo %}
                     <div class="logo-width-info">
                         {{ logo.widthInfo }}
@@ -12,7 +12,9 @@
 
                 {% if logo.heightInfo %}
                     <div class="logo-height-info">
-                        {{ logo.heightInfo }}
+                        <div>
+                            {{ logo.heightInfo }}
+                        </div>
                     </div>
                 {% endif %}
 
