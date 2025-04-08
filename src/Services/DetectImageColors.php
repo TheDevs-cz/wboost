@@ -20,7 +20,10 @@ readonly final class DetectImageColors
         preg_match_all('/rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(?:\s*,\s*(?:0(?:\.\d+)?|1(?:\.0+)?))?\s*\)/', $fileContent, $rgbMatches);
 
         $colors = array_merge($hexMatches[0], $rgbMatches[0]);
+        $colors = array_values(array_unique($colors));
 
-        return array_values(array_unique($colors));
+        sort($colors);
+
+        return $colors;
     }
 }
