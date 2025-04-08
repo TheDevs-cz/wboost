@@ -4,73 +4,23 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services;
 
-use SimpleXMLElement;
-
 readonly final class DetectImageColors
 {
     /**
+     * Extracts unique colors from SVG content using regex patterns for hex and rgb/rgba formats.
+     *
      * @return array<string>
      */
     public function fromSvg(string $fileContent): array
     {
-        $svg = new SimpleXMLElement($fileContent);
+        // Extract hex colors (e.g., #abc or #aabbcc) with case-insensitive matching
+        preg_match_all('/#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?\b/', $fileContent, $hexMatches);
 
-        $colorsFromAttributes = $this->extractColorsFromAttributes($svg);
-        $colorsFromStyles = $this->extractColorsFromStyles($svg);
+        // Extract rgb or rgba colors (e.g., rgb(255, 255, 255) or rgba(255, 255, 255, 0.5))
+        preg_match_all('/rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(?:\s*,\s*(?:0(?:\.\d+)?|1(?:\.0+)?))?\s*\)/', $fileContent, $rgbMatches);
 
-        $colors = array_merge($colorsFromAttributes, $colorsFromStyles);
+        $colors = array_merge($hexMatches[0], $rgbMatches[0]);
 
         return array_values(array_unique($colors));
-    }
-
-    /**
-     * Recursively extracts colors from 'fill' and 'stroke' attributes of SVG elements.
-     *
-     * @return string[]
-     */
-    private function extractColorsFromAttributes(SimpleXMLElement $element): array
-    {
-        $colors = [];
-
-        if (isset($element['fill'])) {
-            $colors[] = (string)$element['fill'];
-        }
-
-        if (isset($element['stroke'])) {
-            $colors[] = (string)$element['stroke'];
-        }
-
-        foreach ($element->children() as $child) {
-            $colors = array_merge($colors, $this->extractColorsFromAttributes($child));
-        }
-
-        return $colors;
-    }
-
-    /**
-     * Extracts colors from CSS styles within <style> tags.
-     *
-     * @return string[]
-     */
-    private function extractColorsFromStyles(SimpleXMLElement $svg): array
-    {
-        $colors = [];
-
-        $styleElements = $svg->xpath('//*[local-name()="style"]');
-        foreach ($styleElements as $styleElement) {
-            $styleContent = (string) $styleElement;
-
-            preg_match_all('/fill\s*:\s*(#[0-9a-fA-F]{3,6}|[a-zA-Z]+);/', $styleContent, $fillMatches);
-            foreach ($fillMatches[1] as $color) {
-                $colors[] = $color;
-            }
-
-            preg_match_all('/stroke\s*:\s*(#[0-9a-fA-F]{3,6}|[a-zA-Z]+);/', $styleContent, $strokeMatches);
-            foreach ($strokeMatches[1] as $color) {
-                $colors[] = $color;
-            }
-        }
-
-        return $colors;
     }
 }
