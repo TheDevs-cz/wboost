@@ -62,4 +62,14 @@ return [
     '@symfony/ux-live-component' => [
         'path' => './vendor/symfony/ux-live-component/assets/dist/live_controller.js',
     ],
+    'grapesjs' => [
+        'version' => '0.22.6',
+    ],
+    'grapesjs/dist/css/grapes.min.css' => [
+        'version' => '0.22.6',
+        'type' => 'css',
+    ],
+    'grapesjs-preset-newsletter' => [
+        'version' => '1.0.2',
+    ],
 ];

@@ -13,27 +13,55 @@
 
 {% block content %}
 
-    {% if is_granted('ROLE_ADMIN') and project.id == '0192ae49-669e-731c-a22d-849a1febc53b' %}
+    {% if is_granted('ROLE_DESIGNER') %}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_email_signature_template', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona e-mailu</a>
+            </div>
+        </div>
+    {% endif %}
 
-        <div class="row">
-
+    <div class="row">
+        {% for email_template in email_templates %}
             <div class="col-md-6 col-xxl-3">
 
                 <div class="card">
-                    <a href="{{ path('email_export', {'id': project.id}) }}" class="text-body">
+                    {% if is_granted('project_edit', project) %}
+                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="ri-more-fill text-lighter"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a href="{{ path('edit_email_signature_template', {'id': email_template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                                <a href="#"
+                                   class="dropdown-item"
+                                   data-modal-id="{{ email_template.id }}"
+                                   data-action="click->confirm-modal#showModal">
+                                    <i class="mdi mdi-delete me-1"></i> Smazat
+                                </a>
+                            </div>
+                        </div>
+
+                        <twig:ConfirmModal
+                            id="{{ email_template.id }}"
+                            url="{{ path('delete_email_signature_template', {'id': email_template.id}) }}"
+                            confirmationText="Opravdu chcete smazat tuto šablonu včetně všech náležitostí?" />
+                    {% endif %}
+
+                    <a href="{{ is_granted('project_edit', project) ? path('manual_dashboard', {'id': email_template.id}) : path('manual_preview', {'projectSlug': email_template.project.slug, 'manualSlug': email_template.slug}) }}" class="text-body">
                         <div class="card-body pb-2">
                             <h4 class="mt-0">
-                                E-mail patička
+                                {{ email_template.name }}
                             </h4>
 
-                            <img class="img-fluid mt-1" src="https://img.wboost.cz/wboost/manuals/0192ae55-8ea6-70f8-bebc-b1235570ceb7/logo-horizontal-1734459747.svg" alt="">
+                            <img class="img-fluid my-1 mb-2" src="{{ email_template.backgroundImage ? uploaded_asset(email_template.backgroundImage) : asset('images/manual-placeholder.png') }}" alt="{{ email_template.name }}">
+
                         </div>
 
                     </a>
                 </div>
             </div>
-
-        </div>
-    {% endif %}
+        {% endfor %}
+    </div>
 
 {% endblock %}

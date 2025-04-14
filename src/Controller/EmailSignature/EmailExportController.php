@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Controller\Email;
+namespace WBoost\Web\Controller\EmailSignature;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
