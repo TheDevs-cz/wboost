@@ -17,9 +17,9 @@
     {% if is_granted('ROLE_DESIGNER') %}
         <div class="row mb-2">
             <div class="col-sm-12">
-                <a href="{{ path('add_social_network_template', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona</a>
+                <a href="{{ path('add_social_network_template', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona</a>
 
-                <a href="{{ path('social_network_categories', {'projectId': project.id.toString}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="ri-list-view"></i> Kategorie</a>
+                <a href="{{ path('social_network_categories', {'projectId': project.id}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="ri-list-view"></i> Kategorie</a>
             </div>
         </div>
     {% endif %}

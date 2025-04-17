@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ email_template.name}} - Varianty{% endblock %}
+{% set active_menu_item = 'emails' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('email_signature_templates', {'id': project.id}) }}">E-maily</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            <a href="{{ path('add_email_signature_variant', {'id': email_template.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová varianta</a>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for variant in variants %}
+            <div class="col-md-6 col-xxl-3">
+
+                <div class="card">
+                    <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                        <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="ri-more-fill text-lighter"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                            <a href="#"
+                               class="dropdown-item"
+                               data-modal-id="{{ variant.id }}"
+                               data-action="click->confirm-modal#showModal">
+                                <i class="mdi mdi-delete me-1"></i> Smazat
+                            </a>
+                        </div>
+                    </div>
+
+                    <twig:ConfirmModal
+                        id="{{ variant.id }}"
+                        url="{{ path('delete_email_signature_variant', {'id': variant.id}) }}"
+                        confirmationText="Opravdu chcete smazat tuto variantu?" />
+
+                    <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="text-body">
+                        <div class="card-body">
+                            <h4 class="m-0">
+                                {{ variant.name }}
+                            </h4>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+{% endblock %}

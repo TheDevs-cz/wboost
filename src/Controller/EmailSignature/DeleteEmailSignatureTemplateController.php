@@ -30,7 +30,7 @@ final class DeleteEmailSignatureTemplateController extends AbstractController
 
         $this->addFlash('success', 'Šablona smazána!');
 
-        return $this->redirectToRoute('emails_list', [
+        return $this->redirectToRoute('email_signature_templates', [
             'id' => $emailTemplate->project->id,
         ]);
     }

@@ -200,7 +200,7 @@
                             </li>
 
                             <li class="side-nav-item {{ active_menu_item|default == 'emails' ? 'menuitem-active' }}">
-                                <a href="{{ path('emails_list', {'id': project.id}) }}" class="side-nav-link">
+                                <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="side-nav-link">
                                     <i class="ri-mail-line"></i>
                                     <span> E-maily</span>
                                 </a>

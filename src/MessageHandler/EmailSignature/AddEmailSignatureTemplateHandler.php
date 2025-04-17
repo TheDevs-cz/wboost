@@ -37,14 +37,14 @@ readonly final class AddEmailSignatureTemplateHandler
             $timestamp = $now->getTimestamp();
 
             $extension = $message->backgroundImage->guessExtension();
-            $backgroundImagePath = "emails/$message->emailSignatureTemplateId/background-$timestamp.$extension";
+            $backgroundImagePath = "emails/$message->templateId/background-$timestamp.$extension";
 
             $fileContent = $message->backgroundImage->getContent();
             $this->filesystem->write($backgroundImagePath, $fileContent);
         }
 
         $emailSignatureTemplate = new EmailSignatureTemplate(
-            id: $message->emailSignatureTemplateId,
+            id: $message->templateId,
             project: $project,
             createdAt: $now,
             name: $message->name,

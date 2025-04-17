@@ -11,19 +11,23 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\EmailSignatureTemplate;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\FormData\EmailSignatureTemplateFormData;
+use WBoost\Web\FormData\ManualFormData;
 use WBoost\Web\FormType\EmailSignatureTemplateFormType;
+use WBoost\Web\FormType\ManualFormType;
 use WBoost\Web\Message\EmailSignature\EditEmailSignatureTemplate;
+use WBoost\Web\Message\Manual\EditManual;
 use WBoost\Web\Services\Security\EmailSignatureTemplateVoter;
 
-final class EditEmailSignatureTemplateController extends AbstractController
+final class EmailSignatureTemplateEditorController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/edit-email-signature-template/{id}', name: 'edit_email_signature_template')]
+    #[Route(path: '/email-signature-template-editor/{id}', name: 'email_signature_template_editor')]
     #[IsGranted(EmailSignatureTemplateVoter::EDIT, 'emailTemplate')]
     public function __invoke(Request $request, EmailSignatureTemplate $emailTemplate): Response
     {
@@ -44,12 +48,12 @@ final class EditEmailSignatureTemplateController extends AbstractController
 
             $this->addFlash('success', 'Šablona patičky e-mailu upravena!');
 
-            return $this->redirectToRoute('email_signature_template_editor', [
-                'id' => $emailTemplate->id->toString(),
+            return $this->redirectToRoute('email_signature_templates', [
+                'id' => $emailTemplate->project->id->toString(),
             ]);
         }
 
-        return $this->render('edit_email_signature_template.html.twig', [
+        return $this->render('email_signature_template_editor.html.twig', [
             'project' => $emailTemplate->project,
             'email_template' => $emailTemplate,
             'form' => $form,

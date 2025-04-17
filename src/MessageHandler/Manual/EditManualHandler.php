@@ -27,7 +27,6 @@ readonly final class EditManualHandler
     public function __invoke(EditManual $message): void
     {
         $manual = $this->manualRepository->get($message->manualId);
-
         $introImagePath = $manual->introImage;
 
         if ($message->introImage !== null) {

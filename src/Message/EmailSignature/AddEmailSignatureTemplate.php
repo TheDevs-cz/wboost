@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 readonly final class AddEmailSignatureTemplate
 {
     public function __construct(
-        public UuidInterface $emailSignatureTemplateId,
+        public UuidInterface $templateId,
         public UuidInterface $projectId,
         public string $name,
         public null|UploadedFile $backgroundImage,

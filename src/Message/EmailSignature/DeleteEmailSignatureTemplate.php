@@ -9,7 +9,7 @@ use Ramsey\Uuid\UuidInterface;
 readonly final class DeleteEmailSignatureTemplate
 {
     public function __construct(
-        public UuidInterface $emailSignatureTemplateId,
+        public UuidInterface $templateId,
     ) {
     }
 }

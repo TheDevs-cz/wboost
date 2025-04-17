@@ -22,7 +22,7 @@ readonly final class DeleteEmailSignatureTemplateHandler
      */
     public function __invoke(DeleteEmailSignatureTemplate $message): void
     {
-        $emailSignatureTemplate = $this->emailSignatureTemplateRepository->get($message->emailSignatureTemplateId);
+        $emailSignatureTemplate = $this->emailSignatureTemplateRepository->get($message->templateId);
 
         $this->emailSignatureTemplateRepository->remove($emailSignatureTemplate);
     }

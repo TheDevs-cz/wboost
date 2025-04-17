@@ -16,7 +16,7 @@
     {% if is_granted('ROLE_DESIGNER') %}
         <div class="row mb-2">
             <div class="col-sm-12">
-                <a href="{{ path('add_email_signature_template', {'id': project.id.toString}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona e-mailu</a>
+                <a href="{{ path('add_email_signature_template', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona e-mailu</a>
             </div>
         </div>
     {% endif %}
@@ -32,6 +32,8 @@
                                 <i class="ri-more-fill text-lighter"></i>
                             </a>
                             <div class="dropdown-menu dropdown-menu-end">
+                                <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="dropdown-item"><i class="mdi mdi-eye me-1"></i>Varianty</a>
+                                <a href="{{ path('email_signature_template_editor', {'id': email_template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Editor</a>
                                 <a href="{{ path('edit_email_signature_template', {'id': email_template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
                                 <a href="#"
                                    class="dropdown-item"
@@ -48,7 +50,7 @@
                             confirmationText="Opravdu chcete smazat tuto šablonu včetně všech náležitostí?" />
                     {% endif %}
 
-                    <a href="{{ is_granted('project_edit', project) ? path('manual_dashboard', {'id': email_template.id}) : path('manual_preview', {'projectSlug': email_template.project.slug, 'manualSlug': email_template.slug}) }}" class="text-body">
+                    <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="text-body">
                         <div class="card-body pb-2">
                             <h4 class="mt-0">
                                 {{ email_template.name }}

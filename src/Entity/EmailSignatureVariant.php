@@ -39,4 +39,9 @@ class EmailSignatureVariant
         public string $code,
     ) {
     }
+
+    public function edit(string $name): void
+    {
+        $this->name = $name;
+    }
 }

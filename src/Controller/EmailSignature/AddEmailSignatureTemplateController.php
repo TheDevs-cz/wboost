@@ -14,11 +14,8 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\FormData\EmailSignatureTemplateFormData;
-use WBoost\Web\FormData\ManualFormData;
 use WBoost\Web\FormType\EmailSignatureTemplateFormType;
-use WBoost\Web\FormType\ManualFormType;
 use WBoost\Web\Message\EmailSignature\AddEmailSignatureTemplate;
-use WBoost\Web\Message\Manual\AddManual;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
 
@@ -46,14 +43,14 @@ final class AddEmailSignatureTemplateController extends AbstractController
 
             $this->bus->dispatch(
                 new AddEmailSignatureTemplate(
-                    emailSignatureTemplateId: $emailSignatureTemplateId,
+                    templateId: $emailSignatureTemplateId,
                     projectId: $project->id,
                     name: $data->name,
                     backgroundImage: $data->backgroundImage,
                 ),
             );
 
-            return $this->redirectToRoute('manual_dashboard', [
+            return $this->redirectToRoute('email_signature_template_editor', [
                 'id' => $emailSignatureTemplateId,
             ]);
         }

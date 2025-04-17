@@ -16,15 +16,14 @@ final class EmailSignatureTemplatesController extends AbstractController
 {
     public function __construct(
         readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
-    )
-    {
+    ) {
     }
 
-    #[Route(path: '/project/{id}/emails', name: 'emails_list')]
+    #[Route(path: '/project/{id}/emails', name: 'email_signature_templates')]
     #[IsGranted(ProjectVoter::VIEW, 'project')]
     public function __invoke(Project $project): Response
     {
-        return $this->render('emails.html.twig', [
+        return $this->render('email_signature_templates.html.twig', [
             'project' => $project,
             'email_templates' => $this->getEmailSignatureTemplates->allForProject($project->id),
         ]);
