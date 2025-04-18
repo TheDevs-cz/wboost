@@ -44,8 +44,8 @@ final class AddEmailSignatureVariantController extends AbstractController
                 ),
             );
 
-            return $this->redirectToRoute('email_signature_variants', [
-                'id' => $template->id,
+            return $this->redirectToRoute('edit_email_signature_variant', [
+                'id' => $variantId,
             ]);
         }
 

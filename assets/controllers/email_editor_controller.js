@@ -3,7 +3,7 @@ import grapesjs from 'grapesjs';
 import grapesjsPresetNewsletter from 'grapesjs-preset-newsletter';
 
 export default class extends Controller {
-    static targets = ['container', 'codeInput', 'textPlaceholdersInput'];
+    static targets = ['container', 'codeInput', 'textPlaceholdersInput', 'successMsg'];
 
     static values = {
         sourceHtml: String,
@@ -34,6 +34,9 @@ export default class extends Controller {
         // Background image table block (only if a background URL is provided)
         if (this.hasBackgroundValue && this.backgroundValue) {
             const bgUrl = this.backgroundValue;
+
+            this.editor.AssetManager.add({src: bgUrl});
+
             this.editor.BlockManager.add('background-image', {
                 label: 'Pozadí',
                 category: 'Základní',
@@ -83,7 +86,7 @@ export default class extends Controller {
         this.codeInputTarget.value = html;
         this.textPlaceholdersInputTarget.value = JSON.stringify(this.serializeTextPlaceholders());
 
-        // Submit the form with fetch
+        // Submit the form with fetch, handling possible redirects
         fetch(form.action, {
             method: form.method,
             body: new FormData(form),
@@ -91,16 +94,30 @@ export default class extends Controller {
                 'Accept': 'application/json',
             },
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status !== 'success') {
-                    console.error('Ukládání se nepovedlo:', data.message);
-                    alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
-                }
-            })
-            .catch(error => {
-                console.error('Error during autosave:', error);
+        .then(response => {
+            if (response.redirected) {
+                window.location.href = response.url;
+                return Promise.reject('redirect');
+            }
+
+            return response.json();
+        })
+        .then(data => {
+            if (data.status !== 'success') {
+                console.error('Ukládání se nepovedlo:', data.message);
                 alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
-            });
+            }
+
+            this.successMsgTarget.classList.remove('d-none');
+
+            setTimeout(() => {
+              this.successMsgTarget.classList.add('d-none');
+            }, 3000);
+        })
+        .catch(error => {
+            if (error === 'redirect') return;
+            console.error('Error during autosave:', error);
+            alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
+        });
     }
 }

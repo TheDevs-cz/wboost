@@ -51,7 +51,7 @@ final class EmailSignatureTemplateEditorController extends AbstractController
             $this->addFlash('success', 'Editor uložen!');
 
             return $this->redirectToRoute('email_signature_template_editor', [
-                'templateId' => $emailTemplate->id,
+                'id' => $emailTemplate->id,
             ]);
         }
 
