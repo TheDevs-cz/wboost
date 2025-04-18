@@ -29,6 +29,7 @@
                             <i class="ri-more-fill text-lighter"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
+                            <a href="{{ path('export_email_signature_variant', {'id': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-export me-1"></i>Exportovat</a>
                             <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
                             <a href="#"
                                class="dropdown-item"
@@ -44,7 +45,7 @@
                         url="{{ path('delete_email_signature_variant', {'id': variant.id}) }}"
                         confirmationText="Opravdu chcete smazat tuto variantu?" />
 
-                    <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="text-body">
+                    <a href="{{ path('export_email_signature_variant', {'id': variant.id}) }}" class="text-body">
                         <div class="card-body">
                             <h4 class="m-0">
                                 {{ variant.name }}

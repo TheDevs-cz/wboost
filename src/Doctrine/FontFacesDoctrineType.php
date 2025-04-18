@@ -12,7 +12,7 @@ use WBoost\Web\Value\FontFace;
 
 final class FontFacesDoctrineType extends JsonType
 {
-    public const string NAME = 'font_faces';
+    public const string NAME = 'font_face[]';
 
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {

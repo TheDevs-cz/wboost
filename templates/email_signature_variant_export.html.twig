@@ -14,31 +14,27 @@
 
 {% block content %}
 
-    <div
-        data-controller=""
-    >
+    <div data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}">
         <div class="row">
 
             <div class="col-2">
-
-                <div class="card">
+                <div class="card mb-2">
                     <div class="card-body">
                         <div id="text-inputs-container">
 
-                            {% for input in inputs %}
+                            {% for input in email_template.textInputs %}
                                 <div class="mb-2">
                                     <label class="form-label small" for="text-input-{{ loop.index0 }}">
-                                        {{ input.name }}
-                                        {% if input.description %}
-                                            <br><small class="text-muted">{{ input.description }}</small>
-                                        {% endif %}
+                                        {{ input.content }}
                                     </label>
                                     <input
                                         type="text"
                                         class="form-control form-control-sm"
                                         id="text-input-{{ loop.index0 }}"
-                                        data-index="{{ loop.index0 }}"
-                                        {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif%}
+                                        data-email-signature-export-target="input"
+                                        data-action="input->email-signature-export#update"
+                                        data-text-input-id="{{ input.id }}"
+                                        value="{{ input.content }}"
                                     >
                                 </div>
                             {% endfor %}
@@ -46,40 +42,23 @@
                     </div>
                 </div>
 
+                <p class="mt-0 text-end">
+                    <button class="btn btn-primary">Uložit</button>
+                </p>
             </div>
 
             <div class="col-10">
-                <div data-controller="email-editor">
-                    <button type="button" data-action="email-editor#exportTemplate">Export Template</button>
-                </div>
-
-                <h5>Náhled:</h5>
-
                 <div class="card" style="max-width: 600px;">
                     <div class="card-body">
-                        <strong>Ing. Petra Nováková</strong><br>
-                        Odbor školství a kultury<br><br>
-
-                        Tel.: +420 123 456 789<br>
-                        E-mail: pnovakova@frydlantno.cz<br><br>
-
-                        <strong>Město Frýdlant nad Ostravicí</strong><br>
-                        Náměstí 3<br>
-                        738 01 Frýdlant Nad Ostravicí
-
-                        <img class="img-fluid mt-1" src="{{ asset('frydlant-email-footer.png') }}" alt="">
+                        <div data-email-signature-export-target="preview"></div>
                     </div>
                 </div>
 
                 <h5>HTML kód:</h5>
 
                 <div>
-                    <textarea class="form-control font-monospace"><code></code></textarea>
+                    <textarea class="form-control font-monospace" data-email-signature-export-target="htmlCode"></textarea>
                 </div>
-
-                <p class="mt-2">
-                    <button class="btn btn-primary">Uložit</button>
-                </p>
             </div>
         </div>
     </div>

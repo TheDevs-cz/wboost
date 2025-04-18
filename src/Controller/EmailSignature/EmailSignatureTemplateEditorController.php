@@ -11,14 +11,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\EmailSignatureTemplate;
-use WBoost\Web\Entity\Manual;
-use WBoost\Web\FormData\EmailSignatureTemplateFormData;
-use WBoost\Web\FormData\ManualFormData;
-use WBoost\Web\FormType\EmailSignatureTemplateFormType;
-use WBoost\Web\FormType\ManualFormType;
-use WBoost\Web\Message\EmailSignature\EditEmailSignatureTemplate;
-use WBoost\Web\Message\Manual\EditManual;
+use WBoost\Web\FormData\EmailSignatureTemplateEditorFormData;
+use WBoost\Web\FormType\EmailSignatureTemplateEditorFormType;
+use WBoost\Web\Message\EmailSignature\SaveEmailSignatureTemplateEditor;
 use WBoost\Web\Services\Security\EmailSignatureTemplateVoter;
+use WBoost\Web\Value\EmailTextInput;
 
 final class EmailSignatureTemplateEditorController extends AbstractController
 {
@@ -31,32 +28,37 @@ final class EmailSignatureTemplateEditorController extends AbstractController
     #[IsGranted(EmailSignatureTemplateVoter::EDIT, 'emailTemplate')]
     public function __invoke(Request $request, EmailSignatureTemplate $emailTemplate): Response
     {
-        $data = new EmailSignatureTemplateFormData();
-        $data->name = $emailTemplate->name;
+        $formData = new EmailSignatureTemplateEditorFormData();
+        $editorForm = $this->createForm(EmailSignatureTemplateEditorFormType::class, $formData);
 
-        $form = $this->createForm(EmailSignatureTemplateFormType::class, $data);
-        $form->handleRequest($request);
+        $editorForm->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        if ($editorForm->isSubmitted() && $editorForm->isValid()) {
             $this->bus->dispatch(
-                new EditEmailSignatureTemplate(
+                new SaveEmailSignatureTemplateEditor(
                     $emailTemplate->id,
-                    $data->name,
-                    $data->backgroundImage,
+                    $formData->code,
+                    EmailTextInput::createCollectionFromJson($formData->textPlaceholders),
                 ),
             );
 
-            $this->addFlash('success', 'Šablona patičky e-mailu upravena!');
+            if ($request->headers->get('accept') === 'application/json') {
+                return $this->json([
+                    'status' => 'success',
+                ]);
+            }
 
-            return $this->redirectToRoute('email_signature_templates', [
-                'id' => $emailTemplate->project->id->toString(),
+            $this->addFlash('success', 'Editor uložen!');
+
+            return $this->redirectToRoute('email_signature_template_editor', [
+                'templateId' => $emailTemplate->id,
             ]);
         }
 
         return $this->render('email_signature_template_editor.html.twig', [
             'project' => $emailTemplate->project,
             'email_template' => $emailTemplate,
-            'form' => $form,
+            'editor_form' => $editorForm,
         ]);
     }
 }

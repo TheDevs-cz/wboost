@@ -8,11 +8,14 @@ use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
 use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
-use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\EmailTextInput;
 
-final class EditorTextInputsDoctrineType extends JsonType
+/**
+ * @phpstan-import-type EmailTextInputArray from EmailTextInput
+ */
+final class EmailTextInputsDoctrineType extends JsonType
 {
-    public const string NAME = 'editor_text_input[]';
+    public const string NAME = 'email_text_input[]';
 
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
@@ -20,7 +23,7 @@ final class EditorTextInputsDoctrineType extends JsonType
     }
 
     /**
-     * @return null|array<EditorTextInput>
+     * @return null|array<EmailTextInput>
      *
      * @throws ConversionException
      */
@@ -36,16 +39,15 @@ final class EditorTextInputsDoctrineType extends JsonType
         $inputs = [];
 
         foreach ($jsonData as $data) {
-            /** @var array{name: string, maxLength: null|int, locked: bool} $data */
-
-            $inputs[] = EditorTextInput::fromArray($data);
+            /** @var EmailTextInputArray $data */
+            $inputs[] = EmailTextInput::fromArray($data);
         }
 
         return $inputs;
     }
 
     /**
-     * @param null|array<EditorTextInput> $value
+     * @param null|array<EmailTextInput> $value
      * @throws ConversionException
      */
     public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
@@ -57,8 +59,8 @@ final class EditorTextInputsDoctrineType extends JsonType
         $data = [];
 
         foreach ($value as $input) {
-            if (!is_a($input, EditorTextInput::class)) {
-                throw InvalidType::new($value, self::NAME, [EditorTextInput::class]);
+            if (!is_a($input, EmailTextInput::class)) {
+                throw InvalidType::new($value, self::NAME, [EmailTextInput::class]);
             }
 
             $data[] = $input->toArray();

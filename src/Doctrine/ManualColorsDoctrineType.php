@@ -14,7 +14,7 @@ use WBoost\Web\Value\ManualColorType;
 
 final class ManualColorsDoctrineType extends JsonType
 {
-    public const string NAME = 'manual_colors';
+    public const string NAME = 'manual_color[]';
 
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {

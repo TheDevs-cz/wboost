@@ -16,6 +16,8 @@ use Doctrine\ORM\Mapping\Id;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Doctrine\EmailTextInputsDoctrineType;
+use WBoost\Web\Value\EmailTextInput;
 
 #[Entity]
 class EmailSignatureTemplate
@@ -24,6 +26,11 @@ class EmailSignatureTemplate
     #[Immutable]
     #[OneToMany(targetEntity: EmailSignatureVariant::class, mappedBy: 'template', fetch: 'EAGER')]
     private Collection $variants;
+
+    /** @var array<EmailTextInput> */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: EmailTextInputsDoctrineType::NAME)]
+    public array $textInputs = [];
 
     public function __construct(
         #[Id]
@@ -59,9 +66,13 @@ class EmailSignatureTemplate
         $this->backgroundImage = $backgroundImage;
     }
 
-    public function changeCode(string $code): void
+    /**
+     * @param array<EmailTextInput> $textInputs
+     */
+    public function changeCode(string $code, array $textInputs): void
     {
         $this->code = $code;
+        $this->textInputs = $textInputs;
     }
 
     /**
