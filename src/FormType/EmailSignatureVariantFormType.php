@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormType;
 
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use WBoost\Web\FormData\EmailSignatureVariantFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -23,7 +25,12 @@ final class EmailSignatureVariantFormType extends AbstractType
         $builder->add('name', TextType::class, [
             'label' => 'Název varianty',
             'required' => true,
-            'empty_data' => ''
+            'empty_data' => '',
+        ]);
+
+        $builder->add('code', TextareaType::class, [
+            'empty_data' => '',
+            'required' => false,
         ]);
     }
 

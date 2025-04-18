@@ -35,9 +35,9 @@ export default class extends Controller {
         if (this.hasBackgroundValue && this.backgroundValue) {
             const bgUrl = this.backgroundValue;
             this.editor.BlockManager.add('background-image', {
-                label: 'Table with BG Image',
-                category: 'Layout',
-                attributes: { class: 'fa fa-table' },
+                label: 'Pozadí',
+                category: 'Základní',
+                attributes: { class: 'fa fa-image' },
                 content: `
                     <table background="${bgUrl}" style="background-image: url('${bgUrl}'); background-repeat: no-repeat; background-position: left top; background-attachment: scroll; background-size: auto; box-sizing: border-box; height: 150px; margin: 0 auto 10px auto; padding: 5px; width: 100%;" width="100%" height="150">
                         <tbody style="box-sizing: border-box;">
@@ -52,14 +52,13 @@ export default class extends Controller {
         // Custom text block for editable spans
         this.editor.BlockManager.add('placeholder-text', {
             label: 'Měnitelný text',
-            category: 'Basic',
-            attributes: { class: 'fa fa-tag' },
+            category: 'Základní',
+            attributes: { class: 'fa fa-font' },
             content: {
                 type: 'text',
                 content: 'Text',
                 tagName: 'span',
                 attributes: { 'data-text-placeholder': '' },
-                style: { padding: '5px', color: '#555' },
                 editable: true
             }
         });

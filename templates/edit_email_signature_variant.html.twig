@@ -8,20 +8,61 @@
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('email_signature_templates', {'id': project.id}) }}">E-maily</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('email_signature_variants', {'id': project.id}) }}">{{ email_template.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('email_signature_variants', {'id': email_template.id}) }}">{{ email_template.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_row(form.name) }}
+    <div data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}">
+        {{ form_start(form) }}
 
-            <button class="btn btn-primary" type="submit">Uložit</button>
+        <div class="row">
+            <div class="col-3">
+                <div class="card">
+                    <div class="card-body">
+                        {{ form_row(form.name) }}
 
-            {{ form_end(form) }}
+                        {% for input in email_template.textInputs %}
+                            <div class="mb-2">
+                                <label class="form-label small" for="text-input-{{ loop.index0 }}">
+                                    {{ input.content }}
+                                </label>
+                                <input
+                                    type="text"
+                                    class="form-control form-control-sm"
+                                    id="text-input-{{ loop.index0 }}"
+                                    data-email-signature-export-target="input"
+                                    data-action="input->email-signature-export#update"
+                                    data-text-input-id="{{ input.id }}"
+                                    value="{{ variant.inputValue(input.id) ?? input.content }}"
+                                    name="textInput[{{ input.id }}]"
+                                >
+                            </div>
+                        {% endfor %}
+
+                        <button class="btn btn-primary" type="submit">Uložit</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-9">
+                <h5>Náhled:</h5>
+
+                <div class="card" style="max-width: 600px;">
+                    <div class="card-body">
+                        <div data-email-signature-export-target="preview"></div>
+                    </div>
+                </div>
+
+                <h5>HTML kód:</h5>
+
+                <div>
+                    {{ form_widget(form.code, { attr: { 'data-email-signature-export-target': 'codeInput', 'rows': 8, 'readonly': 'readonly', 'class': 'form-control font-monospace' } }) }}
+                </div>
+            </div>
         </div>
+
+        {{ form_end(form) }}
     </div>
 {% endblock %}

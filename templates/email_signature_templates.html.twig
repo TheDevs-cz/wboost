@@ -54,6 +54,9 @@
                         <div class="card-body pb-2">
                             <h4 class="mt-0">
                                 {{ email_template.name }}
+                                {% if email_template.variants|length > 0 %}
+                                <br><small class="text-muted">Varianty: {{ email_template.variants|length }}</small>
+                                {% endif %}
                             </h4>
 
                             <img class="img-fluid my-1 mb-2" src="{{ email_template.backgroundImage ? uploaded_asset(email_template.backgroundImage) : asset('images/manual-placeholder.png') }}" alt="{{ email_template.name }}">

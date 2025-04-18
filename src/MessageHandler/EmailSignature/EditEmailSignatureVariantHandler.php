@@ -26,6 +26,8 @@ readonly final class EditEmailSignatureVariantHandler
 
         $emailVariant->edit(
             $message->name,
+            $message->code,
+            $message->textInputs,
         );
     }
 }

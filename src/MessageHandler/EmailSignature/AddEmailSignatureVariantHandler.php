@@ -35,7 +35,6 @@ readonly final class AddEmailSignatureVariantHandler
             template: $template,
             createdAt: $now,
             name: $message->name,
-            code: '',
         );
 
         $this->variantRepository->add($emailSignatureVariant);

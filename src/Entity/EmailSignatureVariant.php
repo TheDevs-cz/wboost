@@ -36,12 +36,33 @@ class EmailSignatureVariant
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(type: Types::TEXT)]
-        public string $code,
+        public string $code = '',
+
+        /** @var array<string, string> */
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::JSON)]
+        public array $textInputs = [],
     ) {
     }
 
-    public function edit(string $name): void
+    /**
+     * @param array<string, string> $textInputs
+     */
+    public function edit(string $name, string $code, array $textInputs): void
     {
         $this->name = $name;
+        $this->code = $code;
+        $this->textInputs = $textInputs;
+    }
+
+    public function inputValue(string $inputId): null|string
+    {
+        foreach ($this->textInputs as $id => $value) {
+            if ($inputId === $id) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }

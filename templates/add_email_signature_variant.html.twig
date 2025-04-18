@@ -19,7 +19,12 @@
             {{ form_start(form) }}
             {{ form_row(form.name) }}
 
+
             <input type="submit" name="submit" value="Přidat" class="btn btn-primary">
+
+            <div class="d-none">
+                {{ form_widget(form.code) }}
+            </div>
 
             {{ form_end(form) }}
         </div>

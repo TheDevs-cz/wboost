@@ -5,6 +5,7 @@ namespace WBoost\Web\Controller\Project;
 
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Query\GetEmailSignatureTemplates;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,6 +20,7 @@ final class ProjectDashboardController extends AbstractController
         readonly private GetManuals $getManuals,
         readonly private GetFonts $getFonts,
         readonly private GetSocialNetworkTemplates $getSocialNetworkTemplates,
+        readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
     ) {
     }
 
@@ -31,7 +33,7 @@ final class ProjectDashboardController extends AbstractController
             'manuals' => $this->getManuals->allForProject($project->id),
             'fonts' => $this->getFonts->allForProject($project->id),
             'social_templates' => $this->getSocialNetworkTemplates->allForProject($project->id),
-            'emails' => $project->id->toString() === '0192ae49-669e-731c-a22d-849a1febc53b' ? ['x'] : [],
+            'emails' => $this->getEmailSignatureTemplates->allForProject($project->id),
         ]);
     }
 }

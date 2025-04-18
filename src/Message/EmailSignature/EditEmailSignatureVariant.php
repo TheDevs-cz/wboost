@@ -11,6 +11,9 @@ readonly final class EditEmailSignatureVariant
     public function __construct(
         public UuidInterface $variantId,
         public string $name,
+        public string $code,
+        /** @var array<string, string> */
+        public array $textInputs,
     ) {
     }
 }

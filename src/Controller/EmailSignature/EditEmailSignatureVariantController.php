@@ -34,10 +34,15 @@ final class EditEmailSignatureVariantController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            /** @var array<string, string> $textInputs */
+            $textInputs = $request->request->all('textInput');
+
             $this->bus->dispatch(
                 new EditEmailSignatureVariant(
-                    $emailVariant->id,
-                    $data->name,
+                    variantId: $emailVariant->id,
+                    name: $data->name,
+                    code: $data->code,
+                    textInputs: $textInputs,
                 ),
             );
 

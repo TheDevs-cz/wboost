@@ -12,4 +12,6 @@ final class EmailSignatureVariantFormData
     #[NotBlank(normalizer: 'trim')]
     #[Length(min: 3, max: 30)]
     public string $name = '';
+
+    public string $code = '';
 }
