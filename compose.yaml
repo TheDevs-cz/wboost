@@ -5,7 +5,7 @@ volumes:
 
 services:
     web:
-        image: ghcr.io/myspeedpuzzling/web-base:main
+        image: ghcr.io/myspeedpuzzling/web-base-php84:main
         restart: unless-stopped
         tty: true
         volumes:
@@ -40,7 +40,7 @@ services:
             - redis-data:/data
 
     adminer:
-        image: adminer:4.8.0
+        image: adminer:5.3.0
         ports:
             - "8000:8080"
         environment:
