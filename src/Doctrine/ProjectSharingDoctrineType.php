@@ -6,7 +6,6 @@ namespace WBoost\Web\Doctrine;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
-use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Value\ProjectSharing;
@@ -62,10 +61,6 @@ final class ProjectSharingDoctrineType extends JsonType
         $data = [];
 
         foreach ($value as $sharing) {
-            if (!is_a($sharing, ProjectSharing::class)) {
-                throw InvalidType::new($value, self::NAME, [ProjectSharing::class]);
-            }
-
             $data[] = [
                 'userId' => $sharing->userId->toString(),
                 'level' => $sharing->level->value,

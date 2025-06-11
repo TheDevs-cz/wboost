@@ -6,7 +6,6 @@ namespace WBoost\Web\Doctrine;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
-use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
 use WBoost\Web\Value\FontFace;
 
@@ -62,10 +61,6 @@ final class FontFacesDoctrineType extends JsonType
         $data = [];
 
         foreach ($value as $font) {
-            if (!is_a($font, FontFace::class)) {
-                throw InvalidType::new($value, self::NAME, [FontFace::class]);
-            }
-
             $data[] = [
                 'name' => $font->name,
                 'weight' => $font->weight,

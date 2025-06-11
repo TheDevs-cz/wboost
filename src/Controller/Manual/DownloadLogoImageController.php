@@ -6,11 +6,11 @@ namespace WBoost\Web\Controller\Manual;
 
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\CssSelector\CssSelectorConverter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Services\ConvertImage;
 use WBoost\Web\Services\SvgColorsMapper;
 use WBoost\Web\Value\ImageFormat;
 
@@ -18,6 +18,7 @@ final class DownloadLogoImageController extends AbstractController
 {
     public function __construct(
         readonly private SvgColorsMapper $svgColorsMapper,
+        readonly private ConvertImage $convertImage,
     ) {
     }
 
@@ -60,23 +61,14 @@ final class DownloadLogoImageController extends AbstractController
         }
 
         if ($format === ImageFormat::PNG) {
-            $imagick = new \Imagick();
-            $imagick->setResolution(300, 300);
-            $imagick->setBackgroundColor(new \ImagickPixel('transparent'));
-            $imagick->readImageBlob($imageContent);
-            $imagick->setImageFormat('png32');
-            $imageContent = $imagick->getImageBlob();
+            $imageContent = $this->convertImage->svgToPng($imageContent);
         }
 
         if ($format === ImageFormat::JPG) {
-            $imagick = new \Imagick();
-            $imagick->setResolution(300, 300);
-            $imagick->setBackgroundColor(new \ImagickPixel($backgroundColor));
-            $imagick->readImageBlob($imageContent);
-            $imagick = $imagick->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
-            $imagick->setImageFormat('jpeg');
-            $imagick->setImageCompressionQuality(100);
-            $imageContent = $imagick->getImageBlob();
+            $imageContent = $this->convertImage->svgToJpg(
+                $imageContent,
+                backgroundHex: $backgroundColor
+            );
         }
 
         $downloadedFileName = $manual->project->slug . "-logo-" . $logo . '.' . $format->value;

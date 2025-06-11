@@ -6,7 +6,6 @@ namespace WBoost\Web\Doctrine;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
-use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
 use WBoost\Web\Value\EmailTextInput;
 
@@ -59,10 +58,6 @@ final class EmailTextInputsDoctrineType extends JsonType
         $data = [];
 
         foreach ($value as $input) {
-            if (!is_a($input, EmailTextInput::class)) {
-                throw InvalidType::new($value, self::NAME, [EmailTextInput::class]);
-            }
-
             $data[] = $input->toArray();
         }
 

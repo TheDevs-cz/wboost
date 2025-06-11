@@ -6,7 +6,6 @@ namespace WBoost\Web\Doctrine;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\ConversionException;
-use Doctrine\DBAL\Types\Exception\InvalidType;
 use Doctrine\DBAL\Types\JsonType;
 use WBoost\Web\Value\Color;
 use WBoost\Web\Value\ManualColor;
@@ -64,10 +63,6 @@ final class ManualColorsDoctrineType extends JsonType
         $data = [];
 
         foreach ($value as $color) {
-            if (!is_a($color, ManualColor::class)) {
-                throw InvalidType::new($value, self::NAME, [ManualColor::class]);
-            }
-
             $data[] = [
                 'color' => (string) $color->color,
                 'type' => $color->type?->value,
