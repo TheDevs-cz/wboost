@@ -12,17 +12,19 @@ export default class extends Controller {
     }
 
     update() {
-        const parser = document.createElement('div');
-        parser.innerHTML = this.sourceHtmlValue;
+        // Use DOMParser to preserve the original HTML structure including root elements
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(this.sourceHtmlValue, 'text/html');
 
         this.inputTargets.forEach(input => {
             const id = input.dataset.textInputId;
             const val = input.value;
-            const span = parser.querySelector(`#${id}[data-text-placeholder]`);
+            const span = doc.querySelector(`#${id}[data-text-placeholder]`);
             if (span) span.innerHTML = val;
         });
 
-        const updatedHtml = parser.firstElementChild ? parser.firstElementChild.outerHTML : parser.innerHTML;
+        // Get the complete HTML including the root elements
+        const updatedHtml = doc.documentElement.outerHTML;
 
         this.previewTarget.innerHTML = updatedHtml;
         this.codeInputTarget.value = updatedHtml;
