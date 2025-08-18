@@ -20,12 +20,22 @@ export default class extends Controller {
         this.inputTargets.forEach(input => {
             const id = input.dataset.textInputId;
             const val = input.value;
+
+            // Replace by data attribute
             const span = doc.querySelector(`#${id}[data-text-placeholder]`);
             if (span) span.innerHTML = val;
         });
 
         // Get the complete HTML including the root elements
-        const updatedHtml = doc.documentElement.outerHTML;
+        let updatedHtml = doc.documentElement.outerHTML;
+
+        // Replace fulltext placeholders (new functionality)
+        this.inputTargets.forEach(input => {
+            const id = input.dataset.textInputId;
+            const val = input.value;
+            const placeholder = `___${id}___`;
+            updatedHtml = updatedHtml.replaceAll(placeholder, val);
+        });
 
         this.previewTarget.innerHTML = updatedHtml;
         this.codeInputTarget.value = updatedHtml;
