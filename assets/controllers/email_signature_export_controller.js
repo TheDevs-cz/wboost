@@ -22,7 +22,7 @@ export default class extends Controller {
             if (span) span.innerHTML = val;
         });
 
-        const updatedHtml = parser.innerHTML;
+        const updatedHtml = parser.firstElementChild ? parser.firstElementChild.outerHTML : parser.innerHTML;
 
         this.previewTarget.innerHTML = updatedHtml;
         this.codeInputTarget.value = updatedHtml;
