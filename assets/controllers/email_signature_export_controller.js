@@ -5,6 +5,7 @@ export default class extends Controller {
 
     static values = {
         sourceHtml: String,
+        variantName: String,
     };
 
     connect() {
@@ -28,5 +29,21 @@ export default class extends Controller {
 
         this.previewTarget.innerHTML = updatedHtml;
         this.codeInputTarget.value = updatedHtml;
+    }
+
+    downloadHtml() {
+        const htmlContent = this.codeInputTarget.value;
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        
+        const filename = `${this.variantNameValue} - email podpis.html`;
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 }

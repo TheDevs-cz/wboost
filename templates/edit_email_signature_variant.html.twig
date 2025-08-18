@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-    <div data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}">
+    <div data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}" data-email-signature-export-variant-name-value="{{ variant.name }}">
         {{ form_start(form) }}
 
         <div class="row">
@@ -55,7 +55,13 @@
                     </div>
                 </div>
 
-                <h5>HTML kód:</h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5>HTML kód:</h5>
+
+                    <button type="button" class="btn btn-outline-primary btn-sm mb-1" data-action="click->email-signature-export#downloadHtml">
+                        <i class="uil-download-alt"></i> Stáhnout HTML
+                    </button>
+                </div>
 
                 <div>
                     {{ form_widget(form.code, { attr: { 'data-email-signature-export-target': 'codeInput', 'rows': 8, 'readonly': 'readonly', 'class': 'form-control font-monospace' } }) }}
