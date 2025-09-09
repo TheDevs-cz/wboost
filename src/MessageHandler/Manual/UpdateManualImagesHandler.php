@@ -8,6 +8,7 @@ use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\UpdateManualImages;
@@ -24,6 +25,7 @@ readonly final class UpdateManualImagesHandler
         private Filesystem $filesystem,
         private ManualRepository $manualRepository,
         private DetectImageColors $detectImageColors,
+        private TagAwareCacheInterface $cache,
     ) {
     }
 
@@ -91,6 +93,10 @@ readonly final class UpdateManualImagesHandler
         $fileContent = $image->getContent();
         $this->filesystem->write($path, $fileContent);
         $detectedColors = $this->detectImageColors->fromSvg($fileContent);
+
+        // Invalidate cached logo images for this manual
+        $cacheTag = 'manual_' . $manual->id;
+        $this->cache->invalidateTags([$cacheTag]);
 
         return new SvgImage(
             filePath: $path,

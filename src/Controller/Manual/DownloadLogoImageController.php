@@ -9,6 +9,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Services\ConvertImage;
 use WBoost\Web\Services\SvgColorsMapper;
@@ -19,6 +21,7 @@ final class DownloadLogoImageController extends AbstractController
     public function __construct(
         readonly private SvgColorsMapper $svgColorsMapper,
         readonly private ConvertImage $convertImage,
+        readonly private TagAwareCacheInterface $cache,
     ) {
     }
 
@@ -41,42 +44,73 @@ final class DownloadLogoImageController extends AbstractController
         $backgroundQuery = $request->get('background');
         $backgroundColor = '#' . ($backgroundQuery ?? 'ffffff');
 
-        $image = match ($logo) {
-            'horizontal' => $manual->logo->horizontal,
-            'horizontalWithClaim' => $manual->logo->horizontalWithClaim,
-            'vertical' => $manual->logo->vertical,
-            'verticalWithClaim' => $manual->logo->verticalWithClaim,
-            'symbol' => $manual->logo->symbol,
-            default => throw $this->createNotFoundException('Unknown logo type'),
-        };
+        $cacheKey = $this->generateCacheKey((string) $manual->id, $logo, $format, $colorsMapping, $backgroundColor);
+        $cacheTag = 'manual_' . $manual->id;
 
-        if ($image === null) {
-            throw $this->createNotFoundException('Logo type not uploaded');
-        }
+        $cachedData = $this->cache->get($cacheKey, function (ItemInterface $item) use ($manual, $logo, $format, $colorsMapping, $backgroundColor, $cacheTag) {
+            $item->expiresAfter(60 * 60 * 24 * 7); // 7 days
+            $item->tag($cacheTag);
 
-        $imageContent = $this->svgColorsMapper->map($image->filePath, $colorsMapping);
+            $image = match ($logo) {
+                'horizontal' => $manual->logo->horizontal,
+                'horizontalWithClaim' => $manual->logo->horizontalWithClaim,
+                'vertical' => $manual->logo->vertical,
+                'verticalWithClaim' => $manual->logo->verticalWithClaim,
+                'symbol' => $manual->logo->symbol,
+                default => throw $this->createNotFoundException('Unknown logo type'),
+            };
 
-        if ($format !== ImageFormat::SVG) {
-            $imageContent = $this->inlineSvg($imageContent);
-        }
+            if ($image === null) {
+                throw $this->createNotFoundException('Logo type not uploaded');
+            }
 
-        if ($format === ImageFormat::PNG) {
-            $imageContent = $this->convertImage->svgToPng($imageContent);
-        }
+            $imageContent = $this->svgColorsMapper->map($image->filePath, $colorsMapping);
 
-        if ($format === ImageFormat::JPG) {
-            $imageContent = $this->convertImage->svgToJpg(
-                $imageContent,
-                backgroundHex: $backgroundColor
-            );
-        }
+            if ($format !== ImageFormat::SVG) {
+                $imageContent = $this->inlineSvg($imageContent);
+            }
 
-        $downloadedFileName = $manual->project->slug . "-logo-" . $logo . '.' . $format->value;
+            if ($format === ImageFormat::PNG) {
+                $imageContent = $this->convertImage->svgToPng($imageContent);
+            }
 
-        return new Response($imageContent, headers: [
-            'Content-Type' => $format->contentType(),
-            'Content-Disposition' => 'attachment; filename="' . $downloadedFileName . '"',
+            if ($format === ImageFormat::JPG) {
+                $imageContent = $this->convertImage->svgToJpg(
+                    $imageContent,
+                    backgroundHex: $backgroundColor
+                );
+            }
+
+            $downloadedFileName = $manual->project->slug . "-logo-" . $logo . '.' . $format->value;
+
+            return [
+                'content' => $imageContent,
+                'filename' => $downloadedFileName,
+                'contentType' => $format->contentType(),
+            ];
+        });
+
+        return new Response($cachedData['content'], headers: [
+            'Content-Type' => $cachedData['contentType'],
+            'Content-Disposition' => 'attachment; filename="' . $cachedData['filename'] . '"',
         ]);
+    }
+
+    /**
+     * @param array<string, string> $colorsMapping
+     */
+    private function generateCacheKey(string $manualId, string $logo, ImageFormat $format, array $colorsMapping, string $backgroundColor): string
+    {
+        $colorsMappingHash = md5(serialize($colorsMapping));
+
+        return sprintf(
+            'logo_image_%s_%s_%s_%s_%s',
+            $manualId,
+            $logo,
+            $format->value,
+            $colorsMappingHash,
+            md5($backgroundColor)
+        );
     }
 
     private function inlineSvg(string $svgContent): string
