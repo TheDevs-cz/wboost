@@ -38,3 +38,5 @@ compose.override.yaml
 ###< symfony/asset-mapper ###
 
 node_modules/
+
+.claude/settings.local.json
