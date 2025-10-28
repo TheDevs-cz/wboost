@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 /**
- * @phpstan-type EmailTextInputArray array{id: string, content: string}
+ * @phpstan-type EmailTextInputArray array{id: string, content: string, vcardType?: string|null}
  */
 readonly final class EmailTextInput
 {
     public function __construct(
         public string $id,
         public string $content,
+        public null|VcardFieldType $vcardType = null,
     ) {
     }
 
@@ -23,6 +24,7 @@ readonly final class EmailTextInput
         return [
             'id' => $this->id,
             'content' => $this->content,
+            'vcardType' => $this->vcardType?->value,
         ];
     }
 
@@ -31,9 +33,16 @@ readonly final class EmailTextInput
      */
     public static function fromArray(array $data): self
     {
+        $vcardType = null;
+
+        if (isset($data['vcardType'])) {
+            $vcardType = VcardFieldType::from($data['vcardType']);
+        }
+
         return new self(
             id: $data['id'],
             content: $data['content'],
+            vcardType: $vcardType,
         );
     }
 

@@ -32,6 +32,11 @@ class EmailSignatureTemplate
     #[Column(type: EmailTextInputsDoctrineType::NAME)]
     public array $textInputs = [];
 
+    /** @var array<string, string> */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::JSON)]
+    public array $vcardInfo = [];
+
     public function __construct(
         #[Id]
         #[Immutable]
