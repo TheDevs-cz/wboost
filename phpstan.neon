@@ -9,6 +9,7 @@ includes:
 
 parameters:
     level: max
+    reportUnmatchedIgnoredErrors: false
     paths:
         - src
         - bin
@@ -28,4 +29,5 @@ parameters:
     checkUninitializedProperties: true
     ignoreErrors:
         - "#^Call to an undefined method Symfony\\\\Config\\\\Framework\\\\Messenger#"
+        - "#auto_setup: false#"
         - "#is used zero times and is not analysed#"

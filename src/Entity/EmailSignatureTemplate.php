@@ -34,7 +34,7 @@ class EmailSignatureTemplate
 
     /** @var array<string, string> */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: Types::JSON)]
+    #[Column(type: Types::JSON, options: ['default' => '{}'])]
     public array $vcardInfo = [];
 
     public function __construct(
