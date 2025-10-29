@@ -42,7 +42,7 @@ return static function (SecurityConfig $securityConfig): void {
         ->target('/');
 
     $securityConfig->accessControl()
-        ->path('^/(login|registration|forgotten-password|reset-password|.*/preview|nahled-manualu/.*|stahnout-logo/.*)')
+        ->path('^/(login|registration|forgotten-password|reset-password|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png)')
         ->roles([AuthenticatedVoter::PUBLIC_ACCESS]);
 
     $securityConfig->accessControl()

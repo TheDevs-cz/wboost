@@ -34,8 +34,19 @@ final class EmailSignatureVariantVcardQrCodeController extends AbstractControlle
         $writer = new PngWriter();
         $result = $writer->write($qrCode);
 
-        return new Response($result->getString(), headers: [
+        $response = new Response($result->getString(), headers: [
             'Content-Type' => 'image/png',
         ]);
+
+        // Cache for 1 year (immutable content based on variant)
+        $response->setMaxAge(31536000);
+        $response->setSharedMaxAge(31536000);
+        $response->setPublic();
+
+        // Set ETag based on variant ID and creation time for cache validation
+        $etag = md5($variant->id->toString() . $variant->createdAt->format('c'));
+        $response->setEtag($etag);
+
+        return $response;
     }
 }
