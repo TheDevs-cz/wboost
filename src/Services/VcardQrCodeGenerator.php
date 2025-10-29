@@ -33,12 +33,12 @@ readonly final class VcardQrCodeGenerator
         return new QrCode(
             data: $vcardContent,
             encoding: new Encoding('UTF-8'),
-            errorCorrectionLevel: ErrorCorrectionLevel::Medium,
+            errorCorrectionLevel: ErrorCorrectionLevel::Low,
             size: 300,
             margin: 0,
-            roundBlockSizeMode: RoundBlockSizeMode::Margin,
-            foregroundColor: new Color(26, 54, 93), // Dark blue #1a365d
-            backgroundColor: new Color(255, 255, 255), // White
+            roundBlockSizeMode: RoundBlockSizeMode::None,
+            foregroundColor: new Color(26, 54, 93),
+            backgroundColor: new Color(255, 255, 255),
         );
     }
 
