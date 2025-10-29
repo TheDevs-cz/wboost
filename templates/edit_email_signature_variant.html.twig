@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-    <div data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}" data-email-signature-export-variant-name-value="{{ variant.name }}">
+    <div data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}" data-email-signature-export-variant-name-value="{{ variant.name }}" data-email-signature-export-vcard-qr-url-value="{{ path('email_signature_variant_vcard_qr_code', {'id': variant.id}) }}">
         {{ form_start(form) }}
 
         <div class="row">

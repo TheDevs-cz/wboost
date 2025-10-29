@@ -6,6 +6,7 @@ export default class extends Controller {
     static values = {
         sourceHtml: String,
         variantName: String,
+        vcardQrUrl: String,
     };
 
     connect() {
@@ -36,6 +37,9 @@ export default class extends Controller {
             const placeholder = `___${id}___`;
             updatedHtml = updatedHtml.replaceAll(placeholder, val);
         });
+
+        // Replace vCard QR code placeholder
+        updatedHtml = updatedHtml.replaceAll('___vcard_qr___', this.vcardQrUrlValue);
 
         this.previewTarget.innerHTML = updatedHtml;
         this.codeInputTarget.value = updatedHtml;
