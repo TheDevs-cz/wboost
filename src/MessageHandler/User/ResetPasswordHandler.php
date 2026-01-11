@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\User;
 
-use WBoost\Web\Exceptions\InvalidPasswordResetToken;
-use WBoost\Web\Exceptions\UserNotRegistered;
 use WBoost\Web\Message\User\ResetPassword;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -20,10 +18,6 @@ readonly final class ResetPasswordHandler
     ) {
     }
 
-    /**
-     * @throws InvalidPasswordResetToken
-     * @throws UserNotRegistered
-     */
     public function __invoke(ResetPassword $message): void
     {
         // $userId = $this->passwordResetTokenService->getTokenUserId($message->token);
