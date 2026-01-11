@@ -1,0 +1,69 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'weekly_menus' %}
+
+{% block title %}Jídelníčky{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    {% if is_granted('project_edit', project) %}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_weekly_menu', {'projectId': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3">
+                    <i class="mdi mdi-plus"></i> Nový jídelníček
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if menus|length == 0 %}
+        <div class="alert alert-info">
+            Zatím nebyl vytvořen žádný jídelníček.
+        </div>
+    {% else %}
+        <div class="row">
+            {% for menu in menus %}
+                <div class="col-md-4 col-lg-3 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ menu.name }}</h5>
+                            <p class="card-text text-muted">
+                                {{ menu.validFrom|date('d.m.Y') }} - {{ menu.validTo|date('d.m.Y') }}
+                            </p>
+                            <p class="card-text small text-muted">
+                                Vytvořeno: {{ menu.createdAt|date('d.m.Y H:i') }}
+                                {% if menu.updatedAt %}
+                                    <br>Upraveno: {{ menu.updatedAt|date('d.m.Y H:i') }}
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent border-top-0">
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ path('edit_weekly_menu', {'menuId': menu.id}) }}" class="btn btn-outline-primary">
+                                    <i class="mdi mdi-pencil"></i> Upravit
+                                </a>
+                                <a href="{{ path('duplicate_weekly_menu', {'menuId': menu.id}) }}" class="btn btn-outline-secondary">
+                                    <i class="mdi mdi-content-copy"></i> Duplikovat
+                                </a>
+                            </div>
+                            {% if is_granted('project_edit', project) %}
+                                <form action="{{ path('delete_weekly_menu', {'menuId': menu.id}) }}" method="post" class="d-inline" onsubmit="return confirm('Opravdu chcete smazat tento jídelníček?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="mdi mdi-delete"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

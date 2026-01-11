@@ -10,6 +10,7 @@ use Doctrine\ORM\Event\PostPersistEventArgs;
 use Doctrine\ORM\Event\PostRemoveEventArgs;
 use Doctrine\ORM\Event\PostUpdateEventArgs;
 use Doctrine\ORM\Events;
+use Symfony\Contracts\Service\ResetInterface;
 use WBoost\Web\Entity\EntityWithEvents;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -17,7 +18,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 #[AsDoctrineListener(event: Events::postUpdate)]
 #[AsDoctrineListener(event: Events::postRemove)]
 #[AsDoctrineListener(event: Events::postFlush)]
-final class DomainEventsSubscriber
+final class DomainEventsSubscriber implements ResetInterface
 {
     /** @var array<EntityWithEvents> */
     private array $entities = [];
@@ -67,5 +68,10 @@ final class DomainEventsSubscriber
                 $this->messageBus->dispatch($event);
             }
         }
+    }
+
+    public function reset(): void
+    {
+        $this->entities = [];
     }
 }

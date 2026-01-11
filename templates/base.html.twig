@@ -204,6 +204,13 @@
                                     <span> E-maily</span>
                                 </a>
                             </li>
+
+                            <li class="side-nav-item {{ active_menu_item|default == 'weekly_menus' ? 'menuitem-active' }}">
+                                <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="side-nav-link">
+                                    <i class="uil-restaurant"></i>
+                                    <span> Jídelníčky</span>
+                                </a>
+                            </li>
                         {% endif %}
                     </ul>
                     <!--- End Sidemenu -->

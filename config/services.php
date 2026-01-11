@@ -2,27 +2,22 @@
 
 declare(strict_types=1);
 
+namespace Symfony\Component\DependencyInjection\Loader\Configurator;
+
 use AsyncAws\Core\Configuration;
 use AsyncAws\S3\S3Client;
+use Lustmored\Flysystem\Cache\CacheAdapter;
 use Monolog\Processor\PsrLogMessageProcessor;
-use WBoost\Web\Services\Doctrine\FixDoctrineMigrationTableSchema;
-use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
-use function Symfony\Component\DependencyInjection\Loader\Configurator\env;
-use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+use WBoost\Web\Services\Doctrine\FixDoctrineMigrationTableSchema;
 
-return static function(ContainerConfigurator $configurator): void
-{
-    $parameters = $configurator->parameters();
+return static function (ContainerConfigurator $container): void {
+    $container->parameters()
+        ->set('.container.dumper.inline_factories', true)
+        ->set('doctrine.orm.enable_lazy_ghost_objects', true)
+        ->set('publicAssetsBaseUrl', '%env(UPLOADS_BASE_URL)%/%env(S3_BUCKET_NAME)%');
 
-    # https://symfony.com/doc/current/performance.html#dump-the-service-container-into-a-single-file
-    $parameters->set('.container.dumper.inline_factories', true);
-
-    $parameters->set('doctrine.orm.enable_lazy_ghost_objects', true);
-
-    $parameters->set('publicAssetsBaseUrl', '%env(UPLOADS_BASE_URL)%/%env(S3_BUCKET_NAME)%');
-
-    $services = $configurator->services();
+    $services = $container->services();
 
     $services->defaults()
         ->autoconfigure()
@@ -76,11 +71,11 @@ return static function(ContainerConfigurator $configurator): void
                 Configuration::OPTION_ACCESS_KEY_ID => env('S3_ACCESS_KEY'),
                 Configuration::OPTION_SECRET_ACCESS_KEY => env('S3_SECRET_KEY'),
                 Configuration::OPTION_PATH_STYLE_ENDPOINT => true,
-            ]
+            ],
         ]);
 
     $services->set('minio.cache.adapter')
-        ->class(Lustmored\Flysystem\Cache\CacheAdapter::class)
+        ->class(CacheAdapter::class)
         ->args([
             '$adapter' => service('oneup_flysystem.minio_adapter'),
             '$cachePool' => service('cache.flysystem.psr6'),

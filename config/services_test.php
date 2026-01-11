@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
-return static function(ContainerConfigurator $configurator): void
-{
-    $services = $configurator->services();
+return static function (ContainerConfigurator $container): void {
+    $services = $container->services();
 
     $services->defaults()
         ->autoconfigure()

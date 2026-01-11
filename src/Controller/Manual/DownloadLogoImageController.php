@@ -33,15 +33,10 @@ final class DownloadLogoImageController extends AbstractController
         ImageFormat $format,
         Request $request,
     ): Response {
-        /** @var null|array<string, string> $colorsMapping */
-        $colorsMapping = $request->get('colorsMapping');
+        /** @var array<string, string> $colorsMapping */
+        $colorsMapping = $request->query->all('colorsMapping');
 
-        if (is_array($colorsMapping) === false) {
-            $colorsMapping = [];
-        }
-
-        /** @var null|string $backgroundQuery */
-        $backgroundQuery = $request->get('background');
+        $backgroundQuery = $request->query->get('background');
         $backgroundColor = '#' . ($backgroundQuery ?? 'ffffff');
 
         $cacheKey = $this->generateCacheKey((string) $manual->id, $logo, $format, $colorsMapping, $backgroundColor);

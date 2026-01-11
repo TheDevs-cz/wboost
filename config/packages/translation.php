@@ -1,7 +1,11 @@
-<?php declare(strict_types=1);
+<?php
 
-use Symfony\Config\FrameworkConfig;
+declare(strict_types=1);
 
-return static function (FrameworkConfig $framework): void {
-    $framework->defaultLocale('cs');
-};
+namespace Symfony\Component\DependencyInjection\Loader\Configurator;
+
+return App::config([
+    'framework' => [
+        'default_locale' => 'cs',
+    ],
+]);

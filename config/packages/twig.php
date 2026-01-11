@@ -2,10 +2,13 @@
 
 declare(strict_types=1);
 
-return static function (\Symfony\Config\TwigConfig $twig): void {
-    $twig->formThemes(['bootstrap_5_layout.html.twig']);
+namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
-    $twig->date([
-        'timezone' => 'Europe/Prague',
-    ]);
-};
+return App::config([
+    'twig' => [
+        'form_themes' => ['bootstrap_5_layout.html.twig'],
+        'date' => [
+            'timezone' => 'Europe/Prague',
+        ],
+    ],
+]);

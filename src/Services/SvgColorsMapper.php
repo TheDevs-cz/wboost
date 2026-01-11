@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace WBoost\Web\Services;
 
 use League\Flysystem\Filesystem;
+use Symfony\Contracts\Service\ResetInterface;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Exceptions\InvalidColorMapping;
 
-final class SvgColorsMapper
+final class SvgColorsMapper implements ResetInterface
 {
     /**
      * @var array<string, string>
@@ -62,5 +63,10 @@ final class SvgColorsMapper
         }
 
         return $this->images[$filePath];
+    }
+
+    public function reset(): void
+    {
+        $this->images = [];
     }
 }

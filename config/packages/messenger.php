@@ -1,30 +1,42 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
+namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Liip\ImagineBundle\Message\WarmupCache;
 use Symfony\Component\Mailer\Messenger\SendEmailMessage;
-use Symfony\Config\FrameworkConfig;
 
-return static function (FrameworkConfig $framework): void {
-    $messenger = $framework->messenger();
-
-    $bus = $messenger->bus('command_bus');
-    $bus->middleware()->id('doctrine_transaction');
-
-    $messenger->failureTransport('failed');
-
-    $messenger->transport('sync')
-        ->dsn('sync://');
-
-    $messenger->transport('failed')
-        ->dsn('doctrine://default?queue_name=failed');
-
-    $messenger->transport('async')
-        ->options([
-            'auto_setup' => false,
-        ])
-        ->dsn('%env(MESSENGER_TRANSPORT_DSN)%');
-
-    $messenger->routing(WarmupCache::class)->senders(['async']);
-    $messenger->routing('WBoost\Web\Events\*')->senders(['async']);
-    $messenger->routing(SendEmailMessage::class)->senders(['async']);
-};
+return App::config([
+    'framework' => [
+        'messenger' => [
+            'buses' => [
+                'command_bus' => [
+                    'middleware' => [
+                        ['id' => 'doctrine_transaction'],
+                    ],
+                ],
+            ],
+            'failure_transport' => 'failed',
+            'transports' => [
+                'sync' => [
+                    'dsn' => 'sync://',
+                ],
+                'failed' => [
+                    'dsn' => 'doctrine://default?queue_name=failed',
+                ],
+                'async' => [
+                    'dsn' => '%env(MESSENGER_TRANSPORT_DSN)%',
+                    'options' => [
+                        'auto_setup' => false,
+                    ],
+                ],
+            ],
+            'routing' => [
+                WarmupCache::class => ['senders' => ['async']],
+                'WBoost\Web\Events\*' => ['senders' => ['async']],
+                SendEmailMessage::class => ['senders' => ['async']],
+            ],
+        ],
+    ],
+]);

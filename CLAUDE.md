@@ -11,19 +11,19 @@ docker compose up  # Runs application at http://localhost:8080
 
 **User Management:**
 ```bash
-docker compose run --rm web bin/console app:user:register <email> <password>  # Create user
+docker compose exec web web bin/console app:user:register <email> <password>  # Create user
 ```
 
 **Code Quality:**
 ```bash
-composer phpstan          # Run PHPStan static analysis (level max)
-vendor/bin/phpunit       # Run PHPUnit tests
+docker compose exec web composer phpstan          # Run PHPStan static analysis (level max)
+docker compose exec web vendor/bin/phpunit       # Run PHPUnit tests
 ```
 
 **Asset Management:**
 ```bash
-bin/console importmap:install      # Install frontend assets
-bin/console asset-map:compile     # Compile assets for production
+docker compose exec web bin/console importmap:install      # Install frontend assets
+docker compose exec web bin/console asset-map:compile     # Compile assets for production
 ```
 
 ## Architecture Overview
@@ -70,3 +70,5 @@ This is a **Symfony 7** application for brand manual management, using:
 - **Adminer**: http://localhost:8000 (postgres/postgres/wboost)
 - **MailCatcher**: http://localhost:8025
 - **Minio**: http://localhost:19001 (wboost/wboostminio)
+
+Always run any commands in corresponding Docker container - like PHPStan: `docker compose exec web composer run phpstan`

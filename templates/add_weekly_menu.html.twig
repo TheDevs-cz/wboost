@@ -1,0 +1,49 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'weekly_menus' %}
+
+{% block title %}Nový jídelníček{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('weekly_menus', {'projectId': project.id}) }}">Jídelníčky</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(form) }}
+            {{ form_row(form.name) }}
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3" data-controller="flatpickr-range">
+                        <label class="form-label">Platnost</label>
+                        <input type="text"
+                               class="form-control"
+                               placeholder="Vyberte období"
+                               data-input>
+                        {{ form_widget(form.validFrom, {attr: {class: 'd-none', 'data-flatpickr-range-target': 'from'}}) }}
+                        {{ form_widget(form.validTo, {attr: {class: 'd-none', 'data-flatpickr-range-target': 'to'}}) }}
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    {{ form_row(form.createdBy) }}
+                </div>
+                <div class="col-md-6">
+                    {{ form_row(form.approvedBy) }}
+                </div>
+            </div>
+
+            <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
+            <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="btn btn-outline-secondary">Zrušit</a>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

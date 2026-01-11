@@ -14,9 +14,8 @@ parameters:
         - src
         - bin
         - tests
-        - config
-    scanDirectories:
-        - var/cache/dev/Symfony
+        - config/services.php
+        - config/services_test.php
     scanFiles:
         - vendor/symfony/dependency-injection/Loader/Configurator/ContainerConfigurator.php
     excludePaths:
