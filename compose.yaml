@@ -2,22 +2,29 @@ volumes:
     postgres-data:
     redis-data:
     mailpit-data:
+    caddy_data:
+    caddy_config:
 
 services:
     web:
-        image: ghcr.io/myspeedpuzzling/web-base-php84:main
+        image: ghcr.io/thedevs-cz/php:8.5
         restart: unless-stopped
         tty: true
         volumes:
             - .:/app
             - .docker/on-startup.sh:/docker-entrypoint.d/on-startup.sh
+            - ./.docker/on-startup.sh:/docker-entrypoint.d/on-startup.sh
+            - caddy_data:/data
+            - caddy_config:/config
         depends_on:
             - postgres
             - redis
             - minio
         ports:
-            - "8080:8080"
+            - "8080:80"
         environment:
+            FRANKENPHP_WORKER: "1"
+            FRANKENPHP_WATCH: "1"
             XDEBUG_CONFIG: "client_host=host.docker.internal"
             XDEBUG_MODE: debug
             PHP_IDE_CONFIG: "serverName=localhost"

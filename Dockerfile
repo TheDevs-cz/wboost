@@ -1,4 +1,4 @@
-FROM ghcr.io/myspeedpuzzling/web-base-php84:main
+FROM ghcr.io/thedevs-cz/php:8.5
 
 ENV APP_ENV="prod" \
     APP_DEBUG=0 \
@@ -6,7 +6,7 @@ ENV APP_ENV="prod" \
 
 RUN rm $PHP_INI_DIR/conf.d/docker-php-ext-xdebug.ini
 
-COPY .docker/on-startup.sh /docker-entrypoint.d/
+COPY --link --chmod=755 .docker/on-startup.sh /docker-entrypoint.d/
 
 COPY composer.json composer.lock symfony.lock ./
 RUN composer install --no-dev --no-interaction --no-scripts
