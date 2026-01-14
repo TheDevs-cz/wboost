@@ -6,8 +6,8 @@
     <div class="row" data-controller="weekly-menu-dragula">
         {% for day in menu.days %}
             <div class="col-12 mb-4">
-                <div class="card">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-baseline position-relative">
+                <div class="card sha" style="border: 1px solid #727cf5; border-left-width: 4px;">
+                    <div class="card-header d-flex justify-content-between align-items-baseline position-relative" style="background-color: rgba(var(--bs-primary-rgb), 0.08);">
                         <h5 class="m-0">
                             {{ day.dayLabel }}
                             {% if day.date %}
@@ -17,10 +17,11 @@
                         <button
                             type="button"
                             class="btn btn-sm btn-danger m-0"
-                            data-action="live#action"
+                            data-controller="confirm"
+                            data-confirm-message-value="Opravdu smazat celý den včetně všech jídel?"
+                            data-action="click->confirm#confirm click->live#action"
                             data-live-action-param="removeDay"
-                            data-live-dayid-param="{{ day.id }}"
-                            onclick="return confirm('Opravdu smazat celý den včetně všech jídel?');">
+                            data-live-dayid-param="{{ day.id }}">
                             <i class="mdi mdi-delete"></i> Smazat den
                         </button>
                     </div>
@@ -32,7 +33,7 @@
                                     <div>
                                         <button
                                             type="button"
-                                            class="btn btn-sm btn-outline-primary"
+                                            class="btn btn-sm btn-primary"
                                             data-action="live#action"
                                             data-live-action-param="addCourse"
                                             data-live-mealtypeid-param="{{ mealType.id }}">
@@ -40,11 +41,12 @@
                                         </button>
                                         <button
                                             type="button"
-                                            class="btn btn-sm btn-outline-danger"
-                                            data-action="live#action"
+                                            class="btn btn-sm btn-danger"
+                                            data-controller="confirm"
+                                            data-confirm-message-value="Opravdu smazat toto jídlo dne?"
+                                            data-action="click->confirm#confirm click->live#action"
                                             data-live-action-param="removeMealType"
-                                            data-live-mealtypeid-param="{{ mealType.id }}"
-                                            onclick="return confirm('Opravdu smazat toto jídlo dne?');">
+                                            data-live-mealtypeid-param="{{ mealType.id }}">
                                             <i class="mdi mdi-delete"></i>
                                         </button>
                                     </div>
@@ -67,7 +69,7 @@
                                                     <div>
                                                         <button
                                                             type="button"
-                                                            class="btn btn-sm btn-outline-secondary"
+                                                            class="btn btn-sm btn-secondary"
                                                             data-action="live#action"
                                                             data-live-action-param="addVariant"
                                                             data-live-courseid-param="{{ course.id }}"
@@ -76,11 +78,12 @@
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            class="btn btn-sm btn-outline-danger"
-                                                            data-action="live#action"
+                                                            class="btn btn-sm btn-danger"
+                                                            data-controller="confirm"
+                                                            data-confirm-message-value="Opravdu smazat tento chod?"
+                                                            data-action="click->confirm#confirm click->live#action"
                                                             data-live-action-param="removeCourse"
-                                                            data-live-courseid-param="{{ course.id }}"
-                                                            onclick="return confirm('Opravdu smazat tento chod?');">
+                                                            data-live-courseid-param="{{ course.id }}">
                                                             <i class="mdi mdi-delete"></i>
                                                         </button>
                                                     </div>
@@ -108,13 +111,13 @@
                                                                         data-action="change->variant-name#save"
                                                                         data-controller="variant-name">
                                                                     {% if not variant.name %}
-                                                                        <span class="text-muted small">(Varianta {{ loop.index }})</span>
+                                                                        <span class="text-muted" style="font-size: 0.7rem;">Jídla mezi kterými si zákazník vybírá. (Doporučeno např. A, B, C nebo 1, 2, 3)</span>
                                                                     {% endif %}
                                                                 </div>
                                                                 <div>
                                                                     <button
                                                                         type="button"
-                                                                        class="btn btn-sm btn-outline-success"
+                                                                        class="btn btn-sm btn-success"
                                                                         data-bs-toggle="modal"
                                                                         data-bs-target="#mealSelectorModal"
                                                                         data-variant-id="{{ variant.id }}">
@@ -122,11 +125,12 @@
                                                                     </button>
                                                                     <button
                                                                         type="button"
-                                                                        class="btn btn-sm btn-outline-danger"
-                                                                        data-action="live#action"
+                                                                        class="btn btn-sm btn-danger"
+                                                                        data-controller="confirm"
+                                                                        data-confirm-message-value="Opravdu smazat tuto variantu?"
+                                                                        data-action="click->confirm#confirm click->live#action"
                                                                         data-live-action-param="removeVariant"
-                                                                        data-live-variantid-param="{{ variant.id }}"
-                                                                        onclick="return confirm('Opravdu smazat tuto variantu?');">
+                                                                        data-live-variantid-param="{{ variant.id }}">
                                                                         <i class="mdi mdi-delete"></i>
                                                                     </button>
                                                                 </div>
@@ -191,7 +195,7 @@
                         {% set availableMealTypesForDay = this.availableMealTypesForDay(day) %}
                         {% if availableMealTypesForDay|length > 0 %}
                             <div class="dropdown">
-                                <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                     <i class="mdi mdi-plus"></i> Přidat typ jídla
                                 </button>
                                 <ul class="dropdown-menu">

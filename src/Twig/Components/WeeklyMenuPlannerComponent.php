@@ -57,12 +57,25 @@ final class WeeklyMenuPlannerComponent extends AbstractController
     ): void {
         assert($this->menu !== null);
 
+        $mealTypeId = $this->provideIdentity->next();
+        $courseId = $this->provideIdentity->next();
+
         $this->bus->dispatch(
             new AddDayMealType(
                 \Ramsey\Uuid\Uuid::fromString($dayId),
-                $this->provideIdentity->next(),
+                $mealTypeId,
                 WeeklyMenuMealType::from($mealType),
             ),
+        );
+
+        // Automatically add one course to the new meal type
+        $this->bus->dispatch(
+            new AddCourse($mealTypeId, $courseId),
+        );
+
+        // Automatically add one variant to the new course
+        $this->bus->dispatch(
+            new AddCourseVariant($courseId, $this->provideIdentity->next(), null),
         );
 
         $this->refreshMenu();
@@ -91,10 +104,21 @@ final class WeeklyMenuPlannerComponent extends AbstractController
     #[LiveAction]
     public function addCourse(#[LiveArg('mealtypeid')] string $mealTypeId): void
     {
+        $courseId = $this->provideIdentity->next();
+
         $this->bus->dispatch(
             new AddCourse(
                 \Ramsey\Uuid\Uuid::fromString($mealTypeId),
+                $courseId,
+            ),
+        );
+
+        // Automatically add one variant to the new course
+        $this->bus->dispatch(
+            new AddCourseVariant(
+                $courseId,
                 $this->provideIdentity->next(),
+                null,
             ),
         );
 
