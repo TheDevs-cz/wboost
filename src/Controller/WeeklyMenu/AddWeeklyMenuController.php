@@ -57,7 +57,7 @@ final class AddWeeklyMenuController extends AbstractController
 
             $this->addFlash('success', 'Jídelníček byl vytvořen.');
 
-            return $this->redirectToRoute('edit_weekly_menu', [
+            return $this->redirectToRoute('weekly_menu_planner', [
                 'menuId' => $menuId,
             ]);
         }

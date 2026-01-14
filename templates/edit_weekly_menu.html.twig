@@ -42,6 +42,12 @@
 
             <input type="submit" name="submit" value="Uložit" class="btn btn-primary">
             <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="btn btn-outline-secondary">Zrušit</a>
+            <a href="{{ path('weekly_menu_planner', {'menuId': menu.id}) }}" class="btn btn-outline-success">
+                <i class="mdi mdi-calendar-edit"></i> Sestavit menu
+            </a>
+            <a href="{{ path('download_weekly_menu_pdf', {'menuId': menu.id}) }}" class="btn btn-outline-secondary">
+                <i class="mdi mdi-file-pdf-box"></i> Stáhnout PDF
+            </a>
 
             {{ form_end(form) }}
         </div>

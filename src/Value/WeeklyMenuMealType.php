@@ -37,11 +37,11 @@ enum WeeklyMenuMealType: string
     public function cssColor(): string
     {
         return match ($this) {
-            self::Breakfast => '#FEF3C7',
-            self::Lunch => '#DBEAFE',
-            self::Snack => '#D1FAE5',
-            self::Dinner => '#EDE9FE',
-            self::LateDinner => '#F3F4F6',
+            self::Breakfast => '#F59E0B',
+            self::Lunch => '#3B82F6',
+            self::Snack => '#10B981',
+            self::Dinner => '#8B5CF6',
+            self::LateDinner => '#6B7280',
         };
     }
 }

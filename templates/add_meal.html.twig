@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'weekly_menus' %}
+{% set active_submenu_item = 'meals' %}
+
+{% block title %}Nové jídlo{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('weekly_menus', {'projectId': project.id}) }}">Jídelníčky</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('meals', {'projectId': project.id}) }}">Seznam jídel</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(form) }}
+
+            {{ form_row(form.name) }}
+            {{ form_row(form.mealType) }}
+            {{ form_row(form.dishTypeId) }}
+            {{ form_row(form.dietId) }}
+
+            <hr>
+            <h5>Dietní varianty (volitelné, max. 4)</h5>
+            <p class="text-muted small">Můžete přidat různé dietní varianty tohoto jídla, např. bezlepkovou nebo vegetariánskou verzi.</p>
+
+            <div data-controller="collection"
+                 data-collection-prototype-value="{{ form_widget(form.variants.vars.prototype)|e('html_attr') }}"
+                 data-collection-index-value="{{ form.variants|length }}"
+                 data-collection-max-items-value="4">
+
+                <div data-collection-target="container">
+                    {% for variant in form.variants %}
+                        <div class="variant-item mb-3 p-3 border rounded bg-light">
+                            {{ form_widget(variant) }}
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-2" data-action="collection#removeExisting">
+                                <i class="mdi mdi-delete"></i> Odebrat variantu
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm mb-3"
+                        data-collection-target="addButton"
+                        data-action="collection#add">
+                    <i class="mdi mdi-plus"></i> Přidat dietní variantu
+                </button>
+            </div>
+
+            <hr>
+            <button class="btn btn-primary" type="submit">Vytvořit</button>
+            <a href="{{ path('meals', {'projectId': project.id}) }}" class="btn btn-outline-secondary">Zrušit</a>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

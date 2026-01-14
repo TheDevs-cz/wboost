@@ -1,0 +1,130 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'weekly_menus' %}
+{% set active_submenu_item = 'meals' %}
+
+{% block title %}Seznam jídel{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('weekly_menus', {'projectId': project.id}) }}">Jídelníčky</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            {% if is_granted('project_edit', project) %}
+                <a href="{{ path('add_meal', {'projectId': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3">
+                    <i class="mdi mdi-plus"></i> Nové jídlo
+                </a>
+            {% endif %}
+            <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="btn btn-outline-secondary rounded-pill mb-3">
+                <i class="mdi mdi-arrow-left"></i> Zpět na jídelníčky
+            </a>
+            <a href="{{ path('diets', {'projectId': project.id}) }}" class="btn btn-outline-secondary rounded-pill mb-3">
+                <i class="mdi mdi-account-heart"></i> Diety
+            </a>
+            <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="btn btn-outline-secondary rounded-pill mb-3">
+                <i class="mdi mdi-food-variant"></i> Druhy jídel
+            </a>
+        </div>
+    </div>
+
+    {% if meals|length == 0 %}
+        <div class="alert alert-info">
+            Zatím nebylo vytvořeno žádné jídlo.
+        </div>
+    {% else %}
+        <div class="card shadow-sm rounded-3 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="table-responsive rounded-3">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Název</th>
+                                <th>Typ</th>
+                                <th>Druh</th>
+                                <th>Dieta</th>
+                                <th>Varianty</th>
+                                <th class="pe-3" style="width: 80px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for meal in meals %}
+                                <tr>
+                                    <td class="ps-3 fw-medium">{{ meal.name }}</td>
+                                    <td>
+                                        {% set mealTypeTextColor = {
+                                            'breakfast': '#92400E',
+                                            'lunch': '#1E40AF',
+                                            'snack': '#065F46',
+                                            'dinner': '#5B21B6',
+                                            'late_dinner': '#374151'
+                                        } %}
+                                        <span class="badge" style="background-color: {{ meal.mealType.cssColor }}; color: {{ mealTypeTextColor[meal.mealType.value] }};">
+                                            {{ meal.mealType.label }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="text-body-secondary">{{ meal.dishType.name }}</span>
+                                    </td>
+                                    <td>
+                                        {% if meal.diet %}
+                                            <span class="badge bg-secondary">
+                                                {{ meal.diet.name }}
+                                                <small class="opacity-75">
+                                                    ({% for code in meal.diet.codes %}{{ code }}{% if not loop.last %}, {% endif %}{% endfor %})
+                                                </small>
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if meal.hasVariants %}
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% for variant in meal.variants %}
+                                                    <span class="badge bg-dark" title="{{ variant.diet.name }}">
+                                                        {{ variant.name }}
+                                                        <span class="opacity-75">({{ variant.dietCodesLabel }})</span>
+                                                    </span>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        {% if is_granted('meal_edit', meal) %}
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ path('edit_meal', {'mealId': meal.id}) }}" class="btn btn-outline-secondary" title="Upravit">
+                                                    <i class="mdi mdi-pencil"></i>
+                                                </a>
+                                                <a href="#"
+                                                   class="btn btn-outline-danger"
+                                                   data-modal-id="{{ meal.id }}"
+                                                   data-action="click->confirm-modal#showModal"
+                                                   title="Smazat">
+                                                    <i class="mdi mdi-delete"></i>
+                                                </a>
+                                            </div>
+
+                                            <twig:ConfirmModal
+                                                id="{{ meal.id }}"
+                                                url="{{ path('delete_meal', {'mealId': meal.id}) }}"
+                                                confirmationText="Opravdu chcete smazat toto jídlo?" />
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

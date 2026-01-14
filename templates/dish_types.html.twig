@@ -1,0 +1,68 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'weekly_menus' %}
+{% set active_submenu_item = 'dish_types' %}
+
+{% block title %}Druhy jídel{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('weekly_menus', {'projectId': project.id}) }}">Jídelníčky</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            {% if is_granted('project_edit', project) %}
+                <a href="{{ path('add_dish_type', {'projectId': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3">
+                    <i class="mdi mdi-plus"></i> Nový druh jídla
+                </a>
+            {% endif %}
+            <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="btn btn-outline-secondary rounded-pill mb-3">
+                <i class="mdi mdi-arrow-left"></i> Zpět na jídelníčky
+            </a>
+        </div>
+    </div>
+
+    {% if dishTypes|length == 0 %}
+        <div class="alert alert-info">
+            Zatím nebyl vytvořen žádný druh jídla.
+        </div>
+    {% else %}
+        <div class="row">
+            {% for dishType in dishTypes %}
+                <div class="col-sm-4 col-md-3">
+                    <div class="card">
+                        <div class="card-body d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5 class="mt-0 mb-0">{{ dishType.name }}</h5>
+                            </div>
+                            <div>
+                                {% if is_granted('dish_type_edit', dishType) %}
+                                    <a href="{{ path('edit_dish_type', {'dishTypeId': dishType.id}) }}" class="btn btn-outline-secondary btn-sm px-1 py-0">
+                                        <i class="mdi mdi-pencil"></i>
+                                    </a>
+                                    <a href="#"
+                                       class="btn btn-outline-danger btn-sm px-1 py-0"
+                                       data-modal-id="{{ dishType.id }}"
+                                       data-action="click->confirm-modal#showModal">
+                                        <i class="mdi mdi-delete"></i>
+                                    </a>
+
+                                    <twig:ConfirmModal
+                                        id="{{ dishType.id }}"
+                                        url="{{ path('delete_dish_type', {'dishTypeId': dishType.id}) }}"
+                                        confirmationText="Opravdu chcete smazat tento druh jídla?" />
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}
