@@ -17,16 +17,15 @@ use Doctrine\ORM\Mapping\OrderBy;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Value\WeeklyMenuMealType;
 
 #[Entity]
 class WeeklyMenuDay
 {
-    /** @var Collection<int, WeeklyMenuMeal> */
+    /** @var Collection<int, WeeklyMenuDayMealType> */
     #[Immutable]
-    #[OneToMany(targetEntity: WeeklyMenuMeal::class, mappedBy: 'menuDay', fetch: 'EAGER', cascade: ['persist'])]
-    #[OrderBy(['sortOrder' => 'ASC'])]
-    private Collection $meals;
+    #[OneToMany(targetEntity: WeeklyMenuDayMealType::class, mappedBy: 'weeklyMenuDay', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[OrderBy(['position' => 'ASC'])]
+    private Collection $mealTypes;
 
     public function __construct(
         #[Id]
@@ -47,31 +46,7 @@ class WeeklyMenuDay
         #[Column(type: Types::DATE_IMMUTABLE, nullable: true)]
         public null|\DateTimeImmutable $date = null,
     ) {
-        $this->meals = new ArrayCollection();
-    }
-
-    public function addMeal(WeeklyMenuMeal $meal): void
-    {
-        $this->meals->add($meal);
-    }
-
-    /**
-     * @return array<WeeklyMenuMeal>
-     */
-    public function meals(): array
-    {
-        return $this->meals->toArray();
-    }
-
-    public function meal(WeeklyMenuMealType $type): null|WeeklyMenuMeal
-    {
-        foreach ($this->meals as $meal) {
-            if ($meal->type === $type) {
-                return $meal;
-            }
-        }
-
-        return null;
+        $this->mealTypes = new ArrayCollection();
     }
 
     public function setDate(null|\DateTimeImmutable $date): void
@@ -82,13 +57,13 @@ class WeeklyMenuDay
     public function dayLabel(): string
     {
         return match ($this->dayOfWeek) {
-            1 => 'Pondeli',
-            2 => 'Utery',
-            3 => 'Streda',
-            4 => 'Ctvrtek',
-            5 => 'Patek',
+            1 => 'Pondělí',
+            2 => 'Úterý',
+            3 => 'Středa',
+            4 => 'Čtvrtek',
+            5 => 'Pátek',
             6 => 'Sobota',
-            7 => 'Nedele',
+            7 => 'Neděle',
             default => '',
         };
     }
@@ -97,13 +72,34 @@ class WeeklyMenuDay
     {
         return match ($this->dayOfWeek) {
             1 => 'Po',
-            2 => 'Ut',
+            2 => 'Út',
             3 => 'St',
-            4 => 'Ct',
-            5 => 'Pa',
+            4 => 'Čt',
+            5 => 'Pá',
             6 => 'So',
             7 => 'Ne',
             default => '',
         };
+    }
+
+    public function addMealType(WeeklyMenuDayMealType $mealType): void
+    {
+        $this->mealTypes->add($mealType);
+    }
+
+    public function removeMealType(WeeklyMenuDayMealType $mealType): void
+    {
+        $this->mealTypes->removeElement($mealType);
+    }
+
+    /**
+     * @return array<WeeklyMenuDayMealType>
+     */
+    public function mealTypes(): array
+    {
+        $mealTypes = $this->mealTypes->toArray();
+        usort($mealTypes, static fn(WeeklyMenuDayMealType $a, WeeklyMenuDayMealType $b) => $a->position <=> $b->position);
+
+        return $mealTypes;
     }
 }

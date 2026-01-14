@@ -1,78 +1,85 @@
 import { Controller } from '@hotwired/stimulus';
 import dragula from 'dragula';
-import { getComponent } from '@symfony/ux-live-component';
 
 export default class extends Controller {
-    static values = {
-        mealId: String,
-        variantId: String,
-        type: String,
-        sortUrl: String
-    };
-
     connect() {
-        this.drake = dragula([this.element], {
-            moves: (el, source, handle) => {
-                const dragHandle = handle.closest('.drag-handle');
-                if (!dragHandle) return false;
-
-                // Find the closest draggable element from the handle
-                const closestDraggable = dragHandle.closest('[data-id]');
-
-                // Only allow if the closest draggable is the element being considered
-                return closestDraggable === el;
-            },
-            direction: 'vertical'
-        });
-
-        this.drake.on('drop', this.handleDrop.bind(this));
-        this.initializeLiveComponent();
-    }
-
-    async initializeLiveComponent() {
-        const liveElement = this.element.closest('[data-controller*="live"]');
-        if (liveElement) {
-            this.component = await getComponent(liveElement);
-        }
-    }
-
-    async handleDrop() {
-        const sorted = Array.from(this.element.querySelectorAll('[data-id]'))
-            .map(element => element.dataset.id);
-
-        await this.sendOrderToBackend(sorted);
-    }
-
-    async sendOrderToBackend(sorted) {
-        try {
-            const response = await fetch(this.sortUrlValue, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ sorted })
-            });
-
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-
-            const data = await response.json();
-            console.log('Order updated successfully:', data);
-
-            // Refresh the Live Component to reflect changes
-            if (this.component) {
-                await this.component.render();
-            }
-        } catch (error) {
-            console.error('Error updating order:', error);
-        }
+        this.initCourseDragula();
+        this.initVariantDragula();
+        this.initMealDragula();
     }
 
     disconnect() {
-        if (this.drake) {
-            this.drake.destroy();
+        if (this.courseDrake) {
+            this.courseDrake.destroy();
+        }
+        if (this.variantDrake) {
+            this.variantDrake.destroy();
+        }
+        if (this.mealDrake) {
+            this.mealDrake.destroy();
+        }
+    }
+
+    initCourseDragula() {
+        const containers = this.element.querySelectorAll('[data-weekly-menu-dragula-target="coursesContainer"]');
+        if (containers.length === 0) return;
+
+        this.courseDrake = dragula(Array.from(containers), {
+            moves: (el, source, handle) => handle.classList.contains('course-drag-handle'),
+            accepts: (el, target, source) => target === source
+        });
+
+        this.courseDrake.on('drop', (el, target) => {
+            if (!target) return;
+            const mealTypeId = target.dataset.mealTypeId;
+            const courseIds = Array.from(target.querySelectorAll('[data-course-id]'))
+                .map(element => element.dataset.courseId);
+            this.callLiveAction('reorderCourses', { mealtypeid: mealTypeId, courseids: courseIds });
+        });
+    }
+
+    initVariantDragula() {
+        const containers = this.element.querySelectorAll('[data-weekly-menu-dragula-target="variantsContainer"]');
+        if (containers.length === 0) return;
+
+        this.variantDrake = dragula(Array.from(containers), {
+            moves: (el, source, handle) => handle.classList.contains('variant-drag-handle'),
+            accepts: (el, target, source) => target === source
+        });
+
+        this.variantDrake.on('drop', (el, target) => {
+            if (!target) return;
+            const courseId = target.dataset.courseId;
+            const variantIds = Array.from(target.querySelectorAll('[data-variant-id]'))
+                .map(element => element.dataset.variantId);
+            this.callLiveAction('reorderVariants', { courseid: courseId, variantids: variantIds });
+        });
+    }
+
+    initMealDragula() {
+        const containers = this.element.querySelectorAll('[data-weekly-menu-dragula-target="mealsContainer"]');
+        if (containers.length === 0) return;
+
+        this.mealDrake = dragula(Array.from(containers), {
+            moves: (el, source, handle) => el.classList.contains('meal-badge'),
+            accepts: (el, target, source) => target === source,
+            direction: 'horizontal'
+        });
+
+        this.mealDrake.on('drop', (el, target) => {
+            if (!target) return;
+            const variantId = target.dataset.variantId;
+            const mealIds = Array.from(target.querySelectorAll('[data-variant-meal-id]'))
+                .map(element => element.dataset.variantMealId);
+            this.callLiveAction('reorderMeals', { variantid: variantId, mealids: mealIds });
+        });
+    }
+
+    callLiveAction(action, args) {
+        // Find the Live Component (parent element)
+        const liveComponent = this.element.closest('[data-controller*="live"]');
+        if (liveComponent && liveComponent.__component) {
+            liveComponent.__component.action(action, args);
         }
     }
 }

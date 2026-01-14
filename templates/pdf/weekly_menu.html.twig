@@ -2,150 +2,249 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <title>{{ menu.name }}</title>
     <style>
+        @page {
+            margin: 10mm;
+        }
+
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
+
         body {
-            font-family: 'DejaVu Sans', sans-serif;
-            font-size: 10px;
-            line-height: 1.4;
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 9px;
+            line-height: 1.3;
+            margin: 0;
+            padding: 0;
         }
+
         .header {
             text-align: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
             border-bottom: 2px solid #333;
         }
+
         .header h1 {
-            font-size: 22px;
-            margin-bottom: 8px;
+            margin: 0 0 5px 0;
+            font-size: 18px;
+            font-weight: bold;
         }
+
         .header .dates {
-            font-size: 14px;
+            font-size: 12px;
             color: #555;
         }
-        .header .meta {
-            font-size: 11px;
-            color: #777;
-            margin-top: 8px;
-        }
-        table {
+
+        .menu-table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
         }
-        th, td {
-            border: 1px solid #999;
-            padding: 6px 8px;
+
+        .menu-table th,
+        .menu-table td {
+            border: 1px solid #ccc;
+            padding: 4px;
             vertical-align: top;
-            word-wrap: break-word;
         }
-        th {
-            background-color: #e5e5e5;
+
+        .menu-table th {
+            background-color: #2563eb;
+            color: white;
             font-weight: bold;
             text-align: center;
             font-size: 11px;
+            padding: 8px 4px;
         }
-        th.day-header {
-            width: 13%;
+
+        .menu-table th .date {
+            font-size: 9px;
+            font-weight: normal;
+            opacity: 0.9;
         }
-        th.meal-header {
-            width: 9%;
-            text-align: left;
+
+        .day-column {
+            width: 14.28%;
         }
-        .meal-breakfast { background-color: #FEF3C7; }
-        .meal-lunch { background-color: #DBEAFE; }
-        .meal-snack { background-color: #D1FAE5; }
-        .meal-dinner { background-color: #EDE9FE; }
-        .meal-late_dinner { background-color: #F3F4F6; }
-        .variant {
-            margin-bottom: 8px;
-            padding-bottom: 6px;
-            border-bottom: 1px dashed #ccc;
+
+        .meal-type-section {
+            margin-bottom: 6px;
+            padding: 4px;
+            border-radius: 3px;
         }
-        .variant:last-child {
+
+        .meal-type-section:last-child {
             margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
         }
+
+        .meal-type-header {
+            font-weight: bold;
+            font-size: 10px;
+            margin-bottom: 4px;
+            padding: 3px 5px;
+            border-radius: 2px;
+        }
+
+        .meal-type-breakfast { background-color: #FEF3C7; }
+        .meal-type-lunch { background-color: #DBEAFE; }
+        .meal-type-snack { background-color: #D1FAE5; }
+        .meal-type-dinner { background-color: #EDE9FE; }
+        .meal-type-late_dinner { background-color: #F3F4F6; }
+
+        .course {
+            margin-bottom: 4px;
+            padding-left: 4px;
+        }
+
+        .course:last-child {
+            margin-bottom: 0;
+        }
+
+        .course-label {
+            font-size: 8px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .variant {
+            margin: 2px 0;
+            padding-left: 4px;
+        }
+
         .variant-name {
             font-weight: bold;
-            font-size: 9px;
-            color: #444;
-            margin-bottom: 3px;
+            font-size: 8px;
+            color: #333;
         }
-        .diet-version {
-            margin-bottom: 4px;
+
+        .meal-item {
+            display: block;
+            font-size: 8px;
+            padding: 1px 0;
         }
+
+        .meal-name {
+            color: #111;
+        }
+
         .diet-codes {
-            font-weight: bold;
-            color: #555;
-            font-size: 9px;
+            color: #666;
+            font-size: 7px;
         }
-        .items {
-            font-size: 10px;
+
+        .empty-cell {
+            color: #999;
+            font-style: italic;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .footer {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #ccc;
+            font-size: 8px;
+            color: #666;
+        }
+
+        .footer-row {
+            display: table;
+            width: 100%;
+        }
+
+        .footer-left {
+            display: table-cell;
+            text-align: left;
+        }
+
+        .footer-right {
+            display: table-cell;
+            text-align: right;
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>{{ menu.name }}</h1>
-        <div class="dates">{{ menu.validFrom|date('j.n.Y') }} - {{ menu.validTo|date('j.n.Y') }}</div>
-        {% if menu.createdBy or menu.approvedBy %}
-            <div class="meta">
-                {% if menu.createdBy %}Vytvořil: {{ menu.createdBy }}{% endif %}
-                {% if menu.createdBy and menu.approvedBy %} · {% endif %}
-                {% if menu.approvedBy %}Schválil: {{ menu.approvedBy }}{% endif %}
-            </div>
-        {% endif %}
+        <div class="dates">
+            Platnost: {{ menu.validFrom|date('d.m.Y') }} - {{ menu.validTo|date('d.m.Y') }}
+        </div>
     </div>
 
-    <table>
+    <table class="menu-table">
         <thead>
             <tr>
-                <th class="meal-header"></th>
                 {% for day in menu.days %}
-                    <th class="day-header">
+                    <th class="day-column">
                         {{ day.dayLabel }}
                         {% if day.date %}
-                            <br><small>{{ day.date|date('j.n.') }}</small>
+                            <div class="date">{{ day.date|date('d.m.') }}</div>
                         {% endif %}
                     </th>
                 {% endfor %}
             </tr>
         </thead>
         <tbody>
-            {% for mealType in mealTypes %}
-                <tr>
-                    <th class="meal-header meal-{{ mealType.value }}">{{ mealType.label }}</th>
-                    {% for day in menu.days %}
-                        {% set meal = day.meal(mealType) %}
-                        <td class="meal-{{ mealType.value }}">
-                            {% if meal %}
-                                {% for variant in meal.variants %}
-                                    <div class="variant">
-                                        {% if variant.name %}
-                                            <div class="variant-name">{{ variant.name }}</div>
-                                        {% endif %}
-                                        {% for dietVersion in variant.dietVersions %}
-                                            <div class="diet-version">
-                                                {% if dietVersion.dietCodes %}
-                                                    <span class="diet-codes">[{{ dietVersion.dietCodes }}]</span>
+            <tr>
+                {% for day in menu.days %}
+                    <td>
+                        {% if day.mealTypes|length > 0 %}
+                            {% for mealType in day.mealTypes %}
+                                <div class="meal-type-section">
+                                    <div class="meal-type-header meal-type-{{ mealType.mealType.value }}">
+                                        {{ mealType.mealType.label }}
+                                    </div>
+                                    {% if mealType.courses|length > 0 %}
+                                        {% for course in mealType.courses %}
+                                            <div class="course">
+                                                {% if mealType.courses|length > 1 %}
+                                                    <span class="course-label">Chod {{ loop.index }}:</span>
                                                 {% endif %}
-                                                <span class="items">{{ dietVersion.items }}</span>
+                                                {% for variant in course.variants %}
+                                                    <div class="variant">
+                                                        {% if variant.name %}
+                                                            <span class="variant-name">{{ variant.name }}:</span>
+                                                        {% elseif course.variants|length > 1 %}
+                                                            <span class="variant-name">V{{ loop.index }}:</span>
+                                                        {% endif %}
+                                                        {% for variantMeal in variant.meals %}
+                                                            <span class="meal-item">
+                                                                <span class="meal-name">{{ variantMeal.meal.name }}</span>
+                                                                {% if variantMeal.meal.diet %}
+                                                                    <span class="diet-codes">({{ variantMeal.meal.diet.codesLabel }})</span>
+                                                                {% endif %}
+                                                            </span>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endfor %}
                                             </div>
                                         {% endfor %}
-                                    </div>
-                                {% endfor %}
-                            {% endif %}
-                        </td>
-                    {% endfor %}
-                </tr>
-            {% endfor %}
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-cell">-</div>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
         </tbody>
     </table>
+
+    <div class="footer">
+        <div class="footer-row">
+            <div class="footer-left">
+                {% if menu.createdBy %}Vytvořil: {{ menu.createdBy }}{% endif %}
+                {% if menu.createdBy and menu.approvedBy %} | {% endif %}
+                {% if menu.approvedBy %}Schválil: {{ menu.approvedBy }}{% endif %}
+            </div>
+            <div class="footer-right">
+                Vygenerováno: {{ "now"|date('d.m.Y H:i') }}
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'weekly_menus' %}
+
+{% block title %}Sestavit menu - {{ menu.name }}{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('weekly_menus', {'projectId': project.id}) }}">Jídelníčky</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('edit_weekly_menu', {'menuId': menu.id}) }}">{{ menu.name }}</a></li>
+        <li class="breadcrumb-item active">Sestavit menu</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row mb-3">
+        <div class="col-sm-12">
+            <a href="{{ path('edit_weekly_menu', {'menuId': menu.id}) }}" class="btn btn-outline-secondary rounded-pill">
+                <i class="mdi mdi-arrow-left"></i> Zpět na jídelníček
+            </a>
+            <a href="{{ path('meals', {'projectId': project.id}) }}" class="btn btn-outline-secondary rounded-pill">
+                <i class="mdi mdi-food"></i> Spravovat jídla
+            </a>
+        </div>
+    </div>
+
+    <twig:WeeklyMenuPlanner :menu="menu" />
+{% endblock %}

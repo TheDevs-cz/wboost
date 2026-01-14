@@ -210,6 +210,19 @@
                                     <i class="uil-restaurant"></i>
                                     <span> Jídelníčky</span>
                                 </a>
+                                {% if active_menu_item|default == 'weekly_menus' %}
+                                    <ul class="side-nav-second-level">
+                                        <li class="{{ active_submenu_item|default == 'meals' ? 'active' : '' }}">
+                                            <a href="{{ path('meals', {'projectId': project.id}) }}">Seznam jídel</a>
+                                        </li>
+                                        <li class="{{ active_submenu_item|default == 'diets' ? 'active' : '' }}">
+                                            <a href="{{ path('diets', {'projectId': project.id}) }}">Diety</a>
+                                        </li>
+                                        <li class="{{ active_submenu_item|default == 'dish_types' ? 'active' : '' }}">
+                                            <a href="{{ path('dish_types', {'projectId': project.id}) }}">Druhy jídel</a>
+                                        </li>
+                                    </ul>
+                                {% endif %}
                             </li>
                         {% endif %}
                     </ul>

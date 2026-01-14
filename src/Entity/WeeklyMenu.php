@@ -23,7 +23,7 @@ class WeeklyMenu
 {
     /** @var Collection<int, WeeklyMenuDay> */
     #[Immutable]
-    #[OneToMany(targetEntity: WeeklyMenuDay::class, mappedBy: 'weeklyMenu', fetch: 'EAGER', cascade: ['persist'])]
+    #[OneToMany(targetEntity: WeeklyMenuDay::class, mappedBy: 'weeklyMenu', fetch: 'EAGER', cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[OrderBy(['dayOfWeek' => 'ASC'])]
     private Collection $days;
 
@@ -92,6 +92,11 @@ class WeeklyMenu
     public function addDay(WeeklyMenuDay $day): void
     {
         $this->days->add($day);
+    }
+
+    public function removeDay(WeeklyMenuDay $day): void
+    {
+        $this->days->removeElement($day);
     }
 
     /**

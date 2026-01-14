@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'weekly_menus' %}
+{% set active_submenu_item = 'dish_types' %}
+
+{% block title %}Upravit druh jídla{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('weekly_menus', {'projectId': project.id}) }}">Jídelníčky</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('dish_types', {'projectId': project.id}) }}">Druhy jídel</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(form) }}
+            {{ form_widget(form) }}
+
+            <button class="btn btn-primary" type="submit">Uložit</button>
+            <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="btn btn-outline-secondary">Zrušit</a>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}
