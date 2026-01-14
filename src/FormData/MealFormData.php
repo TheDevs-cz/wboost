@@ -20,6 +20,10 @@ final class MealFormData
     #[Length(min: 2, max: 255)]
     public string $name = '';
 
+    #[NotBlank(normalizer: 'trim')]
+    #[Length(min: 2, max: 255)]
+    public string $internalName = '';
+
     #[NotNull]
     public null|WeeklyMenuMealType $mealType = null;
 

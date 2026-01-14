@@ -1,0 +1,196 @@
+{# Preview modal for weekly menu planner #}
+<div class="modal fade" id="menuPreviewModal" tabindex="-1" aria-labelledby="menuPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="menuPreviewModalLabel">Náhled jídelníčku</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+            </div>
+            <div class="modal-body">
+                <style>
+                    #menuPreviewModal .modal-dialog {
+                        max-width: 100%;
+                        width: 100%;
+                        margin: 25px 0;
+                        height: calc(100% - 50px);
+                    }
+
+                    #menuPreviewModal .modal-content {
+                        height: 100%;
+                    }
+
+                    #menuPreviewModal .modal-body {
+                        padding: 20px;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display {
+                        font-size: 12px;
+                        max-width: 1600px;
+                        margin: 0 auto;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .menu-table-wrapper {
+                        overflow-x: auto;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .header {
+                        text-align: center;
+                        margin-bottom: 15px;
+                        padding-bottom: 10px;
+                        border-bottom: 2px solid #333;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .header h1 {
+                        font-size: 22px;
+                        margin: 0 0 5px 0;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .header .dates {
+                        font-size: 14px;
+                        color: #555;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .menu-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        table-layout: fixed;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .menu-table th,
+                    #menuPreviewModal .weekly-menu-display .menu-table td {
+                        border: 1px solid #dee2e6;
+                        padding: 8px;
+                        vertical-align: top;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .menu-table th {
+                        background-color: #2563eb;
+                        color: white;
+                        font-weight: bold;
+                        text-align: center;
+                        font-size: 14px;
+                        padding: 10px 6px;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .menu-table th .date {
+                        font-size: 12px;
+                        font-weight: normal;
+                        opacity: 0.9;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .day-column {
+                        width: 14.28%;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-type-section {
+                        margin-bottom: 8px;
+                        padding: 6px;
+                        border-radius: 4px;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-type-section:last-child {
+                        margin-bottom: 0;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-type-header {
+                        font-weight: bold;
+                        font-size: 12px;
+                        margin-bottom: 4px;
+                        padding: 3px 6px;
+                        border-radius: 3px;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-type-breakfast { background-color: #FEF3C7; }
+                    #menuPreviewModal .weekly-menu-display .meal-type-lunch { background-color: #DBEAFE; }
+                    #menuPreviewModal .weekly-menu-display .meal-type-snack { background-color: #D1FAE5; }
+                    #menuPreviewModal .weekly-menu-display .meal-type-dinner { background-color: #EDE9FE; }
+                    #menuPreviewModal .weekly-menu-display .meal-type-late_dinner { background-color: #F3F4F6; }
+
+                    #menuPreviewModal .weekly-menu-display .course {
+                        margin-bottom: 4px;
+                        padding-left: 6px;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .course-label {
+                        font-size: 10px;
+                        color: #666;
+                        font-style: italic;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .variant {
+                        margin: 3px 0;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .variant-name {
+                        font-weight: 600;
+                        font-size: 10px;
+                        color: #333;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-item {
+                        display: block;
+                        font-size: 11px;
+                        padding: 1px 0;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-name {
+                        color: #111;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .diet-codes {
+                        color: #666;
+                        font-size: 10px;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-variant {
+                        display: block;
+                        font-size: 10px;
+                        padding-left: 10px;
+                        color: #555;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .meal-variant-name {
+                        font-style: italic;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .empty-cell {
+                        color: #999;
+                        font-style: italic;
+                        text-align: center;
+                        padding: 15px;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .footer {
+                        margin-top: 15px;
+                        padding-top: 10px;
+                        border-top: 1px solid #dee2e6;
+                        font-size: 11px;
+                        color: #666;
+                        overflow: hidden;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .footer-row {
+                        display: flex;
+                        justify-content: space-between;
+                        width: 100%;
+                    }
+
+                    #menuPreviewModal .weekly-menu-display .footer-left,
+                    #menuPreviewModal .weekly-menu-display .footer-right {
+                        display: block;
+                    }
+                </style>
+                {% include 'weekly_menu/_menu_display.html.twig' with { menu: menu, showFooter: true } %}
+            </div>
+            <div class="modal-footer">
+                <a href="{{ path('public_weekly_menu', {'menuId': menu.id}) }}" target="_blank" class="btn btn-outline-primary">
+                    <i class="mdi mdi-open-in-new"></i> Otevřít veřejnou stránku
+                </a>
+                <a href="{{ path('download_weekly_menu_pdf', {'menuId': menu.id}) }}" class="btn btn-outline-secondary">
+                    <i class="mdi mdi-file-pdf-box"></i> Stáhnout PDF
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavřít</button>
+            </div>
+        </div>
+    </div>
+</div>

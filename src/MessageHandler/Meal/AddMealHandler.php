@@ -44,6 +44,7 @@ readonly final class AddMealHandler
             $message->mealType,
             $dishType,
             $message->name,
+            $message->internalName,
             $diet,
         );
 

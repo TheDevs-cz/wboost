@@ -50,7 +50,7 @@ return App::config([
         ],
         'access_control' => [
             [
-                'path' => '^/(login|registration|forgotten-password|reset-password|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png)',
+                'path' => '^/(login|registration|forgotten-password|reset-password|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png|weekly-menu/.*/public)',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [

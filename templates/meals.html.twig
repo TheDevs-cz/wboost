@@ -45,7 +45,8 @@
                     <table class="table table-hover table-striped mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-3">Název</th>
+                                <th class="ps-3">Interní název</th>
+                                <th>Název varianty</th>
                                 <th>Typ</th>
                                 <th>Druh</th>
                                 <th>Dieta</th>
@@ -56,7 +57,8 @@
                         <tbody>
                             {% for meal in meals %}
                                 <tr>
-                                    <td class="ps-3 fw-medium">{{ meal.name }}</td>
+                                    <td class="ps-3 fw-medium">{{ meal.internalName }}</td>
+                                    <td>{{ meal.name }}</td>
                                     <td>
                                         {% set mealTypeTextColor = {
                                             'breakfast': '#92400E',

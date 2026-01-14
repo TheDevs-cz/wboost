@@ -249,7 +249,7 @@
                                          data-meal-id="{{ meal.id }}"
                                          data-action="click->meal-selector#selectMeal">
                                         <div class="d-flex justify-content-between align-items-start mb-1">
-                                            <strong class="me-2">{{ meal.name }}</strong>
+                                            <strong class="me-2">{{ meal.internalName }}</strong>
                                             <span class="badge flex-shrink-0" style="background-color: {{ meal.mealType.cssColor }}; color: #fff;">
                                                 {{ meal.mealType.label }}
                                             </span>

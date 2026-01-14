@@ -52,6 +52,10 @@ class Meal
         public string $name,
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column]
+        public string $internalName,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[ManyToOne]
         #[JoinColumn(nullable: true, onDelete: 'SET NULL')]
         public null|Diet $diet = null,
@@ -63,11 +67,13 @@ class Meal
         WeeklyMenuMealType $mealType,
         DishType $dishType,
         string $name,
+        string $internalName,
         null|Diet $diet,
     ): void {
         $this->mealType = $mealType;
         $this->dishType = $dishType;
         $this->name = $name;
+        $this->internalName = $internalName;
         $this->diet = $diet;
     }
 

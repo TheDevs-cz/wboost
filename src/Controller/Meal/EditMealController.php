@@ -40,6 +40,7 @@ final class EditMealController extends AbstractController
     ): Response {
         $data = new MealFormData();
         $data->name = $meal->name;
+        $data->internalName = $meal->internalName;
         $data->mealType = $meal->mealType;
         $data->dishTypeId = $meal->dishType->id;
         $data->dietId = $meal->diet?->id;
@@ -79,6 +80,7 @@ final class EditMealController extends AbstractController
                     $data->mealType,
                     $data->dishTypeId,
                     $data->name,
+                    $data->internalName,
                     $data->dietId,
                     $variants,
                 ),

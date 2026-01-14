@@ -27,8 +27,16 @@ final class MealFormType extends AbstractType
      */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $builder->add('internalName', TextType::class, [
+            'label' => 'Interní název jídla',
+            'help' => 'Název pro interní použití, zobrazuje se při výběru jídla',
+            'required' => true,
+            'empty_data' => '',
+        ]);
+
         $builder->add('name', TextType::class, [
-            'label' => 'Název jídla',
+            'label' => 'Název varianty',
+            'help' => 'Zkrácený název zobrazovaný ve výstupech (jídelníček, PDF)',
             'required' => true,
             'empty_data' => '',
         ]);

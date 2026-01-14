@@ -18,6 +18,7 @@ readonly final class AddMeal
         public WeeklyMenuMealType $mealType,
         public UuidInterface $dishTypeId,
         public string $name,
+        public string $internalName,
         public null|UuidInterface $dietId = null,
         public array $variants = [],
     ) {

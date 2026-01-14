@@ -70,6 +70,7 @@ final class AddMealController extends AbstractController
                     $data->mealType,
                     $data->dishTypeId,
                     $data->name,
+                    $data->internalName,
                     $data->dietId,
                     $variants,
                 ),

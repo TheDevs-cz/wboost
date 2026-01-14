@@ -1,0 +1,94 @@
+{# Shared menu display partial - used by PDF, public page, and preview modal #}
+<div class="weekly-menu-display">
+    <div class="header">
+        <h1>{{ menu.name }}</h1>
+        <div class="dates">
+            Platnost: {{ menu.validFrom|date('d.m.Y') }} - {{ menu.validTo|date('d.m.Y') }}
+        </div>
+    </div>
+
+    <div class="menu-table-wrapper">
+    <table class="menu-table">
+        <thead>
+            <tr>
+                {% for day in menu.days %}
+                    <th class="day-column">
+                        {{ day.dayLabel }}
+                        {% if day.date %}
+                            <div class="date">{{ day.date|date('d.m.') }}</div>
+                        {% endif %}
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                {% for day in menu.days %}
+                    <td>
+                        {% if day.mealTypes|length > 0 %}
+                            {% for mealType in day.mealTypes %}
+                                <div class="meal-type-section">
+                                    <div class="meal-type-header meal-type-{{ mealType.mealType.value }}">
+                                        {{ mealType.mealType.label }}
+                                    </div>
+                                    {% if mealType.courses|length > 0 %}
+                                        {% for course in mealType.courses %}
+                                            <div class="course">
+                                                {% if mealType.courses|length > 1 %}
+                                                    <span class="course-label">Chod {{ loop.index }}:</span>
+                                                {% endif %}
+                                                {% for variant in course.variants %}
+                                                    <div class="variant">
+                                                        {% if variant.name %}
+                                                            <span class="variant-name">{{ variant.name }}:</span>
+                                                        {% elseif course.variants|length > 1 %}
+                                                            <span class="variant-name">V{{ loop.index }}:</span>
+                                                        {% endif %}
+                                                        {% for variantMeal in variant.meals %}
+                                                            <span class="meal-item">
+                                                                <span class="meal-name">{{ variantMeal.meal.name }}</span>
+                                                                {% if variantMeal.meal.diet %}
+                                                                    <span class="diet-codes">({{ variantMeal.meal.diet.codesLabel }})</span>
+                                                                {% endif %}
+                                                                {% if variantMeal.meal.hasVariants %}
+                                                                    {% for mealVariant in variantMeal.meal.variants %}
+                                                                        <span class="meal-variant">
+                                                                            <span class="meal-variant-name">{{ mealVariant.name }}</span>
+                                                                            <span class="diet-codes">({{ mealVariant.dietCodesLabel }})</span>
+                                                                        </span>
+                                                                    {% endfor %}
+                                                                {% endif %}
+                                                            </span>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-cell">-</div>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+    </div>
+
+    {% if showFooter|default(true) %}
+        <div class="footer">
+            <div class="footer-row">
+                <div class="footer-left">
+                    {% if menu.createdBy %}Vytvořil: {{ menu.createdBy }}{% endif %}
+                    {% if menu.createdBy and menu.approvedBy %} | {% endif %}
+                    {% if menu.approvedBy %}Schválil: {{ menu.approvedBy }}{% endif %}
+                </div>
+                <div class="footer-right">
+                    Vygenerováno: {{ "now"|date('d.m.Y H:i') }}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
