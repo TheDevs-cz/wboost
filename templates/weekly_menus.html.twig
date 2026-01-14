@@ -64,6 +64,11 @@
                                 <i class="mdi mdi-file-pdf-box"></i>
                             </a>
                             {% if is_granted('project_edit', project) %}
+                                <form action="{{ path('duplicate_weekly_menu', {'menuId': menu.id}) }}" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Duplikovat">
+                                        <i class="mdi mdi-content-copy"></i>
+                                    </button>
+                                </form>
                                 <form action="{{ path('delete_weekly_menu', {'menuId': menu.id}) }}" method="post" class="d-inline" onsubmit="return confirm('Opravdu chcete smazat tento jídelníček?');">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
                                         <i class="mdi mdi-delete"></i>
