@@ -4,30 +4,19 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Entity;
 
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
-use Doctrine\ORM\Mapping\OneToMany;
-use Doctrine\ORM\Mapping\OrderBy;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Value\WeeklyMenuMealType;
 
 #[Entity]
 class WeeklyMenuDay
 {
-    /** @var Collection<int, WeeklyMenuMeal> */
-    #[Immutable]
-    #[OneToMany(targetEntity: WeeklyMenuMeal::class, mappedBy: 'menuDay', fetch: 'EAGER', cascade: ['persist'])]
-    #[OrderBy(['sortOrder' => 'ASC'])]
-    private Collection $meals;
-
     public function __construct(
         #[Id]
         #[Immutable]
@@ -47,31 +36,6 @@ class WeeklyMenuDay
         #[Column(type: Types::DATE_IMMUTABLE, nullable: true)]
         public null|\DateTimeImmutable $date = null,
     ) {
-        $this->meals = new ArrayCollection();
-    }
-
-    public function addMeal(WeeklyMenuMeal $meal): void
-    {
-        $this->meals->add($meal);
-    }
-
-    /**
-     * @return array<WeeklyMenuMeal>
-     */
-    public function meals(): array
-    {
-        return $this->meals->toArray();
-    }
-
-    public function meal(WeeklyMenuMealType $type): null|WeeklyMenuMeal
-    {
-        foreach ($this->meals as $meal) {
-            if ($meal->type === $type) {
-                return $meal;
-            }
-        }
-
-        return null;
     }
 
     public function setDate(null|\DateTimeImmutable $date): void

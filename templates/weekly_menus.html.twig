@@ -45,17 +45,9 @@
                             </p>
                         </div>
                         <div class="card-footer bg-transparent border-top-0">
-                            <div class="btn-group btn-group-sm">
-                                <a href="{{ path('edit_weekly_menu', {'menuId': menu.id}) }}" class="btn btn-outline-primary">
-                                    <i class="mdi mdi-pencil"></i> Upravit
-                                </a>
-                                <a href="{{ path('duplicate_weekly_menu', {'menuId': menu.id}) }}" class="btn btn-outline-secondary">
-                                    <i class="mdi mdi-content-copy"></i> Duplikovat
-                                </a>
-                                <a href="{{ path('download_weekly_menu_pdf', {'menuId': menu.id}) }}" class="btn btn-outline-success" title="Stáhnout PDF">
-                                    <i class="mdi mdi-file-pdf-box"></i>
-                                </a>
-                            </div>
+                            <a href="{{ path('edit_weekly_menu', {'menuId': menu.id}) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="mdi mdi-pencil"></i> Upravit
+                            </a>
                             {% if is_granted('project_edit', project) %}
                                 <form action="{{ path('delete_weekly_menu', {'menuId': menu.id}) }}" method="post" class="d-inline" onsubmit="return confirm('Opravdu chcete smazat tento jídelníček?');">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
