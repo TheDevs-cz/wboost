@@ -8,6 +8,7 @@ use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetEmailSignatureTemplates;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Query\GetWeeklyMenus;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -21,6 +22,7 @@ final class ProjectDashboardController extends AbstractController
         readonly private GetFonts $getFonts,
         readonly private GetSocialNetworkTemplates $getSocialNetworkTemplates,
         readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
+        readonly private GetWeeklyMenus $getWeeklyMenus,
     ) {
     }
 
@@ -34,6 +36,7 @@ final class ProjectDashboardController extends AbstractController
             'fonts' => $this->getFonts->allForProject($project->id),
             'social_templates' => $this->getSocialNetworkTemplates->allForProject($project->id),
             'emails' => $this->getEmailSignatureTemplates->allForProject($project->id),
+            'weekly_menus' => $this->getWeeklyMenus->allForProject($project->id),
         ]);
     }
 }
