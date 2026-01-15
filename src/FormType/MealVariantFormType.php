@@ -15,7 +15,6 @@ use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use WBoost\Web\Entity\Diet;
-use WBoost\Web\Entity\Meal;
 use WBoost\Web\FormData\MealVariantFormData;
 
 /**
@@ -68,19 +67,8 @@ final class MealVariantFormType extends AbstractType
             ],
         ]);
 
-        /** @var array<Meal> $meals */
-        $meals = $options['meals'];
-        $mealChoices = [];
-        foreach ($meals as $meal) {
-            $mealChoices[$meal->internalName . ' - ' . $meal->name] = $meal->id->toString();
-        }
-
-        $builder->add('referenceMealId', ChoiceType::class, [
-            'label' => 'Vybrat jídlo',
+        $builder->add('referenceMealId', HiddenType::class, [
             'required' => false,
-            'placeholder' => '-- Vyberte jídlo --',
-            'choices' => $mealChoices,
-            'choice_value' => fn(?string $value) => $value,
             'getter' => fn(MealVariantFormData $data) => $data->referenceMealId?->toString(),
             'setter' => fn(MealVariantFormData $data, ?string $value) => $data->referenceMealId = $value !== null && $value !== '' ? Uuid::fromString($value) : null,
         ]);
@@ -153,7 +141,6 @@ final class MealVariantFormType extends AbstractType
             'data_class' => MealVariantFormData::class,
             'empty_data' => fn() => new MealVariantFormData(),
             'diets' => [],
-            'meals' => [],
         ]);
     }
 }

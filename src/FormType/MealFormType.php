@@ -118,7 +118,6 @@ final class MealFormType extends AbstractType
             'entry_options' => [
                 'label' => false,
                 'diets' => $diets,
-                'meals' => $options['meals'],
             ],
             'allow_add' => true,
             'allow_delete' => true,
@@ -134,7 +133,6 @@ final class MealFormType extends AbstractType
             'data_class' => MealFormData::class,
             'dish_types' => [],
             'diets' => [],
-            'meals' => [],
         ]);
     }
 }

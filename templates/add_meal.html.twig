@@ -15,12 +15,106 @@
     </ol>
 {% endblock %}
 
-{% macro variant_fields(variant) %}
+{% macro variant_fields(variant, meals, diets) %}
+    {% set mealTypes = ['breakfast', 'lunch', 'snack', 'dinner', 'late_dinner'] %}
+    {% set mealTypeLabels = {'breakfast': 'Snídaně', 'lunch': 'Oběd', 'snack': 'Svačina', 'dinner': 'Večeře', 'late_dinner': 'Druhá večeře'} %}
+
     {{ form_widget(variant.id) }}
     {{ form_row(variant.mode) }}
 
     <div data-meal-variant-mode-target="referenceWrapper">
-        {{ form_row(variant.referenceMealId) }}
+        <label class="form-label">Vybrat jídlo</label>
+
+        <div data-controller="reference-meal-selector">
+            {{ form_widget(variant.referenceMealId, {'attr': {'data-reference-meal-selector-target': 'hiddenInput'}}) }}
+
+            {# Selected meal preview area #}
+            <div class="reference-meal-preview mb-3">
+                <div class="reference-meal-selected" data-reference-meal-selector-target="selectedPreview">
+                    {# Will be populated by JS when a meal is selected #}
+                </div>
+                <div class="reference-meal-empty text-muted p-3 border rounded bg-light" data-reference-meal-selector-target="emptyPreview">
+                    <i class="mdi mdi-information-outline"></i> Vyberte jídlo ze seznamu níže
+                </div>
+            </div>
+
+            {# Clear selection button #}
+            <button type="button" class="btn btn-sm btn-outline-secondary mb-2 d-none" data-action="reference-meal-selector#clearSelection" data-reference-meal-selector-target="clearButton">
+                <i class="mdi mdi-close"></i> Zrušit výběr
+            </button>
+
+            {% if meals|length > 0 %}
+                {# Filters #}
+                <div class="row mb-2 g-2">
+                    <div class="col-md-6">
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               placeholder="Hledat jídlo..."
+                               data-reference-meal-selector-target="searchInput"
+                               data-action="input->reference-meal-selector#filter">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm"
+                                data-reference-meal-selector-target="mealTypeFilter"
+                                data-action="change->reference-meal-selector#filter">
+                            <option value="">Všechny typy</option>
+                            {% for typeValue, typeLabel in mealTypeLabels %}
+                                <option value="{{ typeValue }}">{{ typeLabel }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm"
+                                data-reference-meal-selector-target="dietFilter"
+                                data-action="change->reference-meal-selector#filter">
+                            <option value="">Všechny diety</option>
+                            {% for diet in diets %}
+                                <option value="{{ diet.id }}">{{ diet.name }} ({{ diet.codesLabel }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                {# Scrollable meal grid #}
+                <div class="reference-meal-grid-container">
+                    <div class="meal-selector-grid">
+                        {% for meal in meals %}
+                            <div class="meal-selector-item"
+                                 data-reference-meal-selector-target="mealCard"
+                                 data-meal-type="{{ meal.mealType.value }}"
+                                 data-diet-id="{{ meal.diet ? meal.diet.id : '' }}"
+                                 data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dishType.name|lower }} {{ meal.dietCodesLabel|lower }}"
+                                 data-meal-id="{{ meal.id }}"
+                                 data-action="click->reference-meal-selector#selectMeal"
+                                 style="border-left: 3px solid {{ meal.mealType.cssColor }};">
+                                <div class="meal-selector-header">
+                                    <span class="meal-selector-name">{{ meal.internalName }}</span>
+                                    <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">{{ meal.mealType.label|slice(0,2)|upper }}</span>
+                                </div>
+                                <div class="meal-selector-meta">
+                                    {{ meal.dishType.name }}{% if meal.diet %} · <span class="meal-selector-diet">{{ meal.dietCodesLabel }}</span>{% endif %}
+                                </div>
+                                {% if meal.hasVariants %}
+                                    <div class="meal-selector-variants">
+                                        {% for mealVariant in meal.variants %}
+                                            <span class="meal-selector-variant">{{ mealVariant.displayName }}{% if mealVariant.dietCodesLabel %} ({{ mealVariant.dietCodesLabel }}){% endif %}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="alert alert-warning d-none mt-2" data-reference-meal-selector-target="noResults">
+                    Žádná jídla neodpovídají zadaným filtrům.
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    Zatím nebyla vytvořena žádná jídla k odkázání.
+                </div>
+            {% endif %}
+        </div>
     </div>
 
     <div data-meal-variant-mode-target="manualWrapper">
@@ -80,14 +174,14 @@
             <p class="text-muted small">Můžete přidat různé dietní varianty tohoto jídla, např. bezlepkovou nebo vegetariánskou verzi. Variantu lze zadat ručně nebo odkázat na jiné existující jídlo.</p>
 
             <div data-controller="collection"
-                 data-collection-prototype-value="{{ _self.variant_fields(form.variants.vars.prototype)|e('html_attr') }}"
+                 data-collection-prototype-value="{{ _self.variant_fields(form.variants.vars.prototype, meals, diets)|e('html_attr') }}"
                  data-collection-index-value="{{ form.variants|length }}"
                  data-collection-max-items-value="4">
 
                 <div data-collection-target="container">
                     {% for variant in form.variants %}
                         <div class="variant-item mb-3 p-3 border rounded bg-light" data-controller="meal-variant-mode">
-                            {{ _self.variant_fields(variant) }}
+                            {{ _self.variant_fields(variant, meals, diets) }}
                             <button type="button" class="btn btn-sm btn-outline-danger mt-2" data-action="collection#removeExisting">
                                 <i class="mdi mdi-delete"></i> Odebrat variantu
                             </button>

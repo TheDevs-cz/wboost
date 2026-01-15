@@ -81,7 +81,6 @@ final class EditMealController extends AbstractController
         $form = $this->createForm(MealFormType::class, $data, [
             'dish_types' => $dishTypes,
             'diets' => $diets,
-            'meals' => $meals,
         ]);
         $form->handleRequest($request);
 
@@ -128,6 +127,8 @@ final class EditMealController extends AbstractController
             'form' => $form,
             'meal' => $meal,
             'project' => $meal->project,
+            'meals' => $meals,
+            'diets' => $diets,
         ]);
     }
 }

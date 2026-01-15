@@ -47,7 +47,6 @@ final class AddMealController extends AbstractController
         $form = $this->createForm(MealFormType::class, $data, [
             'dish_types' => $dishTypes,
             'diets' => $diets,
-            'meals' => $meals,
         ]);
         $form->handleRequest($request);
 
@@ -99,6 +98,8 @@ final class AddMealController extends AbstractController
         return $this->render('add_meal.html.twig', [
             'form' => $form,
             'project' => $project,
+            'meals' => $meals,
+            'diets' => $diets,
         ]);
     }
 }

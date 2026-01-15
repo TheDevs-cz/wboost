@@ -385,3 +385,54 @@
     color: #555;
     line-height: 1.3;
 }
+
+/* Reference Meal Selector (in form) */
+.reference-meal-grid-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    background: #fafafa;
+}
+
+.reference-meal-preview {
+    min-height: 50px;
+}
+
+.reference-meal-selected .meal-selector-item {
+    cursor: default;
+    background: #e8f4fd;
+    border-color: #727cf5;
+}
+
+.reference-meal-selected .meal-selector-item:hover {
+    background: #e8f4fd;
+    box-shadow: none;
+}
+
+.reference-meal-empty {
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+/* Selected state for meal cards */
+.meal-selector-item.selected {
+    background: #e8f4fd;
+    border-color: #727cf5;
+    box-shadow: 0 0 0 2px rgba(114, 124, 245, 0.3);
+}
+
+.meal-selector-item.selected::before {
+    content: '\2713';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 0.65rem;
+    color: #727cf5;
+    font-weight: bold;
+}
+
+.meal-selector-item {
+    position: relative;
+}
