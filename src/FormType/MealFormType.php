@@ -9,6 +9,7 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
+use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -80,11 +81,44 @@ final class MealFormType extends AbstractType
             'setter' => fn(MealFormData $data, ?string $value) => $data->dietId = $value !== null && $value !== '' ? Uuid::fromString($value) : null,
         ]);
 
+        $builder->add('energyValue', NumberType::class, [
+            'label' => 'Energetická hodnota (kJ)',
+            'required' => false,
+            'scale' => 2,
+            'html5' => true,
+            'attr' => ['step' => '0.01', 'min' => '0'],
+        ]);
+
+        $builder->add('fats', NumberType::class, [
+            'label' => 'Tuky (g)',
+            'required' => false,
+            'scale' => 2,
+            'html5' => true,
+            'attr' => ['step' => '0.01', 'min' => '0'],
+        ]);
+
+        $builder->add('carbohydrates', NumberType::class, [
+            'label' => 'Sacharidy (g)',
+            'required' => false,
+            'scale' => 2,
+            'html5' => true,
+            'attr' => ['step' => '0.01', 'min' => '0'],
+        ]);
+
+        $builder->add('proteins', NumberType::class, [
+            'label' => 'Bílkoviny (g)',
+            'required' => false,
+            'scale' => 2,
+            'html5' => true,
+            'attr' => ['step' => '0.01', 'min' => '0'],
+        ]);
+
         $builder->add('variants', CollectionType::class, [
             'entry_type' => MealVariantFormType::class,
             'entry_options' => [
                 'label' => false,
                 'diets' => $diets,
+                'meals' => $options['meals'],
             ],
             'allow_add' => true,
             'allow_delete' => true,
@@ -100,6 +134,7 @@ final class MealFormType extends AbstractType
             'data_class' => MealFormData::class,
             'dish_types' => [],
             'diets' => [],
+            'meals' => [],
         ]);
     }
 }

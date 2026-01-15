@@ -10,7 +10,17 @@ use WBoost\Web\Value\WeeklyMenuMealType;
 readonly final class EditMeal
 {
     /**
-     * @param array<array{id: UuidInterface, name: string, dietId: UuidInterface}> $variants
+     * @param array<array{
+     *     id: UuidInterface,
+     *     mode: string,
+     *     name: string,
+     *     dietId: UuidInterface|null,
+     *     referenceMealId: UuidInterface|null,
+     *     energyValue: string|null,
+     *     fats: string|null,
+     *     carbohydrates: string|null,
+     *     proteins: string|null
+     * }> $variants
      */
     public function __construct(
         public UuidInterface $mealId,
@@ -19,6 +29,10 @@ readonly final class EditMeal
         public string $name,
         public string $internalName,
         public null|UuidInterface $dietId = null,
+        public null|string $energyValue = null,
+        public null|string $fats = null,
+        public null|string $carbohydrates = null,
+        public null|string $proteins = null,
         public array $variants = [],
     ) {
     }

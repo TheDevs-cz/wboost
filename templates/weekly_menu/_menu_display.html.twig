@@ -53,7 +53,7 @@
                                                                 {% if variantMeal.meal.hasVariants %}
                                                                     {% for mealVariant in variantMeal.meal.variants %}
                                                                         <span class="meal-variant">
-                                                                            <span class="meal-variant-name">{{ mealVariant.name }}</span>
+                                                                            <span class="meal-variant-name">{{ mealVariant.displayName }}</span>
                                                                             <span class="diet-codes">({{ mealVariant.dietCodesLabel }})</span>
                                                                         </span>
                                                                     {% endfor %}

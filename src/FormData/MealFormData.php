@@ -11,6 +11,7 @@ use Symfony\Component\Validator\Constraints\Count;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
+use Symfony\Component\Validator\Constraints\PositiveOrZero;
 use Symfony\Component\Validator\Constraints\Valid;
 use WBoost\Web\Value\WeeklyMenuMealType;
 
@@ -31,6 +32,18 @@ final class MealFormData
     public null|UuidInterface $dishTypeId = null;
 
     public null|UuidInterface $dietId = null;
+
+    #[PositiveOrZero]
+    public null|string $energyValue = null;
+
+    #[PositiveOrZero]
+    public null|string $fats = null;
+
+    #[PositiveOrZero]
+    public null|string $carbohydrates = null;
+
+    #[PositiveOrZero]
+    public null|string $proteins = null;
 
     /**
      * @var Collection<int, MealVariantFormData>

@@ -9,6 +9,7 @@ use WBoost\Web\Entity\MealVariant;
 use WBoost\Web\Exceptions\DietNotFound;
 use WBoost\Web\Exceptions\DishTypeNotFound;
 use WBoost\Web\Exceptions\MealNotFound;
+use WBoost\Web\FormData\MealVariantFormData;
 use WBoost\Web\Message\Meal\EditMeal;
 use WBoost\Web\Repository\DietRepository;
 use WBoost\Web\Repository\DishTypeRepository;
@@ -41,12 +42,10 @@ readonly final class EditMealHandler
             $message->name,
             $message->internalName,
             $diet,
-        );
-
-        // Get existing variant IDs
-        $existingVariantIds = array_map(
-            fn(MealVariant $v) => $v->id->toString(),
-            $meal->variants(),
+            $message->energyValue,
+            $message->fats,
+            $message->carbohydrates,
+            $message->proteins,
         );
 
         // Get new variant IDs from message
@@ -65,7 +64,17 @@ readonly final class EditMealHandler
         // Add or update variants
         $position = 0;
         foreach ($message->variants as $variantData) {
-            $variantDiet = $this->dietRepository->get($variantData['dietId']);
+            $isManual = $variantData['mode'] === MealVariantFormData::MODE_MANUAL;
+
+            $variantDiet = null;
+            if ($isManual && $variantData['dietId'] !== null) {
+                $variantDiet = $this->dietRepository->get($variantData['dietId']);
+            }
+
+            $referenceMeal = null;
+            if (!$isManual && $variantData['referenceMealId'] !== null) {
+                $referenceMeal = $this->mealRepository->get($variantData['referenceMealId']);
+            }
 
             // Check if variant already exists
             $existingVariant = null;
@@ -77,15 +86,32 @@ readonly final class EditMealHandler
             }
 
             if ($existingVariant !== null) {
-                $existingVariant->edit($variantData['name'], $variantDiet);
+                if (!$isManual && $referenceMeal !== null) {
+                    $existingVariant->editReference($referenceMeal);
+                } else {
+                    assert($variantDiet !== null);
+                    $existingVariant->editManual(
+                        $variantData['name'],
+                        $variantDiet,
+                        $variantData['energyValue'],
+                        $variantData['fats'],
+                        $variantData['carbohydrates'],
+                        $variantData['proteins'],
+                    );
+                }
                 $existingVariant->sort($position++);
             } else {
                 $variant = new MealVariant(
                     $variantData['id'],
                     $meal,
-                    $variantData['name'],
+                    $isManual ? $variantData['name'] : null,
                     $variantDiet,
                     $position++,
+                    $referenceMeal,
+                    $isManual ? $variantData['energyValue'] : null,
+                    $isManual ? $variantData['fats'] : null,
+                    $isManual ? $variantData['carbohydrates'] : null,
+                    $isManual ? $variantData['proteins'] : null,
                 );
                 $meal->addVariant($variant);
             }

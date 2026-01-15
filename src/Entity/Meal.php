@@ -6,6 +6,7 @@ namespace WBoost\Web\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
@@ -59,6 +60,22 @@ class Meal
         #[ManyToOne]
         #[JoinColumn(nullable: true, onDelete: 'SET NULL')]
         public null|Diet $diet = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+        public null|string $energyValue = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+        public null|string $fats = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+        public null|string $carbohydrates = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::DECIMAL, precision: 10, scale: 2, nullable: true)]
+        public null|string $proteins = null,
     ) {
         $this->variants = new ArrayCollection();
     }
@@ -69,12 +86,20 @@ class Meal
         string $name,
         string $internalName,
         null|Diet $diet,
+        null|string $energyValue,
+        null|string $fats,
+        null|string $carbohydrates,
+        null|string $proteins,
     ): void {
         $this->mealType = $mealType;
         $this->dishType = $dishType;
         $this->name = $name;
         $this->internalName = $internalName;
         $this->diet = $diet;
+        $this->energyValue = $energyValue;
+        $this->fats = $fats;
+        $this->carbohydrates = $carbohydrates;
+        $this->proteins = $proteins;
     }
 
     public function addVariant(MealVariant $variant): void

@@ -17,6 +17,7 @@ use WBoost\Web\FormType\MealFormType;
 use WBoost\Web\Message\Meal\AddMeal;
 use WBoost\Web\Query\GetDiets;
 use WBoost\Web\Query\GetDishTypes;
+use WBoost\Web\Query\GetMeals;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
 
@@ -27,6 +28,7 @@ final class AddMealController extends AbstractController
         readonly private ProvideIdentity $provideIdentity,
         readonly private GetDishTypes $getDishTypes,
         readonly private GetDiets $getDiets,
+        readonly private GetMeals $getMeals,
     ) {
     }
 
@@ -40,10 +42,12 @@ final class AddMealController extends AbstractController
         $data = new MealFormData();
         $dishTypes = $this->getDishTypes->allForProject($project->id);
         $diets = $this->getDiets->allForProject($project->id);
+        $meals = $this->getMeals->allForProject($project->id);
 
         $form = $this->createForm(MealFormType::class, $data, [
             'dish_types' => $dishTypes,
             'diets' => $diets,
+            'meals' => $meals,
         ]);
         $form->handleRequest($request);
 
@@ -55,11 +59,16 @@ final class AddMealController extends AbstractController
 
             $variants = [];
             foreach ($data->variants as $variantData) {
-                assert($variantData->dietId !== null);
                 $variants[] = [
                     'id' => $variantData->id ?? $this->provideIdentity->next(),
+                    'mode' => $variantData->mode,
                     'name' => $variantData->name,
                     'dietId' => $variantData->dietId,
+                    'referenceMealId' => $variantData->referenceMealId,
+                    'energyValue' => $variantData->energyValue,
+                    'fats' => $variantData->fats,
+                    'carbohydrates' => $variantData->carbohydrates,
+                    'proteins' => $variantData->proteins,
                 ];
             }
 
@@ -72,6 +81,10 @@ final class AddMealController extends AbstractController
                     $data->name,
                     $data->internalName,
                     $data->dietId,
+                    $data->energyValue,
+                    $data->fats,
+                    $data->carbohydrates,
+                    $data->proteins,
                     $variants,
                 ),
             );

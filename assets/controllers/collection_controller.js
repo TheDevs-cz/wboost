@@ -23,6 +23,7 @@ export default class extends Controller {
         const prototype = this.prototypeValue.replace(/__name__/g, this.indexValue);
         const div = document.createElement('div');
         div.classList.add('variant-item', 'mb-3', 'p-3', 'border', 'rounded', 'bg-light');
+        div.setAttribute('data-controller', 'meal-variant-mode');
         div.innerHTML = prototype;
 
         // Add remove button

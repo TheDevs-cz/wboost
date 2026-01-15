@@ -90,8 +90,8 @@
                                         {% if meal.hasVariants %}
                                             <div class="d-flex flex-wrap gap-1">
                                                 {% for variant in meal.variants %}
-                                                    <span class="badge bg-dark" title="{{ variant.diet.name }}">
-                                                        {{ variant.name }}
+                                                    <span class="badge bg-dark" title="{{ variant.effectiveDiet.name }}{% if variant.referenceMode %} (odkaz na jiné jídlo){% endif %}">
+                                                        {% if variant.referenceMode %}<i class="mdi mdi-link-variant"></i> {% endif %}{{ variant.displayName }}
                                                         <span class="opacity-75">({{ variant.dietCodesLabel }})</span>
                                                     </span>
                                                 {% endfor %}

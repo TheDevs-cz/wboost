@@ -18,6 +18,7 @@ use WBoost\Web\FormType\MealFormType;
 use WBoost\Web\Message\Meal\EditMeal;
 use WBoost\Web\Query\GetDiets;
 use WBoost\Web\Query\GetDishTypes;
+use WBoost\Web\Query\GetMeals;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\MealVoter;
 
@@ -27,6 +28,7 @@ final class EditMealController extends AbstractController
         readonly private MessageBusInterface $bus,
         readonly private GetDishTypes $getDishTypes,
         readonly private GetDiets $getDiets,
+        readonly private GetMeals $getMeals,
         readonly private ProvideIdentity $provideIdentity,
     ) {
     }
@@ -44,33 +46,58 @@ final class EditMealController extends AbstractController
         $data->mealType = $meal->mealType;
         $data->dishTypeId = $meal->dishType->id;
         $data->dietId = $meal->diet?->id;
+        $data->energyValue = $meal->energyValue;
+        $data->fats = $meal->fats;
+        $data->carbohydrates = $meal->carbohydrates;
+        $data->proteins = $meal->proteins;
 
         // Populate existing variants
         foreach ($meal->variants() as $variant) {
             $variantData = new MealVariantFormData();
             $variantData->id = $variant->id;
-            $variantData->name = $variant->name;
-            $variantData->dietId = $variant->diet->id;
+
+            if ($variant->isReferenceMode()) {
+                $variantData->mode = MealVariantFormData::MODE_REFERENCE;
+                $variantData->referenceMealId = $variant->referenceMeal?->id;
+            } else {
+                $variantData->mode = MealVariantFormData::MODE_MANUAL;
+                $variantData->dietId = $variant->diet?->id;
+                $variantData->name = $variant->name ?? '';
+                $variantData->energyValue = $variant->energyValue;
+                $variantData->fats = $variant->fats;
+                $variantData->carbohydrates = $variant->carbohydrates;
+                $variantData->proteins = $variant->proteins;
+            }
+
             $data->variants->add($variantData);
         }
 
         $dishTypes = $this->getDishTypes->allForProject($meal->project->id);
         $diets = $this->getDiets->allForProject($meal->project->id);
+        $allMeals = $this->getMeals->allForProject($meal->project->id);
+        // Filter out current meal (can't reference itself)
+        $meals = array_filter($allMeals, fn(Meal $m) => !$m->id->equals($meal->id));
 
         $form = $this->createForm(MealFormType::class, $data, [
             'dish_types' => $dishTypes,
             'diets' => $diets,
+            'meals' => $meals,
         ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $variants = [];
             foreach ($data->variants as $variantData) {
-                assert($variantData->dietId !== null);
                 $variants[] = [
                     'id' => $variantData->id ?? $this->provideIdentity->next(),
+                    'mode' => $variantData->mode,
                     'name' => $variantData->name,
                     'dietId' => $variantData->dietId,
+                    'referenceMealId' => $variantData->referenceMealId,
+                    'energyValue' => $variantData->energyValue,
+                    'fats' => $variantData->fats,
+                    'carbohydrates' => $variantData->carbohydrates,
+                    'proteins' => $variantData->proteins,
                 ];
             }
 
@@ -82,6 +109,10 @@ final class EditMealController extends AbstractController
                     $data->name,
                     $data->internalName,
                     $data->dietId,
+                    $data->energyValue,
+                    $data->fats,
+                    $data->carbohydrates,
+                    $data->proteins,
                     $variants,
                 ),
             );

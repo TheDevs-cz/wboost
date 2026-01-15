@@ -15,6 +15,36 @@
     </ol>
 {% endblock %}
 
+{% macro variant_fields(variant) %}
+    {{ form_widget(variant.id) }}
+    {{ form_row(variant.mode) }}
+
+    <div data-meal-variant-mode-target="referenceWrapper">
+        {{ form_row(variant.referenceMealId) }}
+    </div>
+
+    <div data-meal-variant-mode-target="manualWrapper">
+        {{ form_row(variant.name) }}
+        {{ form_row(variant.dietId) }}
+
+        <label class="form-label mt-2">Nutriční hodnoty</label>
+        <div class="row">
+            <div class="col-md-3">
+                {{ form_row(variant.energyValue) }}
+            </div>
+            <div class="col-md-3">
+                {{ form_row(variant.fats) }}
+            </div>
+            <div class="col-md-3">
+                {{ form_row(variant.carbohydrates) }}
+            </div>
+            <div class="col-md-3">
+                {{ form_row(variant.proteins) }}
+            </div>
+        </div>
+    </div>
+{% endmacro %}
+
 {% block content %}
     <div class="card">
         <div class="card-body">
@@ -27,18 +57,37 @@
             {{ form_row(form.dietId) }}
 
             <hr>
+            <h5>Nutriční hodnoty (volitelné)</h5>
+            <p class="text-muted small">Zadejte nutriční hodnoty pro toto jídlo.</p>
+
+            <div class="row">
+                <div class="col-md-3">
+                    {{ form_row(form.energyValue) }}
+                </div>
+                <div class="col-md-3">
+                    {{ form_row(form.fats) }}
+                </div>
+                <div class="col-md-3">
+                    {{ form_row(form.carbohydrates) }}
+                </div>
+                <div class="col-md-3">
+                    {{ form_row(form.proteins) }}
+                </div>
+            </div>
+
+            <hr>
             <h5>Dietní varianty (volitelné, max. 4)</h5>
-            <p class="text-muted small">Můžete přidat různé dietní varianty tohoto jídla, např. bezlepkovou nebo vegetariánskou verzi.</p>
+            <p class="text-muted small">Můžete přidat různé dietní varianty tohoto jídla, např. bezlepkovou nebo vegetariánskou verzi. Variantu lze zadat ručně nebo odkázat na jiné existující jídlo.</p>
 
             <div data-controller="collection"
-                 data-collection-prototype-value="{{ form_widget(form.variants.vars.prototype)|e('html_attr') }}"
+                 data-collection-prototype-value="{{ _self.variant_fields(form.variants.vars.prototype)|e('html_attr') }}"
                  data-collection-index-value="{{ form.variants|length }}"
                  data-collection-max-items-value="4">
 
                 <div data-collection-target="container">
                     {% for variant in form.variants %}
-                        <div class="variant-item mb-3 p-3 border rounded bg-light">
-                            {{ form_widget(variant) }}
+                        <div class="variant-item mb-3 p-3 border rounded bg-light" data-controller="meal-variant-mode">
+                            {{ _self.variant_fields(variant) }}
                             <button type="button" class="btn btn-sm btn-outline-danger mt-2" data-action="collection#removeExisting">
                                 <i class="mdi mdi-delete"></i> Odebrat variantu
                             </button>

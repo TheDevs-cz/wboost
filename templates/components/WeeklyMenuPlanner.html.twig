@@ -158,7 +158,7 @@
                                                                                         <div class="mt-1 pt-1 border-top" style="border-color: {{ variantMeal.meal.mealType.cssColor }} !important;">
                                                                                             {% for mealVariant in variantMeal.meal.variants %}
                                                                                                 <span class="badge bg-white text-dark border me-1 mb-1" style="font-size: 0.6rem;">
-                                                                                                    {{ mealVariant.name }} ({{ mealVariant.dietCodesLabel }})
+                                                                                                    {{ mealVariant.displayName }} ({{ mealVariant.dietCodesLabel }})
                                                                                                 </span>
                                                                                             {% endfor %}
                                                                                         </div>
@@ -268,7 +268,7 @@
                                                 <div class="d-flex flex-wrap gap-1">
                                                     {% for variant in meal.variants %}
                                                         <span class="badge bg-light text-dark border" style="font-size: 0.65rem;">
-                                                            {{ variant.name }} ({{ variant.dietCodesLabel }})
+                                                            {{ variant.displayName }} ({{ variant.dietCodesLabel }})
                                                         </span>
                                                     {% endfor %}
                                                 </div>
