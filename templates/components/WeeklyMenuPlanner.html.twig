@@ -237,46 +237,73 @@
                     <input type="hidden" data-meal-selector-target="variantId" value="">
 
                     {% set allMeals = this.meals %}
+                    {% set allDiets = this.diets %}
+                    {% set allMealTypes = this.availableMealTypes %}
                     {% if allMeals|length == 0 %}
                         <div class="alert alert-info">
                             Zatím nebyla vytvořena žádná jídla. <a href="{{ path('meals', {'projectId': menu.project.id}) }}">Vytvořte je zde.</a>
                         </div>
                     {% else %}
-                        <div class="row">
-                            {% for meal in allMeals %}
-                                <div class="col-sm-6 col-md-4 col-lg-3 mb-2">
-                                    <div class="meal-card shadow p-3 rounded"
-                                         data-meal-id="{{ meal.id }}"
-                                         data-action="click->meal-selector#selectMeal">
-                                        <div class="d-flex justify-content-between align-items-start mb-1">
-                                            <strong class="me-2">{{ meal.internalName }}</strong>
-                                            <span class="badge flex-shrink-0" style="background-color: {{ meal.mealType.cssColor }}; color: #fff;">
-                                                {{ meal.mealType.label }}
-                                            </span>
-                                        </div>
-                                        <div class="text-muted small">
-                                            {{ meal.dishType.name }}
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-2 mb-md-0">
+                                <input type="text"
+                                       class="form-control"
+                                       placeholder="Hledat jídlo..."
+                                       data-meal-selector-target="searchInput"
+                                       data-action="input->meal-selector#filter">
+                            </div>
+                            <div class="col-md-3 mb-2 mb-md-0">
+                                <select class="form-select"
+                                        data-meal-selector-target="mealTypeFilter"
+                                        data-action="change->meal-selector#filter">
+                                    <option value="">Všechny typy jídel</option>
+                                    {% for mealType in allMealTypes %}
+                                        <option value="{{ mealType.value }}">{{ mealType.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select"
+                                        data-meal-selector-target="dietFilter"
+                                        data-action="change->meal-selector#filter">
+                                    <option value="">Všechny diety</option>
+                                    {% for diet in allDiets %}
+                                        <option value="{{ diet.id }}">{{ diet.name }} ({{ diet.codesLabel }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
 
-                                            {% if meal.diet %}
-                                                <span class="badge bg-light text-dark border" style="font-size: 0.7rem;">
-                                                    {{ meal.dietCodesLabel }}
-                                                </span>
-                                            {% endif %}
-                                        </div>
-                                        {% if meal.hasVariants %}
-                                            <div class="mt-2 pt-2 border-top">
-                                                <div class="d-flex flex-wrap gap-1">
-                                                    {% for variant in meal.variants %}
-                                                        <span class="badge bg-light text-dark border" style="font-size: 0.65rem;">
-                                                            {{ variant.displayName }} ({{ variant.dietCodesLabel }})
-                                                        </span>
-                                                    {% endfor %}
-                                                </div>
-                                            </div>
-                                        {% endif %}
+                        <div class="meal-selector-grid" data-meal-selector-target="mealsContainer">
+                            {% for meal in allMeals %}
+                                <div class="meal-selector-item"
+                                     data-meal-selector-target="mealCard"
+                                     data-meal-type="{{ meal.mealType.value }}"
+                                     data-diet-id="{{ meal.diet ? meal.diet.id : '' }}"
+                                     data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dishType.name|lower }} {{ meal.dietCodesLabel|lower }}"
+                                     data-meal-id="{{ meal.id }}"
+                                     data-action="click->meal-selector#selectMeal"
+                                     style="border-left: 3px solid {{ meal.mealType.cssColor }};">
+                                    <div class="meal-selector-header">
+                                        <span class="meal-selector-name">{{ meal.internalName }}</span>
+                                        <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">{{ meal.mealType.label|slice(0,2)|upper }}</span>
                                     </div>
+                                    <div class="meal-selector-meta">
+                                        {{ meal.dishType.name }}{% if meal.diet %} · <span class="meal-selector-diet">{{ meal.dietCodesLabel }}</span>{% endif %}
+                                    </div>
+                                    {% if meal.hasVariants %}
+                                        <div class="meal-selector-variants">
+                                            {% for variant in meal.variants %}
+                                                <span class="meal-selector-variant">{{ variant.displayName }}{% if variant.dietCodesLabel %} ({{ variant.dietCodesLabel }}){% endif %}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                 </div>
                             {% endfor %}
+                        </div>
+
+                        <div class="alert alert-warning d-none" data-meal-selector-target="noResults">
+                            Žádná jídla neodpovídají zadaným filtrům.
                         </div>
                     {% endif %}
                 </div>

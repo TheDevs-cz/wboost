@@ -27,6 +27,7 @@ use WBoost\Web\Message\WeeklyMenuPlanner\RemoveMealFromVariant;
 use WBoost\Web\Message\WeeklyMenuPlanner\ReorderCourses;
 use WBoost\Web\Message\WeeklyMenuPlanner\ReorderMeals;
 use WBoost\Web\Message\WeeklyMenuPlanner\ReorderVariants;
+use WBoost\Web\Query\GetDiets;
 use WBoost\Web\Query\GetMeals;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Value\WeeklyMenuMealType;
@@ -47,6 +48,7 @@ final class WeeklyMenuPlannerComponent extends AbstractController
         readonly private ProvideIdentity $provideIdentity,
         readonly private EntityManagerInterface $entityManager,
         readonly private GetMeals $getMeals,
+        readonly private GetDiets $getDiets,
     ) {
     }
 
@@ -273,6 +275,16 @@ final class WeeklyMenuPlannerComponent extends AbstractController
         assert($this->menu !== null);
 
         return $this->getMeals->allForProject($this->menu->project->id);
+    }
+
+    /**
+     * @return array<\WBoost\Web\Entity\Diet>
+     */
+    public function getDiets(): array
+    {
+        assert($this->menu !== null);
+
+        return $this->getDiets->allForProject($this->menu->project->id);
     }
 
     /**
