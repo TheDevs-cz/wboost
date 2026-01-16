@@ -29,7 +29,7 @@ export default class extends Controller {
         // Add remove button
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.classList.add('btn', 'btn-sm', 'btn-outline-danger', 'mt-2');
+        removeBtn.classList.add('btn', 'btn-sm', 'btn-danger', 'mt-2');
         removeBtn.innerHTML = '<i class="mdi mdi-delete"></i> Odebrat variantu';
         removeBtn.addEventListener('click', () => this.remove(div));
         div.appendChild(removeBtn);

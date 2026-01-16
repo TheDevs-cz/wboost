@@ -20,29 +20,31 @@
     {% set mealTypeLabels = {'breakfast': 'Snídaně', 'lunch': 'Oběd', 'snack': 'Svačina', 'dinner': 'Večeře', 'late_dinner': 'Druhá večeře'} %}
 
     {{ form_widget(variant.id) }}
-    {{ form_row(variant.mode) }}
+    <div data-controller="reference-meal-selector">
+        {{ form_widget(variant.referenceMealId, {'attr': {'data-reference-meal-selector-target': 'hiddenInput'}}) }}
 
-    <div data-meal-variant-mode-target="referenceWrapper">
-        <label class="form-label">Vybrat jídlo</label>
-
-        <div data-controller="reference-meal-selector">
-            {{ form_widget(variant.referenceMealId, {'attr': {'data-reference-meal-selector-target': 'hiddenInput'}}) }}
-
-            {# Selected meal preview area #}
-            <div class="reference-meal-preview mb-3">
-                <div class="reference-meal-selected" data-reference-meal-selector-target="selectedPreview">
-                    {# Will be populated by JS when a meal is selected #}
-                </div>
-                <div class="reference-meal-empty text-muted p-3 border rounded bg-light" data-reference-meal-selector-target="emptyPreview">
-                    <i class="mdi mdi-information-outline"></i> Vyberte jídlo ze seznamu níže
-                </div>
+        <div class="row">
+            <div class="col-md-6">
+                {{ form_row(variant.mode) }}
             </div>
+            <div class="col-md-6" data-meal-variant-mode-target="referenceWrapper">
+                {# Selected meal preview area #}
+                <div class="reference-meal-preview mb-3">
+                    <div class="reference-meal-selected" data-reference-meal-selector-target="selectedPreview">
+                        {# Will be populated by JS when a meal is selected #}
+                    </div>
+                    <div class="reference-meal-empty text-muted p-3 border rounded bg-light" data-reference-meal-selector-target="emptyPreview">
+                        <i class="mdi mdi-information-outline"></i> Vyberte jídlo ze seznamu níže
+                    </div>
+                </div>
+                {# Clear selection button #}
+                <button type="button" class="btn btn-sm btn-outline-secondary mb-2 d-none" data-action="reference-meal-selector#clearSelection" data-reference-meal-selector-target="clearButton">
+                    <i class="mdi mdi-close"></i> Zrušit výběr
+                </button>
+            </div>
+        </div>
 
-            {# Clear selection button #}
-            <button type="button" class="btn btn-sm btn-outline-secondary mb-2 d-none" data-action="reference-meal-selector#clearSelection" data-reference-meal-selector-target="clearButton">
-                <i class="mdi mdi-close"></i> Zrušit výběr
-            </button>
-
+        <div data-meal-variant-mode-target="referenceWrapper">
             {% if meals|length > 0 %}
                 {# Filters #}
                 <div class="row mb-2 g-2">
@@ -118,8 +120,14 @@
     </div>
 
     <div data-meal-variant-mode-target="manualWrapper">
-        {{ form_row(variant.name) }}
-        {{ form_row(variant.dietId) }}
+        <div class="row">
+            <div class="col-md-6">
+                {{ form_row(variant.name) }}
+            </div>
+            <div class="col-md-6">
+                {{ form_row(variant.dietId) }}
+            </div>
+        </div>
 
         <label class="form-label mt-2">Nutriční hodnoty</label>
         <div class="row">
@@ -144,32 +152,47 @@
         <div class="card-body">
             {{ form_start(form) }}
 
-            {{ form_row(form.internalName) }}
-            {{ form_row(form.name) }}
-            {{ form_row(form.mealType) }}
-            {{ form_row(form.dishTypeId) }}
-            {{ form_row(form.dietId) }}
-
-            <hr>
-            <h5>Nutriční hodnoty (volitelné)</h5>
-            <p class="text-muted small">Zadejte nutriční hodnoty pro toto jídlo.</p>
-
             <div class="row">
-                <div class="col-md-3">
-                    {{ form_row(form.energyValue) }}
+                <div class="col-md-6">
+                    {{ form_row(form.internalName) }}
                 </div>
-                <div class="col-md-3">
-                    {{ form_row(form.fats) }}
-                </div>
-                <div class="col-md-3">
-                    {{ form_row(form.carbohydrates) }}
-                </div>
-                <div class="col-md-3">
-                    {{ form_row(form.proteins) }}
+                <div class="col-md-6">
+                    {{ form_row(form.name) }}
                 </div>
             </div>
 
-            <hr>
+            <div class="row">
+                <div class="col-md-4">
+                    {{ form_row(form.mealType) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.dishTypeId) }}
+                </div>
+                <div class="col-md-4">
+                    {{ form_row(form.dietId) }}
+                </div>
+            </div>
+
+            <div class="p-3 border rounded bg-light mb-3">
+                <h5 class="mb-1">Nutriční hodnoty (volitelné)</h5>
+                <p class="text-muted small mb-3">Zadejte nutriční hodnoty pro toto jídlo.</p>
+
+                <div class="row mb-0">
+                    <div class="col-md-3">
+                        {{ form_row(form.energyValue) }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form_row(form.fats) }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form_row(form.carbohydrates) }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form_row(form.proteins) }}
+                    </div>
+                </div>
+            </div>
+
             <h5>Dietní varianty (volitelné, max. 4)</h5>
             <p class="text-muted small">Můžete přidat různé dietní varianty tohoto jídla, např. bezlepkovou nebo vegetariánskou verzi. Variantu lze zadat ručně nebo odkázat na jiné existující jídlo.</p>
 
@@ -182,7 +205,7 @@
                     {% for variant in form.variants %}
                         <div class="variant-item mb-3 p-3 border rounded bg-light" data-controller="meal-variant-mode">
                             {{ _self.variant_fields(variant, meals, diets) }}
-                            <button type="button" class="btn btn-sm btn-outline-danger mt-2" data-action="collection#removeExisting">
+                            <button type="button" class="btn btn-sm btn-danger mt-2" data-action="collection#removeExisting">
                                 <i class="mdi mdi-delete"></i> Odebrat variantu
                             </button>
                         </div>
@@ -196,6 +219,7 @@
                     <i class="mdi mdi-plus"></i> Přidat dietní variantu
                 </button>
             </div>
+            {% do form.variants.setRendered() %}
 
             <hr>
             <button class="btn btn-primary" type="submit">Uložit</button>

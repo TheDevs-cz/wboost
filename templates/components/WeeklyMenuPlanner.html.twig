@@ -137,33 +137,16 @@
                                                             </div>
 
                                                             {% if variant.meals|length > 0 %}
-                                                                <div class="d-flex flex-wrap gap-2"
+                                                                <div class="meal-selector-grid"
                                                                      data-weekly-menu-dragula-target="mealsContainer"
                                                                      data-variant-id="{{ variant.id }}">
                                                                     {% for variantMeal in variant.meals %}
-                                                                        <div class="meal-card-item meal-badge rounded p-2{% if variant.meals|length > 1 %} draggable{% endif %}"
-                                                                             style="background-color: {{ variantMeal.meal.mealType.cssColor }}20; border: 2px solid {{ variantMeal.meal.mealType.cssColor }};{% if variant.meals|length > 1 %} cursor: grab;{% endif %}"
+                                                                        <div class="meal-selector-item planner-meal-card{% if variant.meals|length > 1 %} draggable{% endif %}"
+                                                                             style="border-left: 3px solid {{ variantMeal.meal.mealType.cssColor }};{% if variant.meals|length > 1 %} cursor: grab;{% endif %}"
                                                                              data-variant-meal-id="{{ variantMeal.id }}">
-                                                                            <div class="d-flex justify-content-between align-items-start gap-2">
-                                                                                <div class="flex-grow-1">
-                                                                                    <div class="fw-semibold text-dark" style="font-size: 0.85rem;">
-                                                                                        {{ variantMeal.meal.name }}
-                                                                                        {% if variantMeal.meal.diet %}
-                                                                                            <span class="badge text-white ms-1" style="font-size: 0.65rem; background-color: {{ variantMeal.meal.mealType.cssColor }};">
-                                                                                                {{ variantMeal.meal.dietCodesLabel }}
-                                                                                            </span>
-                                                                                        {% endif %}
-                                                                                    </div>
-                                                                                    {% if variantMeal.meal.hasVariants %}
-                                                                                        <div class="mt-1 pt-1 border-top" style="border-color: {{ variantMeal.meal.mealType.cssColor }} !important;">
-                                                                                            {% for mealVariant in variantMeal.meal.variants %}
-                                                                                                <span class="badge bg-white text-dark border me-1 mb-1" style="font-size: 0.6rem;">
-                                                                                                    {{ mealVariant.displayName }} ({{ mealVariant.dietCodesLabel }})
-                                                                                                </span>
-                                                                                            {% endfor %}
-                                                                                        </div>
-                                                                                    {% endif %}
-                                                                                </div>
+                                                                            <div class="meal-selector-header">
+                                                                                <span class="meal-selector-name">{{ variantMeal.meal.internalName }}</span>
+                                                                                <span class="meal-selector-type" style="background-color: {{ variantMeal.meal.mealType.cssColor }};">{{ variantMeal.meal.mealType.label|slice(0,2)|upper }}</span>
                                                                                 <button
                                                                                     type="button"
                                                                                     class="btn-close flex-shrink-0"
@@ -173,6 +156,16 @@
                                                                                     data-live-variantmealid-param="{{ variantMeal.id }}">
                                                                                 </button>
                                                                             </div>
+                                                                            <div class="meal-selector-meta">
+                                                                                {{ variantMeal.meal.dishType.name }}{% if variantMeal.meal.diet %} · <span class="meal-selector-diet">{{ variantMeal.meal.dietCodesLabel }}</span>{% endif %}
+                                                                            </div>
+                                                                            {% if variantMeal.meal.hasVariants %}
+                                                                                <div class="meal-selector-variants">
+                                                                                    {% for mealVariant in variantMeal.meal.variants %}
+                                                                                        <span class="meal-selector-variant">{{ mealVariant.displayName }}{% if mealVariant.dietCodesLabel %} ({{ mealVariant.dietCodesLabel }}){% endif %}</span>
+                                                                                    {% endfor %}
+                                                                                </div>
+                                                                            {% endif %}
                                                                         </div>
                                                                     {% endfor %}
                                                                 </div>

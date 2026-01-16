@@ -275,34 +275,18 @@
     opacity: 0.4;
 }
 
-/* Meal card item in weekly planner */
-.meal-card-item {
-    min-width: 140px;
-    max-width: 200px;
-    transition: all 0.15s ease;
-}
-
-.meal-card-item:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.meal-card-item.draggable:active {
-    cursor: grabbing;
-}
-
 /* Compact Meal Selector Modal */
 .meal-selector-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 8px;
     align-content: flex-start;
 }
 
 .meal-selector-item {
     display: inline-flex;
     flex-direction: column;
-    padding: 4px 6px;
+    padding: 6px 8px;
     background: #fff;
     border: 1px solid #dee2e6;
     border-radius: 4px;
@@ -332,7 +316,7 @@
 
 .meal-selector-name {
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 13px;
     line-height: 1.2;
     color: #333;
     overflow: hidden;
@@ -343,7 +327,7 @@
 }
 
 .meal-selector-type {
-    font-size: 0.55rem;
+    font-size: 11px;
     font-weight: 700;
     color: #fff;
     padding: 1px 3px;
@@ -353,7 +337,7 @@
 }
 
 .meal-selector-meta {
-    font-size: 0.65rem;
+    font-size: 12px;
     color: #666;
     line-height: 1.2;
     margin-top: 1px;
@@ -371,13 +355,13 @@
     display: flex;
     flex-wrap: wrap;
     gap: 2px;
-    margin-top: 3px;
-    padding-top: 3px;
+    margin-top: 5px;
+    padding-top: 6px;
     border-top: 1px solid #eee;
 }
 
 .meal-selector-variant {
-    font-size: 0.55rem;
+    font-size: 11px;
     background: #f5f5f5;
     border: 1px solid #ddd;
     padding: 0 3px;
@@ -435,4 +419,31 @@
 
 .meal-selector-item {
     position: relative;
+}
+
+/* Planner meal cards (in day planner, reusing modal styles) */
+.planner-meal-card {
+    cursor: default;
+}
+
+.planner-meal-card.draggable {
+    cursor: grab;
+}
+
+.planner-meal-card.draggable:active {
+    cursor: grabbing;
+}
+
+.planner-meal-card .meal-selector-header {
+    gap: 6px;
+}
+
+.planner-meal-card .btn-close {
+    opacity: 0.4;
+    transition: opacity 0.15s ease;
+    margin-left: auto;
+}
+
+.planner-meal-card:hover .btn-close {
+    opacity: 0.8;
 }
