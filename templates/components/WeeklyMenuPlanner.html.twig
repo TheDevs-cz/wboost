@@ -122,7 +122,7 @@
                                     {% else %}
                                         {% for course in mealType.courses %}
                                             <details id="course-{{ course.id }}" class="collapsible-section collapsible-course mb-2" data-course-id="{{ course.id }}" data-controller="collapsible">
-                                                <summary class="d-flex justify-content-between align-items-center p-2 bg-light border rounded" style="cursor: pointer; list-style: none; padding: 0.5rem 0.75rem !important;">
+                                                <summary class="d-flex justify-content-between align-items-center p-2 bg-white" style="cursor: pointer; list-style: none; padding: 0.5rem 0.75rem !important;">
                                                     <span class="text-muted small d-flex align-items-center gap-1">
                                                         <i class="mdi mdi-chevron-right collapsible-icon"></i>
                                                         {% if mealType.courses|length > 1 %}
@@ -134,17 +134,19 @@
                                                         {% endif %}
                                                     </span>
                                                     <div>
-                                                        {% if not course.singleVariantMode %}
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-sm btn-secondary"
-                                                                data-action="live#action"
-                                                                data-live-action-param="addVariant"
-                                                                data-live-courseid-param="{{ course.id }}"
-                                                                data-live-name-param=""
-                                                                onclick="event.stopPropagation();">
-                                                                <i class="mdi mdi-plus"></i> Varianta
-                                                            </button>
+                                                        {% if course.singleVariantMode %}
+                                                            {% set firstVariant = course.variants|first %}
+                                                            {% if firstVariant %}
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-sm btn-success"
+                                                                    data-bs-toggle="modal"
+                                                                    data-bs-target="#mealSelectorModal"
+                                                                    data-variant-id="{{ firstVariant.id }}"
+                                                                    onclick="event.stopPropagation();">
+                                                                    <i class="mdi mdi-plus"></i> Jídlo
+                                                                </button>
+                                                            {% endif %}
                                                         {% endif %}
                                                         <button
                                                             type="button"
@@ -161,15 +163,15 @@
                                                 </summary>
                                                 <div class="collapsible-content" data-collapsible-target="content">
                                                     <div class="collapsible-inner">
-                                                        <div class="p-3 bg-light border border-top-0 rounded-bottom"
+                                                        <div class="p-2 bg-white"
                                                              data-weekly-menu-dragula-target="variantsContainer"
                                                              data-course-id="{{ course.id }}">
                                                 {% if course.variants|length == 0 %}
                                                     <p class="text-muted mb-0 small">Zatím žádné varianty. Klikněte na "+ Varianta" pro přidání.</p>
                                                 {% else %}
                                                     {% for variant in course.variants %}
-                                                        <div class="border rounded p-2 mb-2 bg-white" data-variant-id="{{ variant.id }}">
-                                                            <div class="d-flex justify-content-between align-items-center{% if variant.meals|length > 0 %} mb-2{% endif %}">
+                                                        <div class="{% if not course.singleVariantMode %}mb-2{% endif %}" data-variant-id="{{ variant.id }}">
+                                                            <div class="{% if not course.singleVariantMode %}d-flex justify-content-between align-items-center{% endif %}{% if variant.meals|length > 0 and not course.singleVariantMode %} mb-2{% endif %}">
                                                                 <div class="d-flex align-items-center gap-2">
                                                                     {% if not course.singleVariantMode %}
                                                                         {% if course.variants|length > 1 %}
@@ -184,23 +186,21 @@
                                                                             data-variant-id="{{ variant.id }}"
                                                                             data-action="change->variant-name#save"
                                                                             data-controller="variant-name">
-                                                                        {% if not variant.name %}
-                                                                            <span class="text-muted" style="font-size: 0.7rem;">Jídla mezi kterými si zákazník vybírá. (Doporučeno např. A, B, C nebo 1, 2, 3)</span>
-                                                                        {% endif %}
+                                                                        <span class="text-muted" style="font-size: 0.7rem;">Jídla mezi kterými si zákazník vybírá. (Doporučeno např. A, B, C nebo 1, 2, 3)</span>
                                                                     {% elseif variant.meals|length == 0 %}
                                                                         <span class="text-muted small">Zatím žádná jídla</span>
                                                                     {% endif %}
                                                                 </div>
-                                                                <div>
-                                                                    <button
-                                                                        type="button"
-                                                                        class="btn btn-sm btn-success"
-                                                                        data-bs-toggle="modal"
-                                                                        data-bs-target="#mealSelectorModal"
-                                                                        data-variant-id="{{ variant.id }}">
-                                                                        <i class="mdi mdi-plus"></i> Jídlo
-                                                                    </button>
-                                                                    {% if not course.singleVariantMode %}
+                                                                {% if not course.singleVariantMode %}
+                                                                    <div>
+                                                                        <button
+                                                                            type="button"
+                                                                            class="btn btn-sm btn-success"
+                                                                            data-bs-toggle="modal"
+                                                                            data-bs-target="#mealSelectorModal"
+                                                                            data-variant-id="{{ variant.id }}">
+                                                                            <i class="mdi mdi-plus"></i> Jídlo
+                                                                        </button>
                                                                         <button
                                                                             type="button"
                                                                             class="btn btn-sm btn-outline-danger"
@@ -211,8 +211,8 @@
                                                                             data-live-variantid-param="{{ variant.id }}">
                                                                             <i class="mdi mdi-delete"></i>
                                                                         </button>
-                                                                    {% endif %}
-                                                                </div>
+                                                                    </div>
+                                                                {% endif %}
                                                             </div>
 
                                                             {% if variant.meals|length > 0 %}
@@ -259,10 +259,24 @@
                                                                     </div>
                                                                 {% endif %}
                                                             {% elseif not course.singleVariantMode %}
-                                                                <p class="text-muted mb-0 small">Zatím žádná jídla. Klikněte na "<i class="mdi mdi-plus"></i> Jídlo" pro přidání.</p>
+                                                                <p class="text-muted mb-0 small mt-2">Zatím žádná jídla. Klikněte na "<i class="mdi mdi-plus"></i> Jídlo" pro přidání.</p>
                                                             {% endif %}
                                                         </div>
+                                                        {% if not loop.last and not course.singleVariantMode %}
+                                                            <hr class="my-3" style="border-color: {{ mealType.mealType.cssColor }}40;">
+                                                        {% endif %}
                                                     {% endfor %}
+                                                    {% if not course.singleVariantMode %}
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-secondary mt-2"
+                                                            data-action="live#action"
+                                                            data-live-action-param="addVariant"
+                                                            data-live-courseid-param="{{ course.id }}"
+                                                            data-live-name-param="">
+                                                            <i class="mdi mdi-plus"></i> Varianta
+                                                        </button>
+                                                    {% endif %}
                                                 {% endif %}
                                                         </div>
                                                     </div>
