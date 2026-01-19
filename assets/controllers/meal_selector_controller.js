@@ -99,7 +99,7 @@ export default class extends Controller {
         }
 
         // Find the Live Component and trigger the action
-        const liveComponent = document.querySelector('[data-controller="live"]');
+        const liveComponent = document.querySelector('[data-controller*="live"]');
         if (liveComponent) {
             // Use Symfony UX Live Component's action system
             const component = liveComponent.__component;

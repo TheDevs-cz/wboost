@@ -20,7 +20,7 @@ export default class extends Controller {
             return;
         }
 
-        const liveComponent = document.querySelector('[data-controller="live"]');
+        const liveComponent = document.querySelector('[data-controller*="live"]');
         if (liveComponent && liveComponent.__component) {
             liveComponent.__component.action('addCourse', {
                 mealtypeid: mealTypeId,
