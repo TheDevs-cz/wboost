@@ -44,7 +44,8 @@
                         </div>
                         <button
                             type="button"
-                            class="btn btn-sm btn-outline-danger m-0"
+                            class="btn btn-sm btn-link p-0 m-0"
+                            style="color: rgba(114, 124, 245, 0.75);"
                             data-controller="confirm"
                             data-confirm-message-value="Opravdu smazat celý den včetně všech jídel?"
                             data-action="click->confirm#confirm click->live#action"
@@ -100,7 +101,8 @@
                                         </div>
                                         <button
                                             type="button"
-                                            class="btn btn-sm btn-outline-danger"
+                                            class="btn btn-sm btn-link p-0 m-0 ms-2"
+                                            style="color: {{ mealType.mealType.cssColor }}BF;"
                                             data-controller="confirm"
                                             data-confirm-message-value="Opravdu smazat toto jídlo dne?"
                                             data-action="click->confirm#confirm click->live#action"
