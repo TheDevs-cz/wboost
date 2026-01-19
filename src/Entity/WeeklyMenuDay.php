@@ -99,7 +99,7 @@ class WeeklyMenuDay
     public function mealTypes(): array
     {
         $mealTypes = $this->mealTypes->toArray();
-        usort($mealTypes, static fn(WeeklyMenuDayMealType $a, WeeklyMenuDayMealType $b) => $a->position <=> $b->position);
+        usort($mealTypes, static fn(WeeklyMenuDayMealType $a, WeeklyMenuDayMealType $b) => $a->mealType->sortOrder() <=> $b->mealType->sortOrder());
 
         return $mealTypes;
     }

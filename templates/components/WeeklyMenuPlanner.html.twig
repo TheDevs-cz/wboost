@@ -132,25 +132,10 @@
                                                         {% if not course.singleVariantMode %}
                                                             <span class="badge bg-secondary ms-1">{{ course.variants|length }} variant</span>
                                                         {% endif %}
-                                                    </span>
-                                                    <div>
-                                                        {% if course.singleVariantMode %}
-                                                            {% set firstVariant = course.variants|first %}
-                                                            {% if firstVariant %}
-                                                                <button
-                                                                    type="button"
-                                                                    class="btn btn-sm btn-success"
-                                                                    data-bs-toggle="modal"
-                                                                    data-bs-target="#mealSelectorModal"
-                                                                    data-variant-id="{{ firstVariant.id }}"
-                                                                    onclick="event.stopPropagation();">
-                                                                    <i class="mdi mdi-plus"></i> Jídlo
-                                                                </button>
-                                                            {% endif %}
-                                                        {% endif %}
                                                         <button
                                                             type="button"
-                                                            class="btn btn-sm btn-outline-danger"
+                                                            class="btn btn-link btn-sm text-muted p-0 ms-1"
+                                                            style="line-height: 1;"
                                                             data-controller="confirm"
                                                             data-confirm-message-value="Opravdu smazat tento chod?"
                                                             data-action="click->confirm#confirm click->live#action"
@@ -159,7 +144,21 @@
                                                             onclick="event.stopPropagation();">
                                                             <i class="mdi mdi-delete"></i>
                                                         </button>
-                                                    </div>
+                                                    </span>
+                                                    {% if course.singleVariantMode %}
+                                                        {% set firstVariant = course.variants|first %}
+                                                        {% if firstVariant %}
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-sm btn-success"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#mealSelectorModal"
+                                                                data-variant-id="{{ firstVariant.id }}"
+                                                                onclick="event.stopPropagation();">
+                                                                <i class="mdi mdi-plus"></i> Jídlo
+                                                            </button>
+                                                        {% endif %}
+                                                    {% endif %}
                                                 </summary>
                                                 <div class="collapsible-content" data-collapsible-target="content">
                                                     <div class="collapsible-inner">
@@ -223,32 +222,12 @@
                                                                         <div class="meal-selector-item planner-meal-card{% if variant.meals|length > 1 %} draggable{% endif %}"
                                                                              style="border-left: 3px solid {{ variantMeal.meal.mealType.cssColor }};{% if variant.meals|length > 1 %} cursor: grab;{% endif %}"
                                                                              data-variant-meal-id="{{ variantMeal.id }}">
-                                                                            <div class="meal-selector-header">
-                                                                                <span class="meal-selector-name">{{ variantMeal.meal.internalName }}</span>
-                                                                                <span class="meal-selector-type" style="background-color: {{ variantMeal.meal.mealType.cssColor }};">{{ variantMeal.meal.mealType.label|slice(0,2)|upper }}</span>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    class="btn-close flex-shrink-0"
-                                                                                    style="font-size: 0.5rem;"
-                                                                                    data-action="live#action"
-                                                                                    data-live-action-param="removeMeal"
-                                                                                    data-live-variantmealid-param="{{ variantMeal.id }}">
-                                                                                </button>
-                                                                            </div>
-                                                                            <div class="meal-selector-meta">
-                                                                                {{ variantMeal.meal.dishType.name }}{% if variantMeal.meal.diet %} · <span class="meal-selector-diet">{{ variantMeal.meal.dietCodesLabel }}</span>{% endif %}
-                                                                            </div>
-                                                                            {% set mealNutrition = variantMeal.meal.nutritionalValues %}
-                                                                            {% if mealNutrition.hasAnyValue %}
-                                                                                <div class="meal-selector-nutrition">{{ mealNutrition.formatCompact }}</div>
-                                                                            {% endif %}
-                                                                            {% if variantMeal.meal.hasVariants %}
-                                                                                <div class="meal-selector-variants">
-                                                                                    {% for mealVariant in variantMeal.meal.variants %}
-                                                                                        <span class="meal-selector-variant">{{ mealVariant.displayName }}{% if mealVariant.dietCodesLabel %} ({{ mealVariant.dietCodesLabel }}){% endif %}</span>
-                                                                                    {% endfor %}
-                                                                                </div>
-                                                                            {% endif %}
+                                                                            {% include 'partials/_meal_card.html.twig' with {
+                                                                                meal: variantMeal.meal,
+                                                                                showCloseButton: true,
+                                                                                closeButtonAction: 'live#action',
+                                                                                closeButtonParam: variantMeal.id
+                                                                            } only %}
                                                                         </div>
                                                                     {% endfor %}
                                                                 </div>
@@ -382,28 +361,11 @@
                                      data-meal-selector-target="mealCard"
                                      data-meal-type="{{ meal.mealType.value }}"
                                      data-diet-id="{{ meal.diet ? meal.diet.id : '' }}"
-                                     data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dishType.name|lower }} {{ meal.dietCodesLabel|lower }}"
+                                     data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dietCodesLabel|lower }}"
                                      data-meal-id="{{ meal.id }}"
                                      data-action="click->meal-selector#selectMeal"
                                      style="border-left: 3px solid {{ meal.mealType.cssColor }};">
-                                    <div class="meal-selector-header">
-                                        <span class="meal-selector-name">{{ meal.internalName }}</span>
-                                        <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">{{ meal.mealType.label|slice(0,2)|upper }}</span>
-                                    </div>
-                                    <div class="meal-selector-meta">
-                                        {{ meal.dishType.name }}{% if meal.diet %} · <span class="meal-selector-diet">{{ meal.dietCodesLabel }}</span>{% endif %}
-                                    </div>
-                                    {% set modalMealNutrition = meal.nutritionalValues %}
-                                    {% if modalMealNutrition.hasAnyValue %}
-                                        <div class="meal-selector-nutrition">{{ modalMealNutrition.formatCompact }}</div>
-                                    {% endif %}
-                                    {% if meal.hasVariants %}
-                                        <div class="meal-selector-variants">
-                                            {% for variant in meal.variants %}
-                                                <span class="meal-selector-variant">{{ variant.displayName }}{% if variant.dietCodesLabel %} ({{ variant.dietCodesLabel }}){% endif %}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
+                                    {% include 'partials/_meal_card.html.twig' with {meal: meal} only %}
                                 </div>
                             {% endfor %}
                         </div>

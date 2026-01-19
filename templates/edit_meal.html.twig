@@ -85,24 +85,11 @@
                                  data-reference-meal-selector-target="mealCard"
                                  data-meal-type="{{ meal.mealType.value }}"
                                  data-diet-id="{{ meal.diet ? meal.diet.id : '' }}"
-                                 data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dishType.name|lower }} {{ meal.dietCodesLabel|lower }}"
+                                 data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dietCodesLabel|lower }}"
                                  data-meal-id="{{ meal.id }}"
                                  data-action="click->reference-meal-selector#selectMeal"
                                  style="border-left: 3px solid {{ meal.mealType.cssColor }};">
-                                <div class="meal-selector-header">
-                                    <span class="meal-selector-name">{{ meal.internalName }}</span>
-                                    <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">{{ meal.mealType.label|slice(0,2)|upper }}</span>
-                                </div>
-                                <div class="meal-selector-meta">
-                                    {{ meal.dishType.name }}{% if meal.diet %} · <span class="meal-selector-diet">{{ meal.dietCodesLabel }}</span>{% endif %}
-                                </div>
-                                {% if meal.hasVariants %}
-                                    <div class="meal-selector-variants">
-                                        {% for mealVariant in meal.variants %}
-                                            <span class="meal-selector-variant">{{ mealVariant.displayName }}{% if mealVariant.dietCodesLabel %} ({{ mealVariant.dietCodesLabel }}){% endif %}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+                                {% include 'partials/_meal_card.html.twig' with {meal: meal} only %}
                             </div>
                         {% endfor %}
                     </div>
