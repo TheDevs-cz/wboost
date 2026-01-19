@@ -163,7 +163,7 @@
                                 <div class="collapsible-content" data-collapsible-target="content">
                                     <div class="collapsible-inner">
                                         <div class="p-3"
-                                             style="background-color: {{ mealType.mealType.cssColor }}15; border: 1px solid {{ mealType.mealType.cssColor }}40; border-top: none; border-left: 4px solid {{ mealType.mealType.cssColor }}; border-radius: 0 0 0.25rem 0.25rem;"
+                                             style="background-color: {{ mealType.mealType.cssColor }}15; border: 1px solid {{ mealType.mealType.cssColor }}40; border-top: none; border-radius: 0 0 0.25rem 0.25rem;"
                                              data-weekly-menu-dragula-target="coursesContainer"
                                              data-meal-type-id="{{ mealType.id }}">
                                     {% if mealType.courses|length == 0 %}
@@ -309,7 +309,7 @@
                                                                     <button
                                                                         type="button"
                                                                         class="meal-selector-item add-meal-btn"
-                                                                        style="background-color: transparent; border: 2px dashed {{ mealType.mealType.cssColor }}80; color: {{ mealType.mealType.cssColor }}; display: flex; align-items: center; justify-content: center; min-height: 75px; cursor: pointer;"
+                                                                        style="background-color: transparent; border: 1px solid {{ mealType.mealType.cssColor }}80; color: {{ mealType.mealType.cssColor }}; display: flex; align-items: center; justify-content: center; min-height: 75px; cursor: pointer;"
                                                                         data-bs-toggle="modal"
                                                                         data-bs-target="#mealSelectorModal"
                                                                         data-variant-id="{{ variant.id }}">
