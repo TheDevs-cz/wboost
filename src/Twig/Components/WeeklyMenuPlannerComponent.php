@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Twig\Components;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
@@ -29,6 +28,7 @@ use WBoost\Web\Message\WeeklyMenuPlanner\ReorderMeals;
 use WBoost\Web\Message\WeeklyMenuPlanner\ReorderVariants;
 use WBoost\Web\Query\GetDiets;
 use WBoost\Web\Query\GetMeals;
+use WBoost\Web\Repository\WeeklyMenuRepository;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Value\WeeklyMenuMealType;
 
@@ -50,7 +50,7 @@ final class WeeklyMenuPlannerComponent extends AbstractController
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private ProvideIdentity $provideIdentity,
-        readonly private EntityManagerInterface $entityManager,
+        readonly private WeeklyMenuRepository $weeklyMenuRepository,
         readonly private GetMeals $getMeals,
         readonly private GetDiets $getDiets,
     ) {
@@ -318,7 +318,7 @@ final class WeeklyMenuPlannerComponent extends AbstractController
     {
         assert($this->menu !== null);
 
-        $this->entityManager->refresh($this->menu);
+        $this->menu = $this->weeklyMenuRepository->getWithFullTree($this->menu->id);
         $this->lastSaved = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Prague')))->format('H:i:s');
     }
 }

@@ -23,11 +23,18 @@ readonly final class GetMeals
     {
         return $this->entityManager->createQueryBuilder()
             ->from(Meal::class, 'meal')
-            ->select('meal')
+            ->select('meal', 'diet', 'dishType', 'variants', 'variantDiet', 'referenceMeal', 'referenceMealDiet')
             ->join('meal.project', 'project')
+            ->leftJoin('meal.diet', 'diet')
+            ->leftJoin('meal.dishType', 'dishType')
+            ->leftJoin('meal.variants', 'variants')
+            ->leftJoin('variants.diet', 'variantDiet')
+            ->leftJoin('variants.referenceMeal', 'referenceMeal')
+            ->leftJoin('referenceMeal.diet', 'referenceMealDiet')
             ->where('project.id = :projectId')
             ->setParameter('projectId', $projectId->toString())
             ->orderBy('meal.name', 'ASC')
+            ->addOrderBy('variants.position', 'ASC')
             ->getQuery()
             ->getResult();
     }

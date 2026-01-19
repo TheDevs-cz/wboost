@@ -471,13 +471,14 @@
 }
 
 .nutrition-badge-item {
-    font-size: 11px;
-    font-weight: 700;
-    color: #fff;
-    padding: 1px 4px;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 5px;
     border-radius: 3px;
     line-height: 1.2;
     white-space: nowrap;
+    background-color: #fff !important;
+    border: 1px solid currentColor;
 }
 
 .nutrition-badge-warning {
@@ -485,31 +486,69 @@
     color: #212529 !important;
 }
 
-/* Weekly summary */
-.nutrition-summary-weekly {
-    padding: 0.5rem 0.75rem;
-    background: rgba(var(--bs-primary-rgb), 0.08);
-    border-radius: 0.25rem;
-    border: 1px solid rgba(var(--bs-primary-rgb), 0.2);
+/* Weekly summary - stats grid design */
+.nutrition-stats-weekly {
+    background: linear-gradient(135deg, rgba(var(--bs-primary-rgb), 0.06) 0%, rgba(var(--bs-primary-rgb), 0.02) 100%);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.15);
+    border-radius: 8px;
+    padding: 12px 16px;
 }
 
-.nutrition-summary-weekly .nutrition-label {
+.nutrition-stats-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--bs-primary);
+    margin-bottom: 10px;
 }
 
-.nutrition-summary-weekly .nutrition-label i {
-    margin-right: 4px;
+.nutrition-stats-header i {
+    font-size: 1rem;
 }
 
-/* Day summary */
-.nutrition-summary-day {
-    margin-top: 4px;
+.nutrition-incomplete-badge {
+    background: #ffc107;
+    color: #212529;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: auto;
 }
 
-.nutrition-summary-day .nutrition-badge-item {
-    font-size: 10px;
-    padding: 1px 3px;
+.nutrition-stats-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
+
+.nutrition-stat-item {
+    background: #fff;
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.12);
+    border-radius: 6px;
+    padding: 8px 12px;
+    min-width: 80px;
+    text-align: center;
+}
+
+.nutrition-stat-value {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--bs-primary);
+    line-height: 1.2;
+}
+
+.nutrition-stat-label {
+    display: block;
+    font-size: 0.65rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-top: 2px;
+}
+
 
 /* Variant summary */
 .nutrition-summary-variant {
@@ -525,8 +564,8 @@
 }
 
 .nutrition-summary-variant .nutrition-badge-item {
-    font-size: 10px;
-    padding: 1px 3px;
+    font-size: 9px;
+    padding: 1px 4px;
 }
 
 /* Legacy support - remove if not used elsewhere */
