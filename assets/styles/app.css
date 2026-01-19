@@ -449,24 +449,87 @@
 }
 
 /* Nutritional values display styles */
-.nutrition-summary-weekly {
-    padding: 0.75rem 1rem;
+/* Nutrition summary base styles */
+.nutrition-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-.nutrition-summary-weekly .nutrition-values {
-    font-size: 0.9rem;
-}
-
-.nutrition-summary-day {
+.nutrition-label {
     font-size: 0.75rem;
     color: #666;
-    margin-top: 4px;
-}
-
-.nutrition-summary-day .nutrition-values-compact {
     font-weight: 500;
 }
 
+.nutrition-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: center;
+}
+
+.nutrition-badge-item {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    padding: 1px 4px;
+    border-radius: 3px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.nutrition-badge-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+/* Weekly summary */
+.nutrition-summary-weekly {
+    padding: 0.5rem 0.75rem;
+    background: rgba(var(--bs-primary-rgb), 0.08);
+    border-radius: 0.25rem;
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.2);
+}
+
+.nutrition-summary-weekly .nutrition-label {
+    color: var(--bs-primary);
+}
+
+.nutrition-summary-weekly .nutrition-label i {
+    margin-right: 4px;
+}
+
+/* Day summary */
+.nutrition-summary-day {
+    margin-top: 4px;
+}
+
+.nutrition-summary-day .nutrition-badge-item {
+    font-size: 10px;
+    padding: 1px 3px;
+}
+
+/* Variant summary */
+.nutrition-summary-variant {
+    margin-top: 8px;
+    padding: 6px 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px dashed #ddd;
+}
+
+.nutrition-summary-variant .nutrition-label {
+    font-size: 0.7rem;
+}
+
+.nutrition-summary-variant .nutrition-badge-item {
+    font-size: 10px;
+    padding: 1px 3px;
+}
+
+/* Legacy support - remove if not used elsewhere */
 .nutrition-badge {
     font-size: 0.7rem;
     background: rgba(0, 0, 0, 0.08);
@@ -474,16 +537,6 @@
     border-radius: 4px;
     font-weight: 500;
     color: #555;
-}
-
-.nutrition-summary-variant {
-    font-size: 0.75rem;
-    color: #666;
-    background: #f8f9fa;
-    padding: 4px 8px;
-    margin-top: 8px;
-    border-radius: 4px;
-    border: 1px dashed #ddd;
 }
 
 .meal-selector-nutrition {

@@ -8,13 +8,23 @@
 
     {% set weeklyNutrition = menu.nutritionalValues %}
     {% if weeklyNutrition.hasAnyValue %}
-        <div class="alert alert-info nutrition-summary-weekly mb-3">
-            <div class="d-flex align-items-center gap-2">
-                <i class="mdi mdi-nutrition"></i>
-                <strong>Týdenní souhrn:</strong>
-                <span class="nutrition-values">{{ weeklyNutrition.formatCompact }}</span>
+        <div class="nutrition-summary nutrition-summary-weekly mb-3">
+            <span class="nutrition-label"><i class="mdi mdi-calendar-week"></i> Týden:</span>
+            <div class="nutrition-badges">
+                {% if weeklyNutrition.energyValue is not null %}
+                    <span class="nutrition-badge-item" style="background-color: var(--bs-primary);">{{ weeklyNutrition.formatEnergyValue }}</span>
+                {% endif %}
+                {% if weeklyNutrition.fats is not null %}
+                    <span class="nutrition-badge-item" style="background-color: var(--bs-primary);">T: {{ weeklyNutrition.formatFats }}</span>
+                {% endif %}
+                {% if weeklyNutrition.carbohydrates is not null %}
+                    <span class="nutrition-badge-item" style="background-color: var(--bs-primary);">S: {{ weeklyNutrition.formatCarbohydrates }}</span>
+                {% endif %}
+                {% if weeklyNutrition.proteins is not null %}
+                    <span class="nutrition-badge-item" style="background-color: var(--bs-primary);">B: {{ weeklyNutrition.formatProteins }}</span>
+                {% endif %}
                 {% if not weeklyNutrition.isComplete %}
-                    <span class="badge bg-warning text-dark" title="Některá jídla nemají vyplněné nutriční hodnoty"><i class="mdi mdi-alert"></i></span>
+                    <span class="nutrition-badge-item nutrition-badge-warning" title="Některá jídla nemají vyplněné nutriční hodnoty"><i class="mdi mdi-alert"></i></span>
                 {% endif %}
             </div>
         </div>
@@ -36,8 +46,21 @@
                                 </h5>
                                 {% set dayNutrition = day.nutritionalValues %}
                                 {% if dayNutrition.hasAnyValue %}
-                                    <div class="nutrition-summary-day">
-                                        <span class="nutrition-values-compact">{{ dayNutrition.formatCompact }}</span>
+                                    <div class="nutrition-summary nutrition-summary-day">
+                                        <div class="nutrition-badges">
+                                            {% if dayNutrition.energyValue is not null %}
+                                                <span class="nutrition-badge-item" style="background-color: #727cf5;">{{ dayNutrition.formatEnergyValue }}</span>
+                                            {% endif %}
+                                            {% if dayNutrition.fats is not null %}
+                                                <span class="nutrition-badge-item" style="background-color: #727cf5;">T: {{ dayNutrition.formatFats }}</span>
+                                            {% endif %}
+                                            {% if dayNutrition.carbohydrates is not null %}
+                                                <span class="nutrition-badge-item" style="background-color: #727cf5;">S: {{ dayNutrition.formatCarbohydrates }}</span>
+                                            {% endif %}
+                                            {% if dayNutrition.proteins is not null %}
+                                                <span class="nutrition-badge-item" style="background-color: #727cf5;">B: {{ dayNutrition.formatProteins }}</span>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 {% endif %}
                             </div>
@@ -66,7 +89,20 @@
                                         <span class="fw-bold">{{ mealType.mealType.label }}</span>
                                         {% set mealTypeNutrition = mealType.nutritionalValues %}
                                         {% if mealTypeNutrition.hasAnyValue %}
-                                            <span class="nutrition-badge">{{ mealTypeNutrition.formatEnergyValue }}</span>
+                                            <div class="nutrition-badges">
+                                                {% if mealTypeNutrition.energyValue is not null %}
+                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">{{ mealTypeNutrition.formatEnergyValue }}</span>
+                                                {% endif %}
+                                                {% if mealTypeNutrition.fats is not null %}
+                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">T: {{ mealTypeNutrition.formatFats }}</span>
+                                                {% endif %}
+                                                {% if mealTypeNutrition.carbohydrates is not null %}
+                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">S: {{ mealTypeNutrition.formatCarbohydrates }}</span>
+                                                {% endif %}
+                                                {% if mealTypeNutrition.proteins is not null %}
+                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">B: {{ mealTypeNutrition.formatProteins }}</span>
+                                                {% endif %}
+                                            </div>
                                         {% endif %}
                                     </div>
                                     <div>
@@ -133,6 +169,23 @@
                                                         Chod {{ loop.index }}
                                                         {% if not course.singleVariantMode %}
                                                             <span class="badge bg-secondary ms-1">{{ course.variants|length }} variant</span>
+                                                        {% endif %}
+                                                        {% set courseNutrition = course.nutritionalValues %}
+                                                        {% if courseNutrition.hasAnyValue %}
+                                                            <div class="nutrition-badges ms-2">
+                                                                {% if courseNutrition.energyValue is not null %}
+                                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">{{ courseNutrition.formatEnergyValue }}</span>
+                                                                {% endif %}
+                                                                {% if courseNutrition.fats is not null %}
+                                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">T: {{ courseNutrition.formatFats }}</span>
+                                                                {% endif %}
+                                                                {% if courseNutrition.carbohydrates is not null %}
+                                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">S: {{ courseNutrition.formatCarbohydrates }}</span>
+                                                                {% endif %}
+                                                                {% if courseNutrition.proteins is not null %}
+                                                                    <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">B: {{ courseNutrition.formatProteins }}</span>
+                                                                {% endif %}
+                                                            </div>
                                                         {% endif %}
                                                         <button
                                                             type="button"
@@ -219,8 +272,22 @@
                                                                 </div>
                                                                 {% set variantNutrition = variant.nutritionalValues %}
                                                                 {% if variantNutrition.hasAnyValue and variant.meals|length > 1 %}
-                                                                    <div class="nutrition-summary-variant">
-                                                                        <small class="text-muted">Celkem varianta:</small> {{ variantNutrition.formatCompact }}
+                                                                    <div class="nutrition-summary nutrition-summary-variant">
+                                                                        <span class="nutrition-label">Celkem varianta:</span>
+                                                                        <div class="nutrition-badges">
+                                                                            {% if variantNutrition.energyValue is not null %}
+                                                                                <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">{{ variantNutrition.formatEnergyValue }}</span>
+                                                                            {% endif %}
+                                                                            {% if variantNutrition.fats is not null %}
+                                                                                <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">T: {{ variantNutrition.formatFats }}</span>
+                                                                            {% endif %}
+                                                                            {% if variantNutrition.carbohydrates is not null %}
+                                                                                <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">S: {{ variantNutrition.formatCarbohydrates }}</span>
+                                                                            {% endif %}
+                                                                            {% if variantNutrition.proteins is not null %}
+                                                                                <span class="nutrition-badge-item" style="background-color: {{ mealType.mealType.cssColor }};">B: {{ variantNutrition.formatProteins }}</span>
+                                                                            {% endif %}
+                                                                        </div>
                                                                     </div>
                                                                 {% endif %}
                                                             {% else %}
