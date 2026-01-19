@@ -688,7 +688,7 @@
 
 /* Course level styles */
 .collapsible-course > summary:hover {
-    background-color: #e9ecef !important;
+    background-color: color-mix(in srgb, var(--course-color) 20%, white) !important;
 }
 
 .collapsible-course > summary {
