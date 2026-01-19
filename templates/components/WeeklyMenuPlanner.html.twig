@@ -145,20 +145,6 @@
                                                             <i class="mdi mdi-delete"></i>
                                                         </button>
                                                     </span>
-                                                    {% if course.singleVariantMode %}
-                                                        {% set firstVariant = course.variants|first %}
-                                                        {% if firstVariant %}
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-sm btn-success"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#mealSelectorModal"
-                                                                data-variant-id="{{ firstVariant.id }}"
-                                                                onclick="event.stopPropagation();">
-                                                                <i class="mdi mdi-plus"></i> Jídlo
-                                                            </button>
-                                                        {% endif %}
-                                                    {% endif %}
                                                 </summary>
                                                 <div class="collapsible-content" data-collapsible-target="content">
                                                     <div class="collapsible-inner">
@@ -185,24 +171,10 @@
                                                                             data-variant-id="{{ variant.id }}"
                                                                             data-action="change->variant-name#save"
                                                                             data-controller="variant-name">
-                                                                        <span class="text-muted" style="font-size: 0.7rem;">Jídla mezi kterými si zákazník vybírá. (Doporučeno např. A, B, C nebo 1, 2, 3)</span>
-                                                                    {% elseif variant.meals|length == 0 %}
-                                                                        <span class="text-muted small">Zatím žádná jídla</span>
-                                                                    {% endif %}
-                                                                </div>
-                                                                {% if not course.singleVariantMode %}
-                                                                    <div>
                                                                         <button
                                                                             type="button"
-                                                                            class="btn btn-sm btn-success"
-                                                                            data-bs-toggle="modal"
-                                                                            data-bs-target="#mealSelectorModal"
-                                                                            data-variant-id="{{ variant.id }}">
-                                                                            <i class="mdi mdi-plus"></i> Jídlo
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            class="btn btn-sm btn-outline-danger"
+                                                                            class="btn btn-link btn-sm text-muted p-0 ms-1"
+                                                                            style="line-height: 1;"
                                                                             data-controller="confirm"
                                                                             data-confirm-message-value="Opravdu smazat tuto variantu?"
                                                                             data-action="click->confirm#confirm click->live#action"
@@ -210,8 +182,11 @@
                                                                             data-live-variantid-param="{{ variant.id }}">
                                                                             <i class="mdi mdi-delete"></i>
                                                                         </button>
-                                                                    </div>
-                                                                {% endif %}
+                                                                        <span class="text-muted" style="font-size: 0.7rem;">Jídla mezi kterými si zákazník vybírá. (Doporučeno např. A, B, C nebo 1, 2, 3)</span>
+                                                                    {% elseif variant.meals|length == 0 %}
+                                                                        <span class="text-muted small">Zatím žádná jídla</span>
+                                                                    {% endif %}
+                                                                </div>
                                                             </div>
 
                                                             {% if variant.meals|length > 0 %}
@@ -230,6 +205,15 @@
                                                                             } only %}
                                                                         </div>
                                                                     {% endfor %}
+                                                                    <button
+                                                                        type="button"
+                                                                        class="meal-selector-item add-meal-btn"
+                                                                        style="background-color: {{ mealType.mealType.cssColor }}; border: 1px solid {{ mealType.mealType.cssColor }}; color: white; display: flex; align-items: center; justify-content: center; aspect-ratio: 1; min-height: 100px; cursor: pointer;"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#mealSelectorModal"
+                                                                        data-variant-id="{{ variant.id }}">
+                                                                        <span><i class="mdi mdi-plus"></i> Jídlo</span>
+                                                                    </button>
                                                                 </div>
                                                                 {% set variantNutrition = variant.nutritionalValues %}
                                                                 {% if variantNutrition.hasAnyValue and variant.meals|length > 1 %}
@@ -237,8 +221,21 @@
                                                                         <small class="text-muted">Celkem varianta:</small> {{ variantNutrition.formatCompact }}
                                                                     </div>
                                                                 {% endif %}
-                                                            {% elseif not course.singleVariantMode %}
-                                                                <p class="text-muted mb-0 small mt-2">Zatím žádná jídla. Klikněte na "<i class="mdi mdi-plus"></i> Jídlo" pro přidání.</p>
+                                                            {% else %}
+                                                                {% if not course.singleVariantMode %}
+                                                                    <p class="text-muted mb-2 small">Zatím žádná jídla</p>
+                                                                {% endif %}
+                                                                <div class="meal-selector-grid">
+                                                                    <button
+                                                                        type="button"
+                                                                        class="meal-selector-item add-meal-btn"
+                                                                        style="background-color: {{ mealType.mealType.cssColor }}; border: 1px solid {{ mealType.mealType.cssColor }}; color: white; display: flex; align-items: center; justify-content: center; aspect-ratio: 1; min-height: 100px; cursor: pointer;"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#mealSelectorModal"
+                                                                        data-variant-id="{{ variant.id }}">
+                                                                        <span><i class="mdi mdi-plus"></i> Jídlo</span>
+                                                                    </button>
+                                                                </div>
                                                             {% endif %}
                                                         </div>
                                                         {% if not loop.last and not course.singleVariantMode %}
