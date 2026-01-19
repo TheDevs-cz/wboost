@@ -33,6 +33,7 @@ readonly final class AddCourseHandler
             $message->courseId,
             $dayMealType,
             $position,
+            $message->singleVariantMode,
         );
 
         $dayMealType->addCourse($course);

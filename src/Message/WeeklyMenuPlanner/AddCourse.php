@@ -11,6 +11,8 @@ readonly final class AddCourse
     public function __construct(
         public UuidInterface $dayMealTypeId,
         public UuidInterface $courseId,
+        public bool $singleVariantMode = false,
+        public int $variantCount = 1,
     ) {
     }
 }

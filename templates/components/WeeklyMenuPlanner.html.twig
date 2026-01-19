@@ -1,4 +1,7 @@
-<div {{ attributes }}>
+<div {{ attributes.defaults({
+    'data-controller': 'planner-collapsible-opener',
+    'data-planner-collapsible-opener-ids-value': openCollapsibles|json_encode
+}) }}>
     {% if lastSaved %}
         <div class="text-success small mb-2"><i class="mdi mdi-check-circle"></i> Uloženo {{ lastSaved }}</div>
     {% endif %}
@@ -20,38 +23,45 @@
     <div class="row" data-controller="weekly-menu-dragula">
         {% for day in menu.days %}
             <div class="col-12 mb-4">
-                <div class="card sha" style="border: 1px solid #727cf5; border-left-width: 4px;">
-                    <div class="card-header d-flex justify-content-between align-items-baseline position-relative" style="background-color: rgba(var(--bs-primary-rgb), 0.08);">
-                        <div>
-                            <h5 class="m-0">
-                                {{ day.dayLabel }}
-                                {% if day.date %}
-                                    <small class="d-block fw-normal" style="font-size: 0.75rem;">({{ day.date|date('d.m.Y') }})</small>
+                <details id="day-{{ day.id }}" class="collapsible-section collapsible-day" data-controller="collapsible">
+                    <summary class="card-header d-flex justify-content-between align-items-baseline position-relative" style="background-color: rgba(var(--bs-primary-rgb), 0.08); border: 1px solid #727cf5; border-left: 4px solid #727cf5; border-radius: 0.25rem; cursor: pointer; list-style: none; padding: 0.75rem 1rem;">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="mdi mdi-chevron-right collapsible-icon"></i>
+                            <div>
+                                <h5 class="m-0">
+                                    {{ day.dayLabel }}
+                                    {% if day.date %}
+                                        <small class="d-block fw-normal" style="font-size: 0.75rem;">({{ day.date|date('d.m.Y') }})</small>
+                                    {% endif %}
+                                </h5>
+                                {% set dayNutrition = day.nutritionalValues %}
+                                {% if dayNutrition.hasAnyValue %}
+                                    <div class="nutrition-summary-day">
+                                        <span class="nutrition-values-compact">{{ dayNutrition.formatCompact }}</span>
+                                    </div>
                                 {% endif %}
-                            </h5>
-                            {% set dayNutrition = day.nutritionalValues %}
-                            {% if dayNutrition.hasAnyValue %}
-                                <div class="nutrition-summary-day">
-                                    <span class="nutrition-values-compact">{{ dayNutrition.formatCompact }}</span>
-                                </div>
-                            {% endif %}
+                            </div>
                         </div>
                         <button
                             type="button"
-                            class="btn btn-sm btn-danger m-0"
+                            class="btn btn-sm btn-outline-danger m-0"
                             data-controller="confirm"
                             data-confirm-message-value="Opravdu smazat celý den včetně všech jídel?"
                             data-action="click->confirm#confirm click->live#action"
                             data-live-action-param="removeDay"
-                            data-live-dayid-param="{{ day.id }}">
-                            <i class="mdi mdi-delete"></i> Smazat den
+                            data-live-dayid-param="{{ day.id }}"
+                            onclick="event.stopPropagation();">
+                            <i class="mdi mdi-delete"></i>
                         </button>
-                    </div>
-                    <div class="card-body">
+                    </summary>
+                    <div class="collapsible-content" data-collapsible-target="content">
+                        <div class="collapsible-inner">
+                            <div class="p-3" style="border: 1px solid #727cf5; border-top: none; border-left: 4px solid #727cf5; border-radius: 0 0 0.25rem 0.25rem;">
                         {% for mealType in day.mealTypes %}
-                            <div class="card mb-3" style="border-left: 4px solid {{ mealType.mealType.cssColor }};">
-                                <div class="card-header d-flex justify-content-between align-items-center py-2" style="background-color: {{ mealType.mealType.cssColor }}20;">
+                            <details id="meal-type-{{ mealType.id }}" class="collapsible-section collapsible-meal-type mb-3" data-controller="collapsible">
+                                <summary class="card-header d-flex justify-content-between align-items-center py-2" style="background-color: {{ mealType.mealType.cssColor }}20; border: 1px solid {{ mealType.mealType.cssColor }}40; border-left: 4px solid {{ mealType.mealType.cssColor }}; border-radius: 0.25rem; cursor: pointer; list-style: none; padding: 0.5rem 1rem;">
                                     <div class="d-flex align-items-center gap-2">
+                                        <i class="mdi mdi-chevron-right collapsible-icon"></i>
                                         <span class="fw-bold">{{ mealType.mealType.label }}</span>
                                         {% set mealTypeNutrition = mealType.nutritionalValues %}
                                         {% if mealTypeNutrition.hasAnyValue %}
@@ -59,87 +69,126 @@
                                         {% endif %}
                                     </div>
                                     <div>
+                                        <div class="dropdown d-inline-block">
+                                            <button type="button" class="btn btn-sm dropdown-toggle"
+                                                    style="background-color: {{ mealType.mealType.cssColor }}; border-color: {{ mealType.mealType.cssColor }}; color: white;"
+                                                    data-bs-toggle="dropdown"
+                                                    onclick="event.stopPropagation();">
+                                                <i class="mdi mdi-plus"></i> Chod
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <button type="button" class="dropdown-item"
+                                                            data-action="live#action"
+                                                            data-live-action-param="addCourse"
+                                                            data-live-mealtypeid-param="{{ mealType.id }}"
+                                                            data-live-singlevariantmode-param="true">
+                                                        <i class="mdi mdi-silverware-fork-knife"></i> Bez výběru
+                                                        <small class="d-block text-muted">Jednoduchý chod</small>
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button type="button" class="dropdown-item"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#variantCountModal"
+                                                            data-meal-type-id="{{ mealType.id }}">
+                                                        <i class="mdi mdi-format-list-bulleted"></i> S výběrem variant
+                                                        <small class="d-block text-muted">Zákazník vybírá z možností</small>
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
                                         <button
                                             type="button"
-                                            class="btn btn-sm btn-primary"
-                                            data-action="live#action"
-                                            data-live-action-param="addCourse"
-                                            data-live-mealtypeid-param="{{ mealType.id }}">
-                                            <i class="mdi mdi-plus"></i> Chod
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="btn btn-sm btn-danger"
+                                            class="btn btn-sm btn-outline-danger"
                                             data-controller="confirm"
                                             data-confirm-message-value="Opravdu smazat toto jídlo dne?"
                                             data-action="click->confirm#confirm click->live#action"
                                             data-live-action-param="removeMealType"
-                                            data-live-mealtypeid-param="{{ mealType.id }}">
+                                            data-live-mealtypeid-param="{{ mealType.id }}"
+                                            onclick="event.stopPropagation();">
                                             <i class="mdi mdi-delete"></i>
                                         </button>
                                     </div>
-                                </div>
-                                <div class="card-body py-2"
-                                     data-weekly-menu-dragula-target="coursesContainer"
-                                     data-meal-type-id="{{ mealType.id }}">
+                                </summary>
+                                <div class="collapsible-content" data-collapsible-target="content">
+                                    <div class="collapsible-inner">
+                                        <div class="p-3"
+                                             style="background-color: {{ mealType.mealType.cssColor }}15; border: 1px solid {{ mealType.mealType.cssColor }}40; border-top: none; border-left: 4px solid {{ mealType.mealType.cssColor }}; border-radius: 0 0 0.25rem 0.25rem;"
+                                             data-weekly-menu-dragula-target="coursesContainer"
+                                             data-meal-type-id="{{ mealType.id }}">
                                     {% if mealType.courses|length == 0 %}
                                         <p class="text-muted mb-0 small">Zatím žádné chody. Klikněte na "+ Chod" pro přidání.</p>
                                     {% else %}
                                         {% for course in mealType.courses %}
-                                            <div class="border rounded p-2 mb-2 bg-light" data-course-id="{{ course.id }}">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <details id="course-{{ course.id }}" class="collapsible-section collapsible-course mb-2" data-course-id="{{ course.id }}" data-controller="collapsible">
+                                                <summary class="d-flex justify-content-between align-items-center p-2 bg-light border rounded" style="cursor: pointer; list-style: none; padding: 0.5rem 0.75rem !important;">
                                                     <span class="text-muted small d-flex align-items-center gap-1">
+                                                        <i class="mdi mdi-chevron-right collapsible-icon"></i>
                                                         {% if mealType.courses|length > 1 %}
-                                                            <i class="mdi mdi-drag course-drag-handle" style="cursor: grab;"></i>
+                                                            <i class="mdi mdi-drag course-drag-handle" style="cursor: grab;" onclick="event.stopPropagation();"></i>
                                                         {% endif %}
                                                         Chod {{ loop.index }}
+                                                        {% if not course.singleVariantMode %}
+                                                            <span class="badge bg-secondary ms-1">{{ course.variants|length }} variant</span>
+                                                        {% endif %}
                                                     </span>
                                                     <div>
+                                                        {% if not course.singleVariantMode %}
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-sm btn-secondary"
+                                                                data-action="live#action"
+                                                                data-live-action-param="addVariant"
+                                                                data-live-courseid-param="{{ course.id }}"
+                                                                data-live-name-param=""
+                                                                onclick="event.stopPropagation();">
+                                                                <i class="mdi mdi-plus"></i> Varianta
+                                                            </button>
+                                                        {% endif %}
                                                         <button
                                                             type="button"
-                                                            class="btn btn-sm btn-secondary"
-                                                            data-action="live#action"
-                                                            data-live-action-param="addVariant"
-                                                            data-live-courseid-param="{{ course.id }}"
-                                                            data-live-name-param="">
-                                                            <i class="mdi mdi-plus"></i> Varianta
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            class="btn btn-sm btn-danger"
+                                                            class="btn btn-sm btn-outline-danger"
                                                             data-controller="confirm"
                                                             data-confirm-message-value="Opravdu smazat tento chod?"
                                                             data-action="click->confirm#confirm click->live#action"
                                                             data-live-action-param="removeCourse"
-                                                            data-live-courseid-param="{{ course.id }}">
+                                                            data-live-courseid-param="{{ course.id }}"
+                                                            onclick="event.stopPropagation();">
                                                             <i class="mdi mdi-delete"></i>
                                                         </button>
                                                     </div>
-                                                </div>
-
-                                                <div data-weekly-menu-dragula-target="variantsContainer"
-                                                     data-course-id="{{ course.id }}">
+                                                </summary>
+                                                <div class="collapsible-content" data-collapsible-target="content">
+                                                    <div class="collapsible-inner">
+                                                        <div class="p-3 bg-light border border-top-0 rounded-bottom"
+                                                             data-weekly-menu-dragula-target="variantsContainer"
+                                                             data-course-id="{{ course.id }}">
                                                 {% if course.variants|length == 0 %}
                                                     <p class="text-muted mb-0 small">Zatím žádné varianty. Klikněte na "+ Varianta" pro přidání.</p>
                                                 {% else %}
                                                     {% for variant in course.variants %}
                                                         <div class="border rounded p-2 mb-2 bg-white" data-variant-id="{{ variant.id }}">
-                                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                            <div class="d-flex justify-content-between align-items-center{% if variant.meals|length > 0 %} mb-2{% endif %}">
                                                                 <div class="d-flex align-items-center gap-2">
-                                                                    {% if course.variants|length > 1 %}
-                                                                        <i class="mdi mdi-drag variant-drag-handle" style="cursor: grab;"></i>
-                                                                    {% endif %}
-                                                                    <input
-                                                                        type="text"
-                                                                        class="form-control form-control-sm"
-                                                                        style="width: 150px;"
-                                                                        placeholder="Název varianty..."
-                                                                        value="{{ variant.name }}"
-                                                                        data-variant-id="{{ variant.id }}"
-                                                                        data-action="change->variant-name#save"
-                                                                        data-controller="variant-name">
-                                                                    {% if not variant.name %}
-                                                                        <span class="text-muted" style="font-size: 0.7rem;">Jídla mezi kterými si zákazník vybírá. (Doporučeno např. A, B, C nebo 1, 2, 3)</span>
+                                                                    {% if not course.singleVariantMode %}
+                                                                        {% if course.variants|length > 1 %}
+                                                                            <i class="mdi mdi-drag variant-drag-handle" style="cursor: grab;"></i>
+                                                                        {% endif %}
+                                                                        <input
+                                                                            type="text"
+                                                                            class="form-control form-control-sm"
+                                                                            style="width: 150px;"
+                                                                            placeholder="Název varianty..."
+                                                                            value="{{ variant.name }}"
+                                                                            data-variant-id="{{ variant.id }}"
+                                                                            data-action="change->variant-name#save"
+                                                                            data-controller="variant-name">
+                                                                        {% if not variant.name %}
+                                                                            <span class="text-muted" style="font-size: 0.7rem;">Jídla mezi kterými si zákazník vybírá. (Doporučeno např. A, B, C nebo 1, 2, 3)</span>
+                                                                        {% endif %}
+                                                                    {% elseif variant.meals|length == 0 %}
+                                                                        <span class="text-muted small">Zatím žádná jídla</span>
                                                                     {% endif %}
                                                                 </div>
                                                                 <div>
@@ -151,16 +200,18 @@
                                                                         data-variant-id="{{ variant.id }}">
                                                                         <i class="mdi mdi-plus"></i> Jídlo
                                                                     </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        class="btn btn-sm btn-danger"
-                                                                        data-controller="confirm"
-                                                                        data-confirm-message-value="Opravdu smazat tuto variantu?"
-                                                                        data-action="click->confirm#confirm click->live#action"
-                                                                        data-live-action-param="removeVariant"
-                                                                        data-live-variantid-param="{{ variant.id }}">
-                                                                        <i class="mdi mdi-delete"></i>
-                                                                    </button>
+                                                                    {% if not course.singleVariantMode %}
+                                                                        <button
+                                                                            type="button"
+                                                                            class="btn btn-sm btn-outline-danger"
+                                                                            data-controller="confirm"
+                                                                            data-confirm-message-value="Opravdu smazat tuto variantu?"
+                                                                            data-action="click->confirm#confirm click->live#action"
+                                                                            data-live-action-param="removeVariant"
+                                                                            data-live-variantid-param="{{ variant.id }}">
+                                                                            <i class="mdi mdi-delete"></i>
+                                                                        </button>
+                                                                    {% endif %}
                                                                 </div>
                                                             </div>
 
@@ -207,18 +258,22 @@
                                                                         <small class="text-muted">Celkem varianta:</small> {{ variantNutrition.formatCompact }}
                                                                     </div>
                                                                 {% endif %}
-                                                            {% else %}
-                                                                <p class="text-muted mb-0 small">Zatím žádná jídla. Klikněte na "+ Jídlo" pro přidání.</p>
+                                                            {% elseif not course.singleVariantMode %}
+                                                                <p class="text-muted mb-0 small">Zatím žádná jídla. Klikněte na "<i class="mdi mdi-plus"></i> Jídlo" pro přidání.</p>
                                                             {% endif %}
                                                         </div>
                                                     {% endfor %}
                                                 {% endif %}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </details>
                                         {% endfor %}
                                     {% endif %}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            </details>
                         {% else %}
                             <p class="text-muted">Zatím žádné typy jídel pro tento den.</p>
                         {% endfor %}
@@ -249,8 +304,10 @@
                         {% else %}
                             <p class="text-muted small mb-0"><i class="mdi mdi-check-circle text-success"></i> Všechny typy jídel jsou přidány</p>
                         {% endif %}
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </details>
             </div>
         {% endfor %}
     </div>
@@ -341,6 +398,34 @@
                             Žádná jídla neodpovídají zadaným filtrům.
                         </div>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Variant Count Modal -->
+    <div class="modal fade" id="variantCountModal" tabindex="-1" aria-labelledby="variantCountModalLabel" aria-hidden="true"
+         data-controller="variant-count-modal">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="variantCountModalLabel">Počet variant</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" data-variant-count-modal-target="mealTypeId" value="">
+                    <div class="mb-3">
+                        <label class="form-label">Kolik variant chcete vytvořit?</label>
+                        <input type="number" class="form-control" min="2" max="10" value="2"
+                               data-variant-count-modal-target="variantCount">
+                        <div class="form-text">Zákazník si vybere jednu z variant.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="button" class="btn btn-primary" data-action="variant-count-modal#confirm">
+                        <i class="mdi mdi-check"></i> Vytvořit
+                    </button>
                 </div>
             </div>
         </div>

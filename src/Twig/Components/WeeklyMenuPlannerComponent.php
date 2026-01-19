@@ -43,6 +43,10 @@ final class WeeklyMenuPlannerComponent extends AbstractController
     #[LiveProp(writable: true)]
     public null|string $lastSaved = null;
 
+    /** @var array<string> IDs of collapsibles to open after render */
+    #[LiveProp]
+    public array $openCollapsibles = [];
+
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private ProvideIdentity $provideIdentity,
@@ -60,7 +64,6 @@ final class WeeklyMenuPlannerComponent extends AbstractController
         assert($this->menu !== null);
 
         $mealTypeId = $this->provideIdentity->next();
-        $courseId = $this->provideIdentity->next();
 
         $this->bus->dispatch(
             new AddDayMealType(
@@ -68,16 +71,6 @@ final class WeeklyMenuPlannerComponent extends AbstractController
                 $mealTypeId,
                 WeeklyMenuMealType::from($mealType),
             ),
-        );
-
-        // Automatically add one course to the new meal type
-        $this->bus->dispatch(
-            new AddCourse($mealTypeId, $courseId),
-        );
-
-        // Automatically add one variant to the new course
-        $this->bus->dispatch(
-            new AddCourseVariant($courseId, $this->provideIdentity->next(), null),
         );
 
         $this->refreshMenu();
@@ -104,25 +97,35 @@ final class WeeklyMenuPlannerComponent extends AbstractController
     }
 
     #[LiveAction]
-    public function addCourse(#[LiveArg('mealtypeid')] string $mealTypeId): void
-    {
+    public function addCourse(
+        #[LiveArg('mealtypeid')] string $mealTypeId,
+        #[LiveArg('singlevariantmode')] bool $singleVariantMode = true,
+        #[LiveArg('variantcount')] int $variantCount = 1,
+    ): void {
         $courseId = $this->provideIdentity->next();
 
         $this->bus->dispatch(
             new AddCourse(
                 \Ramsey\Uuid\Uuid::fromString($mealTypeId),
                 $courseId,
+                $singleVariantMode,
+                $variantCount,
             ),
         );
 
-        // Automatically add one variant to the new course
-        $this->bus->dispatch(
-            new AddCourseVariant(
-                $courseId,
-                $this->provideIdentity->next(),
-                null,
-            ),
-        );
+        // Add the requested number of variants
+        for ($i = 0; $i < $variantCount; $i++) {
+            $this->bus->dispatch(
+                new AddCourseVariant(
+                    $courseId,
+                    $this->provideIdentity->next(),
+                    null,
+                ),
+            );
+        }
+
+        // Mark collapsibles to open after render
+        $this->openCollapsibles = [$mealTypeId, $courseId->toString()];
 
         $this->refreshMenu();
     }

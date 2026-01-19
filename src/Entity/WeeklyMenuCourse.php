@@ -42,8 +42,17 @@ class WeeklyMenuCourse
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(type: Types::SMALLINT, options: ['default' => 0])]
         public int $position = 0,
+
+        #[Immutable]
+        #[Column(type: Types::BOOLEAN, options: ['default' => false])]
+        public bool $singleVariantMode = false,
     ) {
         $this->variants = new ArrayCollection();
+    }
+
+    public function isSingleVariantMode(): bool
+    {
+        return $this->singleVariantMode;
     }
 
     public function addVariant(WeeklyMenuCourseVariant $variant): void

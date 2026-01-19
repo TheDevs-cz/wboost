@@ -507,3 +507,108 @@
     font-weight: normal;
     margin-left: 4px;
 }
+
+/* Collapsible sections using native <details> element */
+.collapsible-section {
+    /* Remove default marker */
+}
+
+.collapsible-section > summary {
+    list-style: none;
+}
+
+.collapsible-section > summary::-webkit-details-marker {
+    display: none;
+}
+
+.collapsible-section > summary::marker {
+    display: none;
+}
+
+/* Chevron icon animation */
+.collapsible-icon {
+    transition: transform 0.2s ease;
+    font-size: 1.1em;
+}
+
+.collapsible-section[open] > summary .collapsible-icon {
+    transform: rotate(90deg);
+}
+
+/* Chevron stays rotated during closing animation */
+.collapsible-section.closing > summary .collapsible-icon {
+    transform: rotate(0deg);
+}
+
+/* Smooth height animation using grid */
+.collapsible-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.2s ease-out;
+}
+
+.collapsible-section[open] > .collapsible-content {
+    grid-template-rows: 1fr;
+}
+
+/* When closing, keep content visible during animation */
+.collapsible-section.closing > .collapsible-content {
+    grid-template-rows: 0fr;
+}
+
+.collapsible-content > .collapsible-inner {
+    min-height: 0;
+}
+
+/* Only apply overflow hidden during animations (open/close) */
+.collapsible-section.animating > .collapsible-content > .collapsible-inner {
+    overflow: hidden;
+}
+
+/* Day level styles */
+.collapsible-day > summary {
+    user-select: none;
+}
+
+.collapsible-day > summary:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.12) !important;
+}
+
+/* Meal type level styles */
+.collapsible-meal-type > summary {
+    position: relative;
+}
+
+.collapsible-meal-type > summary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0);
+    pointer-events: none;
+    border-radius: inherit;
+    transition: background 0.15s;
+}
+
+.collapsible-meal-type > summary:hover::before {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+/* Course level styles */
+.collapsible-course > summary:hover {
+    background-color: #e9ecef !important;
+}
+
+.collapsible-course > summary {
+    border-bottom-left-radius: 0.25rem;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.collapsible-course[open] > summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Fix dropdown overlap issues in planner */
+.collapsible-day .dropdown {
+    display: inline-block !important;
+}
