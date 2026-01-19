@@ -17,6 +17,7 @@ use Doctrine\ORM\Mapping\OrderBy;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\NutritionalValues;
 
 #[Entity]
 class WeeklyMenuCourse
@@ -66,5 +67,34 @@ class WeeklyMenuCourse
     public function sort(int $position): void
     {
         $this->position = $position;
+    }
+
+    /**
+     * Returns nutritional values from the first variant (for hierarchical aggregation).
+     */
+    public function getNutritionalValues(): NutritionalValues
+    {
+        $firstVariant = $this->variants->first();
+
+        if ($firstVariant === false) {
+            return new NutritionalValues();
+        }
+
+        return $firstVariant->getNutritionalValues();
+    }
+
+    /**
+     * Returns min-max range across all variants (since variants are alternatives).
+     * @return array{min: NutritionalValues, max: NutritionalValues}
+     */
+    public function getNutritionalValuesRange(): array
+    {
+        $variantValues = [];
+
+        foreach ($this->variants as $variant) {
+            $variantValues[] = $variant->getNutritionalValues();
+        }
+
+        return NutritionalValues::range($variantValues);
     }
 }

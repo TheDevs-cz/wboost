@@ -17,6 +17,7 @@ use Doctrine\ORM\Mapping\OrderBy;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\NutritionalValues;
 use WBoost\Web\Value\WeeklyMenuMealType;
 
 #[Entity]
@@ -132,5 +133,15 @@ class Meal
         }
 
         return $this->diet->codesLabel();
+    }
+
+    public function getNutritionalValues(): NutritionalValues
+    {
+        return new NutritionalValues(
+            energyValue: $this->energyValue,
+            fats: $this->fats,
+            carbohydrates: $this->carbohydrates,
+            proteins: $this->proteins,
+        );
     }
 }

@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\NutritionalValues;
 
 #[Entity]
 class MealVariant
@@ -161,5 +162,15 @@ class MealVariant
         $diet = $this->getEffectiveDiet();
 
         return $diet?->codesLabel() ?? '';
+    }
+
+    public function getNutritionalValues(): NutritionalValues
+    {
+        return new NutritionalValues(
+            energyValue: $this->getEffectiveEnergyValue(),
+            fats: $this->getEffectiveFats(),
+            carbohydrates: $this->getEffectiveCarbohydrates(),
+            proteins: $this->getEffectiveProteins(),
+        );
     }
 }

@@ -17,6 +17,7 @@ use Doctrine\ORM\Mapping\OrderBy;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\NutritionalValues;
 
 #[Entity]
 class WeeklyMenu
@@ -116,5 +117,16 @@ class WeeklyMenu
         }
 
         return null;
+    }
+
+    public function getNutritionalValues(): NutritionalValues
+    {
+        $values = new NutritionalValues();
+
+        foreach ($this->days as $day) {
+            $values = $values->add($day->getNutritionalValues());
+        }
+
+        return $values;
     }
 }

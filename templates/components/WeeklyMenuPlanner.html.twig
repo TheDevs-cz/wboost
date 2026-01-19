@@ -3,17 +3,39 @@
         <div class="text-success small mb-2"><i class="mdi mdi-check-circle"></i> Uloženo {{ lastSaved }}</div>
     {% endif %}
 
+    {% set weeklyNutrition = menu.nutritionalValues %}
+    {% if weeklyNutrition.hasAnyValue %}
+        <div class="alert alert-info nutrition-summary-weekly mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <i class="mdi mdi-nutrition"></i>
+                <strong>Týdenní souhrn:</strong>
+                <span class="nutrition-values">{{ weeklyNutrition.formatCompact }}</span>
+                {% if not weeklyNutrition.isComplete %}
+                    <span class="badge bg-warning text-dark" title="Některá jídla nemají vyplněné nutriční hodnoty"><i class="mdi mdi-alert"></i></span>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
     <div class="row" data-controller="weekly-menu-dragula">
         {% for day in menu.days %}
             <div class="col-12 mb-4">
                 <div class="card sha" style="border: 1px solid #727cf5; border-left-width: 4px;">
                     <div class="card-header d-flex justify-content-between align-items-baseline position-relative" style="background-color: rgba(var(--bs-primary-rgb), 0.08);">
-                        <h5 class="m-0">
-                            {{ day.dayLabel }}
-                            {% if day.date %}
-                                <small class="d-block fw-normal" style="font-size: 0.75rem;">({{ day.date|date('d.m.Y') }})</small>
+                        <div>
+                            <h5 class="m-0">
+                                {{ day.dayLabel }}
+                                {% if day.date %}
+                                    <small class="d-block fw-normal" style="font-size: 0.75rem;">({{ day.date|date('d.m.Y') }})</small>
+                                {% endif %}
+                            </h5>
+                            {% set dayNutrition = day.nutritionalValues %}
+                            {% if dayNutrition.hasAnyValue %}
+                                <div class="nutrition-summary-day">
+                                    <span class="nutrition-values-compact">{{ dayNutrition.formatCompact }}</span>
+                                </div>
                             {% endif %}
-                        </h5>
+                        </div>
                         <button
                             type="button"
                             class="btn btn-sm btn-danger m-0"
@@ -29,7 +51,13 @@
                         {% for mealType in day.mealTypes %}
                             <div class="card mb-3" style="border-left: 4px solid {{ mealType.mealType.cssColor }};">
                                 <div class="card-header d-flex justify-content-between align-items-center py-2" style="background-color: {{ mealType.mealType.cssColor }}20;">
-                                    <span class="fw-bold">{{ mealType.mealType.label }}</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold">{{ mealType.mealType.label }}</span>
+                                        {% set mealTypeNutrition = mealType.nutritionalValues %}
+                                        {% if mealTypeNutrition.hasAnyValue %}
+                                            <span class="nutrition-badge">{{ mealTypeNutrition.formatEnergyValue }}</span>
+                                        {% endif %}
+                                    </div>
                                     <div>
                                         <button
                                             type="button"
@@ -159,6 +187,10 @@
                                                                             <div class="meal-selector-meta">
                                                                                 {{ variantMeal.meal.dishType.name }}{% if variantMeal.meal.diet %} · <span class="meal-selector-diet">{{ variantMeal.meal.dietCodesLabel }}</span>{% endif %}
                                                                             </div>
+                                                                            {% set mealNutrition = variantMeal.meal.nutritionalValues %}
+                                                                            {% if mealNutrition.hasAnyValue %}
+                                                                                <div class="meal-selector-nutrition">{{ mealNutrition.formatCompact }}</div>
+                                                                            {% endif %}
                                                                             {% if variantMeal.meal.hasVariants %}
                                                                                 <div class="meal-selector-variants">
                                                                                     {% for mealVariant in variantMeal.meal.variants %}
@@ -169,6 +201,12 @@
                                                                         </div>
                                                                     {% endfor %}
                                                                 </div>
+                                                                {% set variantNutrition = variant.nutritionalValues %}
+                                                                {% if variantNutrition.hasAnyValue and variant.meals|length > 1 %}
+                                                                    <div class="nutrition-summary-variant">
+                                                                        <small class="text-muted">Celkem varianta:</small> {{ variantNutrition.formatCompact }}
+                                                                    </div>
+                                                                {% endif %}
                                                             {% else %}
                                                                 <p class="text-muted mb-0 small">Zatím žádná jídla. Klikněte na "+ Jídlo" pro přidání.</p>
                                                             {% endif %}
@@ -284,6 +322,10 @@
                                     <div class="meal-selector-meta">
                                         {{ meal.dishType.name }}{% if meal.diet %} · <span class="meal-selector-diet">{{ meal.dietCodesLabel }}</span>{% endif %}
                                     </div>
+                                    {% set modalMealNutrition = meal.nutritionalValues %}
+                                    {% if modalMealNutrition.hasAnyValue %}
+                                        <div class="meal-selector-nutrition">{{ modalMealNutrition.formatCompact }}</div>
+                                    {% endif %}
                                     {% if meal.hasVariants %}
                                         <div class="meal-selector-variants">
                                             {% for variant in meal.variants %}

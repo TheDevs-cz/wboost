@@ -5,6 +5,12 @@
         <div class="dates">
             Platnost: {{ menu.validFrom|date('d.m.Y') }} - {{ menu.validTo|date('d.m.Y') }}
         </div>
+        {% set menuNutrition = menu.nutritionalValues %}
+        {% if menuNutrition.hasAnyValue %}
+            <div class="menu-nutrition-summary">
+                Týdenní nutriční hodnoty: {{ menuNutrition.formatCompact }}
+            </div>
+        {% endif %}
     </div>
 
     <div class="menu-table-wrapper">
@@ -49,6 +55,10 @@
                                                                 <span class="meal-name">{{ variantMeal.meal.name }}</span>
                                                                 {% if variantMeal.meal.diet %}
                                                                     <span class="diet-codes">({{ variantMeal.meal.diet.codesLabel }})</span>
+                                                                {% endif %}
+                                                                {% set displayMealNutrition = variantMeal.meal.nutritionalValues %}
+                                                                {% if displayMealNutrition.energyValue %}
+                                                                    <span class="meal-nutrition">{{ displayMealNutrition.formatEnergyValue }}</span>
                                                                 {% endif %}
                                                                 {% if variantMeal.meal.hasVariants %}
                                                                     {% for mealVariant in variantMeal.meal.variants %}

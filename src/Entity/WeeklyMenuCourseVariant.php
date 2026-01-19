@@ -17,6 +17,7 @@ use Doctrine\ORM\Mapping\OrderBy;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\NutritionalValues;
 
 #[Entity]
 class WeeklyMenuCourseVariant
@@ -75,5 +76,16 @@ class WeeklyMenuCourseVariant
     public function sort(int $position): void
     {
         $this->position = $position;
+    }
+
+    public function getNutritionalValues(): NutritionalValues
+    {
+        $values = new NutritionalValues();
+
+        foreach ($this->meals as $variantMeal) {
+            $values = $values->add($variantMeal->meal->getNutritionalValues());
+        }
+
+        return $values;
     }
 }
