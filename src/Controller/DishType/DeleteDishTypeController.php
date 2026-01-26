@@ -21,7 +21,7 @@ final class DeleteDishTypeController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/dish-type/{dishTypeId}/delete', name: 'delete_dish_type', methods: ['POST'])]
+    #[Route(path: '/dish-type/{dishTypeId}/delete', name: 'delete_dish_type')]
     #[IsGranted(DishTypeVoter::EDIT, 'dishType')]
     public function __invoke(
         #[MapEntity(id: 'dishTypeId')]

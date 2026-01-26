@@ -21,7 +21,7 @@ final class DeleteWeeklyMenuController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/delete-weekly-menu/{menuId}', name: 'delete_weekly_menu', methods: ['POST'])]
+    #[Route(path: '/delete-weekly-menu/{menuId}', name: 'delete_weekly_menu')]
     #[IsGranted(WeeklyMenuVoter::EDIT, 'menu')]
     public function __invoke(
         #[MapEntity(id: 'menuId')]

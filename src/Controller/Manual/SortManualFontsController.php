@@ -22,7 +22,7 @@ final class SortManualFontsController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/sort-manual-fonts/{manualId}', name: 'sort_manual_fonts', methods: ['POST'])]
+    #[Route(path: '/sort-manual-fonts/{manualId}', name: 'sort_manual_fonts')]
     #[IsGranted(ManualVoter::EDIT, 'manual')]
     public function __invoke(
         #[MapEntity(id: 'manualId')]

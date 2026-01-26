@@ -23,7 +23,7 @@ final class DuplicateWeeklyMenuController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/weekly-menu/{menuId}/duplicate', name: 'duplicate_weekly_menu', methods: ['POST'])]
+    #[Route(path: '/weekly-menu/{menuId}/duplicate', name: 'duplicate_weekly_menu')]
     #[IsGranted(WeeklyMenuVoter::EDIT, 'menu')]
     public function __invoke(
         #[MapEntity(id: 'menuId')]

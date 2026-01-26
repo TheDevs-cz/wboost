@@ -22,7 +22,7 @@ final class SortFontFacesController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/sort-font-faces/{fontId}', name: 'sort_font_faces', methods: ['POST'])]
+    #[Route(path: '/sort-font-faces/{fontId}', name: 'sort_font_faces')]
     #[IsGranted(FontVoter::EDIT, 'font')]
     public function __invoke(
         #[MapEntity(id: 'fontId')]

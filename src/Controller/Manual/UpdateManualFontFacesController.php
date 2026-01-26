@@ -22,7 +22,7 @@ final class UpdateManualFontFacesController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/update-manual-font-faces/{manualFontId}', name: 'update_manual_font_faces', methods: ['POST'])]
+    #[Route(path: '/update-manual-font-faces/{manualFontId}', name: 'update_manual_font_faces')]
     #[IsGranted(ManualFontVoter::EDIT, 'manualFont')]
     public function __invoke(
         #[MapEntity(id: 'manualFontId')]

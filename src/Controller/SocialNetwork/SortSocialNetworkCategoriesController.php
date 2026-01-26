@@ -22,7 +22,7 @@ final class SortSocialNetworkCategoriesController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/sort-social-network-categories/{projectId}', name: 'sort_social_network_categories', methods: ['POST'])]
+    #[Route(path: '/sort-social-network-categories/{projectId}', name: 'sort_social_network_categories')]
     #[IsGranted(ProjectVoter::EDIT, 'project')]
     public function __invoke(
         #[MapEntity(id: 'projectId')]

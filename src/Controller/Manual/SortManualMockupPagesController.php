@@ -22,7 +22,7 @@ final class SortManualMockupPagesController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/sort-manual-mockup-pages/{manualId}', name: 'sort_manual_mockup_pages', methods: ['POST'])]
+    #[Route(path: '/sort-manual-mockup-pages/{manualId}', name: 'sort_manual_mockup_pages')]
     #[IsGranted(ManualVoter::EDIT, 'manual')]
     public function __invoke(
         #[MapEntity(id: 'manualId')]

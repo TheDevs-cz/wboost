@@ -21,7 +21,7 @@ final class DeleteDietController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/diet/{dietId}/delete', name: 'delete_diet', methods: ['POST'])]
+    #[Route(path: '/diet/{dietId}/delete', name: 'delete_diet')]
     #[IsGranted(DietVoter::EDIT, 'diet')]
     public function __invoke(
         #[MapEntity(id: 'dietId')]

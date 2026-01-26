@@ -22,7 +22,7 @@ final class SortSocialNetworkTemplatesController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/sort-social-network-templates/{projectId}', name: 'sort_social_network_templates', methods: ['POST'])]
+    #[Route(path: '/sort-social-network-templates/{projectId}', name: 'sort_social_network_templates')]
     #[IsGranted(ProjectVoter::EDIT, 'project')]
     public function __invoke(
         #[MapEntity(id: 'projectId')]
