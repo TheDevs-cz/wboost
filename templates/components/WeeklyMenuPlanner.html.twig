@@ -437,7 +437,7 @@
                                 <div class="meal-selector-item"
                                      data-meal-selector-target="mealCard"
                                      data-meal-type="{{ meal.mealType.value }}"
-                                     data-diet-id="{{ meal.diet ? meal.diet.id : '' }}"
+                                     data-diet-ids="{{ meal.diets|map(d => d.id)|join(',') }}"
                                      data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dietCodesLabel|lower }}"
                                      data-meal-id="{{ meal.id }}"
                                      data-action="click->meal-selector#selectMeal"

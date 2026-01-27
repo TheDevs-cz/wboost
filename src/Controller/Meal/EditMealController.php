@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use WBoost\Web\Entity\Diet;
 use WBoost\Web\Entity\Meal;
 use WBoost\Web\FormData\MealFormData;
 use WBoost\Web\FormData\MealVariantFormData;
@@ -45,7 +46,7 @@ final class EditMealController extends AbstractController
         $data->internalName = $meal->internalName;
         $data->mealType = $meal->mealType;
         $data->dishTypeId = $meal->dishType->id;
-        $data->dietId = $meal->diet?->id;
+        $data->dietIds = array_map(fn(Diet $d) => $d->id, $meal->diets());
         $data->energyValue = $meal->energyValue;
         $data->fats = $meal->fats;
         $data->carbohydrates = $meal->carbohydrates;
@@ -61,7 +62,7 @@ final class EditMealController extends AbstractController
                 $variantData->referenceMealId = $variant->referenceMeal?->id;
             } else {
                 $variantData->mode = MealVariantFormData::MODE_MANUAL;
-                $variantData->dietId = $variant->diet?->id;
+                $variantData->dietIds = array_map(fn(Diet $d) => $d->id, $variant->diets());
                 $variantData->name = $variant->name ?? '';
                 $variantData->energyValue = $variant->energyValue;
                 $variantData->fats = $variant->fats;
@@ -91,7 +92,7 @@ final class EditMealController extends AbstractController
                     'id' => $variantData->id ?? $this->provideIdentity->next(),
                     'mode' => $variantData->mode,
                     'name' => $variantData->name,
-                    'dietId' => $variantData->dietId,
+                    'dietIds' => $variantData->dietIds,
                     'referenceMealId' => $variantData->referenceMealId,
                     'energyValue' => $variantData->energyValue,
                     'fats' => $variantData->fats,
@@ -107,7 +108,7 @@ final class EditMealController extends AbstractController
                     $data->dishTypeId,
                     $data->name,
                     $data->internalName,
-                    $data->dietId,
+                    $data->dietIds,
                     $data->energyValue,
                     $data->fats,
                     $data->carbohydrates,

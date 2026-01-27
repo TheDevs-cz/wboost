@@ -31,7 +31,8 @@ final class MealFormData
     #[NotNull]
     public null|UuidInterface $dishTypeId = null;
 
-    public null|UuidInterface $dietId = null;
+    /** @var array<UuidInterface> */
+    public array $dietIds = [];
 
     #[PositiveOrZero]
     public null|string $energyValue = null;

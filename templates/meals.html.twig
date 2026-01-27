@@ -75,13 +75,15 @@
                                         <span class="text-body-secondary">{{ meal.dishType.name }}</span>
                                     </td>
                                     <td>
-                                        {% if meal.diet %}
-                                            <span class="badge bg-secondary">
-                                                {{ meal.diet.name }}
-                                                <small class="opacity-75">
-                                                    ({% for code in meal.diet.codes %}{{ code }}{% if not loop.last %}, {% endif %}{% endfor %})
-                                                </small>
-                                            </span>
+                                        {% if meal.hasDiets %}
+                                            {% for diet in meal.diets %}
+                                                <span class="badge bg-secondary">
+                                                    {{ diet.name }}
+                                                    <small class="opacity-75">
+                                                        ({% for code in diet.codes %}{{ code }}{% if not loop.last %}, {% endif %}{% endfor %})
+                                                    </small>
+                                                </span>
+                                            {% endfor %}
                                         {% else %}
                                             <span class="text-muted">—</span>
                                         {% endif %}
@@ -90,7 +92,7 @@
                                         {% if meal.hasVariants %}
                                             <div class="d-flex flex-wrap gap-1">
                                                 {% for variant in meal.variants %}
-                                                    <span class="badge bg-dark" title="{{ variant.effectiveDiet ? variant.effectiveDiet.name : '' }}{% if variant.referenceMode %} (odkaz na jiné jídlo){% endif %}">
+                                                    <span class="badge bg-dark" title="{{ variant.dietCodesLabel }}{% if variant.referenceMode %} (odkaz na jiné jídlo){% endif %}">
                                                         {% if variant.referenceMode %}<i class="mdi mdi-link-variant"></i> {% endif %}{{ variant.displayName }}
                                                         <span class="opacity-75">({{ variant.dietCodesLabel }})</span>
                                                     </span>

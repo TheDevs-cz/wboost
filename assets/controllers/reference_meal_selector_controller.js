@@ -44,7 +44,7 @@ export default class extends Controller {
         this.mealCardTargets.forEach(card => {
             const searchText = this.removeDiacritics(card.dataset.searchText || '');
             const mealType = card.dataset.mealType || '';
-            const dietId = card.dataset.dietId || '';
+            const dietIds = (card.dataset.dietIds || '').split(',').filter(Boolean);
 
             // Check search match (diacritics-insensitive)
             const matchesSearch = !searchTerm || searchText.includes(searchTerm);
@@ -53,7 +53,7 @@ export default class extends Controller {
             const matchesMealType = !selectedMealType || mealType === selectedMealType;
 
             // Check diet match
-            const matchesDiet = !selectedDiet || dietId === selectedDiet;
+            const matchesDiet = !selectedDiet || dietIds.includes(selectedDiet);
 
             // Show/hide card based on all filters
             const isVisible = matchesSearch && matchesMealType && matchesDiet;

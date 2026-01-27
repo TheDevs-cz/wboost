@@ -36,11 +36,8 @@ final class MealVariantFormData
     )]
     public null|UuidInterface $referenceMealId = null;
 
-    #[When(
-        expression: 'this.mode === "manual"',
-        constraints: [new NotNull(message: 'Vyberte dietu')],
-    )]
-    public null|UuidInterface $dietId = null;
+    /** @var array<UuidInterface> */
+    public array $dietIds = [];
 
     #[PositiveOrZero]
     public null|string $energyValue = null;

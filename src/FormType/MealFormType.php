@@ -14,6 +14,7 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use WBoost\Web\Entity\Diet;
+use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\DishType;
 use WBoost\Web\FormData\MealFormData;
 use WBoost\Web\Value\WeeklyMenuMealType;
@@ -67,18 +68,25 @@ final class MealFormType extends AbstractType
 
         /** @var array<Diet> $diets */
         $diets = $options['diets'];
-        $dietChoices = ['' => null];
+        $dietChoices = [];
         foreach ($diets as $diet) {
             $dietChoices[$diet->name . ' (' . $diet->codesLabel() . ')'] = $diet->id->toString();
         }
 
-        $builder->add('dietId', ChoiceType::class, [
-            'label' => 'Dieta',
+        $builder->add('dietIds', ChoiceType::class, [
+            'label' => 'Diety',
             'required' => false,
+            'multiple' => true,
             'choices' => $dietChoices,
             'choice_value' => fn(?string $value) => $value,
-            'getter' => fn(MealFormData $data) => $data->dietId?->toString(),
-            'setter' => fn(MealFormData $data, ?string $value) => $data->dietId = $value !== null && $value !== '' ? Uuid::fromString($value) : null,
+            'getter' => fn(MealFormData $data) => array_map(fn(UuidInterface $id) => $id->toString(), $data->dietIds),
+            'setter' => static function (MealFormData $data, ?array $values): void {
+                $data->dietIds = [];
+                foreach ($values ?? [] as $v) {
+                    assert(is_string($v));
+                    $data->dietIds[] = Uuid::fromString($v);
+                }
+            },
         ]);
 
         $builder->add('energyValue', NumberType::class, [

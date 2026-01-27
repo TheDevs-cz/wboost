@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\Meal;
 
+use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\MealVariant;
 use WBoost\Web\Exceptions\DietNotFound;
@@ -34,14 +35,14 @@ readonly final class EditMealHandler
     {
         $meal = $this->mealRepository->get($message->mealId);
         $dishType = $this->dishTypeRepository->get($message->dishTypeId);
-        $diet = $message->dietId !== null ? $this->dietRepository->get($message->dietId) : null;
+        $diets = array_map(fn(UuidInterface $id) => $this->dietRepository->get($id), $message->dietIds);
 
         $meal->edit(
             $message->mealType,
             $dishType,
             $message->name,
             $message->internalName,
-            $diet,
+            $diets,
             $message->energyValue,
             $message->fats,
             $message->carbohydrates,
@@ -66,9 +67,9 @@ readonly final class EditMealHandler
         foreach ($message->variants as $variantData) {
             $isManual = $variantData['mode'] === MealVariantFormData::MODE_MANUAL;
 
-            $variantDiet = null;
-            if ($isManual && $variantData['dietId'] !== null) {
-                $variantDiet = $this->dietRepository->get($variantData['dietId']);
+            $variantDiets = [];
+            if ($isManual) {
+                $variantDiets = array_map(fn(UuidInterface $id) => $this->dietRepository->get($id), $variantData['dietIds']);
             }
 
             $referenceMeal = null;
@@ -89,10 +90,9 @@ readonly final class EditMealHandler
                 if (!$isManual && $referenceMeal !== null) {
                     $existingVariant->editReference($referenceMeal);
                 } else {
-                    assert($variantDiet !== null);
                     $existingVariant->editManual(
                         $variantData['name'],
-                        $variantDiet,
+                        $variantDiets,
                         $variantData['energyValue'],
                         $variantData['fats'],
                         $variantData['carbohydrates'],
@@ -105,7 +105,6 @@ readonly final class EditMealHandler
                     $variantData['id'],
                     $meal,
                     $isManual ? $variantData['name'] : null,
-                    $variantDiet,
                     $position++,
                     $referenceMeal,
                     $isManual ? $variantData['energyValue'] : null,
@@ -113,6 +112,7 @@ readonly final class EditMealHandler
                     $isManual ? $variantData['carbohydrates'] : null,
                     $isManual ? $variantData['proteins'] : null,
                 );
+                $variant->setDiets($variantDiets);
                 $meal->addVariant($variant);
             }
         }

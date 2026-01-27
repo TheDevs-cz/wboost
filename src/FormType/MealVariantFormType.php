@@ -14,6 +14,7 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\Diet;
 use WBoost\Web\FormData\MealVariantFormData;
 
@@ -80,14 +81,20 @@ final class MealVariantFormType extends AbstractType
             $dietChoices[$diet->name . ' (' . $diet->codesLabel() . ')'] = $diet->id->toString();
         }
 
-        $builder->add('dietId', ChoiceType::class, [
-            'label' => 'Dieta',
+        $builder->add('dietIds', ChoiceType::class, [
+            'label' => 'Diety',
             'required' => false,
-            'placeholder' => '-- Vyberte dietu --',
+            'multiple' => true,
             'choices' => $dietChoices,
             'choice_value' => fn(?string $value) => $value,
-            'getter' => fn(MealVariantFormData $data) => $data->dietId?->toString(),
-            'setter' => fn(MealVariantFormData $data, ?string $value) => $data->dietId = $value !== null && $value !== '' ? Uuid::fromString($value) : null,
+            'getter' => fn(MealVariantFormData $data) => array_map(fn(UuidInterface $id) => $id->toString(), $data->dietIds),
+            'setter' => static function (MealVariantFormData $data, ?array $values): void {
+                $data->dietIds = [];
+                foreach ($values ?? [] as $v) {
+                    assert(is_string($v));
+                    $data->dietIds[] = Uuid::fromString($v);
+                }
+            },
         ]);
 
         $builder->add('energyValue', NumberType::class, [

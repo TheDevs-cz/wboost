@@ -84,7 +84,7 @@
                             <div class="meal-selector-item"
                                  data-reference-meal-selector-target="mealCard"
                                  data-meal-type="{{ meal.mealType.value }}"
-                                 data-diet-id="{{ meal.diet ? meal.diet.id : '' }}"
+                                 data-diet-ids="{{ meal.diets|map(d => d.id)|join(',') }}"
                                  data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dietCodesLabel|lower }}"
                                  data-meal-id="{{ meal.id }}"
                                  data-action="click->reference-meal-selector#selectMeal"
@@ -112,7 +112,7 @@
                 {{ form_row(variant.name) }}
             </div>
             <div class="col-md-6">
-                {{ form_row(variant.dietId) }}
+                {{ form_row(variant.dietIds) }}
             </div>
         </div>
 
@@ -156,7 +156,7 @@
                     {{ form_row(form.dishTypeId) }}
                 </div>
                 <div class="col-md-4">
-                    {{ form_row(form.dietId) }}
+                    {{ form_row(form.dietIds) }}
                 </div>
             </div>
 

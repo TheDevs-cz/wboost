@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\Meal;
 
+use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\Meal;
 use WBoost\Web\Entity\MealVariant;
@@ -39,7 +40,7 @@ readonly final class AddMealHandler
     {
         $project = $this->projectRepository->get($message->projectId);
         $dishType = $this->dishTypeRepository->get($message->dishTypeId);
-        $diet = $message->dietId !== null ? $this->dietRepository->get($message->dietId) : null;
+        $diets = array_map(fn(UuidInterface $id) => $this->dietRepository->get($id), $message->dietIds);
 
         $meal = new Meal(
             $message->mealId,
@@ -48,20 +49,20 @@ readonly final class AddMealHandler
             $dishType,
             $message->name,
             $message->internalName,
-            $diet,
             $message->energyValue,
             $message->fats,
             $message->carbohydrates,
             $message->proteins,
         );
+        $meal->setDiets($diets);
 
         $position = 0;
         foreach ($message->variants as $variantData) {
             $isManual = $variantData['mode'] === MealVariantFormData::MODE_MANUAL;
 
-            $variantDiet = null;
-            if ($isManual && $variantData['dietId'] !== null) {
-                $variantDiet = $this->dietRepository->get($variantData['dietId']);
+            $variantDiets = [];
+            if ($isManual) {
+                $variantDiets = array_map(fn(UuidInterface $id) => $this->dietRepository->get($id), $variantData['dietIds']);
             }
 
             $referenceMeal = null;
@@ -73,7 +74,6 @@ readonly final class AddMealHandler
                 $variantData['id'],
                 $meal,
                 $isManual ? $variantData['name'] : null,
-                $variantDiet,
                 $position++,
                 $referenceMeal,
                 $isManual ? $variantData['energyValue'] : null,
@@ -81,6 +81,7 @@ readonly final class AddMealHandler
                 $isManual ? $variantData['carbohydrates'] : null,
                 $isManual ? $variantData['proteins'] : null,
             );
+            $variant->setDiets($variantDiets);
             $meal->addVariant($variant);
         }
 

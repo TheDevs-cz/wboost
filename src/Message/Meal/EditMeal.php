@@ -10,11 +10,12 @@ use WBoost\Web\Value\WeeklyMenuMealType;
 readonly final class EditMeal
 {
     /**
+     * @param array<UuidInterface> $dietIds
      * @param array<array{
      *     id: UuidInterface,
      *     mode: string,
      *     name: string,
-     *     dietId: UuidInterface|null,
+     *     dietIds: array<UuidInterface>,
      *     referenceMealId: UuidInterface|null,
      *     energyValue: string|null,
      *     fats: string|null,
@@ -28,7 +29,7 @@ readonly final class EditMeal
         public UuidInterface $dishTypeId,
         public string $name,
         public string $internalName,
-        public null|UuidInterface $dietId = null,
+        public array $dietIds = [],
         public null|string $energyValue = null,
         public null|string $fats = null,
         public null|string $carbohydrates = null,
