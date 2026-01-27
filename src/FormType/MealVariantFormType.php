@@ -85,6 +85,7 @@ final class MealVariantFormType extends AbstractType
             'label' => 'Diety',
             'required' => false,
             'multiple' => true,
+            'autocomplete' => true,
             'choices' => $dietChoices,
             'choice_value' => fn(?string $value) => $value,
             'getter' => fn(MealVariantFormData $data) => array_map(fn(UuidInterface $id) => $id->toString(), $data->dietIds),
