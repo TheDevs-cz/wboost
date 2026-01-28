@@ -106,4 +106,17 @@ class WeeklyMenuCourse
 
         return NutritionalValues::range($variantValues);
     }
+
+    public function containsDishType(string $dishTypeName): bool
+    {
+        foreach ($this->variants as $variant) {
+            foreach ($variant->meals() as $variantMeal) {
+                if ($variantMeal->meal->dishType->name === $dishTypeName) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

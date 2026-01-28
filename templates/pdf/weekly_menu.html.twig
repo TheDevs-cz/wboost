@@ -20,26 +20,28 @@
 
         body {
             font-family: 'Roboto', DejaVu Sans, sans-serif;
-            font-size: 10px;
+            font-size: 12px;
             line-height: 1.3;
             color: #636463;
             padding: 0 5mm;
         }
 
         .header {
-            text-align: center;
+            width: 100%;
             margin-bottom: 4mm;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 26px;
+            font-size: 30px;
             font-weight: bold;
+            text-align: left;
         }
 
         .header-note {
-            font-size: 10px;
-            margin-top: 2mm;
+            font-size: 12px;
+            text-align: right;
+            vertical-align: bottom;
         }
 
         .day-table {
@@ -51,7 +53,7 @@
 
         .day-label {
             font-weight: bold;
-            font-size: 18px;
+            font-size: 20px;
             text-align: center;
             vertical-align: middle;
             color: white;
@@ -79,14 +81,15 @@
         .meal-cell-header {
             font-weight: bold;
             text-align: center;
-            font-size: 10px;
+            font-size: 12px;
             padding: 3px 2px;
             border-bottom: 0.5px solid #636463;
         }
 
         .meal-cell-content {
             padding: 0;
-            font-size: 9px;
+            font-size: 11px;
+            text-align: center;
         }
 
         .course-block {
@@ -96,6 +99,7 @@
 
         .course-content {
             padding: 4px;
+            text-align: center;
         }
 
         .course-separator {
@@ -119,7 +123,7 @@
             text-align: center;
             vertical-align: middle;
             font-weight: bold;
-            font-size: 9px;
+            font-size: 11px;
             padding: 2px 2px;
             border-bottom: 0.5px solid #636463;
             border-left: 0.5px solid #636463;
@@ -131,6 +135,7 @@
 
         .variant-content {
             vertical-align: top;
+            text-align: center;
             padding: 4px;
             border-left: 0.5px solid #636463;
         }
@@ -143,10 +148,10 @@
             display: inline;
             background: #68ACD2;
             color: white;
-            font-size: 8px;
+            font-size: 9px;
             padding: 1px 3px;
             border-radius: 2px;
-            margin-right: 2px;
+            margin-right: 1px;
             font-weight: bold;
         }
 
@@ -173,7 +178,7 @@
 
         .footer {
             text-align: center;
-            font-size: 9px;
+            font-size: 11px;
             color: #636463;
             height: 10mm;
         }
@@ -187,23 +192,23 @@
     {% macro renderMeals(variant) %}
         {% for variantMeal in variant.meals %}
             <div class="meal-line">
-                {% if variantMeal.meal.hasDiets %}
-                    {% for diet in variantMeal.meal.diets %}
-                        {% for code in diet.dietCodes %}
+                {%- if variantMeal.meal.hasDiets -%}
+                    {%- for diet in variantMeal.meal.diets -%}
+                        {%- for code in diet.dietCodes -%}
                             <span class="diet-badge">{{ code.value }}</span>
-                        {% endfor %}
-                    {% endfor %}
-                {% endif %}
+                        {%- endfor -%}
+                    {%- endfor -%}
+                {%- endif -%}
                 {{ variantMeal.meal.name }}
             </div>
             {% if variantMeal.meal.hasVariants %}
                 {% for mealVariant in variantMeal.meal.variants %}
                     <div class="meal-variant-line">
-                        {% for diet in mealVariant.effectiveDiets %}
-                            {% for code in diet.dietCodes %}
+                        {%- for diet in mealVariant.effectiveDiets -%}
+                            {%- for code in diet.dietCodes -%}
                                 <span class="diet-badge">{{ code.value }}</span>
-                            {% endfor %}
-                        {% endfor %}
+                            {%- endfor -%}
+                        {%- endfor -%}
                         {{ mealVariant.displayName }}
                     </div>
                 {% endfor %}
@@ -240,11 +245,22 @@
         6: '#e2e2e2',
         7: '#d0d1d0'
     } %}
+    {% set dayHeaderColors = {
+        1: '#e8f3f9',
+        2: '#eff6e8',
+        3: '#fcf5e6',
+        4: '#f9ece2',
+        5: '#f2e0e0',
+        6: '#f0f0f0',
+        7: '#e7e8e7'
+    } %}
 
-    <div class="header">
-        <h1>Jídelní lístek: {{ menu.name }} &ndash; od {{ menu.validFrom|date('j. n.') }} do {{ menu.validTo|date('j. n. Y') }}</h1>
-        <div class="header-note">Na požádání lze připravit i vegetariánskou stravu.</div>
-    </div>
+    <table class="header">
+        <tr>
+            <td><h1>Jídelní lístek: {{ menu.name }} &ndash; od {{ menu.validFrom|date('j. n.') }} do {{ menu.validTo|date('j. n. Y') }}</h1></td>
+            <td class="header-note">Na požádání lze připravit i vegetariánskou stravu.</td>
+        </tr>
+    </table>
 
     {% for day in menu.days %}
         {% set mealTypeMap = {} %}
@@ -254,6 +270,7 @@
 
         {% set dayBg = dayColors[day.dayOfWeek] ?? '#636463' %}
         {% set dayLightBg = dayLightColors[day.dayOfWeek] ?? '#d0d1d0' %}
+        {% set dayHeaderBg = dayHeaderColors[day.dayOfWeek] ?? '#e7e8e7' %}
 
         <table class="day-table">
             <tr>
@@ -266,20 +283,15 @@
                     {% else %}
                         <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 13%;">
                     {% endif %}
-                        <div class="meal-cell-header">{{ mealTypeLabels[mealTypeKey] }}</div>
+                        <div class="meal-cell-header" style="background-color: {{ dayHeaderBg }}">{{ mealTypeLabels[mealTypeKey] }}</div>
                         <div class="meal-cell-content">
                             {% if mealTypeMap[mealTypeKey] is defined %}
                                 {% set mealTypeData = mealTypeMap[mealTypeKey] %}
                                 {% for course in mealTypeData.courses %}
-                                    {% set isSoup = false %}
-                                    {% for variant in course.variants %}
-                                        {% for variantMeal in variant.meals %}
-                                            {% if variantMeal.meal.dishType.name == 'Polévka' %}
-                                                {% set isSoup = true %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    {% endfor %}
-                                    <div class="course-block{% if not loop.first %} course-separator{% endif %}{% if isSoup %} course-soup{% if loop.first %} course-soup-first{% endif %}{% if loop.last %} course-soup-last{% endif %}{% endif %}">
+                                    {% set isSoup = course.containsDishType('Polévka') %}
+                                    {% set nextCourse = mealTypeData.courses[loop.index] ?? null %}
+                                    {% set nextIsVariant = nextCourse and not nextCourse.singleVariantMode and nextCourse.variants|length >= 1 %}
+                                    <div class="course-block{% if not loop.first %} course-separator{% endif %}{% if isSoup %} course-soup{% if loop.first %} course-soup-first{% endif %}{% if loop.last or nextIsVariant %} course-soup-last{% endif %}{% endif %}">
                                         {% set variants = course.variants %}
                                         {% if not course.singleVariantMode and variants|length >= 1 %}
                                             <table class="variants-table{% if not loop.last %} variants-table-with-border{% endif %}">
