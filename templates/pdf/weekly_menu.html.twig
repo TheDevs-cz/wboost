@@ -28,13 +28,18 @@
 
         .header {
             text-align: center;
-            height: 10mm;
+            margin-bottom: 4mm;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 20px;
+            font-size: 26px;
             font-weight: bold;
+        }
+
+        .header-note {
+            font-size: 10px;
+            margin-top: 2mm;
         }
 
         .day-table {
@@ -50,21 +55,21 @@
             text-align: center;
             vertical-align: middle;
             color: white;
-            border: 1px solid #636463;
+            border: 0.5px solid #636463;
             padding: 4px 2px;
             height: 73mm;
         }
 
         .meal-cell {
             vertical-align: top;
-            border: 1px solid #636463;
-            border-left-width: 2px;
+            border: 0.5px solid #636463;
+            border-left-width: 0.5px;
             padding: 0;
             height: 73mm;
         }
 
         .meal-cell-first {
-            border-left-width: 1px;
+            border-left-width: 0.5px;
         }
 
         .meal-cell-last {
@@ -76,7 +81,7 @@
             text-align: center;
             font-size: 10px;
             padding: 3px 2px;
-            border-bottom: 1px solid #636463;
+            border-bottom: 0.5px solid #636463;
         }
 
         .meal-cell-content {
@@ -98,7 +103,7 @@
         }
 
         .course-separator .variant-header {
-            border-top: 1px solid #636463;
+            border-top: 0.5px solid #636463;
         }
 
         .variants-table {
@@ -107,7 +112,7 @@
         }
 
         .variants-table-with-border {
-            border-bottom: 1px solid #636463;
+            border-bottom: 0.5px solid #636463;
         }
 
         .variant-header {
@@ -116,8 +121,8 @@
             font-weight: bold;
             font-size: 9px;
             padding: 2px 2px;
-            border-bottom: 1px solid #636463;
-            border-left: 1px solid #636463;
+            border-bottom: 0.5px solid #636463;
+            border-left: 0.5px solid #636463;
         }
 
         .variant-header-first {
@@ -127,7 +132,7 @@
         .variant-content {
             vertical-align: top;
             padding: 4px;
-            border-left: 1px solid #636463;
+            border-left: 0.5px solid #636463;
         }
 
         .variant-content-first {
@@ -154,8 +159,8 @@
         }
 
         .course-soup {
-            border-top: 1px solid #636463;
-            border-bottom: 1px solid #636463;
+            border-top: 0.5px solid #636463;
+            border-bottom: 0.5px solid #636463;
         }
 
         .course-soup-first {
@@ -238,6 +243,7 @@
 
     <div class="header">
         <h1>Jídelní lístek: {{ menu.name }} &ndash; od {{ menu.validFrom|date('j. n.') }} do {{ menu.validTo|date('j. n. Y') }}</h1>
+        <div class="header-note">Na požádání lze připravit i vegetariánskou stravu.</div>
     </div>
 
     {% for day in menu.days %}
@@ -305,12 +311,7 @@
             {% if menu.createdBy %}<strong>Sestavila:</strong> {{ menu.createdBy }}{% endif %}
             {% if menu.createdBy and menu.approvedBy %} | {% endif %}
             {% if menu.approvedBy %}<strong>Schválila:</strong> {{ menu.approvedBy }}{% endif %}
-        </div>
-        <div class="footer-line">
-            Změna jídelníčku vyhrazena | Do seznamu alergenů je možno nahlédnout na vyžádání u vedousí kuchyně
-        </div>
-        <div class="footer-line">
-            Na požádání lze připravit i vegetariánskou stravu.
+            | Změna jídelníčku vyhrazena | Do seznamu alergenů je možno nahlédnout na vyžádání u vedoucí kuchyně
         </div>
     </div>
 </body>
