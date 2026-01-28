@@ -271,7 +271,14 @@
                             {% if mealTypeMap[mealTypeKey] is defined %}
                                 {% set mealTypeData = mealTypeMap[mealTypeKey] %}
                                 {% for course in mealTypeData.courses %}
-                                    {% set isSoup = course.dishType is not null and course.dishType.name == 'Polévka' %}
+                                    {% set isSoup = false %}
+                                    {% for variant in course.variants %}
+                                        {% for variantMeal in variant.meals %}
+                                            {% if variantMeal.meal.dishType.name == 'Polévka' %}
+                                                {% set isSoup = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endfor %}
                                     <div class="course-block{% if not loop.first %} course-separator{% endif %}{% if isSoup %} course-soup{% if loop.first %} course-soup-first{% endif %}{% if loop.last %} course-soup-last{% endif %}{% endif %}">
                                         {% set variants = course.variants %}
                                         {% if not course.singleVariantMode and variants|length >= 1 %}
