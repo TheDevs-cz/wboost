@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ menu.name }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&subset=latin-ext&display=swap" rel="stylesheet">
     <style>
         @page {
             margin: 8mm;
@@ -16,7 +14,7 @@
         }
 
         body {
-            font-family: 'Roboto', sans-serif;
+            font-family: 'Roboto', DejaVu Sans, sans-serif;
             font-size: 10px;
             line-height: 1.3;
             margin: 0;
@@ -35,28 +33,26 @@
             font-weight: bold;
         }
 
-        .days-container {
+        .days-wrapper {
             width: 100%;
-            height: 252mm;
-            display: table;
+            height: 520mm;
+            border-collapse: collapse;
         }
 
-        .day-wrapper {
-            display: table-row;
-            height: calc(252mm / 7);
+        .day-row {
+            height: 74mm;
         }
 
-        .day-wrapper-cell {
-            display: table-cell;
+        .day-cell {
+            padding: 0;
             vertical-align: top;
-            height: calc(252mm / 7);
         }
 
         .day-table {
             width: 100%;
+            height: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            height: 100%;
         }
 
         .day-label {
@@ -261,7 +257,7 @@
         <h1>Jídelní lístek: {{ menu.name }} &ndash; od {{ menu.validFrom|date('j. n.') }} do {{ menu.validTo|date('j. n. Y') }}</h1>
     </div>
 
-    <div class="days-container">
+    <table class="days-wrapper">
     {% for day in menu.days %}
         {% set mealTypeMap = {} %}
         {% for mt in day.mealTypes %}
@@ -271,62 +267,62 @@
         {% set dayBg = dayColors[day.dayOfWeek] ?? '#636463' %}
         {% set dayLightBg = dayLightColors[day.dayOfWeek] ?? '#d0d1d0' %}
 
-        <div class="day-wrapper">
-            <div class="day-wrapper-cell">
-        <table class="day-table">
-            <tr>
-                <td class="day-label" rowspan="2" style="width: 4%; background-color: {{ dayBg }}">{{ day.dayLabelShort }}</td>
-                {% for mealTypeKey in mealTypeOrder %}
-                    {% if mealTypeKey == 'lunch' or mealTypeKey == 'dinner' %}
-                        <th class="meal-header{% if loop.first %} meal-header-first{% endif %}{% if loop.last %} meal-header-last{% endif %}" style="width: 27%">{{ mealTypeLabels[mealTypeKey] }}</th>
-                    {% elseif mealTypeKey == 'snack' %}
-                        <th class="meal-header{% if loop.first %} meal-header-first{% endif %}{% if loop.last %} meal-header-last{% endif %}" style="width: 16%">{{ mealTypeLabels[mealTypeKey] }}</th>
-                    {% else %}
-                        <th class="meal-header{% if loop.first %} meal-header-first{% endif %}{% if loop.last %} meal-header-last{% endif %}" style="width: 13%">{{ mealTypeLabels[mealTypeKey] }}</th>
-                    {% endif %}
-                {% endfor %}
-            </tr>
-            <tr>
-                {% for mealTypeKey in mealTypeOrder %}
-                    <td class="meal-content{% if loop.first %} meal-content-first{% endif %}{% if loop.last %} meal-content-last{% endif %}">
-                        {% if mealTypeMap[mealTypeKey] is defined %}
-                            {% set mealTypeData = mealTypeMap[mealTypeKey] %}
-                            {% for course in mealTypeData.courses %}
-                                <div class="course-block{% if not loop.first %} course-separator{% endif %}">
-                                    {% set variants = course.variants %}
-                                    {% if not course.singleVariantMode and variants|length >= 1 %}
-                                        <table class="variants-table{% if not loop.last %} variants-table-with-border{% endif %}">
-                                            <tr>
-                                                {% for variant in variants %}
-                                                    <td class="variant-header{% if loop.first %} variant-header-first{% endif %}" style="width: {{ (100 / variants|length)|round }}%; background-color: {{ dayLightBg }}">{{ loop.index }}.</td>
-                                                {% endfor %}
-                                            </tr>
-                                            <tr>
-                                                {% for variant in variants %}
-                                                    <td class="variant-content{% if loop.first %} variant-content-first{% endif %}">
+        <tr class="day-row">
+            <td class="day-cell">
+                <table class="day-table">
+                    <tr>
+                        <td class="day-label" rowspan="2" style="width: 4%; background-color: {{ dayBg }}">{{ day.dayLabelShort }}</td>
+                        {% for mealTypeKey in mealTypeOrder %}
+                            {% if mealTypeKey == 'lunch' or mealTypeKey == 'dinner' %}
+                                <th class="meal-header{% if loop.first %} meal-header-first{% endif %}{% if loop.last %} meal-header-last{% endif %}" style="width: 27%">{{ mealTypeLabels[mealTypeKey] }}</th>
+                            {% elseif mealTypeKey == 'snack' %}
+                                <th class="meal-header{% if loop.first %} meal-header-first{% endif %}{% if loop.last %} meal-header-last{% endif %}" style="width: 16%">{{ mealTypeLabels[mealTypeKey] }}</th>
+                            {% else %}
+                                <th class="meal-header{% if loop.first %} meal-header-first{% endif %}{% if loop.last %} meal-header-last{% endif %}" style="width: 13%">{{ mealTypeLabels[mealTypeKey] }}</th>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    <tr>
+                        {% for mealTypeKey in mealTypeOrder %}
+                            <td class="meal-content{% if loop.first %} meal-content-first{% endif %}{% if loop.last %} meal-content-last{% endif %}">
+                                {% if mealTypeMap[mealTypeKey] is defined %}
+                                    {% set mealTypeData = mealTypeMap[mealTypeKey] %}
+                                    {% for course in mealTypeData.courses %}
+                                        <div class="course-block{% if not loop.first %} course-separator{% endif %}">
+                                            {% set variants = course.variants %}
+                                            {% if not course.singleVariantMode and variants|length >= 1 %}
+                                                <table class="variants-table{% if not loop.last %} variants-table-with-border{% endif %}">
+                                                    <tr>
+                                                        {% for variant in variants %}
+                                                            <td class="variant-header{% if loop.first %} variant-header-first{% endif %}" style="width: {{ (100 / variants|length)|round }}%; background-color: {{ dayLightBg }}">{{ loop.index }}.</td>
+                                                        {% endfor %}
+                                                    </tr>
+                                                    <tr>
+                                                        {% for variant in variants %}
+                                                            <td class="variant-content{% if loop.first %} variant-content-first{% endif %}">
+                                                                {{ macros.renderMeals(variant) }}
+                                                            </td>
+                                                        {% endfor %}
+                                                    </tr>
+                                                </table>
+                                            {% else %}
+                                                <div class="course-inline">
+                                                    {% for variant in variants %}
                                                         {{ macros.renderMeals(variant) }}
-                                                    </td>
-                                                {% endfor %}
-                                            </tr>
-                                        </table>
-                                    {% else %}
-                                        <div class="course-inline">
-                                            {% for variant in variants %}
-                                                {{ macros.renderMeals(variant) }}
-                                            {% endfor %}
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
                                         </div>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                    </td>
-                {% endfor %}
-            </tr>
-        </table>
-            </div>
-        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </table>
+            </td>
+        </tr>
     {% endfor %}
-    </div>
+    </table>
 
     <div class="footer">
         <div class="footer-line">

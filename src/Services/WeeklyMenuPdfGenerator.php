@@ -23,7 +23,7 @@ readonly class WeeklyMenuPdfGenerator
         ]);
 
         $options = new Options();
-        $options->set('isRemoteEnabled', false);
+        $options->set('isRemoteEnabled', true);
         $options->set('defaultFont', 'DejaVu Sans');
 
         $dompdf = new Dompdf($options);
