@@ -28,7 +28,7 @@ readonly class WeeklyMenuPdfGenerator
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A3', 'landscape');
+        $dompdf->setPaper('A2', 'portrait');
         $dompdf->render();
 
         return $dompdf->output();
