@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ menu.name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         @page {
             margin: 8mm;
@@ -13,7 +16,7 @@
         }
 
         body {
-            font-family: DejaVu Sans, sans-serif;
+            font-family: 'Roboto', sans-serif;
             font-size: 10px;
             line-height: 1.3;
             margin: 0;
@@ -23,7 +26,7 @@
 
         .header {
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         .header h1 {
@@ -32,12 +35,28 @@
             font-weight: bold;
         }
 
+        .days-container {
+            width: 100%;
+            height: 252mm;
+            display: table;
+        }
+
+        .day-wrapper {
+            display: table-row;
+            height: calc(252mm / 7);
+        }
+
+        .day-wrapper-cell {
+            display: table-cell;
+            vertical-align: top;
+            height: calc(252mm / 7);
+        }
+
         .day-table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            margin-bottom: 10px;
-            page-break-inside: avoid;
+            height: 100%;
         }
 
         .day-label {
@@ -109,6 +128,10 @@
             border-collapse: collapse;
         }
 
+        .variants-table-with-border {
+            border-bottom: 1px solid #636463;
+        }
+
         .variant-header {
             text-align: center;
             font-weight: bold;
@@ -134,6 +157,7 @@
 
         .diet-badge {
             display: inline-block;
+            vertical-align: middle;
             background: #68ACD2;
             color: white;
             font-size: 8px;
@@ -141,18 +165,30 @@
             border-radius: 2px;
             margin-right: 2px;
             font-weight: bold;
+            line-height: 1;
         }
 
         .meal-line {
             margin-bottom: 2px;
+            line-height: 1.4;
+        }
+
+        .meal-line span,
+        .meal-line-text {
+            vertical-align: middle;
         }
 
         .meal-variant-line {
             margin-bottom: 2px;
+            line-height: 1.4;
+        }
+
+        .meal-variant-line span {
+            vertical-align: middle;
         }
 
         .footer {
-            margin-top: 8px;
+            margin-top: 5px;
             text-align: center;
             font-size: 9px;
             color: #636463;
@@ -174,7 +210,7 @@
                         {% endfor %}
                     {% endfor %}
                 {% endif %}
-                {{ variantMeal.meal.name }}
+                <span class="meal-line-text">{{ variantMeal.meal.name }}</span>
             </div>
             {% if variantMeal.meal.hasVariants %}
                 {% for mealVariant in variantMeal.meal.variants %}
@@ -184,7 +220,7 @@
                                 <span class="diet-badge">{{ code.value }}</span>
                             {% endfor %}
                         {% endfor %}
-                        {{ mealVariant.displayName }}
+                        <span class="meal-line-text">{{ mealVariant.displayName }}</span>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -225,6 +261,7 @@
         <h1>Jídelní lístek: {{ menu.name }} &ndash; od {{ menu.validFrom|date('j. n.') }} do {{ menu.validTo|date('j. n. Y') }}</h1>
     </div>
 
+    <div class="days-container">
     {% for day in menu.days %}
         {% set mealTypeMap = {} %}
         {% for mt in day.mealTypes %}
@@ -234,6 +271,8 @@
         {% set dayBg = dayColors[day.dayOfWeek] ?? '#636463' %}
         {% set dayLightBg = dayLightColors[day.dayOfWeek] ?? '#d0d1d0' %}
 
+        <div class="day-wrapper">
+            <div class="day-wrapper-cell">
         <table class="day-table">
             <tr>
                 <td class="day-label" rowspan="2" style="width: 4%; background-color: {{ dayBg }}">{{ day.dayLabelShort }}</td>
@@ -256,7 +295,7 @@
                                 <div class="course-block{% if not loop.first %} course-separator{% endif %}">
                                     {% set variants = course.variants %}
                                     {% if not course.singleVariantMode and variants|length >= 1 %}
-                                        <table class="variants-table">
+                                        <table class="variants-table{% if not loop.last %} variants-table-with-border{% endif %}">
                                             <tr>
                                                 {% for variant in variants %}
                                                     <td class="variant-header{% if loop.first %} variant-header-first{% endif %}" style="width: {{ (100 / variants|length)|round }}%; background-color: {{ dayLightBg }}">{{ loop.index }}.</td>
@@ -284,7 +323,10 @@
                 {% endfor %}
             </tr>
         </table>
+            </div>
+        </div>
     {% endfor %}
+    </div>
 
     <div class="footer">
         <div class="footer-line">
