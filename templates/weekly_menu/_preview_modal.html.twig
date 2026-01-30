@@ -180,7 +180,7 @@
                         display: block;
                     }
                 </style>
-                {% include 'weekly_menu/_menu_display.html.twig' with { menu: menu, showFooter: true } %}
+                {% include 'weekly_menu/_menu_display.html.twig' with { menu: menu, showFooter: false } %}
             </div>
             <div class="modal-footer">
                 <a href="{{ path('public_weekly_menu', {'menuId': menu.id}) }}" target="_blank" class="btn btn-outline-primary">
