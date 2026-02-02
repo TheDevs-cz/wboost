@@ -1,4 +1,32 @@
 {# Shared menu display partial - used by PDF, public page, and preview modal #}
+{% set dayColors = {
+    1: '#68ACD2',
+    2: '#94BF6A',
+    3: '#EAC157',
+    4: '#D68142',
+    5: '#AD3533',
+    6: '#9F9F9E',
+    7: '#636463'
+} %}
+{% set dayLightColors = {
+    1: '#d2e6f2',
+    2: '#dfecd2',
+    3: '#f9eccd',
+    4: '#f3d9c6',
+    5: '#e6c2c2',
+    6: '#e2e2e2',
+    7: '#d0d1d0'
+} %}
+{% set dayHeaderColors = {
+    1: '#e8f3f9',
+    2: '#eff6e8',
+    3: '#fcf5e6',
+    4: '#f9ece2',
+    5: '#f2e0e0',
+    6: '#f0f0f0',
+    7: '#e7e8e7'
+} %}
+
 <div class="weekly-menu-display">
     <div class="header">
         <h1>{{ menu.name }}</h1>
@@ -18,7 +46,8 @@
         <thead>
             <tr>
                 {% for day in menu.days %}
-                    <th class="day-column">
+                    {% set dayBg = dayColors[day.dayOfWeek] ?? '#636463' %}
+                    <th class="day-column" style="background-color: {{ dayBg }};">
                         {{ day.dayLabel }}
                         {% if day.date %}
                             <div class="date">{{ day.date|date('d.m.') }}</div>
@@ -30,11 +59,13 @@
         <tbody>
             <tr>
                 {% for day in menu.days %}
+                    {% set dayLightBg = dayLightColors[day.dayOfWeek] ?? '#d0d1d0' %}
+                    {% set dayHeaderBg = dayHeaderColors[day.dayOfWeek] ?? '#e7e8e7' %}
                     <td>
                         {% if day.mealTypes|length > 0 %}
                             {% for mealType in day.mealTypes %}
-                                <div class="meal-type-section">
-                                    <div class="meal-type-header meal-type-{{ mealType.mealType.value }}">
+                                <div class="meal-type-section" style="background-color: {{ dayHeaderBg }};">
+                                    <div class="meal-type-header" style="background-color: {{ dayLightBg }};">
                                         {{ mealType.mealType.label }}
                                     </div>
                                     {% if mealType.courses|length > 0 %}
