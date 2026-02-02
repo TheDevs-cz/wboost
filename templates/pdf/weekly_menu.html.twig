@@ -154,18 +154,26 @@
             font-size: 13px;
             padding: 2px 4px;
             border-radius: 3px;
-            margin-right: 2px;
+            margin-right: 3px;
             font-weight: bold;
+        }
+
+        .diet-badge sup {
+            padding-right: 0.5em;
+        }
+
+        .diet-badge-last {
+            margin-right: 1em;
         }
 
         .meal-line {
             margin-bottom: 2px;
-            line-height: 1.1;
+            line-height: 1.0;
         }
 
         .meal-variant-line {
             margin-bottom: 2px;
-            line-height: 1.1;
+            line-height: 1.0;
         }
 
         .course-soup {
@@ -198,9 +206,11 @@
         {% for variantMeal in variant.meals %}
             <div class="meal-line">
                 {%- if variantMeal.meal.hasDiets -%}
-                    {%- for diet in variantMeal.meal.diets -%}
+                    {%- set dietLoop = variantMeal.meal.diets -%}
+                    {%- for diet in dietLoop -%}
+                        {%- set isLastDiet = loop.last -%}
                         {%- for code in diet.dietCodes -%}
-                            <span class="diet-badge">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
+                            <span class="diet-badge{% if isLastDiet and loop.last %} diet-badge-last{% endif %}">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
                         {%- endfor -%}
                     {%- endfor -%}
                 {%- endif -%}
@@ -210,8 +220,9 @@
                 {% for mealVariant in variantMeal.meal.variants %}
                     <div class="meal-variant-line">
                         {%- for diet in mealVariant.effectiveDiets -%}
+                            {%- set isLastDiet = loop.last -%}
                             {%- for code in diet.dietCodes -%}
-                                <span class="diet-badge">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
+                                <span class="diet-badge{% if isLastDiet and loop.last %} diet-badge-last{% endif %}">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
                             {%- endfor -%}
                         {%- endfor -%}
                         {{ mealVariant.displayName }}
@@ -282,9 +293,9 @@
                 <td class="day-label" style="width: 4%; background-color: {{ dayBg }}">{{ day.dayLabelShort }}</td>
                 {% for mealTypeKey in mealTypeOrder %}
                     {% if mealTypeKey == 'lunch' or mealTypeKey == 'dinner' %}
-                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 33%;">
+                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 31.25%;">
                     {% else %}
-                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 10%;">
+                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 12.5%;">
                     {% endif %}
                         <div class="meal-cell-header" style="background-color: {{ dayHeaderBg }}">{{ mealTypeLabels[mealTypeKey] }}</div>
                         <div class="meal-cell-content">
