@@ -147,13 +147,7 @@
             border-left: none;
         }
 
-        .diet-badges {
-            float: left;
-            margin-right: 0.5em;
-        }
-
         .diet-badge {
-            float: left;
             background: #68ACD2;
             color: white;
             font-size: 13px;
@@ -163,22 +157,17 @@
             font-weight: bold;
         }
 
-        .diet-badge-sup {
-            padding-right: 0.4em;
+        .diet-badge-last {
+            margin-right: 8px;
         }
 
         .meal-line {
             margin-bottom: 2px;
-            overflow: hidden;
+            line-height: 1.0;
         }
 
         .meal-variant-line {
             margin-bottom: 2px;
-            overflow: hidden;
-        }
-
-        .meal-name {
-            overflow: hidden;
             line-height: 1.0;
         }
 
@@ -212,29 +201,33 @@
         {% for variantMeal in variant.meals %}
             <div class="meal-line">
                 {%- if variantMeal.meal.hasDiets -%}
-                    <div class="diet-badges">
+                    {%- set allCodes = [] -%}
                     {%- for diet in variantMeal.meal.diets -%}
                         {%- for code in diet.dietCodes -%}
-                            <span class="diet-badge{% if code.value == '9/2' %} diet-badge-sup{% endif %}">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
+                            {%- set allCodes = allCodes|merge([code]) -%}
                         {%- endfor -%}
                     {%- endfor -%}
-                    </div>
+                    {%- for code in allCodes -%}
+                        <span class="diet-badge{% if loop.last %} diet-badge-last{% endif %}">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
+                    {%- endfor -%}
                 {%- endif -%}
-                <div class="meal-name">{{ variantMeal.meal.name }}</div>
+                {{ variantMeal.meal.name }}
             </div>
             {% if variantMeal.meal.hasVariants %}
                 {% for mealVariant in variantMeal.meal.variants %}
                     <div class="meal-variant-line">
                         {%- if mealVariant.effectiveDiets|length > 0 -%}
-                            <div class="diet-badges">
+                            {%- set allCodes = [] -%}
                             {%- for diet in mealVariant.effectiveDiets -%}
                                 {%- for code in diet.dietCodes -%}
-                                    <span class="diet-badge{% if code.value == '9/2' %} diet-badge-sup{% endif %}">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
+                                    {%- set allCodes = allCodes|merge([code]) -%}
                                 {%- endfor -%}
                             {%- endfor -%}
-                            </div>
+                            {%- for code in allCodes -%}
+                                <span class="diet-badge{% if loop.last %} diet-badge-last{% endif %}">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
+                            {%- endfor -%}
                         {%- endif -%}
-                        <div class="meal-name">{{ mealVariant.displayName }}</div>
+                        {{ mealVariant.displayName }}
                     </div>
                 {% endfor %}
             {% endif %}
