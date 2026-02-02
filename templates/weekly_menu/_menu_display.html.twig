@@ -85,7 +85,7 @@
                                                             <span class="meal-item">
                                                                 <span class="meal-name">{{ variantMeal.meal.name }}</span>
                                                                 {% if variantMeal.meal.hasDiets %}
-                                                                    <span class="diet-codes">({{ variantMeal.meal.dietCodesLabel }})</span>
+                                                                    <span class="diet-codes">({{ variantMeal.meal.dietCodesLabel|replace({'9/2': '9<sup>2</sup>'})|raw }})</span>
                                                                 {% endif %}
                                                                 {% set displayMealNutrition = variantMeal.meal.nutritionalValues %}
                                                                 {% if displayMealNutrition.energyValue %}
@@ -95,7 +95,7 @@
                                                                     {% for mealVariant in variantMeal.meal.variants %}
                                                                         <span class="meal-variant">
                                                                             <span class="meal-variant-name">{{ mealVariant.displayName }}</span>
-                                                                            <span class="diet-codes">({{ mealVariant.dietCodesLabel }})</span>
+                                                                            <span class="diet-codes">({{ mealVariant.dietCodesLabel|replace({'9/2': '9<sup>2</sup>'})|raw }})</span>
                                                                         </span>
                                                                     {% endfor %}
                                                                 {% endif %}

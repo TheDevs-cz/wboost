@@ -211,7 +211,7 @@
                     <div class="meal-variant-line">
                         {%- for diet in mealVariant.effectiveDiets -%}
                             {%- for code in diet.dietCodes -%}
-                                <span class="diet-badge">{{ code.value }}</span>
+                                <span class="diet-badge">{{ code.value|replace({'9/2': '9<sup>2</sup>'})|raw }}</span>
                             {%- endfor -%}
                         {%- endfor -%}
                         {{ mealVariant.displayName }}
@@ -282,9 +282,9 @@
                 <td class="day-label" style="width: 4%; background-color: {{ dayBg }}">{{ day.dayLabelShort }}</td>
                 {% for mealTypeKey in mealTypeOrder %}
                     {% if mealTypeKey == 'lunch' or mealTypeKey == 'dinner' %}
-                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 25.5%;">
+                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 33%;">
                     {% else %}
-                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 15%;">
+                        <td class="meal-cell{% if loop.first %} meal-cell-first{% endif %}{% if loop.last %} meal-cell-last{% endif %}" style="width: 10%;">
                     {% endif %}
                         <div class="meal-cell-header" style="background-color: {{ dayHeaderBg }}">{{ mealTypeLabels[mealTypeKey] }}</div>
                         <div class="meal-cell-content">
