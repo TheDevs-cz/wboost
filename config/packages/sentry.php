@@ -15,6 +15,7 @@ return App::config([
         ],
         'register_error_listener' => false,
         'register_error_handler' => false,
+        'logger' => 'monolog.logger',
         'messenger' => [
             'enabled' => true,
             'capture_soft_fails' => true,

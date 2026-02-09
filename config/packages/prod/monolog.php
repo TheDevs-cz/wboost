@@ -20,10 +20,19 @@ return App::config([
                 'level' => 'debug',
                 'formatter' => 'monolog.formatter.json',
             ],
+            'sentry' => [
+                'type' => 'service',
+                'id' => \Sentry\Monolog\Handler::class,
+            ],
             'console' => [
                 'type' => 'console',
                 'process_psr_3_messages' => false,
                 'channels' => ['!event', '!doctrine'],
+            ],
+            'sentry_breadcrumbs' => [
+                'type' => 'service',
+                'id' => \Sentry\Monolog\BreadcrumbHandler::class,
+                'level' => 'info',
             ],
         ],
     ],

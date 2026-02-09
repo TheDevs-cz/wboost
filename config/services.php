@@ -7,7 +7,11 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 use AsyncAws\Core\Configuration;
 use AsyncAws\S3\S3Client;
 use Lustmored\Flysystem\Cache\CacheAdapter;
+use Monolog\Level;
 use Monolog\Processor\PsrLogMessageProcessor;
+use Sentry\Monolog\BreadcrumbHandler as SentryBreadcrumbHandler;
+use Sentry\Monolog\Handler as SentryMonologHandler;
+use Sentry\State\HubInterface;
 use Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler;
 use WBoost\Web\Services\Doctrine\FixDoctrineMigrationTableSchema;
 
@@ -72,6 +76,20 @@ return static function (ContainerConfigurator $container): void {
                 Configuration::OPTION_SECRET_ACCESS_KEY => env('S3_SECRET_KEY'),
                 Configuration::OPTION_PATH_STYLE_ENDPOINT => true,
             ],
+        ]);
+
+    $services->set(SentryMonologHandler::class)
+        ->args([
+            service(HubInterface::class),
+            Level::Error,
+            true,
+            true,
+        ]);
+
+    $services->set(SentryBreadcrumbHandler::class)
+        ->args([
+            service(HubInterface::class),
+            Level::Info,
         ]);
 
     $services->set('minio.cache.adapter')
