@@ -1,4 +1,4 @@
-FROM ghcr.io/thedevs-cz/php:8.5
+FROM ghcr.io/thedevs-cz/php:8.5-wboost
 
 ENV APP_ENV="prod" \
     APP_DEBUG=0 \
