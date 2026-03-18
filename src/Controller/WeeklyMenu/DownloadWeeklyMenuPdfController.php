@@ -26,17 +26,12 @@ final class DownloadWeeklyMenuPdfController extends AbstractController
         #[MapEntity(id: 'menuId')]
         WeeklyMenu $menu,
     ): Response {
-        $pdfContent = $this->pdfGenerator->generate($menu);
-
         $filename = sprintf(
-            'jidelnicek-%s-%s.pdf',
+            'jidelnicek-%s-%s',
             $menu->project->slug,
             $menu->validFrom->format('Y-m-d'),
         );
 
-        return new Response($pdfContent, headers: [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return $this->pdfGenerator->generate($menu, $filename);
     }
 }

@@ -89,6 +89,9 @@ services:
             interval: 10s
             retries: 2
 
+    gotenberg:
+        image: gotenberg/gotenberg:8
+
     minio_setup:
         image: minio/mc:latest
         restart: no
