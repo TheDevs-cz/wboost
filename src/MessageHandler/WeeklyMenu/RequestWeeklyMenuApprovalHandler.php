@@ -73,6 +73,7 @@ readonly final class RequestWeeklyMenuApprovalHandler
         assert($menu->approvalEmail !== null);
 
         $email = (new Email())
+            ->from('noreply@wboost.cz')
             ->to($menu->approvalEmail)
             ->subject('Žádost o schválení jídelníčku: ' . $menu->name)
             ->html($html);
