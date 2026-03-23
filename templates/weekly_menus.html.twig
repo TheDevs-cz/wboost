@@ -46,7 +46,20 @@
                             <p class="card-text text-muted">
                                 {{ menu.validFrom|date('d.m.Y') }} - {{ menu.validTo|date('d.m.Y') }}
                             </p>
-                            <p class="card-text small text-muted">
+                            {% if menu.approvalEmail is not null %}
+                                <div class="mb-2">
+                                    <span class="badge {{ menu.approvalStatus.badgeClass }}">{{ menu.approvalStatus.label }}</span>
+                                    {% if menu.approvalStatus.value == 'approved' and menu.approvalRespondedAt %}
+                                        <br><small class="text-muted">{{ menu.approvalEmail }} &middot; {{ menu.approvalRespondedAt|date('d.m.Y H:i') }}</small>
+                                    {% elseif menu.approvalStatus.value == 'denied' and menu.approvalRespondedAt %}
+                                        <br><small class="text-muted">{{ menu.approvalEmail }} &middot; {{ menu.approvalRespondedAt|date('d.m.Y H:i') }}</small>
+                                    {% endif %}
+                                    {% if menu.approvalComment is not empty %}
+                                        <br><small class="text-muted fst-italic">&bdquo;{{ menu.approvalComment }}&ldquo;</small>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            <p class="card-text small text-muted mb-0">
                                 Vytvořeno: {{ menu.createdAt|date('d.m.Y H:i') }}
                                 {% if menu.updatedAt %}
                                     <br>Upraveno: {{ menu.updatedAt|date('d.m.Y H:i') }}
@@ -71,6 +84,14 @@
                                     <a href="{{ path('public_weekly_menu', {'menuId': menu.id}) }}" class="dropdown-item" target="_blank">
                                         <i class="mdi mdi-share-variant me-1"></i> Veřejný odkaz
                                     </a>
+                                    {% if is_granted('project_edit', project) and menu.approvalEmail is not null and menu.approvalStatus.value in ['not_requested', 'denied'] %}
+                                        <div class="dropdown-divider"></div>
+                                        <form action="{{ path('request_weekly_menu_approval', {'menuId': menu.id}) }}" method="post">
+                                            <button type="submit" class="dropdown-item" onclick="return confirm('Odeslat žádost o schválení na {{ menu.approvalEmail }}?');">
+                                                <i class="mdi mdi-email-check me-1"></i> Požádat o schválení
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                     {% if is_granted('project_edit', project) %}
                                         <form action="{{ path('duplicate_weekly_menu', {'menuId': menu.id}) }}" method="post">
                                             <button type="submit" class="dropdown-item">

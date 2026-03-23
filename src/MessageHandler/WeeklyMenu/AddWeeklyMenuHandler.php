@@ -36,6 +36,7 @@ readonly final class AddWeeklyMenuHandler
             $message->validTo,
             $message->createdBy,
             $message->approvedBy,
+            $message->approvalEmail,
         );
 
         $this->weeklyMenuRepository->add($menu);

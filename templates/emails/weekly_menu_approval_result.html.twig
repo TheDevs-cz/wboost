@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Výsledek schválení jídelníčku</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f5f7; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <tr>
+                        <td style="background-color: {{ result == 'approved' ? '#10b981' : '#ef4444' }}; padding: 24px 32px;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">
+                                Jídelníček byl {{ result == 'approved' ? 'schválen' : 'zamítnut' }}
+                            </h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 32px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 6px; margin-bottom: 24px;">
+                                <tr>
+                                    <td style="padding: 16px 20px;">
+                                        <p style="margin: 0 0 8px; color: #333; font-size: 16px; font-weight: 600;">{{ menu.name }}</p>
+                                        <p style="margin: 0; color: #666; font-size: 14px;">
+                                            Platnost: {{ menu.validFrom|date('d.m.Y') }} – {{ menu.validTo|date('d.m.Y') }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
+                                {% if result == 'approved' %}
+                                    Jídelníček <strong>{{ menu.name }}</strong> byl schválen uživatelem <strong>{{ menu.approvalEmail }}</strong>.
+                                {% else %}
+                                    Jídelníček <strong>{{ menu.name }}</strong> byl zamítnut uživatelem <strong>{{ menu.approvalEmail }}</strong>.
+                                {% endif %}
+                            </p>
+
+                            {% if comment is not empty %}
+                                <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; margin-bottom: 24px;">
+                                    <tr>
+                                        <td style="padding: 12px 16px;">
+                                            <p style="margin: 0 0 4px; color: #856404; font-size: 13px; font-weight: 600;">Komentář:</p>
+                                            <p style="margin: 0; color: #856404; font-size: 14px; line-height: 1.5;">{{ comment }}</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 32px; background-color: #f8f9fa; border-top: 1px solid #e9ecef;">
+                            <p style="margin: 0; color: #999; font-size: 12px;">
+                                Tento e-mail byl odeslán automaticky.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

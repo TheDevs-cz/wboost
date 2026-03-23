@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormData;
 
+use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\GreaterThanOrEqual;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
@@ -27,4 +28,8 @@ final class WeeklyMenuFormData
 
     #[Length(max: 255)]
     public null|string $approvedBy = null;
+
+    #[Email]
+    #[Length(max: 255)]
+    public null|string $approvalEmail = null;
 }

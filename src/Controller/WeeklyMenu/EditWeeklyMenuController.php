@@ -15,12 +15,14 @@ use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\FormData\WeeklyMenuFormData;
 use WBoost\Web\FormType\WeeklyMenuFormType;
 use WBoost\Web\Message\WeeklyMenu\EditWeeklyMenu;
+use WBoost\Web\Repository\WeeklyMenuApprovalAuditLogRepository;
 use WBoost\Web\Services\Security\WeeklyMenuVoter;
 
 final class EditWeeklyMenuController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
+        readonly private WeeklyMenuApprovalAuditLogRepository $auditLogRepository,
     ) {
     }
 
@@ -37,6 +39,7 @@ final class EditWeeklyMenuController extends AbstractController
         $data->validTo = $menu->validTo;
         $data->createdBy = $menu->createdBy;
         $data->approvedBy = $menu->approvedBy;
+        $data->approvalEmail = $menu->approvalEmail;
 
         $form = $this->createForm(WeeklyMenuFormType::class, $data);
         $form->handleRequest($request);
@@ -50,6 +53,7 @@ final class EditWeeklyMenuController extends AbstractController
                     $data->validTo,
                     $data->createdBy,
                     $data->approvedBy,
+                    $data->approvalEmail,
                 ),
             );
 
@@ -64,6 +68,7 @@ final class EditWeeklyMenuController extends AbstractController
             'form' => $form,
             'menu' => $menu,
             'project' => $menu->project,
+            'auditLogs' => $this->auditLogRepository->findByMenu($menu->id),
         ]);
     }
 }

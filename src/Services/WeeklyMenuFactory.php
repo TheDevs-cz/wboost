@@ -26,6 +26,7 @@ readonly class WeeklyMenuFactory
         \DateTimeImmutable $validTo,
         null|string $createdBy = null,
         null|string $approvedBy = null,
+        null|string $approvalEmail = null,
     ): WeeklyMenu {
         $menu = new WeeklyMenu(
             $menuId,
@@ -37,6 +38,7 @@ readonly class WeeklyMenuFactory
             null,
             $createdBy,
             $approvedBy,
+            $approvalEmail,
         );
 
         for ($dayOfWeek = 1; $dayOfWeek <= 7; $dayOfWeek++) {

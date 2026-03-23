@@ -6,6 +6,7 @@ namespace WBoost\Web\FormType;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -53,6 +54,12 @@ final class WeeklyMenuFormType extends AbstractType
         $builder->add('approvedBy', TextType::class, [
             'label' => 'Schválil',
             'required' => false,
+        ]);
+
+        $builder->add('approvalEmail', EmailType::class, [
+            'label' => 'E-mail schvalovatele',
+            'required' => false,
+            'help' => 'Pokud je vyplněn, umožní odeslat žádost o schválení jídelníčku na tento e-mail.',
         ]);
     }
 

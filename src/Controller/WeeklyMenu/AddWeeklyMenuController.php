@@ -52,6 +52,7 @@ final class AddWeeklyMenuController extends AbstractController
                     $data->validTo,
                     $data->createdBy,
                     $data->approvedBy,
+                    $data->approvalEmail,
                 ),
             );
 
