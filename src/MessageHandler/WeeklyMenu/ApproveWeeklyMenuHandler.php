@@ -68,7 +68,6 @@ readonly final class ApproveWeeklyMenuHandler
             ]);
 
             $email = (new Email())
-                ->from('robot@wboost.cz')
                 ->to($menu->requestedByEmail)
                 ->subject('Jídelníček "' . $menu->name . '" byl schválen')
                 ->html($html);
