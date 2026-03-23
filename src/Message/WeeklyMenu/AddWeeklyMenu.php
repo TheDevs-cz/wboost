@@ -16,6 +16,7 @@ readonly final class AddWeeklyMenu
         public \DateTimeImmutable $validTo,
         public null|string $createdBy = null,
         public null|string $approvedBy = null,
+        public null|string $approvalEmail = null,
     ) {
     }
 }

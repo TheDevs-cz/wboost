@@ -18,6 +18,7 @@ use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Value\NutritionalValues;
+use WBoost\Web\Value\WeeklyMenuApprovalStatus;
 
 #[Entity]
 class WeeklyMenu
@@ -27,6 +28,12 @@ class WeeklyMenu
     #[OneToMany(targetEntity: WeeklyMenuDay::class, mappedBy: 'weeklyMenu', fetch: 'EAGER', cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[OrderBy(['dayOfWeek' => 'ASC'])]
     private Collection $days;
+
+    /** @var Collection<int, WeeklyMenuApprovalAuditLog> */
+    #[Immutable]
+    #[OneToMany(targetEntity: WeeklyMenuApprovalAuditLog::class, mappedBy: 'weeklyMenu', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[OrderBy(['createdAt' => 'DESC'])]
+    private Collection $auditLogs;
 
     public function __construct(
         #[Id]
@@ -66,8 +73,33 @@ class WeeklyMenu
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(nullable: true)]
         public null|string $approvedBy = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(nullable: true)]
+        public null|string $approvalEmail = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: 'string', enumType: WeeklyMenuApprovalStatus::class)]
+        public WeeklyMenuApprovalStatus $approvalStatus = WeeklyMenuApprovalStatus::NotRequested,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(nullable: true)]
+        public null|string $approvalHash = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+        public null|\DateTimeImmutable $approvalRespondedAt = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: Types::TEXT, nullable: true)]
+        public null|string $approvalComment = null,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(nullable: true)]
+        public null|string $requestedByEmail = null,
     ) {
         $this->days = new ArrayCollection();
+        $this->auditLogs = new ArrayCollection();
     }
 
     public function edit(
@@ -76,18 +108,64 @@ class WeeklyMenu
         \DateTimeImmutable $validTo,
         null|string $createdBy = null,
         null|string $approvedBy = null,
+        null|string $approvalEmail = null,
     ): void {
         $this->name = $name;
         $this->validFrom = $validFrom;
         $this->validTo = $validTo;
         $this->createdBy = $createdBy;
         $this->approvedBy = $approvedBy;
+        $this->approvalEmail = $approvalEmail;
         $this->markUpdated();
     }
 
     public function markUpdated(): void
     {
         $this->updatedAt = new \DateTimeImmutable();
+        $this->resetApproval();
+    }
+
+    public function requestApproval(string $hash, string $requestedByEmail): void
+    {
+        $this->approvalStatus = WeeklyMenuApprovalStatus::Pending;
+        $this->approvalHash = $hash;
+        $this->requestedByEmail = $requestedByEmail;
+        $this->approvalRespondedAt = null;
+        $this->approvalComment = null;
+    }
+
+    public function approve(null|string $comment = null): void
+    {
+        $this->approvalStatus = WeeklyMenuApprovalStatus::Approved;
+        $this->approvalRespondedAt = new \DateTimeImmutable();
+        $this->approvalComment = $comment;
+    }
+
+    public function deny(null|string $comment = null): void
+    {
+        $this->approvalStatus = WeeklyMenuApprovalStatus::Denied;
+        $this->approvalRespondedAt = new \DateTimeImmutable();
+        $this->approvalComment = $comment;
+    }
+
+    public function resetApproval(): void
+    {
+        if ($this->approvalStatus === WeeklyMenuApprovalStatus::NotRequested) {
+            return;
+        }
+
+        $this->approvalStatus = WeeklyMenuApprovalStatus::NotRequested;
+        $this->approvalHash = null;
+        $this->approvalRespondedAt = null;
+        $this->approvalComment = null;
+    }
+
+    /**
+     * @return array<WeeklyMenuApprovalAuditLog>
+     */
+    public function auditLogs(): array
+    {
+        return $this->auditLogs->toArray();
     }
 
     public function addDay(WeeklyMenuDay $day): void

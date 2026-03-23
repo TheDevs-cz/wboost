@@ -14,6 +14,7 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
 use WBoost\Web\Value\ManualType;
+use WBoost\Web\Value\WeeklyMenuApprovalStatus;
 
 final class TestDataFixture extends Fixture
 {
@@ -32,6 +33,10 @@ final class TestDataFixture extends Fixture
     // Weekly Menu fixtures
     public const string WEEKLY_MENU_1_ID = '00000000-0000-0000-0000-000000000010';
     public const string WEEKLY_MENU_DAY_1_ID = '00000000-0000-0000-0000-000000000011';
+
+    // Weekly Menu with approval (pending)
+    public const string WEEKLY_MENU_2_ID = '00000000-0000-0000-0000-000000000020';
+    public const string WEEKLY_MENU_2_APPROVAL_HASH = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
 
     public function load(ObjectManager $manager): void
     {
@@ -111,6 +116,26 @@ final class TestDataFixture extends Fixture
         );
         $weeklyMenu1->addDay($day1);
         $manager->persist($day1);
+
+        // Weekly Menu with approval (pending state)
+        $weeklyMenu2 = new WeeklyMenu(
+            Uuid::fromString(self::WEEKLY_MENU_2_ID),
+            $project1,
+            $date,
+            'Approval Test Menu',
+            new DateTimeImmutable('2024-02-01'),
+            new DateTimeImmutable('2024-02-07'),
+            null,
+            'Jan Novak',
+            null,
+            'approver@test.cz',
+            WeeklyMenuApprovalStatus::Pending,
+            self::WEEKLY_MENU_2_APPROVAL_HASH,
+            null,
+            null,
+            'user1@test.cz',
+        );
+        $manager->persist($weeklyMenu2);
 
         $manager->flush();
     }

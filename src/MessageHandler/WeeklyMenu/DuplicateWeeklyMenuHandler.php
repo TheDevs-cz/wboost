@@ -44,6 +44,7 @@ readonly final class DuplicateWeeklyMenuHandler
             null,
             $originalMenu->createdBy,
             $originalMenu->approvedBy,
+            $originalMenu->approvalEmail,
         );
 
         $this->weeklyMenuRepository->add($newMenu);

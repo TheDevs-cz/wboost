@@ -30,6 +30,7 @@ readonly final class EditWeeklyMenuHandler
             $message->validTo,
             $message->createdBy,
             $message->approvedBy,
+            $message->approvalEmail,
         );
     }
 }
