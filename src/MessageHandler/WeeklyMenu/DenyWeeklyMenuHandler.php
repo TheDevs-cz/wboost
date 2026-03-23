@@ -68,7 +68,7 @@ readonly final class DenyWeeklyMenuHandler
             ]);
 
             $email = (new Email())
-                ->from('noreply@wboost.cz')
+                ->from('robot@wboost.cz')
                 ->to($menu->requestedByEmail)
                 ->subject('Jídelníček "' . $menu->name . '" byl zamítnut')
                 ->html($html);
