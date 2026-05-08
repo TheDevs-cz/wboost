@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Ramsey\Uuid\Doctrine\UuidType;
+use WBoost\Web\Doctrine\CanvasJsonbType;
 use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Doctrine\EmailTextInputsDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
@@ -24,6 +25,7 @@ return App::config([
                 EditorTextInputsDoctrineType::NAME => EditorTextInputsDoctrineType::class,
                 ManualColorsDoctrineType::NAME => ManualColorsDoctrineType::class,
                 EmailTextInputsDoctrineType::NAME => EmailTextInputsDoctrineType::class,
+                CanvasJsonbType::NAME => CanvasJsonbType::class,
             ],
         ],
         'orm' => [

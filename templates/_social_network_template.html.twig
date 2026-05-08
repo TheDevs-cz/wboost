@@ -47,7 +47,7 @@
 
                                 <div class="text-end">
                                     {% for variant in template.dimensionVariants(dimension) %}
-                                        <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ variant.previewImage ?: uploaded_asset(variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                                        <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
                                     {% endfor %}
                                 </div>
                             </div>

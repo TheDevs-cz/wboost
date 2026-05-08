@@ -184,7 +184,7 @@ final class TestDataFixture extends Fixture
                 new EditorTextInput(null, null, true, false, null, false),
                 new EditorTextInput('badge', null, false, false, null, true),
             ],
-            '',
+            null,
         );
         $manager->persist($socialVariant1);
 
@@ -210,7 +210,7 @@ final class TestDataFixture extends Fixture
         $socialVariant2->editCanvas(
             '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             [new EditorTextInput('headline', null, false, false, null, false)],
-            '',
+            null,
         );
         $manager->persist($socialVariant2);
 

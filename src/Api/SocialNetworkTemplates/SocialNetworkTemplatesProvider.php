@@ -66,7 +66,9 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                         dimension: $variant->dimension->value,
                         width: $variant->dimension->width(),
                         height: $variant->dimension->height(),
-                        previewImageUrl: $this->buildPreviewUrl($variant->previewImage),
+                        previewImageUrl: $variant->previewImagePath !== null
+                            ? $this->uploaderHelper->getPublicPath($variant->previewImagePath)
+                            : null,
                         backgroundImageUrl: $this->uploaderHelper->getPublicPath($variant->backgroundImage),
                         exportUrl: $this->urlGenerator->generate(
                             'api_social_network_template_variant_export',
@@ -93,18 +95,4 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
         );
     }
 
-    private function buildPreviewUrl(null|string $previewImage): null|string
-    {
-        if ($previewImage === null) {
-            return null;
-        }
-
-        // previewImage is captured client-side as a data: URL by the editor (canvas.toDataURL).
-        // Pass through as-is; otherwise treat as an upload path.
-        if (str_starts_with($previewImage, 'data:')) {
-            return $previewImage;
-        }
-
-        return $this->uploaderHelper->getPublicPath($previewImage);
-    }
 }

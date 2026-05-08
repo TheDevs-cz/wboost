@@ -68,7 +68,12 @@ readonly final class SocialNetworkTemplateVariantImageRenderer implements Social
     {
         $backgroundDataUri = $this->assetInliner->inlineImage($variant->backgroundImage);
 
-        if ($variant->canvas === '') {
+        /** @var array<string, mixed> $canvas */
+        $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
+
+        // Empty canvas (legacy '' rows are normalized to '{}' in the DB) — synthesize
+        // the minimal Fabric document the renderer expects so the background still paints.
+        if ($canvas === [] || !isset($canvas['objects'])) {
             $canvas = [
                 'version' => '5.2.4',
                 'objects' => [],
@@ -85,14 +90,9 @@ readonly final class SocialNetworkTemplateVariantImageRenderer implements Social
                     'crossOrigin' => null,
                 ],
             ];
-        } else {
-            /** @var array<string, mixed> $canvas */
-            $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
-
-            if ($backgroundDataUri !== null && isset($canvas['backgroundImage']) && is_array($canvas['backgroundImage'])) {
-                $canvas['backgroundImage']['src'] = $backgroundDataUri;
-                $canvas['backgroundImage']['crossOrigin'] = null;
-            }
+        } elseif ($backgroundDataUri !== null && isset($canvas['backgroundImage']) && is_array($canvas['backgroundImage'])) {
+            $canvas['backgroundImage']['src'] = $backgroundDataUri;
+            $canvas['backgroundImage']['crossOrigin'] = null;
         }
 
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);

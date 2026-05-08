@@ -37,7 +37,7 @@
         id="canvas-container"
         data-controller="canvas-template-export"
         data-canvas-template-export-custom-fonts='{{ font_faces|json_encode }}'
-        data-canvas-template-export-canvas-json='{{ variant.canvas ?: include('_empty_canvas.html.twig') }}'
+        data-canvas-template-export-canvas-json='{{ variant.canvas in ['', '{}'] ? include('_empty_canvas.html.twig') : variant.canvas }}'
         data-canvas-template-export-render-url-value="{{ path('social_network_template_variant_render', {'variantId': variant.id}) }}"
     >
         <div class="row">

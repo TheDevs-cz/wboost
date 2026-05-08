@@ -55,7 +55,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
                     $variant->id,
                     $formData->canvas,
                     EditorTextInput::createCollectionFromJson($formData->textInputs),
-                    $formData->imagePreview,
+                    previewImageDataUri: $formData->imagePreview,
                 ),
             );
 

@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Doctrine\CanvasJsonbType;
 use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\TemplateDimension;
@@ -21,12 +22,17 @@ use WBoost\Web\Value\TemplateDimension;
 class SocialNetworkTemplateVariant
 {
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: Types::TEXT)]
-    public string $canvas = '';
+    #[Column(type: CanvasJsonbType::NAME)]
+    public string $canvas = '{}';
 
+    /**
+     * Path to the preview PNG inside the upload (Minio) filesystem. Older rows
+     * stored a full base64 data URI in `preview_image`; that column has been
+     * dropped and previews now live as objects in S3/Minio.
+     */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: Types::TEXT, nullable: true)]
-    public null|string $previewImage = null;
+    #[Column(type: Types::STRING, length: 255, nullable: true)]
+    public null|string $previewImagePath = null;
 
     /** @var array<EditorTextInput> */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
@@ -61,12 +67,12 @@ class SocialNetworkTemplateVariant
     public function editCanvas(
         string $canvas,
         array $inputs,
-        string $previewImage,
+        null|string $previewImagePath,
     ): void
     {
         $this->canvas = $canvas;
         $this->inputs = $inputs;
-        $this->previewImage = $previewImage;
+        $this->previewImagePath = $previewImagePath;
     }
 
     public function edit(string $backgroundImagePath): void
