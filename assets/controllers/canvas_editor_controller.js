@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { fabric } from "fabric";
+import { Canvas, Textbox, FabricImage, ActiveSelection } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 const customProperties = ['inputId', 'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable'];
@@ -19,10 +19,12 @@ export default class extends Controller {
 
     connect() {
         this.clipboard = null;
-        this.canvas = new fabric.Canvas('c'); // Initialize the Fabric.js canvas
+        this.canvas = new Canvas('c'); // Initialize the Fabric.js canvas
 
         const canvasJson = this.element.dataset.canvasEditorCanvasJson;
         if (canvasJson && canvasJson.trim() !== '') {
+            // loadCanvasWithoutHistory is async in v7 (Promise-based loadFromJSON);
+            // Stimulus connect() can't be async, so we fire-and-forget.
             this.loadCanvasWithoutHistory(canvasJson);
         }
 
@@ -78,9 +80,12 @@ export default class extends Controller {
         window.removeEventListener('keydown', this.handleKeydown.bind(this));
     }
 
-    loadCanvasWithoutHistory(canvasJson) {
+    async loadCanvasWithoutHistory(canvasJson) {
         this.loadingCanvas = true;
-        this.canvas.loadFromJSON(canvasJson, () => {
+        try {
+            // Fabric v7 loadFromJSON returns a Promise (no callback form).
+            await this.canvas.loadFromJSON(canvasJson);
+
             // Defensive: stamp inputId on any object that was loaded without
             // one. Handles legacy data loaded into the editor before the
             // server-side migration has run, plus future-proofs against any
@@ -91,8 +96,9 @@ export default class extends Controller {
                 }
             });
             this.canvas.renderAll();
+        } finally {
             this.loadingCanvas = false;
-        });
+        }
     }
 
     handleKeydown(event) {
@@ -186,10 +192,12 @@ export default class extends Controller {
         }
     }
 
-    setBackgroundImage(imageUrl) {
-        fabric.Image.fromURL(imageUrl, (img) => {
-            this.canvas.setBackgroundImage(img, this.canvas.renderAll.bind(this.canvas));
-        }, {crossOrigin: 'anonymous'});
+    async setBackgroundImage(imageUrl) {
+        // Fabric v7: FabricImage.fromURL is Promise-based;
+        // backgroundImage is now a property assignment, not a setter method.
+        const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+        this.canvas.backgroundImage = img;
+        this.canvas.renderAll();
     }
 
     async loadFontsAndPopulateSelect() {
@@ -247,7 +255,7 @@ export default class extends Controller {
         // Determine the font family: use the first custom font, or fall back to 'Arial' if none are provided
         const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
 
-        const textBox = new fabric.Textbox(inputName, {
+        const textBox = new Textbox(inputName, {
             left: 100,
             top: 100,
             width: 200,
@@ -256,6 +264,12 @@ export default class extends Controller {
             fontSize: 24,
             textAlign: 'left',
             editable: true,
+            // Fabric v7 changed the default origin to 'center'/'center'.
+            // Pin to 'left'/'top' so newly created objects render at the
+            // same coordinates as legacy v5 data (which all has explicit
+            // originX/Y) and so the export renderer treats them identically.
+            originX: 'left',
+            originY: 'top',
             lockScalingX: true,
             lockScalingY: true,
             lockScalingFlip: true,
@@ -288,7 +302,8 @@ export default class extends Controller {
     bringToFront() {
         const activeObject = this.canvas.getActiveObject();
         if (activeObject) {
-            activeObject.bringToFront();
+            // Fabric v7: stacking order methods moved to the canvas.
+            this.canvas.bringObjectToFront(activeObject);
             this.canvas.discardActiveObject();
             this.canvas.renderAll();
             this.scheduleAutosave()
@@ -298,7 +313,8 @@ export default class extends Controller {
     sendToBack() {
         const activeObject = this.canvas.getActiveObject();
         if (activeObject) {
-            activeObject.sendToBack();
+            // Fabric v7: stacking order methods moved to the canvas.
+            this.canvas.sendObjectToBack(activeObject);
             this.canvas.discardActiveObject();
             this.canvas.renderAll();
             this.scheduleAutosave()
@@ -635,7 +651,7 @@ export default class extends Controller {
         offScreenCanvas.height = newHeight;
         const ctx = offScreenCanvas.getContext('2d');
 
-        // Draw the scaled canvas
+        // Draw the scaled canvas. canvas.getElement() still exists in v7.
         ctx.drawImage(this.canvas.getElement(), 0, 0, newWidth, newHeight);
 
         // Convert the off-screen canvas to a Data URI
@@ -704,20 +720,30 @@ export default class extends Controller {
             });
     }
 
-    addImageToCanvas(imageUrl) {
-        fabric.Image.fromURL(imageUrl, (img) => {
-            img.set({
-                left: 100,
-                top: 100,
-                angle: 0,
-                cornersize: 10,
-                hasRotatingPoint: true,
-            });
-            this.canvas.add(img);
-            this.canvas.setActiveObject(img);
-            this.canvas.renderAll();
-            this.scheduleAutosave()
-        }, {crossOrigin: 'anonymous'});
+    async addImageToCanvas(imageUrl) {
+        // Fabric v7: FabricImage.fromURL is Promise-based.
+        const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+        img.set({
+            left: 100,
+            top: 100,
+            angle: 0,
+            // Pin origin to 'left'/'top' to override v7's new 'center' default
+            // — keeps newly-added images consistent with legacy data and the
+            // server-side renderer's expectations.
+            originX: 'left',
+            originY: 'top',
+            cornersize: 10,
+            hasRotatingPoint: true,
+        });
+        // Stamp inputId proactively (Stage 2 convention) so future
+        // image-placeholder inputs can address this object by id.
+        if (!img.inputId) {
+            img.inputId = crypto.randomUUID();
+        }
+        this.canvas.add(img);
+        this.canvas.setActiveObject(img);
+        this.canvas.renderAll();
+        this.scheduleAutosave();
     }
 
     addToHistory() {
@@ -736,6 +762,8 @@ export default class extends Controller {
             this.redoStack.push(currentState);
 
             const previousState = this.history[this.history.length - 1];
+            // loadCanvasWithoutHistory is async in v7; fire-and-forget — the
+            // canvas re-renders inside the function once the JSON resolves.
             this.loadCanvasWithoutHistory(previousState);
 
             this.updateButtonStates();
@@ -747,6 +775,7 @@ export default class extends Controller {
             const nextState = this.redoStack.pop();
             this.history.push(nextState);
 
+            // Async fire-and-forget; see undo().
             this.loadCanvasWithoutHistory(nextState);
 
             this.updateButtonStates();
@@ -846,62 +875,54 @@ export default class extends Controller {
         }
     }
 
-    copy() {
+    async copy() {
         const activeObject = this.canvas.getActiveObject();
-        if (activeObject) {
-            // Temporarily extend toObject method to include custom properties
-            this.extendToObject(activeObject);
-
-            activeObject.clone((cloned) => {
-                // Restore the original toObject method
-                this.restoreToObject(activeObject);
-
-                this.clipboard = cloned;
-            });
+        if (!activeObject) {
+            return;
         }
+        // Fabric v7: clone() returns a Promise and respects custom property
+        // whitelist directly — no more extendToObject/restoreToObject hack.
+        this.clipboard = await activeObject.clone(customProperties);
     }
 
-    paste() {
-        if (this.clipboard) {
-            // Temporarily extend toObject method to include custom properties
-            this.extendToObject(this.clipboard);
-
-            this.clipboard.clone((clonedObj) => {
-                // Restore the original toObject method
-                this.restoreToObject(this.clipboard);
-
-                this.canvas.discardActiveObject();
-
-                clonedObj.set({
-                    left: clonedObj.left + 10,
-                    top: clonedObj.top + 10,
-                    evented: true,
-                });
-
-                if (clonedObj.type === 'activeSelection') {
-                    clonedObj.canvas = this.canvas;
-                    clonedObj.forEachObject((obj) => {
-                        // Always overwrite inputId on paste to avoid id collisions.
-                        obj.inputId = crypto.randomUUID();
-                        this.canvas.add(obj);
-                    });
-                    clonedObj.setCoords();
-                } else {
-                    // Always overwrite inputId on paste to avoid id collisions.
-                    clonedObj.inputId = crypto.randomUUID();
-                    this.canvas.add(clonedObj);
-                }
-
-                this.canvas.setActiveObject(clonedObj);
-                this.canvas.requestRenderAll();
-
-            });
+    async paste() {
+        if (!this.clipboard) {
+            return;
         }
+        // Clone the clipboard object so successive pastes produce independent
+        // copies. v7 clone respects the custom-property whitelist natively.
+        const clonedObj = await this.clipboard.clone(customProperties);
+
+        this.canvas.discardActiveObject();
+
+        clonedObj.set({
+            left: clonedObj.left + 10,
+            top: clonedObj.top + 10,
+            evented: true,
+        });
+
+        if (clonedObj instanceof ActiveSelection) {
+            clonedObj.canvas = this.canvas;
+            clonedObj.forEachObject((obj) => {
+                // Always overwrite inputId on paste to avoid id collisions.
+                obj.inputId = crypto.randomUUID();
+                this.canvas.add(obj);
+            });
+            clonedObj.setCoords();
+        } else {
+            // Always overwrite inputId on paste to avoid id collisions.
+            clonedObj.inputId = crypto.randomUUID();
+            this.canvas.add(clonedObj);
+        }
+
+        this.canvas.setActiveObject(clonedObj);
+        this.canvas.requestRenderAll();
     }
 
     duplicate() {
-        this.copy();
-        this.paste();
+        // copy() is async and stores into this.clipboard; await it before paste
+        // so paste() sees the freshly-cloned object.
+        this.copy().then(() => this.paste());
     }
 
     updateDuplicateButton() {
@@ -915,35 +936,6 @@ export default class extends Controller {
             // Disable the duplicate button
             this.duplicateButtonTarget.setAttribute('disabled', 'disabled');
             this.duplicateButtonTarget.classList.add('disabled');
-        }
-    }
-
-    // Helper methods to extend and restore toObject
-    extendToObject(object) {
-        // Save the original toObject method
-        object._originalToObject = object.toObject;
-
-        // Override toObject to include custom properties
-        object.toObject = function (propertiesToInclude) {
-            return object._originalToObject.call(this, (propertiesToInclude || []).concat(customProperties));
-        };
-
-        // If the object is a group or activeSelection, apply recursively
-        if (object._objects && object._objects.length) {
-            object._objects.forEach((obj) => this.extendToObject(obj));
-        }
-    }
-
-    restoreToObject(object) {
-        if (object._originalToObject) {
-            // Restore the original toObject method
-            object.toObject = object._originalToObject;
-            delete object._originalToObject;
-        }
-
-        // If the object is a group or activeSelection, apply recursively
-        if (object._objects && object._objects.length) {
-            object._objects.forEach((obj) => this.restoreToObject(obj));
         }
     }
 

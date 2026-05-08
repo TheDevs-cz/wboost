@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { fabric } from "fabric";
+import { Canvas } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
@@ -10,17 +10,19 @@ export default class extends Controller {
     connect() {
         const customFonts = JSON.parse(this.element.dataset.canvasTemplateExportCustomFonts);
 
-        this.loadFonts(customFonts).then(() => {
-            this.canvas = new fabric.Canvas('c', {
+        // Stimulus connect() can't be async; chain on loadFonts then run an
+        // async block to await the v7 Promise-based loadFromJSON.
+        this.loadFonts(customFonts).then(async () => {
+            this.canvas = new Canvas('c', {
                 selection: false // Disable group selection
             });
 
-            // Load the canvas from JSON
+            // Load the canvas from JSON. v7's loadFromJSON returns a Promise
+            // (callback form removed). Await before calling renderAll.
             const canvasJson = JSON.parse(this.element.dataset.canvasTemplateExportCanvasJson);
-            this.canvas.loadFromJSON(canvasJson, () => {
-                this.canvas.renderAll();
-                this.lockCanvasObjects();
-            });
+            await this.canvas.loadFromJSON(canvasJson);
+            this.canvas.renderAll();
+            this.lockCanvasObjects();
         });
     }
 
@@ -120,7 +122,7 @@ export default class extends Controller {
     }
 
     exportAsSvg() {
-        // Generate SVG data from the canvas
+        // Generate SVG data from the canvas (canvas.toSVG unchanged in v7).
         const svgData = this.canvas.toSVG();
 
         // Create a Blob from the SVG data

@@ -14,7 +14,15 @@
             }
         {% endfor %}
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/fabric@5.2.4/dist/fabric.min.js"></script>
+    {# Fabric v7 UMD bundle. Exposes the global `fabric` namespace
+       (`fabric.StaticCanvas`, `fabric.Canvas`, ...) the same way v5 did.
+       TODO (Stage 6): inline this asset into the page so the renderer no
+       longer depends on jsDelivr. The build is at
+       assets/vendor/fabric/fabric.index.js (ESM) — for the UMD body, copy
+       https://cdn.jsdelivr.net/npm/fabric@7.3.1/dist/index.min.js into
+       e.g. public/vendor/fabric.min.js and inject the file content via the
+       SocialNetworkTemplateVariantImageRenderer. #}
+    <script src="https://cdn.jsdelivr.net/npm/fabric@7.3.1/dist/index.min.js"></script>
 </head>
 <body>
     <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
@@ -37,31 +45,32 @@
                     enableRetinaScaling: false,
                 });
 
+                // Fabric v7: loadFromJSON is Promise-based; the callback
+                // form was removed. Await the load, then apply overrides.
+                await canvas.loadFromJSON(canvasJson);
+
+                // Apply overrides by inputId — see Stage 2 of the Fabric
+                // migration. We walk all objects (not just 'textbox') so
+                // future image-placeholder inputs use the same lookup path.
+                const objects = canvas.getObjects();
+                Object.keys(textOverrides).forEach((idKey) => {
+                    const obj = objects.find((o) => o.inputId === idKey);
+                    if (obj) {
+                        obj.text = String(textOverrides[idKey]);
+                    }
+                });
+                Object.keys(hiddenOverrides).forEach((idKey) => {
+                    const obj = objects.find((o) => o.inputId === idKey);
+                    if (obj) {
+                        obj.visible = !hiddenOverrides[idKey];
+                    }
+                });
+
+                canvas.renderAll();
+
+                // Two RAFs to let the browser commit the rendered pixels before signaling.
                 await new Promise((resolve) => {
-                    canvas.loadFromJSON(canvasJson, () => {
-                        // Apply overrides by inputId — see Stage 2 of the
-                        // Fabric migration. We walk all objects (not just
-                        // 'textbox') so future image-placeholder inputs use
-                        // the same lookup path.
-                        const objects = canvas.getObjects();
-                        Object.keys(textOverrides).forEach((idKey) => {
-                            const obj = objects.find((o) => o.inputId === idKey);
-                            if (obj) {
-                                obj.text = String(textOverrides[idKey]);
-                            }
-                        });
-                        Object.keys(hiddenOverrides).forEach((idKey) => {
-                            const obj = objects.find((o) => o.inputId === idKey);
-                            if (obj) {
-                                obj.visible = !hiddenOverrides[idKey];
-                            }
-                        });
-
-                        canvas.renderAll();
-
-                        // Two RAFs to let the browser commit the rendered pixels before signaling.
-                        requestAnimationFrame(() => requestAnimationFrame(resolve));
-                    });
+                    requestAnimationFrame(() => requestAnimationFrame(resolve));
                 });
 
                 window.canvasRendered = true;

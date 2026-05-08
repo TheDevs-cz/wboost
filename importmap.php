@@ -36,7 +36,7 @@ return [
         'type' => 'css',
     ],
     'fabric' => [
-        'version' => '5.2.4',
+        'version' => '7.3.1',
     ],
     'fontfaceobserver' => [
         'version' => '2.3.0',
