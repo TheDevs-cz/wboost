@@ -7,11 +7,11 @@ namespace WBoost\Web\Twig\Components\SocialNetwork;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;
 use Symfony\UX\LiveComponent\Attribute\LiveProp;
 use Symfony\UX\LiveComponent\DefaultActionTrait;
+use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantDownloadController;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
@@ -25,9 +25,14 @@ use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererI
  * rendered on the server and inputs are bound via data-model with the
  * `on(change)` modifier so re-renders fire on field blur (not on each
  * keystroke), keeping Gotenberg load reasonable.
+ *
+ * Authorisation note: `#[IsGranted]` cannot be applied at class level here —
+ * the Symfony Security listener resolves the subject from method arguments,
+ * and a Live Component's `$variant` is a hydrated LiveProp (class property),
+ * not an argument. Access is enforced explicitly in `previewDataUri()` and
+ * `exportPng()`, which are the only paths that touch the variant.
  */
 #[AsLiveComponent('SocialNetwork:VariantFiller')]
-#[IsGranted(SocialNetworkTemplateVariantVoter::VIEW, 'variant')]
 final class VariantFiller extends AbstractController
 {
     use DefaultActionTrait;
@@ -73,6 +78,38 @@ final class VariantFiller extends AbstractController
     }
 
     /**
+     * Pre-populate `textValues` / `hiddenValues` with an entry per
+     * non-locked input so the Live Component value-store knows about every
+     * inputId key from the first render. Without this, writing into
+     * `textValues[<uuid>]` from the front-end fails with `Invalid model name`
+     * because the JS valueStore only validates writes against keys already
+     * present in the hydrated state.
+     */
+    #[PostMount]
+    public function postMount(): void
+    {
+        $variant = $this->variant;
+
+        if ($variant === null) {
+            return;
+        }
+
+        $this->denyAccessUnlessGranted(SocialNetworkTemplateVariantVoter::VIEW, $variant);
+
+        foreach ($variant->inputs as $input) {
+            if ($input->locked) {
+                continue;
+            }
+
+            $this->textValues[$input->inputId] ??= '';
+
+            if ($input->hidable) {
+                $this->hiddenValues[$input->inputId] ??= false;
+            }
+        }
+    }
+
+    /**
      * Stash the current input state in the session and redirect to the
      * dedicated download route. Live Components do not natively support
      * returning binary file responses from a LiveAction (per the bundle docs),
@@ -82,11 +119,13 @@ final class VariantFiller extends AbstractController
     #[LiveAction]
     public function exportPng(): RedirectResponse
     {
-        assert($this->variant !== null);
+        $variant = $this->variant;
+        assert($variant !== null);
+        $this->denyAccessUnlessGranted(SocialNetworkTemplateVariantVoter::VIEW, $variant);
 
         $session = $this->requestStack->getSession();
         $session->set(
-            SocialNetworkTemplateVariantDownloadController::sessionKey($this->variant->id->toString()),
+            SocialNetworkTemplateVariantDownloadController::sessionKey($variant->id->toString()),
             [
                 'textValues' => $this->textValues,
                 'hiddenValues' => $this->hiddenValues,
@@ -95,7 +134,7 @@ final class VariantFiller extends AbstractController
 
         return $this->redirectToRoute(
             'social_network_template_variant_download',
-            ['variantId' => $this->variant->id->toString()],
+            ['variantId' => $variant->id->toString()],
         );
     }
 
@@ -108,14 +147,16 @@ final class VariantFiller extends AbstractController
      */
     public function previewDataUri(): string
     {
-        assert($this->variant !== null);
+        $variant = $this->variant;
+        assert($variant !== null);
+        $this->denyAccessUnlessGranted(SocialNetworkTemplateVariantVoter::VIEW, $variant);
 
         $overrides = $this->resolveTextOverrides->resolve(
-            $this->variant->inputs,
+            $variant->inputs,
             $this->buildProvidedValues(),
         );
 
-        $response = $this->renderer->render($this->variant, $overrides);
+        $response = $this->renderer->render($variant, $overrides);
         $payload = $response->getContent();
 
         if ($payload === false || $payload === '') {
