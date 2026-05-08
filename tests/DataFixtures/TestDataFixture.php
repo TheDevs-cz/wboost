@@ -7,8 +7,12 @@ namespace WBoost\Web\Tests\DataFixtures;
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
+use League\Bundle\OAuth2ServerBundle\Model\Client as OAuth2Client;
+use League\Bundle\OAuth2ServerBundle\OAuth2Grants;
+use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
@@ -29,6 +33,12 @@ final class TestDataFixture extends Fixture
 
     public const string MANUAL_1_ID = '00000000-0000-0000-0000-000000000001';
     public const string MANUAL_2_ID = '00000000-0000-0000-0000-000000000002';
+
+    // OAuth2 fixtures (active client linked to USER_1, plus an inactive one)
+    public const string OAUTH2_CLIENT_ID = 'testclientidaaaaaaaaaaaaaaaaaaaa';
+    public const string OAUTH2_CLIENT_SECRET = 'testclientsecretbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+    public const string OAUTH2_INACTIVE_CLIENT_ID = 'testinactiveclientcccccccccccccc';
+    public const string OAUTH2_INACTIVE_CLIENT_SECRET = 'testinactivesecretdddddddddddddddddddddddddddddddddddddddddddddd';
 
     // Weekly Menu fixtures
     public const string WEEKLY_MENU_1_ID = '00000000-0000-0000-0000-000000000010';
@@ -136,6 +146,21 @@ final class TestDataFixture extends Fixture
             'user1@test.cz',
         );
         $manager->persist($weeklyMenu2);
+
+        // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
+        $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, self::OAUTH2_CLIENT_SECRET);
+        $activeClient->setActive(true);
+        $activeClient->setGrants(new Grant(OAuth2Grants::CLIENT_CREDENTIALS));
+        $manager->persist($activeClient);
+
+        $clientUserMapping = new OAuth2ClientUser(self::OAUTH2_CLIENT_ID, $user1);
+        $manager->persist($clientUserMapping);
+
+        // OAuth2 client (inactive, no user mapping) — used to verify revocation rejects token requests
+        $inactiveClient = new OAuth2Client('test-inactive-client', self::OAUTH2_INACTIVE_CLIENT_ID, self::OAUTH2_INACTIVE_CLIENT_SECRET);
+        $inactiveClient->setActive(false);
+        $inactiveClient->setGrants(new Grant(OAuth2Grants::CLIENT_CREDENTIALS));
+        $manager->persist($inactiveClient);
 
         $manager->flush();
     }

@@ -40,3 +40,7 @@ compose.override.yaml
 node_modules/
 
 .claude/settings.local.json
+
+###> league/oauth2-server-bundle ###
+/config/jwt/*.pem
+###< league/oauth2-server-bundle ###

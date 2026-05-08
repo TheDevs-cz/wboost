@@ -17,6 +17,12 @@ return App::config([
                     'property' => 'email',
                 ],
             ],
+            'api_user_provider' => [
+                'entity' => [
+                    'class' => User::class,
+                    'property' => 'id',
+                ],
+            ],
         ],
         'password_hashers' => [
             PasswordAuthenticatedUserInterface::class => [
@@ -32,6 +38,16 @@ return App::config([
                 'pattern' => '^(/-/health-check|/media/cache|/sitemap)',
                 'stateless' => true,
                 'security' => false,
+            ],
+            'api_token' => [
+                'pattern' => '^/api/(token|authorize)$',
+                'security' => false,
+            ],
+            'api' => [
+                'pattern' => '^/api',
+                'stateless' => true,
+                'provider' => 'api_user_provider',
+                'oauth2' => true,
             ],
             'main' => [
                 'lazy' => true,
@@ -49,6 +65,14 @@ return App::config([
             ],
         ],
         'access_control' => [
+            [
+                'path' => '^/api/(token|authorize|docs|contexts/.*|\.well-known/.*)',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
+            [
+                'path' => '^/api',
+                'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],
+            ],
             [
                 'path' => '^/(login|registration|forgotten-password|reset-password|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png|weekly-menu/.*/public|weekly-menu/.*/approval/.*)',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],

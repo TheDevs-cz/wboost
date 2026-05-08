@@ -61,6 +61,9 @@ return static function (ContainerConfigurator $container): void {
     $services->load('WBoost\\Web\\Services\\', __DIR__ . '/../src/Services/**/{*.php}');
     $services->load('WBoost\\Web\\Query\\', __DIR__ . '/../src/Query/**/{*.php}');
 
+    // API Platform State Providers / Processors (DTOs themselves are not services).
+    $services->load('WBoost\\Web\\Api\\', __DIR__ . '/../src/Api/**/{*Provider.php,*Processor.php}');
+
     /** @see https://github.com/doctrine/migrations/issues/1406 */
     $services->set(FixDoctrineMigrationTableSchema::class)
         ->autoconfigure(false)
