@@ -1,0 +1,69 @@
+{#
+    Stage 5: server-rendered user-fill page for a SocialNetworkTemplateVariant.
+    No Fabric.js on this page anymore — the preview <img> is a base64 PNG
+    produced by the same renderer the API uses. Inputs use the on(change)
+    modifier so the round-trip fires on field blur, not per keystroke.
+
+    data-turbo="false" on the export button is recommended by the Live
+    Component docs for download triggers (prevents Turbo from prefetching the
+    download URL twice).
+#}
+<div {{ attributes }}>
+    <div class="row">
+        <div class="col-2">
+            {% if variant.inputs %}
+                <div class="card">
+                    <div class="card-body">
+                        {% for input in variant.inputs %}
+                            {% if not input.locked %}
+                                <div class="mb-2">
+                                    <label class="form-label small" for="text-input-{{ loop.index0 }}">
+                                        {{ input.name }}
+                                        {% if input.description %}
+                                            <br><small class="text-muted">{{ input.description }}</small>
+                                        {% endif %}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        class="form-control form-control-sm"
+                                        id="text-input-{{ loop.index0 }}"
+                                        data-model="on(change)|textValues.{{ input.inputId }}"
+                                        {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
+                                        value="{{ this.textValues[input.inputId] ?? '' }}"
+                                    >
+                                </div>
+                            {% endif %}
+                            {% if input.hidable %}
+                                <div class="mb-2 form-check">
+                                    <input
+                                        type="checkbox"
+                                        id="hide-control-{{ loop.index0 }}"
+                                        class="form-check-input"
+                                        data-model="on(change)|hiddenValues.{{ input.inputId }}"
+                                        {% if this.hiddenValues[input.inputId] ?? false %}checked{% endif %}
+                                    >
+                                    <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+
+            <button
+                data-action="live#action"
+                data-live-action-param="exportPng"
+                data-turbo="false"
+                class="btn btn-primary me-1 mb-1"
+            >
+                Export do PNG
+            </button>
+        </div>
+
+        <div class="col-10">
+            <div class="canvas-wrapper">
+                <img src="{{ this.previewDataUri() }}" alt="" style="max-width: 100%; height: auto;">
+            </div>
+        </div>
+    </div>
+</div>
