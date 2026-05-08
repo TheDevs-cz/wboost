@@ -6,7 +6,7 @@ namespace WBoost\Web\Controller\SocialNetwork;
 
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -16,17 +16,16 @@ use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
 
 /**
- * Stage 5 download endpoint. The user-fill page is now a Live Component
- * (`SocialNetwork:VariantFiller`); since LiveActions cannot return file
- * responses directly (per the bundle docs), the component's "Export PNG"
- * action stashes the current input state in the session and redirects here.
+ * Stage 5 download endpoint.
  *
- * This controller pops that session bag, runs the same renderer pipeline used
- * by the API, and streams the PNG back as an attachment. The session bag is
- * deleted on read to keep state one-shot.
+ * The user-fill page is the `SocialNetwork:VariantFiller` Live Component;
+ * its export button is a regular form POST to this route. We chose a plain
+ * form submit over a LiveAction redirect because Live Component's redirect
+ * path goes through `Turbo.visit`, which does not reliably hand binary
+ * responses back to the browser as a download (Turbo treats them as failed
+ * navigations). A normal form with `data-turbo="false"` lets the browser
+ * handle the response natively via Content-Disposition: attachment.
  *
- * The legacy POST `/render` route this replaces was an in-app preview/render
- * endpoint called by client-side Fabric — it is gone with the JS controller.
  * The public API export endpoint (`/api/social-network-template-variants/
  * {id}/export`, served by `ExportProcessor`) is unaffected.
  */
@@ -35,61 +34,41 @@ final class SocialNetworkTemplateVariantDownloadController extends AbstractContr
     public function __construct(
         private readonly SocialNetworkTemplateVariantImageRendererInterface $renderer,
         private readonly ResolveTextOverrides $resolveTextOverrides,
-        private readonly RequestStack $requestStack,
     ) {
-    }
-
-    /**
-     * Build the session key under which the Live Component stashes input
-     * state for a given variant. Centralised so both sides stay in sync.
-     */
-    public static function sessionKey(string $variantId): string
-    {
-        return 'social_network_variant_download.' . $variantId;
     }
 
     #[Route(
         path: '/social-network-template-variant/{variantId}/download',
         name: 'social_network_template_variant_download',
-        methods: ['GET'],
+        methods: ['POST'],
     )]
     #[IsGranted(SocialNetworkTemplateVariantVoter::VIEW, 'variant')]
     public function __invoke(
         #[MapEntity(id: 'variantId')]
         SocialNetworkTemplateVariant $variant,
+        Request $request,
     ): Response {
-        $session = $this->requestStack->getSession();
-        $key = self::sessionKey($variant->id->toString());
-
-        /** @var mixed $payload */
-        $payload = $session->get($key, []);
-        $session->remove($key);
-
-        $textValues = [];
-        $hiddenValues = [];
-
-        if (is_array($payload)) {
-            if (isset($payload['textValues']) && is_array($payload['textValues'])) {
-                /** @var array<string, string> $textValues */
-                $textValues = $payload['textValues'];
-            }
-            if (isset($payload['hiddenValues']) && is_array($payload['hiddenValues'])) {
-                /** @var array<string, bool> $hiddenValues */
-                $hiddenValues = $payload['hiddenValues'];
-            }
-        }
+        $rawTextValues = $request->request->all('textValues');
+        $rawHiddenValues = $request->request->all('hiddenValues');
 
         /** @var array<string, array{value?: string, hide?: bool}> $providedValues */
         $providedValues = [];
 
-        foreach ($textValues as $inputId => $value) {
-            $providedValues[$inputId] = ['value' => $value];
-        }
-        foreach ($hiddenValues as $inputId => $hide) {
-            if (!isset($providedValues[$inputId])) {
-                $providedValues[$inputId] = [];
+        foreach ($rawTextValues as $inputId => $value) {
+            if (!is_string($value)) {
+                continue;
             }
-            $providedValues[$inputId]['hide'] = $hide;
+            $providedValues[(string) $inputId] = ['value' => $value];
+        }
+
+        // HTML checkboxes only appear in $request->request when checked, so
+        // every key present here represents an explicit "hide" selection.
+        foreach ($rawHiddenValues as $inputId => $_) {
+            $key = (string) $inputId;
+            if (!isset($providedValues[$key])) {
+                $providedValues[$key] = [];
+            }
+            $providedValues[$key]['hide'] = true;
         }
 
         $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $providedValues);

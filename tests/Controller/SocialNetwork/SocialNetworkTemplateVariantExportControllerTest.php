@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Controller\SocialNetwork;
 
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
-use WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantDownloadController;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
-use WBoost\Web\Repository\UserRepository;
 use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeSocialNetworkTemplateVariantImageRenderer;
@@ -27,8 +24,12 @@ use WBoost\Web\Twig\Components\SocialNetwork\VariantFiller;
  *   for every non-locked input so the front-end value-store has every
  *   inputId key when the user starts typing (regression for the Stage 5
  *   "Invalid model name" error in live_controller.js valueStore.has()).
- * - The exportPng LiveAction stashes state in the session and redirects.
- * - The download controller pops the session bag and streams the PNG.
+ * - The rendered template uses `textValues[<uuid>]` bracket notation in
+ *   data-model attrs (dot notation breaks valueStore lookups for keys
+ *   that contain hyphens like UUIDs).
+ * - The download controller reads form-POST input data and streams a PNG
+ *   with Content-Disposition: attachment. Plain form POST avoids the Live
+ *   Component / Turbo binary-response confusion that surfaced in prod.
  *
  * @covers \WBoost\Web\Twig\Components\SocialNetwork\VariantFiller
  * @covers \WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantDownloadController
@@ -65,7 +66,6 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        // Component mounted — the page contains its data-controller marker.
         self::assertSelectorExists('[data-controller~="live"]');
     }
 
@@ -98,24 +98,18 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         /** @var VariantFiller $component */
         $component = $testComponent->component();
 
-        // Variant 1 has 4 inputs:
-        //   headline (unlocked, not hidable)
-        //   tagline  (unlocked, not hidable, uppercase)
-        //   ?        (locked, unnamed) — must be skipped
-        //   badge    (unlocked, hidable)
-        //
-        // Non-locked → 3 entries in textValues; hidable+unlocked → 1 entry in hiddenValues.
-        self::assertCount(3, $component->textValues, 'textValues should have one entry per non-locked input');
+        // Variant 1 has 4 inputs: headline, tagline, locked-unnamed, badge.
+        // Non-locked → 3 entries in textValues; hidable+unlocked → 1 in hiddenValues.
+        self::assertCount(3, $component->textValues);
         self::assertArrayHasKey(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, $component->textValues);
         self::assertArrayHasKey(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, $component->textValues);
         self::assertArrayHasKey(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, $component->textValues);
         self::assertArrayNotHasKey(
             TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID,
             $component->textValues,
-            'locked inputs must not be addressable via textValues',
         );
 
-        self::assertCount(1, $component->hiddenValues, 'hiddenValues should have one entry per hidable+non-locked input');
+        self::assertCount(1, $component->hiddenValues);
         self::assertArrayHasKey(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, $component->hiddenValues);
     }
 
@@ -135,70 +129,90 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         $rendered = (string) $testComponent->render();
 
         // Bracket notation tolerates hyphens; dot notation in the JS model
-        // parser does not. If anyone accidentally reverts to dot notation,
-        // this assertion fails and we catch the bug at PR time, not in prod.
+        // parser does not. If anyone reverts to dot notation, this fails.
         self::assertStringContainsString(
             'textValues[' . TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID . ']',
             $rendered,
         );
         self::assertStringNotContainsString(
-            'textValues.' . TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID,
+            'data-model="on(change)|textValues.' . TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID,
             $rendered,
-            'dot notation must not be used — Live Component value-store rejects keys containing hyphens',
         );
     }
 
-    public function testExportPngActionRedirectsThroughToDownloadAndStreamsPng(): void
+    public function testRenderedTemplateContainsFormPostingToDownloadRoute(): void
     {
         $client = self::createClient();
-        $userRepository = self::getContainer()->get(UserRepository::class);
-        $user = $userRepository->get(TestDataFixture::USER_1_EMAIL);
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
         $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
 
         $testComponent = $this->createLiveComponent(
             name: 'SocialNetwork:VariantFiller',
-            data: [
-                'variant' => $variant,
-                'textValues' => [TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => 'Hello'],
-                'hiddenValues' => [TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID => true],
-            ],
+            data: ['variant' => $variant],
             client: $client,
-        )->actingAs($user);
-
-        $testComponent->call('exportPng');
-
-        $response = $client->getResponse();
-        self::assertInstanceOf(RedirectResponse::class, $response);
-        self::assertStringContainsString(
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
-            $response->getTargetUrl(),
         );
 
-        // Follow the redirect — same client, same cookie jar, so the session
-        // bag set by the LiveAction is visible to the download controller.
-        $client->followRedirect();
+        $rendered = (string) $testComponent->render();
+
+        // The export must be a plain form POST with Turbo disabled — anything
+        // else (LiveAction redirect, fetch+blob) puts us back into the Turbo
+        // binary-response trap that sent the user a broken file in prod.
+        self::assertStringContainsString('method="POST"', $rendered);
+        self::assertStringContainsString(
+            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            $rendered,
+        );
+        self::assertStringContainsString('data-turbo="false"', $rendered);
+        self::assertStringContainsString(
+            'name="textValues[' . TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID . ']"',
+            $rendered,
+        );
+    }
+
+    /**
+     * The form POST a user submits drives the renderer with the typed inputs.
+     * This is the regression for "the placeholder text is not replaced with
+     * the input value" — if the controller fails to wire the form's
+     * textValues array into the override resolver, the renderer never sees
+     * what the user typed.
+     */
+    public function testFormPostDownloadStreamsPngWithUserOverrides(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request(
+            method: 'POST',
+            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            parameters: [
+                'textValues' => [
+                    TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => 'Hello',
+                ],
+                'hiddenValues' => [
+                    TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID => '1',
+                ],
+            ],
+        );
 
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'image/png');
+        self::assertStringContainsString(
+            'attachment',
+            (string) $client->getResponse()->headers->get('Content-Disposition'),
+        );
         self::assertStringStartsWith(self::PNG_MAGIC, (string) $client->getResponse()->getContent());
 
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
-
-        // PostMount pre-populates every non-locked input with an empty default
-        // (so the JS valueStore knows about every key). Untouched fields are
-        // sent as empty-string overrides, which is the correct semantic — the
-        // user MAY want to blank a default. We assert the user-typed value
-        // round-trips and that the keys are inputIds, not names or indices.
         self::assertSame(
             'Hello',
             $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null,
-            'headline override applied by inputId',
+            'headline override resolved by inputId from POSTed form data',
         );
         self::assertTrue(
             $lastCall['hidden'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID] ?? false,
-            'badge hide override applied by inputId',
+            'badge hide flag derived from a present checkbox value',
         );
     }
 
@@ -208,7 +222,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
 
         $client->request(
-            'GET',
+            'POST',
             '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
         );
 
