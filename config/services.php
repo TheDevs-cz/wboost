@@ -64,6 +64,12 @@ return static function (ContainerConfigurator $container): void {
     // API Platform State Providers / Processors (DTOs themselves are not services).
     $services->load('WBoost\\Web\\Api\\', __DIR__ . '/../src/Api/**/{*Provider.php,*Processor.php}');
 
+    // Social network template renderer — alias the interface so tests can decorate / replace it.
+    $services->alias(
+        \WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface::class,
+        \WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRenderer::class,
+    );
+
     /** @see https://github.com/doctrine/migrations/issues/1406 */
     $services->set(FixDoctrineMigrationTableSchema::class)
         ->autoconfigure(false)

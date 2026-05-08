@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>render</title>
+    <style>
+        html, body { margin: 0; padding: 0; background: transparent; }
+        canvas { display: block; }
+
+        {% for face in font_faces %}
+            @font-face {
+                font-family: '{{ face.family }}';
+                src: url('{{ face.src }}');
+            }
+        {% endfor %}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/fabric@5.2.4/dist/fabric.min.js"></script>
+</head>
+<body>
+    <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
+
+    <script>
+        (async () => {
+            try {
+                // Wait for inlined fonts to be parsed and ready before any text measurement.
+                if (document.fonts && document.fonts.ready) {
+                    await document.fonts.ready;
+                }
+
+                const canvasJson = {{ canvas_json|raw }};
+                const textOverrides = {{ text_overrides|json_encode|raw }};
+                const hiddenOverrides = {{ hidden_overrides|json_encode|raw }};
+
+                const canvas = new fabric.StaticCanvas('c', {
+                    width: {{ variant.dimension.width }},
+                    height: {{ variant.dimension.height }},
+                    enableRetinaScaling: false,
+                });
+
+                await new Promise((resolve) => {
+                    canvas.loadFromJSON(canvasJson, () => {
+                        // Apply overrides by index — matches the editor's positional
+                        // binding (`canvas.getObjects('textbox')[i]` ↔ `variant.inputs[i]`).
+                        const textboxes = canvas.getObjects('textbox');
+                        Object.keys(textOverrides).forEach((indexKey) => {
+                            const idx = parseInt(indexKey, 10);
+                            const tb = textboxes[idx];
+                            if (tb) {
+                                tb.text = String(textOverrides[indexKey]);
+                            }
+                        });
+                        Object.keys(hiddenOverrides).forEach((indexKey) => {
+                            const idx = parseInt(indexKey, 10);
+                            const tb = textboxes[idx];
+                            if (tb) {
+                                tb.visible = !hiddenOverrides[indexKey];
+                            }
+                        });
+
+                        canvas.renderAll();
+
+                        // Two RAFs to let the browser commit the rendered pixels before signaling.
+                        requestAnimationFrame(() => requestAnimationFrame(resolve));
+                    });
+                });
+
+                window.canvasRendered = true;
+            } catch (err) {
+                window.canvasRenderError = String(err && err.stack || err);
+                window.canvasRendered = true;
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -3,6 +3,10 @@ import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
 export default class extends Controller {
+    static values = {
+        renderUrl: String,
+    };
+
     connect() {
         const customFonts = JSON.parse(this.element.dataset.canvasTemplateExportCustomFonts);
 
@@ -65,18 +69,51 @@ export default class extends Controller {
         }
     }
 
-    exportAsImage() {
-        const dataURL = this.canvas.toDataURL({
-            format: 'png',
-            quality: 1.0,
+    async exportAsImage() {
+        // Server-side render: collects current input values and POSTs them to
+        // the render endpoint, which uses the same renderer as the public API.
+        // This guarantees the downloaded PNG matches what API consumers receive
+        // and lets us add image inputs in the future without diverging code.
+        const inputs = {};
+        this.element.querySelectorAll('[data-input-name]').forEach((el) => {
+            const name = el.dataset.inputName;
+            if (!name) return;
+            inputs[name] = { value: el.value || '' };
+        });
+        // Pick up hide checkboxes for hidable inputs (data-index matches the
+        // input field with the same data-index — both reference variant.inputs[i]).
+        this.element.querySelectorAll('[id^="hide-control-"]').forEach((el) => {
+            const idx = el.dataset.index;
+            const textField = this.element.querySelector(`[data-index="${idx}"][data-input-name]`);
+            const name = textField && textField.dataset.inputName;
+            if (!name) return;
+            if (!inputs[name] || typeof inputs[name] !== 'object') {
+                inputs[name] = {};
+            }
+            inputs[name].hide = el.checked;
         });
 
+        const response = await fetch(this.renderUrlValue, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inputs }),
+        });
+
+        if (!response.ok) {
+            console.error('Export failed', response.status, await response.text());
+            return;
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = dataURL;
+        link.href = url;
         link.download = 'export.png';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     exportAsSvg() {

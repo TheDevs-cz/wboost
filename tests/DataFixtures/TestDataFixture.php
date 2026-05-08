@@ -14,10 +14,14 @@ use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\SocialNetworkTemplate;
+use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
+use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ManualType;
+use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\WeeklyMenuApprovalStatus;
 
 final class TestDataFixture extends Fixture
@@ -47,6 +51,12 @@ final class TestDataFixture extends Fixture
     // Weekly Menu with approval (pending)
     public const string WEEKLY_MENU_2_ID = '00000000-0000-0000-0000-000000000020';
     public const string WEEKLY_MENU_2_APPROVAL_HASH = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+
+    // Social network template fixtures
+    public const string SOCIAL_NETWORK_TEMPLATE_1_ID = '00000000-0000-0000-0000-000000000030';
+    public const string SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID = '00000000-0000-0000-0000-000000000031';
+    public const string SOCIAL_NETWORK_TEMPLATE_2_ID = '00000000-0000-0000-0000-000000000032';
+    public const string SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID = '00000000-0000-0000-0000-000000000033';
 
     public function load(ObjectManager $manager): void
     {
@@ -146,6 +156,63 @@ final class TestDataFixture extends Fixture
             'user1@test.cz',
         );
         $manager->persist($weeklyMenu2);
+
+        // Social network template (USER_1 / PROJECT_1) — exercises non-locked named, uppercase, and locked-unnamed inputs.
+        $socialTemplate1 = new SocialNetworkTemplate(
+            Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_1_ID),
+            $project1,
+            null,
+            $date,
+            'Insta Template 1',
+            null,
+            0,
+        );
+        $manager->persist($socialTemplate1);
+
+        $socialVariant1 = new SocialNetworkTemplateVariant(
+            Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
+            $socialTemplate1,
+            TemplateDimension::InstagramPost,
+            'fixtures/bg-1.png',
+            $date,
+        );
+        $socialVariant1->editCanvas(
+            '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            [
+                new EditorTextInput('headline', 30, false, false, null, false),
+                new EditorTextInput('tagline', null, false, true, null, false),
+                new EditorTextInput(null, null, true, false, null, false),
+                new EditorTextInput('badge', null, false, false, null, true),
+            ],
+            '',
+        );
+        $manager->persist($socialVariant1);
+
+        // Social network template owned by USER_2 — used to verify cross-user scoping isolation.
+        $socialTemplate2 = new SocialNetworkTemplate(
+            Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_2_ID),
+            $project2,
+            null,
+            $date,
+            'Insta Template 2 (other user)',
+            null,
+            0,
+        );
+        $manager->persist($socialTemplate2);
+
+        $socialVariant2 = new SocialNetworkTemplateVariant(
+            Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID),
+            $socialTemplate2,
+            TemplateDimension::InstagramPost,
+            'fixtures/bg-2.png',
+            $date,
+        );
+        $socialVariant2->editCanvas(
+            '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            [new EditorTextInput('headline', null, false, false, null, false)],
+            '',
+        );
+        $manager->persist($socialVariant2);
 
         // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
         $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, self::OAUTH2_CLIENT_SECRET);
