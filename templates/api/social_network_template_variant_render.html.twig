@@ -14,15 +14,14 @@
             }
         {% endfor %}
     </style>
-    {# Fabric v7 UMD bundle. Exposes the global `fabric` namespace
-       (`fabric.StaticCanvas`, `fabric.Canvas`, ...) the same way v5 did.
-       TODO (Stage 6): inline this asset into the page so the renderer no
-       longer depends on jsDelivr. The build is at
-       assets/vendor/fabric/fabric.index.js (ESM) — for the UMD body, copy
-       https://cdn.jsdelivr.net/npm/fabric@7.3.1/dist/index.min.js into
-       e.g. public/vendor/fabric.min.js and inject the file content via the
-       SocialNetworkTemplateVariantImageRenderer. #}
-    <script src="https://cdn.jsdelivr.net/npm/fabric@7.3.1/dist/index.min.js"></script>
+    {# Fabric v7 UMD bundle (exposes the global `fabric` namespace —
+       `fabric.StaticCanvas`, `fabric.Canvas`, ... — the same way v5 did).
+       Inlined by SocialNetworkTemplateVariantImageRenderer from the file
+       committed at assets/fabric/fabric-7.3.1.min.js so the headless render
+       has no outbound network dependency on jsDelivr. To upgrade, replace
+       the file (and the path on the renderer service) with a new pinned
+       version. #}
+    <script>{{ fabric_inline_script|raw }}</script>
 </head>
 <body>
     <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>

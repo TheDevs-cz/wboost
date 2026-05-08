@@ -4,19 +4,32 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\SocialNetwork;
 
+use RuntimeException;
 use Sensiolabs\GotenbergBundle\Enumeration\ScreenshotFormat;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
-readonly final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTemplateVariantImageRendererInterface
+final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTemplateVariantImageRendererInterface
 {
+    /**
+     * Cached Fabric UMD bundle contents — read once per request from disk and
+     * inlined into every Gotenberg HTML payload, replacing the legacy CDN
+     * `<script src="cdn.jsdelivr.net/...">`. Keeps the headless render
+     * self-contained (no outbound network) and pins the Fabric version to the
+     * filename committed in the repo.
+     */
+    private null|string $fabricInlineScript = null;
+
     public function __construct(
-        private GotenbergScreenshotInterface $gotenberg,
-        private GetFonts $getFonts,
-        private AssetInliner $assetInliner,
+        private readonly GotenbergScreenshotInterface $gotenberg,
+        private readonly GetFonts $getFonts,
+        private readonly AssetInliner $assetInliner,
+        #[Autowire('%kernel.project_dir%/assets/fabric/fabric-7.3.1.min.js')]
+        private readonly string $fabricUmdBundlePath,
     ) {
     }
 
@@ -48,6 +61,7 @@ readonly final class SocialNetworkTemplateVariantImageRenderer implements Social
                 'font_faces' => $fontFaceData,
                 'text_overrides' => $overrides->texts,
                 'hidden_overrides' => $overrides->hidden,
+                'fabric_inline_script' => $this->getFabricInlineScript(),
             ])
             ->width($variant->dimension->width())
             ->height($variant->dimension->height())
@@ -96,5 +110,28 @@ readonly final class SocialNetworkTemplateVariantImageRenderer implements Social
         }
 
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Returns the Fabric UMD bundle contents, lazily read from disk on first
+     * use. Cached for the lifetime of the service (one request) so successive
+     * exports in the same worker reuse the buffer.
+     */
+    private function getFabricInlineScript(): string
+    {
+        if ($this->fabricInlineScript === null) {
+            $contents = @file_get_contents($this->fabricUmdBundlePath);
+
+            if ($contents === false) {
+                throw new RuntimeException(sprintf(
+                    'Fabric UMD bundle not readable at "%s". Re-run `bin/console importmap:install` or restore the committed asset.',
+                    $this->fabricUmdBundlePath,
+                ));
+            }
+
+            $this->fabricInlineScript = $contents;
+        }
+
+        return $this->fabricInlineScript;
     }
 }

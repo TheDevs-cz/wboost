@@ -10,6 +10,12 @@ return App::config([
             'paths' => [
                 'assets/',
             ],
+            'excluded_patterns' => [
+                // The Fabric v7 UMD bundle is committed for the Gotenberg renderer
+                // to inline at PNG-export time (see SocialNetworkTemplateVariantImageRenderer).
+                // It is NOT served to browsers — the editor uses the importmap'd ESM build.
+                '*/fabric/fabric-*.min.js',
+            ],
         ],
     ],
 ]);

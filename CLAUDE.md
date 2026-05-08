@@ -35,6 +35,81 @@ This is a **Symfony 7** application for brand manual management, using:
 - **Event-Driven Architecture**: Domain events via `EntityWithEvents` trait
 - **Dockerized Environment**: Full stack with PostgreSQL, Redis, Minio S3, and MailCatcher
 
+### Social Network Template Editor
+
+The largest feature in the codebase. A `SocialNetworkTemplate` is a Fabric.js
+canvas that an admin authors once and end-users / API consumers fill with their
+own copy. This section is the post-migration shape (Stages 1–7) — older patterns
+(text canvas column, positional input binding, monolithic Stimulus controller,
+Fabric v5) have been retired.
+
+**Data model — `social_network_template_variant`**
+
+- `canvas`: **JSONB** (Stage 1). The serialized Fabric document. Empty rows
+  are stored as `'{}'` (never `''`) and the renderer synthesizes a minimal
+  Fabric document with just a background image when it sees an empty canvas.
+- `preview_image_path`: nullable string (Stage 1). Path to a PNG in Minio
+  (rendered server-side after each admin save). Replaces the legacy
+  `preview_image` BLOB column. The full URL is built via the upload helper.
+- `inputs`: JSONB array of `EditorTextInput` value objects, persisted via
+  `EditorTextInputsDoctrineType`. Each entry carries its `inputId` (UUID v4).
+- **inputId UUID binding (Stage 2)**: every textbox / image on the canvas
+  carries a custom property `inputId` minted at admin-time, and every
+  `EditorTextInput` row mirrors that same id. Overrides (text content, hidden
+  flag) are looked up by id, not by index — so two inputs may legitimately
+  share a `name`, and reordering objects on the canvas no longer rebinds
+  inputs. The `EditorTextInput::fromArray` factory keeps a defensive UUID-mint
+  fallback for legacy rows; once the migration has run on prod, no live row
+  hits it.
+
+**Admin editor — 7 Stimulus controllers (Stage 4)**
+
+The legacy monolithic `social_network_canvas_controller` was split along
+responsibility boundaries. All siblings reach the orchestrator via Stimulus 3
+**outlets** (`static outlets = ["canvas-editor"]`) to read its `this.canvas`
+Fabric instance, and listen to a `canvas-editor:selection:changed` window
+event the orchestrator dispatches on Fabric's selection lifecycle:
+
+| Controller | Responsibility |
+|---|---|
+| `canvas_editor_controller` | Orchestrator. Owns the Fabric `Canvas`, loads/saves canvas JSON, marks the form dirty, broadcasts selection changes. |
+| `canvas_history_controller` | Undo/redo stack — full-canvas-JSON snapshots, restored via the orchestrator's loader. |
+| `canvas_clipboard_controller` | Copy / paste / duplicate (keyboard + buttons). |
+| `canvas_zoom_controller` | CSS-transform-only visual zoom of the wrapper element. |
+| `canvas_text_toolbar_controller` | Font / size / colour / alignment / decoration / max-length controls for the active textbox. |
+| `canvas_input_properties_controller` | Editor-side input metadata (name, description, locked, hidable, uppercase). Persists onto the canvas object as custom properties via `CANVAS_CUSTOM_PROPERTIES`. |
+| `canvas_alignment_controller` | Multi-object align ops, z-order, delete. |
+
+**User-fill flow — Live Component (Stage 5)**
+
+`SocialNetwork:VariantFiller` (`src/Twig/Components/SocialNetwork/VariantFiller.php`)
+replaces the old client-side Fabric runtime on the user-fill page. There is no
+canvas in the browser — inputs are bound via `data-model="on(change)|..."` so
+re-renders fire on field blur, the server resolves overrides via
+`ResolveTextOverrides`, and the preview image is rendered by the same Gotenberg
+path the API uses. Download is a regular controller action.
+
+**Project image gallery — Live Component (Stage 7)**
+
+`Project:ImageGallery` (`src/Twig/Components/Project/ImageGallery.php`) is a
+read-only grid of every `FileUpload` for the project. Both the admin editor's
+"Add image" and "Set background" buttons open the same modal hosting this
+component. Selection is a DOM `CustomEvent("asset-selected")` so the host
+Stimulus controller routes the chosen URL to `addImageToCanvas` or
+`setBackgroundImage` without a server round-trip.
+
+**Render path — Gotenberg + identical Fabric runtime**
+
+PNG export (admin preview, user download, API export) all flow through
+`SocialNetworkTemplateVariantImageRenderer`. It builds the canvas JSON
+(inlining the background image as a base64 data URI so headless Chromium
+needs no Minio access), renders `templates/api/social_network_template_variant_render.html.twig`
+through Gotenberg, and waits for `window.canvasRendered === true`. The Twig
+template runs the **same Fabric v7 build** the editor uses, so admin and
+export pixels match. Post-Stage 6 the Fabric UMD bundle is committed at
+`assets/fabric/fabric-7.3.1.min.js` and inlined as a `<script>` tag — the
+renderer no longer fetches Fabric from jsDelivr at render time.
+
 ### Core Domain Entities
 
 - **Manual**: Brand manuals with colors, fonts, logos, and mockup pages
@@ -140,3 +215,13 @@ docker compose exec web bin/console app:oauth-client:revoke <client-id>
 ### API testing
 
 API tests extend `WBoost\Web\Tests\Api\ApiTestCase` (default `Accept: application/ld+json` header). To obtain a real access token in a test, use `WBoost\Web\Tests\TestingApiAuthentication::getAccessToken($client, $clientId, $clientSecret)` — it goes through the live `/api/token` endpoint, which is the contract being exercised. Fixture credentials live as constants on `tests/DataFixtures/TestDataFixture.php` (`OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET`).
+
+### Social-network template variant export endpoint
+
+`POST /api/social-network-template-variants/{id}/export` returns a PNG. The
+request body is `ExportRequest` and its `inputs` map is **keyed by inputId
+UUID** (Stage 2): `{ "inputs": { "<uuid>": "Hello", "<uuid>": { "value": "World", "hide": false } } }`.
+Discover the available input ids via `GET /api/social-network-templates` —
+each `variants[].inputs[].id` is the same UUID accepted here. Unknown ids
+are silently ignored; locked inputs cannot be overridden; `hide` only
+applies to inputs with `hidable: true`.
