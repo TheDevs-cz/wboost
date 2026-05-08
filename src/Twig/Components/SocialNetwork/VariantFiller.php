@@ -127,9 +127,15 @@ final class VariantFiller extends AbstractController
      * Stage 5 trade-off (good UX, no per-keystroke Gotenberg pressure, no
      * caching layer needed yet).
      *
-     * The Gotenberg bundle returns a `StreamedResponse` — `getContent()`
-     * returns false on those. We invoke `sendContent()` and capture the
-     * buffered output to materialise the bytes.
+     * Uses `renderToBytes()` (not `render()`) deliberately: `render()` returns
+     * a Gotenberg StreamedResponse whose body callback echoes + flush()es
+     * each chunk. Calling `sendContent()` on that server-side commits the
+     * outer response headers to the client prematurely, so the actual HTML
+     * response we are still in the middle of building loses its Content-Type
+     * and cookies. The browser then content-sniffs whatever bytes leaked
+     * out, which is exactly the "renders weirdly in some popup" symptom.
+     * `renderToBytes()` drains the Gotenberg chunks into a string via the
+     * bundle's InMemoryProcessor — no echo, no flush, no header commit.
      */
     public function previewDataUri(): string
     {
@@ -142,17 +148,13 @@ final class VariantFiller extends AbstractController
             $this->buildProvidedValues(),
         );
 
-        $response = $this->renderer->render($variant, $overrides);
+        $bytes = $this->renderer->renderToBytes($variant, $overrides);
 
-        ob_start();
-        $response->sendContent();
-        $payload = ob_get_clean();
-
-        if ($payload === false || $payload === '') {
+        if ($bytes === '') {
             return '';
         }
 
-        return 'data:image/png;base64,' . base64_encode($payload);
+        return 'data:image/png;base64,' . base64_encode($bytes);
     }
 
     /**

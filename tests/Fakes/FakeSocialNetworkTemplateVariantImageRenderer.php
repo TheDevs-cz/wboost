@@ -16,23 +16,40 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  */
 final class FakeSocialNetworkTemplateVariantImageRenderer implements SocialNetworkTemplateVariantImageRendererInterface
 {
-    /** @var array<int, array{variantId: string, texts: array<string, string>, hidden: array<string, bool>}> */
+    private const string FIXED_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
+
+    /** @var array<int, array{variantId: string, texts: array<string, string>, hidden: array<string, bool>, mode: string}> */
     public array $calls = [];
 
     public function render(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): Response
+    {
+        $this->record($variant, $overrides, 'render');
+
+        return new Response($this->png(), Response::HTTP_OK, ['Content-Type' => 'image/png']);
+    }
+
+    public function renderToBytes(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): string
+    {
+        $this->record($variant, $overrides, 'renderToBytes');
+
+        return $this->png();
+    }
+
+    private function record(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides, string $mode): void
     {
         $this->calls[] = [
             'variantId' => $variant->id->toString(),
             'texts' => $overrides->texts,
             'hidden' => $overrides->hidden,
+            'mode' => $mode,
         ];
+    }
 
-        $png = base64_decode(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=',
-            true,
-        );
+    private function png(): string
+    {
+        $png = base64_decode(self::FIXED_PNG_BASE64, true);
         \assert(is_string($png));
 
-        return new Response($png, Response::HTTP_OK, ['Content-Type' => 'image/png']);
+        return $png;
     }
 }

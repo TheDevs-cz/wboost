@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\SocialNetwork;
 
 use RuntimeException;
+use Sensiolabs\GotenbergBundle\Builder\Screenshot\HtmlScreenshotBuilder;
 use Sensiolabs\GotenbergBundle\Enumeration\ScreenshotFormat;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
+use Sensiolabs\GotenbergBundle\Processor\InMemoryProcessor;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
@@ -17,10 +19,9 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
 {
     /**
      * Cached Fabric UMD bundle contents — read once per request from disk and
-     * inlined into every Gotenberg HTML payload, replacing the legacy CDN
-     * `<script src="cdn.jsdelivr.net/...">`. Keeps the headless render
-     * self-contained (no outbound network) and pins the Fabric version to the
-     * filename committed in the repo.
+     * inlined into every Gotenberg HTML payload so the headless render is
+     * self-contained (no outbound network) and pinned to the version
+     * committed in the repo.
      */
     private null|string $fabricInlineScript = null;
 
@@ -35,6 +36,33 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
 
     public function render(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): Response
     {
+        return $this->buildScreenshot($variant, $overrides)->generate()->stream();
+    }
+
+    public function renderToBytes(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): string
+    {
+        // The bundle's InMemoryProcessor drains the chunked HTTP response from
+        // Gotenberg into a string. Unlike `stream()`, it never calls echo /
+        // flush(), so it does not interfere with the outer HTTP response that
+        // is still being assembled (headers, cookies, content-type).
+        $bytes = $this->buildScreenshot($variant, $overrides)
+            ->generate()
+            ->processor(new InMemoryProcessor())
+            ->process();
+
+        // InMemoryProcessor is `ProcessorInterface<string>` but the bundle's
+        // `process()` is generic-erased at the call site; narrow back here.
+        if (!is_string($bytes)) {
+            throw new RuntimeException('InMemoryProcessor returned non-string from Gotenberg render.');
+        }
+
+        return $bytes;
+    }
+
+    private function buildScreenshot(
+        SocialNetworkTemplateVariant $variant,
+        ResolvedInputOverrides $overrides,
+    ): HtmlScreenshotBuilder {
         $project = $variant->template->project;
 
         $fonts = $this->getFonts->allForProject($project->id);
@@ -69,7 +97,7 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
             ->format(ScreenshotFormat::Png)
             ->waitForExpression('window.canvasRendered === true');
 
-        return $builder->generate()->stream();
+        return $builder;
     }
 
     /**
@@ -85,8 +113,6 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
 
-        // Empty canvas (legacy '' rows are normalized to '{}' in the DB) — synthesize
-        // the minimal Fabric document the renderer expects so the background still paints.
         if ($canvas === [] || !isset($canvas['objects'])) {
             $canvas = [
                 'version' => '5.2.4',
@@ -112,11 +138,6 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     }
 
-    /**
-     * Returns the Fabric UMD bundle contents, lazily read from disk on first
-     * use. Cached for the lifetime of the service (one request) so successive
-     * exports in the same worker reuse the buffer.
-     */
     private function getFabricInlineScript(): string
     {
         if ($this->fabricInlineScript === null) {

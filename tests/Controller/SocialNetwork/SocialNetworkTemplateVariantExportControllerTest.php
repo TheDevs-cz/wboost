@@ -140,6 +140,36 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         );
     }
 
+    /**
+     * Regression for the production "Cannot modify header information"
+     * warning: the export page render must use `renderToBytes()` for the
+     * preview, NOT `render()` + `sendContent()`. The latter calls flush()
+     * inside the StreamedResponse callback, which commits response headers
+     * to the browser before Symfony has finished assembling the outer HTML
+     * response — so cookies / Content-Type / Content-Length are dropped
+     * and the browser content-sniffs a header-less body.
+     */
+    public function testExportPageRenderUsesBytesPathForPreviewNotStreamedResponse(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request(
+            'GET',
+            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'text/html; charset=UTF-8');
+
+        $fake = $this->getRendererFake();
+        $previewCalls = array_filter($fake->calls, static fn (array $c): bool => $c['mode'] === 'renderToBytes');
+        $streamCalls = array_filter($fake->calls, static fn (array $c): bool => $c['mode'] === 'render');
+
+        self::assertNotEmpty($previewCalls, 'preview must use renderToBytes() to avoid StreamedResponse + flush() side-effects');
+        self::assertEmpty($streamCalls, 'preview must NOT use render() (StreamedResponse) — that path is reserved for the download endpoint');
+    }
+
     public function testRenderedTemplateContainsFormPostingToDownloadRoute(): void
     {
         $client = self::createClient();
