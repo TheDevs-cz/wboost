@@ -14,7 +14,7 @@ export default class extends Controller {
         // Apply uppercase live as the user types into a textbox.
         this._applyUppercaseOnInput = () => {
             const activeObject = outlet.canvas.getActiveObject();
-            if (activeObject && activeObject.type === 'textbox') {
+            if (activeObject && (activeObject.type || '').toLowerCase() === 'textbox') {
                 this._applyUppercase(activeObject);
             }
         };
@@ -31,7 +31,7 @@ export default class extends Controller {
 
     updateFromSelection(event) {
         const activeObject = event.detail.activeObject;
-        const isTextbox = activeObject && activeObject.type === 'textbox';
+        const isTextbox = activeObject && (activeObject.type || '').toLowerCase() === 'textbox';
         if (!isTextbox) return;
 
         if (this.hasLockedTarget)    this.lockedTarget.checked    = activeObject.locked || false;
@@ -91,7 +91,7 @@ export default class extends Controller {
     _getActiveTextbox() {
         if (!this.hasCanvasEditorOutlet) return null;
         const activeObject = this.canvasEditorOutlet.canvas.getActiveObject();
-        if (!activeObject || activeObject.type !== 'textbox') return null;
+        if (!activeObject || (activeObject.type || '').toLowerCase() !== 'textbox') return null;
         return activeObject;
     }
 }

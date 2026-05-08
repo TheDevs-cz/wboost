@@ -93,8 +93,14 @@ export default class extends Controller {
             // one. Handles legacy data loaded into the editor before the
             // server-side migration has run, plus future-proofs against any
             // other source that might emit objects without ids.
+            //
+            // Type matching is case-insensitive: Fabric v7 serializes types
+            // as 'Textbox' / 'Image' (PascalCase), v5 emitted 'textbox' /
+            // 'image' (lowercase), and either form may show up depending on
+            // when the row was last saved.
             this.canvas.getObjects().forEach((obj) => {
-                if ((obj.type === 'textbox' || obj.type === 'image') && !obj.inputId) {
+                const t = (obj.type || '').toLowerCase();
+                if ((t === 'textbox' || t === 'image') && !obj.inputId) {
                     obj.inputId = crypto.randomUUID();
                 }
             });
@@ -365,14 +371,39 @@ export default class extends Controller {
     submitForm() {
         const form = this.canvasTarget.closest('form');
 
-        // Serialize the canvas JSON
+        // Serialize the canvas JSON.
+        //
+        // Fabric v7 silently drops some custom properties from
+        // toJSON(propertiesToInclude) — specifically, properties that aren't
+        // declared in a class's stateProperties don't always survive the
+        // serialization round-trip even when listed in propertiesToInclude.
+        // To guarantee round-trip integrity for our custom annotation
+        // properties (inputId, name, locked, uppercase, etc.) we manually
+        // merge each in-memory object's values back onto the serialized
+        // entry by positional index. This is bulletproof regardless of how
+        // Fabric internally classifies the property.
         const canvasJSON = this.canvas.toJSON(CANVAS_CUSTOM_PROPERTIES);
+        const inMemoryObjects = this.canvas.getObjects();
+        canvasJSON.objects.forEach((serialized, idx) => {
+            const live = inMemoryObjects[idx];
+            if (!live) return;
+            CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                const value = live[prop];
+                if (value !== undefined) {
+                    serialized[prop] = value;
+                }
+            });
+        });
         this.canvasTarget.value = JSON.stringify(canvasJSON);
 
-        // Serialize only the text inputs. inputId is stamped here as a last
-        // line of defence; it should already be present (set on creation,
-        // restored from JSON, or fixed up in loadCanvasWithoutHistory).
-        const textInputs = this.canvas.getObjects('textbox').map(textbox => {
+        // Serialize only the textbox inputs.
+        //
+        // Type filter is case-insensitive: Fabric v7's `getObjects('textbox')`
+        // does NOT match v7-saved objects (whose .type is 'Textbox'), so we
+        // walk all objects and filter by lower-case type name. This matches
+        // the same convention used in loadCanvasWithoutHistory.
+        const textboxes = inMemoryObjects.filter((obj) => (obj.type || '').toLowerCase() === 'textbox');
+        const textInputs = textboxes.map((textbox) => {
             if (!textbox.inputId) {
                 textbox.inputId = crypto.randomUUID();
             }

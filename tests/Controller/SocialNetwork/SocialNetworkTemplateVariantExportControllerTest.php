@@ -7,6 +7,7 @@ namespace WBoost\Web\Tests\Controller\SocialNetwork;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
+use WBoost\Web\Repository\UserRepository;
 use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeSocialNetworkTemplateVariantImageRenderer;
@@ -201,12 +202,109 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
     }
 
     /**
+     * Regression for "live preview does not redraw after typing".
+     *
+     * Simulates the exact wire format the browser sends when a user blurs an
+     * input bound to `data-model="on(change)|textValues[<uuid>]"`:
+     *   { updated: { "textValues.<uuid>": "Hello" } }
+     *
+     * After hydration, the component's $textValues must contain the typed
+     * value AND the next previewDataUri() call must pass it to the renderer.
+     * If either link is broken, the AJAX response carries the same <img>
+     * bytes and the page visibly does not change.
+     */
+    public function testLivePropNestedWriteFlowsIntoRendererCall(): void
+    {
+        $client = self::createClient();
+        $userRepository = self::getContainer()->get(UserRepository::class);
+        $user = $userRepository->get(TestDataFixture::USER_1_EMAIL);
+
+        $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
+
+        $testComponent = $this->createLiveComponent(
+            name: 'SocialNetwork:VariantFiller',
+            data: ['variant' => $variant],
+            client: $client,
+        )->actingAs($user);
+
+        // Wire-equivalent of: user types "Hello" into the headline field,
+        // blur fires, JS writes valueStore.dirtyProps['textValues.<uuid>'].
+        $testComponent->set(
+            'textValues.' . TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID,
+            'Hello',
+        );
+
+        // After the AJAX round-trip the hydrated component reflects the typed
+        // value, and rendering it must invoke the renderer with that override.
+        /** @var VariantFiller $component */
+        $component = $testComponent->component();
+        self::assertSame(
+            'Hello',
+            $component->textValues[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null,
+            'LiveProp nested write must hydrate into $textValues server-side',
+        );
+
+        // Force a fresh render cycle and assert the renderer saw the value.
+        (string) $testComponent->render();
+
+        $fake = $this->getRendererFake();
+        $previewCall = null;
+        foreach (array_reverse($fake->calls) as $call) {
+            if ($call['mode'] === 'renderToBytes') {
+                $previewCall = $call;
+                break;
+            }
+        }
+
+        self::assertNotNull($previewCall, 'preview must have been rendered via renderToBytes');
+        self::assertSame(
+            'Hello',
+            $previewCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null,
+            'previewDataUri() must pass the freshly-typed value to the renderer',
+        );
+    }
+
+    /**
      * The form POST a user submits drives the renderer with the typed inputs.
      * This is the regression for "the placeholder text is not replaced with
      * the input value" — if the controller fails to wire the form's
      * textValues array into the override resolver, the renderer never sees
      * what the user typed.
      */
+    /**
+     * Regression for the Fabric v7 / PascalCase fallout: even when the
+     * variant's canvas contains a Textbox whose `inputId` is properly
+     * matched with `inputs[i].inputId`, the override resolver must still
+     * find it. This goes through the renderer's resolveTextOverrides so the
+     * PNG comes out with the user's text, not the placeholder.
+     */
+    public function testFormPostHonoursOverridesEvenWithPascalCaseCanvasObjects(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request(
+            method: 'POST',
+            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            parameters: [
+                'textValues' => [
+                    TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => 'xx',
+                ],
+            ],
+        );
+
+        self::assertResponseIsSuccessful();
+
+        $fake = $this->getRendererFake();
+        $lastCall = $fake->calls[count($fake->calls) - 1];
+
+        self::assertSame(
+            'xx',
+            $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null,
+            'a typed override must survive the form POST and reach the renderer keyed by inputId',
+        );
+    }
+
     public function testFormPostDownloadStreamsPngWithUserOverrides(): void
     {
         $client = self::createClient();

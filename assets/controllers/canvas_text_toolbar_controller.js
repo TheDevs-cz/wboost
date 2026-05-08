@@ -22,7 +22,7 @@ export default class extends Controller {
 
     updateFromSelection(event) {
         const activeObject = event.detail.activeObject;
-        const isTextbox = activeObject && activeObject.type === 'textbox';
+        const isTextbox = activeObject && (activeObject.type || '').toLowerCase() === 'textbox';
 
         if (this.hasPanelTarget) {
             this.panelTarget.style.display = isTextbox ? 'block' : 'none';
@@ -163,7 +163,7 @@ export default class extends Controller {
     _getActiveTextbox() {
         if (!this.hasCanvasEditorOutlet) return null;
         const activeObject = this.canvasEditorOutlet.canvas.getActiveObject();
-        if (!activeObject || activeObject.type !== 'textbox') return null;
+        if (!activeObject || (activeObject.type || '').toLowerCase() !== 'textbox') return null;
         return activeObject;
     }
 }
