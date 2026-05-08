@@ -58,6 +58,15 @@ final class TestDataFixture extends Fixture
     public const string SOCIAL_NETWORK_TEMPLATE_2_ID = '00000000-0000-0000-0000-000000000032';
     public const string SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID = '00000000-0000-0000-0000-000000000033';
 
+    // Stable inputIds for the variant 1 inputs (headline, tagline, locked, badge).
+    // Tests reference these to construct id-keyed export payloads.
+    public const string SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000041';
+    public const string SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID = '00000000-0000-0000-0000-000000000042';
+    public const string SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID = '00000000-0000-0000-0000-000000000043';
+    public const string SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID = '00000000-0000-0000-0000-000000000044';
+
+    public const string SOCIAL_NETWORK_VARIANT_2_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000051';
+
     public function load(ObjectManager $manager): void
     {
         $date = new DateTimeImmutable('00:00:00 2024/01/01');
@@ -179,10 +188,10 @@ final class TestDataFixture extends Fixture
         $socialVariant1->editCanvas(
             '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             [
-                new EditorTextInput('headline', 30, false, false, null, false),
-                new EditorTextInput('tagline', null, false, true, null, false),
-                new EditorTextInput(null, null, true, false, null, false),
-                new EditorTextInput('badge', null, false, false, null, true),
+                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false),
+                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
+                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID, null, null, true, false, null, false),
+                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, 'badge', null, false, false, null, true),
             ],
             null,
         );
@@ -209,7 +218,7 @@ final class TestDataFixture extends Fixture
         );
         $socialVariant2->editCanvas(
             '{"version":"5.2.4","objects":[],"backgroundImage":null}',
-            [new EditorTextInput('headline', null, false, false, null, false)],
+            [new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_2_INPUT_HEADLINE_ID, 'headline', null, false, false, null, false)],
             null,
         );
         $manager->persist($socialVariant2);

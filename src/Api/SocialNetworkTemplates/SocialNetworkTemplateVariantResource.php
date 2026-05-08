@@ -27,9 +27,10 @@ use ArrayObject;
                 description: <<<MD
 Renders the variant's canvas to a PNG with the supplied input values applied.
 
-The shape of `inputs` is **dynamic per variant** — keys are the input names defined
-on the variant (discover them via `GET /api/social-network-templates`, then look at
-`variants[].inputs[].name`).
+The shape of `inputs` is **dynamic per variant** — keys are the input UUIDs
+defined on the variant (discover them via `GET /api/social-network-templates`,
+then look at `variants[].inputs[].id`). Each variant's inputs may legitimately
+share a `name`, so the binding is by stable UUID — never by name.
 
 Per-input value can be either:
 
@@ -42,11 +43,11 @@ Server-side behavior:
 
 - `maxLength` from the input definition is enforced (400 if exceeded)
 - `uppercase` from the input definition is applied automatically
-- Locked inputs and inputs with `name: null` cannot be addressed
-- Unknown input names are silently ignored
+- Locked inputs cannot be addressed
+- Unknown input UUIDs are silently ignored
 MD,
                 requestBody: new RequestBody(
-                    description: 'Map of input name → value (string or `{ value, hide }` object).',
+                    description: 'Map of inputId UUID → value (string or `{ value, hide }` object).',
                     content: new ArrayObject([
                         'application/json' => [
                             'schema' => [
@@ -54,7 +55,7 @@ MD,
                                 'properties' => [
                                     'inputs' => [
                                         'type' => 'object',
-                                        'description' => 'Keyed by the variant\'s input.name.',
+                                        'description' => "Keyed by the variant's input.id (UUID v4).",
                                         'additionalProperties' => [
                                             'oneOf' => [
                                                 ['type' => 'string'],
@@ -76,8 +77,8 @@ MD,
                                     'summary' => 'Shorthand — string values',
                                     'value' => [
                                         'inputs' => [
-                                            'headline' => 'Discount weekend',
-                                            'tagline' => 'Save up to 50%',
+                                            '01927a3b-7b02-7120-9fbd-4f1ea982bde9' => 'Discount weekend',
+                                            '01927a3b-7b02-7120-9fbd-4f1ea982bdea' => 'Save up to 50%',
                                         ],
                                     ],
                                 ],
@@ -85,9 +86,9 @@ MD,
                                     'summary' => 'Extended — value + hide per input',
                                     'value' => [
                                         'inputs' => [
-                                            'headline' => ['value' => 'Discount weekend'],
-                                            'tagline' => ['value' => 'Save up to 50%'],
-                                            'badge' => ['hide' => true],
+                                            '01927a3b-7b02-7120-9fbd-4f1ea982bde9' => ['value' => 'Discount weekend'],
+                                            '01927a3b-7b02-7120-9fbd-4f1ea982bdea' => ['value' => 'Save up to 50%'],
+                                            '01927a3b-7b02-7120-9fbd-4f1ea982bdeb' => ['hide' => true],
                                         ],
                                     ],
                                 ],

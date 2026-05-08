@@ -60,8 +60,7 @@
                                                 type="text"
                                                 class="form-control form-control-sm"
                                                 id="text-input-{{ loop.index0 }}"
-                                                data-index="{{ loop.index0 }}"
-                                                data-input-name="{{ input.name }}"
+                                                data-input-id="{{ input.inputId }}"
                                                 data-action="input->canvas-template-export#updateCanvasText"
                                                 {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif%}
                                             >
@@ -69,7 +68,7 @@
                                     {% endif %}
                                     {% if input.hidable %}
                                         <div class="mb-2 form-check">
-                                            <input data-index="{{ loop.index0 }}" type="checkbox" id="hide-control-{{ loop.index0 }}" class="form-check-input" data-action="change->canvas-template-export#updateCanvasTextVisibility">
+                                            <input data-input-id="{{ input.inputId }}" type="checkbox" id="hide-control-{{ loop.index0 }}" class="form-check-input" data-action="change->canvas-template-export#updateCanvasTextVisibility">
                                             <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
                                         </div>
                                     {% endif %}

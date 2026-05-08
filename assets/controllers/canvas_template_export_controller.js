@@ -45,8 +45,9 @@ export default class extends Controller {
     }
 
     updateCanvasText(event) {
-        const index = event.target.dataset.index;
-        const textbox = this.canvas.getObjects('textbox')[index];
+        const inputId = event.target.dataset.inputId;
+        if (!inputId) return;
+        const textbox = this.canvas.getObjects().find((o) => o.inputId === inputId);
         if (textbox) {
             const uppercase = textbox.uppercase || false
 
@@ -61,8 +62,9 @@ export default class extends Controller {
     }
 
     updateCanvasTextVisibility(event) {
-        const index = event.target.dataset.index;
-        const textbox = this.canvas.getObjects('textbox')[index];
+        const inputId = event.target.dataset.inputId;
+        if (!inputId) return;
+        const textbox = this.canvas.getObjects().find((o) => o.inputId === inputId);
         if (textbox) {
             textbox.visible = !event.target.checked;
             this.canvas.renderAll();
@@ -75,22 +77,23 @@ export default class extends Controller {
         // This guarantees the downloaded PNG matches what API consumers receive
         // and lets us add image inputs in the future without diverging code.
         const inputs = {};
-        this.element.querySelectorAll('[data-input-name]').forEach((el) => {
-            const name = el.dataset.inputName;
-            if (!name) return;
-            inputs[name] = { value: el.value || '' };
+        this.element.querySelectorAll('[data-input-id]').forEach((el) => {
+            const inputId = el.dataset.inputId;
+            if (!inputId) return;
+            // Skip the hide checkboxes — they share data-input-id with their
+            // text field but should be merged into the same entry below.
+            if (el.type === 'checkbox') return;
+            inputs[inputId] = { value: el.value || '' };
         });
-        // Pick up hide checkboxes for hidable inputs (data-index matches the
-        // input field with the same data-index — both reference variant.inputs[i]).
-        this.element.querySelectorAll('[id^="hide-control-"]').forEach((el) => {
-            const idx = el.dataset.index;
-            const textField = this.element.querySelector(`[data-index="${idx}"][data-input-name]`);
-            const name = textField && textField.dataset.inputName;
-            if (!name) return;
-            if (!inputs[name] || typeof inputs[name] !== 'object') {
-                inputs[name] = {};
+        // Pick up hide checkboxes for hidable inputs and merge them into the
+        // entry for the same inputId (both reference the same canvas object).
+        this.element.querySelectorAll('input[type="checkbox"][data-input-id]').forEach((el) => {
+            const inputId = el.dataset.inputId;
+            if (!inputId) return;
+            if (!inputs[inputId] || typeof inputs[inputId] !== 'object') {
+                inputs[inputId] = {};
             }
-            inputs[name].hide = el.checked;
+            inputs[inputId].hide = el.checked;
         });
 
         const response = await fetch(this.renderUrlValue, {

@@ -16,7 +16,7 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  */
 final class FakeSocialNetworkTemplateVariantImageRenderer implements SocialNetworkTemplateVariantImageRendererInterface
 {
-    /** @var array<int, array{variantId: string, texts: array<int, string>, hidden: array<int, bool>}> */
+    /** @var array<int, array{variantId: string, texts: array<string, string>, hidden: array<string, bool>}> */
     public array $calls = [];
 
     public function render(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): Response

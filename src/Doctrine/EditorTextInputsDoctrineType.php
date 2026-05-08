@@ -35,7 +35,7 @@ final class EditorTextInputsDoctrineType extends JsonType
         $inputs = [];
 
         foreach ($jsonData as $data) {
-            /** @var array{name: string, maxLength: null|int, locked: bool} $data */
+            /** @var array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool} $data */
 
             $inputs[] = EditorTextInput::fromArray($data);
         }

@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { fabric } from "fabric";
 import FontFaceObserver from 'fontfaceobserver';
 
-const customProperties = ['name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable'];
+const customProperties = ['inputId', 'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable'];
 
 export default class extends Controller {
     static targets = [
@@ -81,6 +81,15 @@ export default class extends Controller {
     loadCanvasWithoutHistory(canvasJson) {
         this.loadingCanvas = true;
         this.canvas.loadFromJSON(canvasJson, () => {
+            // Defensive: stamp inputId on any object that was loaded without
+            // one. Handles legacy data loaded into the editor before the
+            // server-side migration has run, plus future-proofs against any
+            // other source that might emit objects without ids.
+            this.canvas.getObjects().forEach((obj) => {
+                if ((obj.type === 'textbox' || obj.type === 'image') && !obj.inputId) {
+                    obj.inputId = crypto.randomUUID();
+                }
+            });
             this.canvas.renderAll();
             this.loadingCanvas = false;
         });
@@ -255,6 +264,7 @@ export default class extends Controller {
             cornerStyle: 'circle',
             cornerSize: 8,
             selectable: true,
+            inputId: crypto.randomUUID(),
             name: inputName,
             locked: locked,
             uppercase: uppercase,
@@ -562,15 +572,23 @@ export default class extends Controller {
         const canvasJSON = this.canvas.toJSON(customProperties);
         this.canvasTarget.value = JSON.stringify(canvasJSON);
 
-        // Serialize only the text inputs
-        const textInputs = this.canvas.getObjects('textbox').map(textbox => ({
-            name: textbox.name,
-            maxLength: textbox.maxLength || null,
-            locked: textbox.locked || false,
-            uppercase: textbox.uppercase || false,
-            description: textbox.description || '',
-            hidable: textbox.hidable || false,
-        }));
+        // Serialize only the text inputs. inputId is stamped here as a last
+        // line of defence; it should already be present (set on creation,
+        // restored from JSON, or fixed up in loadCanvasWithoutHistory).
+        const textInputs = this.canvas.getObjects('textbox').map(textbox => {
+            if (!textbox.inputId) {
+                textbox.inputId = crypto.randomUUID();
+            }
+            return {
+                inputId: textbox.inputId,
+                name: textbox.name,
+                maxLength: textbox.maxLength || null,
+                locked: textbox.locked || false,
+                uppercase: textbox.uppercase || false,
+                description: textbox.description || '',
+                hidable: textbox.hidable || false,
+            };
+        });
 
         this.textInputsTarget.value = JSON.stringify(textInputs);
         this.previewImageTarget.value = this.getScaledCanvasDataURI(400); // 400px max-width
@@ -863,10 +881,14 @@ export default class extends Controller {
                 if (clonedObj.type === 'activeSelection') {
                     clonedObj.canvas = this.canvas;
                     clonedObj.forEachObject((obj) => {
+                        // Always overwrite inputId on paste to avoid id collisions.
+                        obj.inputId = crypto.randomUUID();
                         this.canvas.add(obj);
                     });
                     clonedObj.setCoords();
                 } else {
+                    // Always overwrite inputId on paste to avoid id collisions.
+                    clonedObj.inputId = crypto.randomUUID();
                     this.canvas.add(clonedObj);
                 }
 

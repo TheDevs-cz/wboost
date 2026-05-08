@@ -72,7 +72,11 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ],
-                'body' => json_encode(['inputs' => ['headline' => str_repeat('A', 31)]], JSON_THROW_ON_ERROR),
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => str_repeat('A', 31),
+                    ],
+                ], JSON_THROW_ON_ERROR),
             ],
         );
 
@@ -96,7 +100,12 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
                     'Authorization' => 'Bearer ' . $token,
                     'Content-Type' => 'application/json',
                 ],
-                'body' => json_encode(['inputs' => ['headline' => 'Hello', 'tagline' => 'world']], JSON_THROW_ON_ERROR),
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => 'Hello',
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID => 'world',
+                    ],
+                ], JSON_THROW_ON_ERROR),
             ],
         );
 
@@ -109,9 +118,9 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
         // headline: shorthand string, no transform
-        self::assertSame('Hello', $lastCall['texts'][0] ?? null);
+        self::assertSame('Hello', $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
         // tagline: uppercase=true, applied server-side
-        self::assertSame('WORLD', $lastCall['texts'][1] ?? null);
+        self::assertSame('WORLD', $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID] ?? null);
         self::assertSame([], $lastCall['hidden']);
     }
 
@@ -134,9 +143,9 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
                 ],
                 'body' => json_encode([
                     'inputs' => [
-                        'headline' => ['value' => 'Hello'],
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['value' => 'Hello'],
                         // badge is hidable — the hide flag must be honored.
-                        'badge' => ['hide' => true],
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID => ['hide' => true],
                     ],
                 ], JSON_THROW_ON_ERROR),
             ],
@@ -146,11 +155,11 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
 
-        self::assertSame('Hello', $lastCall['texts'][0] ?? null);
-        // badge is index 3 in the seeded inputs and hidable.
-        self::assertTrue($lastCall['hidden'][3] ?? null);
-        // headline (index 0) is NOT hidable, no hide entry.
-        self::assertArrayNotHasKey(0, $lastCall['hidden']);
+        self::assertSame('Hello', $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
+        // badge is hidable — hidden entry present.
+        self::assertTrue($lastCall['hidden'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID] ?? null);
+        // headline is NOT hidable, no hide entry.
+        self::assertArrayNotHasKey(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, $lastCall['hidden']);
     }
 
     public function testHideOnNonHidableInputIsSilentlyIgnored(): void
@@ -172,7 +181,9 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
                 ],
                 // headline has hidable: false. Sending hide: true must not produce a hidden entry.
                 'body' => json_encode([
-                    'inputs' => ['headline' => ['value' => 'Hi', 'hide' => true]],
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['value' => 'Hi', 'hide' => true],
+                    ],
                 ], JSON_THROW_ON_ERROR),
             ],
         );
@@ -181,7 +192,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
 
-        self::assertSame('Hi', $lastCall['texts'][0] ?? null);
+        self::assertSame('Hi', $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
         self::assertSame([], $lastCall['hidden'], 'hide must be ignored for non-hidable inputs.');
     }
 
@@ -203,12 +214,47 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
                     'Content-Type' => 'application/json',
                 ],
                 'body' => json_encode([
-                    'inputs' => ['badge' => ['hide' => 'yes']],
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID => ['hide' => 'yes'],
+                    ],
                 ], JSON_THROW_ON_ERROR),
             ],
         );
 
         $this->assertResponseStatusCodeSame(400);
+    }
+
+    public function testUnknownInputIdIsSilentlyIgnored(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        '99999999-9999-9999-9999-999999999999' => 'no such input',
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseIsSuccessful();
+        $fake = $this->getRendererFake();
+        $lastCall = $fake->calls[count($fake->calls) - 1];
+
+        self::assertSame([], $lastCall['texts']);
+        self::assertSame([], $lastCall['hidden']);
     }
 
     private function getRendererFake(): FakeSocialNetworkTemplateVariantImageRenderer

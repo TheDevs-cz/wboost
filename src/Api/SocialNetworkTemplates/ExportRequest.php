@@ -7,11 +7,13 @@ namespace WBoost\Web\Api\SocialNetworkTemplates;
 final class ExportRequest
 {
     /**
-     * Map of input name → value. Inputs whose names are missing keep the
-     * variant's default canvas text. Locked or unnamed inputs cannot be
-     * addressed and are always served from the canvas defaults.
+     * Map of inputId UUID → value (string or `{ value, hide }` object).
+     * Inputs whose ids are missing keep the variant's default canvas text.
+     * Locked inputs cannot be addressed and are always served from the canvas
+     * defaults. Discover ids via `GET /api/social-network-templates`
+     * (`variants[].inputs[].id`). Unknown ids are silently ignored.
      *
-     * @var array<string, string>
+     * @var array<string, mixed>
      */
     public array $inputs = [];
 }

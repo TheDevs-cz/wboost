@@ -7,7 +7,7 @@ namespace WBoost\Web\Api\SocialNetworkTemplates;
 final readonly class SocialNetworkTemplateVariantInputResponse
 {
     public function __construct(
-        public int $index,
+        public string $id,
         public null|string $name,
         public null|int $maxLength,
         public bool $locked,

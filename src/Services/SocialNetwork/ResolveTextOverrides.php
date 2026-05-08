@@ -10,63 +10,54 @@ use WBoost\Web\Value\ResolvedInputOverrides;
 
 /**
  * Validates a map of provided input values against a variant's input
- * definitions and produces positional override maps (textbox-index → value /
- * visibility) matching the Fabric.js positional binding used in the editor.
+ * definitions and produces inputId-keyed override maps for the renderer.
+ *
+ * The resolver always works in inputId-space: callers MUST pass values keyed
+ * by the input's UUID `inputId`, not by name (two inputs may legitimately
+ * share a name). Unknown inputIds are silently ignored, consistent with the
+ * legacy "unknown input names ignored" behaviour.
  *
  * Accepts two shapes per input value:
  *   - shorthand: a string → treated as `{ value: <string> }`
  *   - extended:  an object `{ value?: string, hide?: bool }`
  *
  * `hide` is honored only when the input definition has `hidable: true`; it is
- * silently ignored otherwise. Unknown input names are silently ignored.
+ * silently ignored otherwise.
  */
 readonly final class ResolveTextOverrides
 {
     /**
      * @param array<EditorTextInput> $inputs
-     * @param array<string, mixed> $providedValues
+     * @param array<string, mixed> $providedValues Keyed by `inputId` UUID.
      */
     public function resolve(array $inputs, array $providedValues): ResolvedInputOverrides
     {
-        /** @var array<int, string> $texts */
+        /** @var array<string, string> $texts */
         $texts = [];
-        /** @var array<int, bool> $hidden */
+        /** @var array<string, bool> $hidden */
         $hidden = [];
-        $seenNames = [];
 
-        foreach ($inputs as $rawIndex => $input) {
+        foreach ($inputs as $input) {
             if ($input->locked) {
                 continue;
             }
 
-            $name = $input->name;
+            $inputId = $input->inputId;
 
-            if ($name === null) {
+            if (!array_key_exists($inputId, $providedValues)) {
                 continue;
             }
 
-            if (isset($seenNames[$name])) {
-                throw new BadRequestHttpException(sprintf(
-                    'Variant has duplicate non-locked input name "%s".',
-                    $name,
-                ));
-            }
-            $seenNames[$name] = true;
+            $rawValue = $providedValues[$inputId];
+            $label = $input->name ?? $inputId;
 
-            if (!array_key_exists($name, $providedValues)) {
-                continue;
-            }
-
-            $index = (int) $rawIndex;
-            $rawValue = $providedValues[$name];
-
-            [$textValue, $hideValue] = $this->parseValue($name, $rawValue);
+            [$textValue, $hideValue] = $this->parseValue($label, $rawValue);
 
             if ($textValue !== null) {
                 if ($input->maxLength !== null && mb_strlen($textValue) > $input->maxLength) {
                     throw new BadRequestHttpException(sprintf(
                         'Input "%s" exceeds max length of %d characters.',
-                        $name,
+                        $label,
                         $input->maxLength,
                     ));
                 }
@@ -75,11 +66,11 @@ readonly final class ResolveTextOverrides
                     $textValue = mb_strtoupper($textValue);
                 }
 
-                $texts[$index] = $textValue;
+                $texts[$inputId] = $textValue;
             }
 
             if ($hideValue !== null && $input->hidable) {
-                $hidden[$index] = $hideValue;
+                $hidden[$inputId] = $hideValue;
             }
         }
 
@@ -89,7 +80,7 @@ readonly final class ResolveTextOverrides
     /**
      * @return array{0: string|null, 1: bool|null}
      */
-    private function parseValue(string $name, mixed $raw): array
+    private function parseValue(string $label, mixed $raw): array
     {
         if (is_string($raw)) {
             return [$raw, null];
@@ -98,7 +89,7 @@ readonly final class ResolveTextOverrides
         if (!is_array($raw)) {
             throw new BadRequestHttpException(sprintf(
                 'Input "%s" must be a string or { value, hide } object.',
-                $name,
+                $label,
             ));
         }
 
@@ -107,14 +98,14 @@ readonly final class ResolveTextOverrides
 
         if (array_key_exists('value', $raw)) {
             if (!is_string($raw['value'])) {
-                throw new BadRequestHttpException(sprintf('Input "%s".value must be a string.', $name));
+                throw new BadRequestHttpException(sprintf('Input "%s".value must be a string.', $label));
             }
             $textValue = $raw['value'];
         }
 
         if (array_key_exists('hide', $raw)) {
             if (!is_bool($raw['hide'])) {
-                throw new BadRequestHttpException(sprintf('Input "%s".hide must be a boolean.', $name));
+                throw new BadRequestHttpException(sprintf('Input "%s".hide must be a boolean.', $label));
             }
             $hideValue = $raw['hide'];
         }

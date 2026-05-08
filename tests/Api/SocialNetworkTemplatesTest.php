@@ -104,7 +104,8 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
 
         $headline = $variant['inputs'][0];
         self::assertIsArray($headline);
-        self::assertSame(0, $headline['index'] ?? null);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, $headline['id'] ?? null);
+        self::assertArrayNotHasKey('index', $headline, 'index field must be removed in favour of id.');
         self::assertSame('headline', $headline['name'] ?? null);
         self::assertSame(30, $headline['maxLength'] ?? null);
         self::assertFalse($headline['locked'] ?? null);
@@ -113,6 +114,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
 
         $tagline = $variant['inputs'][1];
         self::assertIsArray($tagline);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, $tagline['id'] ?? null);
         self::assertSame('tagline', $tagline['name'] ?? null);
         self::assertArrayHasKey('maxLength', $tagline);
         self::assertNull($tagline['maxLength']);
@@ -121,12 +123,14 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
 
         $locked = $variant['inputs'][2];
         self::assertIsArray($locked);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID, $locked['id'] ?? null);
         self::assertArrayHasKey('name', $locked);
         self::assertNull($locked['name']);
         self::assertTrue($locked['locked'] ?? null);
 
         $badge = $variant['inputs'][3];
         self::assertIsArray($badge);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, $badge['id'] ?? null);
         self::assertSame('badge', $badge['name'] ?? null);
         self::assertTrue($badge['hidable'] ?? null);
     }
