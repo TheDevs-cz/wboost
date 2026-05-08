@@ -63,7 +63,14 @@ final class UploadFileController extends AbstractController
 
             $file = $this->fileUploadRepository->get($fileId);
 
-            return $this->json(['filePath' => $this->uploaderHelper->getPublicPath($file->path)]);
+            // `filePath` holds the public URL for backwards compatibility with
+            // the editor controllers that already drop it onto a Fabric canvas
+            // verbatim. `storagePath` is the raw S3 key — used by the Stage 7
+            // image gallery to persist the chosen background on the variant.
+            return $this->json([
+                'filePath' => $this->uploaderHelper->getPublicPath($file->path),
+                'storagePath' => $file->path,
+            ]);
         }
 
         return $this->json(['error' => 'Invalid form submission'], 400);

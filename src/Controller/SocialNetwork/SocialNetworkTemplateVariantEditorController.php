@@ -15,13 +15,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\FormData\SocialNetworkTemplateVariantEditorFormData;
 use WBoost\Web\FormType\SocialNetworkTemplateVariantEditorFormType;
-use WBoost\Web\FormType\SocialNetworkTemplateVariantFormType;
-use WBoost\Web\FormType\UploadProjectFileFormType;
 use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Value\EditorTextInput;
-use WBoost\Web\Value\FileSource;
 
 final class SocialNetworkTemplateVariantEditorController extends AbstractController
 {
@@ -74,19 +71,13 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             ]);
         }
 
-        $uploadForm = $this->createForm(UploadProjectFileFormType::class, options: [
-            'action' => $this->generateUrl('project_upload_file', [
-                'projectId' => $template->project->id,
-                'source' => FileSource::SocialNetworkImage->value,
-            ]),
-        ]);
-
-        $backgroundForm = $this->createForm(SocialNetworkTemplateVariantFormType::class, options: [
-            'action' => $this->generateUrl('edit_social_network_template_variant', [
-                'variantId' => $variant->id,
-            ]),
-        ]);
-
+        // Stage 7: the standalone background/upload forms are gone — both
+        // operations now flow through the project image gallery
+        // (Project:ImageGallery Live Component embedded in the editor
+        // template). The `project_upload_file` route is hit directly by the
+        // gallery's upload tab; the `edit_social_network_template_variant`
+        // route is hit by the orchestrator with a `backgroundImagePath`
+        // field when the user picks an existing asset as the background.
         $fonts = $this->getFonts->allForProject($template->project->id);
         $fontFaceNames = [];
         foreach ($fonts as $font) {
@@ -101,8 +92,6 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             'variant' => $variant,
             'fonts' => $fonts,
             'editor_form' => $editorForm,
-            'upload_form' => $uploadForm,
-            'background_form' => $backgroundForm,
             'font_faces' => $fontFaceNames,
         ]);
     }

@@ -32,6 +32,7 @@
         data-canvas-editor-background-image-value="{{ uploaded_asset(variant.backgroundImage) }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
+        data-canvas-editor-edit-variant-url-value="{{ path('edit_social_network_template_variant', {'variantId': variant.id}) }}"
         data-canvas-history-canvas-editor-outlet="#canvas-container"
         data-canvas-clipboard-canvas-editor-outlet="#canvas-container"
         data-canvas-text-toolbar-canvas-editor-outlet="#canvas-container"
@@ -44,6 +45,7 @@
             canvas-editor:selection:changed->canvas-alignment#onSelectionChanged
             canvas-editor:copy->canvas-clipboard#copy
             canvas-editor:paste->canvas-clipboard#paste
+            asset-selected@window->canvas-editor#onAssetSelected
         "
     >
         {{ form_start(editor_form) }}
@@ -204,44 +206,17 @@
 
         {{ form_end(editor_form) }}
 
-        <!-- Background modal -->
-        <div class="modal fade" id="backgroundModal" tabindex="-1" aria-labelledby="backgroundModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
+        {#
+            Stage 7: unified project image gallery modal. Replaces the two
+            ad-hoc upload modals (background + addImage). The canvas-editor
+            orchestrator decides which canvas operation to run when the user
+            picks an asset, based on the mode it sets before opening this
+            modal.
+        #}
+        <div class="modal fade" id="imageGalleryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Nahrát pozadí</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        {{ form_start(background_form, { 'attr': { 'id': 'background-form', 'data-action': 'canvas-editor#uploadBackground' } }) }}
-                        {{ form_row(background_form.backgroundImage) }}
-                        {{ form_end(background_form) }}
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
-                        <button type="button" class="btn btn-primary" data-action="canvas-editor#uploadBackground">Nahrát</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Image upload modal -->
-        <div class="modal fade" id="imageUploadModal" tabindex="-1" aria-labelledby="imageUploadModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="imageUploadModalLabel">Nahrát obrázek</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        {{ form_start(upload_form, { 'attr': { 'id': 'image-upload-form', 'data-action': 'submit->canvas-editor#uploadImage' } }) }}
-                        {{ form_row(upload_form.file) }}
-                        {{ form_end(upload_form) }}
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
-                        <button type="button" class="btn btn-primary" data-action="canvas-editor#uploadImage">Nahrát</button>
-                    </div>
+                    <twig:Project:ImageGallery :project="project" />
                 </div>
             </div>
         </div>

@@ -32,11 +32,17 @@ readonly final class EditSocialNetworkTemplateVariantHandler
         $backgroundImage = $message->backgroundImage;
 
         if ($backgroundImage !== null) {
+            // Legacy raw-upload path: store the file alongside the variant.
             $timestamp = $this->clock->now()->getTimestamp();
 
             $extension = $backgroundImage->guessExtension();
             $backgroundImagePath = "social-networks/$variant->id/background-$timestamp.$extension";
             $this->filesystem->write($backgroundImagePath, $backgroundImage->getContent());
+        } elseif ($message->backgroundImagePath !== null) {
+            // Stage 7 gallery path: the asset already lives in S3/Minio under
+            // file-upload/{projectId}/{fileId}.{ext} as a FileUpload row; just
+            // point the variant at it.
+            $backgroundImagePath = $message->backgroundImagePath;
         }
 
         $variant->edit($backgroundImagePath);

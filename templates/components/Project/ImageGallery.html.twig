@@ -1,0 +1,122 @@
+{#
+    Stage 7: project-scoped image gallery used inside the admin editor's
+    "Pozadí" / "Přidat obrázek" modal.
+
+    Two tabs:
+      - "Z galerie": grid of FileUploads for the project; clicking a thumbnail
+        dispatches an `asset-selected` CustomEvent (with { url, id }) on the
+        modal's root so the canvas-editor orchestrator can route the URL to
+        either setBackgroundImage or addImageToCanvas based on the mode that
+        opened the modal.
+      - "Nahrát nový": a small form managed by the gallery-uploader Stimulus
+        controller that POSTs to `project_upload_file`, then re-renders this
+        Live Component AND auto-selects the newly uploaded asset.
+#}
+<div
+    {{ attributes }}
+    data-controller="image-gallery"
+>
+    {#
+        Hidden trigger for the LiveAction that re-fetches the asset list. The
+        image-gallery Stimulus controller programmatically clicks this button
+        after a successful upload so the new FileUpload shows up in the grid
+        the next time the user opens the gallery tab.
+    #}
+    <button
+        type="button"
+        class="d-none"
+        data-action="live#action"
+        data-live-action-param="refresh"
+        data-image-gallery-target="refreshTrigger"
+    >refresh</button>
+    <div class="modal-header">
+        <h5 class="modal-title">Vyberte obrázek</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+
+    <div class="modal-body">
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link active"
+                    id="gallery-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#gallery-tab-pane"
+                    type="button"
+                    role="tab"
+                >Z galerie</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button
+                    class="nav-link"
+                    id="upload-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#upload-tab-pane"
+                    type="button"
+                    role="tab"
+                >Nahrát nový</button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="gallery-tab-pane" role="tabpanel">
+                {% set gallery_assets = this.assets() %}
+                {% if gallery_assets is empty %}
+                    <p class="text-muted small mb-0">Zatím žádné obrázky. Použijte záložku "Nahrát nový".</p>
+                {% else %}
+                    <div class="row g-2">
+                        {% for asset in gallery_assets %}
+                            <div class="col-3">
+                                <button
+                                    type="button"
+                                    class="btn p-1 w-100 border"
+                                    data-action="click->image-gallery#select"
+                                    data-image-gallery-url-param="{{ asset.url }}"
+                                    data-image-gallery-path-param="{{ asset.path }}"
+                                    data-image-gallery-id-param="{{ asset.id }}"
+                                    title="Nahráno {{ asset.uploadedAt }}"
+                                >
+                                    <img
+                                        src="{{ asset.url }}"
+                                        alt=""
+                                        class="img-fluid"
+                                        style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                    >
+                                </button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-pane fade" id="upload-tab-pane" role="tabpanel">
+                <form
+                    data-controller="gallery-uploader"
+                    data-action="submit->gallery-uploader#submit"
+                    data-gallery-uploader-url-value="{{ this.uploadUrl() }}"
+                >
+                    <div class="mb-3">
+                        <label class="form-label" for="gallery-upload-file">Soubor</label>
+                        <input
+                            type="file"
+                            id="gallery-upload-file"
+                            name="upload_project_file[file]"
+                            class="form-control"
+                            accept="image/*"
+                            data-gallery-uploader-target="file"
+                            required
+                        >
+                    </div>
+
+                    <div class="text-danger small mb-2 d-none" data-gallery-uploader-target="error"></div>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        data-gallery-uploader-target="submitButton"
+                    >Nahrát</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

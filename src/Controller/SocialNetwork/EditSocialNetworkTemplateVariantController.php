@@ -18,7 +18,6 @@ use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariant;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Services\UploaderHelper;
-use WBoost\Web\Value\FileSource;
 
 final class EditSocialNetworkTemplateVariantController extends AbstractController
 {
@@ -36,6 +35,27 @@ final class EditSocialNetworkTemplateVariantController extends AbstractControlle
         SocialNetworkTemplateVariant $variant,
         Request $request,
     ): Response {
+        // Stage 7: the editor's "Pozadí" button now picks an asset from the
+        // project image gallery instead of uploading. The orchestrator posts
+        // the chosen path as a `backgroundImagePath` form field, bypassing
+        // the file-upload form entirely. The legacy file-upload form path is
+        // still accepted for any caller still posting raw uploads.
+        $backgroundImagePath = $request->request->get('backgroundImagePath');
+
+        if (is_string($backgroundImagePath) && $backgroundImagePath !== '') {
+            $this->bus->dispatch(
+                new EditSocialNetworkTemplateVariant(
+                    $variant->id,
+                    backgroundImage: null,
+                    backgroundImagePath: $backgroundImagePath,
+                ),
+            );
+
+            $variant = $this->variantRepository->get($variant->id);
+
+            return $this->json(['filePath' => $this->uploaderHelper->getPublicPath($variant->backgroundImage)]);
+        }
+
         $data = new SocialNetworkTemplateVariantFormData();
         $form = $this->createForm(SocialNetworkTemplateVariantFormType::class, $data);
         $form->handleRequest($request);

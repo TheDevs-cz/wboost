@@ -21,6 +21,7 @@ export default class extends Controller {
     static values = {
         backgroundImage: String,
         customFonts: Array,
+        editVariantUrl: String,
     };
 
     connect() {
@@ -212,14 +213,74 @@ export default class extends Controller {
         modal.show();
     }
 
+    /**
+     * Stage 7: open the unified project image gallery in "background" mode.
+     * The mode is stashed on the controller so onAssetSelected (fired from a
+     * thumbnail click or an upload completion inside the modal) knows
+     * whether to set the canvas background or drop the image as a new
+     * Fabric object.
+     */
     showBackgroundModal() {
-        const modal = new bootstrap.Modal('#backgroundModal');
+        this.galleryMode = 'background';
+        const modal = new bootstrap.Modal('#imageGalleryModal');
         modal.show();
     }
 
+    /**
+     * Stage 7: same modal as showBackgroundModal but in "addImage" mode.
+     */
     showAddImageModal() {
-        const modal = new bootstrap.Modal('#imageUploadModal');
+        this.galleryMode = 'addImage';
+        const modal = new bootstrap.Modal('#imageGalleryModal');
         modal.show();
+    }
+
+    /**
+     * Stage 7: handler for the gallery modal's `asset-selected` window event.
+     * Routes the picked asset's URL to the right canvas operation based on
+     * the mode set when the modal was opened. For backgrounds we ALSO POST
+     * the path to `edit_social_network_template_variant` so the variant
+     * entity stays in sync with the visible canvas — without this, the
+     * picked background would only be set visually and would revert on
+     * reload.
+     */
+    onAssetSelected(event) {
+        const { url, path } = event.detail || {};
+        if (!url) {
+            return;
+        }
+
+        const mode = this.galleryMode || 'addImage';
+
+        if (mode === 'background') {
+            this.setBackgroundImage(url);
+            if (path && this.hasEditVariantUrlValue) {
+                this.persistBackgroundPath(path);
+            }
+        } else {
+            this.addImageToCanvas(url);
+        }
+
+        const modalElement = document.getElementById('imageGalleryModal');
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        }
+    }
+
+    persistBackgroundPath(path) {
+        const formData = new FormData();
+        formData.append('backgroundImagePath', path);
+
+        fetch(this.editVariantUrlValue, {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json' },
+        }).catch((error) => {
+            console.error('Failed to persist background path:', error);
+        });
     }
 
     submitAddText(event) {
@@ -274,60 +335,6 @@ export default class extends Controller {
         modal.hide();
 
         form.reset();
-    }
-
-    uploadImage(event) {
-        event.preventDefault();
-
-        const form = this.element.querySelector('#image-upload-form');
-        const formData = new FormData(form);
-
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.filePath) {
-                    this.addImageToCanvas(data.filePath);
-                    const modal = bootstrap.Modal.getInstance('#imageUploadModal');
-                    modal.hide();
-                    form.reset();
-                } else {
-                    alert('Image upload failed.');
-                }
-            })
-            .catch(error => {
-                console.error('Error uploading image:', error);
-                alert('Error uploading image.');
-            });
-    }
-
-    uploadBackground(event) {
-        event.preventDefault();
-
-        const form = this.element.querySelector('#background-form');
-        const formData = new FormData(form);
-
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.filePath) {
-                    this.setBackgroundImage(data.filePath);
-                    const modal = bootstrap.Modal.getInstance('#backgroundModal');
-                    modal.hide();
-                    form.reset();
-                } else {
-                    alert('Image upload failed.');
-                }
-            })
-            .catch(error => {
-                console.error('Error uploading image:', error);
-                alert('Error uploading image.');
-            });
     }
 
     async addImageToCanvas(imageUrl) {
