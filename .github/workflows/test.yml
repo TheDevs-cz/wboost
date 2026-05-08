@@ -28,16 +28,16 @@ jobs:
               - 5432:5432
 
     steps:
-      -   uses: actions/checkout@v4
+      -   uses: actions/checkout@v6
 
-      -   uses: actions/cache@v4
+      -   uses: actions/cache@v5
           with:
               path: vendor
               key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
               restore-keys: |
                   ${{ runner.os }}-composer-
 
-      -   uses: actions/cache@v4
+      -   uses: actions/cache@v5
           id: importmap-cache
           with:
               path: assets/vendor
@@ -56,16 +56,16 @@ jobs:
       runs-on: ubuntu-latest
       container: ghcr.io/thedevs-cz/php:8.5-wboost
       steps:
-        -   uses: actions/checkout@v4
+        -   uses: actions/checkout@v6
 
-        -   uses: actions/cache@v4
+        -   uses: actions/cache@v5
             with:
                 path: vendor
                 key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
                 restore-keys: |
                     ${{ runner.os }}-composer-
 
-        -   uses: actions/cache@v4
+        -   uses: actions/cache@v5
             with:
                 path: /tmp/phpstan
                 key: ${{ runner.os }}-phpstan-${{ github.sha }}
@@ -91,8 +91,8 @@ jobs:
                   - 5432:5432
 
       steps:
-          -   uses: actions/checkout@v4
-          -   uses: actions/cache@v4
+          -   uses: actions/checkout@v6
+          -   uses: actions/cache@v5
               with:
                   path: vendor
                   key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
