@@ -6,6 +6,10 @@ on:
             - main
     pull_request:
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: false
+
 env:
     DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wboost_test?serverVersion=16&charset=utf8
 
@@ -19,12 +23,13 @@ jobs:
           image: postgres:16
           env:
               POSTGRES_PASSWORD: postgres
-          options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+          options: --health-cmd pg_isready --health-interval 3s --health-timeout 3s --health-retries 5
           ports:
               - 5432:5432
 
     steps:
       -   uses: actions/checkout@v4
+
       -   uses: actions/cache@v4
           with:
               path: vendor
@@ -32,8 +37,17 @@ jobs:
               restore-keys: |
                   ${{ runner.os }}-composer-
 
+      -   uses: actions/cache@v4
+          id: importmap-cache
+          with:
+              path: assets/vendor
+              key: ${{ runner.os }}-importmap-${{ hashFiles('importmap.php') }}
+
       -   run: composer install --no-scripts --no-progress
-      -   run: bin/console importmap:install
+
+      -   if: steps.importmap-cache.outputs.cache-hit != 'true'
+          run: bin/console importmap:install
+
       -   run: bin/console asset-map:compile
       -   run: vendor/bin/phpunit
 
@@ -43,12 +57,20 @@ jobs:
       container: ghcr.io/thedevs-cz/php:8.5-wboost
       steps:
         -   uses: actions/checkout@v4
+
         -   uses: actions/cache@v4
             with:
                 path: vendor
                 key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
                 restore-keys: |
                     ${{ runner.os }}-composer-
+
+        -   uses: actions/cache@v4
+            with:
+                path: /tmp/phpstan
+                key: ${{ runner.os }}-phpstan-${{ github.sha }}
+                restore-keys: |
+                    ${{ runner.os }}-phpstan-
 
         -   run: composer install --no-scripts --no-progress
         -   run: bin/console cache:warmup --env=dev
@@ -64,7 +86,7 @@ jobs:
               env:
                   POSTGRES_PASSWORD: postgres
                   POSTGRES_DB: wboost_test
-              options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+              options: --health-cmd pg_isready --health-interval 3s --health-timeout 3s --health-retries 5
               ports:
                   - 5432:5432
 
