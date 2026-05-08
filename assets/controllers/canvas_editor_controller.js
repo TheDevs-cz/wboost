@@ -86,19 +86,53 @@ export default class extends Controller {
     async loadCanvasWithoutHistory(canvasJson) {
         this.loadingCanvas = true;
         try {
-            // Fabric v7 loadFromJSON returns a Promise (no callback form).
-            await this.canvas.loadFromJSON(canvasJson);
+            // Parse the source JSON ourselves so we keep a reference to the
+            // original (with our custom properties intact) for the post-load
+            // restore pass below. canvasJson can arrive as either a string
+            // (from the data attribute) or an already-decoded object.
+            let sourceCanvas;
+            if (typeof canvasJson === 'string') {
+                try {
+                    sourceCanvas = canvasJson.length > 0 ? JSON.parse(canvasJson) : {};
+                } catch (err) {
+                    console.error('Invalid canvas JSON', err);
+                    sourceCanvas = {};
+                }
+            } else {
+                sourceCanvas = canvasJson || {};
+            }
 
-            // Defensive: stamp inputId on any object that was loaded without
-            // one. Handles legacy data loaded into the editor before the
-            // server-side migration has run, plus future-proofs against any
-            // other source that might emit objects without ids.
-            //
-            // Type matching is case-insensitive: Fabric v7 serializes types
-            // as 'Textbox' / 'Image' (PascalCase), v5 emitted 'textbox' /
-            // 'image' (lowercase), and either form may show up depending on
-            // when the row was last saved.
-            this.canvas.getObjects().forEach((obj) => {
+            // Fabric v7 loadFromJSON returns a Promise (no callback form).
+            await this.canvas.loadFromJSON(sourceCanvas);
+
+            // CRITICAL: Fabric v7's _fromObject does not copy arbitrary
+            // custom properties from the source JSON onto the deserialized
+            // object. Only properties registered as customProperties (or in
+            // the class's known SerializedObjectProps) are restored — our
+            // inputId / name / locked / etc. are stripped. Without this
+            // restore pass:
+            //   - the editor toolbar shows empty input metadata after
+            //     reload (the "I renamed the field, refreshed, the name was
+            //     empty" report);
+            //   - the export renderer cannot match overrides by inputId
+            //     because every loaded object has obj.inputId === undefined
+            //     (the "placeholder text is not replaced" report).
+            // Walk by positional index — Fabric preserves object order
+            // through loadFromJSON.
+            const sourceObjects = Array.isArray(sourceCanvas.objects) ? sourceCanvas.objects : [];
+            this.canvas.getObjects().forEach((obj, idx) => {
+                const source = sourceObjects[idx];
+                if (source) {
+                    CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                        if (source[prop] !== undefined) {
+                            obj[prop] = source[prop];
+                        }
+                    });
+                }
+                // Defensive: if a textbox/image still has no inputId (legacy
+                // data, fresh-on-canvas object, etc.), mint one. Type match
+                // is case-insensitive — v5 emitted 'textbox', v7 emits
+                // 'Textbox'.
                 const t = (obj.type || '').toLowerCase();
                 if ((t === 'textbox' || t === 'image') && !obj.inputId) {
                     obj.inputId = crypto.randomUUID();

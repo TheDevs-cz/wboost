@@ -272,6 +272,44 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
      * what the user typed.
      */
     /**
+     * The Gotenberg render template MUST manually restore custom properties
+     * (inputId, name, locked, etc.) from the source JSON onto each Fabric
+     * object after loadFromJSON. Fabric v7's _fromObject does not do this
+     * automatically — only registered customProperties or known
+     * SerializedObjectProps survive the deserialization. Without the
+     * restore pass, every Textbox loaded in headless Chromium has
+     * obj.inputId === undefined, the override-by-inputId find() returns
+     * nothing, and the user sees the placeholder text instead of their
+     * typed value (the iteration-5 production bug).
+     *
+     * This test pins the restore logic to the template so a future edit
+     * cannot silently remove it.
+     */
+    public function testRenderTemplateRestoresCustomPropertiesAfterLoadFromJSON(): void
+    {
+        $twig = self::getContainer()->get('twig');
+
+        $rendered = $twig->render('api/social_network_template_variant_render.html.twig', [
+            'variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
+            'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            'font_faces' => [],
+            'text_overrides' => [],
+            'hidden_overrides' => [],
+            'fabric_inline_script' => '/* fabric stub */',
+        ]);
+
+        // The restore pass must:
+        //   (1) source the canvas objects from the parsed JSON (not from
+        //       canvas.getObjects(), since Fabric v7 strips custom props);
+        //   (2) iterate the post-load live objects;
+        //   (3) copy each custom property if defined on the source.
+        self::assertStringContainsString('CANVAS_CUSTOM_PROPERTIES', $rendered);
+        self::assertStringContainsString("'inputId'", $rendered);
+        self::assertStringContainsString('canvasJson.objects', $rendered);
+        self::assertStringContainsString('source[prop]', $rendered);
+    }
+
+    /**
      * Regression for the Fabric v7 / PascalCase fallout: even when the
      * variant's canvas contains a Textbox whose `inputId` is properly
      * matched with `inputs[i].inputId`, the override resolver must still

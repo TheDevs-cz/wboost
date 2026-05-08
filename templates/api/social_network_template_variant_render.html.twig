@@ -48,18 +48,43 @@
                 // form was removed. Await the load, then apply overrides.
                 await canvas.loadFromJSON(canvasJson);
 
+                // Fabric v7's _fromObject does NOT copy arbitrary custom
+                // properties from the source JSON onto the deserialized
+                // instance — only known stateProperties survive. So our
+                // `inputId` (and friends) end up undefined on the live
+                // objects unless we restore them ourselves. Without this
+                // step, the override-by-inputId lookup below silently
+                // matches nothing and the placeholder text is rendered
+                // verbatim. (Confirmed against the v7 source: pick(this,
+                // propertiesToSerialize) on toObject, with no symmetric
+                // hydrate on _fromObject.)
+                const CANVAS_CUSTOM_PROPERTIES = [
+                    'inputId', 'name', 'maxLength',
+                    'locked', 'uppercase', 'description', 'hidable',
+                ];
+                const sourceObjects = Array.isArray(canvasJson.objects) ? canvasJson.objects : [];
+                const liveObjects = canvas.getObjects();
+                liveObjects.forEach((obj, idx) => {
+                    const source = sourceObjects[idx];
+                    if (!source) return;
+                    CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                        if (source[prop] !== undefined) {
+                            obj[prop] = source[prop];
+                        }
+                    });
+                });
+
                 // Apply overrides by inputId — see Stage 2 of the Fabric
                 // migration. We walk all objects (not just 'textbox') so
                 // future image-placeholder inputs use the same lookup path.
-                const objects = canvas.getObjects();
                 Object.keys(textOverrides).forEach((idKey) => {
-                    const obj = objects.find((o) => o.inputId === idKey);
+                    const obj = liveObjects.find((o) => o.inputId === idKey);
                     if (obj) {
                         obj.text = String(textOverrides[idKey]);
                     }
                 });
                 Object.keys(hiddenOverrides).forEach((idKey) => {
-                    const obj = objects.find((o) => o.inputId === idKey);
+                    const obj = liveObjects.find((o) => o.inputId === idKey);
                     if (obj) {
                         obj.visible = !hiddenOverrides[idKey];
                     }
