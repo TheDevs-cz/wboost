@@ -66,6 +66,16 @@
                 {% set gallery_assets = this.assets() %}
                 {% set move_targets = this.moveTargets() %}
 
+                {#
+                    Grid layout differs by host: the modal is narrow, so 4 fixed
+                    columns (Bootstrap col-3); the standalone management page is
+                    full-width, so an auto-filling CSS grid packs ~2x more
+                    thumbnails per row. Driven by the `modal` LiveProp; the cell
+                    keeps col-3 in the modal and becomes a plain grid item
+                    standalone.
+                #}
+                {% set cell_class = modal ? 'col-3' : '' %}
+
                 {# Breadcrumb navigation #}
                 <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
                     <button
@@ -116,9 +126,9 @@
 
                 {# Folders #}
                 {% if directories is not empty %}
-                    <div class="row g-2 mb-3">
+                    <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }} mb-3"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"{% endif %}>
                         {% for directory in directories %}
-                            <div class="col-3">
+                            <div class="{{ cell_class }}">
                                 {% if this.renamingDirectoryId == directory.id %}
                                     <div class="border rounded p-2 h-100 d-flex flex-column gap-1">
                                         <input
@@ -195,9 +205,9 @@
 
                 {# Images #}
                 {% if gallery_assets is not empty %}
-                    <div class="row g-2">
+                    <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));"{% endif %}>
                         {% for asset in gallery_assets %}
-                            <div class="col-3">
+                            <div class="{{ cell_class }}">
                                 <div class="position-relative border rounded">
                                     {% if modal %}
                                         <button
