@@ -28,12 +28,14 @@
         data-image-gallery-target="refreshTrigger"
     >refresh</button>
 
-    <div class="modal-header">
-        <h5 class="modal-title">Vyberte obrázek</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-    </div>
+    {% if modal %}
+        <div class="modal-header">
+            <h5 class="modal-title">Vyberte obrázek</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+    {% endif %}
 
-    <div class="modal-body">
+    <div class="{{ modal ? 'modal-body' : '' }}">
         <ul class="nav nav-tabs mb-3" role="tablist">
             <li class="nav-item" role="presentation">
                 <button
@@ -197,22 +199,33 @@
                         {% for asset in gallery_assets %}
                             <div class="col-3">
                                 <div class="position-relative border rounded">
-                                    <button
-                                        type="button"
-                                        class="btn p-1 w-100"
-                                        data-action="click->image-gallery#select"
-                                        data-image-gallery-url-param="{{ asset.url }}"
-                                        data-image-gallery-path-param="{{ asset.path }}"
-                                        data-image-gallery-id-param="{{ asset.id }}"
-                                        title="Nahráno {{ asset.uploadedAt }}"
-                                    >
-                                        <img
-                                            src="{{ asset.url }}"
-                                            alt=""
-                                            class="img-fluid"
-                                            style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                    {% if modal %}
+                                        <button
+                                            type="button"
+                                            class="btn p-1 w-100"
+                                            data-action="click->image-gallery#select"
+                                            data-image-gallery-url-param="{{ asset.url }}"
+                                            data-image-gallery-path-param="{{ asset.path }}"
+                                            data-image-gallery-id-param="{{ asset.id }}"
+                                            title="Nahráno {{ asset.uploadedAt }}"
                                         >
-                                    </button>
+                                            <img
+                                                src="{{ asset.url }}"
+                                                alt=""
+                                                class="img-fluid"
+                                                style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                            >
+                                        </button>
+                                    {% else %}
+                                        <div class="p-1" title="Nahráno {{ asset.uploadedAt }}">
+                                            <img
+                                                src="{{ asset.url }}"
+                                                alt=""
+                                                class="img-fluid"
+                                                style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                            >
+                                        </div>
+                                    {% endif %}
                                     <div class="dropdown position-absolute top-0 end-0 m-1">
                                         <button
                                             type="button"

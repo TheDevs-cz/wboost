@@ -127,6 +127,13 @@ The component root merges its controller via
 second literal `data-controller` next to `{{ attributes }}` silently loses it
 (duplicate attribute; browser keeps `live`).
 
+The same component is also rendered **standalone** on a management page
+(`SocialNetworkGalleryController` → `/project/{projectId}/social-network-gallery`,
+linked from the social-networks page next to "Kategorie"). A `bool $modal`
+LiveProp (default `true`) toggles the modal header/close chrome and the
+click-to-select image buttons; pass `:modal="false"` to render plain thumbnails
+where folders + upload + move are the management surface.
+
 **Render path — Gotenberg + identical Fabric runtime**
 
 PNG export (admin preview, user download, API export) all flow through

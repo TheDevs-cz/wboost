@@ -83,6 +83,17 @@ final class ImageGallery extends AbstractController
     public FileSource $source = FileSource::SocialNetworkImage;
 
     /**
+     * Whether the component is hosted inside the editor's Bootstrap modal
+     * (default) or rendered standalone on the gallery management page. In modal
+     * mode it shows the modal header/close chrome and each image is a
+     * click-to-select button (the editor routes the pick onto the canvas);
+     * standalone it drops that chrome and renders plain thumbnails — folders,
+     * upload and move are the management surface.
+     */
+    #[LiveProp]
+    public bool $modal = true;
+
+    /**
      * UUID of the folder currently being viewed, or null for the root. Set
      * server-side by the navigation actions only (NOT writable), so a tampered
      * value can never be written directly from the client; even so, every read
