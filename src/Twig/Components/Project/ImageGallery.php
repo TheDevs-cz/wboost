@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace WBoost\Web\Twig\Components\Project;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;
 use Symfony\UX\LiveComponent\Attribute\LiveProp;
 use Symfony\UX\LiveComponent\DefaultActionTrait;
+use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Repository\FileUploadRepository;
@@ -35,10 +35,28 @@ use WBoost\Web\Value\FileSource;
  * opened the modal in. No round-trip needed for the selection itself.
  */
 #[AsLiveComponent('Project:ImageGallery')]
-#[IsGranted(ProjectVoter::EDIT, 'project')]
 final class ImageGallery extends AbstractController
 {
     use DefaultActionTrait;
+
+    /**
+     * Authorisation note: `#[IsGranted]` cannot be applied at class level — the
+     * Symfony Security listener resolves the subject from controller-method
+     * arguments, and a Live Component's `$project` is a hydrated LiveProp
+     * (class property), not an argument. On a LiveAction request (e.g.
+     * `refresh`) that resolution fails with "Could not find the subject
+     * 'project'". Access is therefore enforced explicitly in `postMount()`
+     * (initial render) and in `assets()` / `refresh()`, which run on every
+     * render and on every LiveAction respectively. Mirrors the same pattern
+     * used by SocialNetwork:VariantFiller.
+     */
+    #[PostMount]
+    public function postMount(): void
+    {
+        assert($this->project !== null);
+
+        $this->denyAccessUnlessGranted(ProjectVoter::EDIT, $this->project);
+    }
 
     /**
      * The project whose uploads are listed. Live Components hydrate Doctrine
@@ -75,7 +93,10 @@ final class ImageGallery extends AbstractController
      */
     public function assets(): array
     {
-        assert($this->project !== null);
+        $project = $this->project;
+        assert($project !== null);
+
+        $this->denyAccessUnlessGranted(ProjectVoter::EDIT, $project);
 
         return array_map(
             fn (FileUpload $f): array => [
@@ -84,7 +105,7 @@ final class ImageGallery extends AbstractController
                 'path' => $f->path,
                 'uploadedAt' => $f->uploadedAt->format('Y-m-d H:i'),
             ],
-            $this->fileUploadRepository->listByProjectAndSource($this->project->id, $this->source),
+            $this->fileUploadRepository->listByProjectAndSource($project->id, $this->source),
         );
     }
 
@@ -97,6 +118,9 @@ final class ImageGallery extends AbstractController
     #[LiveAction]
     public function refresh(): void
     {
+        assert($this->project !== null);
+
+        $this->denyAccessUnlessGranted(ProjectVoter::EDIT, $this->project);
     }
 
     /**

@@ -12,10 +12,7 @@
         controller that POSTs to `project_upload_file`, then re-renders this
         Live Component AND auto-selects the newly uploaded asset.
 #}
-<div
-    {{ attributes }}
-    data-controller="image-gallery"
->
+<div {{ attributes.defaults({'data-controller': 'image-gallery'}) }}>
     {#
         Hidden trigger for the LiveAction that re-fetches the asset list. The
         image-gallery Stimulus controller programmatically clicks this button
@@ -95,12 +92,21 @@
                     data-action="submit->gallery-uploader#submit"
                     data-gallery-uploader-url-value="{{ this.uploadUrl() }}"
                 >
+                    {#
+                        Stateless-CSRF token for the `project_upload_file` route. The
+                        form posts via fetch(), so the token must be a real form field
+                        the controller can include in its FormData — without it the
+                        server rejects the upload with "Invalid form submission".
+                        Token id matches framework.form.csrf_protection.token_id.
+                    #}
+                    <input type="hidden" name="upload_project_file_form[_token]" value="{{ csrf_token('submit') }}">
+
                     <div class="mb-3">
                         <label class="form-label" for="gallery-upload-file">Soubor</label>
                         <input
                             type="file"
                             id="gallery-upload-file"
-                            name="upload_project_file[file]"
+                            name="upload_project_file_form[file]"
                             class="form-control"
                             accept="image/*"
                             data-gallery-uploader-target="file"
