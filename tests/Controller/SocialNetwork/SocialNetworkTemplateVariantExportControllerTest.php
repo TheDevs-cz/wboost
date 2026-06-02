@@ -310,6 +310,81 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
     }
 
     /**
+     * Regression for the iteration-7 production bug. When applying overrides,
+     * the render template MUST use `obj.set({ text: ... })` — direct property
+     * assignment (`obj.text = ...`) updates the string state but Fabric v7's
+     * Textbox renders stale glyphs because its layout cache (_styleMap,
+     * _textLines, dimensions) is only invalidated through the property-setter
+     * chain that `set()` runs.
+     *
+     * Verified empirically against the prod canvas JSON via
+     * /debug/fabric-render-test.html and against a real Gotenberg pipeline
+     * render in dev (app:debug:render-variant) — direct assign rendered the
+     * placeholder, `set()` rendered the override.
+     */
+    public function testRenderTemplateUsesObjSetForOverridesNotDirectAssignment(): void
+    {
+        $twig = self::getContainer()->get('twig');
+
+        $rendered = $twig->render('api/social_network_template_variant_render.html.twig', [
+            'variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
+            'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            'font_faces' => [],
+            'text_overrides' => [],
+            'hidden_overrides' => [],
+            'fabric_inline_script' => '/* fabric stub */',
+        ]);
+
+        // Must use set() for both text and visibility overrides.
+        self::assertStringContainsString('obj.set({ text: String(textOverrides[idKey]) })', $rendered);
+        self::assertStringContainsString('obj.set({ visible: !hiddenOverrides[idKey] })', $rendered);
+
+        // Direct property assignment must NOT be present — it silently fails
+        // for Textbox glyph rendering in Fabric v7.
+        self::assertStringNotContainsString('obj.text = String(textOverrides', $rendered);
+        self::assertStringNotContainsString('obj.visible = !hiddenOverrides', $rendered);
+    }
+
+    /**
+     * Regression for "the export uses the wrong font". The headless Chromium
+     * render came out in a serif fallback even though the editor showed the
+     * correct webfont. Root cause: a Canvas 2D context does NOT trigger lazy
+     * @font-face loading, and `document.fonts.ready` only awaits faces that
+     * are ALREADY loading — so a purely declarative @font-face is never
+     * fetched for canvas-only text and Fabric measures/paints with the
+     * fallback. The template MUST construct FontFace objects from the inlined
+     * data URIs and await load() before touching the canvas (the editor does
+     * the equivalent via FontFaceObserver).
+     *
+     * This pins the force-load so a future edit cannot regress back to a
+     * declaration-only approach.
+     */
+    public function testRenderTemplateForceLoadsFontsBeforeRendering(): void
+    {
+        $twig = self::getContainer()->get('twig');
+
+        $rendered = $twig->render('api/social_network_template_variant_render.html.twig', [
+            'variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
+            'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            'font_faces' => [
+                ['family' => 'Rubik (Rubik ExtraBold Italic)', 'src' => 'data:font/woff2;base64,AAAA'],
+            ],
+            'text_overrides' => [],
+            'hidden_overrides' => [],
+            'fabric_inline_script' => '/* fabric stub */',
+        ]);
+
+        // The faces must reach the client as data the script iterates over.
+        self::assertStringContainsString('Rubik (Rubik ExtraBold Italic)', $rendered);
+
+        // ...and be force-loaded via the CSS Font Loading API, then awaited,
+        // BEFORE any canvas text is measured or painted.
+        self::assertStringContainsString('new FontFace(', $rendered);
+        self::assertStringContainsString('fontFace.load()', $rendered);
+        self::assertStringContainsString('document.fonts.add(', $rendered);
+    }
+
+    /**
      * Regression for the Fabric v7 / PascalCase fallout: even when the
      * variant's canvas contains a Textbox whose `inputId` is properly
      * matched with `inputs[i].inputId`, the override resolver must still

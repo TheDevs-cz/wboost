@@ -1,6 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { Canvas, Textbox, FabricImage } from "fabric";
-import FontFaceObserver from 'fontfaceobserver';
+import { Canvas, Textbox, FabricImage, cache } from "fabric";
 
 import { CANVAS_CUSTOM_PROPERTIES } from './canvas_custom_properties.js';
 
@@ -27,10 +26,21 @@ export default class extends Controller {
     connect() {
         this.canvas = new Canvas('c');
 
+        // Kick off font loading FIRST and keep the promise. The project fonts
+        // are declared as @font-face served over HTTP from Minio, so on a cold
+        // browser cache they are NOT resident when connect() runs. The canvas
+        // load below awaits this.fontsReady before its first text measurement,
+        // so glyphs are measured/painted with the real webfont instead of a
+        // serif fallback — that race was the intermittent "wrong font until
+        // refresh" bug.
+        this.fontsReady = this.loadFonts();
+        this.populateFontSelect();
+
         const canvasJson = this.element.dataset.canvasEditorCanvasJson;
         if (canvasJson && canvasJson.trim() !== '') {
             // loadCanvasWithoutHistory is async in v7 (Promise-based loadFromJSON);
-            // Stimulus connect() can't be async, so we fire-and-forget.
+            // Stimulus connect() can't be async, so we fire-and-forget. It
+            // awaits this.fontsReady internally before measuring/painting text.
             this.loadCanvasWithoutHistory(canvasJson);
         }
 
@@ -39,7 +49,13 @@ export default class extends Controller {
             this.setBackgroundImage(this.backgroundImageValue);
         }
 
-        this.loadFontsAndPopulateSelect();
+        // Safety net: once the browser reports every face ready, drop Fabric's
+        // glyph-measurement cache and repaint. Catches any face that settles
+        // after the initial render (or a family not in customFonts) so the
+        // editor never gets stuck showing a fallback font.
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(() => this.refreshAfterFontsLoaded());
+        }
 
         this._boundHandleKeydown = this.handleKeydown.bind(this);
         window.addEventListener('keydown', this._boundHandleKeydown);
@@ -100,6 +116,21 @@ export default class extends Controller {
                 }
             } else {
                 sourceCanvas = canvasJson || {};
+            }
+
+            // Wait for the project webfonts to be resident BEFORE loadFromJSON.
+            // loadFromJSON triggers Fabric's text measurement (initDimensions);
+            // if the font is not yet loaded that measurement — and the first
+            // paint — fall back to a serif, which is exactly the cold-cache bug.
+            // connect() assigns this.fontsReady synchronously before calling us,
+            // so it is always set here; awaiting an already-resolved promise on
+            // later calls (undo/redo restore) is a no-op.
+            if (this.fontsReady) {
+                try {
+                    await this.fontsReady;
+                } catch (err) {
+                    // Best effort: a failed/slow face must not block the canvas.
+                }
             }
 
             // Fabric v7 loadFromJSON returns a Promise (no callback form).
@@ -222,23 +253,38 @@ export default class extends Controller {
         this.canvas.renderAll();
     }
 
-    async loadFontsAndPopulateSelect() {
+    /**
+     * Force every project font face to actually download, and resolve only
+     * once they are usable for canvas text. Uses the native CSS Font Loading
+     * API: `document.fonts.load()` triggers the matching @font-face declared
+     * in the page <style> (family names are emitted identically server-side —
+     * `"<font> (<face>)"`) and its promise settles when the glyphs are ready.
+     *
+     * This replaces FontFaceObserver, whose fixed ~3s timeout could fire
+     * before a large face finished downloading on a cold cache. Per-face
+     * failures are swallowed so one broken font never blocks the rest (or the
+     * canvas render that awaits this).
+     */
+    async loadFonts() {
+        const families = this.customFontsValue || [];
+
+        await Promise.all(families.map(async (family) => {
+            try {
+                await document.fonts.load(`16px "${family}"`);
+            } catch (err) {
+                console.error(`Font ${family} failed to load:`, err);
+            }
+        }));
+    }
+
+    populateFontSelect() {
         const fontFamilySelect = document.getElementById('font-family-control');
         if (!fontFamilySelect) {
             return;
         }
         fontFamilySelect.innerHTML = '';
 
-        const fontPromises = this.customFontsValue.map(font => {
-            const fontObserver = new FontFaceObserver(font);
-            return fontObserver.load().then(() => {
-                this.addFontOption(fontFamilySelect, font);
-            }).catch(err => {
-                console.error(`Font ${font} failed to load:`, err);
-            });
-        });
-
-        await Promise.all(fontPromises);
+        (this.customFontsValue || []).forEach((font) => this.addFontOption(fontFamilySelect, font));
     }
 
     addFontOption(selectElement, font) {
@@ -246,6 +292,35 @@ export default class extends Controller {
         option.value = font;
         option.textContent = font;
         selectElement.appendChild(option);
+    }
+
+    /**
+     * Repaint the canvas with correct font metrics after the browser reports
+     * all faces ready. Glyph widths measured while a face was still a fallback
+     * get cached under the same fontFamily key, so we clear Fabric's font
+     * cache and re-run text layout before requesting a render. This is the
+     * safety net behind the await in loadCanvasWithoutHistory — it covers any
+     * face that settles after the first paint.
+     */
+    refreshAfterFontsLoaded() {
+        if (!this.canvas) {
+            return;
+        }
+
+        try {
+            cache.clearFontCache();
+        } catch (err) {
+            // Non-fatal: the repaint below still corrects the painted glyphs.
+        }
+
+        this.canvas.getObjects().forEach((obj) => {
+            if (typeof obj.initDimensions === 'function') {
+                obj.initDimensions();
+                obj.setCoords();
+            }
+        });
+
+        this.canvas.requestRenderAll();
     }
 
     showAddTextModal() {

@@ -6,13 +6,6 @@
     <style>
         html, body { margin: 0; padding: 0; background: transparent; }
         canvas { display: block; }
-
-        {% for face in font_faces %}
-            @font-face {
-                font-family: '{{ face.family }}';
-                src: url('{{ face.src }}');
-            }
-        {% endfor %}
     </style>
     {# Fabric v7 UMD bundle (exposes the global `fabric` namespace —
        `fabric.StaticCanvas`, `fabric.Canvas`, ... — the same way v5 did).
@@ -29,7 +22,30 @@
     <script>
         (async () => {
             try {
-                // Wait for inlined fonts to be parsed and ready before any text measurement.
+                // Force-load every project font face BEFORE any canvas text
+                // measurement / rendering. This is the crux of the "export
+                // uses the wrong font" bug: a Canvas 2D context does NOT
+                // trigger lazy @font-face loading, and `document.fonts.ready`
+                // only awaits faces that are ALREADY loading — so a purely
+                // declarative @font-face is never fetched for canvas-only text
+                // and Fabric silently renders with a serif fallback. The
+                // editor avoids this by explicitly loading fonts via
+                // FontFaceObserver; here we construct FontFace objects from the
+                // inlined data URIs and await load(), which guarantees the
+                // glyphs are resident before Fabric measures or paints.
+                const fontFaces = {{ font_faces|json_encode|raw }};
+                await Promise.all(fontFaces.map(async (face) => {
+                    try {
+                        const fontFace = new FontFace(face.family, 'url("' + face.src + '")');
+                        await fontFace.load();
+                        document.fonts.add(fontFace);
+                    } catch (fontErr) {
+                        // A single missing/corrupt face must not abort the whole
+                        // render — fall back for that family only.
+                        console.error('Font load failed: ' + face.family, fontErr);
+                    }
+                }));
+
                 if (document.fonts && document.fonts.ready) {
                     await document.fonts.ready;
                 }
@@ -74,19 +90,27 @@
                     });
                 });
 
-                // Apply overrides by inputId — see Stage 2 of the Fabric
-                // migration. We walk all objects (not just 'textbox') so
-                // future image-placeholder inputs use the same lookup path.
+                // Apply overrides by inputId. CRITICAL: use `obj.set(...)`
+                // and NOT direct property assignment. Fabric v7's Textbox
+                // caches glyph layout / dimensions / styleMap and only
+                // invalidates them through the property-setter chain that
+                // `set()` runs. A bare `obj.text = newText` updates the
+                // string state but the rendered output keeps the OLD
+                // glyphs — exactly the iteration-6 production bug where
+                // the canvas kept showing the placeholder despite the
+                // override clearly being applied at the JS level.
+                // Verified empirically via /debug/fabric-render-test.html
+                // against the prod canvas JSON.
                 Object.keys(textOverrides).forEach((idKey) => {
                     const obj = liveObjects.find((o) => o.inputId === idKey);
                     if (obj) {
-                        obj.text = String(textOverrides[idKey]);
+                        obj.set({ text: String(textOverrides[idKey]) });
                     }
                 });
                 Object.keys(hiddenOverrides).forEach((idKey) => {
                     const obj = liveObjects.find((o) => o.inputId === idKey);
                     if (obj) {
-                        obj.visible = !hiddenOverrides[idKey];
+                        obj.set({ visible: !hiddenOverrides[idKey] });
                     }
                 });
 
