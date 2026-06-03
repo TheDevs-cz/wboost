@@ -222,6 +222,11 @@ Service-loader convention: only `*Provider.php` and `*Processor.php` files under
 
 ### OAuth2 (client_credentials)
 
+> **Full guide:** [`docs/api/authentication.md`](docs/api/authentication.md) — the
+> end-to-end flow (create credentials → obtain token → call the API), the JWT
+> claim layout, why there are no refresh tokens, an error reference, and the
+> configuration table. The summary below is the quick version.
+
 The API is protected by JWT (RS256) issued via the `client_credentials` grant. Service consumers POST to `/api/token`:
 
 ```bash
