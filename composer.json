@@ -140,7 +140,7 @@
     "replace": {
         "symfony/polyfill-intl-grapheme": "*",
         "symfony/polyfill-intl-icu": "*",
-        "symfony/polyfill-intl-idn": "*",
+        "symfony/polyfill-intl-idn": "1.38.1",
         "symfony/polyfill-intl-normalizer": "*",
         "symfony/polyfill-mbstring": "*",
         "symfony/polyfill-ctype": "*",

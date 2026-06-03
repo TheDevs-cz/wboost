@@ -78,6 +78,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     tags?: TagsType,
  *     resource_tags?: TagsType,
  *     decorates?: string,
+ *     decorates_tag?: string,
  *     decoration_inner_name?: string,
  *     decoration_priority?: int,
  *     decoration_on_invalid?: 'exception'|'ignore'|null,
@@ -118,6 +119,11 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     stack: list<DefinitionType|AliasType|PrototypeType|array<class-string, ArgumentsType|null>>,
  *     public?: bool,
  *     deprecated?: DeprecationType,
+ *     decorates?: string,
+ *     decorates_tag?: string,
+ *     decoration_inner_name?: string,
+ *     decoration_priority?: int,
+ *     decoration_on_invalid?: 'exception'|'ignore'|null,
  * }
  * @psalm-type ServicesConfig = array{
  *     _defaults?: DefaultsType,
@@ -168,7 +174,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         allow_revalidate?: bool|Param,
  *         stale_while_revalidate?: int|Param,
  *         stale_if_error?: int|Param,
- *         terminate_on_cache_hit?: bool|Param,
+ *         terminate_on_cache_hit?: bool|Param, // Deprecated: Setting the "framework.http_cache.terminate_on_cache_hit.terminate_on_cache_hit" configuration option is deprecated. It will be removed in version 9.0.
  *     },
  *     esi?: bool|array{ // ESI configuration
  *         enabled?: bool|Param, // Default: false
@@ -188,7 +194,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         only_exceptions?: bool|Param, // Default: false
  *         only_main_requests?: bool|Param, // Default: false
  *         dsn?: scalar|Param|null, // Default: "file:%kernel.cache_dir%/profiler"
- *         collect_serializer_data?: true|Param, // Default: true
+ *         collect_serializer_data?: true|Param, // Deprecated: Setting the "framework.profiler.collect_serializer_data.collect_serializer_data" configuration option is deprecated. It will be removed in version 9.0. // Default: true
  *     },
  *     workflows?: bool|array{
  *         enabled?: bool|Param, // Default: false
@@ -340,6 +346,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             endpoint?: scalar|Param|null, // API endpoint for the NotCompromisedPassword Validator. // Default: null
  *         },
  *         disable_translation?: bool|Param, // Default: false
+ *         property_metadata_existence_check?: bool|Param, // When enabled, validateProperty() and validatePropertyValue() throw an exception if no metadata is found for the given property. // Default: false
  *         auto_mapping?: array<string, array{ // Default: []
  *             services?: list<scalar|Param|null>,
  *         }>,
@@ -396,6 +403,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             provider?: scalar|Param|null, // Overwrite the setting from the default provider for this adapter.
  *             early_expiration_message_bus?: scalar|Param|null,
  *             clearer?: scalar|Param|null,
+ *             marshaller?: scalar|Param|null, // The marshaller service to use for this pool.
  *         }>,
  *     },
  *     php_errors?: array{ // PHP errors handling configuration
@@ -420,9 +428,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     },
  *     messenger?: bool|array{ // Messenger configuration
  *         enabled?: bool|Param, // Default: true
- *         routing?: array<string, string|array{ // Default: []
- *             senders?: list<scalar|Param|null>,
- *         }>,
+ *         routing?: array<string, string|list<scalar|Param|null>>,
  *         serializer?: array{
  *             default_serializer?: scalar|Param|null, // Service id to use as the default serializer for the transports. // Default: "messenger.transport.native_php_serializer"
  *             symfony_serializer?: array{
@@ -498,7 +504,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 enabled?: bool|Param, // Default: false
  *                 cache_pool?: string|Param, // The taggable cache pool to use for storing the responses. // Default: "cache.http_client"
  *                 shared?: bool|Param, // Indicates whether the cache is shared (public) or private. // Default: true
- *                 max_ttl?: int|Param, // The maximum TTL (in seconds) allowed for cached responses. Null means no cap. // Default: null
+ *                 max_ttl?: int|Param, // The maximum TTL (in seconds) allowed for cached responses. // Default: 86400
  *             },
  *             retry_failed?: bool|array{
  *                 enabled?: bool|Param, // Default: false
@@ -514,7 +520,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 jitter?: float|Param, // Randomness in percent (between 0 and 1) to apply to the delay. // Default: 0.1
  *             },
  *         },
- *         mock_response_factory?: scalar|Param|null, // The id of the service that should generate mock responses. It should be either an invokable or an iterable.
+ *         mock_response_factory?: scalar|Param|null, // `true` to always return empty 200 responses, or the id of the service to use to generate mock responses - which should be either an invokable or an iterable.
  *         scoped_clients?: array<string, string|array{ // Default: []
  *             scope?: scalar|Param|null, // The regular expression that the request URL must match before adding the other options. When none is provided, the base URI is used instead.
  *             base_uri?: scalar|Param|null, // The URI to resolve relative URLs, following rules in RFC 3985, section 2.
@@ -545,13 +551,14 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 md5?: mixed,
  *             },
  *             crypto_method?: scalar|Param|null, // The minimum version of TLS to accept; must be one of STREAM_CRYPTO_METHOD_TLSv*_CLIENT constants.
+ *             mock_response_factory?: scalar|Param|null, // `true` to always return empty 200 responses, `false` to disable mocking, or the id of the service to use to generate mock responses (invokable or iterable).
  *             extra?: array<string, mixed>,
  *             rate_limiter?: scalar|Param|null, // Rate limiter name to use for throttling requests. // Default: null
  *             caching?: bool|array{ // Caching configuration.
  *                 enabled?: bool|Param, // Default: false
  *                 cache_pool?: string|Param, // The taggable cache pool to use for storing the responses. // Default: "cache.http_client"
  *                 shared?: bool|Param, // Indicates whether the cache is shared (public) or private. // Default: true
- *                 max_ttl?: int|Param, // The maximum TTL (in seconds) allowed for cached responses. Null means no cap. // Default: null
+ *                 max_ttl?: int|Param, // The maximum TTL (in seconds) allowed for cached responses. // Default: 86400
  *             },
  *             retry_failed?: bool|array{
  *                 enabled?: bool|Param, // Default: false
@@ -635,6 +642,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 interval?: scalar|Param|null, // Configures the rate interval. The value must be a number followed by "second", "minute", "hour", "day", "week" or "month" (or their plural equivalent).
  *                 amount?: int|Param, // Amount of tokens to add each interval. // Default: 1
  *             },
+ *             anchor_at?: scalar|Param|null, // Aligns the "fixed_window" policy to a calendar (e.g. "2024-01-05 00:00:00 UTC" combined with `interval: 1 month` resets the counter on the 5th of each month). UTC if not specified. // Default: null
  *         }>,
  *     },
  *     uid?: bool|array{ // Uid configuration
@@ -644,10 +652,12 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         name_based_uuid_namespace?: scalar|Param|null,
  *         time_based_uuid_version?: 7|6|1|Param, // Default: 7
  *         time_based_uuid_node?: scalar|Param|null,
+ *         uuid47_secret?: scalar|Param|null, // A high-entropy secret used by the "uuid47_transformer" service. Defaults to "kernel.secret". // Default: null
  *     },
  *     html_sanitizer?: bool|array{ // HtmlSanitizer configuration
  *         enabled?: bool|Param, // Default: false
  *         sanitizers?: array<string, array{ // Default: []
+ *             default_action?: "drop"|"block"|"allow"|Param, // Defines how the sanitizer must behave by default.
  *             allow_safe_elements?: bool|Param, // Allows "safe" elements and attributes. // Default: false
  *             allow_static_elements?: bool|Param, // Allows all static elements and attributes from the W3C Sanitizer API standard. // Default: false
  *             allow_elements?: array<string, mixed>,
@@ -671,6 +681,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     webhook?: bool|array{ // Webhook configuration
  *         enabled?: bool|Param, // Default: false
  *         message_bus?: scalar|Param|null, // The message bus to use. // Default: "messenger.default_bus"
+ *         event_header_name?: scalar|Param|null, // Default: "Webhook-Event"
+ *         id_header_name?: scalar|Param|null, // Default: "Webhook-Id"
+ *         signature_header_name?: scalar|Param|null, // Default: "Webhook-Signature"
+ *         signing_algorithm?: scalar|Param|null, // Default: "sha256"
  *         routing?: array<string, array{ // Default: []
  *             service?: scalar|Param|null,
  *             secret?: scalar|Param|null, // Default: ""
@@ -681,6 +695,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     },
  *     json_streamer?: bool|array{ // JSON streamer configuration
  *         enabled?: bool|Param, // Default: false
+ *         default_options?: array{
+ *             include_null_properties?: bool|Param, // Encode the properties with null value // Default: false
+ *             ...<string, mixed>
+ *         },
  *     },
  * }
  * @psalm-type TwigConfig = array{
@@ -1085,7 +1103,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     access_denied_url?: scalar|Param|null, // Default: null
  *     session_fixation_strategy?: "none"|"migrate"|"invalidate"|Param, // Default: "migrate"
  *     expose_security_errors?: \Symfony\Component\Security\Http\Authentication\ExposeSecurityLevel::None|\Symfony\Component\Security\Http\Authentication\ExposeSecurityLevel::AccountStatus|\Symfony\Component\Security\Http\Authentication\ExposeSecurityLevel::All|Param, // Default: "none"
- *     erase_credentials?: bool|Param, // Default: true
+ *     erase_credentials?: bool|Param, // Deprecated: Setting the "security.erase_credentials.erase_credentials" configuration option is deprecated. It will be removed in Symfony 9.0, as the "eraseCredentials()" method was removed in Symfony 8.0. // Default: true
  *     access_decision_manager?: array{
  *         strategy?: "affirmative"|"consensus"|"unanimous"|"priority"|Param,
  *         service?: scalar|Param|null,
@@ -1157,7 +1175,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             path?: scalar|Param|null, // Default: "/logout"
  *             target?: scalar|Param|null, // Default: "/"
  *             invalidate_session?: bool|Param, // Default: true
- *             clear_site_data?: string|list<"*"|"cache"|"cookies"|"storage"|"executionContexts"|Param>,
+ *             clear_site_data?: string|list<"*"|"cache"|"cookies"|"storage"|"clientHints"|"executionContexts"|"prefetchCache"|"prerenderCache"|Param>,
  *             delete_cookies?: string|array<string, array{ // Default: []
  *                 path?: scalar|Param|null, // Default: null
  *                 domain?: scalar|Param|null, // Default: null
@@ -1316,6 +1334,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         cache?: array{
  *                             id?: scalar|Param|null, // Cache service id to use to cache the OIDC discovery configuration.
  *                         },
+ *                         enforce_key_usage_verification?: bool|Param, // When enabled (default), only keys explicitly designated for signature (via "use":"sig" or a "key_ops" entry containing "sign"/"verify") are accepted. When disabled, keys without any usage designation are also accepted; keys explicitly restricted to encryption are still rejected. // Default: true
  *                     },
  *                     claim?: scalar|Param|null, // Claim which contains the user identifier (e.g.: sub, email..). // Default: "sub"
  *                     audience?: scalar|Param|null, // Audience set in the token, for validation purpose.
@@ -1841,6 +1860,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
  *                 pdf_universal_access?: bool|Param,
  *                 pdf_format?: "PDF/A-1b"|"PDF/A-2b"|"PDF/A-3b"|Param,
@@ -1851,6 +1874,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *             },
  *             encrypt?: array{
@@ -1867,6 +1891,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
  *                 owner_password?: scalar|Param|null,
  *                 user_password?: scalar|Param|null,
@@ -1876,6 +1904,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *             },
  *             embed?: array{
@@ -1892,6 +1921,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
  *                 download_from?: list<array{ // Default: []
  *                     url?: scalar|Param|null,
@@ -1899,6 +1932,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *             },
  *             flatten?: array{
@@ -1915,6 +1949,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
  *                 download_from?: list<array{ // Default: []
  *                     url?: scalar|Param|null,
@@ -1922,6 +1960,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *             },
  *             html?: array{
@@ -1938,10 +1977,26 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
+ *                 watermark_file?: scalar|Param|null,
+ *                 watermark_options?: array<string, mixed>,
+ *                 watermark_pages?: scalar|Param|null,
+ *                 watermark_expression?: scalar|Param|null,
+ *                 watermark_source?: "text"|"image"|"pdf"|Param,
+ *                 stamp_file?: scalar|Param|null,
+ *                 stamp_options?: array<string, mixed>,
+ *                 stamp_pages?: scalar|Param|null,
+ *                 stamp_expression?: scalar|Param|null,
+ *                 stamp_source?: "text"|"image"|"pdf"|Param,
  *                 split_unify?: bool|Param,
  *                 split_span?: scalar|Param|null,
  *                 split_mode?: "intervals"|"pages"|Param,
+ *                 rotate_pages?: scalar|Param|null,
+ *                 rotate_angle?: 90|180|270|Param,
  *                 pdf_universal_access?: bool|Param,
  *                 pdf_format?: "PDF/A-1b"|"PDF/A-2b"|"PDF/A-3b"|Param,
  *                 metadata?: array{
@@ -1957,6 +2012,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                     Subject?: scalar|Param|null,
  *                     Title?: scalar|Param|null,
  *                     Trapped?: "True"|"False"|"Unknown"|Param,
+ *                     ...<string, mixed>
  *                 },
  *                 flatten?: bool|Param,
  *                 owner_password?: scalar|Param|null,
@@ -1967,10 +2023,12 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *                 wait_for_selector?: scalar|Param|null,
  *                 wait_for_expression?: scalar|Param|null,
  *                 wait_delay?: scalar|Param|null,
+ *                 skip_network_almost_idle_event?: bool|Param,
  *                 skip_network_idle_event?: bool|Param,
  *                 generate_tagged_pdf?: bool|Param,
  *                 native_page_ranges?: scalar|Param|null,
@@ -2032,10 +2090,26 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
+ *                 watermark_file?: scalar|Param|null,
+ *                 watermark_options?: array<string, mixed>,
+ *                 watermark_pages?: scalar|Param|null,
+ *                 watermark_expression?: scalar|Param|null,
+ *                 watermark_source?: "text"|"image"|"pdf"|Param,
+ *                 stamp_file?: scalar|Param|null,
+ *                 stamp_options?: array<string, mixed>,
+ *                 stamp_pages?: scalar|Param|null,
+ *                 stamp_expression?: scalar|Param|null,
+ *                 stamp_source?: "text"|"image"|"pdf"|Param,
  *                 split_unify?: bool|Param,
  *                 split_span?: scalar|Param|null,
  *                 split_mode?: "intervals"|"pages"|Param,
+ *                 rotate_pages?: scalar|Param|null,
+ *                 rotate_angle?: 90|180|270|Param,
  *                 pdf_universal_access?: bool|Param,
  *                 pdf_format?: "PDF/A-1b"|"PDF/A-2b"|"PDF/A-3b"|Param,
  *                 metadata?: array{
@@ -2051,7 +2125,29 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                     Subject?: scalar|Param|null,
  *                     Title?: scalar|Param|null,
  *                     Trapped?: "True"|"False"|"Unknown"|Param,
+ *                     ...<string, mixed>
  *                 },
+ *                 open_bookmark_levels?: int|Param,
+ *                 use_transition_effects?: bool|Param,
+ *                 hide_viewer_window_controls?: bool|Param,
+ *                 hide_viewer_toolbar?: bool|Param,
+ *                 hide_viewer_menubar?: bool|Param,
+ *                 display_pdf_document_title?: bool|Param,
+ *                 open_in_full_screen_mode?: bool|Param,
+ *                 center_window?: bool|Param,
+ *                 resize_window_to_initial_page?: bool|Param,
+ *                 first_page_on_left?: bool|Param,
+ *                 page_layout?: 0|1|2|3|Param,
+ *                 zoom?: int|Param,
+ *                 magnification?: 0|1|2|3|4|Param,
+ *                 initial_page?: int|Param,
+ *                 initial_view?: 0|1|2|Param,
+ *                 tiled_watermark_text?: scalar|Param|null,
+ *                 watermark_font_name?: scalar|Param|null,
+ *                 watermark_rotate_angle?: int|Param,
+ *                 watermark_font_height?: int|Param,
+ *                 watermark_color?: scalar|Param|null,
+ *                 watermark_text?: scalar|Param|null,
  *                 update_indexes?: bool|Param,
  *                 max_image_resolution?: 75|150|300|600|1200|Param,
  *                 reduce_image_resolution?: bool|Param,
@@ -2083,6 +2179,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *                 owner_password?: scalar|Param|null,
  *                 user_password?: scalar|Param|null,
@@ -2101,10 +2198,26 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
+ *                 watermark_file?: scalar|Param|null,
+ *                 watermark_options?: array<string, mixed>,
+ *                 watermark_pages?: scalar|Param|null,
+ *                 watermark_expression?: scalar|Param|null,
+ *                 watermark_source?: "text"|"image"|"pdf"|Param,
+ *                 stamp_file?: scalar|Param|null,
+ *                 stamp_options?: array<string, mixed>,
+ *                 stamp_pages?: scalar|Param|null,
+ *                 stamp_expression?: scalar|Param|null,
+ *                 stamp_source?: "text"|"image"|"pdf"|Param,
  *                 split_unify?: bool|Param,
  *                 split_span?: scalar|Param|null,
  *                 split_mode?: "intervals"|"pages"|Param,
+ *                 rotate_pages?: scalar|Param|null,
+ *                 rotate_angle?: 90|180|270|Param,
  *                 pdf_universal_access?: bool|Param,
  *                 pdf_format?: "PDF/A-1b"|"PDF/A-2b"|"PDF/A-3b"|Param,
  *                 metadata?: array{
@@ -2120,6 +2233,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                     Subject?: scalar|Param|null,
  *                     Title?: scalar|Param|null,
  *                     Trapped?: "True"|"False"|"Unknown"|Param,
+ *                     ...<string, mixed>
  *                 },
  *                 flatten?: bool|Param,
  *                 owner_password?: scalar|Param|null,
@@ -2130,10 +2244,12 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *                 wait_for_selector?: scalar|Param|null,
  *                 wait_for_expression?: scalar|Param|null,
  *                 wait_delay?: scalar|Param|null,
+ *                 skip_network_almost_idle_event?: bool|Param,
  *                 skip_network_idle_event?: bool|Param,
  *                 generate_tagged_pdf?: bool|Param,
  *                 native_page_ranges?: scalar|Param|null,
@@ -2195,7 +2311,21 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
+ *                 watermark_file?: scalar|Param|null,
+ *                 watermark_options?: array<string, mixed>,
+ *                 watermark_pages?: scalar|Param|null,
+ *                 watermark_expression?: scalar|Param|null,
+ *                 watermark_source?: "text"|"image"|"pdf"|Param,
+ *                 stamp_file?: scalar|Param|null,
+ *                 stamp_options?: array<string, mixed>,
+ *                 stamp_pages?: scalar|Param|null,
+ *                 stamp_expression?: scalar|Param|null,
+ *                 stamp_source?: "text"|"image"|"pdf"|Param,
  *                 pdf_universal_access?: bool|Param,
  *                 pdf_format?: "PDF/A-1b"|"PDF/A-2b"|"PDF/A-3b"|Param,
  *                 metadata?: array{
@@ -2211,6 +2341,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                     Subject?: scalar|Param|null,
  *                     Title?: scalar|Param|null,
  *                     Trapped?: "True"|"False"|"Unknown"|Param,
+ *                     ...<string, mixed>
  *                 },
  *                 flatten?: bool|Param,
  *                 owner_password?: scalar|Param|null,
@@ -2221,6 +2352,38 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
+ *                 }>,
+ *                 auto_index_bookmarks?: bool|Param,
+ *             },
+ *             rotate?: array{
+ *                 webhook?: string|array{
+ *                     config_name?: scalar|Param|null,
+ *                     success?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                         method?: "POST"|"PUT"|"PATCH"|Param,
+ *                     },
+ *                     error?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                         method?: "POST"|"PUT"|"PATCH"|Param,
+ *                     },
+ *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
+ *                 },
+ *                 rotate_pages?: scalar|Param|null,
+ *                 rotate_angle?: 90|180|270|Param,
+ *                 download_from?: list<array{ // Default: []
+ *                     url?: scalar|Param|null,
+ *                     extraHttpHeaders?: array<string, array{ // Default: []
+ *                         name?: scalar|Param|null,
+ *                         value?: scalar|Param|null,
+ *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *             },
  *             split?: array{
@@ -2237,7 +2400,21 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
+ *                 watermark_file?: scalar|Param|null,
+ *                 watermark_options?: array<string, mixed>,
+ *                 watermark_pages?: scalar|Param|null,
+ *                 watermark_expression?: scalar|Param|null,
+ *                 watermark_source?: "text"|"image"|"pdf"|Param,
+ *                 stamp_file?: scalar|Param|null,
+ *                 stamp_options?: array<string, mixed>,
+ *                 stamp_pages?: scalar|Param|null,
+ *                 stamp_expression?: scalar|Param|null,
+ *                 stamp_source?: "text"|"image"|"pdf"|Param,
  *                 split_unify?: bool|Param,
  *                 split_span?: scalar|Param|null,
  *                 split_mode?: "intervals"|"pages"|Param,
@@ -2256,6 +2433,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                     Subject?: scalar|Param|null,
  *                     Title?: scalar|Param|null,
  *                     Trapped?: "True"|"False"|"Unknown"|Param,
+ *                     ...<string, mixed>
  *                 },
  *                 flatten?: bool|Param,
  *                 owner_password?: scalar|Param|null,
@@ -2266,6 +2444,40 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
+ *                 }>,
+ *             },
+ *             stamp?: array{
+ *                 webhook?: string|array{
+ *                     config_name?: scalar|Param|null,
+ *                     success?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                         method?: "POST"|"PUT"|"PATCH"|Param,
+ *                     },
+ *                     error?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                         method?: "POST"|"PUT"|"PATCH"|Param,
+ *                     },
+ *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
+ *                 },
+ *                 stamp_file?: scalar|Param|null,
+ *                 stamp_options?: array<string, mixed>,
+ *                 stamp_pages?: scalar|Param|null,
+ *                 stamp_expression?: scalar|Param|null,
+ *                 stamp_source?: "text"|"image"|"pdf"|Param,
+ *                 download_from?: list<array{ // Default: []
+ *                     url?: scalar|Param|null,
+ *                     extraHttpHeaders?: array<string, array{ // Default: []
+ *                         name?: scalar|Param|null,
+ *                         value?: scalar|Param|null,
+ *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *             },
  *             url?: array{
@@ -2282,10 +2494,26 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
+ *                 watermark_file?: scalar|Param|null,
+ *                 watermark_options?: array<string, mixed>,
+ *                 watermark_pages?: scalar|Param|null,
+ *                 watermark_expression?: scalar|Param|null,
+ *                 watermark_source?: "text"|"image"|"pdf"|Param,
+ *                 stamp_file?: scalar|Param|null,
+ *                 stamp_options?: array<string, mixed>,
+ *                 stamp_pages?: scalar|Param|null,
+ *                 stamp_expression?: scalar|Param|null,
+ *                 stamp_source?: "text"|"image"|"pdf"|Param,
  *                 split_unify?: bool|Param,
  *                 split_span?: scalar|Param|null,
  *                 split_mode?: "intervals"|"pages"|Param,
+ *                 rotate_pages?: scalar|Param|null,
+ *                 rotate_angle?: 90|180|270|Param,
  *                 pdf_universal_access?: bool|Param,
  *                 pdf_format?: "PDF/A-1b"|"PDF/A-2b"|"PDF/A-3b"|Param,
  *                 metadata?: array{
@@ -2301,6 +2529,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                     Subject?: scalar|Param|null,
  *                     Title?: scalar|Param|null,
  *                     Trapped?: "True"|"False"|"Unknown"|Param,
+ *                     ...<string, mixed>
  *                 },
  *                 flatten?: bool|Param,
  *                 owner_password?: scalar|Param|null,
@@ -2311,10 +2540,12 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *                 wait_for_selector?: scalar|Param|null,
  *                 wait_for_expression?: scalar|Param|null,
  *                 wait_delay?: scalar|Param|null,
+ *                 skip_network_almost_idle_event?: bool|Param,
  *                 skip_network_idle_event?: bool|Param,
  *                 generate_tagged_pdf?: bool|Param,
  *                 native_page_ranges?: scalar|Param|null,
@@ -2362,6 +2593,39 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                     context?: list<mixed>,
  *                 },
  *             },
+ *             watermark?: array{
+ *                 webhook?: string|array{
+ *                     config_name?: scalar|Param|null,
+ *                     success?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                         method?: "POST"|"PUT"|"PATCH"|Param,
+ *                     },
+ *                     error?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                         method?: "POST"|"PUT"|"PATCH"|Param,
+ *                     },
+ *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
+ *                 },
+ *                 watermark_file?: scalar|Param|null,
+ *                 watermark_options?: array<string, mixed>,
+ *                 watermark_pages?: scalar|Param|null,
+ *                 watermark_expression?: scalar|Param|null,
+ *                 watermark_source?: "text"|"image"|"pdf"|Param,
+ *                 download_from?: list<array{ // Default: []
+ *                     url?: scalar|Param|null,
+ *                     extraHttpHeaders?: array<string, array{ // Default: []
+ *                         name?: scalar|Param|null,
+ *                         value?: scalar|Param|null,
+ *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
+ *                 }>,
+ *             },
  *         },
  *         screenshot?: array{
  *             html?: array{
@@ -2378,6 +2642,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
  *                 download_from?: list<array{ // Default: []
  *                     url?: scalar|Param|null,
@@ -2385,6 +2653,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *                 wait_for_selector?: scalar|Param|null,
  *                 wait_for_expression?: scalar|Param|null,
@@ -2396,6 +2665,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 clip?: bool|Param,
  *                 height?: int|Param,
  *                 width?: int|Param,
+ *                 skip_network_almost_idle_event?: bool|Param,
  *                 skip_network_idle_event?: bool|Param,
  *                 ignore_resource_http_status_domains?: list<scalar|Param|null>,
  *                 fail_on_console_exceptions?: bool|Param,
@@ -2441,6 +2711,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
  *                 download_from?: list<array{ // Default: []
  *                     url?: scalar|Param|null,
@@ -2448,6 +2722,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *                 wait_for_selector?: scalar|Param|null,
  *                 wait_for_expression?: scalar|Param|null,
@@ -2459,6 +2734,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 clip?: bool|Param,
  *                 height?: int|Param,
  *                 width?: int|Param,
+ *                 skip_network_almost_idle_event?: bool|Param,
  *                 skip_network_idle_event?: bool|Param,
  *                 ignore_resource_http_status_domains?: list<scalar|Param|null>,
  *                 fail_on_console_exceptions?: bool|Param,
@@ -2504,6 +2780,10 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         method?: "POST"|"PUT"|"PATCH"|Param,
  *                     },
  *                     extra_http_headers?: array<string, mixed>,
+ *                     events?: array{
+ *                         url?: scalar|Param|null,
+ *                         route?: mixed,
+ *                     },
  *                 },
  *                 download_from?: list<array{ // Default: []
  *                     url?: scalar|Param|null,
@@ -2511,6 +2791,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                         name?: scalar|Param|null,
  *                         value?: scalar|Param|null,
  *                     }>,
+ *                     field?: ""|"watermark"|"stamp"|"embedded"|Param,
  *                 }>,
  *                 wait_for_selector?: scalar|Param|null,
  *                 wait_for_expression?: scalar|Param|null,
@@ -2522,6 +2803,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *                 clip?: bool|Param,
  *                 height?: int|Param,
  *                 width?: int|Param,
+ *                 skip_network_almost_idle_event?: bool|Param,
  *                 skip_network_idle_event?: bool|Param,
  *                 ignore_resource_http_status_domains?: list<scalar|Param|null>,
  *                 fail_on_console_exceptions?: bool|Param,
