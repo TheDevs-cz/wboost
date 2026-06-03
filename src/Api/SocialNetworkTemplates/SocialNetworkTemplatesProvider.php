@@ -93,6 +93,11 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                             ? $this->uploaderHelper->getPublicPath($variant->previewImagePath)
                             : null,
                         backgroundImageUrl: $this->uploaderHelper->getPublicPath($variant->backgroundImage),
+                        thumbnailUrl: $this->urlGenerator->generate(
+                            'api_social_network_template_variant_thumbnail',
+                            ['variantId' => $variant->id->toString()],
+                            UrlGeneratorInterface::ABSOLUTE_URL,
+                        ),
                         exportUrl: $this->urlGenerator->generate(
                             'api_social_network_template_variant_export',
                             ['id' => $variant->id->toString()],
