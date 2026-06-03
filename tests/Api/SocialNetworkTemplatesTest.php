@@ -36,14 +36,12 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         ]);
 
         $this->assertResponseIsSuccessful();
-        $this->assertResponseHeaderSame('content-type', 'application/ld+json; charset=utf-8');
+        $this->assertResponseHeaderSame('content-type', 'application/json; charset=utf-8');
 
         $body = $response->toArray();
-        self::assertArrayHasKey('member', $body);
-        self::assertIsArray($body['member']);
 
         $ids = [];
-        foreach ($body['member'] as $row) {
+        foreach ($body as $row) {
             self::assertIsArray($row);
             self::assertArrayHasKey('id', $row);
             self::assertIsString($row['id']);
@@ -74,8 +72,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         $this->assertResponseIsSuccessful();
         $body = $response->toArray();
 
-        self::assertIsArray($body['member'] ?? null);
-        $template = self::findTemplate($body['member'], TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID);
+        $template = self::findTemplate($body, TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID);
 
         self::assertSame('Insta Template 1', $template['name'] ?? null);
         self::assertArrayHasKey('categoryId', $template);
