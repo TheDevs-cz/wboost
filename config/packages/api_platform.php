@@ -18,18 +18,16 @@ return App::config([
         'enable_docs' => true,
         'enable_swagger_ui' => true,
         'formats' => [
-            'jsonld' => ['mime_types' => ['application/ld+json']],
             'json' => ['mime_types' => ['application/json']],
         ],
         'docs_formats' => [
-            'jsonld' => ['mime_types' => ['application/ld+json']],
             'json' => ['mime_types' => ['application/json']],
             'jsonopenapi' => ['mime_types' => ['application/vnd.openapi+json']],
             'html' => ['mime_types' => ['text/html']],
         ],
         'error_formats' => [
             'jsonproblem' => ['mime_types' => ['application/problem+json']],
-            'jsonld' => ['mime_types' => ['application/ld+json']],
+            'json' => ['mime_types' => ['application/problem+json', 'application/json']],
         ],
         'defaults' => [
             'stateless' => true,

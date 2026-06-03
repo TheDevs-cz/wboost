@@ -122,14 +122,12 @@ final class ProjectsTest extends ApiTestCase
         ]);
 
         $this->assertResponseIsSuccessful();
-        $this->assertResponseHeaderSame('content-type', 'application/ld+json; charset=utf-8');
+        $this->assertResponseHeaderSame('content-type', 'application/json; charset=utf-8');
 
         $body = $response->toArray();
-        self::assertArrayHasKey('member', $body);
-        self::assertIsArray($body['member']);
-        self::assertCount(1, $body['member'], 'Only USER_1 projects should be returned (not USER_2 projects).');
+        self::assertCount(1, $body, 'Only USER_1 projects should be returned (not USER_2 projects).');
 
-        $project = $body['member'][0];
+        $project = $body[0];
         self::assertIsArray($project);
         self::assertSame(TestDataFixture::PROJECT_1_ID, $project['id']);
         self::assertSame('Project 1', $project['name']);

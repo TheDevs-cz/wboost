@@ -9,7 +9,8 @@ use ApiPlatform\Symfony\Bundle\Test\Client;
 
 /**
  * Base test case for API tests. Sets a default Accept header so individual
- * tests stay terse — JSON-LD by default for Hydra-shaped collection assertions.
+ * tests stay terse — plain JSON is the only negotiable format (JSON-LD/Hydra
+ * is disabled), so collections come back as flat arrays.
  */
 abstract class ApiTestCase extends BaseApiTestCase
 {
@@ -31,7 +32,7 @@ abstract class ApiTestCase extends BaseApiTestCase
     {
         $defaultOptions = array_merge_recursive([
             'headers' => [
-                'Accept' => 'application/ld+json',
+                'Accept' => 'application/json',
             ],
         ], $defaultOptions);
 
