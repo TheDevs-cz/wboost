@@ -84,8 +84,10 @@ event the orchestrator dispatches on Fabric's selection lifecycle:
 
 `SocialNetwork:VariantFiller` (`src/Twig/Components/SocialNetwork/VariantFiller.php`)
 replaces the old client-side Fabric runtime on the user-fill page. There is no
-canvas in the browser — inputs are bound via `data-model="on(change)|..."` so
-re-renders fire on field blur, the server resolves overrides via
+canvas in the browser — text inputs are bound via
+`data-model="on(input)|debounce(600)|..."` so re-renders fire ~600ms after the
+user stops typing (live-preview feel; checkboxes stay on `on(change)`), the
+server resolves overrides via
 `ResolveTextOverrides`, and the preview image is rendered by the same Gotenberg
 path the API uses. Download is a regular controller action.
 

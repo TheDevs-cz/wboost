@@ -2,8 +2,10 @@
     Stage 5 (post-hotfix): server-rendered user-fill page for a SocialNetworkTemplateVariant.
 
     Architecture:
-    - Inputs use data-model="on(change)|textValues[<uuid>]" so LiveProp state
-      updates on field blur. That re-render refreshes the preview <img>.
+    - Text inputs use data-model="on(input)|debounce(600)|textValues[<uuid>]"
+      so LiveProp state updates 600ms after the user stops typing (live-preview
+      feel), not only on blur. That re-render refreshes the preview <img>.
+      Checkboxes stay on on(change) — they fire once per click, no debounce.
     - The same inputs ALSO carry a `name` attribute and live inside a regular
       <form> that POSTs to the download route. Export is a plain form submit,
       not a LiveAction — Live Component's RedirectResponse path goes through
@@ -37,7 +39,7 @@
                                             class="form-control form-control-sm"
                                             id="text-input-{{ loop.index0 }}"
                                             name="textValues[{{ input.inputId }}]"
-                                            data-model="on(change)|textValues[{{ input.inputId }}]"
+                                            data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
                                             {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
                                             value="{{ this.textValues[input.inputId] ?? '' }}"
                                         >

@@ -23,9 +23,10 @@ use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererI
  * is server-rendered via the same Gotenberg pipeline the API uses.
  *
  * Architecture:
- * - Each input is a `<input data-model="on(change)|textValues[<uuid>]" name="textValues[<uuid>]">`.
- *   The data-model binding drives the live preview (LiveProp updates on field
- *   blur, component re-renders, preview <img> refreshes via `previewDataUri`).
+ * - Each input is a `<input data-model="on(input)|debounce(600)|textValues[<uuid>]" name="textValues[<uuid>]">`.
+ *   The data-model binding drives the live preview (LiveProp updates 600ms
+ *   after the user stops typing, component re-renders, preview <img> refreshes
+ *   via `previewDataUri`).
  *   The `name` puts the same field in a regular <form> that POSTs to the
  *   download route. Export is a plain form submit — no LiveAction — because
  *   Live Component's RedirectResponse path goes through `Turbo.visit`, which
@@ -122,10 +123,10 @@ final class VariantFiller extends AbstractController
      * Render the preview as a base64 data: URI so the Twig template can drop
      * it directly into an <img> tag.
      *
-     * Called every time the component renders; combined with the `on(change)`
-     * data-model modifier, this fires once per field blur — the explicit
-     * Stage 5 trade-off (good UX, no per-keystroke Gotenberg pressure, no
-     * caching layer needed yet).
+     * Called every time the component renders; combined with the
+     * `on(input)|debounce(600)` data-model modifier, this fires ~600ms after
+     * the user stops typing — close to a live-preview feel while still
+     * coalescing keystrokes so headless Chromium isn't hit per character.
      *
      * Uses `renderToBytes()` (not `render()`) deliberately: `render()` returns
      * a Gotenberg StreamedResponse whose body callback echoes + flush()es
