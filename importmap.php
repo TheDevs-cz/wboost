@@ -38,9 +38,6 @@ return [
     'fabric' => [
         'version' => '7.3.1',
     ],
-    'fontfaceobserver' => [
-        'version' => '2.3.0',
-    ],
     'dragula' => [
         'version' => '3.7.3',
     ],

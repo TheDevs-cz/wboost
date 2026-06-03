@@ -89,14 +89,50 @@ re-renders fire on field blur, the server resolves overrides via
 `ResolveTextOverrides`, and the preview image is rendered by the same Gotenberg
 path the API uses. Download is a regular controller action.
 
-**Project image gallery — Live Component (Stage 7)**
+**Project image gallery — Live Component (Stage 7 → 8)**
 
-`Project:ImageGallery` (`src/Twig/Components/Project/ImageGallery.php`) is a
-read-only grid of every `FileUpload` for the project. Both the admin editor's
-"Add image" and "Set background" buttons open the same modal hosting this
-component. Selection is a DOM `CustomEvent("asset-selected")` so the host
-Stimulus controller routes the chosen URL to `addImageToCanvas` or
-`setBackgroundImage` without a server round-trip.
+`Project:ImageGallery` (`src/Twig/Components/Project/ImageGallery.php`) is the
+per-project, per-`FileSource` asset library shown in the admin editor's "Add
+image" / "Set background" modal. Image **selection** stays a DOM
+`CustomEvent("asset-selected")` (with `{ url, path, id }`) so the host Stimulus
+controller routes the chosen URL to `addImageToCanvas` or `setBackgroundImage`
+without a server round-trip.
+
+Stage 8 added a **filesystem-like nested folder tree** on top:
+
+- `FileDirectory` entity (`src/Entity/FileDirectory.php`) — nullable self-ref
+  `parent` (null = root), scoped by `project` + `source`. `FileUpload` gained a
+  nullable `directory` FK (`ON DELETE SET NULL`).
+- Navigation/CRUD are **LiveActions** on the component (`openDirectory`,
+  `openRoot`, `createDirectory`, `startRename`/`renameDirectory`,
+  `deleteDirectory`, `moveFile`), each dispatching a CQRS message under
+  `Message/Image/` (`CreateFileDirectory`, `RenameFileDirectory`,
+  `DeleteFileDirectory`, `MoveFileUpload`). `$currentDirectoryId` is a (server-set)
+  LiveProp; deleting a folder lifts its child folders **and** files to the parent
+  (never discarded). **`#[LiveArg]` names must be lowercase** (e.g.
+  `#[LiveArg('directoryid')]`) to match the HTML-lowercased `data-live-*-param`.
+- Uploads still POST to `project_upload_file`; the modal's upload form carries a
+  hidden `directoryId` (= `$currentDirectoryId`) so new files land in the open
+  folder. **The upload form's field prefix is `upload_project_file_form[...]`**
+  (the form's block prefix from `UploadProjectFileFormType`), and it must include
+  a `_token` (`csrf_token('submit')`) — the form is submitted via
+  `new FormData(form)` by the `gallery-uploader` controller.
+- Authorisation: **no class-level `#[IsGranted]`** (its subject can't resolve from
+  a LiveProp during a LiveAction — that 500s). Access is enforced in
+  `#[PostMount]` + a `guard()` helper called by every render method and action;
+  client-supplied folder/file ids are re-checked via `ownedDirectory()`.
+
+The component root merges its controller via
+`{{ attributes.defaults({'data-controller': 'image-gallery'}) }}` — writing a
+second literal `data-controller` next to `{{ attributes }}` silently loses it
+(duplicate attribute; browser keeps `live`).
+
+The same component is also rendered **standalone** on a management page
+(`SocialNetworkGalleryController` → `/project/{projectId}/social-network-gallery`,
+linked from the social-networks page next to "Kategorie"). A `bool $modal`
+LiveProp (default `true`) toggles the modal header/close chrome and the
+click-to-select image buttons; pass `:modal="false"` to render plain thumbnails
+where folders + upload + move are the management surface.
 
 **Render path — Gotenberg + identical Fabric runtime**
 

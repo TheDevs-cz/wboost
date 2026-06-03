@@ -35,8 +35,11 @@ export default class extends Controller {
         this.submitButtonTarget.disabled = true;
 
         try {
-            const formData = new FormData();
-            formData.append('upload_project_file[file]', file);
+            // Build the payload from the form itself so the stateless-CSRF
+            // `_token` hidden field rides along with the file. A hand-built
+            // FormData that appends only the file omits the token and the
+            // server rejects it with "Invalid form submission".
+            const formData = new FormData(this.element);
 
             const response = await fetch(this.urlValue, {
                 method: 'POST',

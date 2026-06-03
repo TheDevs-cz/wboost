@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\SocialNetwork;
 
 use RuntimeException;
-use Sensiolabs\GotenbergBundle\Builder\Screenshot\HtmlScreenshotBuilder;
+use Sensiolabs\GotenbergBundle\Builder\BuilderFileInterface;
 use Sensiolabs\GotenbergBundle\Enumeration\ScreenshotFormat;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
 use Sensiolabs\GotenbergBundle\Processor\InMemoryProcessor;
@@ -13,6 +13,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
 final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTemplateVariantImageRendererInterface
@@ -62,7 +63,7 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
     private function buildScreenshot(
         SocialNetworkTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
-    ): HtmlScreenshotBuilder {
+    ): BuilderFileInterface {
         $project = $variant->template->project;
 
         $fonts = $this->getFonts->allForProject($project->id);
@@ -135,7 +136,68 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
             $canvas['backgroundImage']['crossOrigin'] = null;
         }
 
+        $canvas = $this->alignTextboxInputIds($canvas, $variant->inputs);
+
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Re-establish the inputId binding between canvas textboxes and the
+     * variant's inputs[] before the render template tries to apply overrides.
+     *
+     * The template matches each text / hide override to a canvas object by its
+     * `inputId` custom property, and the override map itself is keyed by
+     * `EditorTextInput::$inputId` (see ResolveTextOverrides). The editor keeps
+     * the two in sync on save, but variants saved during the Fabric v7
+     * migration window lost the custom property off their canvas objects while
+     * keeping it on inputs[] — so the override-by-inputId lookup matched
+     * nothing and placeholders rendered verbatim.
+     *
+     * We restore the binding here, at the single render chokepoint shared by
+     * the admin preview, the user download and the API export, using the same
+     * positional contract the editor uses on save: the i-th Textbox object on
+     * the canvas corresponds to inputs[i] (non-textbox objects such as images
+     * never appear in inputs[] and are skipped). The stamp is authoritative —
+     * the canvas id is always set to the input's id so the override key always
+     * resolves — and it is ephemeral: the persisted canvas row is untouched.
+     * For already-synced variants it is a harmless no-op.
+     *
+     * @param array<string, mixed> $canvas
+     * @param array<EditorTextInput> $inputs
+     * @return array<string, mixed>
+     */
+    private function alignTextboxInputIds(array $canvas, array $inputs): array
+    {
+        if (!isset($canvas['objects']) || !is_array($canvas['objects'])) {
+            return $canvas;
+        }
+
+        $inputs = array_values($inputs);
+        $objects = $canvas['objects'];
+        $textboxIndex = 0;
+
+        foreach ($objects as $index => $object) {
+            if (!is_array($object)) {
+                continue;
+            }
+
+            $type = $object['type'] ?? null;
+            if (!is_string($type) || strtolower($type) !== 'textbox') {
+                continue;
+            }
+
+            $input = $inputs[$textboxIndex] ?? null;
+            if ($input instanceof EditorTextInput) {
+                $object['inputId'] = $input->inputId;
+                $objects[$index] = $object;
+            }
+
+            $textboxIndex++;
+        }
+
+        $canvas['objects'] = $objects;
+
+        return $canvas;
     }
 
     private function getFabricInlineScript(): string
