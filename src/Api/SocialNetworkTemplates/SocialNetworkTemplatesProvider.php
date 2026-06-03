@@ -7,11 +7,16 @@ namespace WBoost\Web\Api\SocialNetworkTemplates;
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProviderInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Exceptions\ProjectNotFound;
+use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\UploaderHelper;
 
 /**
@@ -24,6 +29,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
         private EntityManagerInterface $entityManager,
         private UrlGeneratorInterface $urlGenerator,
         private UploaderHelper $uploaderHelper,
+        private ProjectRepository $projectRepository,
     ) {
     }
 
@@ -40,13 +46,30 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
             throw new AuthenticationException();
         }
 
+        $projectId = $uriVariables['projectId'] ?? null;
+
+        if (!is_string($projectId) || !Uuid::isValid($projectId)) {
+            throw new BadRequestHttpException('Invalid project id.');
+        }
+
+        try {
+            $project = $this->projectRepository->get(Uuid::fromString($projectId));
+        } catch (ProjectNotFound) {
+            throw new NotFoundHttpException();
+        }
+
+        // Owner-only scope (matches the previous endpoint). A 404 for projects
+        // owned by someone else avoids leaking their existence.
+        if (!$project->owner->id->equals($user->id)) {
+            throw new NotFoundHttpException();
+        }
+
         /** @var list<SocialNetworkTemplate> $templates */
         $templates = $this->entityManager->createQueryBuilder()
             ->select('t')
             ->from(SocialNetworkTemplate::class, 't')
-            ->join('t.project', 'p')
-            ->where('p.owner = :owner')
-            ->setParameter('owner', $user->id->toString())
+            ->where('t.project = :project')
+            ->setParameter('project', $project->id->toString())
             ->orderBy('t.position', 'ASC')
             ->addOrderBy('t.createdAt', 'ASC')
             ->getQuery()

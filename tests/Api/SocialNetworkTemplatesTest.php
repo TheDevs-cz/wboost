@@ -18,11 +18,11 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
     public function testRequiresAuthentication(): void
     {
         $client = self::createClient();
-        $client->request('GET', '/api/social-network-templates');
+        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates');
         $this->assertResponseStatusCodeSame(401);
     }
 
-    public function testReturnsOnlyTemplatesForOwnedProjects(): void
+    public function testReturnsTemplatesForRequestedProject(): void
     {
         $client = self::createClient();
         $token = TestingApiAuthentication::getAccessToken(
@@ -31,7 +31,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -52,8 +52,42 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertNotContains(
             TestDataFixture::SOCIAL_NETWORK_TEMPLATE_2_ID,
             $ids,
-            'USER_2 templates must not appear when querying with USER_1 token.',
+            'Templates from another project must not appear.',
         );
+    }
+
+    public function testReturnsNotFoundForProjectOwnedByAnotherUser(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        // PROJECT_2 belongs to USER_2 — querying it with USER_1's token must 404,
+        // not leak the project's existence or its templates.
+        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/social-network-templates', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+
+        $this->assertResponseStatusCodeSame(404);
+    }
+
+    public function testReturnsNotFoundForUnknownProject(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $client->request('GET', '/api/projects/00000000-0000-0000-0000-0000000000ff/social-network-templates', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+
+        $this->assertResponseStatusCodeSame(404);
     }
 
     public function testEmbedsVariantsAndInputs(): void
@@ -65,7 +99,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 

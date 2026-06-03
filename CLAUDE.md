@@ -264,7 +264,8 @@ API tests extend `WBoost\Web\Tests\Api\ApiTestCase` (default `Accept: applicatio
 `POST /api/social-network-template-variants/{id}/export` returns a PNG. The
 request body is `ExportRequest` and its `inputs` map is **keyed by inputId
 UUID** (Stage 2): `{ "inputs": { "<uuid>": "Hello", "<uuid>": { "value": "World", "hide": false } } }`.
-Discover the available input ids via `GET /api/social-network-templates` —
-each `variants[].inputs[].id` is the same UUID accepted here. Unknown ids
+Discover the available input ids via
+`GET /api/projects/{projectId}/social-network-templates` — each
+`variants[].inputs[].id` is the same UUID accepted here. Unknown ids
 are silently ignored; locked inputs cannot be overridden; `hide` only
 applies to inputs with `hidable: true`.

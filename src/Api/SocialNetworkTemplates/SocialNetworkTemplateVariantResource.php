@@ -28,9 +28,10 @@ use ArrayObject;
 Renders the variant's canvas to a PNG with the supplied input values applied.
 
 The shape of `inputs` is **dynamic per variant** — keys are the input UUIDs
-defined on the variant (discover them via `GET /api/social-network-templates`,
-then look at `variants[].inputs[].id`). Each variant's inputs may legitimately
-share a `name`, so the binding is by stable UUID — never by name.
+defined on the variant (discover them via
+`GET /api/projects/{projectId}/social-network-templates`, then look at
+`variants[].inputs[].id`). Each variant's inputs may legitimately share a
+`name`, so the binding is by stable UUID — never by name.
 
 Per-input value can be either:
 

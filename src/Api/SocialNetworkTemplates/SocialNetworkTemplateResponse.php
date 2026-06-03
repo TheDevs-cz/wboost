@@ -6,13 +6,25 @@ namespace WBoost\Web\Api\SocialNetworkTemplates;
 
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Link;
 use DateTimeImmutable;
 
 #[ApiResource(
     shortName: 'SocialNetworkTemplate',
     operations: [
         new GetCollection(
-            uriTemplate: '/social-network-templates',
+            uriTemplate: '/projects/{projectId}/social-network-templates',
+            // projectId is not an identifier of this resource — it scopes the
+            // collection. Declaring it as a Link on this DTO (empty identifiers)
+            // registers the route variable and hands it to the provider via
+            // $uriVariables without triggering parent auto-loading.
+            uriVariables: [
+                'projectId' => new Link(
+                    fromClass: SocialNetworkTemplateResponse::class,
+                    identifiers: [],
+                    parameterName: 'projectId',
+                ),
+            ],
             provider: SocialNetworkTemplatesProvider::class,
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             paginationEnabled: false,
