@@ -32,8 +32,13 @@ return static function (ContainerConfigurator $container): void {
     // minio"). AssetInliner + the upload/preview handlers all resolve
     // `oneup_flysystem.minio_filesystem`, so overriding it here keeps every
     // filesystem touch network-free.
+    //
+    // Root is OUTSIDE the workspace (/tmp), NOT under var/cache: the CI cache
+    // step's key is hashFiles('**/composer.lock'), which traverses the whole
+    // workspace in its post-run — image bytes written under var/cache make that
+    // traversal fail ("Fail to hash files under directory").
     $services->set('oneup_flysystem.minio_filesystem', Filesystem::class)
-        ->args([inline_service(LocalFilesystemAdapter::class)->args(['%kernel.cache_dir%/test-uploads'])])
+        ->args([inline_service(LocalFilesystemAdapter::class)->args(['/tmp/wboost-test-uploads'])])
         ->autowire(false)
         ->autoconfigure(false)
         ->public();
