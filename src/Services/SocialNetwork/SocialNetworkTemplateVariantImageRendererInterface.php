@@ -31,9 +31,11 @@ use WBoost\Web\Value\ResolvedInputOverrides;
 interface SocialNetworkTemplateVariantImageRendererInterface
 {
     /**
-     * Returns a streamed PNG Response. Designed to be returned directly from
-     * a controller — do NOT call `sendContent()` server-side; use
-     * `renderToBytes()` if you need the bytes in PHP.
+     * Returns a BUFFERED PNG Response (Content-Type: image/png), ready to be
+     * returned directly from a controller. Buffered rather than streamed on
+     * purpose: a flushing StreamedResponse corrupts the next request under
+     * FrankenPHP's resident PHP process ("headers already sent"). Use
+     * `renderToBytes()` if you only need the raw bytes in PHP.
      */
     public function render(
         SocialNetworkTemplateVariant $variant,

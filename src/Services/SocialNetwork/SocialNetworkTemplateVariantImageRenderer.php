@@ -46,7 +46,20 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
     ): Response {
-        return $this->buildScreenshot($variant, $overrides, $imageOverrides)->generate()->stream();
+        // Return a BUFFERED Response, NOT Gotenberg's StreamedResponse. The
+        // streamed response echoes + flush()es each chunk to the SAPI. Under
+        // FrankenPHP the PHP process stays resident across requests (even
+        // without worker mode), so that premature flush commits output +
+        // headers and leaves the SAPI dirty — the NEXT request (e.g. the
+        // editor page) then dies with "Cannot modify header information —
+        // headers already sent (output started at Response.php:393)". Social
+        // images are small, so buffering the bytes in memory is cheap and the
+        // controllers (download / API export) layer their own headers on top.
+        return new Response(
+            $this->renderToBytes($variant, $overrides, $imageOverrides),
+            Response::HTTP_OK,
+            ['Content-Type' => 'image/png'],
+        );
     }
 
     public function renderToBytes(
