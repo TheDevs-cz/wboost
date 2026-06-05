@@ -28,10 +28,11 @@ readonly final class EditSocialNetworkTemplateVariantCanvasHandler
     {
         $variant = $this->variantRepository->get($message->variantId);
 
-        $previewImagePath = $this->persistPreviewImage(
-            $message->variantId->toString(),
-            $message->previewImageDataUri,
-        );
+        // An empty preview (the client couldn't export a tainted canvas) must
+        // not wipe the existing thumbnail — keep whatever is already stored.
+        $previewImagePath = $message->previewImageDataUri === ''
+            ? $variant->previewImagePath
+            : $this->persistPreviewImage($message->variantId->toString(), $message->previewImageDataUri);
 
         $variant->editCanvas($message->canvas, $message->inputs, $previewImagePath, $message->imageInputs);
     }

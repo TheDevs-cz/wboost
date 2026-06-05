@@ -544,6 +544,7 @@ export default class extends Controller {
         this.textInputsTarget.value = JSON.stringify(textInputs);
 
         // Image placeholders: every image object the designer marked fillable.
+        // (see imageInputs extraction + preview below)
         const imageInputs = inMemoryObjects
             .filter((obj) => (obj.type || '').toLowerCase() === 'image' && obj.imagePlaceholder === true)
             .map((img) => {
@@ -563,7 +564,18 @@ export default class extends Controller {
             });
         this.imageInputsTarget.value = JSON.stringify(imageInputs);
 
-        this.previewImageTarget.value = this.getScaledCanvasDataURI(400); // 400px max-width
+        // Preview thumbnail via canvas.toDataURL(). A cross-origin image can
+        // taint the canvas (SecurityError "operation is insecure"), which must
+        // never block the save — persist the canvas + inputs without a fresh
+        // preview (the thumbnail falls back to the background server-side).
+        // Gallery images are loaded crossorigin="anonymous" so this normally
+        // succeeds; this guard only catches the tainted-canvas edge cases.
+        try {
+            this.previewImageTarget.value = this.getScaledCanvasDataURI(400); // 400px max-width
+        } catch (err) {
+            console.warn('Preview generation skipped (tainted canvas):', err);
+            this.previewImageTarget.value = '';
+        }
 
         fetch(form.action, {
             method: form.method,

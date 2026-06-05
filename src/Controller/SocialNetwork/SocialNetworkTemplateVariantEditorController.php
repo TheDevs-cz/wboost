@@ -50,7 +50,6 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
         if ($editorForm->isSubmitted() && $editorForm->isValid()) {
             assert(is_string($formData->canvas));
             assert(is_string($formData->textInputs));
-            assert(is_string($formData->imagePreview));
 
             $this->bus->dispatch(
                 new EditSocialNetworkTemplateVariantCanvasEditor(
@@ -58,7 +57,9 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
                     $formData->canvas,
                     EditorTextInput::createCollectionFromJson($formData->textInputs),
                     EditorImageInput::createCollectionFromJson($formData->imageInputs ?? '[]'),
-                    previewImageDataUri: $formData->imagePreview,
+                    // Empty when the client couldn't render a preview (e.g. a
+                    // tainted canvas); the handler keeps the existing thumbnail.
+                    previewImageDataUri: $formData->imagePreview ?? '',
                 ),
             );
 
