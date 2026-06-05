@@ -485,6 +485,10 @@ export default class extends Controller {
         this.canvas.add(img);
         this.canvas.setActiveObject(img);
         this.canvas.renderAll();
+        // setActiveObject() does not fire Fabric's selection events, so surface
+        // the image properties panel (placeholder toggle + settings) right away
+        // instead of making the designer click the freshly-added image first.
+        this.dispatchSelectionChanged();
     }
 
     submitForm() {
