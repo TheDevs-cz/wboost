@@ -15,6 +15,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use WBoost\Web\Exceptions\SocialNetworkTemplateVariantNotFound;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
+use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
 
@@ -28,6 +29,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         private SocialNetworkTemplateVariantRepository $variantRepository,
         private SocialNetworkTemplateVariantImageRendererInterface $renderer,
         private ResolveTextOverrides $resolveTextOverrides,
+        private ResolveImageOverrides $resolveImageOverrides,
     ) {
     }
 
@@ -55,8 +57,13 @@ final readonly class ExportProcessor implements ProcessorInterface
         }
 
         $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $data->inputs);
+        $imageOverrides = $this->resolveImageOverrides->resolve(
+            $variant->imageInputs,
+            $variant->template->project->id,
+            $data->images,
+        );
 
-        $response = $this->renderer->render($variant, $overrides);
+        $response = $this->renderer->render($variant, $overrides, $imageOverrides);
         $response->headers->set('Content-Type', 'image/png');
         $response->headers->set('Content-Disposition', sprintf('inline; filename="%s.png"', $variant->id->toString()));
 

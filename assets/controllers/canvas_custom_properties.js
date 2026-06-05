@@ -2,4 +2,15 @@
 // canvas JSON (and that clone() must preserve). Imported by every Stimulus
 // controller that round-trips canvas state — orchestrator, history,
 // clipboard, etc. — so they stay in lockstep.
-export const CANVAS_CUSTOM_PROPERTIES = ['name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'inputId'];
+//
+// Text-input props: name, maxLength, locked, uppercase, description, hidable, inputId.
+// Image-placeholder props (mirrors EditorImageInput): imagePlaceholder marks a
+// Fabric image as a fillable slot; allowMove/allowResize/allowRotate are the
+// per-slot user limits; allowedDirectoryIds is the gallery folders offered;
+// assetPath/assetId carry the gallery storage path + id so the server renderer
+// can inline the image as base64 without reverse-mapping its public URL.
+export const CANVAS_CUSTOM_PROPERTIES = [
+    'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'inputId',
+    'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
+    'assetPath', 'assetId',
+];

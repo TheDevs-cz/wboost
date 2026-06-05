@@ -14,7 +14,9 @@ use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Doctrine\CanvasJsonbType;
+use WBoost\Web\Doctrine\EditorImageInputsDoctrineType;
 use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
+use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\TemplateDimension;
 
@@ -38,6 +40,11 @@ class SocialNetworkTemplateVariant
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: EditorTextInputsDoctrineType::NAME)]
     public array $inputs = [];
+
+    /** @var array<EditorImageInput> */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: EditorImageInputsDoctrineType::NAME)]
+    public array $imageInputs = [];
 
     public function __construct(
         #[Id]
@@ -63,15 +70,18 @@ class SocialNetworkTemplateVariant
 
     /**
      * @param array<EditorTextInput> $inputs
+     * @param array<EditorImageInput> $imageInputs
      */
     public function editCanvas(
         string $canvas,
         array $inputs,
         null|string $previewImagePath,
+        array $imageInputs = [],
     ): void
     {
         $this->canvas = $canvas;
         $this->inputs = $inputs;
+        $this->imageInputs = $imageInputs;
         $this->previewImagePath = $previewImagePath;
     }
 

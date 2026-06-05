@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace WBoost\Web\Message\SocialNetwork;
 
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 
 readonly final class EditSocialNetworkTemplateVariantCanvasEditor
 {
     /**
+     * @param array<EditorTextInput> $inputs
+     * @param array<EditorImageInput> $imageInputs
      * @param string $previewImageDataUri Base64 PNG data URI captured client-side
      *                                    by `canvas.toDataURL()`. The handler
      *                                    decodes and uploads it to Minio.
@@ -17,8 +20,8 @@ readonly final class EditSocialNetworkTemplateVariantCanvasEditor
     public function __construct(
         public UuidInterface $variantId,
         public string $canvas,
-        /** @var array<EditorTextInput> */
         public array $inputs,
+        public array $imageInputs,
         public string $previewImageDataUri,
     ) {
     }

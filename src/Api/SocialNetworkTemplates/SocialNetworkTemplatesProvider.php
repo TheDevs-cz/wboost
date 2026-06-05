@@ -14,10 +14,14 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use WBoost\Web\Entity\SocialNetworkTemplate;
+use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\EditorImageInput;
+use WBoost\Web\Value\EditorTextInput;
 
 /**
  * @implements ProviderInterface<SocialNetworkTemplateResponse>
@@ -30,6 +34,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
         private UrlGeneratorInterface $urlGenerator,
         private UploaderHelper $uploaderHelper,
         private ProjectRepository $projectRepository,
+        private CanvasPlaceholderGeometry $placeholderGeometry,
     ) {
     }
 
@@ -76,51 +81,126 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
             ->getResult();
 
         return array_map(
-            fn (SocialNetworkTemplate $template): SocialNetworkTemplateResponse => new SocialNetworkTemplateResponse(
-                id: $template->id->toString(),
-                name: $template->name,
-                position: $template->position,
-                categoryId: $template->category?->id->toString(),
-                categoryName: $template->category?->name,
-                createdAt: $template->createdAt,
-                variants: array_values(array_map(
-                    fn ($variant): SocialNetworkTemplateVariantResponse => new SocialNetworkTemplateVariantResponse(
-                        id: $variant->id->toString(),
-                        dimension: $variant->dimension->value,
-                        width: $variant->dimension->width(),
-                        height: $variant->dimension->height(),
-                        previewImageUrl: $variant->previewImagePath !== null
-                            ? $this->uploaderHelper->getPublicPath($variant->previewImagePath)
-                            : null,
-                        backgroundImageUrl: $this->uploaderHelper->getPublicPath($variant->backgroundImage),
-                        thumbnailUrl: $this->urlGenerator->generate(
-                            'api_social_network_template_variant_thumbnail',
-                            ['variantId' => $variant->id->toString()],
-                            UrlGeneratorInterface::ABSOLUTE_URL,
-                        ),
-                        exportUrl: $this->urlGenerator->generate(
-                            'api_social_network_template_variant_export',
-                            ['id' => $variant->id->toString()],
-                            UrlGeneratorInterface::ABSOLUTE_URL,
-                        ),
-                        inputs: array_values(array_map(
-                            fn ($input): SocialNetworkTemplateVariantInputResponse => new SocialNetworkTemplateVariantInputResponse(
-                                id: $input->inputId,
-                                name: $input->name,
-                                maxLength: $input->maxLength,
-                                locked: $input->locked,
-                                uppercase: $input->uppercase,
-                                description: $input->description,
-                                hidable: $input->hidable,
-                            ),
-                            $variant->inputs,
-                        )),
-                    ),
-                    $template->variants(),
-                )),
-            ),
+            fn (SocialNetworkTemplate $template): SocialNetworkTemplateResponse => $this->buildTemplate($template),
             $templates,
         );
     }
 
+    private function buildTemplate(SocialNetworkTemplate $template): SocialNetworkTemplateResponse
+    {
+        return new SocialNetworkTemplateResponse(
+            id: $template->id->toString(),
+            name: $template->name,
+            position: $template->position,
+            categoryId: $template->category?->id->toString(),
+            categoryName: $template->category?->name,
+            createdAt: $template->createdAt,
+            variants: array_values(array_map(
+                fn (SocialNetworkTemplateVariant $variant): SocialNetworkTemplateVariantResponse => $this->buildVariant($variant),
+                $template->variants(),
+            )),
+        );
+    }
+
+    private function buildVariant(SocialNetworkTemplateVariant $variant): SocialNetworkTemplateVariantResponse
+    {
+        return new SocialNetworkTemplateVariantResponse(
+            id: $variant->id->toString(),
+            dimension: $variant->dimension->value,
+            width: $variant->dimension->width(),
+            height: $variant->dimension->height(),
+            previewImageUrl: $variant->previewImagePath !== null
+                ? $this->uploaderHelper->getPublicPath($variant->previewImagePath)
+                : null,
+            backgroundImageUrl: $this->uploaderHelper->getPublicPath($variant->backgroundImage),
+            thumbnailUrl: $this->urlGenerator->generate(
+                'api_social_network_template_variant_thumbnail',
+                ['variantId' => $variant->id->toString()],
+                UrlGeneratorInterface::ABSOLUTE_URL,
+            ),
+            exportUrl: $this->urlGenerator->generate(
+                'api_social_network_template_variant_export',
+                ['id' => $variant->id->toString()],
+                UrlGeneratorInterface::ABSOLUTE_URL,
+            ),
+            inputs: array_values(array_map(
+                fn (EditorTextInput $input): SocialNetworkTemplateVariantInputResponse => new SocialNetworkTemplateVariantInputResponse(
+                    id: $input->inputId,
+                    name: $input->name,
+                    maxLength: $input->maxLength,
+                    locked: $input->locked,
+                    uppercase: $input->uppercase,
+                    description: $input->description,
+                    hidable: $input->hidable,
+                ),
+                $variant->inputs,
+            )),
+            imageInputs: $this->buildImageInputs($variant),
+        );
+    }
+
+    /**
+     * @return list<SocialNetworkTemplateVariantImageInputResponse>
+     */
+    private function buildImageInputs(SocialNetworkTemplateVariant $variant): array
+    {
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $objects = $this->placeholderGeometry->placeholderObjectsByInputId($canvas);
+
+        return array_values(array_map(
+            function (EditorImageInput $input) use ($objects): SocialNetworkTemplateVariantImageInputResponse {
+                $object = $objects[$input->inputId] ?? null;
+
+                $frame = null;
+                $defaultImageUrl = null;
+
+                if ($object !== null) {
+                    $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);
+                    if ($placeholderFrame !== null) {
+                        $frame = new SocialNetworkTemplateVariantImageInputFrameResponse(
+                            $placeholderFrame->x,
+                            $placeholderFrame->y,
+                            $placeholderFrame->width,
+                            $placeholderFrame->height,
+                        );
+                    }
+
+                    $defaultImageUrl = $this->defaultImageUrl($object);
+                }
+
+                return new SocialNetworkTemplateVariantImageInputResponse(
+                    id: $input->inputId,
+                    name: $input->name,
+                    description: $input->description,
+                    allowMove: $input->allowMove,
+                    allowResize: $input->allowResize,
+                    allowRotate: $input->allowRotate,
+                    hidable: $input->hidable,
+                    allowedDirectoryIds: $input->allowedDirectoryIds,
+                    frame: $frame,
+                    defaultImageUrl: $defaultImageUrl,
+                );
+            },
+            $variant->imageInputs,
+        ));
+    }
+
+    /**
+     * @param array<array-key, mixed> $object
+     */
+    private function defaultImageUrl(array $object): null|string
+    {
+        $assetPath = $object['assetPath'] ?? null;
+        if (is_string($assetPath) && $assetPath !== '') {
+            return $this->uploaderHelper->getPublicPath($assetPath);
+        }
+
+        $src = $object['src'] ?? null;
+        if (is_string($src) && $src !== '' && !str_starts_with($src, 'data:')) {
+            return $src;
+        }
+
+        return null;
+    }
 }

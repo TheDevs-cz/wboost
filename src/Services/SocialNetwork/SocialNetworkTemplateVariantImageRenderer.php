@@ -13,7 +13,10 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\ResolvedImageOverride;
+use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
 final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTemplateVariantImageRendererInterface
@@ -30,23 +33,32 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
         private readonly GotenbergScreenshotInterface $gotenberg,
         private readonly GetFonts $getFonts,
         private readonly AssetInliner $assetInliner,
+        private readonly CanvasPlaceholderGeometry $placeholderGeometry,
+        private readonly ImagePlacement $imagePlacement,
+        private readonly UploaderHelper $uploaderHelper,
         #[Autowire('%kernel.project_dir%/assets/fabric/fabric-7.3.1.min.js')]
         private readonly string $fabricUmdBundlePath,
     ) {
     }
 
-    public function render(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): Response
-    {
-        return $this->buildScreenshot($variant, $overrides)->generate()->stream();
+    public function render(
+        SocialNetworkTemplateVariant $variant,
+        ResolvedInputOverrides $overrides,
+        null|ResolvedImageOverrides $imageOverrides = null,
+    ): Response {
+        return $this->buildScreenshot($variant, $overrides, $imageOverrides)->generate()->stream();
     }
 
-    public function renderToBytes(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): string
-    {
+    public function renderToBytes(
+        SocialNetworkTemplateVariant $variant,
+        ResolvedInputOverrides $overrides,
+        null|ResolvedImageOverrides $imageOverrides = null,
+    ): string {
         // The bundle's InMemoryProcessor drains the chunked HTTP response from
         // Gotenberg into a string. Unlike `stream()`, it never calls echo /
         // flush(), so it does not interfere with the outer HTTP response that
         // is still being assembled (headers, cookies, content-type).
-        $bytes = $this->buildScreenshot($variant, $overrides)
+        $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides)
             ->generate()
             ->processor(new InMemoryProcessor())
             ->process();
@@ -63,6 +75,7 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
     private function buildScreenshot(
         SocialNetworkTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
+        null|ResolvedImageOverrides $imageOverrides,
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
@@ -81,7 +94,7 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
             }
         }
 
-        $canvasJson = $this->buildCanvasJson($variant);
+        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides);
 
         $builder = $this->gotenberg->html()
             ->content('api/social_network_template_variant_render.html.twig', [
@@ -107,7 +120,7 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
      * reach Minio (whose public host is not resolvable from inside the
      * container in dev).
      */
-    private function buildCanvasJson(SocialNetworkTemplateVariant $variant): string
+    private function buildCanvasJson(SocialNetworkTemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides): string
     {
         $backgroundDataUri = $this->assetInliner->inlineImage($variant->backgroundImage);
 
@@ -137,8 +150,114 @@ final class SocialNetworkTemplateVariantImageRenderer implements SocialNetworkTe
         }
 
         $canvas = $this->alignTextboxInputIds($canvas, $variant->inputs);
+        $canvas = $this->applyImagePlaceholders($canvas, $imageOverrides ?? ResolvedImageOverrides::none());
 
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Bake image placeholders into the canvas JSON, server-side, so the
+     * headless Fabric runtime needs no image-specific logic (it just loads the
+     * finished document). For every image object we:
+     *
+     *  - hide it when the user blanked a hidable slot;
+     *  - replace it with the chosen picture (inlined) at the computed
+     *    object-contain + transform placement, clipped to the designer's frame,
+     *    when the slot was filled;
+     *  - otherwise inline its own src (decorative images and unfilled stand-ins)
+     *    so Gotenberg's Chromium never has to reach Minio — the same constraint
+     *    that forces the background to be inlined.
+     *
+     * @param array<string, mixed> $canvas
+     * @return array<string, mixed>
+     */
+    private function applyImagePlaceholders(array $canvas, ResolvedImageOverrides $imageOverrides): array
+    {
+        if (!isset($canvas['objects']) || !is_array($canvas['objects'])) {
+            return $canvas;
+        }
+
+        $objects = $canvas['objects'];
+
+        foreach ($objects as $index => $object) {
+            if (!is_array($object)) {
+                continue;
+            }
+
+            $type = $object['type'] ?? null;
+            if (!is_string($type) || strtolower($type) !== 'image') {
+                continue;
+            }
+
+            $inputId = is_string($object['inputId'] ?? null) ? $object['inputId'] : null;
+
+            // Hidden placeholder → render nothing for this slot.
+            if ($inputId !== null && ($imageOverrides->hidden[$inputId] ?? false) === true) {
+                $object['visible'] = false;
+                $objects[$index] = $object;
+                continue;
+            }
+
+            // Filled placeholder → swap in the chosen picture + placement.
+            $override = $inputId !== null ? ($imageOverrides->images[$inputId] ?? null) : null;
+            if ($override instanceof ResolvedImageOverride) {
+                $frame = $this->placeholderGeometry->frameFromObject($object);
+                if ($frame !== null) {
+                    $placement = $this->imagePlacement->compute(
+                        $frame,
+                        $override->naturalWidth,
+                        $override->naturalHeight,
+                        $override->scale,
+                        $override->offsetX,
+                        $override->offsetY,
+                        $override->rotation,
+                    );
+                    $object = array_merge($object, $placement);
+                    $object['src'] = $override->dataUri;
+                    $object['crossOrigin'] = null;
+                    $objects[$index] = $object;
+                    continue;
+                }
+            }
+
+            // Decorative image or unfilled stand-in → inline its own src.
+            $path = $this->resolveAssetPath($object);
+            if ($path !== null) {
+                $dataUri = $this->assetInliner->inlineImage($path);
+                if ($dataUri !== null) {
+                    $object['src'] = $dataUri;
+                    $object['crossOrigin'] = null;
+                    $objects[$index] = $object;
+                }
+            }
+        }
+
+        $canvas['objects'] = $objects;
+
+        return $canvas;
+    }
+
+    /**
+     * Resolve a canvas image object's storage path for inlining: prefer the
+     * `assetPath` custom property (stamped when the image was added from the
+     * gallery), else reverse-map a public Minio URL back to its path. Returns
+     * null for already-inlined (data:) or external srcs, which are left as-is.
+     *
+     * @param array<array-key, mixed> $object
+     */
+    private function resolveAssetPath(array $object): null|string
+    {
+        $assetPath = $object['assetPath'] ?? null;
+        if (is_string($assetPath) && $assetPath !== '') {
+            return $assetPath;
+        }
+
+        $src = $object['src'] ?? null;
+        if (!is_string($src) || str_starts_with($src, 'data:')) {
+            return null;
+        }
+
+        return $this->uploaderHelper->getPathFromPublicUrl($src);
     }
 
     /**

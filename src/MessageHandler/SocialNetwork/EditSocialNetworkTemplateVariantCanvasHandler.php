@@ -33,7 +33,7 @@ readonly final class EditSocialNetworkTemplateVariantCanvasHandler
             $message->previewImageDataUri,
         );
 
-        $variant->editCanvas($message->canvas, $message->inputs, $previewImagePath);
+        $variant->editCanvas($message->canvas, $message->inputs, $previewImagePath, $message->imageInputs);
     }
 
     /**

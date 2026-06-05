@@ -269,3 +269,39 @@ Discover the available input ids via
 `variants[].inputs[].id` is the same UUID accepted here. Unknown ids
 are silently ignored; locked inputs cannot be overridden; `hide` only
 applies to inputs with `hidable: true`.
+
+### Image placeholders
+
+The image counterpart of text inputs (mirrors the same architecture). A designer
+marks a canvas image as a fillable **placeholder** (custom prop
+`imagePlaceholder`), sets per-slot limits (`allowMove`/`allowResize`/`allowRotate`,
+`hidable`) and toggles which gallery folders feed it (`allowedDirectoryIds`); these
+persist as an `EditorImageInput[]` JSONB column `image_inputs` on
+`social_network_template_variant` (via `EditorImageInputsDoctrineType`), alongside
+the textbox `inputs`.
+
+- **Render core**: `ResolveImageOverrides` validates the fill (the chosen `imageId`
+  must be a `FileUpload` in one of the slot's allowed folders; move/resize/rotate
+  are 400'd when the slot forbids them), inlines the picture as base64 and reads its
+  natural size; `ImagePlacement` (a pure, unit-tested helper) computes the
+  object-contain fit + `scale`/`offset`/`rotation` into an absolute Fabric transform
+  plus an `absolutePositioned` `clipPath` rect = the designer's frame. The renderer
+  bakes this into the canvas JSON in `buildCanvasJson` — and now inlines **all**
+  canvas image srcs (decorative + stand-ins), not just the background, so headless
+  Chromium never reaches Minio. The headless Twig template needs no image-specific JS.
+- **API**: `POST …/export` accepts an `images` map keyed by `imageInputId` — either
+  `"<fileId>"` (centered object-contain) or `{ imageId, scale, offsetX, offsetY,
+  rotation }` / `{ hide: true }`. The templates listing exposes
+  `variants[].imageInputs[]` (`id`, limits, `allowedDirectoryIds`, `frame`,
+  `defaultImageUrl`). `GET …/placeholders/{inputId}/images` lists a slot's pickable
+  images; `POST` (multipart) to the same path uploads one into an allowed folder.
+  Both upload paths (OAuth API + web session) share `PlaceholderImageUploader`.
+- **Web fill (hybrid)**: `SocialNetwork:VariantFiller` renders the text + background
+  as a server **backdrop** (placeholders hidden) and floats the chosen pictures as
+  live Fabric objects (`variant_image_fill_controller.js`) the user moves/resizes/
+  rotates within the limits, clipped to the frame; the placements mirror into hidden
+  `images[<uuid>][...]` form fields so the plain download POST drives the same server
+  render. The canvas + placement fields live in a `data-live-ignore` subtree; the
+  backdrop is re-read from a Live-updated element via `MutationObserver`. The export
+  is **always** the full server render, so the PNG is authoritative regardless of the
+  live preview.

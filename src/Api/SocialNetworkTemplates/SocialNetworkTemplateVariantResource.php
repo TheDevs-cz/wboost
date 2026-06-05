@@ -46,6 +46,24 @@ Server-side behavior:
 - `uppercase` from the input definition is applied automatically
 - Locked inputs cannot be addressed
 - Unknown input UUIDs are silently ignored
+
+## Image placeholders (`images`)
+
+`images` fills IMAGE placeholders, keyed by `variants[].imageInputs[].id`. Each
+value is either the **gallery image id** (string — placed centered + object-contain
+in the designer's frame) or an object
+`{ "imageId": "...", "scale": 1, "offsetX": 0, "offsetY": 0, "rotation": 0 }`
+(`scale` multiplies the contain-fit; `offsetX`/`offsetY` pan in canvas pixels from
+the frame centre; `rotation` is degrees), or `{ "hide": true }` to blank a
+`hidable` slot.
+
+- Discover the ids, frames and allowed folders in `variants[].imageInputs[]`.
+- List a slot's pickable images via
+  `GET /api/social-network-template-variants/{variantId}/placeholders/{inputId}/images`;
+  upload a new one via `POST` to the same path (multipart `file`).
+- An adjustment the slot does not permit (move / resize / rotate) → 400.
+- An `imageId` outside the slot's allowed folders, or not in this project → 400.
+- Unfilled slots keep the designer's stand-in image.
 MD,
                 requestBody: new RequestBody(
                     description: 'Map of inputId UUID → value (string or `{ value, hide }` object).',
@@ -64,6 +82,27 @@ MD,
                                                     'type' => 'object',
                                                     'properties' => [
                                                         'value' => ['type' => 'string'],
+                                                        'hide' => ['type' => 'boolean'],
+                                                    ],
+                                                    'additionalProperties' => false,
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                    'images' => [
+                                        'type' => 'object',
+                                        'description' => "Keyed by the variant's imageInputs[].id (UUID v4).",
+                                        'additionalProperties' => [
+                                            'oneOf' => [
+                                                ['type' => 'string'],
+                                                [
+                                                    'type' => 'object',
+                                                    'properties' => [
+                                                        'imageId' => ['type' => 'string'],
+                                                        'scale' => ['type' => 'number'],
+                                                        'offsetX' => ['type' => 'number'],
+                                                        'offsetY' => ['type' => 'number'],
+                                                        'rotation' => ['type' => 'number'],
                                                         'hide' => ['type' => 'boolean'],
                                                     ],
                                                     'additionalProperties' => false,

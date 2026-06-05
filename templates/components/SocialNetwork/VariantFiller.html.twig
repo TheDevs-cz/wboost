@@ -1,84 +1,219 @@
 {#
-    Stage 5 (post-hotfix): server-rendered user-fill page for a SocialNetworkTemplateVariant.
+    Stage 5 user-fill page for a SocialNetworkTemplateVariant.
 
-    Architecture:
-    - Text inputs use data-model="on(input)|debounce(600)|textValues[<uuid>]"
-      so LiveProp state updates 600ms after the user stops typing (live-preview
-      feel), not only on blur. That re-render refreshes the preview <img>.
-      Checkboxes stay on on(change) — they fire once per click, no debounce.
-    - The same inputs ALSO carry a `name` attribute and live inside a regular
-      <form> that POSTs to the download route. Export is a plain form submit,
-      not a LiveAction — Live Component's RedirectResponse path goes through
-      Turbo.visit, which doesn't reliably hand binary responses back to the
-      browser as a download. data-turbo="false" plus a normal form submit
-      sidesteps that entirely.
-    - No session stashing: the form data IS the input state.
+    Text fields use data-model="on(input)|debounce(600)|textValues[<uuid>]" so the
+    server backdrop re-renders ~600ms after typing; the same fields carry a `name`
+    inside a plain <form data-turbo="false"> that POSTs to the download route.
+
+    IMAGE PLACEHOLDERS (hybrid):
+    - When the variant has fillable image slots, the right column is an interactive
+      Fabric canvas (`variant-image-fill` controller) whose backgroundImage is the
+      server backdrop with the placeholders hidden (`backdropDataUri`). The user's
+      chosen pictures float on top as live Fabric objects they can move/resize/rotate
+      within the designer's limits; the placements are mirrored into hidden
+      `images[<uuid>][...]` fields so the same form POST drives the server render.
+    - The canvas + hidden placement fields live in a `data-live-ignore` subtree so
+      Fabric state and the user's placements survive Live re-renders (text edits).
+      The backdrop is exposed in a Live-updated element the controller reads by id.
 #}
 <div {{ attributes }}>
-    <div class="row">
-        <div class="col-2">
-            <form
-                method="POST"
-                action="{{ path('social_network_template_variant_download', { variantId: variant.id }) }}"
-                data-turbo="false"
-            >
-                {% if variant.inputs %}
-                    <div class="card mb-2">
-                        <div class="card-body">
-                            {% for input in variant.inputs %}
-                                {% if not input.locked %}
-                                    <div class="mb-2">
-                                        <label class="form-label small" for="text-input-{{ loop.index0 }}">
-                                            {{ input.name }}
-                                            {% if input.description %}
-                                                <br><small class="text-muted">{{ input.description }}</small>
-                                            {% endif %}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            class="form-control form-control-sm"
-                                            id="text-input-{{ loop.index0 }}"
-                                            name="textValues[{{ input.inputId }}]"
-                                            data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
-                                            {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
-                                            value="{{ this.textValues[input.inputId] ?? '' }}"
-                                        >
+    {% if this.hasImagePlaceholders() %}
+        {% set placeholders = this.imagePlaceholders() %}
+        <form
+            method="POST"
+            action="{{ path('social_network_template_variant_download', { variantId: variant.id }) }}"
+            data-turbo="false"
+            data-controller="variant-image-fill"
+            data-variant-image-fill-placeholders-value="{{ placeholders|json_encode }}"
+            data-variant-image-fill-width-value="{{ variant.dimension.width }}"
+            data-variant-image-fill-height-value="{{ variant.dimension.height }}"
+            data-variant-image-fill-backdrop-id-value="variant-backdrop-source"
+        >
+            <div class="row">
+                <div class="col-3">
+                    {% if variant.inputs %}
+                        <div class="card mb-2">
+                            <div class="card-body">
+                                {% for input in variant.inputs %}
+                                    {% if not input.locked %}
+                                        <div class="mb-2">
+                                            <label class="form-label small" for="text-input-{{ loop.index0 }}">
+                                                {{ input.name }}
+                                                {% if input.description %}<br><small class="text-muted">{{ input.description }}</small>{% endif %}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm"
+                                                id="text-input-{{ loop.index0 }}"
+                                                name="textValues[{{ input.inputId }}]"
+                                                data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
+                                                {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
+                                                value="{{ this.textValues[input.inputId] ?? '' }}"
+                                            >
+                                        </div>
+                                    {% endif %}
+                                    {% if input.hidable %}
+                                        <div class="mb-2 form-check">
+                                            <input
+                                                type="checkbox"
+                                                id="hide-control-{{ loop.index0 }}"
+                                                class="form-check-input"
+                                                name="hiddenValues[{{ input.inputId }}]"
+                                                value="1"
+                                                data-model="on(change)|hiddenValues[{{ input.inputId }}]"
+                                                {% if this.hiddenValues[input.inputId] ?? false %}checked{% endif %}
+                                            >
+                                            <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {# Per-placeholder picker: thumbnails of the allowed gallery images + upload. #}
+                    {% for ph in placeholders %}
+                        <div class="card mb-2">
+                            <div class="card-body">
+                                <p class="small fw-bold mb-1">{{ ph.name ?? 'Obrázek' }}</p>
+                                {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
+
+                                {% if ph.images is empty %}
+                                    <p class="text-muted small mb-1">Žádné obrázky ve sdílených složkách.</p>
+                                {% else %}
+                                    <div class="d-flex flex-wrap gap-1 mb-1">
+                                        {% for img in ph.images %}
+                                            <button
+                                                type="button"
+                                                class="btn p-0 border rounded"
+                                                title="Vybrat"
+                                                data-action="variant-image-fill#pickImage"
+                                                data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                                data-variant-image-fill-imageid-param="{{ img.id }}"
+                                                data-variant-image-fill-url-param="{{ img.url }}"
+                                            >
+                                                <img src="{{ img.url }}" alt="" width="44" height="44" style="object-fit: cover;">
+                                            </button>
+                                        {% endfor %}
                                     </div>
                                 {% endif %}
-                                {% if input.hidable %}
-                                    <div class="mb-2 form-check">
+
+                                <input
+                                    type="file"
+                                    class="form-control form-control-sm"
+                                    accept="image/*"
+                                    data-action="change->variant-image-fill#uploadImage"
+                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                    data-variant-image-fill-uploadurl-param="{{ path('social_network_variant_placeholder_upload', { variantId: variant.id, inputId: ph.inputId }) }}"
+                                >
+
+                                {% if ph.hidable %}
+                                    <div class="form-check mt-1">
                                         <input
                                             type="checkbox"
-                                            id="hide-control-{{ loop.index0 }}"
                                             class="form-check-input"
-                                            name="hiddenValues[{{ input.inputId }}]"
-                                            value="1"
-                                            data-model="on(change)|hiddenValues[{{ input.inputId }}]"
-                                            {% if this.hiddenValues[input.inputId] ?? false %}checked{% endif %}
+                                            id="hide-img-{{ ph.inputId }}"
+                                            data-action="change->variant-image-fill#toggleHide"
+                                            data-variant-image-fill-inputid-param="{{ ph.inputId }}"
                                         >
-                                        <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
+                                        <label class="form-check-label small" for="hide-img-{{ ph.inputId }}">Schovat</label>
                                     </div>
                                 {% endif %}
-                            {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn btn-primary me-1 mb-1">Export do PNG</button>
+                </div>
+
+                <div class="col-9">
+                    {# Live-updated backdrop source — read by the controller via getElementById
+                       so the canvas (in the ignored subtree below) picks up text edits. #}
+                    <span id="variant-backdrop-source" data-src="{{ this.backdropDataUri() }}" hidden></span>
+
+                    <div data-live-ignore>
+                        {# Controller mirrors each placement here as hidden fields, so the
+                           plain form POST carries them. Pre-rendered empty; data-live-ignore
+                           keeps the controller-set values across Live re-renders. #}
+                        {% for ph in placeholders %}
+                            <input type="hidden" name="images[{{ ph.inputId }}][imageId]" data-placeholder="{{ ph.inputId }}" data-field="imageId" value="">
+                            <input type="hidden" name="images[{{ ph.inputId }}][scale]" data-placeholder="{{ ph.inputId }}" data-field="scale" value="">
+                            <input type="hidden" name="images[{{ ph.inputId }}][offsetX]" data-placeholder="{{ ph.inputId }}" data-field="offsetX" value="">
+                            <input type="hidden" name="images[{{ ph.inputId }}][offsetY]" data-placeholder="{{ ph.inputId }}" data-field="offsetY" value="">
+                            <input type="hidden" name="images[{{ ph.inputId }}][rotation]" data-placeholder="{{ ph.inputId }}" data-field="rotation" value="">
+                            <input type="hidden" name="images[{{ ph.inputId }}][hide]" data-placeholder="{{ ph.inputId }}" data-field="hide" value="">
+                        {% endfor %}
+
+                        <div class="canvas-wrapper" data-variant-image-fill-target="wrapper" style="position: relative;">
+                            <canvas data-variant-image-fill-target="canvas" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
                         </div>
                     </div>
-                {% endif %}
+                </div>
+            </div>
+        </form>
+    {% else %}
+        {# No image placeholders — the original text-only server-preview page. #}
+        <div class="row">
+            <div class="col-2">
+                <form
+                    method="POST"
+                    action="{{ path('social_network_template_variant_download', { variantId: variant.id }) }}"
+                    data-turbo="false"
+                >
+                    {% if variant.inputs %}
+                        <div class="card mb-2">
+                            <div class="card-body">
+                                {% for input in variant.inputs %}
+                                    {% if not input.locked %}
+                                        <div class="mb-2">
+                                            <label class="form-label small" for="text-input-{{ loop.index0 }}">
+                                                {{ input.name }}
+                                                {% if input.description %}<br><small class="text-muted">{{ input.description }}</small>{% endif %}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm"
+                                                id="text-input-{{ loop.index0 }}"
+                                                name="textValues[{{ input.inputId }}]"
+                                                data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
+                                                {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
+                                                value="{{ this.textValues[input.inputId] ?? '' }}"
+                                            >
+                                        </div>
+                                    {% endif %}
+                                    {% if input.hidable %}
+                                        <div class="mb-2 form-check">
+                                            <input
+                                                type="checkbox"
+                                                id="hide-control-{{ loop.index0 }}"
+                                                class="form-check-input"
+                                                name="hiddenValues[{{ input.inputId }}]"
+                                                value="1"
+                                                data-model="on(change)|hiddenValues[{{ input.inputId }}]"
+                                                {% if this.hiddenValues[input.inputId] ?? false %}checked{% endif %}
+                                            >
+                                            <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
 
-                <button type="submit" class="btn btn-primary me-1 mb-1">
-                    Export do PNG
-                </button>
-            </form>
-        </div>
+                    <button type="submit" class="btn btn-primary me-1 mb-1">Export do PNG</button>
+                </form>
+            </div>
 
-        <div class="col-10">
-            <div class="canvas-wrapper">
-                {% set preview = this.previewDataUri() %}
-                {% if preview %}
-                    <img src="{{ preview }}" alt="" style="max-width: 100%; height: auto;">
-                {% else %}
-                    <p class="text-muted">Náhled se generuje…</p>
-                {% endif %}
+            <div class="col-10">
+                <div class="canvas-wrapper">
+                    {% set preview = this.previewDataUri() %}
+                    {% if preview %}
+                        <img src="{{ preview }}" alt="" style="max-width: 100%; height: auto;">
+                    {% else %}
+                        <p class="text-muted">Náhled se generuje…</p>
+                    {% endif %}
+                </div>
             </div>
         </div>
-    </div>
+    {% endif %}
 </div>

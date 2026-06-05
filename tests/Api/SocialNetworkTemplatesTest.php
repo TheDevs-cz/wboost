@@ -11,6 +11,8 @@ use WBoost\Web\Tests\TestingApiAuthentication;
  * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateResponse
  * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantResponse
  * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantInputResponse
+ * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantImageInputResponse
+ * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantImageInputFrameResponse
  * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplatesProvider
  */
 final class SocialNetworkTemplatesTest extends ApiTestCase
@@ -164,6 +166,59 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, $badge['id'] ?? null);
         self::assertSame('badge', $badge['name'] ?? null);
         self::assertTrue($badge['hidable'] ?? null);
+    }
+
+    public function testEmbedsImageInputs(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+
+        $this->assertResponseIsSuccessful();
+        $template = self::findTemplate($response->toArray(), TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID);
+
+        self::assertIsArray($template['variants'] ?? null);
+        $variant = $template['variants'][0];
+        self::assertIsArray($variant);
+        self::assertIsArray($variant['imageInputs'] ?? null);
+        self::assertCount(2, $variant['imageInputs']);
+
+        $photo = $variant['imageInputs'][0];
+        self::assertIsArray($photo);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, $photo['id'] ?? null);
+        self::assertSame('photo', $photo['name'] ?? null);
+        self::assertSame('Your photo', $photo['description'] ?? null);
+        self::assertTrue($photo['allowMove'] ?? null);
+        self::assertTrue($photo['allowResize'] ?? null);
+        self::assertTrue($photo['allowRotate'] ?? null);
+        self::assertTrue($photo['hidable'] ?? null);
+        self::assertSame([TestDataFixture::FILE_DIRECTORY_ALLOWED_ID], $photo['allowedDirectoryIds'] ?? null);
+
+        // Frame derived from the placeholder object's displayed bbox.
+        self::assertIsArray($photo['frame'] ?? null);
+        self::assertEqualsWithDelta(100.0, $photo['frame']['x'] ?? null, 0.001);
+        self::assertEqualsWithDelta(120.0, $photo['frame']['y'] ?? null, 0.001);
+        self::assertEqualsWithDelta(400.0, $photo['frame']['width'] ?? null, 0.001);
+        self::assertEqualsWithDelta(300.0, $photo['frame']['height'] ?? null, 0.001);
+
+        self::assertIsString($photo['defaultImageUrl'] ?? null);
+        self::assertStringContainsString('fixtures/standin-photo.png', $photo['defaultImageUrl']);
+
+        // The locked slot exposes its restrictive flags.
+        $locked = $variant['imageInputs'][1];
+        self::assertIsArray($locked);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID, $locked['id'] ?? null);
+        self::assertFalse($locked['allowMove'] ?? null);
+        self::assertFalse($locked['allowResize'] ?? null);
+        self::assertFalse($locked['allowRotate'] ?? null);
+        self::assertFalse($locked['hidable'] ?? null);
     }
 
     /**

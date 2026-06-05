@@ -6,6 +6,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Ramsey\Uuid\Doctrine\UuidType;
 use WBoost\Web\Doctrine\CanvasJsonbType;
+use WBoost\Web\Doctrine\EditorImageInputsDoctrineType;
 use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Doctrine\EmailTextInputsDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
@@ -23,6 +24,7 @@ return App::config([
                 LogoDoctrineType::NAME => LogoDoctrineType::class,
                 ProjectSharingDoctrineType::NAME => ProjectSharingDoctrineType::class,
                 EditorTextInputsDoctrineType::NAME => EditorTextInputsDoctrineType::class,
+                EditorImageInputsDoctrineType::NAME => EditorImageInputsDoctrineType::class,
                 ManualColorsDoctrineType::NAME => ManualColorsDoctrineType::class,
                 EmailTextInputsDoctrineType::NAME => EmailTextInputsDoctrineType::class,
                 CanvasJsonbType::NAME => CanvasJsonbType::class,

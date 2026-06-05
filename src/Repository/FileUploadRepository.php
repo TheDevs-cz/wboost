@@ -95,6 +95,41 @@ readonly final class FileUploadRepository
     }
 
     /**
+     * FileUploads for a project + source sitting in ANY of the given
+     * directories, newest first. Powers the per-placeholder gallery API — a slot
+     * only offers images from the folders the designer allowed for it. An empty
+     * id list yields an empty result (no allowed folders → nothing to pick).
+     *
+     * @param list<UuidInterface> $directoryIds
+     * @return list<FileUpload>
+     */
+    public function listByProjectSourceAndDirectories(
+        UuidInterface $projectId,
+        FileSource $source,
+        array $directoryIds,
+    ): array {
+        if ($directoryIds === []) {
+            return [];
+        }
+
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('f')
+            ->from(FileUpload::class, 'f')
+            ->where('IDENTITY(f.project) = :projectId')
+            ->andWhere('f.source = :source')
+            ->andWhere('IDENTITY(f.directory) IN (:directoryIds)')
+            ->setParameter('projectId', $projectId)
+            ->setParameter('source', $source->value)
+            ->setParameter('directoryIds', array_map(static fn (UuidInterface $id): string => $id->toString(), $directoryIds))
+            ->orderBy('f.uploadedAt', 'DESC');
+
+        /** @var list<FileUpload> $result */
+        $result = $qb->getQuery()->getResult();
+
+        return $result;
+    }
+
+    /**
      * Every FileUpload sitting directly inside the given directory, regardless
      * of source. Used when a directory is deleted to lift its files up to the
      * parent instead of orphaning them.

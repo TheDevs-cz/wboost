@@ -11,6 +11,8 @@ use League\Bundle\OAuth2ServerBundle\Model\Client as OAuth2Client;
 use League\Bundle\OAuth2ServerBundle\OAuth2Grants;
 use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
 use Ramsey\Uuid\Uuid;
+use WBoost\Web\Entity\FileDirectory;
+use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
@@ -19,7 +21,9 @@ use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
+use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\ManualType;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\WeeklyMenuApprovalStatus;
@@ -66,6 +70,18 @@ final class TestDataFixture extends Fixture
     public const string SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID = '00000000-0000-0000-0000-000000000044';
 
     public const string SOCIAL_NETWORK_VARIANT_2_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000051';
+
+    // Image placeholder fixtures (variant 1): a fully-adjustable + hidable "photo"
+    // slot and a fully-locked "logo" slot, both drawing from the ALLOWED folder.
+    public const string SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID = '00000000-0000-0000-0000-000000000045';
+    public const string SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000046';
+
+    // Gallery folders + files (PROJECT_1, SocialNetworkImage source). The photo
+    // slot may pull from ALLOWED only; OTHER is off-limits to the slot.
+    public const string FILE_DIRECTORY_ALLOWED_ID = '00000000-0000-0000-0000-000000000061';
+    public const string FILE_DIRECTORY_OTHER_ID = '00000000-0000-0000-0000-000000000062';
+    public const string FILE_IN_ALLOWED_ID = '00000000-0000-0000-0000-000000000071';
+    public const string FILE_IN_OTHER_ID = '00000000-0000-0000-0000-000000000072';
 
     public function load(ObjectManager $manager): void
     {
@@ -166,6 +182,45 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($weeklyMenu2);
 
+        // Gallery folders + files for image-placeholder tests (PROJECT_1).
+        $dirAllowed = new FileDirectory(
+            Uuid::fromString(self::FILE_DIRECTORY_ALLOWED_ID),
+            $project1,
+            FileSource::SocialNetworkImage,
+            'Photos',
+            null,
+            $date,
+        );
+        $manager->persist($dirAllowed);
+
+        $dirOther = new FileDirectory(
+            Uuid::fromString(self::FILE_DIRECTORY_OTHER_ID),
+            $project1,
+            FileSource::SocialNetworkImage,
+            'Other',
+            null,
+            $date,
+        );
+        $manager->persist($dirOther);
+
+        $manager->persist(new FileUpload(
+            Uuid::fromString(self::FILE_IN_ALLOWED_ID),
+            $project1,
+            $date,
+            FileSource::SocialNetworkImage,
+            'fixtures/in-allowed.png',
+            $dirAllowed,
+        ));
+
+        $manager->persist(new FileUpload(
+            Uuid::fromString(self::FILE_IN_OTHER_ID),
+            $project1,
+            $date,
+            FileSource::SocialNetworkImage,
+            'fixtures/in-other.png',
+            $dirOther,
+        ));
+
         // Social network template (USER_1 / PROJECT_1) — exercises non-locked named, uppercase, and locked-unnamed inputs.
         $socialTemplate1 = new SocialNetworkTemplate(
             Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_1_ID),
@@ -185,8 +240,30 @@ final class TestDataFixture extends Fixture
             'fixtures/bg-1.png',
             $date,
         );
+        $variant1Canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                [
+                    'type' => 'Image',
+                    'inputId' => self::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID,
+                    'imagePlaceholder' => true,
+                    'left' => 100, 'top' => 120, 'width' => 400, 'height' => 300,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                    'assetPath' => 'fixtures/standin-photo.png',
+                ],
+                [
+                    'type' => 'Image',
+                    'inputId' => self::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID,
+                    'imagePlaceholder' => true,
+                    'left' => 0, 'top' => 0, 'width' => 200, 'height' => 200,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+            ],
+            'backgroundImage' => null,
+        ], JSON_THROW_ON_ERROR);
+
         $socialVariant1->editCanvas(
-            '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            $variant1Canvas,
             [
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false),
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
@@ -194,6 +271,10 @@ final class TestDataFixture extends Fixture
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, 'badge', null, false, false, null, true),
             ],
             null,
+            [
+                new EditorImageInput(self::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, [self::FILE_DIRECTORY_ALLOWED_ID]),
+                new EditorImageInput(self::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID, 'logo', null, false, false, false, false, [self::FILE_DIRECTORY_ALLOWED_ID]),
+            ],
         );
         $manager->persist($socialVariant1);
 

@@ -41,6 +41,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
     use InteractsWithLiveComponents;
 
     private const string PNG_MAGIC = "\x89PNG\r\n\x1a\n";
+    private const string PNG_1X1_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
 
     public function testExportPageRedirectsGuestToLogin(): void
     {
@@ -468,6 +469,117 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         );
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    /**
+     * The fill page for a variant WITH image placeholders renders the
+     * interactive `variant-image-fill` canvas: the controller wiring, the
+     * per-slot hidden placement fields, the backdrop source element, and the
+     * allowed-folder images as pickable thumbnails. The backdrop itself is
+     * rendered with every placeholder hidden so the live Fabric objects are the
+     * only pictures shown in those slots.
+     */
+    public function testImageVariantRendersInteractiveFillCanvas(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request(
+            'GET',
+            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-controller~="variant-image-fill"]');
+        self::assertSelectorExists('[data-variant-image-fill-target="canvas"]');
+        self::assertSelectorExists('#variant-backdrop-source');
+        self::assertSelectorExists(
+            'input[name="images[' . TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID . '][imageId]"]',
+        );
+        // The photo slot offers its allowed-folder image as a pickable thumbnail.
+        self::assertSelectorExists(
+            '[data-variant-image-fill-imageid-param="' . TestDataFixture::FILE_IN_ALLOWED_ID . '"]',
+        );
+
+        // The backdrop render hides every placeholder.
+        $fake = $this->getRendererFake();
+        $backdrop = null;
+        foreach (array_reverse($fake->calls) as $call) {
+            if ($call['mode'] === 'renderToBytes') {
+                $backdrop = $call;
+                break;
+            }
+        }
+        self::assertNotNull($backdrop);
+        self::assertContains(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, $backdrop['imagesHidden']);
+        self::assertContains(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID, $backdrop['imagesHidden']);
+    }
+
+    /**
+     * The form POST that downloads the PNG carries image placements
+     * (images[inputId][imageId|scale|offsetX|offsetY|rotation]) alongside the
+     * text values. The download controller normalises the string form fields,
+     * resolves them through the same ResolveImageOverrides the API uses, and
+     * the renderer receives the placement.
+     */
+    public function testFormPostDownloadPlacesChosenImage(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        // The resolver inlines the chosen image → it must exist in the store.
+        $bytes = base64_decode(self::PNG_1X1_BASE64, true);
+        self::assertIsString($bytes);
+        self::getContainer()->get('oneup_flysystem.minio_filesystem')->write('fixtures/in-allowed.png', $bytes);
+
+        $client->request(
+            method: 'POST',
+            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            parameters: [
+                'images' => [
+                    TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => [
+                        'imageId' => TestDataFixture::FILE_IN_ALLOWED_ID,
+                        'scale' => '1.5',
+                        'offsetX' => '8',
+                        'offsetY' => '0',
+                        'rotation' => '0',
+                    ],
+                ],
+            ],
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'image/png');
+        self::assertStringStartsWith(self::PNG_MAGIC, (string) $client->getResponse()->getContent());
+
+        $fake = $this->getRendererFake();
+        $lastCall = $fake->calls[count($fake->calls) - 1];
+        $placed = $lastCall['images'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID] ?? null;
+        self::assertIsArray($placed);
+        self::assertSame(1.5, $placed['scale']);
+        self::assertSame(8.0, $placed['offsetX']);
+        self::assertSame(1, $placed['naturalWidth']);
+    }
+
+    public function testFormPostDownloadRejectsImageOutsideAllowedFolder(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        // FILE_IN_OTHER is in a folder the photo slot does not allow → 400.
+        $client->request(
+            method: 'POST',
+            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            parameters: [
+                'images' => [
+                    TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => [
+                        'imageId' => TestDataFixture::FILE_IN_OTHER_ID,
+                    ],
+                ],
+            ],
+        );
+
+        self::assertResponseStatusCodeSame(400);
     }
 
     private function loadVariant(string $id): \WBoost\Web\Entity\SocialNetworkTemplateVariant

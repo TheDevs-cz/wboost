@@ -33,6 +33,34 @@ readonly final class AssetInliner
         return $this->inline($path, $this->imageMimeType($path));
     }
 
+    /**
+     * Like {@see inlineImage()} but also returns the raster image's natural
+     * pixel dimensions (read from the same bytes, so the file is fetched once).
+     * Returns null when the file is missing or not a dimension-bearing raster
+     * image (e.g. SVG — unsupported as a placeholder fill in v1).
+     *
+     * @return null|array{dataUri: string, width: int, height: int}
+     */
+    public function inlineImageWithDimensions(string $path): null|array
+    {
+        try {
+            $contents = $this->filesystem->read($path);
+        } catch (FilesystemException) {
+            return null;
+        }
+
+        $size = @getimagesizefromstring($contents);
+        if ($size === false) {
+            return null;
+        }
+
+        return [
+            'dataUri' => sprintf('data:%s;base64,%s', $this->imageMimeType($path), base64_encode($contents)),
+            'width' => $size[0],
+            'height' => $size[1],
+        ];
+    }
+
     private function inline(string $path, string $mimeType): null|string
     {
         try {

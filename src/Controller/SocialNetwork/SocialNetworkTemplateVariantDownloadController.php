@@ -12,6 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
+use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
 
@@ -34,6 +35,7 @@ final class SocialNetworkTemplateVariantDownloadController extends AbstractContr
     public function __construct(
         private readonly SocialNetworkTemplateVariantImageRendererInterface $renderer,
         private readonly ResolveTextOverrides $resolveTextOverrides,
+        private readonly ResolveImageOverrides $resolveImageOverrides,
     ) {
     }
 
@@ -72,8 +74,13 @@ final class SocialNetworkTemplateVariantDownloadController extends AbstractContr
         }
 
         $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $providedValues);
+        $imageOverrides = $this->resolveImageOverrides->resolve(
+            $variant->imageInputs,
+            $variant->template->project->id,
+            $this->parseImageValues($request),
+        );
 
-        $response = $this->renderer->render($variant, $overrides);
+        $response = $this->renderer->render($variant, $overrides, $imageOverrides);
         $response->headers->set('Content-Type', 'image/png');
         $response->headers->set('Content-Disposition', sprintf(
             'attachment; filename="%s.png"',
@@ -81,5 +88,61 @@ final class SocialNetworkTemplateVariantDownloadController extends AbstractContr
         ));
 
         return $response;
+    }
+
+    /**
+     * Normalise the posted `images[inputId][...]` fields into the shape
+     * ResolveImageOverrides expects. The fill UI writes one group per filled
+     * placeholder; HTML form values arrive as strings, so numeric transform
+     * fields are cast to float and `hide` to bool before validation.
+     *
+     * @return array<string, mixed>
+     */
+    private function parseImageValues(Request $request): array
+    {
+        /** @var array<string, mixed> $raw */
+        $raw = $request->request->all('images');
+        $provided = [];
+
+        foreach ($raw as $inputId => $value) {
+            $key = (string) $inputId;
+
+            // Shorthand: images[inputId] = "<imageId>".
+            if (is_string($value)) {
+                if ($value !== '') {
+                    $provided[$key] = $value;
+                }
+                continue;
+            }
+
+            if (!is_array($value)) {
+                continue;
+            }
+
+            $entry = [];
+
+            $imageId = $value['imageId'] ?? null;
+            if (is_string($imageId) && $imageId !== '') {
+                $entry['imageId'] = $imageId;
+            }
+
+            foreach (['scale', 'offsetX', 'offsetY', 'rotation'] as $field) {
+                $candidate = $value[$field] ?? null;
+                if (is_numeric($candidate)) {
+                    $entry[$field] = (float) $candidate;
+                }
+            }
+
+            // HTML checkbox: present (e.g. "1"/"true") = hide, absent = keep.
+            if (isset($value['hide'])) {
+                $entry['hide'] = in_array($value['hide'], ['1', 'true', true, 1], true);
+            }
+
+            if ($entry !== []) {
+                $provided[$key] = $entry;
+            }
+        }
+
+        return $provided;
     }
 }

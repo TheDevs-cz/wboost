@@ -14,7 +14,7 @@ import { CANVAS_CUSTOM_PROPERTIES } from './canvas_custom_properties.js';
  */
 export default class extends Controller {
     static targets = [
-        "canvas", "textInputs", "previewImage", "unsavedChangesMessage",
+        "canvas", "textInputs", "imageInputs", "previewImage", "unsavedChangesMessage",
     ];
 
     static values = {
@@ -360,7 +360,7 @@ export default class extends Controller {
      * reload.
      */
     onAssetSelected(event) {
-        const { url, path } = event.detail || {};
+        const { url, path, id } = event.detail || {};
         if (!url) {
             return;
         }
@@ -373,7 +373,7 @@ export default class extends Controller {
                 this.persistBackgroundPath(path);
             }
         } else {
-            this.addImageToCanvas(url);
+            this.addImageToCanvas(url, path, id);
         }
 
         const modalElement = document.getElementById('imageGalleryModal');
@@ -452,7 +452,7 @@ export default class extends Controller {
         form.reset();
     }
 
-    async addImageToCanvas(imageUrl) {
+    async addImageToCanvas(imageUrl, assetPath = null, assetId = null) {
         // Fabric v7: FabricImage.fromURL is Promise-based.
         const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
         img.set({
@@ -467,10 +467,20 @@ export default class extends Controller {
             cornersize: 10,
             hasRotatingPoint: true,
         });
-        // Stamp inputId proactively (Stage 2 convention) so future
-        // image-placeholder inputs can address this object by id.
+        // Stamp inputId proactively (Stage 2 convention) so it can be promoted
+        // to a fillable image placeholder by id.
         if (!img.inputId) {
             img.inputId = crypto.randomUUID();
+        }
+        // Decorative by default — the designer flips "placeholder" in the image
+        // properties panel. Carry the gallery storage path + id so the server
+        // renderer can inline the picture without reverse-mapping its URL.
+        img.imagePlaceholder = false;
+        if (assetPath) {
+            img.assetPath = assetPath;
+        }
+        if (assetId) {
+            img.assetId = assetId;
         }
         this.canvas.add(img);
         this.canvas.setActiveObject(img);
@@ -528,6 +538,27 @@ export default class extends Controller {
         });
 
         this.textInputsTarget.value = JSON.stringify(textInputs);
+
+        // Image placeholders: every image object the designer marked fillable.
+        const imageInputs = inMemoryObjects
+            .filter((obj) => (obj.type || '').toLowerCase() === 'image' && obj.imagePlaceholder === true)
+            .map((img) => {
+                if (!img.inputId) {
+                    img.inputId = crypto.randomUUID();
+                }
+                return {
+                    inputId: img.inputId,
+                    name: img.name || null,
+                    description: img.description || null,
+                    allowMove: img.allowMove || false,
+                    allowResize: img.allowResize || false,
+                    allowRotate: img.allowRotate || false,
+                    hidable: img.hidable || false,
+                    allowedDirectoryIds: Array.isArray(img.allowedDirectoryIds) ? img.allowedDirectoryIds : [],
+                };
+            });
+        this.imageInputsTarget.value = JSON.stringify(imageInputs);
+
         this.previewImageTarget.value = this.getScaledCanvasDataURI(400); // 400px max-width
 
         fetch(form.action, {

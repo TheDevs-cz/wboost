@@ -11,7 +11,10 @@ use ReflectionMethod;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
+use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
+use WBoost\Web\Services\SocialNetwork\ImagePlacement;
 use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRenderer;
+use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorTextInput;
 
 /**
@@ -95,6 +98,9 @@ final class SocialNetworkTemplateVariantImageRendererTest extends TestCase
             $this->createStub(GotenbergScreenshotInterface::class),
             new GetFonts($this->createStub(EntityManagerInterface::class)),
             new AssetInliner($this->createStub(FilesystemReader::class)),
+            new CanvasPlaceholderGeometry(),
+            new ImagePlacement(),
+            new UploaderHelper('http://assets.test/bucket'),
             '/nonexistent/fabric.js',
         );
 

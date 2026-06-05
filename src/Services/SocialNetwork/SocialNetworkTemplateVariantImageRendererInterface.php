@@ -6,6 +6,7 @@ namespace WBoost\Web\Services\SocialNetwork;
 
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
 /**
@@ -34,12 +35,20 @@ interface SocialNetworkTemplateVariantImageRendererInterface
      * a controller — do NOT call `sendContent()` server-side; use
      * `renderToBytes()` if you need the bytes in PHP.
      */
-    public function render(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): Response;
+    public function render(
+        SocialNetworkTemplateVariant $variant,
+        ResolvedInputOverrides $overrides,
+        null|ResolvedImageOverrides $imageOverrides = null,
+    ): Response;
 
     /**
      * Returns the rendered PNG as a string of bytes. Safe to base64-encode,
      * embed inline, hash for caching, or write to a file. Does not interact
      * with the HTTP response cycle.
      */
-    public function renderToBytes(SocialNetworkTemplateVariant $variant, ResolvedInputOverrides $overrides): string;
+    public function renderToBytes(
+        SocialNetworkTemplateVariant $variant,
+        ResolvedInputOverrides $overrides,
+        null|ResolvedImageOverrides $imageOverrides = null,
+    ): string;
 }

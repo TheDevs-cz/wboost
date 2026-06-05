@@ -1,0 +1,130 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WBoost\Web\Api\SocialNetworkTemplates;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProviderInterface;
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use WBoost\Web\Entity\FileDirectory;
+use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\User;
+use WBoost\Web\Exceptions\SocialNetworkTemplateVariantNotFound;
+use WBoost\Web\Repository\FileDirectoryRepository;
+use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
+use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
+use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\FileSource;
+
+/**
+ * Lists the gallery images a consumer may drop into one image placeholder:
+ * scoped to the variant + placeholder, restricted to the folders the designer
+ * allowed for that slot. Access mirrors the export endpoint (variant VIEW).
+ *
+ * @implements ProviderInterface<PlaceholderGalleryImageResponse>
+ */
+final readonly class PlaceholderGalleryProvider implements ProviderInterface
+{
+    public function __construct(
+        private Security $security,
+        private SocialNetworkTemplateVariantRepository $variantRepository,
+        private FileDirectoryRepository $fileDirectoryRepository,
+        private FileUploadRepository $fileUploadRepository,
+        private UploaderHelper $uploaderHelper,
+    ) {
+    }
+
+    /**
+     * @param array<string, mixed> $uriVariables
+     * @param array<string, mixed> $context
+     * @return list<PlaceholderGalleryImageResponse>
+     */
+    public function provide(Operation $operation, array $uriVariables = [], array $context = []): array
+    {
+        if (!$this->security->getUser() instanceof User) {
+            throw new AuthenticationException();
+        }
+
+        $variantId = $uriVariables['variantId'] ?? null;
+        if (!is_string($variantId) || !Uuid::isValid($variantId)) {
+            throw new BadRequestHttpException('Invalid variant id.');
+        }
+
+        $inputId = $uriVariables['inputId'] ?? null;
+        if (!is_string($inputId)) {
+            throw new BadRequestHttpException('Invalid input id.');
+        }
+
+        try {
+            $variant = $this->variantRepository->get(Uuid::fromString($variantId));
+        } catch (SocialNetworkTemplateVariantNotFound) {
+            throw new NotFoundHttpException();
+        }
+
+        if (!$this->security->isGranted(SocialNetworkTemplateVariantVoter::VIEW, $variant)) {
+            throw new AccessDeniedHttpException();
+        }
+
+        $input = null;
+        foreach ($variant->imageInputs as $candidate) {
+            if ($candidate->inputId === $inputId) {
+                $input = $candidate;
+                break;
+            }
+        }
+
+        if ($input === null) {
+            throw new NotFoundHttpException();
+        }
+
+        $project = $variant->template->project;
+
+        // Resolve the slot's allowed folders against the project's actual ones
+        // (a folder deleted after the designer picked it simply drops out).
+        $directoriesById = [];
+        foreach ($this->fileDirectoryRepository->listAll($project->id, FileSource::SocialNetworkImage) as $directory) {
+            $directoriesById[$directory->id->toString()] = $directory;
+        }
+
+        /** @var array<string, FileDirectory> $allowedDirectories */
+        $allowedDirectories = [];
+        foreach ($input->allowedDirectoryIds as $allowedId) {
+            if (isset($directoriesById[$allowedId])) {
+                $allowedDirectories[$allowedId] = $directoriesById[$allowedId];
+            }
+        }
+
+        if ($allowedDirectories === []) {
+            return [];
+        }
+
+        $files = $this->fileUploadRepository->listByProjectSourceAndDirectories(
+            $project->id,
+            FileSource::SocialNetworkImage,
+            array_map(static fn (FileDirectory $directory): UuidInterface => $directory->id, array_values($allowedDirectories)),
+        );
+
+        return array_map(
+            function (FileUpload $file) use ($allowedDirectories): PlaceholderGalleryImageResponse {
+                $directoryId = $file->directory?->id->toString() ?? '';
+
+                return new PlaceholderGalleryImageResponse(
+                    id: $file->id->toString(),
+                    url: $this->uploaderHelper->getPublicPath($file->path),
+                    directoryId: $directoryId,
+                    directoryName: $allowedDirectories[$directoryId]->name ?? '',
+                    uploadedAt: $file->uploadedAt,
+                );
+            },
+            $files,
+        );
+    }
+}

@@ -15,10 +15,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\FormData\SocialNetworkTemplateVariantEditorFormData;
 use WBoost\Web\FormType\SocialNetworkTemplateVariantEditorFormType;
+use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
+use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\FileSource;
 
 final class SocialNetworkTemplateVariantEditorController extends AbstractController
 {
@@ -26,6 +30,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
         readonly private GetFonts $getFonts,
         readonly private MessageBusInterface $bus,
         readonly private ClockInterface $clock,
+        readonly private FileDirectoryRepository $fileDirectoryRepository,
     ) {
     }
 
@@ -52,6 +57,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
                     $variant->id,
                     $formData->canvas,
                     EditorTextInput::createCollectionFromJson($formData->textInputs),
+                    EditorImageInput::createCollectionFromJson($formData->imageInputs ?? '[]'),
                     previewImageDataUri: $formData->imagePreview,
                 ),
             );
@@ -86,6 +92,16 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             }
         }
 
+        // Gallery folders offered as per-placeholder allow-lists in the image
+        // properties panel (flat, alphabetical — the tree shape isn't needed here).
+        $galleryDirectories = array_map(
+            static fn (FileDirectory $directory): array => [
+                'id' => $directory->id->toString(),
+                'name' => $directory->name,
+            ],
+            $this->fileDirectoryRepository->listAll($template->project->id, FileSource::SocialNetworkImage),
+        );
+
         return $this->render('social_network_template_variant_editor.html.twig', [
             'project' => $template->project,
             'template' => $template,
@@ -93,6 +109,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             'fonts' => $fonts,
             'editor_form' => $editorForm,
             'font_faces' => $fontFaceNames,
+            'gallery_directories' => $galleryDirectories,
         ]);
     }
 }
