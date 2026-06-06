@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\SocialNetwork;
 
-use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -13,9 +12,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
-use WBoost\Web\Exceptions\FileDirectoryNotFound;
 use WBoost\Web\Message\Image\UploadFile;
-use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\UploaderHelper;
@@ -34,7 +31,7 @@ readonly final class PlaceholderImageUploader
         private MessageBusInterface $bus,
         private ProvideIdentity $provideIdentity,
         private FileUploadRepository $fileUploadRepository,
-        private FileDirectoryRepository $fileDirectoryRepository,
+        private PlaceholderAllowedDirectories $allowedDirectories,
         private UploaderHelper $uploaderHelper,
     ) {
     }
@@ -87,38 +84,31 @@ readonly final class PlaceholderImageUploader
     }
 
     /**
-     * The requested target folder must be one the designer allowed for this
-     * slot; with none requested we fall back to the slot's first allowed folder.
-     * The chosen folder is re-checked to belong to the project.
+     * The requested target folder must be one the slot allows; with none
+     * requested we fall back to the slot's first allowed folder. An empty
+     * allow-list means unrestricted (every project folder is allowed) — see
+     * {@see PlaceholderAllowedDirectories}. Only a project with no gallery
+     * folder at all leaves nowhere to upload, which the admin editor flags to
+     * the designer up front.
      */
     private function resolveTargetDirectory(EditorImageInput $input, Project $project, null|string $requested): UuidInterface
     {
+        $allowed = $this->allowedDirectories->resolve($input, $project->id);
+
         if ($requested !== null && $requested !== '') {
-            if (!in_array($requested, $input->allowedDirectoryIds, true)) {
-                throw new AccessDeniedHttpException('That folder is not allowed for this placeholder.');
+            foreach ($allowed as $directory) {
+                if ($directory->id->toString() === $requested) {
+                    return $directory->id;
+                }
             }
-            $candidate = $requested;
-        } else {
-            $candidate = $input->allowedDirectoryIds[0] ?? null;
-            if ($candidate === null) {
-                throw new BadRequestHttpException('This placeholder has no folder to upload into.');
-            }
+
+            throw new AccessDeniedHttpException('That folder is not allowed for this placeholder.');
         }
 
-        if (!Uuid::isValid($candidate)) {
-            throw new BadRequestHttpException('Invalid directory id.');
+        if ($allowed === []) {
+            throw new BadRequestHttpException('This placeholder has no gallery folder to upload into — create a folder in the project gallery first.');
         }
 
-        try {
-            $directory = $this->fileDirectoryRepository->get(Uuid::fromString($candidate));
-        } catch (FileDirectoryNotFound) {
-            throw new BadRequestHttpException('Directory not found.');
-        }
-
-        if (!$directory->project->id->equals($project->id)) {
-            throw new AccessDeniedHttpException();
-        }
-
-        return $directory->id;
+        return $allowed[0]->id;
     }
 }

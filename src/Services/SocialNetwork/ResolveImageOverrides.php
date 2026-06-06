@@ -34,6 +34,7 @@ readonly final class ResolveImageOverrides
     public function __construct(
         private FileUploadRepository $fileUploadRepository,
         private AssetInliner $assetInliner,
+        private PlaceholderAllowedDirectories $allowedDirectories,
     ) {
     }
 
@@ -128,8 +129,9 @@ readonly final class ResolveImageOverrides
         }
 
         $directoryId = $file->directory?->id->toString();
+        $allowedIds = $this->allowedDirectories->resolveIds($input, $projectId);
 
-        if ($directoryId === null || !in_array($directoryId, $input->allowedDirectoryIds, true)) {
+        if ($directoryId === null || !in_array($directoryId, $allowedIds, true)) {
             throw new BadRequestHttpException(sprintf('Image input "%s": image is not in an allowed folder.', $label));
         }
 

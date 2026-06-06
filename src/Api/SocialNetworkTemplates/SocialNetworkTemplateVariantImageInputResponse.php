@@ -15,7 +15,9 @@ namespace WBoost\Web\Api\SocialNetworkTemplates;
 final readonly class SocialNetworkTemplateVariantImageInputResponse
 {
     /**
-     * @param list<string> $allowedDirectoryIds gallery folder ids this slot may pull from
+     * @param list<string> $allowedDirectoryIds gallery folder ids this slot may pull from;
+     *        an empty list means UNRESTRICTED — every gallery folder in the project is
+     *        offered (use `GET …/placeholders/{id}/images` to list the actual pickable images)
      */
     public function __construct(
         public string $id,

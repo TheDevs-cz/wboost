@@ -9,8 +9,10 @@ use League\Flysystem\FilesystemReader;
 use PHPUnit\Framework\TestCase;
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
+use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Value\EditorImageInput;
 
@@ -139,6 +141,7 @@ final class ResolveImageOverridesTest extends TestCase
         return new ResolveImageOverrides(
             new FileUploadRepository($entityManager),
             new AssetInliner($this->createStub(FilesystemReader::class)),
+            new PlaceholderAllowedDirectories(new FileDirectoryRepository($entityManager)),
         );
     }
 

@@ -229,16 +229,15 @@
                                 </div>
 
                                 <label class="form-label small mb-1">Složky galerie pro uživatele:</label>
-                                {% if gallery_directories is empty %}
-                                    <p class="text-muted small mb-0">Žádné složky — vytvořte je v galerii.</p>
-                                {% else %}
-                                    {% for dir in gallery_directories %}
-                                        <div class="form-check">
-                                            <input type="checkbox" class="form-check-input" id="image-dir-{{ dir.id }}" data-canvas-image-properties-target="directory" data-directory-id="{{ dir.id }}" data-action="change->canvas-image-properties#updateDirectories">
-                                            <label class="form-check-label small" for="image-dir-{{ dir.id }}">{{ dir.name }}</label>
-                                        </div>
-                                    {% endfor %}
-                                {% endif %}
+                                {% for dir in gallery_directories %}
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="image-dir-{{ dir.id }}" data-canvas-image-properties-target="directory" data-directory-id="{{ dir.id }}" data-action="change->canvas-image-properties#updateDirectories">
+                                        <label class="form-check-label small" for="image-dir-{{ dir.id }}">{{ dir.name }}</label>
+                                    </div>
+                                {% endfor %}
+
+                                {# Live guidance: empty allow-list = "offer all folders"; no folders at all = dead end. #}
+                                <div class="alert alert-warning py-1 px-2 small mt-1 mb-0" role="alert" data-canvas-image-properties-target="warning" style="display: none;"></div>
                             </div>
                         </div>
 

@@ -12,10 +12,10 @@ use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
-use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
+use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
 use WBoost\Web\Services\UploaderHelper;
@@ -84,7 +84,7 @@ final class VariantFiller extends AbstractController
         private readonly ResolveTextOverrides $resolveTextOverrides,
         private readonly SocialNetworkTemplateVariantImageRendererInterface $renderer,
         private readonly CanvasPlaceholderGeometry $placeholderGeometry,
-        private readonly FileDirectoryRepository $fileDirectoryRepository,
+        private readonly PlaceholderAllowedDirectories $allowedDirectories,
         private readonly FileUploadRepository $fileUploadRepository,
         private readonly UploaderHelper $uploaderHelper,
     ) {
@@ -172,7 +172,8 @@ final class VariantFiller extends AbstractController
      *     hidable: bool,
      *     frame: null|array{x: float, y: float, width: float, height: float},
      *     defaultImageUrl: null|string,
-     *     images: list<array{id: string, url: string}>
+     *     images: list<array{id: string, url: string}>,
+     *     canUpload: bool
      * }>
      */
     public function imagePlaceholders(): array
@@ -205,6 +206,11 @@ final class VariantFiller extends AbstractController
                 $defaultImageUrl = $this->defaultImageUrl($object);
             }
 
+            // Effective folders the slot may be filled from (empty allow-list =
+            // every project folder). With none at all the user can neither pick
+            // nor upload, so the template hides the upload field and explains why.
+            $directories = $this->allowedDirectories->resolve($input, $project->id);
+
             $result[] = [
                 'inputId' => $input->inputId,
                 'name' => $input->name,
@@ -215,7 +221,8 @@ final class VariantFiller extends AbstractController
                 'hidable' => $input->hidable,
                 'frame' => $frame,
                 'defaultImageUrl' => $defaultImageUrl,
-                'images' => $this->allowedImages($project->id, $input->allowedDirectoryIds),
+                'images' => $this->allowedImages($project->id, $directories),
+                'canUpload' => $directories !== [],
             ];
         }
 
@@ -240,25 +247,16 @@ final class VariantFiller extends AbstractController
 
     /**
      * @param \Ramsey\Uuid\UuidInterface $projectId
-     * @param list<string> $allowedDirectoryIds
+     * @param list<FileDirectory> $directories the slot's effective allowed folders
      * @return list<array{id: string, url: string}>
      */
-    private function allowedImages(\Ramsey\Uuid\UuidInterface $projectId, array $allowedDirectoryIds): array
+    private function allowedImages(\Ramsey\Uuid\UuidInterface $projectId, array $directories): array
     {
-        if ($allowedDirectoryIds === []) {
+        if ($directories === []) {
             return [];
         }
 
-        $directoryIds = [];
-        foreach ($this->fileDirectoryRepository->listAll($projectId, FileSource::SocialNetworkImage) as $directory) {
-            if (in_array($directory->id->toString(), $allowedDirectoryIds, true)) {
-                $directoryIds[] = $directory->id;
-            }
-        }
-
-        if ($directoryIds === []) {
-            return [];
-        }
+        $directoryIds = array_map(static fn (FileDirectory $directory): \Ramsey\Uuid\UuidInterface => $directory->id, $directories);
 
         return array_map(
             fn (FileUpload $file): array => [

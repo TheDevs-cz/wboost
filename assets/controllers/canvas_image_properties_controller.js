@@ -18,6 +18,7 @@ export default class extends Controller {
     static targets = [
         "panel", "details", "placeholder", "name", "description",
         "allowMove", "allowResize", "allowRotate", "hidable", "directory",
+        "warning",
     ];
 
     canvasEditorOutletConnected(outlet) {
@@ -52,6 +53,7 @@ export default class extends Controller {
         });
 
         this._toggleDetails(isPlaceholder);
+        this._refreshWarning(isPlaceholder);
     }
 
     updatePlaceholder(event) {
@@ -64,6 +66,7 @@ export default class extends Controller {
         }
 
         this._toggleDetails(image.imagePlaceholder);
+        this._refreshWarning(image.imagePlaceholder);
         this.canvasEditorOutlet.markUnsaved();
     }
 
@@ -115,6 +118,7 @@ export default class extends Controller {
         image.allowedDirectoryIds = this.directoryTargets
             .filter((checkbox) => checkbox.checked)
             .map((checkbox) => checkbox.dataset.directoryId);
+        this._refreshWarning(true);
         this.canvasEditorOutlet.markUnsaved();
     }
 
@@ -122,6 +126,35 @@ export default class extends Controller {
         this.detailsTargets.forEach((element) => {
             element.style.display = show ? 'block' : 'none';
         });
+    }
+
+    /**
+     * Tell the designer what's still missing for a placeholder. An empty
+     * folder allow-list is NOT an error — it means "offer the user every
+     * gallery folder" — but the designer should know that's what will happen.
+     * A project with no folders at all is a real dead end (the user can neither
+     * pick nor upload), so that warning is stronger and points at the gallery.
+     */
+    _refreshWarning(isPlaceholder) {
+        if (!this.hasWarningTarget) return;
+
+        if (!isPlaceholder) {
+            this.warningTarget.style.display = 'none';
+            return;
+        }
+
+        const hasFolders = this.directoryTargets.length > 0;
+        const anyChecked = this.directoryTargets.some((checkbox) => checkbox.checked);
+
+        if (!hasFolders) {
+            this.warningTarget.textContent = 'Projekt nemá žádné složky galerie — vytvořte složku v galerii obrázků, jinak uživatel nebude moci tento obrázek vyplnit.';
+            this.warningTarget.style.display = 'block';
+        } else if (!anyChecked) {
+            this.warningTarget.textContent = 'Nevybrali jste žádnou složku — uživateli budou nabídnuty všechny složky galerie. Pro omezení vyberte konkrétní složky.';
+            this.warningTarget.style.display = 'block';
+        } else {
+            this.warningTarget.style.display = 'none';
+        }
     }
 
     _getActiveImage() {

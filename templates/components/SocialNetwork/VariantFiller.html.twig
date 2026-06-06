@@ -78,34 +78,40 @@
                                 <p class="small fw-bold mb-1">{{ ph.name ?? 'Obrázek' }}</p>
                                 {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
 
-                                {% if ph.images is empty %}
-                                    <p class="text-muted small mb-1">Žádné obrázky ve sdílených složkách.</p>
+                                {% if not ph.canUpload %}
+                                    {# Project has no gallery folder for this slot — nothing to pick from and
+                                       nowhere to upload. A configuration gap the template owner must fix. #}
+                                    <p class="text-warning small mb-1">Tento obrázek zatím nelze vyplnit — šablona nemá nastavenou složku galerie. Kontaktujte správce šablony.</p>
                                 {% else %}
-                                    <div class="d-flex flex-wrap gap-1 mb-1">
-                                        {% for img in ph.images %}
-                                            <button
-                                                type="button"
-                                                class="btn p-0 border rounded"
-                                                title="Vybrat"
-                                                data-action="variant-image-fill#pickImage"
-                                                data-variant-image-fill-inputid-param="{{ ph.inputId }}"
-                                                data-variant-image-fill-imageid-param="{{ img.id }}"
-                                                data-variant-image-fill-url-param="{{ img.url }}"
-                                            >
-                                                <img crossorigin="anonymous" src="{{ img.url }}" alt="" width="44" height="44" style="object-fit: cover;">
-                                            </button>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+                                    {% if ph.images is empty %}
+                                        <p class="text-muted small mb-1">Žádné obrázky ve složkách — nahrajte vlastní níže.</p>
+                                    {% else %}
+                                        <div class="d-flex flex-wrap gap-1 mb-1">
+                                            {% for img in ph.images %}
+                                                <button
+                                                    type="button"
+                                                    class="btn p-0 border rounded"
+                                                    title="Vybrat"
+                                                    data-action="variant-image-fill#pickImage"
+                                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                                    data-variant-image-fill-imageid-param="{{ img.id }}"
+                                                    data-variant-image-fill-url-param="{{ img.url }}"
+                                                >
+                                                    <img crossorigin="anonymous" src="{{ img.url }}" alt="" width="44" height="44" style="object-fit: cover;">
+                                                </button>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
 
-                                <input
-                                    type="file"
-                                    class="form-control form-control-sm"
-                                    accept="image/*"
-                                    data-action="change->variant-image-fill#uploadImage"
-                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}"
-                                    data-variant-image-fill-uploadurl-param="{{ path('social_network_variant_placeholder_upload', { variantId: variant.id, inputId: ph.inputId }) }}"
-                                >
+                                    <input
+                                        type="file"
+                                        class="form-control form-control-sm"
+                                        accept="image/*"
+                                        data-action="change->variant-image-fill#uploadImage"
+                                        data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                        data-variant-image-fill-uploadurl-param="{{ path('social_network_variant_placeholder_upload', { variantId: variant.id, inputId: ph.inputId }) }}"
+                                    >
+                                {% endif %}
 
                                 {% if ph.hidable %}
                                     <div class="form-check mt-1">

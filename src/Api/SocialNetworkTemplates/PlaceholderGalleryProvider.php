@@ -17,10 +17,10 @@ use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\SocialNetworkTemplateVariantNotFound;
-use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
+use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\FileSource;
 
@@ -36,7 +36,7 @@ final readonly class PlaceholderGalleryProvider implements ProviderInterface
     public function __construct(
         private Security $security,
         private SocialNetworkTemplateVariantRepository $variantRepository,
-        private FileDirectoryRepository $fileDirectoryRepository,
+        private PlaceholderAllowedDirectories $allowedDirectories,
         private FileUploadRepository $fileUploadRepository,
         private UploaderHelper $uploaderHelper,
     ) {
@@ -87,19 +87,11 @@ final readonly class PlaceholderGalleryProvider implements ProviderInterface
 
         $project = $variant->template->project;
 
-        // Resolve the slot's allowed folders against the project's actual ones
-        // (a folder deleted after the designer picked it simply drops out).
-        $directoriesById = [];
-        foreach ($this->fileDirectoryRepository->listAll($project->id, FileSource::SocialNetworkImage) as $directory) {
-            $directoriesById[$directory->id->toString()] = $directory;
-        }
-
-        /** @var array<string, FileDirectory> $allowedDirectories */
+        // Resolve the slot's allowed folders (empty allow-list = every project
+        // folder; a folder deleted after the designer picked it drops out).
         $allowedDirectories = [];
-        foreach ($input->allowedDirectoryIds as $allowedId) {
-            if (isset($directoriesById[$allowedId])) {
-                $allowedDirectories[$allowedId] = $directoriesById[$allowedId];
-            }
+        foreach ($this->allowedDirectories->resolve($input, $project->id) as $directory) {
+            $allowedDirectories[$directory->id->toString()] = $directory;
         }
 
         if ($allowedDirectories === []) {
