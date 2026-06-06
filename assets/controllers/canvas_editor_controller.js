@@ -99,6 +99,56 @@ export default class extends Controller {
         this.unsavedChangesMessageTarget.classList.add('d-none');
     }
 
+    /**
+     * Single source of truth for "the canvas has edits not yet persisted":
+     * the visibility of the "Neuložené změny" indicator, which markUnsaved/
+     * markSaved toggle off Fabric's mutation events and the save response.
+     */
+    isDirty() {
+        return this.hasUnsavedChangesMessageTarget
+            && !this.unsavedChangesMessageTarget.classList.contains('d-none');
+    }
+
+    /**
+     * Intercept the Export link. The export is rendered server-side from the
+     * LAST SAVED variant, so following the link with unsaved edits silently
+     * produces a PNG that doesn't reflect what's on screen. When dirty, stop
+     * the navigation and ask the user; otherwise let the link behave normally.
+     */
+    confirmExport(event) {
+        if (!this.isDirty()) {
+            return; // nothing unsaved — follow the link as usual
+        }
+
+        event.preventDefault();
+        this.pendingExportUrl = event.currentTarget.href;
+        bootstrap.Modal.getOrCreateInstance('#exportUnsavedModal').show();
+    }
+
+    exportWithoutSaving() {
+        this.hideExportModal();
+        if (this.pendingExportUrl) {
+            window.location.href = this.pendingExportUrl;
+        }
+    }
+
+    saveAndExport() {
+        const url = this.pendingExportUrl;
+        this.hideExportModal();
+        this.submitForm().then((saved) => {
+            if (saved && url) {
+                window.location.href = url;
+            }
+        });
+    }
+
+    hideExportModal() {
+        const modal = bootstrap.Modal.getInstance('#exportUnsavedModal');
+        if (modal) {
+            modal.hide();
+        }
+    }
+
     async loadCanvasWithoutHistory(canvasJson) {
         this.loadingCanvas = true;
         try {
@@ -577,7 +627,9 @@ export default class extends Controller {
             this.previewImageTarget.value = '';
         }
 
-        fetch(form.action, {
+        // Returns a Promise<boolean> resolving to whether the save succeeded,
+        // so callers (e.g. saveAndExport) can chain navigation on success.
+        return fetch(form.action, {
             method: form.method,
             body: new FormData(form),
             headers: {
@@ -588,14 +640,17 @@ export default class extends Controller {
             .then(data => {
                 if (data.status === 'success') {
                     this.markSaved();
-                } else {
-                    console.error('Ukládání se nepovedlo:', data.message);
-                    alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
+                    return true;
                 }
+
+                console.error('Ukládání se nepovedlo:', data.message);
+                alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
+                return false;
             })
             .catch(error => {
                 console.error('Error during save:', error);
                 alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
+                return false;
             });
     }
 

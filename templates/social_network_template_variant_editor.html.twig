@@ -72,7 +72,7 @@
 
                         <button class="btn btn-sm btn-primary me-1" type="button" data-action="canvas-editor#submitForm">Uložit</button>
 
-                        <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="btn btn-sm btn-outline-secondary me-1">Export</a>
+                        <a href="{{ path('social_network_template_variant_export', {'variantId': variant.id}) }}" class="btn btn-sm btn-outline-secondary me-1" data-action="canvas-editor#confirmExport">Export</a>
                     </div>
                 </div>
 
@@ -313,6 +313,27 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
                         <button type="button" class="btn btn-primary" data-action="canvas-editor#submitAddText">Přidat text</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Shown when Export is clicked with unsaved canvas changes. The export
+           renders from the last saved variant, so we let the user save first. #}
+        <div class="modal fade" id="exportUnsavedModal" tabindex="-1" aria-labelledby="exportUnsavedModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exportUnsavedModalLabel">Neuložené změny</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">Máte neuložené změny. Export se vytvoří z naposledy uložené verze, takže vaše poslední úpravy se v něm neprojeví. Chcete změny nejdříve uložit?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
+                        <button type="button" class="btn btn-outline-danger" data-action="canvas-editor#exportWithoutSaving">Pokračovat bez uložení</button>
+                        <button type="button" class="btn btn-primary" data-action="canvas-editor#saveAndExport">Uložit a exportovat</button>
                     </div>
                 </div>
             </div>
