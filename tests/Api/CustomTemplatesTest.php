@@ -139,6 +139,11 @@ final class CustomTemplatesTest extends ApiTestCase
         self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_PHOTO_ID, $photo['id'] ?? null);
         self::assertTrue($photo['allowMove'] ?? null);
         self::assertSame([TestDataFixture::FILE_DIRECTORY_ALLOWED_ID], $photo['allowedDirectoryIds'] ?? null);
+        self::assertSame(
+            [['id' => TestDataFixture::FILE_DIRECTORY_ALLOWED_ID, 'name' => 'Photos']],
+            $photo['directories'] ?? null,
+        );
+        self::assertFalse($photo['includesRoot'] ?? null);
         self::assertIsArray($photo['frame'] ?? null);
         self::assertEqualsWithDelta(100.0, $photo['frame']['x'] ?? null, 0.001);
     }

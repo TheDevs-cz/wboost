@@ -198,6 +198,13 @@ export default class extends Controller {
         const formData = new FormData();
         formData.append('file', file);
 
+        // With several allowed folders the picker renders a select and the server
+        // requires an explicit choice; a single folder resolves server-side.
+        const directorySelect = this.element.querySelector(`select[data-upload-directory="${inputId}"]`);
+        if (directorySelect && directorySelect.value) {
+            formData.append('directoryId', directorySelect.value);
+        }
+
         fetch(uploadUrl, { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } })
             .then((response) => (response.ok ? response.json() : Promise.reject(response)))
             .then((data) => {

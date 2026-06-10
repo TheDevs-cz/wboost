@@ -13,10 +13,12 @@ use WBoost\Web\Value\FileSource;
 /**
  * Single source of truth for "which gallery folders may an image placeholder be
  * filled from". An empty {@see EditorImageInput::$allowedDirectoryIds} means the
- * designer left the slot UNRESTRICTED → every project-gallery folder in the
- * project is offered (the admin editor warns the designer of this when they
- * leave it empty). A non-empty list is intersected with the project's real
- * folders, so a folder deleted after the designer picked it simply drops out.
+ * designer left the slot UNRESTRICTED → the whole project gallery is open:
+ * every project-gallery folder AND the gallery root (files in no folder) —
+ * see {@see self::includesRoot()} (the admin editor warns the designer of this
+ * when they leave it empty). A non-empty list is intersected with the project's
+ * real folders, so a folder deleted after the designer picked it simply drops
+ * out; the root can never be on an explicit list.
  *
  * Every fill path (web pick list, API gallery list, upload target, render-time
  * validation) resolves through here so they can never disagree about what is
@@ -27,6 +29,16 @@ readonly final class PlaceholderAllowedDirectories
     public function __construct(
         private FileDirectoryRepository $fileDirectoryRepository,
     ) {
+    }
+
+    /**
+     * Whether the slot may also use the gallery ROOT (files in no folder) — true
+     * exactly for unrestricted slots: an explicit allow-list can only name
+     * folders, so picking any folder implicitly excludes the root.
+     */
+    public function includesRoot(EditorImageInput $input): bool
+    {
+        return $input->allowedDirectoryIds === [];
     }
 
     /**

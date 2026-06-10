@@ -18,6 +18,12 @@ final readonly class CustomTemplateVariantImageInputResponse
      * @param list<string> $allowedDirectoryIds gallery folder ids this slot may pull from;
      *        an empty list means UNRESTRICTED — every gallery folder in the project is
      *        offered (use `GET …/placeholders/{id}/images` to list the actual pickable images)
+     * @param list<PlaceholderDirectoryResponse> $directories the RESOLVED folders (with
+     *        names) — `allowedDirectoryIds` expanded/intersected with the project's real
+     *        folders. Together with the root (when `includesRoot`) these are the valid
+     *        `directoryId` upload targets for this slot — let the user choose one.
+     *        A restricted slot with several folders REQUIRES `directoryId` on upload;
+     *        an unrestricted slot defaults to the gallery root (omit `directoryId`).
      */
     public function __construct(
         public string $id,
@@ -28,6 +34,8 @@ final readonly class CustomTemplateVariantImageInputResponse
         public bool $allowRotate,
         public bool $hidable,
         public array $allowedDirectoryIds,
+        public array $directories,
+        public bool $includesRoot,
         public null|CustomTemplateVariantImageInputFrameResponse $frame,
         public null|string $defaultImageUrl,
     ) {

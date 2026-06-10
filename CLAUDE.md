@@ -329,19 +329,28 @@ persist as an `EditorImageInput[]` JSONB column `image_inputs` on
 `social_network_template_variant` (via `EditorImageInputsDoctrineType`), alongside
 the textbox `inputs`.
 
-**`allowedDirectoryIds` semantics — empty = UNRESTRICTED (all project folders),
-never "none".** A placeholder with no folder selected would otherwise be a dead
-slot (the user can neither pick nor upload — the old code 400'd "no folder to
-upload into"). So an empty list now expands to every project-gallery folder in
-the project. The single source of truth is `PlaceholderAllowedDirectories`
-(`resolve()` / `resolveIds()` / pure static `effectiveIds()`), used by **all four**
-interpretation sites — `PlaceholderImageUploader` (upload target), `ResolveImageOverrides`
-(render-time validation), `VariantFiller` (web pick list + `canUpload` flag),
-`PlaceholderGalleryProvider` (API pick list) — so they can never disagree. The
-admin editor warns the designer when they leave a placeholder's folders empty
-("uživateli budou nabídnuty všechny složky"), and warns harder when the project
-has **no** folders at all (a genuine dead end). Only that last case (zero folders)
-still blocks upload, with an actionable message.
+**`allowedDirectoryIds` semantics — empty = UNRESTRICTED (the WHOLE gallery:
+every project folder PLUS the gallery root), never "none".** An explicit
+allow-list can only name folders, so picking any folder implicitly excludes the
+root. The single source of truth is `PlaceholderAllowedDirectories`
+(`resolve()` / `resolveIds()` / `includesRoot()` / pure static `effectiveIds()`),
+used by **all four** interpretation sites — `PlaceholderImageUploader` (upload
+target), `ResolveImageOverrides` (render-time validation), `VariantFiller` (web
+pick list + `canUpload` flag), `PlaceholderGalleryProvider` (API pick list) — so
+they can never disagree. The admin editor warns the designer when they leave a
+placeholder's folders empty ("uživateli bude otevřená celá galerie"). The only
+remaining dead end is a restricted slot whose every picked folder was deleted.
+
+**Upload target is the UPLOADER'S choice (web + API), never an arbitrary
+fallback.** `PlaceholderImageUploader::resolveTargetDirectory` resolves an
+omitted `directoryId` only when unambiguous: a restricted slot with exactly one
+folder → that folder; an unrestricted slot → the gallery root (null directory);
+a restricted slot with several folders → 400 (the caller must choose). The web
+fill page renders a per-slot folder `<select>` (inside `data-live-ignore` so the
+choice survives Live re-renders) whenever more than one target exists, and the
+API exposes resolved `directories` ({id, name}) + `includesRoot` on each
+`imageInputs[]` entry so consumers can render the same choice. The upload
+response's `directoryId` is null for root uploads.
 
 - **Render core**: `ResolveImageOverrides` validates the fill (the chosen `imageId`
   must be a `FileUpload` in one of the slot's allowed folders; move/resize/rotate

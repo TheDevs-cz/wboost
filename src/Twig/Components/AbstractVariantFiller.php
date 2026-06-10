@@ -188,6 +188,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     frame: null|array{x: float, y: float, width: float, height: float},
      *     defaultImageUrl: null|string,
      *     images: list<array{id: string, url: string}>,
+     *     directories: list<array{id: string, name: string}>,
+     *     includesRoot: bool,
      *     canUpload: bool
      * }>
      */
@@ -220,10 +222,12 @@ abstract class AbstractVariantFiller extends AbstractController
                 $defaultImageUrl = $this->defaultImageUrl($object);
             }
 
-            // Effective folders the slot may be filled from (empty allow-list =
-            // every project folder). With none at all the user can neither pick
-            // nor upload, so the template hides the upload field and explains why.
+            // Effective folders the slot may be filled from. An empty allow-list
+            // is UNRESTRICTED: every project folder plus the gallery root. Only a
+            // restricted slot whose every folder vanished is a dead end — the
+            // template hides the upload field and explains why.
             $directories = $this->allowedDirectories->resolve($input, $project->id);
+            $includesRoot = $this->allowedDirectories->includesRoot($input);
 
             $result[] = [
                 'inputId' => $input->inputId,
@@ -235,8 +239,19 @@ abstract class AbstractVariantFiller extends AbstractController
                 'hidable' => $input->hidable,
                 'frame' => $frame,
                 'defaultImageUrl' => $defaultImageUrl,
-                'images' => $this->allowedImages($project->id, $directories),
-                'canUpload' => $directories !== [],
+                'images' => $this->allowedImages($project->id, $directories, $includesRoot),
+                // Upload targets: with several possible targets the user picks one
+                // in the UI (the server refuses to guess); a single folder — or
+                // the root for unrestricted slots — is resolved server-side.
+                'directories' => array_map(
+                    static fn (FileDirectory $directory): array => [
+                        'id' => $directory->id->toString(),
+                        'name' => $directory->name,
+                    ],
+                    $directories,
+                ),
+                'includesRoot' => $includesRoot,
+                'canUpload' => $directories !== [] || $includesRoot,
             ];
         }
 
@@ -262,12 +277,8 @@ abstract class AbstractVariantFiller extends AbstractController
      * @param list<FileDirectory> $directories the slot's effective allowed folders
      * @return list<array{id: string, url: string}>
      */
-    private function allowedImages(UuidInterface $projectId, array $directories): array
+    private function allowedImages(UuidInterface $projectId, array $directories, bool $includeRoot): array
     {
-        if ($directories === []) {
-            return [];
-        }
-
         $directoryIds = array_map(static fn (FileDirectory $directory): UuidInterface => $directory->id, $directories);
 
         return array_map(
@@ -275,7 +286,7 @@ abstract class AbstractVariantFiller extends AbstractController
                 'id' => $file->id->toString(),
                 'url' => $this->uploaderHelper->getPublicPath($file->path),
             ],
-            $this->fileUploadRepository->listByProjectSourceAndDirectories($projectId, FileSource::ProjectImage, $directoryIds),
+            $this->fileUploadRepository->listByProjectSourceAndDirectories($projectId, FileSource::ProjectImage, $directoryIds, $includeRoot),
         );
     }
 

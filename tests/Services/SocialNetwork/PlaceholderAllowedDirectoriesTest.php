@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Services\SocialNetwork;
 
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
+use WBoost\Web\Value\EditorImageInput;
 
 /**
  * The "which folders may a placeholder be filled from" rule, isolated from the
- * database. An empty allow-list means UNRESTRICTED (all project folders) — never
- * "none" — which is what stops a folderless placeholder from 400'ing on upload.
+ * database. An empty allow-list means UNRESTRICTED — the whole gallery: all
+ * project folders plus the gallery root — never "none".
  *
- * @covers \WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories::effectiveIds
+ * @covers \WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories
  */
 final class PlaceholderAllowedDirectoriesTest extends TestCase
 {
@@ -46,6 +49,35 @@ final class PlaceholderAllowedDirectoriesTest extends TestCase
         self::assertSame(
             [self::DIR_A],
             PlaceholderAllowedDirectories::effectiveIds([self::DIR_A, self::DIR_B], [self::DIR_A, self::DIR_C]),
+        );
+    }
+
+    public function testOnlyAnEmptyAllowListIncludesTheGalleryRoot(): void
+    {
+        // includesRoot never touches the database; the repository is final, so
+        // build a real one over a stubbed entity manager.
+        $service = new PlaceholderAllowedDirectories(
+            new FileDirectoryRepository($this->createStub(EntityManagerInterface::class)),
+        );
+
+        self::assertTrue($service->includesRoot($this->input([])));
+        self::assertFalse($service->includesRoot($this->input([self::DIR_A])));
+    }
+
+    /**
+     * @param list<string> $allowedDirectoryIds
+     */
+    private function input(array $allowedDirectoryIds): EditorImageInput
+    {
+        return new EditorImageInput(
+            'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            null,
+            null,
+            true,
+            true,
+            true,
+            true,
+            $allowedDirectoryIds,
         );
     }
 }

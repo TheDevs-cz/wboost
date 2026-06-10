@@ -159,7 +159,11 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "allowResize": true,                          // user may zoom (uniform)
             "allowRotate": false,                         // user may rotate
             "hidable": true,                              // offer a "hide" toggle
-            "allowedDirectoryIds": ["0192..."],          // gallery folders this slot may pull from
+            "allowedDirectoryIds": ["0192..."],          // raw designer allow-list ([] = unrestricted)
+            "directories": [                              // RESOLVED upload/pick folders with names
+              { "id": "0192...", "name": "Photos" }
+            ],
+            "includesRoot": false,                        // unrestricted slots also use the gallery root
             "frame": { "x": 100, "y": 120, "width": 400, "height": 300 }, // designer's fixed frame (canvas px), nullable
             "defaultImageUrl": "http://.../standin.png"  // stand-in shown if left empty, nullable
           }
@@ -263,19 +267,30 @@ the inputs the user actually edited/toggled (omitted = default).
 
 For each image slot, let the user pick a picture (and, if allowed, position it):
 
-1. **List pickable images** for the slot (only its allowed folders):
+1. **List pickable images** for the slot (its allowed folders; for an
+   unrestricted slot — `includesRoot: true` — the whole gallery, where root
+   images carry a null/absent `directoryId`/`directoryName`):
    ```
    GET {API_BASE}/api/social-network-template-variants/{variantId}/placeholders/{imageInputId}/images
    ```
    → `[{ "id", "url", "directoryId", "directoryName", "uploadedAt" }]`. Show a
    thumbnail picker; the chosen `id` is the `imageId` you send in `images`.
 
-2. **(Optional) upload a new one** into an allowed folder:
+2. **(Optional) upload a new one** — the target folder is the USER'S choice:
    ```
    POST {API_BASE}/api/social-network-template-variants/{variantId}/placeholders/{imageInputId}/images
-   Content-Type: multipart/form-data    (field `file`; optional `directoryId`)
+   Content-Type: multipart/form-data    (field `file`; field `directoryId` — see below)
    ```
-   → `{ "id", "url", "directoryId" }`. Use the returned `id` as the `imageId`.
+   → `{ "id", "url", "directoryId" }` (null `directoryId` = gallery root). Use
+   the returned `id` as the `imageId`.
+
+   `directoryId` rules — render the slot's `directories` (+ a "Galerie" root
+   option when `includesRoot`) as a folder select next to the upload control:
+   - several folders in `directories` (restricted slot) → `directoryId`
+     **required**, otherwise **`400`**;
+   - exactly one folder, not `includesRoot` → optional (auto-resolved);
+   - `includesRoot: true` (unrestricted) → optional; omitted = gallery root;
+   - a folder outside `directories` → **`403`**.
 
 3. **Placement** defaults to centered + object-contain inside `frame`. Expose `scale`
    (zoom), `offsetX`/`offsetY` (pan, canvas px) and `rotation` (deg) only for the

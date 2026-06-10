@@ -201,6 +201,14 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertTrue($photo['hidable'] ?? null);
         self::assertSame([TestDataFixture::FILE_DIRECTORY_ALLOWED_ID], $photo['allowedDirectoryIds'] ?? null);
 
+        // The resolved upload/pick targets carry folder names; a restricted
+        // slot never includes the gallery root.
+        self::assertSame(
+            [['id' => TestDataFixture::FILE_DIRECTORY_ALLOWED_ID, 'name' => 'Photos']],
+            $photo['directories'] ?? null,
+        );
+        self::assertFalse($photo['includesRoot'] ?? null);
+
         // Frame derived from the placeholder object's displayed bbox.
         self::assertIsArray($photo['frame'] ?? null);
         self::assertEqualsWithDelta(100.0, $photo['frame']['x'] ?? null, 0.001);

@@ -15,10 +15,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use WBoost\Web\Entity\CustomTemplate;
 use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
+use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -35,6 +37,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
         private UploaderHelper $uploaderHelper,
         private ProjectRepository $projectRepository,
         private CanvasPlaceholderGeometry $placeholderGeometry,
+        private PlaceholderAllowedDirectories $allowedDirectories,
     ) {
     }
 
@@ -150,9 +153,10 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
         $decoded = json_decode($variant->canvas, true);
         $canvas = is_array($decoded) ? $decoded : [];
         $objects = $this->placeholderGeometry->placeholderObjectsByInputId($canvas);
+        $projectId = $variant->template->project->id;
 
         return array_values(array_map(
-            function (EditorImageInput $input) use ($objects): CustomTemplateVariantImageInputResponse {
+            function (EditorImageInput $input) use ($objects, $projectId): CustomTemplateVariantImageInputResponse {
                 $object = $objects[$input->inputId] ?? null;
 
                 $frame = null;
@@ -181,6 +185,14 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                     allowRotate: $input->allowRotate,
                     hidable: $input->hidable,
                     allowedDirectoryIds: $input->allowedDirectoryIds,
+                    directories: array_map(
+                        static fn (FileDirectory $directory): PlaceholderDirectoryResponse => new PlaceholderDirectoryResponse(
+                            id: $directory->id->toString(),
+                            name: $directory->name,
+                        ),
+                        $this->allowedDirectories->resolve($input, $projectId),
+                    ),
+                    includesRoot: $this->allowedDirectories->includesRoot($input),
                     frame: $frame,
                     defaultImageUrl: $defaultImageUrl,
                 );

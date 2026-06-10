@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Api;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingApiAuthentication;
+use WBoost\Web\Value\EditorImageInput;
 
 /**
  * @covers \WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantPlaceholderUploadController
@@ -31,14 +34,52 @@ final class SocialNetworkPlaceholderUploadTest extends ApiTestCase
         $this->assertResponseStatusCodeSame(401);
     }
 
-    public function testUploadsIntoDefaultAllowedFolder(): void
+    public function testUploadsIntoSingleAllowedFolderWithoutChoice(): void
     {
         $data = $this->upload(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, [], 200);
 
         self::assertIsString($data['id'] ?? null);
         self::assertIsString($data['url'] ?? null);
-        // No directoryId requested → falls back to the slot's first allowed folder.
+        // No directoryId requested + exactly ONE allowed folder → unambiguous.
         self::assertSame(TestDataFixture::FILE_DIRECTORY_ALLOWED_ID, $data['directoryId'] ?? null);
+    }
+
+    public function testSeveralAllowedFoldersRequireAnExplicitChoice(): void
+    {
+        // The upload target is the uploader's choice — never an arbitrary
+        // first-folder fallback.
+        $this->setPhotoSlotAllowList([
+            TestDataFixture::FILE_DIRECTORY_ALLOWED_ID,
+            TestDataFixture::FILE_DIRECTORY_OTHER_ID,
+        ]);
+
+        $this->upload(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, [], 400);
+    }
+
+    public function testUnrestrictedSlotDefaultsToGalleryRoot(): void
+    {
+        // Empty allow-list = the whole gallery is open; with no choice made the
+        // file lands in the gallery root, never in some arbitrary folder.
+        $this->setPhotoSlotAllowList([]);
+
+        $data = $this->upload(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, [], 200);
+
+        self::assertIsString($data['id'] ?? null);
+        self::assertArrayHasKey('directoryId', $data);
+        self::assertNull($data['directoryId']);
+    }
+
+    public function testUnrestrictedSlotUploadsIntoAnyChosenFolder(): void
+    {
+        $this->setPhotoSlotAllowList([]);
+
+        $data = $this->upload(
+            TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID,
+            ['directoryId' => TestDataFixture::FILE_DIRECTORY_OTHER_ID],
+            200,
+        );
+
+        self::assertSame(TestDataFixture::FILE_DIRECTORY_OTHER_ID, $data['directoryId'] ?? null);
     }
 
     public function testUploadsIntoExplicitAllowedFolder(): void
@@ -109,6 +150,29 @@ final class SocialNetworkPlaceholderUploadTest extends ApiTestCase
         }
 
         return $response->toArray();
+    }
+
+    /**
+     * Rewrite the fixture photo slot's folder allow-list. DAMA keeps the flush
+     * inside the test transaction.
+     *
+     * @param list<string> $allowedDirectoryIds
+     */
+    private function setPhotoSlotAllowList(array $allowedDirectoryIds): void
+    {
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+
+        $variant = $entityManager->find(
+            SocialNetworkTemplateVariant::class,
+            TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
+        );
+        self::assertInstanceOf(SocialNetworkTemplateVariant::class, $variant);
+
+        $variant->imageInputs = [
+            new EditorImageInput(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, $allowedDirectoryIds),
+            new EditorImageInput(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID, 'logo', null, false, false, false, false, [TestDataFixture::FILE_DIRECTORY_ALLOWED_ID]),
+        ];
+        $entityManager->flush();
     }
 
     private function pngUpload(): UploadedFile

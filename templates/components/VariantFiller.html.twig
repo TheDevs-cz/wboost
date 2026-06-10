@@ -105,14 +105,37 @@
                                         </div>
                                     {% endif %}
 
-                                    <input
-                                        type="file"
-                                        class="form-control form-control-sm"
-                                        accept="image/*"
-                                        data-action="change->variant-image-fill#uploadImage"
-                                        data-variant-image-fill-inputid-param="{{ ph.inputId }}"
-                                        data-variant-image-fill-uploadurl-param="{{ this.uploadPath(ph.inputId) }}"
-                                    >
+                                    {# data-live-ignore: the chosen upload folder must survive the
+                                       Live re-renders triggered by text edits. The select shows up
+                                       whenever there is more than one possible target — an
+                                       unrestricted slot (includesRoot) also offers the gallery root
+                                       (empty value → the server uploads to the root). #}
+                                    <div data-live-ignore>
+                                        {% set uploadTargetCount = ph.directories|length + (ph.includesRoot ? 1 : 0) %}
+                                        {% if uploadTargetCount > 1 %}
+                                            <label class="form-label small text-muted mb-0" for="upload-directory-{{ ph.inputId }}">Nahrát do složky</label>
+                                            <select
+                                                id="upload-directory-{{ ph.inputId }}"
+                                                class="form-select form-select-sm mb-1"
+                                                data-upload-directory="{{ ph.inputId }}"
+                                            >
+                                                {% if ph.includesRoot %}
+                                                    <option value="">Galerie (bez složky)</option>
+                                                {% endif %}
+                                                {% for directory in ph.directories %}
+                                                    <option value="{{ directory.id }}">{{ directory.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        {% endif %}
+                                        <input
+                                            type="file"
+                                            class="form-control form-control-sm"
+                                            accept="image/*"
+                                            data-action="change->variant-image-fill#uploadImage"
+                                            data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                            data-variant-image-fill-uploadurl-param="{{ this.uploadPath(ph.inputId) }}"
+                                        >
+                                    </div>
                                 {% endif %}
 
                                 {% if ph.hidable %}

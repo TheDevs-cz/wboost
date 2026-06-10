@@ -61,6 +61,11 @@ final class CustomTemplatePlaceholderGalleryTest extends ApiTestCase
             $ids,
             'Images from a folder the slot does not allow must not appear.',
         );
+        self::assertNotContains(
+            TestDataFixture::FILE_IN_ROOT_ID,
+            $ids,
+            'A slot with an explicit allow-list must not reach gallery-root images.',
+        );
         self::assertContains('Photos', $directoryNames);
     }
 

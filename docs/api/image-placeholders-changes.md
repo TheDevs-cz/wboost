@@ -15,6 +15,22 @@ everything renders **server-side** — preview and download are the same render.
 There are **two API changes** to endpoints you already call, plus **two new
 endpoints**.
 
+> **Update (June 2026) — upload folder choice.** The upload endpoint (§4) no
+> longer silently drops files into the slot's *first* allowed folder. The
+> **uploader chooses** the target folder via `directoryId`:
+>
+> - slot with **one** allowed folder → `directoryId` optional (unambiguous);
+> - slot with **several** allowed folders → `directoryId` **required**
+>   (omitting it now returns `400`);
+> - **unrestricted** slot (`allowedDirectoryIds: []`) → the whole gallery is
+>   open, **including the gallery root**; omitting `directoryId` stores the
+>   file in the root (`directoryId: null` in the response).
+>
+> To render the folder choice, each `imageInputs[]` entry now lists its
+> resolved `directories` (id + name) and an `includesRoot` flag (§1), and the
+> slot-gallery listing (§3) includes root images (null `directoryId` /
+> `directoryName`) for unrestricted slots.
+
 ---
 
 ## 1. Templates listing — variants gain `imageInputs[]`
@@ -38,7 +54,12 @@ image slots). It sits next to the existing `inputs` array:
         "allowResize": true,                    // user may zoom (uniform scale)
         "allowRotate": false,                   // user may rotate
         "hidable":     true,                    // offer a "hide this slot" toggle
-        "allowedDirectoryIds": ["0192...", ...],// gallery folders this slot may pull from
+        "allowedDirectoryIds": ["0192...", ...],// raw designer allow-list ([] = unrestricted)
+        "directories": [                         // RESOLVED upload/pick folders, with names
+          { "id": "0192...", "name": "Photos" }
+        ],
+        "includesRoot": false,                   // true (unrestricted slots only) → the gallery
+                                                 // root is a valid pick source + upload target
         "frame": { "x": 100, "y": 120, "width": 400, "height": 300 }, // designer frame in canvas px; nullable
         "defaultImageUrl": "http://.../standin.png"  // stand-in shown if left empty; nullable
       }
@@ -50,8 +71,11 @@ image slots). It sits next to the existing `inputs` array:
 - **Bind by `id` (UUID)**, never by `name` (names aren't unique), same as text.
 - `frame` is in the variant's canvas pixel space (`width`×`height`); use it to size
   a positioning UI. It's `null` only for malformed variants.
-- `allowedDirectoryIds` are gallery folder ids — you don't usually need them
-  directly; use the **list endpoint** (§3) to get the actual pickable images.
+- `allowedDirectoryIds` is the designer's raw allow-list; prefer `directories`,
+  which is already resolved (an empty allow-list is expanded to every project
+  folder, deleted folders are dropped) and carries display names. Use it +
+  `includesRoot` to render the **upload folder choice** (§4); use the **list
+  endpoint** (§3) to get the actual pickable images.
 
 ---
 
@@ -113,12 +137,16 @@ folders** only — these are exactly the `imageId`s you may use in `images`:
   {
     "id":            "f0e1d2c3-...",      // → use as `imageId`
     "url":           "http://.../photo.jpg",
-    "directoryId":   "0192...",
-    "directoryName": "Photos",
+    "directoryId":   "0192...",           // null for gallery-root images
+    "directoryName": "Photos",            // null for gallery-root images
     "uploadedAt":    "2026-06-05 14:10"
   }
 ]
 ```
+
+For an **unrestricted** slot (`includesRoot: true`) the listing covers the whole
+gallery, including root images (their `directoryId`/`directoryName` are null —
+and may be omitted from the JSON entirely).
 
 Show these as a thumbnail picker for the slot. Status: `200` · `401` no token ·
 `403` variant not visible to this client · `404` no such placeholder on the variant.
@@ -141,16 +169,23 @@ Form fields:
 | field | required | notes |
 |---|---|---|
 | `file` | yes | the image part (png / jpg / webp / gif) |
-| `directoryId` | no | which allowed folder to store it in; defaults to the slot's first allowed folder |
+| `directoryId` | see notes | **the uploader's choice of target folder** (one of the slot's `directories[].id`). Required when a restricted slot allows **several** folders. Optional when the slot allows exactly **one** folder (auto) or is **unrestricted** (`includesRoot: true` — omitting it stores the file in the gallery root). |
+
+**Let the user choose**: render `directories` (+ a "root" option when
+`includesRoot`) as a folder select next to your upload control and send the
+choice as `directoryId` — that is exactly what the wboost web fill page does.
 
 Returns the new gallery image — use its `id` as the `imageId` in `images`:
 
 ```jsonc
 { "id": "f0e1d2c3-...", "url": "http://.../uploaded.jpg", "directoryId": "0192..." }
+// gallery-root upload (unrestricted slot, no directoryId sent):
+{ "id": "f0e1d2c3-...", "url": "http://.../uploaded.jpg", "directoryId": null }
 ```
 
 Status: `200` · `401` no token · `403` `directoryId` isn't an allowed folder for the
-slot · `400` missing `file` · `404` no such placeholder.
+slot · `400` missing `file`, or missing `directoryId` for a restricted slot with
+several allowed folders · `404` no such placeholder.
 
 ---
 

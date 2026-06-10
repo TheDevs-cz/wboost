@@ -130,10 +130,9 @@ export default class extends Controller {
 
     /**
      * Tell the designer what's still missing for a placeholder. An empty
-     * folder allow-list is NOT an error — it means "offer the user every
-     * gallery folder" — but the designer should know that's what will happen.
-     * A project with no folders at all is a real dead end (the user can neither
-     * pick nor upload), so that warning is stronger and points at the gallery.
+     * folder allow-list is NOT an error — it means "the whole gallery is open"
+     * (every folder plus the gallery root, for picking AND uploading) — but the
+     * designer should know that's what will happen.
      */
     _refreshWarning(isPlaceholder) {
         if (!this.hasWarningTarget) return;
@@ -143,14 +142,10 @@ export default class extends Controller {
             return;
         }
 
-        const hasFolders = this.directoryTargets.length > 0;
         const anyChecked = this.directoryTargets.some((checkbox) => checkbox.checked);
 
-        if (!hasFolders) {
-            this.warningTarget.textContent = 'Projekt nemá žádné složky galerie — vytvořte složku v galerii obrázků, jinak uživatel nebude moci tento obrázek vyplnit.';
-            this.warningTarget.style.display = 'block';
-        } else if (!anyChecked) {
-            this.warningTarget.textContent = 'Nevybrali jste žádnou složku — uživateli budou nabídnuty všechny složky galerie. Pro omezení vyberte konkrétní složky.';
+        if (!anyChecked) {
+            this.warningTarget.textContent = 'Nevybrali jste žádnou složku — uživateli bude otevřená celá galerie (všechny složky i obrázky mimo složky). Pro omezení vyberte konkrétní složky.';
             this.warningTarget.style.display = 'block';
         } else {
             this.warningTarget.style.display = 'none';

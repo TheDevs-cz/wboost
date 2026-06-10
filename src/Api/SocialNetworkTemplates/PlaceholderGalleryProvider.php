@@ -87,14 +87,17 @@ final readonly class PlaceholderGalleryProvider implements ProviderInterface
 
         $project = $variant->template->project;
 
-        // Resolve the slot's allowed folders (empty allow-list = every project
-        // folder; a folder deleted after the designer picked it drops out).
+        // Resolve the slot's allowed folders (empty allow-list = the whole
+        // gallery: every project folder plus the root; a folder deleted after
+        // the designer picked it drops out).
         $allowedDirectories = [];
         foreach ($this->allowedDirectories->resolve($input, $project->id) as $directory) {
             $allowedDirectories[$directory->id->toString()] = $directory;
         }
 
-        if ($allowedDirectories === []) {
+        $includesRoot = $this->allowedDirectories->includesRoot($input);
+
+        if ($allowedDirectories === [] && !$includesRoot) {
             return [];
         }
 
@@ -102,17 +105,18 @@ final readonly class PlaceholderGalleryProvider implements ProviderInterface
             $project->id,
             FileSource::ProjectImage,
             array_map(static fn (FileDirectory $directory): UuidInterface => $directory->id, array_values($allowedDirectories)),
+            $includesRoot,
         );
 
         return array_map(
             function (FileUpload $file) use ($allowedDirectories): PlaceholderGalleryImageResponse {
-                $directoryId = $file->directory?->id->toString() ?? '';
+                $directoryId = $file->directory?->id->toString();
 
                 return new PlaceholderGalleryImageResponse(
                     id: $file->id->toString(),
                     url: $this->uploaderHelper->getPublicPath($file->path),
                     directoryId: $directoryId,
-                    directoryName: $allowedDirectories[$directoryId]->name ?? '',
+                    directoryName: $directoryId !== null ? ($allowedDirectories[$directoryId]->name ?? null) : null,
                     uploadedAt: $file->uploadedAt,
                 );
             },

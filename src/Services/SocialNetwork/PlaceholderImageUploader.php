@@ -38,7 +38,7 @@ readonly final class PlaceholderImageUploader
     }
 
     /**
-     * @return array{id: string, url: string, directoryId: string}
+     * @return array{id: string, url: string, directoryId: null|string}
      */
     public function upload(
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
@@ -69,7 +69,7 @@ readonly final class PlaceholderImageUploader
         return [
             'id' => $upload->id->toString(),
             'url' => $this->uploaderHelper->getPublicPath($upload->path),
-            'directoryId' => $directoryId->toString(),
+            'directoryId' => $directoryId?->toString(),
         ];
     }
 
@@ -85,14 +85,22 @@ readonly final class PlaceholderImageUploader
     }
 
     /**
-     * The requested target folder must be one the slot allows; with none
-     * requested we fall back to the slot's first allowed folder. An empty
-     * allow-list means unrestricted (every project folder is allowed) — see
-     * {@see PlaceholderAllowedDirectories}. Only a project with no gallery
-     * folder at all leaves nowhere to upload, which the admin editor flags to
-     * the designer up front.
+     * The requested target folder must be one the slot allows (null = gallery
+     * root). The target is the UPLOADER'S choice, never an arbitrary fallback
+     * (files used to silently land in the slot's first allowed folder,
+     * surprising everyone browsing the gallery), so omitting the folder is only
+     * valid when it is unambiguous:
+     *
+     *  - UNRESTRICTED slot (empty allow-list, see
+     *    {@see PlaceholderAllowedDirectories}): the whole gallery is open, so
+     *    no choice defaults to the gallery ROOT — also the answer for a project
+     *    with no folders at all, which used to be a dead end.
+     *  - Restricted slot with exactly ONE remaining folder: that folder.
+     *  - Restricted slot with several folders: 400 — the caller must choose.
+     *  - Restricted slot whose every picked folder was deleted: 400 dead end,
+     *    which the admin editor flags to the designer up front.
      */
-    private function resolveTargetDirectory(EditorImageInput $input, Project $project, null|string $requested): UuidInterface
+    private function resolveTargetDirectory(EditorImageInput $input, Project $project, null|string $requested): null|UuidInterface
     {
         $allowed = $this->allowedDirectories->resolve($input, $project->id);
 
@@ -106,8 +114,16 @@ readonly final class PlaceholderImageUploader
             throw new AccessDeniedHttpException('That folder is not allowed for this placeholder.');
         }
 
+        if ($this->allowedDirectories->includesRoot($input)) {
+            return null;
+        }
+
         if ($allowed === []) {
             throw new BadRequestHttpException('This placeholder has no gallery folder to upload into — create a folder in the project gallery first.');
+        }
+
+        if (count($allowed) > 1) {
+            throw new BadRequestHttpException('Several folders are allowed for this placeholder — pass "directoryId" to choose where the file should be uploaded.');
         }
 
         return $allowed[0]->id;

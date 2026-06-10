@@ -81,11 +81,13 @@ final class TestDataFixture extends Fixture
     public const string SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000046';
 
     // Gallery folders + files (PROJECT_1, ProjectImage source). The photo
-    // slot may pull from ALLOWED only; OTHER is off-limits to the slot.
+    // slot may pull from ALLOWED only; OTHER is off-limits to the slot. The
+    // ROOT file sits in no folder — reachable only by UNRESTRICTED slots.
     public const string FILE_DIRECTORY_ALLOWED_ID = '00000000-0000-0000-0000-000000000061';
     public const string FILE_DIRECTORY_OTHER_ID = '00000000-0000-0000-0000-000000000062';
     public const string FILE_IN_ALLOWED_ID = '00000000-0000-0000-0000-000000000071';
     public const string FILE_IN_OTHER_ID = '00000000-0000-0000-0000-000000000072';
+    public const string FILE_IN_ROOT_ID = '00000000-0000-0000-0000-000000000073';
 
     // Custom template fixtures — mirror the social-network ones (same input mix,
     // same gallery folders) but with a free-form A4 mm dimension.
@@ -238,6 +240,15 @@ final class TestDataFixture extends Fixture
             FileSource::ProjectImage,
             'fixtures/in-other.png',
             $dirOther,
+        ));
+
+        $manager->persist(new FileUpload(
+            Uuid::fromString(self::FILE_IN_ROOT_ID),
+            $project1,
+            $date,
+            FileSource::ProjectImage,
+            'fixtures/in-root.png',
+            null,
         ));
 
         // Social network template (USER_1 / PROJECT_1) — exercises non-locked named, uppercase, and locked-unnamed inputs.

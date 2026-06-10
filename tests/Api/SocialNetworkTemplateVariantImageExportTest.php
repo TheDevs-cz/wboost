@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Api;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
+use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingApiAuthentication;
+use WBoost\Web\Value\EditorImageInput;
 
 /**
  * Image-placeholder export coverage. Validation / scoping / constraint paths
@@ -56,6 +59,28 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
         $this->export(['images' => [TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => TestDataFixture::FILE_IN_OTHER_ID]]);
 
         $this->assertResponseStatusCodeSame(400);
+    }
+
+    public function testRootImageIsRejectedForRestrictedSlot(): void
+    {
+        // FILE_IN_ROOT sits in no folder; a slot with an explicit allow-list
+        // can never reach the gallery root.
+        $this->export(['images' => [TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => TestDataFixture::FILE_IN_ROOT_ID]]);
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
+    public function testRootImageIsAcceptedForUnrestrictedSlot(): void
+    {
+        $this->writeTestImage('fixtures/in-root.png');
+        $this->makePhotoSlotUnrestricted();
+
+        // An empty allow-list opens the whole gallery, root included.
+        $this->export(['images' => [TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => TestDataFixture::FILE_IN_ROOT_ID]]);
+
+        $this->assertResponseIsSuccessful();
+        $call = $this->lastCall();
+        self::assertArrayHasKey(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, $call['images']);
     }
 
     public function testResizeOnLockedSlotIsRejected(): void
@@ -193,6 +218,27 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
         self::assertIsString($bytes);
 
         self::getContainer()->get('oneup_flysystem.minio_filesystem')->write($path, $bytes);
+    }
+
+    /**
+     * Rewrite the fixture variant's photo slot with an EMPTY allow-list
+     * (= unrestricted). DAMA keeps the flush inside the test transaction.
+     */
+    private function makePhotoSlotUnrestricted(): void
+    {
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+
+        $variant = $entityManager->find(
+            SocialNetworkTemplateVariant::class,
+            TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
+        );
+        self::assertInstanceOf(SocialNetworkTemplateVariant::class, $variant);
+
+        $variant->imageInputs = [
+            new EditorImageInput(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, []),
+            new EditorImageInput(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID, 'logo', null, false, false, false, false, [TestDataFixture::FILE_DIRECTORY_ALLOWED_ID]),
+        ];
+        $entityManager->flush();
     }
 
     private function getRendererFake(): FakeTemplateVariantImageRenderer

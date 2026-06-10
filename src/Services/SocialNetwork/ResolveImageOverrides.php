@@ -129,9 +129,20 @@ readonly final class ResolveImageOverrides
         }
 
         $directoryId = $file->directory?->id->toString();
+
+        // A root file (no folder) is usable exactly when the slot is
+        // unrestricted — "nothing allowed" means the whole gallery, root included.
+        if ($directoryId === null) {
+            if (!$this->allowedDirectories->includesRoot($input)) {
+                throw new BadRequestHttpException(sprintf('Image input "%s": image is not in an allowed folder.', $label));
+            }
+
+            return $file;
+        }
+
         $allowedIds = $this->allowedDirectories->resolveIds($input, $projectId);
 
-        if ($directoryId === null || !in_array($directoryId, $allowedIds, true)) {
+        if (!in_array($directoryId, $allowedIds, true)) {
             throw new BadRequestHttpException(sprintf('Image input "%s": image is not in an allowed folder.', $label));
         }
 
