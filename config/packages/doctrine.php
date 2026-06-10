@@ -44,7 +44,7 @@ return App::config([
                             'dir' => '%kernel.project_dir%/src/Entity',
                             'prefix' => 'WBoost\\Web\\Entity',
                         ],
-                        // Embeddables (e.g. FlyerDimension) live among the value objects.
+                        // Embeddables (e.g. CustomTemplateDimension) live among the value objects.
                         'WBoostValue' => [
                             'type' => 'attribute',
                             'dir' => '%kernel.project_dir%/src/Value',

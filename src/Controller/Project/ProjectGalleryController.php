@@ -17,7 +17,7 @@ use WBoost\Web\Services\Security\ProjectVoter;
  * Project:ImageGallery Live Component used inside the canvas editor modal,
  * rendered full-page (`modal: false`) so admins can organize folders and
  * images without opening a template. The gallery is project-wide: the social
- * network and flyer editors both feed off it. Linked from the left navigation
+ * network and custom-template editors both feed off it. Linked from the left navigation
  * and from both module pages.
  */
 final class ProjectGalleryController extends AbstractController

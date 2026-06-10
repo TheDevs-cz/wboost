@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Fakes;
 
 use Symfony\Component\HttpFoundation\Response;
-use WBoost\Web\Entity\FlyerTemplateVariant;
+use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -25,7 +25,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     public array $calls = [];
 
     public function render(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
     ): Response {
@@ -35,7 +35,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     }
 
     public function renderToBytes(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
     ): string {
@@ -45,7 +45,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     }
 
     private function record(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
         string $mode,

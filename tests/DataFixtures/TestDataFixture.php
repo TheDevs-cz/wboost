@@ -13,8 +13,8 @@ use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
-use WBoost\Web\Entity\FlyerTemplate;
-use WBoost\Web\Entity\FlyerTemplateVariant;
+use WBoost\Web\Entity\CustomTemplate;
+use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
@@ -27,7 +27,7 @@ use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
-use WBoost\Web\Value\FlyerDimension;
+use WBoost\Web\Value\CustomTemplateDimension;
 use WBoost\Web\Value\ManualType;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\WeeklyMenuApprovalStatus;
@@ -87,20 +87,20 @@ final class TestDataFixture extends Fixture
     public const string FILE_IN_ALLOWED_ID = '00000000-0000-0000-0000-000000000071';
     public const string FILE_IN_OTHER_ID = '00000000-0000-0000-0000-000000000072';
 
-    // Flyer template fixtures — mirror the social-network ones (same input mix,
+    // Custom template fixtures — mirror the social-network ones (same input mix,
     // same gallery folders) but with a free-form A4 mm dimension.
-    public const string FLYER_TEMPLATE_1_ID = '00000000-0000-0000-0000-000000000080';
-    public const string FLYER_TEMPLATE_VARIANT_1_ID = '00000000-0000-0000-0000-000000000081';
-    public const string FLYER_TEMPLATE_2_ID = '00000000-0000-0000-0000-000000000082';
-    public const string FLYER_TEMPLATE_VARIANT_2_ID = '00000000-0000-0000-0000-000000000083';
+    public const string CUSTOM_TEMPLATE_1_ID = '00000000-0000-0000-0000-000000000080';
+    public const string CUSTOM_TEMPLATE_VARIANT_1_ID = '00000000-0000-0000-0000-000000000081';
+    public const string CUSTOM_TEMPLATE_2_ID = '00000000-0000-0000-0000-000000000082';
+    public const string CUSTOM_TEMPLATE_VARIANT_2_ID = '00000000-0000-0000-0000-000000000083';
 
-    public const string FLYER_VARIANT_1_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000091';
-    public const string FLYER_VARIANT_1_INPUT_TAGLINE_ID = '00000000-0000-0000-0000-000000000092';
-    public const string FLYER_VARIANT_1_INPUT_LOCKED_ID = '00000000-0000-0000-0000-000000000093';
-    public const string FLYER_VARIANT_1_INPUT_BADGE_ID = '00000000-0000-0000-0000-000000000094';
-    public const string FLYER_VARIANT_1_IMAGE_PHOTO_ID = '00000000-0000-0000-0000-000000000095';
-    public const string FLYER_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000096';
-    public const string FLYER_VARIANT_2_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000097';
+    public const string CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000091';
+    public const string CUSTOM_TEMPLATE_VARIANT_1_INPUT_TAGLINE_ID = '00000000-0000-0000-0000-000000000092';
+    public const string CUSTOM_TEMPLATE_VARIANT_1_INPUT_LOCKED_ID = '00000000-0000-0000-0000-000000000093';
+    public const string CUSTOM_TEMPLATE_VARIANT_1_INPUT_BADGE_ID = '00000000-0000-0000-0000-000000000094';
+    public const string CUSTOM_TEMPLATE_VARIANT_1_IMAGE_PHOTO_ID = '00000000-0000-0000-0000-000000000095';
+    public const string CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000096';
+    public const string CUSTOM_TEMPLATE_VARIANT_2_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000097';
 
     public function load(ObjectManager $manager): void
     {
@@ -323,32 +323,32 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($socialVariant2);
 
-        // Flyer template (USER_1 / PROJECT_1) — same input mix as the social
+        // Custom template (USER_1 / PROJECT_1) — same input mix as the social
         // variant, with a free-form A4 (210×297 mm @ 300 DPI) dimension.
-        $flyerTemplate1 = new FlyerTemplate(
-            Uuid::fromString(self::FLYER_TEMPLATE_1_ID),
+        $customTemplate1 = new CustomTemplate(
+            Uuid::fromString(self::CUSTOM_TEMPLATE_1_ID),
             $project1,
             null,
             $date,
-            'Flyer Template 1',
+            'Custom Template 1',
             null,
             0,
         );
-        $manager->persist($flyerTemplate1);
+        $manager->persist($customTemplate1);
 
-        $flyerVariant1 = new FlyerTemplateVariant(
-            Uuid::fromString(self::FLYER_TEMPLATE_VARIANT_1_ID),
-            $flyerTemplate1,
-            new FlyerDimension(DimensionUnit::Mm, 210, 297),
-            'fixtures/flyer-bg-1.png',
+        $customTemplateVariant1 = new CustomTemplateVariant(
+            Uuid::fromString(self::CUSTOM_TEMPLATE_VARIANT_1_ID),
+            $customTemplate1,
+            new CustomTemplateDimension(DimensionUnit::Mm, 210, 297),
+            'fixtures/custom-template-bg-1.png',
             $date,
         );
-        $flyerVariant1Canvas = json_encode([
+        $customTemplateVariant1Canvas = json_encode([
             'version' => '5.2.4',
             'objects' => [
                 [
                     'type' => 'Image',
-                    'inputId' => self::FLYER_VARIANT_1_IMAGE_PHOTO_ID,
+                    'inputId' => self::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_PHOTO_ID,
                     'imagePlaceholder' => true,
                     'left' => 100, 'top' => 120, 'width' => 400, 'height' => 300,
                     'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
@@ -356,7 +356,7 @@ final class TestDataFixture extends Fixture
                 ],
                 [
                     'type' => 'Image',
-                    'inputId' => self::FLYER_VARIANT_1_IMAGE_LOCKED_ID,
+                    'inputId' => self::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID,
                     'imagePlaceholder' => true,
                     'left' => 0, 'top' => 0, 'width' => 200, 'height' => 200,
                     'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
@@ -365,47 +365,47 @@ final class TestDataFixture extends Fixture
             'backgroundImage' => null,
         ], JSON_THROW_ON_ERROR);
 
-        $flyerVariant1->editCanvas(
-            $flyerVariant1Canvas,
+        $customTemplateVariant1->editCanvas(
+            $customTemplateVariant1Canvas,
             [
-                new EditorTextInput(self::FLYER_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false),
-                new EditorTextInput(self::FLYER_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
-                new EditorTextInput(self::FLYER_VARIANT_1_INPUT_LOCKED_ID, null, null, true, false, null, false),
-                new EditorTextInput(self::FLYER_VARIANT_1_INPUT_BADGE_ID, 'badge', null, false, false, null, true),
+                new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false),
+                new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
+                new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_LOCKED_ID, null, null, true, false, null, false),
+                new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_BADGE_ID, 'badge', null, false, false, null, true),
             ],
             null,
             [
-                new EditorImageInput(self::FLYER_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, [self::FILE_DIRECTORY_ALLOWED_ID]),
-                new EditorImageInput(self::FLYER_VARIANT_1_IMAGE_LOCKED_ID, 'logo', null, false, false, false, false, [self::FILE_DIRECTORY_ALLOWED_ID]),
+                new EditorImageInput(self::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, [self::FILE_DIRECTORY_ALLOWED_ID]),
+                new EditorImageInput(self::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID, 'logo', null, false, false, false, false, [self::FILE_DIRECTORY_ALLOWED_ID]),
             ],
         );
-        $manager->persist($flyerVariant1);
+        $manager->persist($customTemplateVariant1);
 
-        // Flyer template owned by USER_2 — cross-user scoping isolation.
-        $flyerTemplate2 = new FlyerTemplate(
-            Uuid::fromString(self::FLYER_TEMPLATE_2_ID),
+        // Custom template owned by USER_2 — cross-user scoping isolation.
+        $customTemplate2 = new CustomTemplate(
+            Uuid::fromString(self::CUSTOM_TEMPLATE_2_ID),
             $project2,
             null,
             $date,
-            'Flyer Template 2 (other user)',
+            'Custom Template 2 (other user)',
             null,
             0,
         );
-        $manager->persist($flyerTemplate2);
+        $manager->persist($customTemplate2);
 
-        $flyerVariant2 = new FlyerTemplateVariant(
-            Uuid::fromString(self::FLYER_TEMPLATE_VARIANT_2_ID),
-            $flyerTemplate2,
-            new FlyerDimension(DimensionUnit::Px, 800, 600),
-            'fixtures/flyer-bg-2.png',
+        $customTemplateVariant2 = new CustomTemplateVariant(
+            Uuid::fromString(self::CUSTOM_TEMPLATE_VARIANT_2_ID),
+            $customTemplate2,
+            new CustomTemplateDimension(DimensionUnit::Px, 800, 600),
+            'fixtures/custom-template-bg-2.png',
             $date,
         );
-        $flyerVariant2->editCanvas(
+        $customTemplateVariant2->editCanvas(
             '{"version":"5.2.4","objects":[],"backgroundImage":null}',
-            [new EditorTextInput(self::FLYER_VARIANT_2_INPUT_HEADLINE_ID, 'headline', null, false, false, null, false)],
+            [new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_2_INPUT_HEADLINE_ID, 'headline', null, false, false, null, false)],
             null,
         );
-        $manager->persist($flyerVariant2);
+        $manager->persist($customTemplateVariant2);
 
         // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
         $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, self::OAUTH2_CLIENT_SECRET);

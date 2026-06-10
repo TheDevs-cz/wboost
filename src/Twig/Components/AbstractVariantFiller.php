@@ -11,7 +11,7 @@ use Symfony\UX\LiveComponent\DefaultActionTrait;
 use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
-use WBoost\Web\Entity\FlyerTemplateVariant;
+use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
@@ -24,7 +24,7 @@ use WBoost\Web\Value\ResolvedImageOverrides;
 
 /**
  * Shared engine of the user-fill / export page, used by both canvas template
- * modules (SocialNetwork:VariantFiller and Flyer:VariantFiller) so fill-page
+ * modules (SocialNetwork:VariantFiller and CustomTemplate:VariantFiller) so fill-page
  * behaviour evolves in one place.
  *
  * The text preview is server-rendered via the same Gotenberg pipeline the API
@@ -85,7 +85,7 @@ abstract class AbstractVariantFiller extends AbstractController
      * The hydrated variant, or null before hydration (see the subclass
      * LiveProp docblocks).
      */
-    abstract protected function nullableVariant(): null|SocialNetworkTemplateVariant|FlyerTemplateVariant;
+    abstract protected function nullableVariant(): null|SocialNetworkTemplateVariant|CustomTemplateVariant;
 
     /**
      * The module's VIEW voter attribute for the variant entity.
@@ -102,7 +102,7 @@ abstract class AbstractVariantFiller extends AbstractController
      */
     abstract public function uploadPath(string $inputId): string;
 
-    protected function variantEntity(): SocialNetworkTemplateVariant|FlyerTemplateVariant
+    protected function variantEntity(): SocialNetworkTemplateVariant|CustomTemplateVariant
     {
         $variant = $this->nullableVariant();
         assert($variant !== null);

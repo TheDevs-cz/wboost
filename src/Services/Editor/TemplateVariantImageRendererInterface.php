@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Editor;
 
 use Symfony\Component\HttpFoundation\Response;
-use WBoost\Web\Entity\FlyerTemplateVariant;
+use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
 /**
- * Renders a canvas template variant (social network or flyer — both carry the
+ * Renders a canvas template variant (social network or custom template — both carry the
  * same canvas / inputs / imageInputs / dimension shape) to a PNG.
  *
  * Two entry points for the same Gotenberg pipeline:
@@ -42,7 +42,7 @@ interface TemplateVariantImageRendererInterface
      * `renderToBytes()` if you only need the raw bytes in PHP.
      */
     public function render(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
     ): Response;
@@ -53,7 +53,7 @@ interface TemplateVariantImageRendererInterface
      * with the HTTP response cycle.
      */
     public function renderToBytes(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
     ): string;

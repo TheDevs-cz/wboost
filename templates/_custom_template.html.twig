@@ -1,0 +1,56 @@
+<div class="col-md-6 col-xxl-3">
+    <div class="card" data-entity-id="{{ template.id }}">
+        {% if is_granted('custom_template_edit', template) %}
+            <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ri-more-fill text-lighter"></i>
+                </a>
+                <div class="dropdown-menu dropdown-menu-end">
+                    <a href="{{ path('copy_custom_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
+                    <a href="{{ path('edit_custom_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                    <a href="#"
+                       class="dropdown-item"
+                       data-modal-id="{{ template.id }}"
+                       data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                </div>
+
+                <twig:ConfirmModal
+                    id="{{ template.id }}"
+                    url="{{ path('delete_custom_template', {'templateId': template.id}) }}"
+                    confirmationText="Opravdu chcete smazat šablonu?" />
+            </div>
+        {% endif %}
+
+        <a href="{{ path('custom_template_variants', {'templateId': template.id}) }}" class="text-body">
+            <div class="card-body pb-0">
+                <h4 class="m-0 ps-3">
+                    {% if is_granted('custom_template_edit', template) %}
+                        <span class="dragula-handle text-lighter position-absolute" style="left: 0;top: 20px;"></span>
+                    {% endif %}
+
+                    {{ template.name }}
+                </h4>
+            </div>
+
+            <img class="p-3 card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
+
+            {% if template.variants|length %}
+                <div class="card-body pt-0 pb-2">
+                    {% for variant in template.variants %}
+                        <div class="d-flex align-items-center mt-0">
+                            <div class="flex-shrink-0">
+                                <h5 class="font-13 text-muted my-0">Varianta {{ variant.dimension.label }}</h5>
+                            </div>
+
+                            <div class="flex-grow-1 ms-2"></div>
+
+                            <div class="text-end">
+                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </a>
+    </div>
+</div>

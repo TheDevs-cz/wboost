@@ -11,7 +11,7 @@ use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
 use Sensiolabs\GotenbergBundle\Processor\InMemoryProcessor;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
-use WBoost\Web\Entity\FlyerTemplateVariant;
+use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
@@ -46,7 +46,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     }
 
     public function render(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
     ): Response {
@@ -67,7 +67,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     }
 
     public function renderToBytes(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
     ): string {
@@ -90,7 +90,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     }
 
     private function buildScreenshot(
-        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
     ): BuilderFileInterface {
@@ -137,7 +137,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * reach Minio (whose public host is not resolvable from inside the
      * container in dev).
      */
-    private function buildCanvasJson(SocialNetworkTemplateVariant|FlyerTemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides): string
+    private function buildCanvasJson(SocialNetworkTemplateVariant|CustomTemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides): string
     {
         $backgroundDataUri = $this->assetInliner->inlineImage($variant->backgroundImage);
 
