@@ -184,6 +184,22 @@
                                 </a>
                             </li>
 
+                            <li class="side-nav-item {{ active_menu_item|default == 'flyers' ? 'menuitem-active' }}">
+                                <a href="{{ path('flyer_templates', {'projectId': project.id}) }}" class="side-nav-link">
+                                    <i class="uil-postcard"></i>
+                                    <span> Šablony </span>
+                                </a>
+                            </li>
+
+                            {% if is_granted('project_edit', project) %}
+                                <li class="side-nav-item {{ active_menu_item|default == 'gallery' ? 'menuitem-active' }}">
+                                    <a href="{{ path('project_gallery', {'projectId': project.id}) }}" class="side-nav-link">
+                                        <i class="uil-images"></i>
+                                        <span> Galerie </span>
+                                    </a>
+                                </li>
+                            {% endif %}
+
                             <li class="side-nav-item {{ active_menu_item|default == 'calendars' ? 'menuitem-active' }}">
                                 <a href="#" class="side-nav-link">
                                     <i class="uil-calendar-alt"></i>

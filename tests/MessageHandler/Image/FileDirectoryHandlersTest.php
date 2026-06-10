@@ -47,7 +47,7 @@ final class FileDirectoryHandlersTest extends KernelTestCase
         $this->handler(CreateFileDirectoryHandler::class)(new CreateFileDirectory(
             $directoryId,
             Uuid::fromString(TestDataFixture::PROJECT_1_ID),
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             null,
             'Loga',
         ));
@@ -67,7 +67,7 @@ final class FileDirectoryHandlersTest extends KernelTestCase
         $this->handler(CreateFileDirectoryHandler::class)(new CreateFileDirectory(
             $childId,
             Uuid::fromString(TestDataFixture::PROJECT_1_ID),
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             $parent->id,
             'Child',
         ));
@@ -162,7 +162,7 @@ final class FileDirectoryHandlersTest extends KernelTestCase
         $directory = new FileDirectory(
             Uuid::uuid4(),
             $this->project(),
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             $name,
             $parent,
             new DateTimeImmutable(),
@@ -180,7 +180,7 @@ final class FileDirectoryHandlersTest extends KernelTestCase
             Uuid::uuid4(),
             $this->project(),
             new DateTimeImmutable(),
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             'file-upload/' . TestDataFixture::PROJECT_1_ID . '/' . Uuid::uuid4()->toString() . '.png',
             $directory,
         );

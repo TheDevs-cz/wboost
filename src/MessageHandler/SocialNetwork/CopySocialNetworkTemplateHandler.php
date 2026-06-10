@@ -58,6 +58,7 @@ readonly final class CopySocialNetworkTemplateHandler
                 $originalVariant->canvas,
                 $originalVariant->inputs,
                 $originalVariant->previewImagePath,
+                $originalVariant->imageInputs,
             );
 
             $this->variantRepository->add($newVariant);

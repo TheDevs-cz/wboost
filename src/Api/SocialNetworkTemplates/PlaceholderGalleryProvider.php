@@ -100,7 +100,7 @@ final readonly class PlaceholderGalleryProvider implements ProviderInterface
 
         $files = $this->fileUploadRepository->listByProjectSourceAndDirectories(
             $project->id,
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             array_map(static fn (FileDirectory $directory): UuidInterface => $directory->id, array_values($allowedDirectories)),
         );
 

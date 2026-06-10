@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Api;
 
 use Symfony\Contracts\HttpClient\ResponseInterface;
-use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
-use WBoost\Web\Tests\Fakes\FakeSocialNetworkTemplateVariantImageRenderer;
+use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingApiAuthentication;
 
 /**
@@ -195,11 +195,11 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
         self::getContainer()->get('oneup_flysystem.minio_filesystem')->write($path, $bytes);
     }
 
-    private function getRendererFake(): FakeSocialNetworkTemplateVariantImageRenderer
+    private function getRendererFake(): FakeTemplateVariantImageRenderer
     {
-        $renderer = self::getContainer()->get(SocialNetworkTemplateVariantImageRendererInterface::class);
+        $renderer = self::getContainer()->get(TemplateVariantImageRendererInterface::class);
         /** @phpstan-ignore staticMethod.impossibleType */
-        self::assertInstanceOf(FakeSocialNetworkTemplateVariantImageRenderer::class, $renderer);
+        self::assertInstanceOf(FakeTemplateVariantImageRenderer::class, $renderer);
 
         return $renderer;
     }

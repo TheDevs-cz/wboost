@@ -100,10 +100,10 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
                 'id' => $directory->id->toString(),
                 'name' => $directory->name,
             ],
-            $this->fileDirectoryRepository->listAll($template->project->id, FileSource::SocialNetworkImage),
+            $this->fileDirectoryRepository->listAll($template->project->id, FileSource::ProjectImage),
         );
 
-        return $this->render('social_network_template_variant_editor.html.twig', [
+        return $this->render('template_variant_editor.html.twig', [
             'project' => $template->project,
             'template' => $template,
             'variant' => $variant,
@@ -111,6 +111,13 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             'editor_form' => $editorForm,
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
+            'menu_item' => 'social_networks',
+            'module_label' => 'Sociální sítě',
+            'module_templates_url' => $this->generateUrl('social_network_templates', ['projectId' => $template->project->id]),
+            'module_variants_url' => $this->generateUrl('social_network_template_variants', ['templateId' => $template->id]),
+            'edit_variant_url' => $this->generateUrl('edit_social_network_template_variant', ['variantId' => $variant->id]),
+            'export_url' => $this->generateUrl('social_network_template_variant_export', ['variantId' => $variant->id]),
+            'dimension_label' => sprintf('%s (%dx%dpx)', $variant->dimension->value, $variant->dimension->width(), $variant->dimension->height()),
         ]);
     }
 }

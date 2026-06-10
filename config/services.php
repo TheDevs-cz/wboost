@@ -66,8 +66,8 @@ return static function (ContainerConfigurator $container): void {
 
     // Social network template renderer — alias the interface so tests can decorate / replace it.
     $services->alias(
-        \WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface::class,
-        \WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRenderer::class,
+        \WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface::class,
+        \WBoost\Web\Services\Editor\TemplateVariantImageRenderer::class,
     );
 
     /** @see https://github.com/doctrine/migrations/issues/1406 */

@@ -54,7 +54,7 @@ final class ImageGalleryComponentTest extends WebTestCase
             static fn (FileDirectory $d): string => $d->name,
             $this->directoryRepository()->listChildren(
                 Uuid::fromString(TestDataFixture::PROJECT_1_ID),
-                FileSource::SocialNetworkImage,
+                FileSource::ProjectImage,
                 null,
             ),
         );
@@ -108,7 +108,7 @@ final class ImageGalleryComponentTest extends WebTestCase
         $directory = new FileDirectory(
             Uuid::uuid4(),
             $this->project(),
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             $name,
             $parent,
             new DateTimeImmutable(),
@@ -126,7 +126,7 @@ final class ImageGalleryComponentTest extends WebTestCase
             Uuid::uuid4(),
             $this->project(),
             new DateTimeImmutable(),
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             'file-upload/' . TestDataFixture::PROJECT_1_ID . '/' . Uuid::uuid4()->toString() . '.png',
             $directory,
         );

@@ -130,29 +130,78 @@ second literal `data-controller` next to `{{ attributes }}` silently loses it
 (duplicate attribute; browser keeps `live`).
 
 The same component is also rendered **standalone** on a management page
-(`SocialNetworkGalleryController` → `/project/{projectId}/social-network-gallery`,
-linked from the social-networks page next to "Kategorie"). A `bool $modal`
+(`ProjectGalleryController` → `/project/{projectId}/gallery`, linked from the
+left navigation as "Galerie" and from both module pages). A `bool $modal`
 LiveProp (default `true`) toggles the modal header/close chrome and the
 click-to-select image buttons; pass `:modal="false"` to render plain thumbnails
 where folders + upload + move are the management surface.
 
+The gallery is **project-wide** (shared by the social-network and flyer
+editors): the `FileSource` enum case is `ProjectImage = 'project_image'`
+(renamed from the original `social_network_image`; the rename migration updated
+`file_upload.source` + `file_directory.source` in place).
+
 **Render path — Gotenberg + identical Fabric runtime**
 
 PNG export (admin preview, user download, API export) all flow through
-`SocialNetworkTemplateVariantImageRenderer`. It builds the canvas JSON
+`Services/Editor/TemplateVariantImageRenderer` (shared by the social-network
+AND flyer modules — its signatures take
+`SocialNetworkTemplateVariant|FlyerTemplateVariant`). It builds the canvas JSON
 (inlining the background image as a base64 data URI so headless Chromium
-needs no Minio access), renders `templates/api/social_network_template_variant_render.html.twig`
+needs no Minio access), renders `templates/api/template_variant_render.html.twig`
 through Gotenberg, and waits for `window.canvasRendered === true`. The Twig
 template runs the **same Fabric v7 build** the editor uses, so admin and
 export pixels match. Post-Stage 6 the Fabric UMD bundle is committed at
 `assets/fabric/fabric-7.3.1.min.js` and inlined as a `<script>` tag — the
 renderer no longer fetches Fabric from jsDelivr at render time.
 
+### Šablony (flyers module) — free-form-dimension clone of the social module
+
+UI label: **"Šablony"** (left nav, breadcrumbs); code identifiers, routes and
+tables keep the `flyer` / `Flyer*` naming.
+
+`FlyerTemplate` / `FlyerTemplateVariant` / `FlyerCategory` mirror the social
+network entities 1:1 (same JSONB canvas/inputs/image_inputs columns, same CQRS
+message/handler/voter/controller shapes under `*/Flyer/`), with ONE difference:
+instead of the fixed `TemplateDimension` enum, a variant carries an embedded
+**`FlyerDimension`** value object (`src/Value/FlyerDimension.php`) — designer
+picks a `DimensionUnit` (px / mm / cm) + width × height in the add-variant form
+(A5/A4/A3 one-click mm presets via `flyer_dimension_controller.js`). Physical
+units rasterize at **300 DPI** (`DimensionUnit::PRINT_DPI`); `width()`/`height()`
+return canvas pixels, the same accessors `TemplateDimension` exposes, so the
+shared editor/render code treats both interchangeably. NOTE: the VO's stored
+properties are `unitWidth`/`unitHeight` on purpose — a public `width` property
+would shadow the `width()` px method in Twig attribute lookup.
+
+**Shared surfaces (changes here hit both modules):**
+
+- `templates/template_variant_editor.html.twig` — the admin canvas editor page,
+  rendered by both `SocialNetworkTemplateVariantEditorController` and
+  `FlyerTemplateVariantEditorController`; module-specific bits (routes, labels,
+  `menu_item`, `dimension_label`) come in as template vars. All canvas Stimulus
+  controllers are module-agnostic.
+- `src/Twig/Components/AbstractVariantFiller.php` + the single template
+  `templates/components/VariantFiller.html.twig` — the user-fill page engine.
+  `SocialNetwork:VariantFiller` and `Flyer:VariantFiller` are thin subclasses
+  binding the entity-typed `$variant` LiveProp, voter attribute, and the
+  module's download/upload routes (`downloadPath()` / `uploadPath()`).
+- `Services/Editor/TemplateVariantImageRenderer` + `PlaceholderImageUploader`
+  (union-typed) and the rest of the placeholder services, which were already
+  value-object based.
+
+**Flyer API** (`src/Api/FlyerTemplates/`) mirrors the social one:
+`GET /api/projects/{projectId}/flyer-templates` (variants expose `unit`,
+`unitWidth`, `unitHeight` plus px `width`/`height`),
+`POST /api/flyer-template-variants/{id}/export`,
+`GET|POST /api/flyer-template-variants/{variantId}/placeholders/{inputId}/images`,
+`GET /api/flyer-template-variants/{variantId}/thumbnail`.
+
 ### Core Domain Entities
 
 - **Manual**: Brand manuals with colors, fonts, logos, and mockup pages
 - **Project**: Container for brand manuals with sharing capabilities
 - **SocialNetworkTemplate**: Templates for social media content with variants
+- **FlyerTemplate**: Flyer templates with free-form-dimension variants (see above)
 - **EmailSignatureTemplate**: Email signature templates with variants
 - **User**: User management with authentication and profiles
 
@@ -283,7 +332,7 @@ the textbox `inputs`.
 **`allowedDirectoryIds` semantics — empty = UNRESTRICTED (all project folders),
 never "none".** A placeholder with no folder selected would otherwise be a dead
 slot (the user can neither pick nor upload — the old code 400'd "no folder to
-upload into"). So an empty list now expands to every SocialNetworkImage folder in
+upload into"). So an empty list now expands to every project-gallery folder in
 the project. The single source of truth is `PlaceholderAllowedDirectories`
 (`resolve()` / `resolveIds()` / pure static `effectiveIds()`), used by **all four**
 interpretation sites — `PlaceholderImageUploader` (upload target), `ResolveImageOverrides`

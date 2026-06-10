@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Api;
 
-use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
-use WBoost\Web\Tests\Fakes\FakeSocialNetworkTemplateVariantImageRenderer;
+use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingApiAuthentication;
 
 /**
@@ -257,14 +257,14 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         self::assertSame([], $lastCall['hidden']);
     }
 
-    private function getRendererFake(): FakeSocialNetworkTemplateVariantImageRenderer
+    private function getRendererFake(): FakeTemplateVariantImageRenderer
     {
         // In the test env, the renderer interface aliases to the fake (see config/services_test.php).
         // PHPStan reads the dev container.xml where the alias points to the real impl, so we
         // suppress its "always false" warning here — at runtime under PHPUnit it IS the fake.
-        $renderer = self::getContainer()->get(SocialNetworkTemplateVariantImageRendererInterface::class);
+        $renderer = self::getContainer()->get(TemplateVariantImageRendererInterface::class);
         /** @phpstan-ignore staticMethod.impossibleType */
-        self::assertInstanceOf(FakeSocialNetworkTemplateVariantImageRenderer::class, $renderer);
+        self::assertInstanceOf(FakeTemplateVariantImageRenderer::class, $renderer);
 
         return $renderer;
     }

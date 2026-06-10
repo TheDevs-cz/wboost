@@ -17,7 +17,7 @@ use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
-use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 
 /**
  * @implements ProcessorInterface<ExportRequest, Response>
@@ -27,7 +27,7 @@ final readonly class ExportProcessor implements ProcessorInterface
     public function __construct(
         private Security $security,
         private SocialNetworkTemplateVariantRepository $variantRepository,
-        private SocialNetworkTemplateVariantImageRendererInterface $renderer,
+        private TemplateVariantImageRendererInterface $renderer,
         private ResolveTextOverrides $resolveTextOverrides,
         private ResolveImageOverrides $resolveImageOverrides,
     ) {

@@ -80,7 +80,7 @@ final class ImageGallery extends AbstractController
      * same component for their own asset tree once a new FileSource lands.
      */
     #[LiveProp]
-    public FileSource $source = FileSource::SocialNetworkImage;
+    public FileSource $source = FileSource::ProjectImage;
 
     /**
      * Whether the component is hosted inside the editor's Bootstrap modal

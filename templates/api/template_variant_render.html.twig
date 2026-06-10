@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>render</title>
+    <style>
+        html, body { margin: 0; padding: 0; background: transparent; }
+        canvas { display: block; }
+    </style>
+    {# Fabric v7 UMD bundle (exposes the global `fabric` namespace —
+       `fabric.StaticCanvas`, `fabric.Canvas`, ... — the same way v5 did).
+       Inlined by TemplateVariantImageRenderer from the file
+       committed at assets/fabric/fabric-7.3.1.min.js so the headless render
+       has no outbound network dependency on jsDelivr. To upgrade, replace
+       the file (and the path on the renderer service) with a new pinned
+       version. #}
+    <script>{{ fabric_inline_script|raw }}</script>
+</head>
+<body>
+    <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
+
+    <script>
+        (async () => {
+            try {
+                // Force-load every project font face BEFORE any canvas text
+                // measurement / rendering. This is the crux of the "export
+                // uses the wrong font" bug: a Canvas 2D context does NOT
+                // trigger lazy @font-face loading, and `document.fonts.ready`
+                // only awaits faces that are ALREADY loading — so a purely
+                // declarative @font-face is never fetched for canvas-only text
+                // and Fabric silently renders with a serif fallback. The
+                // editor avoids this by explicitly loading fonts via
+                // FontFaceObserver; here we construct FontFace objects from the
+                // inlined data URIs and await load(), which guarantees the
+                // glyphs are resident before Fabric measures or paints.
+                const fontFaces = {{ font_faces|json_encode|raw }};
+                await Promise.all(fontFaces.map(async (face) => {
+                    try {
+                        const fontFace = new FontFace(face.family, 'url("' + face.src + '")');
+                        await fontFace.load();
+                        document.fonts.add(fontFace);
+                    } catch (fontErr) {
+                        // A single missing/corrupt face must not abort the whole
+                        // render — fall back for that family only.
+                        console.error('Font load failed: ' + face.family, fontErr);
+                    }
+                }));
+
+                if (document.fonts && document.fonts.ready) {
+                    await document.fonts.ready;
+                }
+
+                const canvasJson = {{ canvas_json|raw }};
+                const textOverrides = {{ text_overrides|json_encode|raw }};
+                const hiddenOverrides = {{ hidden_overrides|json_encode|raw }};
+
+                const canvas = new fabric.StaticCanvas('c', {
+                    width: {{ variant.dimension.width }},
+                    height: {{ variant.dimension.height }},
+                    enableRetinaScaling: false,
+                });
+
+                // Fabric v7: loadFromJSON is Promise-based; the callback
+                // form was removed. Await the load, then apply overrides.
+                await canvas.loadFromJSON(canvasJson);
+
+                // Fabric v7's _fromObject does NOT copy arbitrary custom
+                // properties from the source JSON onto the deserialized
+                // instance — only known stateProperties survive. So our
+                // `inputId` (and friends) end up undefined on the live
+                // objects unless we restore them ourselves. Without this
+                // step, the override-by-inputId lookup below silently
+                // matches nothing and the placeholder text is rendered
+                // verbatim. (Confirmed against the v7 source: pick(this,
+                // propertiesToSerialize) on toObject, with no symmetric
+                // hydrate on _fromObject.)
+                const CANVAS_CUSTOM_PROPERTIES = [
+                    'inputId', 'name', 'maxLength',
+                    'locked', 'uppercase', 'description', 'hidable',
+                ];
+                const sourceObjects = Array.isArray(canvasJson.objects) ? canvasJson.objects : [];
+                const liveObjects = canvas.getObjects();
+                liveObjects.forEach((obj, idx) => {
+                    const source = sourceObjects[idx];
+                    if (!source) return;
+                    CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                        if (source[prop] !== undefined) {
+                            obj[prop] = source[prop];
+                        }
+                    });
+                });
+
+                // Apply overrides by inputId. CRITICAL: use `obj.set(...)`
+                // and NOT direct property assignment. Fabric v7's Textbox
+                // caches glyph layout / dimensions / styleMap and only
+                // invalidates them through the property-setter chain that
+                // `set()` runs. A bare `obj.text = newText` updates the
+                // string state but the rendered output keeps the OLD
+                // glyphs — exactly the iteration-6 production bug where
+                // the canvas kept showing the placeholder despite the
+                // override clearly being applied at the JS level.
+                // Verified empirically via /debug/fabric-render-test.html
+                // against the prod canvas JSON.
+                Object.keys(textOverrides).forEach((idKey) => {
+                    const obj = liveObjects.find((o) => o.inputId === idKey);
+                    if (obj) {
+                        obj.set({ text: String(textOverrides[idKey]) });
+                    }
+                });
+                Object.keys(hiddenOverrides).forEach((idKey) => {
+                    const obj = liveObjects.find((o) => o.inputId === idKey);
+                    if (obj) {
+                        obj.set({ visible: !hiddenOverrides[idKey] });
+                    }
+                });
+
+                canvas.renderAll();
+
+                // Two RAFs to let the browser commit the rendered pixels before signaling.
+                await new Promise((resolve) => {
+                    requestAnimationFrame(() => requestAnimationFrame(resolve));
+                });
+
+                window.canvasRendered = true;
+            } catch (err) {
+                window.canvasRenderError = String(err && err.stack || err);
+                window.canvasRendered = true;
+            }
+        })();
+    </script>
+</body>
+</html>

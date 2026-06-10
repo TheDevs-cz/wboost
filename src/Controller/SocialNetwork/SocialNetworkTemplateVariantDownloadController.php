@@ -14,7 +14,7 @@ use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
-use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 
 /**
  * Stage 5 download endpoint.
@@ -33,7 +33,7 @@ use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererI
 final class SocialNetworkTemplateVariantDownloadController extends AbstractController
 {
     public function __construct(
-        private readonly SocialNetworkTemplateVariantImageRendererInterface $renderer,
+        private readonly TemplateVariantImageRendererInterface $renderer,
         private readonly ResolveTextOverrides $resolveTextOverrides,
         private readonly ResolveImageOverrides $resolveImageOverrides,
     ) {

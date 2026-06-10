@@ -13,7 +13,7 @@ use WBoost\Web\Value\FileSource;
 /**
  * Single source of truth for "which gallery folders may an image placeholder be
  * filled from". An empty {@see EditorImageInput::$allowedDirectoryIds} means the
- * designer left the slot UNRESTRICTED → every SocialNetworkImage folder in the
+ * designer left the slot UNRESTRICTED → every project-gallery folder in the
  * project is offered (the admin editor warns the designer of this when they
  * leave it empty). A non-empty list is intersected with the project's real
  * folders, so a folder deleted after the designer picked it simply drops out.
@@ -34,7 +34,7 @@ readonly final class PlaceholderAllowedDirectories
      */
     public function resolve(EditorImageInput $input, UuidInterface $projectId): array
     {
-        $all = $this->fileDirectoryRepository->listAll($projectId, FileSource::SocialNetworkImage);
+        $all = $this->fileDirectoryRepository->listAll($projectId, FileSource::ProjectImage);
         $effective = self::effectiveIds(
             array_map(static fn (FileDirectory $directory): string => $directory->id->toString(), $all),
             $input->allowedDirectoryIds,
@@ -51,7 +51,7 @@ readonly final class PlaceholderAllowedDirectories
      */
     public function resolveIds(EditorImageInput $input, UuidInterface $projectId): array
     {
-        $all = $this->fileDirectoryRepository->listAll($projectId, FileSource::SocialNetworkImage);
+        $all = $this->fileDirectoryRepository->listAll($projectId, FileSource::ProjectImage);
 
         return self::effectiveIds(
             array_map(static fn (FileDirectory $directory): string => $directory->id->toString(), $all),

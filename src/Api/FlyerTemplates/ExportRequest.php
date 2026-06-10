@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WBoost\Web\Api\FlyerTemplates;
+
+final class ExportRequest
+{
+    /**
+     * Map of inputId UUID → value (string or `{ value, hide }` object).
+     * Inputs whose ids are missing keep the variant's default canvas text.
+     * Locked inputs cannot be addressed and are always served from the canvas
+     * defaults. Discover ids via `GET /api/projects/{projectId}/flyer-templates`
+     * (`variants[].inputs[].id`). Unknown ids are silently ignored.
+     *
+     * @var array<string, mixed>
+     */
+    public array $inputs = [];
+
+    /**
+     * Map of imageInputId UUID → chosen gallery image + optional placement.
+     * Each value is either a plain **string** (the gallery image id, placed
+     * centered + object-contain in the designer's frame) or an object
+     * `{ "imageId": "...", "scale": 1, "offsetX": 0, "offsetY": 0, "rotation": 0 }`
+     * (`scale` multiplies the contain-fit, `offsetX/Y` pan in canvas px from the
+     * frame centre, `rotation` is degrees), or `{ "hide": true }` to blank a
+     * hidable slot. Discover the ids, frames and allowed folders via
+     * `GET /api/projects/{projectId}/flyer-templates`
+     * (`variants[].imageInputs[]`); list a slot's pickable images via
+     * `GET /api/flyer-template-variants/{variantId}/placeholders/{inputId}/images`.
+     * Unfilled slots keep the designer's stand-in image. An adjustment a slot
+     * does not permit (move / resize / rotate) is rejected with 400.
+     *
+     * @var array<string, mixed>
+     */
+    public array $images = [];
+}

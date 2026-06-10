@@ -10,6 +10,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use WBoost\Web\Entity\FlyerTemplateVariant;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Message\Image\UploadFile;
@@ -40,7 +41,7 @@ readonly final class PlaceholderImageUploader
      * @return array{id: string, url: string, directoryId: string}
      */
     public function upload(
-        SocialNetworkTemplateVariant $variant,
+        SocialNetworkTemplateVariant|FlyerTemplateVariant $variant,
         string $inputId,
         UploadedFile $file,
         null|string $requestedDirectoryId,
@@ -58,7 +59,7 @@ readonly final class PlaceholderImageUploader
         $this->bus->dispatch(new UploadFile(
             $fileId,
             $project->id,
-            FileSource::SocialNetworkImage,
+            FileSource::ProjectImage,
             $file,
             $directoryId,
         ));
@@ -72,7 +73,7 @@ readonly final class PlaceholderImageUploader
         ];
     }
 
-    private function findImageInput(SocialNetworkTemplateVariant $variant, string $inputId): null|EditorImageInput
+    private function findImageInput(SocialNetworkTemplateVariant|FlyerTemplateVariant $variant, string $inputId): null|EditorImageInput
     {
         foreach ($variant->imageInputs as $input) {
             if ($input->inputId === $inputId) {

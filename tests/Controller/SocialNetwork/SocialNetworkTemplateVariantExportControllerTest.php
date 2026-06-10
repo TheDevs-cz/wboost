@@ -8,9 +8,9 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Repository\UserRepository;
-use WBoost\Web\Services\SocialNetwork\SocialNetworkTemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
-use WBoost\Web\Tests\Fakes\FakeSocialNetworkTemplateVariantImageRenderer;
+use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Twig\Components\SocialNetwork\VariantFiller;
 
@@ -290,7 +290,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
     {
         $twig = self::getContainer()->get('twig');
 
-        $rendered = $twig->render('api/social_network_template_variant_render.html.twig', [
+        $rendered = $twig->render('api/template_variant_render.html.twig', [
             'variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
             'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             'font_faces' => [],
@@ -327,7 +327,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
     {
         $twig = self::getContainer()->get('twig');
 
-        $rendered = $twig->render('api/social_network_template_variant_render.html.twig', [
+        $rendered = $twig->render('api/template_variant_render.html.twig', [
             'variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
             'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             'font_faces' => [],
@@ -364,7 +364,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
     {
         $twig = self::getContainer()->get('twig');
 
-        $rendered = $twig->render('api/social_network_template_variant_render.html.twig', [
+        $rendered = $twig->render('api/template_variant_render.html.twig', [
             'variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
             'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             'font_faces' => [
@@ -589,11 +589,11 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         return $repository->get(\Ramsey\Uuid\Uuid::fromString($id));
     }
 
-    private function getRendererFake(): FakeSocialNetworkTemplateVariantImageRenderer
+    private function getRendererFake(): FakeTemplateVariantImageRenderer
     {
-        $renderer = self::getContainer()->get(SocialNetworkTemplateVariantImageRendererInterface::class);
+        $renderer = self::getContainer()->get(TemplateVariantImageRendererInterface::class);
         /** @phpstan-ignore staticMethod.impossibleType */
-        self::assertInstanceOf(FakeSocialNetworkTemplateVariantImageRenderer::class, $renderer);
+        self::assertInstanceOf(FakeTemplateVariantImageRenderer::class, $renderer);
 
         return $renderer;
     }

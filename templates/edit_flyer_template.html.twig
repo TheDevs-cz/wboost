@@ -1,0 +1,34 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Upravit šablonu{% endblock %}
+{% set active_menu_item = 'flyers' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('flyer_templates', {'projectId': project.id}) }}">Šablony</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(form) }}
+
+
+            {{ form_widget(form) }}
+
+            {% if template.image %}
+                <div style="width: 200px;" class="mb-3">
+                    <img class="img-thumbnail" src="{{ uploaded_asset(template.image) }}">
+                </div>
+            {% endif %}
+
+            <button class="btn btn-primary" type="submit">Uložit</button>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

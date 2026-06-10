@@ -6,5 +6,5 @@ namespace WBoost\Web\Value;
 
 enum FileSource: string
 {
-    case SocialNetworkImage = 'social_network_image';
+    case ProjectImage = 'project_image';
 }

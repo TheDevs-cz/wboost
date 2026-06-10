@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Přidat variantu{% endblock %}
+{% set active_menu_item = 'flyers' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('flyer_templates', {'projectId': project.id}) }}">Šablony</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('flyer_template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body" data-controller="flyer-dimension">
+            {{ form_start(form) }}
+
+            <label class="form-label">Předvolby formátu:</label>
+            <div class="mb-3">
+                {% for preset in [
+                    {label: 'A5', width: 148, height: 210},
+                    {label: 'A4', width: 210, height: 297},
+                    {label: 'A3', width: 297, height: 420},
+                ] %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="flyer-dimension#applyPreset"
+                        data-flyer-dimension-unit-param="mm"
+                        data-flyer-dimension-width-param="{{ preset.width }}"
+                        data-flyer-dimension-height-param="{{ preset.height }}"
+                    >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
+                {% endfor %}
+            </div>
+
+            <div class="row">
+                <div class="col-md-2">
+                    {{ form_row(form.unit, { attr: { 'data-flyer-dimension-target': 'unit' } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.width, { attr: { 'data-flyer-dimension-target': 'width' } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.height, { attr: { 'data-flyer-dimension-target': 'height' } }) }}
+                </div>
+            </div>
+
+            <p class="text-muted small">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480×3508 px.</p>
+
+            {{ form_rest(form) }}
+
+            <button class="btn btn-primary" type="submit">Přidat</button>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

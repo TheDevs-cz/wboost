@@ -22,7 +22,7 @@ readonly final class EditorImageInput
     /**
      * @param list<string> $allowedDirectoryIds Gallery {@see \WBoost\Web\Entity\FileDirectory}
      *        UUIDs (as strings) the user may pick fill images from for THIS slot.
-     *        Empty = UNRESTRICTED: every SocialNetworkImage folder in the project
+     *        Empty = UNRESTRICTED: every project-gallery folder in the project
      *        is offered (the designer left it open; the admin editor warns them).
      *        Resolved centrally by {@see \WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories}.
      */

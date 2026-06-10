@@ -1,0 +1,63 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'flyers' %}
+
+{% block title %}Šablony{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+
+    {% if is_granted('ROLE_DESIGNER') %}
+        <div class="row mb-2">
+            <div class="col-sm-12">
+                <a href="{{ path('add_flyer_template', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona</a>
+
+                <a href="{{ path('flyer_categories', {'projectId': project.id}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="ri-list-view"></i> Kategorie</a>
+
+                <a href="{{ path('project_gallery', {'projectId': project.id}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="mdi mdi-image-multiple"></i> Galerie</a>
+            </div>
+        </div>
+    {% endif %}
+
+    {% set categoriesCount = 0 %}
+
+    {% for category in categories %}
+        {% if category.templates|length > 0 %}
+            {% set categoriesCount = categoriesCount + 1 %}
+            <h3>{{ category.name }}</h3>
+
+            <div class="row"
+                 data-controller="dragula"
+                 data-dragula-sort-url-value="{{ path('sort_flyer_templates', {'projectId': project.id}) }}"
+                 data-dragula-direction-value="horizontal"
+                 data-dragula-target="container"
+            >
+                {% for template in category.templates %}
+                    {{ include('_flyer_template.html.twig') }}
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endfor %}
+
+    {% if categoriesCount > 0 and templates_without_category|length > 0 %}
+        <h3>Nezařazené</h3>
+    {% endif %}
+
+    <div class="row"
+         data-controller="dragula"
+         data-dragula-sort-url-value="{{ path('sort_flyer_templates', {'projectId': project.id}) }}"
+         data-dragula-direction-value="horizontal"
+         data-dragula-target="container"
+    >
+        {% for template in templates_without_category %}
+            {{ include('_flyer_template.html.twig') }}
+        {% endfor %}
+    </div>
+{% endblock %}
