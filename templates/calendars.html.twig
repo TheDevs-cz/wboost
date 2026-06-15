@@ -1,0 +1,105 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'calendars' %}
+
+{% block title %}Kalendáře{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-xl-9 col-lg-10">
+            <div class="card">
+                <div class="card-body text-center p-4 p-md-5">
+                    <span class="badge badge-warning-lighten rounded-pill mb-3 px-3 py-1">
+                        <i class="uil-wrench me-1"></i> Připravujeme
+                    </span>
+
+                    <div class="avatar-lg mx-auto mb-3">
+                        <span class="avatar-title bg-primary-lighten text-primary rounded-circle" style="font-size: 2.5rem;">
+                            <i class="uil-calendar-alt"></i>
+                        </span>
+                    </div>
+
+                    <h2 class="mt-2 mb-2">Modul Kalendáře právě vzniká</h2>
+                    <p class="text-muted fs-15 mb-0 mx-auto" style="max-width: 560px;">
+                        Pracujeme na novém modulu, který vám umožní pohodlnou správu firemních
+                        kalendářů a jejich přípravu pro tisk — od návrhu přes naplnění obsahem
+                        až po bezproblémový export.
+                    </p>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <div class="card h-100 mb-0">
+                        <div class="card-body text-center">
+                            <div class="avatar-sm mx-auto mb-2">
+                                <span class="avatar-title bg-success-lighten text-success rounded-circle">
+                                    <i class="uil-edit-alt font-18"></i>
+                                </span>
+                            </div>
+                            <h5 class="mb-1">Snadná správa</h5>
+                            <p class="text-muted mb-0 font-13">
+                                Přehledná tvorba a úpravy kalendářů na jednom místě.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 mb-0">
+                        <div class="card-body text-center">
+                            <div class="avatar-sm mx-auto mb-2">
+                                <span class="avatar-title bg-info-lighten text-info rounded-circle">
+                                    <i class="uil-print font-18"></i>
+                                </span>
+                            </div>
+                            <h5 class="mb-1">Připraveno pro tisk</h5>
+                            <p class="text-muted mb-0 font-13">
+                                Export ve správných rozměrech a kvalitě pro tiskárnu.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 mb-0">
+                        <div class="card-body text-center">
+                            <div class="avatar-sm mx-auto mb-2">
+                                <span class="avatar-title bg-warning-lighten text-warning rounded-circle">
+                                    <i class="uil-palette font-18"></i>
+                                </span>
+                            </div>
+                            <h5 class="mb-1">Vaše značka</h5>
+                            <p class="text-muted mb-0 font-13">
+                                Kalendáře v souladu s firemním vizuálním stylem.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3 mb-0 border border-primary">
+                <div class="card-body text-center p-4">
+                    <h4 class="mb-2"><i class="uil-rocket text-primary me-1"></i> Máte zájem o beta testování?</h4>
+                    <p class="text-muted mb-3 mx-auto" style="max-width: 520px;">
+                        Hledáme uživatele, kteří si modul Kalendáře vyzkouší jako první a pomohou
+                        nám jej vyladit. Pokud vás to zajímá, ozvěte se nám — rádi vás zapojíme.
+                    </p>
+                    <a href="mailto:j.mikes@me.com?subject=Beta%20testov%C3%A1n%C3%AD%20modulu%20Kalend%C3%A1%C5%99e"
+                       class="btn btn-primary">
+                        <i class="uil-envelope me-1"></i> Napsat administrátorům
+                    </a>
+                    <p class="text-muted font-13 mt-2 mb-0">
+                        nebo přímo na <a href="mailto:j.mikes@me.com">j.mikes@me.com</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

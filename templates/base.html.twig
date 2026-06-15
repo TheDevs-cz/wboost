@@ -201,7 +201,7 @@
                             {% endif %}
 
                             <li class="side-nav-item {{ active_menu_item|default == 'calendars' ? 'menuitem-active' }}">
-                                <a href="#" class="side-nav-link">
+                                <a href="{{ path('calendars', {'projectId': project.id}) }}" class="side-nav-link">
                                     <i class="uil-calendar-alt"></i>
                                     <span> Kalendáře </span>
                                 </a>
