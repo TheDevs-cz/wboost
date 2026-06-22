@@ -13,6 +13,7 @@ use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
+use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorTextInput;
@@ -94,11 +95,13 @@ final class TemplateVariantImageRendererTest extends TestCase
     {
         // These collaborators are not exercised by the canvas-JSON prep path
         // under test, so they are inert stubs (not mocks with expectations).
+        $geometry = new CanvasPlaceholderGeometry();
         $renderer = new TemplateVariantImageRenderer(
             $this->createStub(GotenbergScreenshotInterface::class),
             new GetFonts($this->createStub(EntityManagerInterface::class)),
             new AssetInliner($this->createStub(FilesystemReader::class)),
-            new CanvasPlaceholderGeometry(),
+            $geometry,
+            new TextInputObjectBinder($geometry),
             new ImagePlacement(),
             new UploaderHelper('http://assets.test/bucket'),
             '/nonexistent/fabric.js',

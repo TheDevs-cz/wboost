@@ -131,6 +131,13 @@ final class CustomTemplatesTest extends ApiTestCase
         self::assertSame(30, $headline['maxLength'] ?? null);
         self::assertFalse($headline['locked'] ?? null);
 
+        // Text frame from the i-th-Textbox positional binding (headline = 1st).
+        self::assertIsArray($headline['frame'] ?? null);
+        self::assertEqualsWithDelta(80.0, $headline['frame']['x'] ?? null, 0.001);
+        self::assertEqualsWithDelta(60.0, $headline['frame']['y'] ?? null, 0.001);
+        self::assertEqualsWithDelta(520.0, $headline['frame']['width'] ?? null, 0.001);
+        self::assertEqualsWithDelta(90.0, $headline['frame']['height'] ?? null, 0.001);
+
         self::assertIsArray($variant['imageInputs'] ?? null);
         self::assertCount(2, $variant['imageInputs']);
 

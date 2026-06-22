@@ -9,14 +9,15 @@ import { Controller } from "@hotwired/stimulus";
  * CANVAS_CUSTOM_PROPERTIES; the orchestrator's submitForm() extracts the
  * placeholder objects into the imageInputs payload on save.
  *
- * The panel is shown only while an image is selected (mirrors the text toolbar);
- * the placeholder-only details (name, limits, folders) are shown only once the
- * image is marked a placeholder.
+ * These fields live inside the floating image popover; the popover's visibility
+ * is owned by canvas-floating-toolbar, so this controller only populates the
+ * fields when an image is selected. The placeholder-only details (name, limits,
+ * folders) are still shown only once the image is marked a placeholder.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
-        "panel", "details", "placeholder", "name", "description",
+        "details", "placeholder", "name", "description",
         "allowMove", "allowResize", "allowRotate", "hidable", "directory",
         "warning",
     ];
@@ -28,10 +29,6 @@ export default class extends Controller {
     updateFromSelection(event) {
         const activeObject = event.detail.activeObject;
         const isImage = activeObject && (activeObject.type || '').toLowerCase() === 'image';
-
-        if (this.hasPanelTarget) {
-            this.panelTarget.style.display = isImage ? 'block' : 'none';
-        }
 
         if (!isImage) {
             return;
@@ -68,6 +65,17 @@ export default class extends Controller {
         this._toggleDetails(image.imagePlaceholder);
         this._refreshWarning(image.imagePlaceholder);
         this.canvasEditorOutlet.markUnsaved();
+    }
+
+    /**
+     * Inline placeholder toggle from the floating mini-toolbar. Flips the
+     * popover checkbox and routes through updatePlaceholder so all the side
+     * effects (mint inputId, toggle details, refresh warning) run identically.
+     */
+    togglePlaceholder() {
+        if (!this.hasPlaceholderTarget) return;
+        this.placeholderTarget.checked = !this.placeholderTarget.checked;
+        this.updatePlaceholder({ target: this.placeholderTarget });
     }
 
     updateName(event) {

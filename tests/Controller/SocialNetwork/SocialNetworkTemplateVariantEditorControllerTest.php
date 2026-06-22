@@ -31,9 +31,10 @@ final class SocialNetworkTemplateVariantEditorControllerTest extends WebTestCase
         $client->request('GET', $this->editorUrl());
 
         self::assertResponseIsSuccessful();
-        // The new image-properties controller + panel must be wired in.
+        // The image-properties controller must be wired in, and its placeholder
+        // control now lives in the floating image popover anchored to the element.
         self::assertSelectorExists('[data-controller~="canvas-image-properties"]');
-        self::assertSelectorExists('#image-controls [data-canvas-image-properties-target="placeholder"]');
+        self::assertSelectorExists('[data-canvas-floating-toolbar-target="imagePopover"] [data-canvas-image-properties-target="placeholder"]');
         // The per-placeholder folder toggle for the project's ALLOWED gallery folder.
         self::assertSelectorExists('#image-dir-' . TestDataFixture::FILE_DIRECTORY_ALLOWED_ID);
         // The hidden imageInputs form field the orchestrator writes on save.

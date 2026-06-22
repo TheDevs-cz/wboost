@@ -62,7 +62,7 @@ Fabric v5) have been retired.
   fallback for legacy rows; once the migration has run on prod, no live row
   hits it.
 
-**Admin editor — 7 Stimulus controllers (Stage 4)**
+**Admin editor — Stimulus controllers (Stage 4)**
 
 The legacy monolithic `social_network_canvas_controller` was split along
 responsibility boundaries. All siblings reach the orchestrator via Stimulus 3
@@ -75,21 +75,76 @@ event the orchestrator dispatches on Fabric's selection lifecycle:
 | `canvas_editor_controller` | Orchestrator. Owns the Fabric `Canvas`, loads/saves canvas JSON, marks the form dirty, broadcasts selection changes. |
 | `canvas_history_controller` | Undo/redo stack — full-canvas-JSON snapshots, restored via the orchestrator's loader. |
 | `canvas_clipboard_controller` | Copy / paste / duplicate (keyboard + buttons). |
-| `canvas_zoom_controller` | CSS-transform-only visual zoom of the wrapper element. |
-| `canvas_text_toolbar_controller` | Font / size / colour / alignment / decoration / max-length controls for the active textbox. |
-| `canvas_input_properties_controller` | Editor-side input metadata (name, description, locked, hidable, uppercase). Persists onto the canvas object as custom properties via `CANVAS_CUSTOM_PROPERTIES`. |
-| `canvas_alignment_controller` | Multi-object align ops, z-order, delete. |
+| `canvas_zoom_controller` | CSS-transform-only visual zoom of the wrapper element. Dispatches `canvas-zoom:changed` so the floating toolbar re-anchors. |
+| `canvas_text_toolbar_controller` | Font / size / colour / alignment / decoration / max-length controls for the active textbox (populate + mutate only — visibility is owned by the floating toolbar). |
+| `canvas_input_properties_controller` | Editor-side input metadata (name, description, locked, hidable, uppercase). Persists onto the canvas object as custom properties via `CANVAS_CUSTOM_PROPERTIES`. Exposes `toggleLocked` for the mini-toolbar. |
+| `canvas_image_properties_controller` | Image-placeholder metadata (placeholder flag, name/description, allowMove/Resize/Rotate, hidable, allowedDirectoryIds). Exposes `togglePlaceholder` for the mini-toolbar. |
+| `canvas_alignment_controller` | Multi-object align ops, z-order, delete. `updateButtonStates` is `has*Target`-guarded since its buttons live in the floating chrome. |
+| `canvas_floating_toolbar_controller` | The element-anchored floating UX (see below). |
+
+**Floating element toolbar.** Selection-contextual editing is NOT in the left
+panel — it floats next to the selected object (Canva/Slides style).
+`canvas_floating_toolbar_controller` owns *when* and *where* the chrome shows;
+the property controllers above only populate/mutate their (relocated) fields.
+
+- The chrome lives in an **unscaled** overlay: `.canvas-stage` (position:relative)
+  wraps the CSS-`scale()`-zoomed `.canvas-wrapper` and is the `layer` target.
+  Screen position is derived from the live canvas rect:
+  `scale = fabricContainerRect.width / canvasEl.width`, then
+  `objX = (contRect.left - layerRect.left) + obj.getBoundingRect().left * scale`.
+- A single-selection **mini-toolbar** (pencil + duplicate / context-toggle / z-order
+  / delete) and a **multi-select bar** (6-way align + z-order + delete, for
+  `activeSelection`). Quick actions are wired by `data-action` to the existing
+  clipboard/alignment/property controllers. The **pencil** opens a floating
+  **popover** holding the full text / image property form (the relocated
+  `#font-controls` / `#image-controls` markup — **`id="font-family-control"` must
+  stay**, the orchestrator's `populateFontSelect` does `getElementById`).
+- It re-anchors on Fabric `object:moving/scaling/rotating/modified`,
+  `canvas-editor:selection:changed`, `canvas-zoom:changed` and window resize;
+  hides during inline text editing (`text:editing:entered/exited`); flips the
+  popover above/below to stay in the viewport and below the sticky header
+  (`[data-editor-header]`).
+- The left-panel toggle "Zvýraznit editovatelné prvky" (`toggleHighlight`) draws
+  one **DOM** `.editable-outline` per selectable object (NOT on the canvas
+  bitmap, so it never leaks into the saved preview thumbnail or the server PNG).
 
 **User-fill flow — Live Component (Stage 5)**
 
 `SocialNetwork:VariantFiller` (`src/Twig/Components/SocialNetwork/VariantFiller.php`)
-replaces the old client-side Fabric runtime on the user-fill page. There is no
-canvas in the browser — text inputs are bound via
-`data-model="on(input)|debounce(600)|..."` so re-renders fire ~600ms after the
-user stops typing (live-preview feel; checkboxes stay on `on(change)`), the
-server resolves overrides via
-`ResolveTextOverrides`, and the preview image is rendered by the same Gotenberg
-path the API uses. Download is a regular controller action.
+replaces the old client-side Fabric runtime on the user-fill page. The preview
+image is rendered by the same Gotenberg path the API uses; the server resolves
+overrides via `ResolveTextOverrides`; download is a regular controller action.
+
+**Click-into-preview overlay (`variant_fill_overlay_controller.js`).** Editing
+happens ON the preview: every text + image placeholder shows an always-visible
+icon cluster — **pencil** (text → floating popover with the replace input; image
+→ a gallery **modal** with thumbnails + folder select + upload) and an **eye**
+(hide, only when `hidable`). The "highlight editable elements" toggle (on by
+default) controls ONLY the dashed border; the icons stay visible regardless. Box
+positions come from the designer frame scaled to the displayed preview
+(`scale = previewWidth / variant.dimension.width()`). The whole overlay (boxes +
+popovers + modals) lives in a `data-live-ignore` subtree so a Live re-render
+never wipes open state or the picker's chosen folder. The ONLY Live-bound fields
+are **visually-hidden mirror inputs** (`data-text-mirror` / `data-hide-mirror`,
+with the form `name`): the popover text input writes into the mirror and
+dispatches `input` (`syncText`); the eye flips the mirror / a `data-image-hide`
+checkbox and dispatches `change` (`toggleHide`) so the debounced backdrop
+re-render fires and the form POST carries the values. **Enter in a fill field is
+blocked from submitting** (`blockEnter`) — only the Export button downloads; the
+preview updates live via the debounce. Progressive enhancement: without
+`.fill-js` (added on connect) the popovers are a plain stacked editable list. The
+text-only branch drives its ignored preview `<img>` from a Live-updated
+`previewSource` span via MutationObserver (the image branch keeps the existing
+`variant-image-fill` Fabric canvas underneath).
+
+Per-placeholder geometry comes from `AbstractVariantFiller::textPlaceholders()`
+(mirrors `imagePlaceholders()`), which derives a per-input `frame {x,y,width,height}`
+(canvas px, axis-aligned) via `TextInputObjectBinder`. The binder owns the
+**positional textbox↔input contract** (i-th Textbox = inputs[i]) — the single
+source of truth also used by the renderer's `alignTextboxInputIds`, so a box a
+consumer draws and the text the export substitutes can never disagree (textbox
+`inputId` props are unreliable post-v7-migration; image placeholders still key by
+their own reliable `inputId`).
 
 **Project image gallery — Live Component (Stage 7 → 8)**
 
@@ -318,6 +373,17 @@ Discover the available input ids via
 `variants[].inputs[].id` is the same UUID accepted here. Unknown ids
 are silently ignored; locked inputs cannot be overridden; `hide` only
 applies to inputs with `hidable: true`.
+
+Each `variants[].inputs[]` also carries a nullable **`frame {x,y,width,height}`**
+(canvas px, top-left origin, axis-aligned — same shape/space as
+`imageInputs[].frame` and the variant's `width`/`height`), so a consumer can draw
+a highlight box over the rendered preview and edit in place. `null` when the
+textbox can't be located → fall back to the flat field list. Mapping to screen px
+is a single scale factor (`renderedPreviewWidth / variant.width`) because the
+export PNG is the variant's exact dimensions. The mfkfm backoffice consumer
+(`~/www/mfkfm/backoffice`) implements this overlay; see
+[`docs/api/consumer-prompt.md`](docs/api/consumer-prompt.md). v1 limitation:
+rotated placeholders are reported as their axis-aligned bounding box.
 
 ### Image placeholders
 

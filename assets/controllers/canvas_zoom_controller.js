@@ -44,6 +44,9 @@ export default class extends Controller {
         const scalePercentage = Math.round(this.currentScale * 100);
         this.scaleDisplayTarget.textContent = `${scalePercentage}%`;
 
+        // Let the floating toolbar re-anchor its chrome to the new zoom scale.
+        this.dispatch('changed', { detail: { scale: this.currentScale } });
+
         this.updateButtonStates();
     }
 

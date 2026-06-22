@@ -47,6 +47,9 @@ export default class extends Controller {
         const canvas = this.canvasEditorOutlet.canvas;
         const activeObject = canvas.getActiveObject();
         if (activeObject) {
+            // Discard FIRST (while the object is still active) so selection:cleared
+            // fires and the floating chrome hides; then remove.
+            canvas.discardActiveObject();
             canvas.remove(activeObject);
             canvas.renderAll();
         }
@@ -126,17 +129,19 @@ export default class extends Controller {
 
     updateButtonStates(activeObject) {
         const disabled = !activeObject;
+
+        // Built only from targets that actually exist. The buttons now live in
+        // the floating mini-toolbar / multi-select bar, which are themselves
+        // shown only when there's an active object — so most setups carry no
+        // targets here and this safely no-ops. The guards keep it from throwing
+        // "Missing target element" on any singular getter.
         const buttons = [
-            this.bringToFrontButtonTarget,
-            this.sendToBackButtonTarget,
-            this.deleteObjectButtonTarget,
-            this.alignLeftButtonTarget,
-            this.alignRightButtonTarget,
-            this.alignCenterButtonTarget,
-            this.alignTopButtonTarget,
-            this.alignBottomButtonTarget,
-            this.alignMiddleButtonTarget,
-        ];
+            "bringToFrontButton", "sendToBackButton", "deleteObjectButton",
+            "alignLeftButton", "alignRightButton", "alignCenterButton",
+            "alignTopButton", "alignBottomButton", "alignMiddleButton",
+        ]
+            .filter((name) => this[`has${name.charAt(0).toUpperCase()}${name.slice(1)}Target`])
+            .map((name) => this[`${name}Target`]);
 
         buttons.forEach(button => {
             button.classList.toggle('disabled', disabled);

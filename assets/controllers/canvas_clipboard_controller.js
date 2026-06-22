@@ -71,6 +71,10 @@ export default class extends Controller {
 
         canvas.setActiveObject(clonedObj);
         canvas.requestRenderAll();
+
+        // setActiveObject() doesn't emit Fabric selection events, so surface the
+        // pasted object's contextual chrome right away (mirrors addImageToCanvas).
+        this.canvasEditorOutlet.dispatchSelectionChanged();
     }
 
     duplicate() {

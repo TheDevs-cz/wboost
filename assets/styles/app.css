@@ -3,6 +3,300 @@
     transform-origin: top left;
 }
 
+/* Floating element-anchored editing chrome (canvas_floating_toolbar_controller).
+   .canvas-stage is the UNSCALED positioning context; .canvas-wrapper inside it
+   is the only element the zoom transform scales. The toolbar/popovers/outlines
+   are absolutely positioned within the stage so they never scale with the canvas. */
+.canvas-stage {
+    position: relative;
+}
+
+.canvas-mini-toolbar {
+    position: absolute;
+    z-index: 1005;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+    white-space: nowrap;
+}
+
+.canvas-mini-toolbar .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 7px;
+    line-height: 1;
+    background: transparent;
+    color: var(--ct-body-color, #4a4a5a);
+    transition: background-color .12s ease, color .12s ease;
+}
+
+.canvas-mini-toolbar .btn i {
+    font-size: 1.05rem;
+}
+
+.canvas-mini-toolbar .btn:hover {
+    background: rgba(0, 0, 0, 0.07);
+}
+
+.canvas-mini-toolbar .btn.active {
+    background: rgba(114, 124, 245, 0.16);
+    color: #727cf5;
+}
+
+.canvas-mini-toolbar .btn.text-danger:hover {
+    background: rgba(250, 92, 124, 0.14);
+}
+
+.canvas-mini-toolbar-sep {
+    align-self: stretch;
+    width: 1px;
+    margin: 4px 3px;
+    background: var(--ct-border-color, #e3e6ef);
+}
+
+/* Scoped under .canvas-stage so `position: absolute` outranks the Hyper theme's
+   `.card { position: relative }` (the popover is also a .card, and the theme CSS
+   loads AFTER app.css — equal specificity would let the theme win and drop the
+   popover to its static position at the bottom of the page). */
+.canvas-stage .canvas-floating-popover {
+    position: absolute;
+    z-index: 1006;
+    width: 300px;
+    max-height: 80vh;
+    overflow-y: auto;
+    margin: 0;
+    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.editable-outline {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: none;
+    border: 1.5px dashed #727cf5;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* ---- User-fill placeholder overlay (variant_fill_overlay_controller) ----
+   Click-into-preview editing: each placeholder shows an always-visible icon
+   cluster (pencil = edit, eye = hide) over the preview. The highlight toggle
+   controls ONLY the dashed border. Text edits in a floating popover; image
+   picking in a gallery modal.
+
+   Progressive enhancement: the BASE rules (no `.fill-js`) render the popovers as
+   a plain stacked, editable list and hide the boxes, so a JS failure never
+   strands the user. The controller adds `.fill-js` on connect. */
+.fill-stage {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+/* Base (no-JS) — overlay is a stacked list of the popovers. */
+.fill-overlay {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.fill-box {
+    display: none;
+    position: absolute;
+    pointer-events: none;
+    border: 1.5px dashed transparent;
+    border-radius: 2px;
+}
+
+/* The icon cluster is always visible (even with highlight off); only the box
+   border is gated by the toggle. */
+.fill-box__tools {
+    position: absolute;
+    top: -13px;
+    right: -13px;
+    display: flex;
+    gap: 4px;
+    pointer-events: auto;
+}
+
+.fill-box__tool {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+    color: #4a4a5a;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transition: filter .12s ease, background-color .12s ease, color .12s ease;
+}
+
+.fill-box__tool i {
+    font-size: 1rem;
+}
+
+.fill-box__tool--edit {
+    background: #727cf5;
+    color: #fff;
+}
+
+.fill-box--image .fill-box__tool--edit {
+    background: #0acf97;
+}
+
+.fill-box__tool:hover {
+    filter: brightness(0.96);
+}
+
+.fill-box__tool--hide.is-active {
+    background: #fa5c7c;
+    color: #fff;
+}
+
+/* JS-enhanced floating overlay. */
+.fill-form.fill-js .fill-overlay {
+    position: absolute;
+    inset: 0;
+    display: block;
+    margin-top: 0;
+    pointer-events: none;
+}
+
+.fill-form.fill-js .fill-box {
+    display: block;
+}
+
+/* The highlight toggle controls ONLY the dashed border. */
+.fill-form.fill-js.fill-highlight-on .fill-box--text {
+    border-color: #727cf5;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.fill-form.fill-js.fill-highlight-on .fill-box--image {
+    border-color: #0acf97;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.fill-form.fill-js .fill-popover {
+    position: absolute;
+    z-index: 1200;
+    width: 280px;
+    max-width: 92vw;
+    margin: 0;
+    display: none;
+    pointer-events: auto;
+    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.fill-form.fill-js .fill-popover.is-open {
+    display: block;
+}
+
+/* Live-preview spinner overlay. No z-index: DOM order (preview < spinner <
+   overlay) keeps it above the preview but below the icons + open popover, so it
+   never covers the field the user is typing in. */
+.fill-spinner {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.4);
+    pointer-events: none;
+}
+
+.fill-spinner.is-active {
+    display: flex;
+}
+
+/* Self-contained spinner (no dependency on the theme's .spinner-border): a white
+   badge with a CSS-keyframe ring, centered over the preview. */
+.fill-spinner__badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+}
+
+.fill-spinner__icon {
+    display: block;
+    width: 32px;
+    height: 32px;
+    border: 4px solid rgba(114, 124, 245, 0.25);
+    border-top-color: #727cf5;
+    border-radius: 50%;
+    animation: fill-spinner-rotate 0.7s linear infinite;
+}
+
+@keyframes fill-spinner-rotate {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Image gallery modal (controller-managed; no Bootstrap JS dependency). */
+.fill-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.fill-modal.is-open {
+    display: flex;
+}
+
+.fill-modal__dialog {
+    width: 640px;
+    max-width: 100%;
+    max-height: 86vh;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+    padding: 1rem 1.25rem;
+}
+
+.fill-modal__thumb {
+    width: 96px;
+    height: 96px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.fill-modal__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .manual-preview-color {
     text-align: center;
     color: #fff;

@@ -49,6 +49,19 @@ export default class extends Controller {
         this.canvasEditorOutlet.markUnsaved();
     }
 
+    /**
+     * Inline lock toggle from the floating mini-toolbar. Flips locked, mirrors
+     * the change onto the popover checkbox so both stay in sync.
+     */
+    toggleLocked() {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        activeObject.locked = !activeObject.locked;
+        if (this.hasLockedTarget) this.lockedTarget.checked = activeObject.locked;
+        this.canvasEditorOutlet.canvas.renderAll();
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
     updateHidable(event) {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;

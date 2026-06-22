@@ -14,6 +14,7 @@ final readonly class SocialNetworkTemplateVariantInputResponse
         public bool $uppercase,
         public null|string $description,
         public bool $hidable,
+        public null|SocialNetworkTemplateVariantInputFrameResponse $frame,
     ) {
     }
 }

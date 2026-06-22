@@ -1,250 +1,341 @@
 {#
-    Shared user-fill page for canvas template variants (social networks + custom templates).
-    Rendered by both SocialNetwork:VariantFiller and CustomTemplate:VariantFiller — the
-    component supplies the module routes via this.downloadPath()/this.uploadPath().
+    Shared user-fill / export page for canvas template variants (social networks +
+    custom templates). Rendered by both SocialNetwork:VariantFiller and
+    CustomTemplate:VariantFiller — the component supplies the module routes via
+    this.downloadPath() / this.uploadPath().
 
-    Text fields use data-model="on(input)|debounce(600)|textValues[<uuid>]" so the
-    server backdrop re-renders ~600ms after typing; the same fields carry a `name`
-    inside a plain <form data-turbo="false"> that POSTs to the download route.
+    CLICK-INTO-PREVIEW OVERLAY (variant-fill-overlay controller)
+    Editing happens ON the preview: every text + image placeholder is drawn as a
+    dashed box with a pencil; the pencil opens a floating popover holding that
+    placeholder's editor. The export PNG is ALWAYS the full server render, so it
+    stays authoritative regardless of the live preview.
 
-    IMAGE PLACEHOLDERS (hybrid):
-    - When the variant has fillable image slots, the right column is an interactive
-      Fabric canvas (`variant-image-fill` controller) whose backgroundImage is the
-      server backdrop with the placeholders hidden (`backdropDataUri`). The user's
-      chosen pictures float on top as live Fabric objects they can move/resize/rotate
-      within the designer's limits; the placements are mirrored into hidden
-      `images[<uuid>][...]` fields so the same form POST drives the server render.
-    - The canvas + hidden placement fields live in a `data-live-ignore` subtree so
-      Fabric state and the user's placements survive Live re-renders (text edits).
-      The backdrop is exposed in a Live-updated element the controller reads by id.
+    - TEXT: the popover input is a plain field that mirrors its value into a
+      Live-bound hidden field (`data-text-mirror` / `data-hide-mirror`, with the
+      form `name`). Those hidden mirrors — the only Live-bound bits — drive the
+      same server backdrop re-render (debounce 600ms) the old left-panel form did
+      and carry the values on the plain form POST to the download route.
+    - IMAGE (hybrid): when the variant has fillable image slots the preview is an
+      interactive Fabric canvas (`variant-image-fill`) whose backgroundImage is
+      the server backdrop with the placeholders hidden (`backdropDataUri`); the
+      user's chosen pictures float on top as live objects, mirrored into hidden
+      `images[<uuid>][...]` fields. The image popover holds the gallery picker /
+      upload / hide wired to that controller.
+
+    `data-live-ignore` subtrees: the canvas + its placement fields AND the whole
+    overlay (boxes + popovers) survive Live re-renders; only the hidden text
+    mirrors and the Live-updated preview/backdrop source live in the Live region.
+
+    Progressive enhancement: without JS the `.fill-overlay` is a plain stacked,
+    editable list of the popovers and the boxes are hidden; the controller adds
+    `.fill-js` on connect to switch to the floating overlay.
 #}
+{% set hasImages = this.hasImagePlaceholders() %}
+{% set textPlaceholders = this.textPlaceholders() %}
+{% set imagePlaceholders = hasImages ? this.imagePlaceholders() : [] %}
+{# Render the (slow) server preview ONCE — reused by the preview source span and
+   the <img> below. Only the text-only branch has a server preview <img>. #}
+{% set previewSrc = hasImages ? null : this.previewDataUri() %}
+
 <div {{ attributes }}>
-    {% if this.hasImagePlaceholders() %}
-        {% set placeholders = this.imagePlaceholders() %}
-        <form
-            method="POST"
-            action="{{ this.downloadPath() }}"
-            data-turbo="false"
-            data-controller="variant-image-fill"
-            data-variant-image-fill-placeholders-value="{{ placeholders|json_encode }}"
+    <form
+        method="POST"
+        action="{{ this.downloadPath() }}"
+        data-turbo="false"
+        class="fill-form fill-highlight-on"
+        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}"
+        data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
+        {% if hasImages %}
+            data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
             data-variant-image-fill-height-value="{{ variant.dimension.height }}"
             data-variant-image-fill-backdrop-id-value="variant-backdrop-source"
-        >
-            <div class="row">
-                <div class="col-3">
-                    {% if variant.inputs %}
-                        <div class="card mb-2">
-                            <div class="card-body">
-                                {% for input in variant.inputs %}
-                                    {% if not input.locked %}
-                                        <div class="mb-2">
-                                            <label class="form-label small" for="text-input-{{ loop.index0 }}">
-                                                {{ input.name }}
-                                                {% if input.description %}<br><small class="text-muted">{{ input.description }}</small>{% endif %}
-                                            </label>
-                                            <input
-                                                type="text"
-                                                class="form-control form-control-sm"
-                                                id="text-input-{{ loop.index0 }}"
-                                                name="textValues[{{ input.inputId }}]"
-                                                data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
-                                                {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
-                                                value="{{ this.textValues[input.inputId] ?? '' }}"
-                                            >
-                                        </div>
-                                    {% endif %}
-                                    {% if input.hidable %}
-                                        <div class="mb-2 form-check">
-                                            <input
-                                                type="checkbox"
-                                                id="hide-control-{{ loop.index0 }}"
-                                                class="form-check-input"
-                                                name="hiddenValues[{{ input.inputId }}]"
-                                                value="1"
-                                                data-model="on(change)|hiddenValues[{{ input.inputId }}]"
-                                                {% if this.hiddenValues[input.inputId] ?? false %}checked{% endif %}
-                                            >
-                                            <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
+        {% endif %}
+    >
+        {# ---- Toolbar -------------------------------------------------------
+           data-live-ignore: the highlight checkbox's `checked` is a DOM PROPERTY
+           toggled by the user; Live's mutation tracker only preserves
+           attribute/class/style changes, so without this the box would re-check
+           itself on every debounced re-render and desync from the (class-driven)
+           highlight state. #}
+        <div class="d-flex align-items-center gap-2 mb-2" data-live-ignore>
+            <div class="form-check form-switch mb-0">
+                <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="fill-highlight-toggle"
+                    checked
+                    data-action="change->variant-fill-overlay#toggleHighlight"
+                >
+                <label class="form-check-label small" for="fill-highlight-toggle">Zvýraznit editovatelné prvky</label>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm ms-auto">Export do PNG</button>
+        </div>
 
-                    {# Per-placeholder picker: thumbnails of the allowed gallery images + upload. #}
-                    {% for ph in placeholders %}
-                        <div class="card mb-2">
-                            <div class="card-body">
-                                <p class="small fw-bold mb-1">{{ ph.name ?? 'Obrázek' }}</p>
-                                {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
+        {# ---- Live-bound hidden mirrors (text) -------------------------------
+           The ONLY Live-bound fields: they trigger the backdrop/preview
+           re-render and carry the values on the plain form POST. Kept out of the
+           ignored subtree so Live can read/write them; visually hidden because
+           the user edits via the popovers. #}
+        {% for input in variant.inputs %}
+            {% if not input.locked %}
+                <input
+                    type="text"
+                    class="visually-hidden"
+                    tabindex="-1"
+                    aria-hidden="true"
+                    name="textValues[{{ input.inputId }}]"
+                    data-text-mirror="{{ input.inputId }}"
+                    data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
+                    value="{{ this.textValues[input.inputId] ?? '' }}"
+                >
+                {% if input.hidable %}
+                    <input
+                        type="checkbox"
+                        class="visually-hidden"
+                        tabindex="-1"
+                        aria-hidden="true"
+                        name="hiddenValues[{{ input.inputId }}]"
+                        value="1"
+                        data-hide-mirror="{{ input.inputId }}"
+                        data-model="on(change)|hiddenValues[{{ input.inputId }}]"
+                        {% if this.hiddenValues[input.inputId] ?? false %}checked{% endif %}
+                    >
+                {% endif %}
+            {% endif %}
+        {% endfor %}
 
-                                {% if not ph.canUpload %}
-                                    {# Project has no gallery folder for this slot — nothing to pick from and
-                                       nowhere to upload. A configuration gap the template owner must fix. #}
-                                    <p class="text-warning small mb-1">Tento obrázek zatím nelze vyplnit — šablona nemá nastavenou složku galerie. Kontaktujte správce šablony.</p>
-                                {% else %}
-                                    {% if ph.images is empty %}
-                                        <p class="text-muted small mb-1">Žádné obrázky ve složkách — nahrajte vlastní níže.</p>
-                                    {% else %}
-                                        <div class="d-flex flex-wrap gap-1 mb-1">
-                                            {% for img in ph.images %}
-                                                <button
-                                                    type="button"
-                                                    class="btn p-0 border rounded"
-                                                    title="Vybrat"
-                                                    data-action="variant-image-fill#pickImage"
-                                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}"
-                                                    data-variant-image-fill-imageid-param="{{ img.id }}"
-                                                    data-variant-image-fill-url-param="{{ img.url }}"
-                                                >
-                                                    <img crossorigin="anonymous" src="{{ img.url }}" alt="" width="44" height="44" style="object-fit: cover;">
-                                                </button>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
+        {% if hasImages %}
+            {# Live-updated backdrop source — read by variant-image-fill by id. #}
+            <span id="variant-backdrop-source" data-src="{{ this.backdropDataUri() }}" hidden></span>
+        {% else %}
+            {# Live-updated preview source — read by variant-fill-overlay to keep
+               the (ignored) preview <img> in sync without re-creating it. #}
+            <span data-variant-fill-overlay-target="previewSource" data-src="{{ previewSrc }}" hidden></span>
+        {% endif %}
 
-                                    {# data-live-ignore: the chosen upload folder must survive the
-                                       Live re-renders triggered by text edits. The select shows up
-                                       whenever there is more than one possible target — an
-                                       unrestricted slot (includesRoot) also offers the gallery root
-                                       (empty value → the server uploads to the root). #}
-                                    <div data-live-ignore>
-                                        {% set uploadTargetCount = ph.directories|length + (ph.includesRoot ? 1 : 0) %}
-                                        {% if uploadTargetCount > 1 %}
-                                            <label class="form-label small text-muted mb-0" for="upload-directory-{{ ph.inputId }}">Nahrát do složky</label>
-                                            <select
-                                                id="upload-directory-{{ ph.inputId }}"
-                                                class="form-select form-select-sm mb-1"
-                                                data-upload-directory="{{ ph.inputId }}"
-                                            >
-                                                {% if ph.includesRoot %}
-                                                    <option value="">Galerie (bez složky)</option>
-                                                {% endif %}
-                                                {% for directory in ph.directories %}
-                                                    <option value="{{ directory.id }}">{{ directory.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        {% endif %}
-                                        <input
-                                            type="file"
-                                            class="form-control form-control-sm"
-                                            accept="image/*"
-                                            data-action="change->variant-image-fill#uploadImage"
-                                            data-variant-image-fill-inputid-param="{{ ph.inputId }}"
-                                            data-variant-image-fill-uploadurl-param="{{ this.uploadPath(ph.inputId) }}"
-                                        >
-                                    </div>
-                                {% endif %}
-
-                                {% if ph.hidable %}
-                                    <div class="form-check mt-1">
-                                        <input
-                                            type="checkbox"
-                                            class="form-check-input"
-                                            id="hide-img-{{ ph.inputId }}"
-                                            data-action="change->variant-image-fill#toggleHide"
-                                            data-variant-image-fill-inputid-param="{{ ph.inputId }}"
-                                        >
-                                        <label class="form-check-label small" for="hide-img-{{ ph.inputId }}">Schovat</label>
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
+        <div class="fill-stage" data-variant-fill-overlay-target="stage">
+            {# ---- Preview --------------------------------------------------- #}
+            {% if hasImages %}
+                <div data-live-ignore>
+                    {# Controller mirrors each placement here, so the plain form
+                       POST carries them. Pre-rendered empty; data-live-ignore
+                       keeps the controller-set values across Live re-renders. #}
+                    {% for ph in imagePlaceholders %}
+                        <input type="hidden" name="images[{{ ph.inputId }}][imageId]" data-placeholder="{{ ph.inputId }}" data-field="imageId" value="">
+                        <input type="hidden" name="images[{{ ph.inputId }}][scale]" data-placeholder="{{ ph.inputId }}" data-field="scale" value="">
+                        <input type="hidden" name="images[{{ ph.inputId }}][offsetX]" data-placeholder="{{ ph.inputId }}" data-field="offsetX" value="">
+                        <input type="hidden" name="images[{{ ph.inputId }}][offsetY]" data-placeholder="{{ ph.inputId }}" data-field="offsetY" value="">
+                        <input type="hidden" name="images[{{ ph.inputId }}][rotation]" data-placeholder="{{ ph.inputId }}" data-field="rotation" value="">
+                        <input type="hidden" name="images[{{ ph.inputId }}][hide]" data-placeholder="{{ ph.inputId }}" data-field="hide" value="">
                     {% endfor %}
 
-                    <button type="submit" class="btn btn-primary me-1 mb-1">Export do PNG</button>
-                </div>
-
-                <div class="col-9">
-                    {# Live-updated backdrop source — read by the controller via getElementById
-                       so the canvas (in the ignored subtree below) picks up text edits. #}
-                    <span id="variant-backdrop-source" data-src="{{ this.backdropDataUri() }}" hidden></span>
-
-                    <div data-live-ignore>
-                        {# Controller mirrors each placement here as hidden fields, so the
-                           plain form POST carries them. Pre-rendered empty; data-live-ignore
-                           keeps the controller-set values across Live re-renders. #}
-                        {% for ph in placeholders %}
-                            <input type="hidden" name="images[{{ ph.inputId }}][imageId]" data-placeholder="{{ ph.inputId }}" data-field="imageId" value="">
-                            <input type="hidden" name="images[{{ ph.inputId }}][scale]" data-placeholder="{{ ph.inputId }}" data-field="scale" value="">
-                            <input type="hidden" name="images[{{ ph.inputId }}][offsetX]" data-placeholder="{{ ph.inputId }}" data-field="offsetX" value="">
-                            <input type="hidden" name="images[{{ ph.inputId }}][offsetY]" data-placeholder="{{ ph.inputId }}" data-field="offsetY" value="">
-                            <input type="hidden" name="images[{{ ph.inputId }}][rotation]" data-placeholder="{{ ph.inputId }}" data-field="rotation" value="">
-                            <input type="hidden" name="images[{{ ph.inputId }}][hide]" data-placeholder="{{ ph.inputId }}" data-field="hide" value="">
-                        {% endfor %}
-
-                        <div class="canvas-wrapper" data-variant-image-fill-target="wrapper" style="position: relative;">
-                            <canvas data-variant-image-fill-target="canvas" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
-                        </div>
+                    <div class="canvas-wrapper" data-variant-image-fill-target="wrapper" style="position: relative;">
+                        <canvas
+                            data-variant-image-fill-target="canvas"
+                            data-variant-fill-overlay-target="preview"
+                            width="{{ variant.dimension.width }}"
+                            height="{{ variant.dimension.height }}"
+                        ></canvas>
                     </div>
                 </div>
-            </div>
-        </form>
-    {% else %}
-        {# No image placeholders — the original text-only server-preview page. #}
-        <div class="row">
-            <div class="col-2">
-                <form
-                    method="POST"
-                    action="{{ this.downloadPath() }}"
-                    data-turbo="false"
-                >
-                    {% if variant.inputs %}
-                        <div class="card mb-2">
-                            <div class="card-body">
-                                {% for input in variant.inputs %}
-                                    {% if not input.locked %}
-                                        <div class="mb-2">
-                                            <label class="form-label small" for="text-input-{{ loop.index0 }}">
-                                                {{ input.name }}
-                                                {% if input.description %}<br><small class="text-muted">{{ input.description }}</small>{% endif %}
-                                            </label>
-                                            <input
-                                                type="text"
-                                                class="form-control form-control-sm"
-                                                id="text-input-{{ loop.index0 }}"
-                                                name="textValues[{{ input.inputId }}]"
-                                                data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
-                                                {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
-                                                value="{{ this.textValues[input.inputId] ?? '' }}"
-                                            >
-                                        </div>
-                                    {% endif %}
-                                    {% if input.hidable %}
-                                        <div class="mb-2 form-check">
-                                            <input
-                                                type="checkbox"
-                                                id="hide-control-{{ loop.index0 }}"
-                                                class="form-check-input"
-                                                name="hiddenValues[{{ input.inputId }}]"
-                                                value="1"
-                                                data-model="on(change)|hiddenValues[{{ input.inputId }}]"
-                                                {% if this.hiddenValues[input.inputId] ?? false %}checked{% endif %}
-                                            >
-                                            <label for="hide-control-{{ loop.index0 }}" class="form-check-label small">Schovat</label>
-                                        </div>
-                                    {% endif %}
-                                {% endfor %}
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    <button type="submit" class="btn btn-primary me-1 mb-1">Export do PNG</button>
-                </form>
-            </div>
-
-            <div class="col-10">
-                <div class="canvas-wrapper">
-                    {% set preview = this.previewDataUri() %}
-                    {% if preview %}
-                        <img src="{{ preview }}" alt="" style="max-width: 100%; height: auto;">
+            {% else %}
+                <div data-live-ignore>
+                    {% if previewSrc %}
+                        <img
+                            data-variant-fill-overlay-target="preview"
+                            src="{{ previewSrc }}"
+                            alt=""
+                            style="max-width: 100%; height: auto; display: block;"
+                        >
                     {% else %}
                         <p class="text-muted">Náhled se generuje…</p>
                     {% endif %}
                 </div>
+            {% endif %}
+
+            {# Live-preview spinner — shown from the moment the user edits until
+               the next server render lands (covers the debounce + the Gotenberg
+               render). Between the preview and the overlay in DOM so it tints the
+               preview but stays below the icons/popover. #}
+            <div class="fill-spinner" data-variant-fill-overlay-target="spinner" data-live-ignore>
+                <div class="fill-spinner__badge">
+                    <span class="fill-spinner__icon" role="status" aria-label="Generuji náhled…"></span>
+                </div>
+            </div>
+
+            {# ---- Overlay: boxes + popovers (ignored so it survives renders) - #}
+            <div class="fill-overlay" data-live-ignore>
+                {# Boxes: an always-visible icon cluster (pencil = edit, eye =
+                   hide). The dashed BORDER is the only thing the highlight toggle
+                   controls. #}
+                {% for ph in textPlaceholders %}
+                    {% if ph.frame and not ph.locked %}
+                        <div
+                            class="fill-box fill-box--text"
+                            data-variant-fill-overlay-target="box"
+                            data-inputid="{{ ph.inputId }}"
+                            data-frame-x="{{ ph.frame.x }}"
+                            data-frame-y="{{ ph.frame.y }}"
+                            data-frame-width="{{ ph.frame.width }}"
+                            data-frame-height="{{ ph.frame.height }}"
+                        >
+                            <div class="fill-box__tools">
+                                <button type="button" class="fill-box__tool fill-box__tool--edit" title="Upravit text"
+                                    data-action="variant-fill-overlay#openPopover"
+                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                                ><i class="mdi mdi-pencil"></i></button>
+                                {% if ph.hidable %}
+                                    <button type="button"
+                                        class="fill-box__tool fill-box__tool--hide{{ ph.hidden ? ' is-active' : '' }}"
+                                        data-hide-toggle="{{ ph.inputId }}"
+                                        aria-pressed="{{ ph.hidden ? 'true' : 'false' }}"
+                                        title="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                                        data-action="variant-fill-overlay#toggleHide"
+                                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                                    ><i class="mdi {{ ph.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}"></i></button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                {% for ph in imagePlaceholders %}
+                    {% if ph.frame %}
+                        <div
+                            class="fill-box fill-box--image"
+                            data-variant-fill-overlay-target="box"
+                            data-inputid="{{ ph.inputId }}"
+                            data-frame-x="{{ ph.frame.x }}"
+                            data-frame-y="{{ ph.frame.y }}"
+                            data-frame-width="{{ ph.frame.width }}"
+                            data-frame-height="{{ ph.frame.height }}"
+                        >
+                            <div class="fill-box__tools">
+                                <button type="button" class="fill-box__tool fill-box__tool--edit" title="Vybrat obrázek"
+                                    data-action="variant-fill-overlay#openImageModal"
+                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                                ><i class="mdi mdi-pencil"></i></button>
+                                {% if ph.hidable %}
+                                    <button type="button" class="fill-box__tool fill-box__tool--hide"
+                                        data-hide-toggle="{{ ph.inputId }}"
+                                        aria-pressed="false"
+                                        title="Schovat prvek"
+                                        data-action="variant-fill-overlay#toggleHide"
+                                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                                    ><i class="mdi mdi-eye-outline"></i></button>
+                                {% endif %}
+                            </div>
+                            {% if ph.hidable %}
+                                {# Hidden checkbox the eye toggles; wired to the image
+                                   controller's hide handler. #}
+                                <input type="checkbox" class="visually-hidden" tabindex="-1" aria-hidden="true"
+                                    data-image-hide="{{ ph.inputId }}"
+                                    data-action="change->variant-image-fill#toggleHide"
+                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}">
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                {# Text popovers (all non-locked inputs, so the no-JS list works
+                   even when a frame is missing). #}
+                {% for ph in textPlaceholders %}
+                    {% if not ph.locked %}
+                        <div class="fill-popover card" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <span class="small fw-bold">{{ ph.name ?? 'Text' }}</span>
+                                    <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
+                                </div>
+                                {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
+                                <input
+                                    type="text"
+                                    class="form-control form-control-sm"
+                                    value="{{ ph.value }}"
+                                    {% if ph.maxLength %}maxlength="{{ ph.maxLength }}"{% endif %}
+                                    data-action="input->variant-fill-overlay#syncText keydown->variant-fill-overlay#blockEnter"
+                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                                >
+                                {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
             </div>
         </div>
-    {% endif %}
+
+        {# Image gallery modals — opened by an image box's pencil. In their own
+           data-live-ignore so the chosen folder + open state survive Live
+           re-renders. #}
+        {% if imagePlaceholders %}
+            <div data-live-ignore>
+                {% for ph in imagePlaceholders %}
+                    <div
+                        class="fill-modal"
+                        data-variant-fill-overlay-target="modal"
+                        data-image-modal="{{ ph.inputId }}"
+                        data-action="click->variant-fill-overlay#closeModalBackdrop"
+                    >
+                        <div class="fill-modal__dialog">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="mb-0">{{ ph.name ?? 'Vybrat obrázek' }}</h5>
+                                <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closeModal"></button>
+                            </div>
+                            {% if ph.description %}<p class="small text-muted">{{ ph.description }}</p>{% endif %}
+
+                            {% if not ph.canUpload %}
+                                <p class="text-warning small mb-1">Tento obrázek zatím nelze vyplnit — šablona nemá nastavenou složku galerie. Kontaktujte správce šablony.</p>
+                            {% else %}
+                                {% if ph.images is empty %}
+                                    <p class="text-muted small mb-1">Žádné obrázky ve složkách — nahrajte vlastní níže.</p>
+                                {% else %}
+                                    <div class="d-flex flex-wrap gap-2 mb-2">
+                                        {% for img in ph.images %}
+                                            <button
+                                                type="button"
+                                                class="btn p-0 border rounded fill-modal__thumb"
+                                                title="Vybrat"
+                                                data-action="variant-image-fill#pickImage variant-fill-overlay#closeModal"
+                                                data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                                data-variant-image-fill-imageid-param="{{ img.id }}"
+                                                data-variant-image-fill-url-param="{{ img.url }}"
+                                            >
+                                                <img crossorigin="anonymous" src="{{ img.url }}" alt="">
+                                            </button>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+
+                                {% set uploadTargetCount = ph.directories|length + (ph.includesRoot ? 1 : 0) %}
+                                {% if uploadTargetCount > 1 %}
+                                    <label class="form-label small text-muted mb-0" for="upload-directory-{{ ph.inputId }}">Nahrát do složky</label>
+                                    <select
+                                        id="upload-directory-{{ ph.inputId }}"
+                                        class="form-select form-select-sm mb-2"
+                                        data-upload-directory="{{ ph.inputId }}"
+                                    >
+                                        {% if ph.includesRoot %}
+                                            <option value="">Galerie (bez složky)</option>
+                                        {% endif %}
+                                        {% for directory in ph.directories %}
+                                            <option value="{{ directory.id }}">{{ directory.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                                <label class="form-label small text-muted mb-0">Nahrát vlastní obrázek</label>
+                                <input
+                                    type="file"
+                                    class="form-control form-control-sm"
+                                    accept="image/*"
+                                    data-action="change->variant-image-fill#uploadImage"
+                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                    data-variant-image-fill-uploadurl-param="{{ this.uploadPath(ph.inputId) }}"
+                                >
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </form>
 </div>

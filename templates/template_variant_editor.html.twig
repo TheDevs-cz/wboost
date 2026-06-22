@@ -46,7 +46,7 @@
 
     <div
         id="canvas-container"
-        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment"
+        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar"
         data-canvas-editor-background-image-value="{{ uploaded_asset(variant.backgroundImage) }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
@@ -57,12 +57,15 @@
         data-canvas-input-properties-canvas-editor-outlet="#canvas-container"
         data-canvas-image-properties-canvas-editor-outlet="#canvas-container"
         data-canvas-alignment-canvas-editor-outlet="#canvas-container"
+        data-canvas-floating-toolbar-canvas-editor-outlet="#canvas-container"
         data-action="
             canvas-editor:selection:changed->canvas-clipboard#onSelectionChanged
             canvas-editor:selection:changed->canvas-text-toolbar#updateFromSelection
             canvas-editor:selection:changed->canvas-input-properties#updateFromSelection
             canvas-editor:selection:changed->canvas-image-properties#updateFromSelection
             canvas-editor:selection:changed->canvas-alignment#onSelectionChanged
+            canvas-editor:selection:changed->canvas-floating-toolbar#onSelectionChanged
+            canvas-zoom:changed->canvas-floating-toolbar#reposition
             canvas-editor:copy->canvas-clipboard#copy
             canvas-editor:paste->canvas-clipboard#paste
             asset-selected@window->canvas-editor#onAssetSelected
@@ -70,15 +73,13 @@
     >
         {{ form_start(editor_form) }}
 
-        <div class="card mb-2" style="position: sticky;top: 0px;z-index: 1000;">
+        <div class="card mb-2" data-editor-header style="position: sticky;top: 0px;z-index: 1000;">
             <div class="card-body p-2">
                 <div class="mb-1">
                     <button class="btn btn-sm btn-outline-secondary me-3" data-action="canvas-editor#showBackgroundModal" type="button"><i class="mdi mdi-image"></i> Pozadí</button>
 
                     <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-history-target="undoButton" data-action="canvas-history#undo"><i class="mdi mdi-undo-variant"></i></button>
                     <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-canvas-history-target="redoButton" data-action="canvas-history#redo"><i class="mdi mdi-redo-variant"></i></button>
-
-                    <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-canvas-clipboard-target="duplicateButton" data-action="canvas-clipboard#duplicate"><i class="mdi mdi-content-copy"></i></button>
 
                     <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomOut" data-canvas-zoom-target="zoomOutButton"><i class="ri-zoom-out-line"></i></button>
                     <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomIn" data-canvas-zoom-target="zoomInButton"><i class="ri-zoom-in-line"></i></button>
@@ -93,24 +94,6 @@
                         <a href="{{ export_url }}" class="btn btn-sm btn-outline-secondary me-1" data-action="canvas-editor#confirmExport">Export</a>
                     </div>
                 </div>
-
-                <div>
-                    <!-- Horizontal Alignment -->
-                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-alignment-target="alignLeftButton" data-action="canvas-alignment#alignLeft"><i class="mdi mdi-format-horizontal-align-left"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-alignment-target="alignCenterButton" data-action="canvas-alignment#alignCenter"><i class="mdi mdi-format-horizontal-align-center"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-3" data-canvas-alignment-target="alignRightButton" data-action="canvas-alignment#alignRight"><i class="mdi mdi-format-horizontal-align-right"></i></button>
-
-                    <!-- Vertical Alignment -->
-                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-alignment-target="alignTopButton" data-action="canvas-alignment#alignTop"><i class="mdi mdi-format-vertical-align-top"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-1" data-canvas-alignment-target="alignMiddleButton" data-action="canvas-alignment#alignMiddle"><i class="mdi mdi-format-vertical-align-center"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary disabled me-3" data-canvas-alignment-target="alignBottomButton" data-action="canvas-alignment#alignBottom"><i class="mdi mdi-format-vertical-align-bottom"></i></button>
-
-                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-alignment-target="bringToFrontButton" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
-                    <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-canvas-alignment-target="sendToBackButton" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
-
-                    <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-canvas-alignment-target="deleteObjectButton" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
-                </div>
-
             </div>
         </div>
 
@@ -123,13 +106,72 @@
                                 <i class="text-danger uil-exclamation-triangle me-1"></i> Nejsou nahrány fonty
                             </p>
                         {% else %}
-                            <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-action="canvas-editor#showAddTextModal"><i class="uil-text-fields"></i> Přidat text</button>
+                            <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddTextModal"><i class="uil-text-fields me-1"></i> Přidat text</button>
                         {% endif %}
 
-                        <button class="btn btn-sm btn-outline-secondary me-1 mb-1" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image"></i> Přidat obrázek</button>
+                        <button class="btn btn-sm btn-outline-secondary w-100 mb-2 text-start" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image me-1"></i> Přidat obrázek</button>
 
+                        <hr class="my-2">
 
-                        <div id="font-controls" class="mt-1" style="display: none;" data-canvas-text-toolbar-target="panel">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="highlight-editable-control" data-action="change->canvas-floating-toolbar#toggleHighlight">
+                            <label class="form-check-label small" for="highlight-editable-control">Zvýraznit editovatelné prvky</label>
+                        </div>
+
+                        <p class="text-muted small mb-0 mt-2">
+                            <i class="mdi mdi-information-outline me-1"></i>Vyberte prvek na plátně — jeho nastavení se zobrazí přímo u něj.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-10">
+                <div class="canvas-stage" data-canvas-floating-toolbar-target="layer">
+                    <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
+                        <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
+                    </div>
+
+                    {# Floating per-element mini-toolbar (single selection). Quick
+                       actions reuse the existing clipboard / alignment / property
+                       controllers via data-action; the pencil opens the full
+                       options popover below. #}
+                    <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="miniToolbar">
+                        <button type="button" class="btn btn-sm btn-light" title="Upravit" data-action="canvas-floating-toolbar#openPopover"><i class="mdi mdi-pencil"></i></button>
+                        <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="mdi mdi-content-copy"></i></button>
+                        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
+                        <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-image-edit-outline"></i></button>
+                        <span class="canvas-mini-toolbar-sep"></span>
+                        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
+                        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
+                        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
+                    </div>
+
+                    {# Floating multi-select bar (activeSelection): 6-way align +
+                       z-order + delete. #}
+                    <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="multiBar">
+                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vlevo" data-action="canvas-alignment#alignLeft"><i class="mdi mdi-format-horizontal-align-left"></i></button>
+                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed" data-action="canvas-alignment#alignCenter"><i class="mdi mdi-format-horizontal-align-center"></i></button>
+                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vpravo" data-action="canvas-alignment#alignRight"><i class="mdi mdi-format-horizontal-align-right"></i></button>
+                        <span class="canvas-mini-toolbar-sep"></span>
+                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat nahoru" data-action="canvas-alignment#alignTop"><i class="mdi mdi-format-vertical-align-top"></i></button>
+                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed svisle" data-action="canvas-alignment#alignMiddle"><i class="mdi mdi-format-vertical-align-center"></i></button>
+                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat dolů" data-action="canvas-alignment#alignBottom"><i class="mdi mdi-format-vertical-align-bottom"></i></button>
+                        <span class="canvas-mini-toolbar-sep"></span>
+                        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
+                        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
+                        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
+                    </div>
+
+                    {# Floating full-options popover: TEXT — fields driven by
+                       canvas-text-toolbar + canvas-input-properties (visibility
+                       owned by canvas-floating-toolbar). #}
+                    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="textPopover">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-bold"><i class="uil-text-fields me-1"></i> Text</span>
+                                <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
+                            </div>
+
                             <!-- Locked Control -->
                             <div class="mb-2 form-check">
                                 <input type="checkbox" id="locked-control" class="form-check-input" data-canvas-input-properties-target="locked" data-action="change->canvas-input-properties#updateLocked">
@@ -187,31 +229,38 @@
                             <!-- Max Length Control -->
                             <div class="mb-2">
                                 <label for="max-length-control" class="form-label small">Max Length:</label>
-                                <input type="number" id="max-length-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="maxLength" data-action="blur->canvas-text-toolbar#updateMaxLength">
+                                <input type="number" id="max-length-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="maxLength" data-action="input->canvas-text-toolbar#updateMaxLength change->canvas-text-toolbar#updateMaxLength">
                             </div>
 
                             <!-- Name Control -->
                             <div class="mb-2">
                                 <label for="name-control" class="form-label small">Název:</label>
-                                <input type="text" id="name-control" class="form-control form-control-sm" data-canvas-input-properties-target="name" data-action="blur->canvas-input-properties#updateName">
+                                <input type="text" id="name-control" class="form-control form-control-sm" data-canvas-input-properties-target="name" data-action="input->canvas-input-properties#updateName">
                             </div>
 
-                            <!-- Name Control -->
+                            <!-- Description Control -->
                             <div class="mb-2">
                                 <label for="description-control" class="form-label small">Nápověda:</label>
-                                <input type="text" id="description-control" class="form-control form-control-sm" data-canvas-input-properties-target="description" data-action="blur->canvas-input-properties#updateDescription">
+                                <input type="text" id="description-control" class="form-control form-control-sm" data-canvas-input-properties-target="description" data-action="input->canvas-input-properties#updateDescription">
                             </div>
 
                             <!-- Uppercase Control -->
-                            <div class="mb-2 form-check">
+                            <div class="mb-0 form-check">
                                 <input type="checkbox" id="uppercase-control" class="form-check-input" data-canvas-input-properties-target="uppercase" data-action="change->canvas-input-properties#updateUppercase">
                                 <label for="uppercase-control" class="form-check-label small">Verzálky</label>
                             </div>
                         </div>
+                    </div>
 
-                        <div id="image-controls" class="mt-1" style="display: none;" data-canvas-image-properties-target="panel">
-                            <hr class="my-2">
-                            <p class="small fw-bold mb-1"><i class="uil-image"></i> Obrázek</p>
+                    {# Floating full-options popover: IMAGE — fields driven by
+                       canvas-image-properties (visibility owned by
+                       canvas-floating-toolbar). #}
+                    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="imagePopover">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-bold"><i class="uil-image me-1"></i> Obrázek</span>
+                                <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
+                            </div>
 
                             <div class="mb-2 form-check">
                                 <input type="checkbox" id="image-placeholder-control" class="form-check-input" data-canvas-image-properties-target="placeholder" data-action="change->canvas-image-properties#updatePlaceholder">
@@ -221,12 +270,12 @@
                             <div data-canvas-image-properties-target="details" style="display: none;">
                                 <div class="mb-2">
                                     <label for="image-name-control" class="form-label small">Název:</label>
-                                    <input type="text" id="image-name-control" class="form-control form-control-sm" data-canvas-image-properties-target="name" data-action="blur->canvas-image-properties#updateName">
+                                    <input type="text" id="image-name-control" class="form-control form-control-sm" data-canvas-image-properties-target="name" data-action="input->canvas-image-properties#updateName">
                                 </div>
 
                                 <div class="mb-2">
                                     <label for="image-description-control" class="form-label small">Nápověda:</label>
-                                    <input type="text" id="image-description-control" class="form-control form-control-sm" data-canvas-image-properties-target="description" data-action="blur->canvas-image-properties#updateDescription">
+                                    <input type="text" id="image-description-control" class="form-control form-control-sm" data-canvas-image-properties-target="description" data-action="input->canvas-image-properties#updateDescription">
                                 </div>
 
                                 <div class="mb-2 form-check">
@@ -258,14 +307,7 @@
                                 <div class="alert alert-warning py-1 px-2 small mt-1 mb-0" role="alert" data-canvas-image-properties-target="warning" style="display: none;"></div>
                             </div>
                         </div>
-
                     </div>
-                </div>
-            </div>
-
-            <div class="col-10">
-                <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
-                    <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
                 </div>
 
                 {{ form_widget(editor_form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}

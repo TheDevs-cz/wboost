@@ -21,6 +21,7 @@ use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
+use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -37,6 +38,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
         private UploaderHelper $uploaderHelper,
         private ProjectRepository $projectRepository,
         private CanvasPlaceholderGeometry $placeholderGeometry,
+        private TextInputObjectBinder $textInputObjectBinder,
         private PlaceholderAllowedDirectories $allowedDirectories,
     ) {
     }
@@ -129,8 +131,25 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                 ['id' => $variant->id->toString()],
                 UrlGeneratorInterface::ABSOLUTE_URL,
             ),
-            inputs: array_values(array_map(
-                fn (EditorTextInput $input): CustomTemplateVariantInputResponse => new CustomTemplateVariantInputResponse(
+            inputs: $this->buildTextInputs($variant),
+            imageInputs: $this->buildImageInputs($variant),
+        );
+    }
+
+    /**
+     * @return list<CustomTemplateVariantInputResponse>
+     */
+    private function buildTextInputs(CustomTemplateVariant $variant): array
+    {
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+
+        return array_values(array_map(
+            function (EditorTextInput $input) use ($frames): CustomTemplateVariantInputResponse {
+                $frame = $frames[$input->inputId] ?? null;
+
+                return new CustomTemplateVariantInputResponse(
                     id: $input->inputId,
                     name: $input->name,
                     maxLength: $input->maxLength,
@@ -138,11 +157,18 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                     uppercase: $input->uppercase,
                     description: $input->description,
                     hidable: $input->hidable,
-                ),
-                $variant->inputs,
-            )),
-            imageInputs: $this->buildImageInputs($variant),
-        );
+                    frame: $frame !== null
+                        ? new CustomTemplateVariantInputFrameResponse(
+                            $frame->x,
+                            $frame->y,
+                            $frame->width,
+                            $frame->height,
+                        )
+                        : null,
+                );
+            },
+            $variant->inputs,
+        ));
     }
 
     /**

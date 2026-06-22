@@ -145,6 +145,13 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertFalse($headline['uppercase'] ?? null);
         self::assertFalse($headline['hidable'] ?? null);
 
+        // Text frame from the i-th-Textbox positional binding (headline = 1st).
+        self::assertIsArray($headline['frame'] ?? null);
+        self::assertEqualsWithDelta(80.0, $headline['frame']['x'] ?? null, 0.001);
+        self::assertEqualsWithDelta(60.0, $headline['frame']['y'] ?? null, 0.001);
+        self::assertEqualsWithDelta(520.0, $headline['frame']['width'] ?? null, 0.001);
+        self::assertEqualsWithDelta(90.0, $headline['frame']['height'] ?? null, 0.001);
+
         $tagline = $variant['inputs'][1];
         self::assertIsArray($tagline);
         self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, $tagline['id'] ?? null);
@@ -160,6 +167,11 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertArrayHasKey('name', $locked);
         self::assertNull($locked['name']);
         self::assertTrue($locked['locked'] ?? null);
+        // A frame is exposed even for a locked input (consumers may draw a
+        // read-only box); it is the 3rd textbox.
+        self::assertIsArray($locked['frame'] ?? null);
+        self::assertEqualsWithDelta(80.0, $locked['frame']['x'] ?? null, 0.001);
+        self::assertEqualsWithDelta(300.0, $locked['frame']['y'] ?? null, 0.001);
 
         $badge = $variant['inputs'][3];
         self::assertIsArray($badge);

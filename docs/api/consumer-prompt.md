@@ -147,7 +147,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "locked": false,                            // true → not user-editable (renders its default)
             "uppercase": false,                         // true → value is uppercased on render
             "description": "Popissss",                  // nullable; use as help text / placeholder
-            "hidable": false                            // true → offer a "hide this element" toggle
+            "hidable": false,                           // true → offer a "hide this element" toggle
+            "frame": { "x": 80, "y": 60, "width": 520, "height": 90 } // text box in canvas px (top-left, axis-aligned), nullable
           }
         ],
         "imageInputs": [                                 // fillable IMAGE slots (may be empty)
@@ -259,9 +260,19 @@ For each entry in `variant.inputs`:
 | `uppercase` | Optional: visually uppercase the field (server uppercases anyway). A hint like "shown in UPPERCASE" is nice. |
 | `locked` | **Don't render an editable field.** Either omit it, or show it read-only/disabled with the description — its value can't be overridden. |
 | `hidable` | Render a checkbox/toggle "Hide this element". When on, send `{ "hide": true }` for that id (you may still include `value`). |
+| `frame` | Optional `{x,y,width,height}` in canvas px (top-left origin, axis-aligned; `null` when the textbox can't be located). Use it to draw a highlight border over the rendered preview and anchor an inline editing affordance at the right spot — same coordinate space as `imageInputs[].frame` and the variant's `width`/`height`. |
 
 Build the `inputs` payload as `{ <inputId>: <string|{value,hide}> }`, including only
 the inputs the user actually edited/toggled (omitted = default).
+
+**Drawing placeholder boxes over the preview.** Both `inputs[].frame` and
+`imageInputs[].frame` are in the variant's canvas pixel space, and the export PNG is
+rendered at the variant's `width`×`height`. If you display the preview object-contained
+in a box of that aspect ratio there is no letterboxing, so a single scale factor
+`scale = renderedPreviewWidth / variant.width` maps a frame to screen px:
+`left = frame.x*scale`, `top = frame.y*scale`, `width = frame.width*scale`,
+`height = frame.height*scale`. This lets you build a "click the placeholder on the
+preview → edit in a floating panel" UX instead of a disconnected form.
 
 ### Image placeholders (`variant.imageInputs`)
 

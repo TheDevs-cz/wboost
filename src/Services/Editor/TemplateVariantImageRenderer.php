@@ -17,6 +17,7 @@ use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
+use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverride;
@@ -38,6 +39,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         private readonly GetFonts $getFonts,
         private readonly AssetInliner $assetInliner,
         private readonly CanvasPlaceholderGeometry $placeholderGeometry,
+        private readonly TextInputObjectBinder $textInputObjectBinder,
         private readonly ImagePlacement $imagePlacement,
         private readonly UploaderHelper $uploaderHelper,
         #[Autowire('%kernel.project_dir%/assets/fabric/fabric-7.3.1.min.js')]
@@ -290,13 +292,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * nothing and placeholders rendered verbatim.
      *
      * We restore the binding here, at the single render chokepoint shared by
-     * the admin preview, the user download and the API export, using the same
-     * positional contract the editor uses on save: the i-th Textbox object on
-     * the canvas corresponds to inputs[i] (non-textbox objects such as images
-     * never appear in inputs[] and are skipped). The stamp is authoritative —
-     * the canvas id is always set to the input's id so the override key always
-     * resolves — and it is ephemeral: the persisted canvas row is untouched.
-     * For already-synced variants it is a harmless no-op.
+     * the admin preview, the user download and the API export, using the
+     * positional contract owned by {@see TextInputObjectBinder} (the same
+     * contract every consumer of text geometry uses, so a box drawn by the API
+     * consumer and the text the export substitutes can never disagree). The
+     * stamp is authoritative and ephemeral: the persisted canvas row is
+     * untouched. For already-synced variants it is a harmless no-op.
      *
      * @param array<string, mixed> $canvas
      * @param array<EditorTextInput> $inputs
@@ -308,27 +309,14 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             return $canvas;
         }
 
-        $inputs = array_values($inputs);
         $objects = $canvas['objects'];
-        $textboxIndex = 0;
 
-        foreach ($objects as $index => $object) {
-            if (!is_array($object)) {
-                continue;
-            }
-
-            $type = $object['type'] ?? null;
-            if (!is_string($type) || strtolower($type) !== 'textbox') {
-                continue;
-            }
-
-            $input = $inputs[$textboxIndex] ?? null;
-            if ($input instanceof EditorTextInput) {
-                $object['inputId'] = $input->inputId;
+        foreach ($this->textInputObjectBinder->inputIdByObjectIndex($canvas, $inputs) as $index => $inputId) {
+            $object = $objects[$index] ?? null;
+            if (is_array($object)) {
+                $object['inputId'] = $inputId;
                 $objects[$index] = $object;
             }
-
-            $textboxIndex++;
         }
 
         $canvas['objects'] = $objects;

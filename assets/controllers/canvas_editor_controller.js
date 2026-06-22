@@ -266,6 +266,9 @@ export default class extends Controller {
     deleteActiveObject() {
         const activeObject = this.canvas.getActiveObject();
         if (activeObject) {
+            // Discard FIRST so selection:cleared fires and the floating chrome
+            // hides; then remove.
+            this.canvas.discardActiveObject();
             this.canvas.remove(activeObject);
             this.canvas.renderAll();
         }

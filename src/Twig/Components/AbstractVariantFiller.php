@@ -18,6 +18,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -75,6 +76,7 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly ResolveTextOverrides $resolveTextOverrides,
         private readonly TemplateVariantImageRendererInterface $renderer,
         private readonly CanvasPlaceholderGeometry $placeholderGeometry,
+        private readonly TextInputObjectBinder $textInputObjectBinder,
         private readonly PlaceholderAllowedDirectories $allowedDirectories,
         private readonly FileUploadRepository $fileUploadRepository,
         private readonly UploaderHelper $uploaderHelper,
@@ -252,6 +254,65 @@ abstract class AbstractVariantFiller extends AbstractController
                 ),
                 'includesRoot' => $includesRoot,
                 'canUpload' => $directories !== [] || $includesRoot,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Per-text-input data for the fill overlay: the placeholder's frame (for the
+     * highlight border + the inline editing affordance anchored over the
+     * preview) plus the input rules and the user's current value / hide flag.
+     * Mirrors {@see imagePlaceholders()}. `frame` is null when the textbox can't
+     * be located on the canvas, in which case the overlay falls back to the flat
+     * field list.
+     *
+     * @return list<array{
+     *     inputId: string,
+     *     name: null|string,
+     *     description: null|string,
+     *     maxLength: null|int,
+     *     locked: bool,
+     *     uppercase: bool,
+     *     hidable: bool,
+     *     frame: null|array{x: float, y: float, width: float, height: float},
+     *     value: string,
+     *     hidden: bool
+     * }>
+     */
+    public function textPlaceholders(): array
+    {
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+
+        $result = [];
+        foreach ($variant->inputs as $input) {
+            $placeholderFrame = $frames[$input->inputId] ?? null;
+            $frame = $placeholderFrame !== null
+                ? [
+                    'x' => $placeholderFrame->x,
+                    'y' => $placeholderFrame->y,
+                    'width' => $placeholderFrame->width,
+                    'height' => $placeholderFrame->height,
+                ]
+                : null;
+
+            $result[] = [
+                'inputId' => $input->inputId,
+                'name' => $input->name,
+                'description' => $input->description,
+                'maxLength' => $input->maxLength,
+                'locked' => $input->locked,
+                'uppercase' => $input->uppercase,
+                'hidable' => $input->hidable,
+                'frame' => $frame,
+                'value' => $this->textValues[$input->inputId] ?? '',
+                'hidden' => $this->hiddenValues[$input->inputId] ?? false,
             ];
         }
 

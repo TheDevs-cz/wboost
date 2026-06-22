@@ -2,12 +2,13 @@ import { Controller } from "@hotwired/stimulus";
 
 /**
  * Font / size / colour / alignment / decoration / max-length controls for
- * the active textbox. The whole side-panel hides when no textbox is selected.
+ * the active textbox. These fields live inside the floating text popover; the
+ * popover's visibility is owned by canvas-floating-toolbar, so this controller
+ * only populates the fields when a textbox is selected.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
-        "panel",
         "fontFamily", "fontSize", "fontColor",
         "textAlign", "textDecoration", "maxLength",
     ];
@@ -23,10 +24,6 @@ export default class extends Controller {
     updateFromSelection(event) {
         const activeObject = event.detail.activeObject;
         const isTextbox = activeObject && (activeObject.type || '').toLowerCase() === 'textbox';
-
-        if (this.hasPanelTarget) {
-            this.panelTarget.style.display = isTextbox ? 'block' : 'none';
-        }
 
         if (!isTextbox) {
             return;
@@ -131,7 +128,12 @@ export default class extends Controller {
         const maxLength = parseInt(event.target.value, 10);
         if (maxLength > 0) {
             activeObject.maxLength = maxLength;
-            activeObject.text = activeObject.text.slice(0, maxLength);
+            // Truncate the sample text only when the value is COMMITTED (change),
+            // not on every keystroke (input): otherwise typing "50" would first
+            // apply maxLength 5 and permanently cut the text to 5 characters.
+            if (event.type === 'change') {
+                activeObject.text = activeObject.text.slice(0, maxLength);
+            }
             this._adjustTextWidth(activeObject);
         } else {
             // Remove max length restriction if the input is empty or zero

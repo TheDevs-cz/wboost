@@ -288,6 +288,29 @@ final class TestDataFixture extends Fixture
                     'left' => 0, 'top' => 0, 'width' => 200, 'height' => 200,
                     'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
                 ],
+                // Textboxes in the inputs[] positional order (headline, tagline,
+                // locked, badge): the i-th Textbox binds to inputs[i], so these
+                // back the per-text-input `frame` geometry.
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 60, 'width' => 520, 'height' => 90,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 200, 'width' => 520, 'height' => 60,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 300, 'width' => 300, 'height' => 50,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                [
+                    'type' => 'Textbox',
+                    'left' => 700, 'top' => 60, 'width' => 200, 'height' => 60,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
             ],
             'backgroundImage' => null,
         ], JSON_THROW_ON_ERROR);
@@ -370,6 +393,28 @@ final class TestDataFixture extends Fixture
                     'inputId' => self::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID,
                     'imagePlaceholder' => true,
                     'left' => 0, 'top' => 0, 'width' => 200, 'height' => 200,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                // Textboxes in the inputs[] positional order (headline, tagline,
+                // locked, badge): the i-th Textbox binds to inputs[i].
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 60, 'width' => 520, 'height' => 90,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 200, 'width' => 520, 'height' => 60,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 300, 'width' => 300, 'height' => 50,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                [
+                    'type' => 'Textbox',
+                    'left' => 700, 'top' => 60, 'width' => 200, 'height' => 60,
                     'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
                 ],
             ],
