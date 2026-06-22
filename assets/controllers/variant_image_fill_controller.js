@@ -205,15 +205,30 @@ export default class extends Controller {
             formData.append('directoryId', directorySelect.value);
         }
 
+        // Inline busy / success / error feedback (no blocking alert).
+        const setStatus = (text, kind) => {
+            const status = this.element.querySelector(`[data-upload-status="${inputId}"]`);
+            if (!status) return;
+            status.textContent = text;
+            status.className = 'small mt-1 ' + (kind === 'error' ? 'text-danger' : kind === 'ok' ? 'text-success' : 'text-muted');
+            status.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+        };
+
+        input.disabled = true;
+        setStatus('Nahrávám…', 'busy');
+
         fetch(uploadUrl, { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } })
             .then((response) => (response.ok ? response.json() : Promise.reject(response)))
             .then((data) => {
                 if (data && data.id && data.url) {
                     this._fillPlaceholder(inputId, data.id, data.url);
+                    setStatus('Obrázek nahrán a vybrán.', 'ok');
+                } else {
+                    setStatus('Nahrání obrázku se nepovedlo.', 'error');
                 }
             })
-            .catch(() => { alert('Nahrání obrázku se nepovedlo.'); })
-            .finally(() => { input.value = ''; });
+            .catch(() => { setStatus('Nahrání obrázku se nepovedlo. Zkuste to znovu.', 'error'); })
+            .finally(() => { input.value = ''; input.disabled = false; });
     }
 
     toggleHide(event) {

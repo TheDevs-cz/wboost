@@ -72,6 +72,7 @@
     position: absolute;
     z-index: 1006;
     width: 300px;
+    max-width: 92vw;
     max-height: 80vh;
     overflow-y: auto;
     margin: 0;
@@ -82,7 +83,7 @@
 
 .editable-outline {
     position: absolute;
-    z-index: 1000;
+    z-index: 900;
     pointer-events: none;
     border: 1.5px dashed #727cf5;
     border-radius: 2px;
@@ -124,16 +125,32 @@
    border is gated by the toggle. */
 .fill-box__tools {
     position: absolute;
-    top: -13px;
-    right: -13px;
+    top: -14px;
+    right: -14px;
     display: flex;
     gap: 4px;
     pointer-events: auto;
 }
 
+/* Edge-aware placement (toggled per box in the controller's reposition) so the
+   cluster never hangs off the top of the canvas or past the right edge. */
+.fill-box--tools-inside .fill-box__tools {
+    top: 4px;
+    right: 4px;
+}
+
+.fill-box--tools-left .fill-box__tools {
+    right: auto;
+    left: -14px;
+}
+
+.fill-box--tools-left.fill-box--tools-inside .fill-box__tools {
+    left: 4px;
+}
+
 .fill-box__tool {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -144,12 +161,13 @@
     color: #4a4a5a;
     line-height: 1;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    transition: filter .12s ease, background-color .12s ease, color .12s ease;
+    /* Dual ring (white + dark) so the badge reads on any artwork. */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1.5px rgba(0, 0, 0, 0.12);
+    transition: filter .12s ease, background-color .12s ease, color .12s ease, transform .12s ease;
 }
 
 .fill-box__tool i {
-    font-size: 1rem;
+    font-size: 1.05rem;
 }
 
 .fill-box__tool--edit {
@@ -163,6 +181,13 @@
 
 .fill-box__tool:hover {
     filter: brightness(0.96);
+    transform: scale(1.06);
+}
+
+.fill-box__tool:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px #727cf5, 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 .fill-box__tool--hide.is-active {

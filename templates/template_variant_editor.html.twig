@@ -98,7 +98,7 @@
         </div>
 
         <div class="row">
-            <div class="col-2">
+            <div class="col-12 col-lg-2">
                 <div class="card" style="position: sticky;top: 93px;z-index: 999;">
                     <div class="card-body">
                         {% if fonts|length == 0 %}
@@ -125,7 +125,7 @@
                 </div>
             </div>
 
-            <div class="col-10">
+            <div class="col-12 col-lg-10">
                 <div class="canvas-stage" data-canvas-floating-toolbar-target="layer">
                     <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
                         <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
@@ -143,6 +143,7 @@
                         <span class="canvas-mini-toolbar-sep"></span>
                         <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
                         <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
+                        <span class="canvas-mini-toolbar-sep"></span>
                         <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
                     </div>
 
@@ -186,7 +187,7 @@
 
                             <!-- Font Family Control -->
                             <div class="mb-2">
-                                <label for="font-family-control" class="form-label small">Font Family:</label>
+                                <label for="font-family-control" class="form-label small">Písmo</label>
                                 <select id="font-family-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="fontFamily" data-action="change->canvas-text-toolbar#updateFontFamily">
                                     <!-- Options will be populated dynamically by Stimulus -->
                                 </select>
@@ -194,41 +195,41 @@
 
                             <!-- Font Size Control -->
                             <div class="mb-2">
-                                <label for="font-size-control" class="form-label small">Font Size:</label>
+                                <label for="font-size-control" class="form-label small">Velikost</label>
                                 <input type="number" id="font-size-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="fontSize" data-action="input->canvas-text-toolbar#updateFontSize">
                             </div>
 
                             <!-- Font Color Control -->
                             <div class="mb-2">
-                                <label for="font-color-control" class="form-label small">Font Color (Hex):</label>
+                                <label for="font-color-control" class="form-label small">Barva (hex)</label>
                                 <input type="text" id="font-color-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="fontColor" data-action="input->canvas-text-toolbar#updateFontColor">
                             </div>
 
                             <!-- Text Align Control -->
                             <div class="mb-2">
-                                <label for="text-align-control" class="form-label small">Text Align:</label>
+                                <label for="text-align-control" class="form-label small">Zarovnání</label>
                                 <select id="text-align-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="textAlign" data-action="change->canvas-text-toolbar#updateTextAlign">
-                                    <option value="left">Left</option>
-                                    <option value="center">Center</option>
-                                    <option value="right">Right</option>
-                                    <option value="justify">Justify</option>
+                                    <option value="left">Vlevo</option>
+                                    <option value="center">Na střed</option>
+                                    <option value="right">Vpravo</option>
+                                    <option value="justify">Do bloku</option>
                                 </select>
                             </div>
 
                             <!-- Text Decoration Control -->
                             <div class="mb-2">
-                                <label for="text-decoration-control" class="form-label small">Text Decoration:</label>
+                                <label for="text-decoration-control" class="form-label small">Dekorace</label>
                                 <select id="text-decoration-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="textDecoration" data-action="change->canvas-text-toolbar#updateTextDecoration">
-                                    <option value="none">None</option>
-                                    <option value="underline">Underline</option>
-                                    <option value="line-through">Line Through</option>
-                                    <option value="overline">Overline</option>
+                                    <option value="none">Žádná</option>
+                                    <option value="underline">Podtržení</option>
+                                    <option value="line-through">Přeškrtnutí</option>
+                                    <option value="overline">Nadtržení</option>
                                 </select>
                             </div>
 
                             <!-- Max Length Control -->
                             <div class="mb-2">
-                                <label for="max-length-control" class="form-label small">Max Length:</label>
+                                <label for="max-length-control" class="form-label small">Max. délka</label>
                                 <input type="number" id="max-length-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="maxLength" data-action="input->canvas-text-toolbar#updateMaxLength change->canvas-text-toolbar#updateMaxLength">
                             </div>
 

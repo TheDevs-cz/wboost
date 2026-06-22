@@ -35,12 +35,31 @@ export default class extends Controller {
         this._highlight = false;
         this._editing = false;
         this._boundReposition = () => this.reposition();
+        this._boundKeydown = (event) => { if (event.key === 'Escape') this.closePopovers(); };
         window.addEventListener('resize', this._boundReposition);
+        document.addEventListener('keydown', this._boundKeydown);
+        this._labelIconButtons();
     }
 
     disconnect() {
         window.removeEventListener('resize', this._boundReposition);
+        document.removeEventListener('keydown', this._boundKeydown);
         this._clearOutlines();
+    }
+
+    /**
+     * Give every icon-only toolbar button an accessible name (mirroring its
+     * title) and hide its decorative glyph from assistive tech. Done once in JS
+     * so the markup stays terse.
+     */
+    _labelIconButtons() {
+        this.element.querySelectorAll('.canvas-mini-toolbar .btn[title]').forEach((btn) => {
+            if (!btn.getAttribute('aria-label')) btn.setAttribute('aria-label', btn.getAttribute('title'));
+            const icon = btn.querySelector('i');
+            if (icon) icon.setAttribute('aria-hidden', 'true');
+        });
+        if (this.hasMiniToolbarTarget) this.miniToolbarTarget.setAttribute('aria-label', 'Akce prvku');
+        if (this.hasMultiBarTarget) this.multiBarTarget.setAttribute('aria-label', 'Zarovnání a pořadí');
     }
 
     canvasEditorOutletConnected(outlet) {
@@ -139,12 +158,25 @@ export default class extends Controller {
         if (!isOpen) {
             target.classList.remove('d-none');
             this.reposition();
+            this._setPencilExpanded(true);
+            const field = target.querySelector('input, select, textarea');
+            if (field) field.focus();
         }
     }
 
     closePopovers() {
         if (this.hasTextPopoverTarget) this.textPopoverTarget.classList.add('d-none');
         if (this.hasImagePopoverTarget) this.imagePopoverTarget.classList.add('d-none');
+        this._setPencilExpanded(false);
+    }
+
+    _setPencilExpanded(expanded) {
+        if (!this.hasMiniToolbarTarget) return;
+        const pencil = this.miniToolbarTarget.querySelector('[data-action*="openPopover"]');
+        if (pencil) {
+            pencil.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            pencil.classList.toggle('active', expanded);
+        }
     }
 
     /**
@@ -161,16 +193,22 @@ export default class extends Controller {
 
         if (type === 'textbox' && this.hasLockButtonTarget) {
             const locked = !!obj.locked;
+            const label = locked ? 'Odemknout text' : 'Uzamknout text';
             this.lockButtonTarget.classList.toggle('active', locked);
-            this.lockButtonTarget.title = locked ? 'Odemknout text' : 'Uzamknout text';
+            this.lockButtonTarget.title = label;
+            this.lockButtonTarget.setAttribute('aria-label', label);
+            this.lockButtonTarget.setAttribute('aria-pressed', String(locked));
             const icon = this.lockButtonTarget.querySelector('i');
             if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
         }
 
         if (type === 'image' && this.hasPlaceholderButtonTarget) {
             const placeholder = !!obj.imagePlaceholder;
+            const label = placeholder ? 'Zrušit placeholder' : 'Označit jako placeholder';
             this.placeholderButtonTarget.classList.toggle('active', placeholder);
-            this.placeholderButtonTarget.title = placeholder ? 'Zrušit placeholder' : 'Označit jako placeholder';
+            this.placeholderButtonTarget.title = label;
+            this.placeholderButtonTarget.setAttribute('aria-label', label);
+            this.placeholderButtonTarget.setAttribute('aria-pressed', String(placeholder));
             const icon = this.placeholderButtonTarget.querySelector('i');
             if (icon) icon.className = placeholder ? 'mdi mdi-image-edit' : 'mdi mdi-image-edit-outline';
         }

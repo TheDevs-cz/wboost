@@ -67,7 +67,7 @@
                     checked
                     data-action="change->variant-fill-overlay#toggleHighlight"
                 >
-                <label class="form-check-label small" for="fill-highlight-toggle">Zvýraznit editovatelné prvky</label>
+                <label class="form-check-label small" for="fill-highlight-toggle">Zvýraznit oblasti k vyplnění</label>
             </div>
             <button type="submit" class="btn btn-primary btn-sm ms-auto">Export do PNG</button>
         </div>
@@ -181,19 +181,21 @@
                             data-frame-height="{{ ph.frame.height }}"
                         >
                             <div class="fill-box__tools">
-                                <button type="button" class="fill-box__tool fill-box__tool--edit" title="Upravit text"
+                                <button type="button" class="fill-box__tool fill-box__tool--edit"
+                                    title="Upravit text" aria-label="Upravit text{% if ph.name %}: {{ ph.name }}{% endif %}"
                                     data-action="variant-fill-overlay#openPopover"
                                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                ><i class="mdi mdi-pencil"></i></button>
+                                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
                                 {% if ph.hidable %}
                                     <button type="button"
                                         class="fill-box__tool fill-box__tool--hide{{ ph.hidden ? ' is-active' : '' }}"
                                         data-hide-toggle="{{ ph.inputId }}"
                                         aria-pressed="{{ ph.hidden ? 'true' : 'false' }}"
                                         title="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                                        aria-label="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
                                         data-action="variant-fill-overlay#toggleHide"
                                         data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                    ><i class="mdi {{ ph.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}"></i></button>
+                                    ><i class="mdi {{ ph.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
                                 {% endif %}
                             </div>
                         </div>
@@ -211,18 +213,20 @@
                             data-frame-height="{{ ph.frame.height }}"
                         >
                             <div class="fill-box__tools">
-                                <button type="button" class="fill-box__tool fill-box__tool--edit" title="Vybrat obrázek"
+                                <button type="button" class="fill-box__tool fill-box__tool--edit"
+                                    title="Vybrat obrázek" aria-label="Vybrat obrázek{% if ph.name %}: {{ ph.name }}{% endif %}"
                                     data-action="variant-fill-overlay#openImageModal"
                                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                ><i class="mdi mdi-pencil"></i></button>
+                                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
                                 {% if ph.hidable %}
                                     <button type="button" class="fill-box__tool fill-box__tool--hide"
                                         data-hide-toggle="{{ ph.inputId }}"
                                         aria-pressed="false"
                                         title="Schovat prvek"
+                                        aria-label="Schovat prvek"
                                         data-action="variant-fill-overlay#toggleHide"
                                         data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                    ><i class="mdi mdi-eye-outline"></i></button>
+                                    ><i class="mdi mdi-eye-outline" aria-hidden="true"></i></button>
                                 {% endif %}
                             </div>
                             {% if ph.hidable %}
@@ -241,22 +245,26 @@
                    even when a frame is missing). #}
                 {% for ph in textPlaceholders %}
                     {% if not ph.locked %}
-                        <div class="fill-popover card" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
+                        <div class="fill-popover card" role="dialog" aria-labelledby="fill-text-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
                             <div class="card-body p-2">
                                 <div class="d-flex justify-content-between align-items-start mb-1">
-                                    <span class="small fw-bold">{{ ph.name ?? 'Text' }}</span>
+                                    <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0" for="fill-text-{{ ph.inputId }}">{{ ph.name ?? 'Text' }}</label>
                                     <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
                                 </div>
                                 {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
                                 <input
                                     type="text"
+                                    id="fill-text-{{ ph.inputId }}"
                                     class="form-control form-control-sm"
                                     value="{{ ph.value }}"
-                                    {% if ph.maxLength %}maxlength="{{ ph.maxLength }}"{% endif %}
+                                    {% if ph.maxLength %}maxlength="{{ ph.maxLength }}" aria-describedby="fill-text-hint-{{ ph.inputId }}"{% endif %}
                                     data-action="input->variant-fill-overlay#syncText keydown->variant-fill-overlay#blockEnter"
                                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                                 >
-                                {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% endif %}
+                                <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
+                                    {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
+                                    {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }}/{{ ph.maxLength }}</small>{% endif %}
+                                </div>
                             </div>
                         </div>
                     {% endif %}
@@ -276,9 +284,9 @@
                         data-image-modal="{{ ph.inputId }}"
                         data-action="click->variant-fill-overlay#closeModalBackdrop"
                     >
-                        <div class="fill-modal__dialog">
+                        <div class="fill-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="fill-modal-title-{{ ph.inputId }}" tabindex="-1">
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h5 class="mb-0">{{ ph.name ?? 'Vybrat obrázek' }}</h5>
+                                <h5 class="mb-0" id="fill-modal-title-{{ ph.inputId }}">{{ ph.name ?? 'Vybrat obrázek' }}</h5>
                                 <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closeModal"></button>
                             </div>
                             {% if ph.description %}<p class="small text-muted">{{ ph.description }}</p>{% endif %}
@@ -322,15 +330,17 @@
                                         {% endfor %}
                                     </select>
                                 {% endif %}
-                                <label class="form-label small text-muted mb-0">Nahrát vlastní obrázek</label>
+                                <label class="form-label small text-muted mb-0" for="upload-file-{{ ph.inputId }}">Nahrát vlastní obrázek <span class="text-muted">(JPG, PNG…)</span></label>
                                 <input
                                     type="file"
+                                    id="upload-file-{{ ph.inputId }}"
                                     class="form-control form-control-sm"
                                     accept="image/*"
                                     data-action="change->variant-image-fill#uploadImage"
                                     data-variant-image-fill-inputid-param="{{ ph.inputId }}"
                                     data-variant-image-fill-uploadurl-param="{{ this.uploadPath(ph.inputId) }}"
                                 >
+                                <div class="small mt-1" data-upload-status="{{ ph.inputId }}" aria-live="polite"></div>
                             {% endif %}
                         </div>
                     </div>
