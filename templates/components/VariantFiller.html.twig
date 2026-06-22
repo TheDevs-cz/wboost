@@ -58,7 +58,7 @@
            attribute/class/style changes, so without this the box would re-check
            itself on every debounced re-render and desync from the (class-driven)
            highlight state. #}
-        <div class="d-flex align-items-center gap-2 mb-2" data-live-ignore>
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" data-live-ignore>
             <div class="form-check form-switch mb-0">
                 <input
                     type="checkbox"
@@ -69,7 +69,18 @@
                 >
                 <label class="form-check-label small" for="fill-highlight-toggle">Zvýraznit oblasti k vyplnění</label>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm ms-auto">Export do PNG</button>
+
+            <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Přiblížení náhledu">
+                <button type="button" class="btn btn-outline-secondary" title="Oddálit" aria-label="Oddálit" data-action="variant-fill-overlay#zoomOut">
+                    <i class="mdi mdi-magnify-minus-outline" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" style="min-width: 3.5rem;" title="Obnovit na 100 %" data-action="variant-fill-overlay#zoomReset" data-variant-fill-overlay-target="zoomLabel">100&nbsp;%</button>
+                <button type="button" class="btn btn-outline-secondary" title="Přiblížit" aria-label="Přiblížit" data-action="variant-fill-overlay#zoomIn">
+                    <i class="mdi mdi-magnify-plus-outline" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-sm">Export do PNG</button>
         </div>
 
         {# ---- Live-bound hidden mirrors (text) -------------------------------
@@ -114,6 +125,7 @@
             <span data-variant-fill-overlay-target="previewSource" data-src="{{ previewSrc }}" hidden></span>
         {% endif %}
 
+        <div class="fill-viewport">
         <div class="fill-stage" data-variant-fill-overlay-target="stage">
             {# ---- Preview --------------------------------------------------- #}
             {% if hasImages %}
@@ -270,6 +282,7 @@
                     {% endif %}
                 {% endfor %}
             </div>
+        </div>
         </div>
 
         {# Image gallery modals — opened by an image box's pencil. In their own

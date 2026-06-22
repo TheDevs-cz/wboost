@@ -99,6 +99,12 @@
    Progressive enhancement: the BASE rules (no `.fill-js`) render the popovers as
    a plain stacked, editable list and hide the boxes, so a JS failure never
    strands the user. The controller adds `.fill-js` on connect. */
+/* Scroll viewport around the stage: at 100% the preview fits; zooming in scales
+   the stage (CSS transform) and reserves space via margins, so it scrolls here. */
+.fill-viewport {
+    overflow: auto;
+}
+
 .fill-stage {
     position: relative;
     display: inline-block;

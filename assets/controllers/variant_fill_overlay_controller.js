@@ -27,7 +27,7 @@ import { Controller } from "@hotwired/stimulus";
  * PNG); only the Export button downloads. blockEnter handles that.
  */
 export default class extends Controller {
-    static targets = ["stage", "preview", "previewSource", "box", "popover", "modal", "spinner"];
+    static targets = ["stage", "preview", "previewSource", "box", "popover", "modal", "spinner", "zoomLabel"];
     static values = {
         canvasWidth: Number,
     };
@@ -35,6 +35,7 @@ export default class extends Controller {
     connect() {
         this._openId = null;
         this._modalTrigger = null;
+        this._zoom = 1;
         this.element.classList.add("fill-js");
 
         this._boundReposition = () => this.reposition();
@@ -109,6 +110,46 @@ export default class extends Controller {
 
     toggleHighlight(event) {
         this.element.classList.toggle("fill-highlight-on", event.target.checked);
+    }
+
+    // --- Zoom (whole preview) ------------------------------------------------
+    // Visual CSS scale on the stage: the preview + overlay boxes + popovers all
+    // scale together, so they stay aligned with no re-measuring. reposition()
+    // computes the box scale from the UNSCALED width (divides by this._zoom), so
+    // the boxes are laid out in unscaled coords and the transform scales them.
+
+    zoomIn() {
+        this._applyZoom((this._zoom || 1) + 0.25);
+    }
+
+    zoomOut() {
+        this._applyZoom((this._zoom || 1) - 0.25);
+    }
+
+    zoomReset() {
+        this._applyZoom(1);
+    }
+
+    _applyZoom(z) {
+        this._zoom = Math.min(3, Math.max(0.5, Math.round(z * 100) / 100));
+        if (this.hasZoomLabelTarget) {
+            this.zoomLabelTarget.textContent = `${Math.round(this._zoom * 100)} %`;
+        }
+        this.reposition();
+    }
+
+    /** Apply the CSS transform + reserve scroll space (margins) for the zoom. */
+    _updateZoomBox() {
+        if (!this.hasStageTarget) return;
+        const z = this._zoom || 1;
+        const stage = this.stageTarget;
+        stage.style.transformOrigin = "top left";
+        stage.style.transform = z === 1 ? "" : `scale(${z})`;
+        // offsetWidth/Height are unaffected by transform — the true unscaled size.
+        const w = stage.offsetWidth;
+        const h = stage.offsetHeight;
+        stage.style.marginRight = z === 1 ? "" : `${w * (z - 1)}px`;
+        stage.style.marginBottom = z === 1 ? "" : `${h * (z - 1)}px`;
     }
 
     // --- Text popover open / close ------------------------------------------
@@ -337,8 +378,12 @@ export default class extends Controller {
     // --- Positioning ---------------------------------------------------------
 
     reposition() {
+        this._updateZoomBox();
+        const z = this._zoom || 1;
         const scale = this._scale();
-        const previewWidth = this.hasPreviewTarget ? this.previewTarget.getBoundingClientRect().width : 0;
+        const previewWidth = this.hasPreviewTarget
+            ? this.previewTarget.getBoundingClientRect().width / z
+            : 0;
 
         this.boxTargets.forEach((box) => {
             const frame = this._frameOf(box);
@@ -370,17 +415,23 @@ export default class extends Controller {
     _scale() {
         if (!this.hasPreviewTarget || !this.canvasWidthValue) return 1;
         const rect = this.previewTarget.getBoundingClientRect();
-        return rect.width > 0 ? rect.width / this.canvasWidthValue : 1;
+        // Divide by zoom: the box positions are in the stage's UNSCALED coords; the
+        // CSS transform then scales them along with the preview.
+        const width = rect.width / (this._zoom || 1);
+        return width > 0 ? width / this.canvasWidthValue : 1;
     }
 
     _positionPopover(popover, box) {
         if (!box) return;
         const stage = this.hasStageTarget ? this.stageTarget : this.element;
+        const z = this._zoom || 1;
         const stageRect = stage.getBoundingClientRect();
         const boxRect = box.getBoundingClientRect();
 
-        let top = boxRect.bottom - stageRect.top + 8;
-        let left = boxRect.left - stageRect.left;
+        // The popover lives inside the transform-scaled stage, so position it in the
+        // stage's LOCAL (unscaled) coordinates: divide screen deltas by the zoom.
+        let top = (boxRect.bottom - stageRect.top) / z + 8;
+        let left = (boxRect.left - stageRect.left) / z;
 
         popover.style.top = `${top}px`;
         popover.style.left = `${left}px`;
@@ -390,19 +441,16 @@ export default class extends Controller {
 
         const overflowRight = pRect.right - (window.innerWidth - margin);
         if (overflowRight > 0) {
-            left = Math.max(0, left - overflowRight);
+            left = Math.max(0, left - overflowRight / z);
             popover.style.left = `${left}px`;
         }
 
-        // Flip above the box if it would overflow the viewport bottom and there
-        // is room above; otherwise clamp it within the visible area.
+        // Flip above the box if it would overflow the viewport bottom and there is
+        // room above (in local coords).
         if (pRect.bottom > window.innerHeight - margin) {
-            const aboveTop = boxRect.top - stageRect.top - pRect.height - 8;
-            if (stageRect.top + aboveTop > margin) {
+            const aboveTop = (boxRect.top - stageRect.top - pRect.height) / z - 8;
+            if (boxRect.top - pRect.height - 8 > margin) {
                 popover.style.top = `${aboveTop}px`;
-            } else {
-                const maxTop = window.innerHeight - margin - pRect.height - stageRect.top;
-                popover.style.top = `${Math.max(margin - stageRect.top, maxTop)}px`;
             }
         }
     }
