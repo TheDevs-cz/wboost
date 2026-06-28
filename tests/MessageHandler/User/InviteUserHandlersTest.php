@@ -17,8 +17,10 @@ use WBoost\Web\MessageHandler\User\EditUserHandler;
 use WBoost\Web\MessageHandler\User\InviteUserHandler;
 use WBoost\Web\MessageHandler\User\ResendInvitationHandler;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Repository\UserRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
+use WBoost\Web\Value\RegistrationRequestStatus;
 use WBoost\Web\Value\SharingLevel;
 
 final class InviteUserHandlersTest extends KernelTestCase
@@ -117,6 +119,26 @@ final class InviteUserHandlersTest extends KernelTestCase
         $handler(new ResendInvitation(TestDataFixture::USER_1_ID));
 
         self::assertEmailCount(0);
+    }
+
+    public function testInvitingClosesMatchingPendingRegistrationRequest(): void
+    {
+        $handler = self::getContainer()->get(InviteUserHandler::class);
+        $handler(new InviteUser(
+            TestDataFixture::REGISTRATION_REQUEST_PENDING_EMAIL,
+            null,
+            [User::ROLE_DESIGNER],
+            [],
+            TestDataFixture::ADMIN_USER_ID,
+        ));
+        $this->flushAndClear();
+
+        $repository = self::getContainer()->get(RegistrationRequestRepository::class);
+        // No longer pending...
+        self::assertNull($repository->findPendingByEmail(TestDataFixture::REGISTRATION_REQUEST_PENDING_EMAIL));
+        // ...it was marked invited.
+        $request = $repository->getById(Uuid::fromString(TestDataFixture::REGISTRATION_REQUEST_PENDING_ID));
+        self::assertSame(RegistrationRequestStatus::Invited, $request->status);
     }
 
     private function flushAndClear(): void

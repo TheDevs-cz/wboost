@@ -176,6 +176,13 @@
                                     <span> Uživatelé </span>
                                 </a>
                             </li>
+
+                            <li class="side-nav-item {{ active_menu_item|default == 'admin_registration_requests' ? 'menuitem-active' }}">
+                                <a href="{{ path('admin_registration_requests') }}" class="side-nav-link">
+                                    <i class="uil-user-plus"></i>
+                                    <span> Žádosti o registraci </span>
+                                </a>
+                            </li>
                         {% endif %}
 
                         {% if project is defined %}

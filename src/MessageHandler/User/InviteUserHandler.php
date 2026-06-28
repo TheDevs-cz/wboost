@@ -12,6 +12,7 @@ use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Exceptions\UserAlreadyRegistered;
 use WBoost\Web\Message\User\InviteUser;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Repository\UserRepository;
 use WBoost\Web\Services\InvitationMailer;
 use WBoost\Web\Services\ProvideIdentity;
@@ -23,6 +24,7 @@ readonly final class InviteUserHandler
     public function __construct(
         private UserRepository $userRepository,
         private ProjectRepository $projectRepository,
+        private RegistrationRequestRepository $registrationRequestRepository,
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private InvitationMailer $invitationMailer,
@@ -60,6 +62,10 @@ readonly final class InviteUserHandler
             $project = $this->projectRepository->get(Uuid::fromString($projectId));
             $project->share($user, SharingLevel::Read, $this->clock->now(), $invitedBy);
         }
+
+        // Close out a matching open registration request, if any.
+        $pendingRequest = $this->registrationRequestRepository->findPendingByEmail($message->email);
+        $pendingRequest?->markInvited();
 
         $this->invitationMailer->sendInvitation($user);
     }

@@ -18,6 +18,7 @@ use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\RegistrationRequest;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
@@ -49,6 +50,10 @@ final class TestDataFixture extends Fixture
     // (invitation copy) and re-invite tests.
     public const string INVITED_USER_ID = '00000000-0000-0000-0000-0000000000a2';
     public const string INVITED_USER_EMAIL = 'invited@test.cz';
+
+    // Pending public signup request — drives the admin requests list + dismiss/convert.
+    public const string REGISTRATION_REQUEST_PENDING_ID = '00000000-0000-0000-0000-0000000000b1';
+    public const string REGISTRATION_REQUEST_PENDING_EMAIL = 'wantsaccess@test.cz';
 
     public const string PROJECT_1_ID = '00000000-0000-0000-0000-000000000001';
     public const string PROJECT_2_ID = '00000000-0000-0000-0000-000000000002';
@@ -176,6 +181,13 @@ final class TestDataFixture extends Fixture
         // existing user1<->user2 cross-access isolation tests stay valid.
         // Cascade-persisted via $project1.
         $project1->share($invited, SharingLevel::Read, $date, $admin);
+
+        // A pending public registration request.
+        $manager->persist(new RegistrationRequest(
+            Uuid::fromString(self::REGISTRATION_REQUEST_PENDING_ID),
+            self::REGISTRATION_REQUEST_PENDING_EMAIL,
+            $date,
+        ));
 
         $project2 = new Project(
             Uuid::fromString(self::PROJECT_2_ID),

@@ -26,7 +26,9 @@ return static function (ContainerConfigurator $container): void {
     $services->defaults()
         ->autoconfigure()
         ->autowire()
-        ->public();
+        ->public()
+        // Admin recipients for new-registration notifications (csv env -> list<string>).
+        ->bind('array $signupNotificationRecipients', '%env(csv:SIGNUP_NOTIFICATION_EMAILS)%');
 
     $services->set(PdoSessionHandler::class)
         ->args([
