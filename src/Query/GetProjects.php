@@ -34,6 +34,24 @@ readonly final class GetProjects
     }
 
     /**
+     * Every project (admin view). Fetch-joins shares (kills the per-card
+     * is_granted N+1) and the owner (for the owner label).
+     *
+     * @return array<Project>
+     */
+    public function all(): array
+    {
+        return $this->entityManager->createQueryBuilder()
+            ->from(Project::class, 'p')
+            ->select('p', 'sh', 'o')
+            ->leftJoin('p.shares', 'sh')
+            ->leftJoin('p.owner', 'o')
+            ->orderBy('p.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * @return array<Project>
      */
     public function allForUser(UuidInterface $userId): array

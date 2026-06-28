@@ -1,0 +1,89 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'admin_users' %}
+
+{% block title %}Uživatelé{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item">Administrace</li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            <a href="{{ path('admin_invite_user') }}" class="btn btn-outline-primary rounded-pill mb-3">
+                <i class="mdi mdi-account-plus"></i> Pozvat uživatele
+            </a>
+        </div>
+    </div>
+
+    {% if users|length == 0 %}
+        <div class="alert alert-info">
+            Zatím nejsou žádní uživatelé.
+        </div>
+    {% else %}
+        <div class="card shadow-sm rounded-3 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="table-responsive rounded-3">
+                    <table class="table table-hover table-striped mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">E-mail</th>
+                                <th>Jméno</th>
+                                <th>Role</th>
+                                <th>Stav</th>
+                                <th class="text-center">Vlastní projekty</th>
+                                <th class="text-center">Sdílené</th>
+                                <th>Registrován</th>
+                                <th class="pe-3" style="width: 80px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    <td class="ps-3 fw-medium">{{ user.email }}</td>
+                                    <td>{{ user.name ?? '—' }}</td>
+                                    <td>
+                                        {% if user.isAdmin %}
+                                            <span class="badge bg-danger">Administrátor</span>
+                                        {% elseif user.isDesigner %}
+                                            <span class="badge bg-primary">Designer</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Uživatel</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.isPending %}
+                                            <span class="badge bg-warning">Čeká na aktivaci</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Aktivní</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ user.ownedCount }}</td>
+                                    <td class="text-center">{{ user.sharedCount }}</td>
+                                    <td>{{ user.registeredAt|date('d.m.Y') }}</td>
+                                    <td class="text-end pe-3">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ path('admin_edit_user', {'id': user.id}) }}" class="btn btn-outline-secondary" title="Upravit">
+                                                <i class="mdi mdi-pencil"></i>
+                                            </a>
+                                            {% if user.isPending %}
+                                                <a href="{{ path('admin_resend_invitation', {'id': user.id}) }}" class="btn btn-outline-primary" title="Znovu poslat pozvánku">
+                                                    <i class="mdi mdi-email-sync"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

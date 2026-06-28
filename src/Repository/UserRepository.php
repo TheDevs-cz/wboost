@@ -56,4 +56,32 @@ readonly final class UserRepository
 
         throw new UserNotFound();
     }
+
+    public function findByEmailOrNull(string $email): null|User
+    {
+        $user = $this->entityManager->createQueryBuilder()
+            ->from(User::class, 'u')
+            ->select('u')
+            ->where('u.email = :email')
+            ->setParameter('email', $email)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        assert($user instanceof User || $user === null);
+
+        return $user;
+    }
+
+    /**
+     * @return list<User>
+     */
+    public function findAll(): array
+    {
+        return $this->entityManager->createQueryBuilder()
+            ->from(User::class, 'u')
+            ->select('u')
+            ->orderBy('u.registeredAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }

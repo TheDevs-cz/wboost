@@ -167,6 +167,17 @@
                             </a>
                         </li>
 
+                        {% if is_granted('ROLE_ADMIN') %}
+                            <li class="side-nav-title">Administrace</li>
+
+                            <li class="side-nav-item {{ active_menu_item|default == 'admin_users' ? 'menuitem-active' }}">
+                                <a href="{{ path('admin_users') }}" class="side-nav-link">
+                                    <i class="uil-users-alt"></i>
+                                    <span> Uživatelé </span>
+                                </a>
+                            </li>
+                        {% endif %}
+
                         {% if project is defined %}
                             <li class="side-nav-title">{{ project.name }}</li>
 
