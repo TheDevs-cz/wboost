@@ -21,8 +21,9 @@
 
     <div class="row">
         {% for project in projects %}
+            {% set is_own = project.owner.id.equals(app.user.id) %}
             <div class="col-md-6 col-xxl-3">
-                <div class="card">
+                <div class="card {{ is_own ? '' : 'border border-secondary-subtle' }}">
                     {% if is_granted('project_edit', project) %}
                         <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
                             <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
@@ -47,11 +48,20 @@
 
                     <a href="{{ path('project_dashboard', {'id': project.id}) }}" class="text-body">
                         <div class="card-body">
-                            <h4 class="m-0">
+                            <h4 class="m-0 {{ is_own ? '' : 'text-muted' }}">
                                 {{ project.name }}
                             </h4>
+                            {% if not is_own %}
+                                <span class="badge bg-secondary mt-2">vlastník: {{ project.owner.getDisplayName() }}</span>
+                            {% endif %}
                         </div>
                     </a>
+
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <div class="card-footer bg-transparent border-top-0 pt-0">
+                            <twig:ManageProjectSharing :project="project" />
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         {% endfor %}

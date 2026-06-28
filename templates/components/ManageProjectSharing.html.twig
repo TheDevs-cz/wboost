@@ -1,0 +1,62 @@
+<div {{ attributes }}>
+    {% set collaborators = this.collaborators() %}
+    {% set candidates = this.candidateUsers() %}
+
+    <button type="button" class="btn btn-sm btn-soft-secondary" data-bs-toggle="modal" data-bs-target="#share-modal-{{ project.id }}">
+        <i class="mdi mdi-account-multiple-plus"></i> Sdílení
+        {% if collaborators|length > 0 %}<span class="badge bg-secondary ms-1">{{ collaborators|length }}</span>{% endif %}
+    </button>
+
+    <div class="modal fade text-start" id="share-modal-{{ project.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Sdílení projektu „{{ project.name }}“</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="mb-2">Spolupracovníci</h6>
+                    {% if collaborators is empty %}
+                        <p class="text-muted small">Projekt zatím není nikomu nasdílen.</p>
+                    {% else %}
+                        <ul class="list-group mb-3">
+                            {% for collaborator in collaborators %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="mdi mdi-account me-1"></i>{{ collaborator.name }}</span>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        title="Odebrat"
+                                        data-action="live#action"
+                                        data-live-action-param="unshare"
+                                        data-live-userid-param="{{ collaborator.id }}"
+                                    ><i class="mdi mdi-close"></i></button>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    <h6 class="mb-2">Přidat spolupracovníka</h6>
+                    {% if candidates is empty %}
+                        <p class="text-muted small">Žádní další uživatelé k nasdílení.</p>
+                    {% else %}
+                        <div class="d-flex flex-column gap-1">
+                            {% for candidate in candidates %}
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary text-start"
+                                    data-action="live#action"
+                                    data-live-action-param="share"
+                                    data-live-userid-param="{{ candidate.id }}"
+                                ><i class="mdi mdi-plus"></i> {{ candidate.name }}</button>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zavřít</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -20,7 +20,11 @@ final class ProjectsController extends AbstractController
     #[Route(path: '/projects', name: 'projects')]
     public function __invoke(#[CurrentUser] User $user): Response
     {
-        $projects = $this->getProjects->allForUser($user->id);
+        // Admins manage every project from the normal list (owner shown, non-owned
+        // styled distinctly); everyone else sees only owned + shared.
+        $projects = $this->isGranted(User::ROLE_ADMIN)
+            ? $this->getProjects->all()
+            : $this->getProjects->allForUser($user->id);
 
         // For read-only users redirect directly to the project
         if (count($projects) === 1 && !$this->isGranted('ROLE_DESIGNER')) {
