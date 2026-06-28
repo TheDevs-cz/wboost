@@ -1,0 +1,160 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'admin_usage' %}
+
+{% block title %}Statistiky{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item">Administrace</li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <p class="text-muted mb-3">
+        Přehled exportů šablon a sociálních sítí napříč klienty. Sleduje se každé
+        stažení / export z webu i z API.
+        <strong>Unikátní šablony</strong> = počet různých šablon (designů),
+        <strong>varianty</strong> = počet různých variant, <strong>stažení</strong> = celkový počet exportů.
+    </p>
+
+    <div class="row">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-layers position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0">{{ usage.totalUniqueTemplates }}</h2>
+                    <h6 class="text-uppercase mb-0">Unikátní šablony</h6>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-apps position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0">{{ usage.totalUniqueVariants }}</h2>
+                    <h6 class="text-uppercase mb-0">Unikátní varianty</h6>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-import position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0">{{ usage.totalDownloads }}</h2>
+                    <h6 class="text-uppercase mb-0">Stažení celkem</h6>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-users-alt position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0">{{ usage.clientCount }}</h2>
+                    <h6 class="text-uppercase mb-0">Aktivní klienti</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if usage.isEmpty %}
+        <div class="alert alert-info">
+            Zatím nebyly zaznamenány žádné exporty. Jakmile uživatelé začnou stahovat
+            šablony, objeví se zde statistiky využití.
+        </div>
+    {% else %}
+        <div class="card shadow-sm rounded-3">
+            <div class="card-body">
+                <h4 class="header-title mb-3">Unikátní šablony podle klienta a měsíce</h4>
+                <div id="usage-chart" style="min-height: 360px;"></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm rounded-3 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="table-responsive rounded-3">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Klient / Projekt</th>
+                                {% for month in usage.chartCategories %}
+                                    <th class="text-center text-nowrap">{{ month }}</th>
+                                {% endfor %}
+                                <th class="text-center text-nowrap">Šablony</th>
+                                <th class="text-center text-nowrap">Varianty</th>
+                                <th class="text-center text-nowrap pe-3">Stažení</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for owner in usage.owners %}
+                                <tr class="table-light fw-semibold">
+                                    <td class="ps-3">
+                                        <i class="uil-user me-1"></i>{{ owner.ownerEmail }}
+                                    </td>
+                                    {% for month in usage.months %}
+                                        <td class="text-center">{{ owner.templatesInMonth(month) ?: '' }}</td>
+                                    {% endfor %}
+                                    <td class="text-center">{{ owner.uniqueTemplates }}</td>
+                                    <td class="text-center">{{ owner.uniqueVariants }}</td>
+                                    <td class="text-center pe-3">{{ owner.downloads }}</td>
+                                </tr>
+                                {% for project in owner.projects %}
+                                    <tr>
+                                        <td class="ps-4 text-muted">
+                                            <i class="uil-folder me-1"></i>{{ project.projectName }}
+                                        </td>
+                                        {% for month in usage.months %}
+                                            <td class="text-center" title="{{ project.downloadsInMonth(month) }} stažení">
+                                                {{ project.templatesInMonth(month) ?: '—' }}
+                                            </td>
+                                        {% endfor %}
+                                        <td class="text-center">{{ project.uniqueTemplates }}</td>
+                                        <td class="text-center">{{ project.uniqueVariants }}</td>
+                                        <td class="text-center pe-3">{{ project.downloads }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {#
+            ApexCharts is shipped standalone with the Hyper theme (no importmap
+            entry). Turbo Drive is globally disabled (<html data-turbo="false">),
+            so this runs once per full page load; the chart div above is already
+            parsed when the inline init executes (synchronous script tag).
+        #}
+        <script src="{{ asset('theme/vendor/apexcharts/apexcharts.min.js') }}"></script>
+        <script>
+            (function () {
+                var el = document.getElementById('usage-chart');
+                if (!el || typeof window.ApexCharts === 'undefined') {
+                    return;
+                }
+
+                var options = {
+                    chart: { type: 'bar', height: 360, stacked: true, toolbar: { show: false } },
+                    plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
+                    dataLabels: { enabled: false },
+                    series: {{ usage.chartSeries|json_encode|raw }},
+                    xaxis: { categories: {{ usage.chartCategories|json_encode|raw }} },
+                    yaxis: {
+                        title: { text: 'Unikátní šablony' },
+                        labels: { formatter: function (value) { return Math.round(value); } }
+                    },
+                    legend: { position: 'bottom' },
+                    tooltip: { y: { formatter: function (value) { return Math.round(value) + ' šablon'; } } }
+                };
+
+                new window.ApexCharts(el, options).render();
+            })();
+        </script>
+    {% endif %}
+{% endblock %}

@@ -183,6 +183,13 @@
                                     <span> Žádosti o registraci </span>
                                 </a>
                             </li>
+
+                            <li class="side-nav-item {{ active_menu_item|default == 'admin_usage' ? 'menuitem-active' }}">
+                                <a href="{{ path('admin_usage') }}" class="side-nav-link">
+                                    <i class="uil-chart-line"></i>
+                                    <span> Statistiky </span>
+                                </a>
+                            </li>
                         {% endif %}
 
                         {% if project is defined %}

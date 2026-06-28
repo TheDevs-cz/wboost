@@ -62,9 +62,14 @@ return static function (ContainerConfigurator $container): void {
     // Services
     $services->load('WBoost\\Web\\Services\\', __DIR__ . '/../src/Services/**/{*.php}');
     $services->load('WBoost\\Web\\Query\\', __DIR__ . '/../src/Query/**/{*.php}')
-        // Read-model row DTOs (e.g. UserOverviewRow) live next to their query but
-        // are plain value objects, not services.
-        ->exclude(__DIR__ . '/../src/Query/**/*Row.php');
+        // Read-model DTOs (e.g. UserOverviewRow, the UsageOverview view-model and
+        // its UsageMonthMetrics) live next to their query but are plain value
+        // objects, not services.
+        ->exclude([
+            __DIR__ . '/../src/Query/**/*Row.php',
+            __DIR__ . '/../src/Query/UsageOverview.php',
+            __DIR__ . '/../src/Query/UsageMonthMetrics.php',
+        ]);
 
     // API Platform State Providers / Processors (DTOs themselves are not services).
     $services->load('WBoost\\Web\\Api\\', __DIR__ . '/../src/Api/**/{*Provider.php,*Processor.php}');

@@ -15,6 +15,8 @@ use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Usage\RecordExportUsage;
+use WBoost\Web\Value\ExportChannel;
 
 /**
  * Stage 5 download endpoint.
@@ -36,6 +38,7 @@ final class SocialNetworkTemplateVariantDownloadController extends AbstractContr
         private readonly TemplateVariantImageRendererInterface $renderer,
         private readonly ResolveTextOverrides $resolveTextOverrides,
         private readonly ResolveImageOverrides $resolveImageOverrides,
+        private readonly RecordExportUsage $recordExportUsage,
     ) {
     }
 
@@ -86,6 +89,8 @@ final class SocialNetworkTemplateVariantDownloadController extends AbstractContr
             'attachment; filename="%s.png"',
             $variant->id->toString(),
         ));
+
+        $this->recordExportUsage->record($variant, ExportChannel::Web);
 
         return $response;
     }

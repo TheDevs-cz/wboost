@@ -18,6 +18,8 @@ use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Usage\RecordExportUsage;
+use WBoost\Web\Value\ExportChannel;
 
 /**
  * @implements ProcessorInterface<ExportRequest, Response>
@@ -30,6 +32,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         private TemplateVariantImageRendererInterface $renderer,
         private ResolveTextOverrides $resolveTextOverrides,
         private ResolveImageOverrides $resolveImageOverrides,
+        private RecordExportUsage $recordExportUsage,
     ) {
     }
 
@@ -66,6 +69,8 @@ final readonly class ExportProcessor implements ProcessorInterface
         $response = $this->renderer->render($variant, $overrides, $imageOverrides);
         $response->headers->set('Content-Type', 'image/png');
         $response->headers->set('Content-Disposition', sprintf('inline; filename="%s.png"', $variant->id->toString()));
+
+        $this->recordExportUsage->record($variant, ExportChannel::Api);
 
         return $response;
     }

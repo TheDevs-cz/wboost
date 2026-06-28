@@ -15,6 +15,8 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Security\CustomTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\Usage\RecordExportUsage;
+use WBoost\Web\Value\ExportChannel;
 
 /**
  * The user-fill page is the `CustomTemplate:VariantFiller` Live Component; its export
@@ -29,6 +31,7 @@ final class CustomTemplateVariantDownloadController extends AbstractController
         private readonly TemplateVariantImageRendererInterface $renderer,
         private readonly ResolveTextOverrides $resolveTextOverrides,
         private readonly ResolveImageOverrides $resolveImageOverrides,
+        private readonly RecordExportUsage $recordExportUsage,
     ) {
     }
 
@@ -79,6 +82,8 @@ final class CustomTemplateVariantDownloadController extends AbstractController
             'attachment; filename="%s.png"',
             $variant->id->toString(),
         ));
+
+        $this->recordExportUsage->record($variant, ExportChannel::Web);
 
         return $response;
     }
