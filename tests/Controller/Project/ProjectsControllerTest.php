@@ -23,6 +23,11 @@ final class ProjectsControllerTest extends WebTestCase
         $this->assertSelectorTextContains('body', 'Project 2');
         // ...with the owner label on the non-owned cards.
         $this->assertSelectorTextContains('body', 'vlastník:');
+        // The admin owns nothing but PROJECT_2 is shared with them, so it ranks in
+        // the "shared with me" tier while the un-shared PROJECT_1 falls to "others" —
+        // proving shared-with-me outranks the rest (not lumped together).
+        $this->assertSelectorTextContains('body', 'Sdílené se mnou');
+        $this->assertSelectorTextContains('body', 'Ostatní projekty');
     }
 
     public function testNonAdminIsScopedToTheirProjects(): void

@@ -182,6 +182,13 @@ final class TestDataFixture extends Fixture
         // Cascade-persisted via $project1.
         $project1->share($invited, SharingLevel::Read, $date, $admin);
 
+        // Also share PROJECT_1 with the admin so the admin /projects list has a
+        // "shared with me" project (admin owns nothing): PROJECT_1 ranks in the
+        // shared tier while the un-shared PROJECT_2 falls to "others". PROJECT_1's
+        // share-count is asserted nowhere; PROJECT_2 stays share-free for the
+        // exact-count handler tests.
+        $project1->share($admin, SharingLevel::Read, $date, $admin);
+
         // A pending public registration request.
         $manager->persist(new RegistrationRequest(
             Uuid::fromString(self::REGISTRATION_REQUEST_PENDING_ID),
