@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Repository;
 
+use DateTimeImmutable;
 use WBoost\Web\Entity\PasswordResetToken;
 use Doctrine\ORM\EntityManagerInterface;
 use WBoost\Web\Exceptions\InvalidPasswordResetToken;
@@ -32,5 +33,19 @@ readonly final class PasswordResetTokenRepository
         }
 
         throw new InvalidPasswordResetToken();
+    }
+
+    /**
+     * @throws InvalidPasswordResetToken
+     */
+    public function getValid(string $tokenId, DateTimeImmutable $now): PasswordResetToken
+    {
+        $token = $this->get($tokenId);
+
+        if ($token->usedAt !== null || $token->validUntil < $now) {
+            throw new InvalidPasswordResetToken();
+        }
+
+        return $token;
     }
 }

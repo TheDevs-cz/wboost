@@ -61,6 +61,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->password = $hashedPassword;
     }
 
+    public function confirm(): void
+    {
+        $this->confirmed = true;
+    }
+
+    /**
+     * @param list<string> $roles
+     */
+    public function changeRoles(array $roles): void
+    {
+        $this->roles = array_values(array_unique($roles));
+    }
+
     public function getUserIdentifier(): string
     {
         /** @var non-empty-string $email */

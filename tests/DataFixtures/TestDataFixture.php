@@ -40,6 +40,15 @@ final class TestDataFixture extends Fixture
     public const string USER_2_ID = '00000000-0000-0000-0000-000000000002';
     public const string USER_2_EMAIL = 'user2@test.cz';
 
+    // Admin account (confirmed, ROLE_ADMIN) — drives the /admin/* and all-projects tests.
+    public const string ADMIN_USER_ID = '00000000-0000-0000-0000-0000000000a1';
+    public const string ADMIN_USER_EMAIL = 'admin@test.cz';
+
+    // Pending invitee: confirmed=false, password '' — drives UserChecker, set-password
+    // (invitation copy) and re-invite tests.
+    public const string INVITED_USER_ID = '00000000-0000-0000-0000-0000000000a2';
+    public const string INVITED_USER_EMAIL = 'invited@test.cz';
+
     public const string PROJECT_1_ID = '00000000-0000-0000-0000-000000000001';
     public const string PROJECT_2_ID = '00000000-0000-0000-0000-000000000002';
 
@@ -141,6 +150,24 @@ final class TestDataFixture extends Fixture
             true,
         );
         $manager->persist($user2);
+
+        $admin = new User(
+            Uuid::fromString(self::ADMIN_USER_ID),
+            self::ADMIN_USER_EMAIL,
+            $date,
+            true,
+        );
+        $admin->changeRoles([User::ROLE_ADMIN]);
+        $manager->persist($admin);
+
+        // Pending invitee — never activated: confirmed=false, password stays ''.
+        $invited = new User(
+            Uuid::fromString(self::INVITED_USER_ID),
+            self::INVITED_USER_EMAIL,
+            $date,
+            false,
+        );
+        $manager->persist($invited);
 
         $project2 = new Project(
             Uuid::fromString(self::PROJECT_2_ID),

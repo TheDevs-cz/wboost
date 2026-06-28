@@ -4,34 +4,42 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\User;
 
-use WBoost\Web\Message\User\ResetPassword;
+use Psr\Clock\ClockInterface;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
-use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
-use Symfony\Component\Security\Core\User\UserProviderInterface;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use WBoost\Web\Exceptions\InvalidPasswordResetToken;
+use WBoost\Web\Message\User\ResetPassword;
+use WBoost\Web\Repository\PasswordResetTokenRepository;
 
 #[AsMessageHandler]
 readonly final class ResetPasswordHandler
 {
     public function __construct(
-        // private TokenStorageInterface $tokenStorage,
+        private PasswordResetTokenRepository $passwordResetTokenRepository,
+        private UserPasswordHasherInterface $passwordHasher,
+        private ClockInterface $clock,
+        private Security $security,
     ) {
     }
 
+    /**
+     * @throws InvalidPasswordResetToken
+     */
     public function __invoke(ResetPassword $message): void
     {
-        // $userId = $this->passwordResetTokenService->getTokenUserId($message->token);
-        // $email = $this->userService->getEmailById($userId);
+        $token = $this->passwordResetTokenRepository->getValid($message->token, $this->clock->now());
 
-        // $this->userService->changePassword($email, $message->newPlainTextPassword);
+        $user = $token->user;
+        $hashedPassword = $this->passwordHasher->hashPassword($user, $message->newPlainTextPassword);
 
-        // $this->passwordResetTokenService->useToken($message->token);
+        $user->changePassword($hashedPassword);
+        // Activates an invited user; no-op for an already-confirmed user resetting their password.
+        $user->confirm();
+        $token->use($this->clock->now());
 
-        // TODO
-
-        // Manually log in the user
-        // $user = $this->userProvider->loadUserByIdentifier('');
-        // $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
-        // $this->tokenStorage->setToken($token);
+        // Log the (possibly not-yet-authenticated) user in. Safe because this handler runs
+        // synchronously inside the request, under the stateful `main` firewall.
+        $this->security->login($user, firewallName: 'main');
     }
 }

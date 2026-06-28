@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace WBoost\Web\MessageHandler\User;
 
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Twig\Environment;
 use WBoost\Web\Entity\PasswordResetToken;
 use WBoost\Web\Exceptions\UserNotFound;
 use WBoost\Web\Exceptions\UserNotRegistered;
@@ -22,6 +26,9 @@ readonly final class RequestPasswordResetHandler
         private ProvideIdentity $provideIdentity,
         private PasswordResetTokenRepository $passwordResetTokenRepository,
         private ClockInterface $clock,
+        private MailerInterface $mailer,
+        private UrlGeneratorInterface $urlGenerator,
+        private Environment $twig,
     ) {
     }
 
@@ -45,6 +52,20 @@ readonly final class RequestPasswordResetHandler
 
         $this->passwordResetTokenRepository->save($token);
 
-        // TODO: send email
+        $setPasswordUrl = $this->urlGenerator->generate('set_password', [
+            'token' => $token->id->toString(),
+        ], UrlGeneratorInterface::ABSOLUTE_URL);
+
+        $html = $this->twig->render('emails/password_reset.html.twig', [
+            'user' => $user,
+            'setPasswordUrl' => $setPasswordUrl,
+        ]);
+
+        $email = (new Email())
+            ->to($user->email)
+            ->subject('Obnovení hesla')
+            ->html($html);
+
+        $this->mailer->send($email);
     }
 }

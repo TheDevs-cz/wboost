@@ -7,6 +7,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Services\Security\UserChecker;
 
 return App::config([
     'security' => [
@@ -52,6 +53,7 @@ return App::config([
             'main' => [
                 'lazy' => true,
                 'provider' => 'user_provider',
+                'user_checker' => UserChecker::class,
                 'form_login' => [
                     'login_path' => 'login',
                     'check_path' => 'login',
@@ -74,7 +76,7 @@ return App::config([
                 'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],
             ],
             [
-                'path' => '^/(login|registration|forgotten-password|reset-password|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png|weekly-menu/.*/public|weekly-menu/.*/approval/.*)',
+                'path' => '^/(login|registration|forgotten-password|set-password/.*|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png|weekly-menu/.*/public|weekly-menu/.*/approval/.*)',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [
