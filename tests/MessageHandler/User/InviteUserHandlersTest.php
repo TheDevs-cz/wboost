@@ -80,6 +80,23 @@ final class InviteUserHandlersTest extends KernelTestCase
         self::assertEmailCount(1);
     }
 
+    public function testReInviteWithBlankNamePreservesExistingName(): void
+    {
+        $handler = self::getContainer()->get(InviteUserHandler::class);
+
+        // First invite sets a name on the pending user.
+        $handler(new InviteUser(TestDataFixture::INVITED_USER_EMAIL, 'Original Name', [User::ROLE_DESIGNER], [], TestDataFixture::ADMIN_USER_ID));
+        $this->flushAndClear();
+
+        // Re-inviting with the name field left blank must NOT wipe the stored name.
+        $handler(new InviteUser(TestDataFixture::INVITED_USER_EMAIL, null, [User::ROLE_DESIGNER], [], TestDataFixture::ADMIN_USER_ID));
+        $this->flushAndClear();
+
+        $user = self::getContainer()->get(UserRepository::class)->findByEmailOrNull(TestDataFixture::INVITED_USER_EMAIL);
+        self::assertNotNull($user);
+        self::assertSame('Original Name', $user->name);
+    }
+
     public function testInviteRejectsConfirmedDuplicate(): void
     {
         $this->expectException(UserAlreadyRegistered::class);

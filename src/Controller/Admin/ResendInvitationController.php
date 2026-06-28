@@ -26,6 +26,13 @@ final class ResendInvitationController extends AbstractController
         #[MapEntity(id: 'id')]
         User $user,
     ): Response {
+        // An already-active account has no pending invitation to resend.
+        if ($user->confirmed) {
+            $this->addFlash('info', 'Účet je již aktivní, pozvánku nelze znovu odeslat.');
+
+            return $this->redirectToRoute('admin_users');
+        }
+
         $this->bus->dispatch(new ResendInvitation($user->id->toString()));
 
         $this->addFlash('success', 'Pozvánka byla znovu odeslána.');

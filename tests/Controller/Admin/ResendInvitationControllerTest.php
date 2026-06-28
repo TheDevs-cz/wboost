@@ -33,4 +33,17 @@ final class ResendInvitationControllerTest extends WebTestCase
         $this->assertResponseRedirects('/admin/users');
         self::assertEmailCount(1);
     }
+
+    public function testResendIsNoOpForConfirmedUser(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
+
+        // USER_1 is already active — hitting the URL directly must not send mail.
+        $browser->request('GET', '/admin/users/' . TestDataFixture::USER_1_ID . '/resend-invitation');
+
+        $this->assertResponseRedirects('/admin/users');
+        self::assertEmailCount(0);
+    }
 }
+

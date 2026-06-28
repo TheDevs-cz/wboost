@@ -54,7 +54,11 @@ readonly final class InviteUserHandler
         }
 
         $user->changeRoles($message->roles);
-        $user->editProfile($message->name);
+        // Don't wipe an existing name when re-inviting with the (optional) name field
+        // left blank — only overwrite when a value was actually provided.
+        if ($message->name !== null && $message->name !== '') {
+            $user->editProfile($message->name);
+        }
 
         $invitedBy = $this->userRepository->getById(Uuid::fromString($message->invitedById));
 
