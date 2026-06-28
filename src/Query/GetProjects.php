@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace WBoost\Web\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\NoResultException;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\Project;
-use WBoost\Web\Exceptions\ProjectNotFound;
 
 readonly final class GetProjects
 {
@@ -22,20 +20,14 @@ readonly final class GetProjects
      */
     public function sharedWithUser(UuidInterface $userId): array
     {
-        $sql = <<<SQL
-SELECT id
-FROM project,
-    jsonb_array_elements(sharing) AS elem
-WHERE elem->>'userId' = :userId
-SQL;
-
         /**
          * @var array<string> $rows
          */
         $rows = $this->entityManager->getConnection()
-            ->executeQuery($sql, [
-                'userId' => $userId->toString(),
-            ])
+            ->executeQuery(
+                'SELECT project_id FROM project_share WHERE user_id = :userId',
+                ['userId' => $userId->toString()],
+            )
             ->fetchFirstColumn();
 
         return $rows;
@@ -48,9 +40,12 @@ SQL;
     {
         $sharedProjects = $this->sharedWithUser($userId);
 
+        // Fetch-join the shares so the per-card `is_granted` check doesn't fire
+        // one query per project.
         return $this->entityManager->createQueryBuilder()
             ->from(Project::class, 'p')
-            ->select('p')
+            ->select('p', 'sh')
+            ->leftJoin('p.shares', 'sh')
             ->where('p.owner = :userId')
             ->orWhere('p.id IN (:sharedProjects)')
             ->setParameter('userId', $userId->toString())

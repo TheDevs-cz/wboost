@@ -29,6 +29,7 @@ use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\CustomTemplateDimension;
 use WBoost\Web\Value\ManualType;
+use WBoost\Web\Value\SharingLevel;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\WeeklyMenuApprovalStatus;
 
@@ -168,6 +169,13 @@ final class TestDataFixture extends Fixture
             false,
         );
         $manager->persist($invited);
+
+        // Pre-share PROJECT_1 (owned by user1) with the invited user — mirrors the
+        // invite pre-share flow and drives the "shared with me" project list + the
+        // admin shared-count overview. Recipient is the (otherwise unused) invitee so
+        // existing user1<->user2 cross-access isolation tests stay valid.
+        // Cascade-persisted via $project1.
+        $project1->share($invited, SharingLevel::Read, $date, $admin);
 
         $project2 = new Project(
             Uuid::fromString(self::PROJECT_2_ID),
