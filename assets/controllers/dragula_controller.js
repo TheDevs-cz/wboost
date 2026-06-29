@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import dragula from 'dragula';
+import Sortable from 'sortablejs';
 
 export default class extends Controller {
     static targets = ['container'];
@@ -9,12 +9,20 @@ export default class extends Controller {
     };
 
     connect() {
-        this.drake = dragula([this.containerTarget], {
-            moves: (el, source, handle) => handle.classList.contains('dragula-handle'),
-            direction: this.directionValue
+        this.sortable = Sortable.create(this.containerTarget, {
+            handle: '.dragula-handle',
+            direction: this.directionValue,
+            ghostClass: 'gu-transit',
+            dragClass: 'gu-mirror',
+            onEnd: this.updateOrder.bind(this)
         });
+    }
 
-        this.drake.on('drop', this.updateOrder.bind(this));
+    disconnect() {
+        if (this.sortable) {
+            this.sortable.destroy();
+            this.sortable = null;
+        }
     }
 
     updateOrder() {

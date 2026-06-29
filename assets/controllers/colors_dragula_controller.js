@@ -1,17 +1,23 @@
 import { Controller } from '@hotwired/stimulus';
-import dragula from 'dragula';
+import Sortable from 'sortablejs';
 
 export default class extends Controller {
     static targets = ['container'];
 
     connect() {
-        // Initialize Dragula for the containers
-        this.drake = dragula([this.containerTarget], {
-            moves: (el, source, handle) => handle.classList.contains('dragula-handle')
+        this.sortable = Sortable.create(this.containerTarget, {
+            handle: '.dragula-handle',
+            ghostClass: 'gu-transit',
+            dragClass: 'gu-mirror',
+            onEnd: this.updateOrder.bind(this)
         });
+    }
 
-        // Listen to the drop event and update the order fields accordingly
-        this.drake.on('drop', this.updateOrder.bind(this));
+    disconnect() {
+        if (this.sortable) {
+            this.sortable.destroy();
+            this.sortable = null;
+        }
     }
 
     updateOrder() {
