@@ -14,10 +14,13 @@ export default class extends Controller {
     };
 
     connect() {
-        // Match original behaviour: scale starts at max but the buttons
-        // stay in their HTML-rendered "disabled" state until the user
-        // clicks zoom in/out for the first time.
+        // Scale starts at max (canvas shown at 100%). Compute the real button
+        // states immediately — the markup renders both buttons with the
+        // `.disabled` class (which also sets `pointer-events: none` in
+        // Bootstrap), so without this the zoom-out button could never be
+        // clicked to bootstrap itself out of the disabled state.
         this.currentScale = this.maxValue;
+        this.updateButtonStates();
     }
 
     zoomIn() {
