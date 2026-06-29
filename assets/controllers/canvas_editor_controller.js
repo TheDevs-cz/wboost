@@ -219,6 +219,15 @@ export default class extends Controller {
                     obj.inputId = crypto.randomUUID();
                 }
             });
+
+            // A background restored from saved JSON may predate the cover fix
+            // (center origin, no scale → cropped to a quadrant under Fabric v7).
+            // Re-apply cover/center from the image's natural size so the editor
+            // matches the export. Idempotent for backgrounds already covered.
+            if (this.canvas.backgroundImage) {
+                this.coverBackgroundImage(this.canvas.backgroundImage);
+            }
+
             this.canvas.renderAll();
         } finally {
             this.loadingCanvas = false;
@@ -302,8 +311,40 @@ export default class extends Controller {
         // Fabric v7: FabricImage.fromURL is Promise-based;
         // backgroundImage is now a property assignment, not a setter method.
         const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+        this.coverBackgroundImage(img);
         this.canvas.backgroundImage = img;
         this.canvas.renderAll();
+    }
+
+    /**
+     * Scale + center a background image so it COVERS the whole canvas
+     * (CSS `object-fit: cover`, `background-position: center center`) — never
+     * cropped to a quadrant, never letterboxed.
+     *
+     * Fabric v7 changed the default object origin to center/center, so a
+     * background assigned without an explicit origin lands its CENTRE at canvas
+     * (0,0) and only the bottom-right quadrant is visible — that was the
+     * "background is cropped" bug. We pin the centre to the canvas centre and
+     * scale by the LARGER axis ratio so the image bleeds to every edge
+     * regardless of the source image's size or aspect ratio. The identical math
+     * runs server-side in templates/api/template_variant_render.html.twig, so
+     * the editor preview and the exported PNG always match.
+     */
+    coverBackgroundImage(img) {
+        const element = typeof img.getElement === 'function' ? img.getElement() : null;
+        const imageWidth = (element && (element.naturalWidth || element.width)) || img.width || 1;
+        const imageHeight = (element && (element.naturalHeight || element.height)) || img.height || 1;
+        const scale = Math.max(this.canvas.width / imageWidth, this.canvas.height / imageHeight);
+        img.set({
+            originX: 'center',
+            originY: 'center',
+            left: this.canvas.width / 2,
+            top: this.canvas.height / 2,
+            cropX: 0,
+            cropY: 0,
+            scaleX: scale,
+            scaleY: scale,
+        });
     }
 
     /**

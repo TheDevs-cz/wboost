@@ -64,6 +64,33 @@
                 // form was removed. Await the load, then apply overrides.
                 await canvas.loadFromJSON(canvasJson);
 
+                // Normalize the background to object-fit: cover / center center,
+                // matching the editor's coverBackgroundImage. Canvases saved
+                // before the cover fix (and the empty-canvas synthesis) carry a
+                // center origin with no scale; under Fabric v7's center/center
+                // default that crops the background to its bottom-right quadrant.
+                // Recompute from the image's natural size so the exported PNG
+                // bleeds the background to every edge, exactly like the editor.
+                const backgroundImage = canvas.backgroundImage;
+                if (backgroundImage) {
+                    const element = typeof backgroundImage.getElement === 'function' ? backgroundImage.getElement() : null;
+                    const naturalWidth = (element && (element.naturalWidth || element.width)) || backgroundImage.width || 1;
+                    const naturalHeight = (element && (element.naturalHeight || element.height)) || backgroundImage.height || 1;
+                    const coverScale = Math.max(canvas.width / naturalWidth, canvas.height / naturalHeight);
+                    backgroundImage.set({
+                        width: naturalWidth,
+                        height: naturalHeight,
+                        cropX: 0,
+                        cropY: 0,
+                        originX: 'center',
+                        originY: 'center',
+                        left: canvas.width / 2,
+                        top: canvas.height / 2,
+                        scaleX: coverScale,
+                        scaleY: coverScale,
+                    });
+                }
+
                 // Fabric v7's _fromObject does NOT copy arbitrary custom
                 // properties from the source JSON onto the deserialized
                 // instance — only known stateProperties survive. So our
