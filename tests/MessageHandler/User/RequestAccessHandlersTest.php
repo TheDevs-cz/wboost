@@ -36,6 +36,7 @@ final class RequestAccessHandlersTest extends KernelTestCase
         self::assertNotNull($email);
         self::assertEmailAddressContains($email, 'To', 'j.mikes@me.com');
         self::assertEmailAddressContains($email, 'To', 'lukas@wantoo.cz');
+        self::assertEmailHtmlBodyContains($email, '/admin/registration-requests');
     }
 
     public function testPendingDuplicateThrows(): void
@@ -52,6 +53,24 @@ final class RequestAccessHandlersTest extends KernelTestCase
 
         $handler = self::getContainer()->get(RequestAccessHandler::class);
         $handler(new RequestAccess(TestDataFixture::USER_1_EMAIL));
+    }
+
+    public function testCountPendingTracksLifecycle(): void
+    {
+        $repository = self::getContainer()->get(RegistrationRequestRepository::class);
+
+        // One pending request exists in the fixtures baseline.
+        self::assertSame(1, $repository->countPending());
+
+        $request = self::getContainer()->get(RequestAccessHandler::class);
+        $request(new RequestAccess('another-one@test.cz'));
+        $this->flushAndClear();
+        self::assertSame(2, $repository->countPending());
+
+        $dismiss = self::getContainer()->get(DismissRegistrationRequestHandler::class);
+        $dismiss(new DismissRegistrationRequest(TestDataFixture::REGISTRATION_REQUEST_PENDING_ID));
+        $this->flushAndClear();
+        self::assertSame(1, $repository->countPending());
     }
 
     public function testDismissMarksRequestDismissed(): void

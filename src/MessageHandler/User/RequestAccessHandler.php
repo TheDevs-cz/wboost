@@ -8,6 +8,7 @@ use Psr\Clock\ClockInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 use WBoost\Web\Entity\RegistrationRequest;
 use WBoost\Web\Exceptions\AccessAlreadyRequested;
@@ -29,6 +30,7 @@ readonly final class RequestAccessHandler
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private MailerInterface $mailer,
+        private UrlGeneratorInterface $urlGenerator,
         private Environment $twig,
         private array $signupNotificationRecipients,
     ) {
@@ -56,8 +58,15 @@ readonly final class RequestAccessHandler
         );
         $this->registrationRequestRepository->save($request);
 
+        $adminUrl = $this->urlGenerator->generate(
+            'admin_registration_requests',
+            [],
+            UrlGeneratorInterface::ABSOLUTE_URL,
+        );
+
         $html = $this->twig->render('emails/access_request.html.twig', [
             'requesterEmail' => $message->email,
+            'adminUrl' => $adminUrl,
         ]);
 
         $email = (new Email())

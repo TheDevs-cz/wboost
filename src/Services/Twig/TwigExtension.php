@@ -6,6 +6,7 @@ namespace WBoost\Web\Services\Twig;
 
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
+use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Services\SvgColorsMapper;
 use WBoost\Web\Services\UploaderHelper;
 
@@ -14,6 +15,7 @@ final class TwigExtension extends AbstractExtension
     public function __construct(
         readonly private UploaderHelper $uploaderHelper,
         readonly private SvgColorsMapper $svgColorsMapper,
+        readonly private RegistrationRequestRepository $registrationRequestRepository,
     ) {
     }
 
@@ -25,6 +27,7 @@ final class TwigExtension extends AbstractExtension
         return [
             new TwigFunction('uploaded_asset', $this->uploaderHelper->getPublicPath(...)),
             new TwigFunction('remap_svg_colors', $this->svgColorsMapper->mapToDataUri(...)),
+            new TwigFunction('pending_registration_requests_count', $this->registrationRequestRepository->countPending(...)),
         ];
     }
 }

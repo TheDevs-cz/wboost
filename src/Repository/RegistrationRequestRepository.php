@@ -54,6 +54,21 @@ readonly final class RegistrationRequestRepository
         return $request;
     }
 
+    public function countPending(): int
+    {
+        $count = $this->entityManager->createQueryBuilder()
+            ->select('COUNT(r)')
+            ->from(RegistrationRequest::class, 'r')
+            ->where('r.status = :pending')
+            ->setParameter('pending', RegistrationRequestStatus::Pending->value)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        assert(is_int($count));
+
+        return $count;
+    }
+
     /**
      * @return list<RegistrationRequest>
      */

@@ -181,6 +181,10 @@
                                 <a href="{{ path('admin_registration_requests') }}" class="side-nav-link">
                                     <i class="uil-user-plus"></i>
                                     <span> Žádosti o registraci </span>
+                                    {% set pendingRegistrationRequests = pending_registration_requests_count() %}
+                                    {% if pendingRegistrationRequests > 0 %}
+                                        <span class="badge bg-danger rounded-pill">{{ pendingRegistrationRequests }}</span>
+                                    {% endif %}
                                 </a>
                             </li>
 
