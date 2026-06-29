@@ -34,7 +34,14 @@ compose.override.yaml
 
 ###> symfony/asset-mapper ###
 /public/assets/
-/assets/vendor/
+# Ignore everything under assets/vendor (re-downloaded by `bin/console importmap:install`)…
+/assets/vendor/*
+# …EXCEPT crossvent, which must be committed. jsDelivr re-bundled crossvent@1.5.5's +esm
+# with a newer Rollup whose namespace import Symfony's resolver fails to rewrite, so a
+# fresh `importmap:install` produces a relative `import ... from "./npm/custom-event@1.0.1/+esm"`
+# that 404s at runtime and breaks ALL page JS. The committed copy keeps the correct bare
+# `import ... from "custom-event"`; importmap:install never overwrites existing files.
+!/assets/vendor/crossvent/
 ###< symfony/asset-mapper ###
 
 node_modules/
