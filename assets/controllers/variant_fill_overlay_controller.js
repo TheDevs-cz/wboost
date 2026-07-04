@@ -36,13 +36,15 @@ export default class extends Controller {
         this._openId = null;
         this._modalTrigger = null;
         this._zoom = 1;
+        this._userZoomed = false;
         this.element.classList.add("fill-js");
 
         this._boundReposition = () => this.reposition();
+        this._boundFit = () => this._fitToScreen();
         this._boundKeydown = (event) => this._onKeydown(event);
         this._boundOutside = (event) => this._maybeCloseOnOutside(event);
 
-        window.addEventListener("resize", this._boundReposition);
+        window.addEventListener("resize", this._boundFit);
         window.addEventListener("scroll", this._boundReposition, true);
         document.addEventListener("keydown", this._boundKeydown);
         document.addEventListener("click", this._boundOutside);
@@ -72,18 +74,18 @@ export default class extends Controller {
         }
 
         if (this.hasPreviewTarget && "ResizeObserver" in window) {
-            this._resizeObserver = new ResizeObserver(() => this.reposition());
+            this._resizeObserver = new ResizeObserver(() => this._fitToScreen());
             this._resizeObserver.observe(this.previewTarget);
         }
         if (this.hasPreviewTarget && this.previewTarget.tagName === "IMG" && !this.previewTarget.complete) {
-            this.previewTarget.addEventListener("load", this._boundReposition);
+            this.previewTarget.addEventListener("load", this._boundFit);
         }
 
-        this.reposition();
+        this._fitToScreen();
     }
 
     disconnect() {
-        window.removeEventListener("resize", this._boundReposition);
+        window.removeEventListener("resize", this._boundFit);
         window.removeEventListener("scroll", this._boundReposition, true);
         document.removeEventListener("keydown", this._boundKeydown);
         document.removeEventListener("click", this._boundOutside);
@@ -117,6 +119,10 @@ export default class extends Controller {
     // scale together, so they stay aligned with no re-measuring. reposition()
     // computes the box scale from the UNSCALED width (divides by this._zoom), so
     // the boxes are laid out in unscaled coords and the transform scales them.
+    //
+    // The initial zoom is auto-fit so the WHOLE canvas fits the screen (crucial
+    // on mobile / for tall portrait canvases). We keep re-fitting on load/resize
+    // until the user zooms manually (_userZoomed); after that we leave it alone.
 
     zoomIn() {
         this._applyZoom((this._zoom || 1) + 0.25);
@@ -131,11 +137,47 @@ export default class extends Controller {
     }
 
     _applyZoom(z) {
-        this._zoom = Math.min(3, Math.max(0.5, Math.round(z * 100) / 100));
-        if (this.hasZoomLabelTarget) {
-            this.zoomLabelTarget.textContent = `${Math.round(this._zoom * 100)} %`;
+        this._userZoomed = true;
+        // Floor: normally 50 %, but never above the fit-to-screen zoom — a tall
+        // canvas must always be zoomable out far enough to show the whole thing.
+        const floor = Math.min(0.5, this._fitZoom());
+        this._zoom = Math.min(3, Math.max(floor, Math.round(z * 100) / 100));
+        this._updateZoomLabel();
+        this.reposition();
+    }
+
+    /** Zoom at which the WHOLE stage fits the viewport (both axes), capped at 1. */
+    _fitZoom() {
+        if (!this.hasStageTarget) return this._zoom || 1;
+        const stage = this.stageTarget;
+        // offsetWidth/Height are the UNSCALED layout size (transform-independent).
+        const baseW = stage.offsetWidth;
+        const baseH = stage.offsetHeight;
+        if (baseW <= 0 || baseH <= 0) return this._zoom || 1;
+
+        const container = stage.parentElement;
+        const availW = container ? container.clientWidth : window.innerWidth;
+        // Height from the stage's top down to the bottom of the viewport.
+        const top = stage.getBoundingClientRect().top;
+        const availH = window.innerHeight - top - 16;
+
+        const z = Math.min(1, availW / baseW, availH / baseH);
+        return Math.max(0.1, Math.round(z * 100) / 100);
+    }
+
+    /** Set the auto zoom so the whole canvas fits the screen (until user zooms). */
+    _fitToScreen() {
+        if (!this._userZoomed) {
+            this._zoom = this._fitZoom();
+            this._updateZoomLabel();
         }
         this.reposition();
+    }
+
+    _updateZoomLabel() {
+        if (this.hasZoomLabelTarget) {
+            this.zoomLabelTarget.textContent = `${Math.round((this._zoom || 1) * 100)} %`;
+        }
     }
 
     /** Apply the CSS transform + reserve scroll space (margins) for the zoom. */
