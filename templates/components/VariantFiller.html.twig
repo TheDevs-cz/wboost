@@ -275,7 +275,7 @@
                                 >
                                 <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
                                     {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
-                                    {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }}/{{ ph.maxLength }}</small>{% endif %}
+                                    {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }} / {{ ph.maxLength }} znaků</small>{% endif %}
                                 </div>
                             </div>
                         </div>

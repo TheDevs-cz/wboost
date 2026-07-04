@@ -373,7 +373,7 @@ export default class extends Controller {
         if (!counter) return;
         const max = field.getAttribute("maxlength");
         if (!max) return;
-        counter.textContent = `${field.value.length}/${max}`;
+        counter.textContent = `${field.value.length} / ${max} znaků`;
     }
 
     // --- Live-preview spinner -----------------------------------------------
