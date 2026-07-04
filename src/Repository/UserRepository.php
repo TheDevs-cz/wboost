@@ -22,6 +22,11 @@ readonly final class UserRepository
         $this->entityManager->persist($user);
     }
 
+    public function remove(User $user): void
+    {
+        $this->entityManager->remove($user);
+    }
+
     /**
      * @throws UserNotFound
      */

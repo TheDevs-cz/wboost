@@ -7,6 +7,7 @@ namespace WBoost\Web\Controller\Admin;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Query\GetUsersOverview;
@@ -20,10 +21,13 @@ final class AdminUsersController extends AbstractController
 
     #[Route(path: '/admin/users', name: 'admin_users')]
     #[IsGranted(User::ROLE_ADMIN)]
-    public function __invoke(): Response
-    {
+    public function __invoke(
+        #[CurrentUser]
+        User $admin,
+    ): Response {
         return $this->render('admin/users.html.twig', [
             'users' => $this->getUsersOverview->all(),
+            'currentUserId' => $admin->id->toString(),
         ]);
     }
 }

@@ -76,7 +76,21 @@
                                                     <i class="mdi mdi-email-sync"></i>
                                                 </a>
                                             {% endif %}
+                                            {% if user.id != currentUserId %}
+                                                <a href="#" class="btn btn-outline-danger" title="Smazat"
+                                                   data-modal-id="{{ user.id }}"
+                                                   data-action="click->confirm-modal#showModal">
+                                                    <i class="mdi mdi-trash-can-outline"></i>
+                                                </a>
+                                            {% endif %}
                                         </div>
+                                        {% if user.id != currentUserId %}
+                                            <twig:ConfirmModal
+                                                id="{{ user.id }}"
+                                                url="{{ path('admin_delete_user', {'id': user.id}) }}"
+                                                confirmationText="Opravdu chcete smazat uživatele {{ user.displayName }}? Tato akce je nevratná a odstraní i všechny jeho projekty."
+                                            />
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}
