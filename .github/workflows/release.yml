@@ -1,11 +1,19 @@
-# https://github.com/docker/build-push-action/blob/master/docs/advanced/tags-labels.md
+# Release — build the image once and deploy to lily via the shared reusable
+# workflow (TheDevs-cz/ci). No more SSH-to-spare: this calls `_ship.yml`, which
+# builds+pushes ghcr.io/thedevs-cz/wboost and then HMAC-POSTs
+# https://deploy.lily.srv.thedevs.cz/hooks/wboost (per-app secret).
+#
+# The .env (DATABASE_URL, MinIO/S3, OAuth2 keys, Sentry, …) is rendered on the
+# box (lily.srv) from wboost's Infisical project at deploy time — never here.
+#
+# Trigger: only after the `Tests` workflow succeeds on main (keeps the
+# tests-must-pass gate the old SSH pipeline had).
+#
+# Secret (set on this repo): DEPLOY_WEBHOOK_SECRET (the per-app HMAC key). Passed
+# EXPLICITLY because the reusable workflow lives under a different owner
+# (secrets: inherit can't cross owners).
 
 name: Release
-
-permissions:
-    contents: read
-    deployments: write
-    packages: write
 
 on:
     workflow_run:
@@ -15,60 +23,19 @@ on:
         branches:
             - main
 
+permissions:
+    contents: read
+    packages: write
+
 jobs:
-    docker:
-        name: "Docker images"
-        runs-on: ubuntu-latest
+    ship-production:
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
-        steps:
-            -   name: Checkout
-                uses: actions/checkout@v6
-
-            -   name: Docker meta
-                id: meta
-                uses: docker/metadata-action@v6
-                with:
-                    # list of Docker images to use as base name for tags
-                    images: ghcr.io/thedevs-cz/wboost
-                    # generate Docker tags based on the following events/attributes
-                    tags: |
-                        type=ref,event=branch
-                        type=sha
-
-            -   name: Set up Docker Buildx
-                uses: docker/setup-buildx-action@v4
-
-            -   name: Login to GHCR
-                if: github.event_name != 'pull_request'
-                uses: docker/login-action@v4
-                with:
-                    registry: ghcr.io
-                    username: ${{ github.repository_owner }}
-                    password: ${{ secrets.GITHUB_TOKEN }}
-
-            -   name: Build and push
-                uses: docker/build-push-action@v7
-                with:
-                    context: .
-                    push: ${{ github.event_name != 'pull_request' }}
-                    tags: ${{ steps.meta.outputs.tags }}
-                    labels: ${{ steps.meta.outputs.labels }}
-                    cache-from: type=gha, scope=${{ github.workflow }}
-                    cache-to: type=gha, scope=${{ github.workflow }}
-                    build-args: APP_VERSION=${{ github.sha }}
-
-    deploy:
-        runs-on: ubuntu-latest
-        if: ${{ github.event.workflow_run.conclusion == 'success' }}
-        needs:
-            - docker
-        environment:
-            name: prod
-            url: https://wboost.cz
-        steps:
-            -   uses: appleboy/ssh-action@v1
-                with:
-                    host: spare.srv.thedevs.cz
-                    username: ${{ secrets.DEPLOY_USERNAME }}
-                    key: ${{ secrets.DEPLOY_PRIVATE_KEY }}
-                    script: cd /deployment/wboost && ./deploy.sh
+        uses: TheDevs-cz/ci/.github/workflows/_ship.yml@v1
+        secrets:
+            DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+        with:
+            app: wboost
+            image: ghcr.io/thedevs-cz/wboost
+            deploy_host: lily.srv.thedevs.cz
+            build_args: APP_VERSION=${{ github.event.workflow_run.head_sha }}
+            await_deploy: false
