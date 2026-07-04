@@ -40,6 +40,9 @@ export default class extends Controller {
         containers.forEach(container => {
             this.sortables.push(Sortable.create(container, {
                 ...options,
+                // See dragula_controller.js: fallback mode keeps .gu-mirror on a
+                // detached clone (correct) instead of the in-flow item (breaks layout).
+                forceFallback: true,
                 ghostClass: 'gu-transit',
                 dragClass: 'gu-mirror',
                 onEnd: (evt) => onReorder(evt.to),

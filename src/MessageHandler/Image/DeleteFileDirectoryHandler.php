@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\MessageHandler\Image;
 
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use WBoost\Web\Exceptions\FileDirectoryNotEmpty;
 use WBoost\Web\Exceptions\FileDirectoryNotFound;
 use WBoost\Web\Message\Image\DeleteFileDirectory;
 use WBoost\Web\Repository\FileDirectoryRepository;
@@ -20,24 +21,24 @@ readonly final class DeleteFileDirectoryHandler
     }
 
     /**
-     * Deleting a folder never discards its contents: every child folder and
-     * every file inside it is lifted up to the deleted folder's parent (the
-     * gallery root when the deleted folder was top-level) before the folder
-     * row itself is removed.
+     * Only empty folders may be deleted: a folder that still holds images or
+     * sub-folders is refused so its contents are never silently relocated to
+     * the parent (the old behaviour, which surprised users) nor cascaded away.
+     * The user must empty the folder first — delete the images and remove the
+     * sub-folders one by one.
      *
      * @throws FileDirectoryNotFound
+     * @throws FileDirectoryNotEmpty
      */
     public function __invoke(DeleteFileDirectory $message): void
     {
         $directory = $this->fileDirectoryRepository->get($message->directoryId);
-        $parent = $directory->parent;
 
-        foreach ($this->fileDirectoryRepository->listChildren($directory->project->id, $directory->source, $directory) as $child) {
-            $child->moveUnder($parent);
-        }
+        $hasSubfolders = $this->fileDirectoryRepository->listChildren($directory->project->id, $directory->source, $directory) !== [];
+        $hasFiles = $this->fileUploadRepository->listByDirectory($directory) !== [];
 
-        foreach ($this->fileUploadRepository->listByDirectory($directory) as $file) {
-            $file->moveToDirectory($parent);
+        if ($hasSubfolders || $hasFiles) {
+            throw new FileDirectoryNotEmpty();
         }
 
         $this->fileDirectoryRepository->remove($directory);

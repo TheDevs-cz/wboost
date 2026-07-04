@@ -324,7 +324,7 @@ abstract class AbstractVariantFiller extends AbstractController
         $variant = $this->variantEntity();
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
 
-        $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $this->buildProvidedValues());
+        $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $this->buildProvidedValues(), truncateOverflow: true);
         $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides);
 
         if ($bytes === '') {

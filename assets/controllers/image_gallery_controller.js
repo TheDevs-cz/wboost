@@ -37,21 +37,47 @@ export default class extends Controller {
     }
 
     /**
-     * Triggered by the gallery-uploader controller after a successful upload
-     * via the `gallery-uploader:uploaded` event we listen for in connect().
+     * Triggered once per upload batch by the gallery-uploader controller via
+     * the bubbling `gallery-uploader:uploaded` event we listen for in
+     * connect(). Detail: `{ count, autoSelect, asset, modal }`.
      */
     onUploaded(event) {
-        const { url, path, id } = event.detail || {};
-        if (!url) {
+        const { count, autoSelect, asset, modal } = event.detail || {};
+        if (!count) {
             return;
         }
-        this.dispatchSelected({ url, path, id });
 
-        // Tell the Live Component to re-fetch the asset list so the freshly
-        // uploaded image is in the grid the next time the user opens the
-        // modal. Click the hidden trigger that carries the live#action
-        // wiring — programmatic Live Component invocation without coupling
-        // this controller to the Live Component JS bundle.
+        // Editor modal, single image: route it straight onto the canvas (the
+        // host then closes the modal) and refresh the grid now (the modal is
+        // hidden, so the re-render is invisible) for the next time it opens.
+        if (autoSelect && asset && asset.url) {
+            this.dispatchSelected({ url: asset.url, path: asset.path, id: asset.id });
+            this.refresh();
+            return;
+        }
+
+        // Editor modal, multiple images: surface the gallery tab so the user can
+        // pick which one goes on the canvas, refreshed with the new uploads.
+        if (modal) {
+            this.refresh();
+            const galleryTab = this.element.querySelector('#gallery-tab');
+            if (galleryTab) {
+                galleryTab.click();
+            }
+            return;
+        }
+
+        // Standalone gallery page: the user asked to STAY on the dropzone tab
+        // after uploading, so we do NOT re-render now (a Live morph would yank
+        // them to the gallery tab and wipe their preview). Instead we defer the
+        // grid refresh until they actually open the gallery tab.
+        this._pendingRefresh = true;
+    }
+
+    refresh() {
+        // Click the hidden trigger that carries the live#action wiring —
+        // programmatic Live Component invocation without coupling this
+        // controller to the Live Component JS bundle.
         if (this.hasRefreshTriggerTarget) {
             this.refreshTriggerTarget.click();
         }
@@ -65,11 +91,28 @@ export default class extends Controller {
         // the dependency direction explicit (image-gallery hosts uploader).
         this._boundOnUploaded = this.onUploaded.bind(this);
         this.element.addEventListener('gallery-uploader:uploaded', this._boundOnUploaded);
+
+        // Lazy grid refresh: after a standalone upload we stay on the dropzone
+        // tab and only re-render the grid when the user opens the gallery tab.
+        this._pendingRefresh = false;
+        this._galleryTab = this.element.querySelector('#gallery-tab');
+        if (this._galleryTab) {
+            this._boundOnGalleryShown = () => {
+                if (this._pendingRefresh) {
+                    this._pendingRefresh = false;
+                    this.refresh();
+                }
+            };
+            this._galleryTab.addEventListener('shown.bs.tab', this._boundOnGalleryShown);
+        }
     }
 
     disconnect() {
         if (this._boundOnUploaded) {
             this.element.removeEventListener('gallery-uploader:uploaded', this._boundOnUploaded);
+        }
+        if (this._galleryTab && this._boundOnGalleryShown) {
+            this._galleryTab.removeEventListener('shown.bs.tab', this._boundOnGalleryShown);
         }
     }
 

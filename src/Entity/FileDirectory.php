@@ -61,13 +61,4 @@ class FileDirectory
     {
         $this->name = $name;
     }
-
-    /**
-     * Re-parent this directory. `null` moves it to the gallery root. Used when a
-     * parent directory is deleted and its children are lifted up one level.
-     */
-    public function moveUnder(null|FileDirectory $parent): void
-    {
-        $this->parent = $parent;
-    }
 }

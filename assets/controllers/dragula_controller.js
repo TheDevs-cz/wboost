@@ -12,6 +12,13 @@ export default class extends Controller {
         this.sortable = Sortable.create(this.containerTarget, {
             handle: '.dragula-handle',
             direction: this.directionValue,
+            // Use the JS-managed fallback drag instead of native HTML5 DnD: in
+            // fallback mode `dragClass` (.gu-mirror, position:fixed) is applied to
+            // a detached clone that follows the cursor — the way dragula's mirror
+            // worked — while the real item keeps only `ghostClass` and stays in
+            // flow. Native mode instead slaps .gu-mirror on the in-flow element,
+            // ripping it out of layout and breaking drop targeting (cards stack).
+            forceFallback: true,
             ghostClass: 'gu-transit',
             dragClass: 'gu-mirror',
             onEnd: this.updateOrder.bind(this)

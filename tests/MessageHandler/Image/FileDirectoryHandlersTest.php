@@ -12,7 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Project;
-use WBoost\Web\Exceptions\FileDirectoryNotFound;
+use WBoost\Web\Exceptions\FileDirectoryNotEmpty;
 use WBoost\Web\Message\Image\CreateFileDirectory;
 use WBoost\Web\Message\Image\DeleteFileDirectory;
 use WBoost\Web\Message\Image\MoveFileUpload;
@@ -29,9 +29,9 @@ use WBoost\Web\Value\FileSource;
 
 /**
  * Covers the Stage 8 image-gallery folder CQRS handlers: create (root +
- * nested), rename, move a file between folders, and — the trickiest bit —
- * delete, which must lift the deleted folder's child folders AND files up to
- * its parent rather than discarding them.
+ * nested), rename, move a file between folders, and delete — which only
+ * removes EMPTY folders and refuses any folder that still holds images or
+ * sub-folders (rather than relocating its contents, the old behaviour).
  *
  * Handlers are invoked directly (no bus, matching the WeeklyMenu handler tests)
  * and the EntityManager is flushed afterwards so the repository assertions read
@@ -115,46 +115,56 @@ final class FileDirectoryHandlersTest extends KernelTestCase
         self::assertNull($this->fileRepository()->get($file->id)->directory);
     }
 
-    public function testDeleteFileDirectoryLiftsChildrenAndFilesToParent(): void
+    public function testDeleteEmptyFileDirectoryRemovesIt(): void
     {
-        // grandparent (root) > parent > { child folder, file }
-        $grandparent = $this->persistDirectory(null, 'Grandparent');
-        $parent = $this->persistDirectory($grandparent, 'Parent');
-        $child = $this->persistDirectory($parent, 'Child');
-        $file = $this->persistFile($parent);
+        $directory = $this->persistDirectory(null, 'Empty');
 
-        $this->handler(DeleteFileDirectoryHandler::class)(new DeleteFileDirectory($parent->id));
+        $this->handler(DeleteFileDirectoryHandler::class)(new DeleteFileDirectory($directory->id));
         $this->em()->flush();
 
-        // Parent is gone...
+        self::assertNull($this->em()->find(FileDirectory::class, $directory->id));
+    }
+
+    public function testDeleteFileDirectoryHoldingFilesIsRefused(): void
+    {
+        $directory = $this->persistDirectory(null, 'Has file');
+        $file = $this->persistFile($directory);
+
         try {
-            $this->directoryRepository()->get($parent->id);
-            self::fail('Expected the deleted directory to be gone.');
-        } catch (FileDirectoryNotFound) {
+            $this->handler(DeleteFileDirectoryHandler::class)(new DeleteFileDirectory($directory->id));
+            self::fail('Expected a non-empty directory delete to be refused.');
+        } catch (FileDirectoryNotEmpty) {
             // expected
         }
 
-        // ...and its child folder + file were lifted up to the grandparent.
-        $reloadedChild = $this->directoryRepository()->get($child->id);
-        self::assertNotNull($reloadedChild->parent);
-        self::assertTrue($reloadedChild->parent->id->equals($grandparent->id));
-
-        $reloadedFile = $this->fileRepository()->get($file->id);
-        self::assertNotNull($reloadedFile->directory);
-        self::assertTrue($reloadedFile->directory->id->equals($grandparent->id));
-    }
-
-    public function testDeleteTopLevelFileDirectoryLiftsContentsToRoot(): void
-    {
-        $parent = $this->persistDirectory(null, 'Top level');
-        $child = $this->persistDirectory($parent, 'Child');
-        $file = $this->persistFile($parent);
-
-        $this->handler(DeleteFileDirectoryHandler::class)(new DeleteFileDirectory($parent->id));
         $this->em()->flush();
 
-        self::assertNull($this->directoryRepository()->get($child->id)->parent);
-        self::assertNull($this->fileRepository()->get($file->id)->directory);
+        // Folder and its file are both untouched.
+        self::assertSame('Has file', $this->directoryRepository()->get($directory->id)->name);
+        $reloadedFile = $this->fileRepository()->get($file->id);
+        self::assertNotNull($reloadedFile->directory);
+        self::assertTrue($reloadedFile->directory->id->equals($directory->id));
+    }
+
+    public function testDeleteFileDirectoryHoldingSubfoldersIsRefused(): void
+    {
+        $parent = $this->persistDirectory(null, 'Parent');
+        $child = $this->persistDirectory($parent, 'Child');
+
+        try {
+            $this->handler(DeleteFileDirectoryHandler::class)(new DeleteFileDirectory($parent->id));
+            self::fail('Expected a non-empty directory delete to be refused.');
+        } catch (FileDirectoryNotEmpty) {
+            // expected
+        }
+
+        $this->em()->flush();
+
+        // Parent and child folder are both untouched.
+        self::assertSame('Parent', $this->directoryRepository()->get($parent->id)->name);
+        $reloadedChild = $this->directoryRepository()->get($child->id);
+        self::assertNotNull($reloadedChild->parent);
+        self::assertTrue($reloadedChild->parent->id->equals($parent->id));
     }
 
     private function persistDirectory(null|FileDirectory $parent, string $name): FileDirectory

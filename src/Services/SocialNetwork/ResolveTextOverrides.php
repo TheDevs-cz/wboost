@@ -29,8 +29,13 @@ readonly final class ResolveTextOverrides
     /**
      * @param array<EditorTextInput> $inputs
      * @param array<string, mixed> $providedValues Keyed by `inputId` UUID.
+     * @param bool $truncateOverflow When true, a value longer than the input's
+     *   `maxLength` is silently cut to that length instead of raising a 400.
+     *   The interactive web fill/export flow passes `true` (forgiving UX — the
+     *   PNG can never carry overflow); the API export keeps the default `false`
+     *   so it fails loudly per its documented contract.
      */
-    public function resolve(array $inputs, array $providedValues): ResolvedInputOverrides
+    public function resolve(array $inputs, array $providedValues, bool $truncateOverflow = false): ResolvedInputOverrides
     {
         /** @var array<string, string> $texts */
         $texts = [];
@@ -55,11 +60,15 @@ readonly final class ResolveTextOverrides
 
             if ($textValue !== null) {
                 if ($input->maxLength !== null && mb_strlen($textValue) > $input->maxLength) {
-                    throw new BadRequestHttpException(sprintf(
-                        'Input "%s" exceeds max length of %d characters.',
-                        $label,
-                        $input->maxLength,
-                    ));
+                    if ($truncateOverflow) {
+                        $textValue = mb_substr($textValue, 0, $input->maxLength);
+                    } else {
+                        throw new BadRequestHttpException(sprintf(
+                            'Input "%s" exceeds max length of %d characters.',
+                            $label,
+                            $input->maxLength,
+                        ));
+                    }
                 }
 
                 if ($input->uppercase) {

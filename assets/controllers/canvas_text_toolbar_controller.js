@@ -1,16 +1,21 @@
 import { Controller } from "@hotwired/stimulus";
 
+// Fabric's native default line-height multiplier. New textboxes are created
+// with this value and legacy boxes with no explicit lineHeight fall back to it,
+// so the field is never blank and the export renders identically.
+export const DEFAULT_LINE_HEIGHT = 1.16;
+
 /**
- * Font / size / colour / alignment / decoration / max-length controls for
- * the active textbox. These fields live inside the floating text popover; the
- * popover's visibility is owned by canvas-floating-toolbar, so this controller
- * only populates the fields when a textbox is selected.
+ * Font / size / colour / alignment / decoration / max-length / line-height
+ * controls for the active textbox. These fields live inside the floating text
+ * popover; the popover's visibility is owned by canvas-floating-toolbar, so this
+ * controller only populates the fields when a textbox is selected.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
         "fontFamily", "fontSize", "fontColor",
-        "textAlign", "textDecoration", "maxLength",
+        "textAlign", "textDecoration", "maxLength", "lineHeight",
     ];
 
     static values = {
@@ -47,6 +52,9 @@ export default class extends Controller {
         if (this.hasMaxLengthTarget) {
             this.maxLengthTarget.value = activeObject.maxLength || '';
         }
+        if (this.hasLineHeightTarget) {
+            this.lineHeightTarget.value = activeObject.lineHeight ?? DEFAULT_LINE_HEIGHT;
+        }
     }
 
     updateFontSize(event) {
@@ -72,6 +80,18 @@ export default class extends Controller {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.set({ fill: color });
+        this.canvasEditorOutlet.canvas.renderAll();
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    updateLineHeight(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+
+        const lineHeight = parseFloat(event.target.value);
+        if (!(lineHeight > 0)) return;
+
+        activeObject.set({ lineHeight });
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }

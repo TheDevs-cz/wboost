@@ -76,7 +76,7 @@ final class SocialNetworkTemplateVariantDownloadController extends AbstractContr
             $providedValues[$key]['hide'] = true;
         }
 
-        $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $providedValues);
+        $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $providedValues, truncateOverflow: true);
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,
             $variant->template->project->id,

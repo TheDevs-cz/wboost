@@ -264,15 +264,17 @@
                                     <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
                                 </div>
                                 {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
-                                <input
-                                    type="text"
+                                {# Auto-growing textarea: rows="1" is the collapsed
+                                   start; the controller resizes it to fit the full
+                                   value so long text is never clipped/scrolled. #}
+                                <textarea
                                     id="fill-text-{{ ph.inputId }}"
-                                    class="form-control form-control-sm"
-                                    value="{{ ph.value }}"
+                                    class="form-control form-control-sm fill-popover__input"
+                                    rows="1"
                                     {% if ph.maxLength %}maxlength="{{ ph.maxLength }}" aria-describedby="fill-text-hint-{{ ph.inputId }}"{% endif %}
                                     data-action="input->variant-fill-overlay#syncText keydown->variant-fill-overlay#blockEnter"
                                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                >
+                                >{{- ph.value -}}</textarea>
                                 <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
                                     {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
                                     {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }} / {{ ph.maxLength }} znaků</small>{% endif %}

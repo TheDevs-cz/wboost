@@ -162,12 +162,20 @@ Stage 8 added a **filesystem-like nested folder tree** on top:
   nullable `directory` FK (`ON DELETE SET NULL`).
 - Navigation/CRUD are **LiveActions** on the component (`openDirectory`,
   `openRoot`, `createDirectory`, `startRename`/`renameDirectory`,
-  `deleteDirectory`, `moveFile`), each dispatching a CQRS message under
+  `deleteDirectory`, `deleteFile`, `moveFile`), each dispatching a CQRS message under
   `Message/Image/` (`CreateFileDirectory`, `RenameFileDirectory`,
-  `DeleteFileDirectory`, `MoveFileUpload`). `$currentDirectoryId` is a (server-set)
-  LiveProp; deleting a folder lifts its child folders **and** files to the parent
-  (never discarded). **`#[LiveArg]` names must be lowercase** (e.g.
-  `#[LiveArg('directoryid')]`) to match the HTML-lowercased `data-live-*-param`.
+  `DeleteFileDirectory`, `DeleteFileUpload`, `MoveFileUpload`). `$currentDirectoryId`
+  is a (server-set) LiveProp. **Deleting a folder only removes an EMPTY folder** —
+  a folder that still holds images or sub-folders is refused (the handler throws
+  `FileDirectoryNotEmpty`; the component pre-checks and shows the transient
+  non-LiveProp `$folderActionError` notice), so contents are never silently
+  relocated or discarded; the user empties it first. **Deleting an image**
+  (`deleteFile` → `DeleteFileUpload`) removes the DB row AND the physical object
+  from storage (`Filesystem::delete`, guarded by `fileExists` for idempotency) —
+  the only place in the app that hard-deletes storage; an image in use as a
+  template background/placeholder default would lose its source. **`#[LiveArg]`
+  names must be lowercase** (e.g. `#[LiveArg('directoryid')]` / `#[LiveArg('fileid')]`)
+  to match the HTML-lowercased `data-live-*-param`.
 - Uploads still POST to `project_upload_file`; the modal's upload form carries a
   hidden `directoryId` (= `$currentDirectoryId`) so new files land in the open
   folder. **The upload form's field prefix is `upload_project_file_form[...]`**

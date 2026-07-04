@@ -41,10 +41,11 @@ class FileUpload
 
         /**
          * Virtual folder this upload lives in, or `null` for the gallery root.
-         * Mutable: the gallery's "move to folder" action re-points it. On the
-         * DB side the FK is SET NULL so a force-deleted directory drops its
-         * files to the root rather than cascading them away (the delete handler
-         * normally re-parents them first).
+         * Mutable: the gallery's "move to folder" action re-points it. A folder
+         * can only be deleted once empty (the delete handler refuses non-empty
+         * folders), so files are never orphaned by a folder delete in normal
+         * use; the DB-side `SET NULL` is just a defensive fallback that drops a
+         * file to the root rather than cascading it away.
          */
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[ManyToOne]

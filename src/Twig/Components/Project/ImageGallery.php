@@ -6,6 +6,7 @@ namespace WBoost\Web\Twig\Components\Project;
 
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;
@@ -16,10 +17,12 @@ use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Exceptions\FileDirectoryNotEmpty;
 use WBoost\Web\Exceptions\FileDirectoryNotFound;
 use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Message\Image\CreateFileDirectory;
 use WBoost\Web\Message\Image\DeleteFileDirectory;
+use WBoost\Web\Message\Image\DeleteFileUpload;
 use WBoost\Web\Message\Image\MoveFileUpload;
 use WBoost\Web\Message\Image\RenameFileDirectory;
 use WBoost\Web\Repository\FileDirectoryRepository;
@@ -113,6 +116,16 @@ final class ImageGallery extends AbstractController
     /** Bound to the inline rename input via data-model. */
     #[LiveProp(writable: true)]
     public string $renameValue = '';
+
+    /**
+     * Transient, request-scoped notice shown when a folder delete is refused
+     * because the folder still holds images or sub-folders. Deliberately NOT a
+     * LiveProp: it is set during the blocked `deleteDirectory` action and
+     * rendered in that same response, then resets to null on the next request
+     * (the component re-hydrates from LiveProps only) so the warning clears as
+     * soon as the user does anything else.
+     */
+    public null|string $folderActionError = null;
 
     public function __construct(
         private readonly FileUploadRepository $fileUploadRepository,
@@ -310,21 +323,70 @@ final class ImageGallery extends AbstractController
     #[LiveAction]
     public function deleteDirectory(#[LiveArg('directoryid')] string $directoryId): void
     {
-        $this->guard();
+        $project = $this->guard();
 
         $directory = $this->ownedDirectory($directoryId);
         if ($directory === null) {
             return;
         }
 
-        // If we are standing inside the folder being deleted, step up to its
-        // parent so the view doesn't point at a folder that no longer exists.
-        if ($this->currentDirectoryId === $directory->id->toString()) {
-            $this->currentDirectoryId = $directory->parent?->id->toString();
+        // Only empty folders may be deleted — a folder still holding images or
+        // sub-folders is refused (its contents are never relocated or discarded).
+        $hasSubfolders = $this->fileDirectoryRepository->listChildren($project->id, $this->source, $directory) !== [];
+        $hasFiles = $this->fileUploadRepository->listByDirectory($directory) !== [];
+
+        if ($hasSubfolders || $hasFiles) {
+            $this->folderActionError = $this->folderNotEmptyMessage($directory->name);
+
+            return;
         }
 
-        $this->bus->dispatch(new DeleteFileDirectory($directory->id));
+        try {
+            $this->bus->dispatch(new DeleteFileDirectory($directory->id));
+        } catch (HandlerFailedException $exception) {
+            // The handler enforces the same emptiness invariant as a backstop;
+            // if a concurrent upload filled the folder between the check above
+            // and the delete, surface the same friendly notice instead of a 500.
+            if ($exception->getPrevious() instanceof FileDirectoryNotEmpty) {
+                $this->folderActionError = $this->folderNotEmptyMessage($directory->name);
+
+                return;
+            }
+
+            throw $exception;
+        }
+
         $this->cancelRenameState();
+    }
+
+    private function folderNotEmptyMessage(string $name): string
+    {
+        return sprintf(
+            'Složku „%s“ nelze smazat, dokud obsahuje obrázky nebo podsložky. Nejdříve ji vyprázdněte.',
+            $name,
+        );
+    }
+
+    #[LiveAction]
+    public function deleteFile(#[LiveArg('fileid')] string $fileId): void
+    {
+        $project = $this->guard();
+
+        if (!Uuid::isValid($fileId)) {
+            return;
+        }
+
+        try {
+            $file = $this->fileUploadRepository->get(Uuid::fromString($fileId));
+        } catch (FileUploadNotFound) {
+            return;
+        }
+
+        if (!$file->project->id->equals($project->id)) {
+            return;
+        }
+
+        $this->bus->dispatch(new DeleteFileUpload($file->id));
     }
 
     #[LiveAction]

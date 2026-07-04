@@ -27,9 +27,11 @@ use WBoost\Web\Value\FileSource;
  * Component test harness:
  *
  * - createDirectory persists a folder under the open folder;
- * - deleteDirectory removes a folder and lifts its child folders + files to the
- *   parent (and exercises the lowercase `#[LiveArg('directoryid')]` binding the
- *   data-attribute names require — a regression guard for the camelCase bug);
+ * - deleteDirectory removes an EMPTY folder but refuses a folder that still
+ *   holds files/sub-folders (and exercises the lowercase
+ *   `#[LiveArg('directoryid')]` binding the data-attribute names require — a
+ *   regression guard for the camelCase bug);
+ * - deleteFile removes a gallery image;
  * - a non-owner is rejected by the explicit `guard()` that replaced the broken
  *   class-level `#[IsGranted]`.
  *
@@ -62,7 +64,23 @@ final class ImageGalleryComponentTest extends WebTestCase
         self::assertContains('Loga', $names);
     }
 
-    public function testDeleteDirectoryActionReparentsContentsToParent(): void
+    public function testDeleteEmptyDirectoryActionRemovesIt(): void
+    {
+        $client = self::createClient();
+
+        $directory = $this->persistDirectory(null, 'Empty');
+
+        $this->mount($client, TestDataFixture::USER_1_EMAIL)
+            ->call('deleteDirectory', ['directoryid' => $directory->id->toString()]);
+
+        $this->em()->clear();
+        self::assertNull(
+            $this->em()->find(FileDirectory::class, $directory->id),
+            'Empty folder should have been deleted.',
+        );
+    }
+
+    public function testDeleteNonEmptyDirectoryActionIsRefusedAndKeepsContents(): void
     {
         $client = self::createClient();
 
@@ -74,8 +92,26 @@ final class ImageGalleryComponentTest extends WebTestCase
             ->call('deleteDirectory', ['directoryid' => $parent->id->toString()]);
 
         $this->em()->clear();
-        self::assertNull($this->fileRepository()->get($file->id)->directory);
-        self::assertNull($this->directoryRepository()->get($child->id)->parent);
+        // Folder is refused — everything stays exactly where it was.
+        self::assertNotNull($this->em()->find(FileDirectory::class, $parent->id));
+        self::assertTrue($this->fileRepository()->get($file->id)->directory?->id->equals($parent->id));
+        self::assertTrue($this->directoryRepository()->get($child->id)->parent?->id->equals($parent->id));
+    }
+
+    public function testDeleteFileActionRemovesUpload(): void
+    {
+        $client = self::createClient();
+
+        $file = $this->persistFile(null);
+
+        $this->mount($client, TestDataFixture::USER_1_EMAIL)
+            ->call('deleteFile', ['fileid' => $file->id->toString()]);
+
+        $this->em()->clear();
+        self::assertNull(
+            $this->em()->find(FileUpload::class, $file->id),
+            'Gallery image should have been deleted.',
+        );
     }
 
     public function testNonOwnerIsDeniedByGuard(): void

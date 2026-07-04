@@ -4,15 +4,23 @@
 
     Two tabs:
       - "Z galerie": breadcrumb-navigated folder tree. Folders can be created,
-        renamed, deleted (contents lift to the parent) — all via LiveActions.
+        renamed, and deleted ONLY when empty (a non-empty folder is refused with
+        a warning — its contents are never relocated) — all via LiveActions.
         Clicking an image dispatches an `asset-selected` CustomEvent (with
         { url, path, id }) on the modal root so the canvas-editor orchestrator
         routes the URL to setBackgroundImage or addImageToCanvas. Each image
-        also has a "move to folder" menu.
-      - "Nahrát nový": a small form managed by the gallery-uploader Stimulus
-        controller that POSTs to `project_upload_file` (into the currently-open
-        folder via the hidden `directoryId` field), then re-renders this Live
-        Component AND auto-selects the newly uploaded asset.
+        also has a "move to folder" menu and a delete button (deleteFile, which
+        also removes the file from storage).
+      - "Nahrát nový": a drag-and-drop dropzone managed by the gallery-uploader
+        Stimulus controller. Accepts MULTIPLE images at once and shows them as a
+        preview list (thumbnail + name + size, each removable) BEFORE uploading;
+        only the "Nahrát" confirm button POSTs each file to `project_upload_file`
+        (into the currently-open folder via the hidden `directoryId` field),
+        updating per-file status and showing a success toast. On the standalone
+        page the user stays on the dropzone tab and the grid re-renders lazily
+        when they next open the gallery tab; in the editor modal a single
+        uploaded image is auto-selected onto the canvas and multi-upload flips
+        to the gallery tab to pick.
 #}
 <div {{ attributes.defaults({'data-controller': 'image-gallery'}) }}>
     {#
@@ -118,6 +126,12 @@
                     >Vytvořit složku</button>
                 </div>
 
+                {% if this.folderActionError %}
+                    <div class="alert alert-warning py-2 small" role="alert">
+                        <i class="mdi mdi-alert-outline me-1"></i>{{ this.folderActionError }}
+                    </div>
+                {% endif %}
+
                 {% if directories is empty and gallery_assets is empty %}
                     <p class="text-muted small mb-0">
                         Tato složka je prázdná. Vytvořte podsložku nebo použijte záložku „Nahrát nový“.
@@ -188,7 +202,7 @@
                                                         type="button"
                                                         class="dropdown-item text-danger"
                                                         data-controller="confirm"
-                                                        data-confirm-message-value="Smazat složku „{{ directory.name }}“? Její obsah se přesune o úroveň výš."
+                                                        data-confirm-message-value="Opravdu smazat složku „{{ directory.name }}“? Smazat lze jen prázdnou složku."
                                                         data-action="confirm#confirm live#action"
                                                         data-live-action-param="deleteDirectory"
                                                         data-live-directoryid-param="{{ directory.id }}"
@@ -238,6 +252,18 @@
                                             >
                                         </div>
                                     {% endif %}
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-light border shadow-sm py-0 px-1 text-danger position-absolute top-0 start-0 m-1"
+                                        title="Smazat obrázek"
+                                        aria-label="Smazat obrázek"
+                                        onclick="event.stopPropagation();"
+                                        data-controller="confirm"
+                                        data-confirm-message-value="Smazat tento obrázek? Akce je nevratná – pokud je obrázek použitý v šabloně, šablona o něj přijde."
+                                        data-action="confirm#confirm live#action"
+                                        data-live-action-param="deleteFile"
+                                        data-live-fileid-param="{{ asset.id }}"
+                                    ><i class="mdi mdi-delete"></i></button>
                                     <div class="dropdown position-absolute top-0 end-0 m-1">
                                         <button
                                             type="button"
@@ -275,8 +301,8 @@
             <div class="tab-pane fade" id="upload-tab-pane" role="tabpanel">
                 <form
                     data-controller="gallery-uploader"
-                    data-action="submit->gallery-uploader#submit"
                     data-gallery-uploader-url-value="{{ this.uploadUrl() }}"
+                    data-gallery-uploader-modal-value="{{ modal ? 'true' : 'false' }}"
                 >
                     {#
                         Stateless-CSRF token for the `project_upload_file` route. The
@@ -301,26 +327,58 @@
                         </strong>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label" for="gallery-upload-file">Soubor</label>
-                        <input
-                            type="file"
-                            id="gallery-upload-file"
-                            name="upload_project_file_form[file]"
-                            class="form-control"
-                            accept="image/*"
-                            data-gallery-uploader-target="file"
-                            required
-                        >
+                    {# Drag-and-drop dropzone (also opens the file picker on click). #}
+                    <div
+                        class="gallery-dropzone"
+                        data-gallery-uploader-target="dropzone"
+                        data-action="
+                            click->gallery-uploader#browse
+                            keydown->gallery-uploader#keydown
+                            dragover->gallery-uploader#dragOver
+                            dragleave->gallery-uploader#dragLeave
+                            drop->gallery-uploader#drop
+                        "
+                        role="button"
+                        tabindex="0"
+                    >
+                        <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
+                        <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
+                        <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
+                        <div class="text-muted small mt-1">Můžete nahrát více obrázků najednou (max. 2 MB / soubor)</div>
                     </div>
 
-                    <div class="text-danger small mb-2 d-none" data-gallery-uploader-target="error"></div>
+                    <input
+                        type="file"
+                        name="upload_project_file_form[file]"
+                        class="d-none"
+                        accept="image/*"
+                        multiple
+                        data-gallery-uploader-target="input"
+                        data-action="change->gallery-uploader#filesChosen"
+                    >
 
-                    <button
-                        type="submit"
-                        class="btn btn-primary"
-                        data-gallery-uploader-target="submitButton"
-                    >Nahrát</button>
+                    {#
+                        Preview of the selected-but-not-yet-uploaded files (thumbnail
+                        + name + size, with a per-file remove). Populated by the
+                        controller; upload only happens on the confirm button below.
+                    #}
+                    <div class="mt-3 d-none d-flex flex-column gap-2" data-gallery-uploader-target="preview"></div>
+
+                    <div class="mt-3 d-none d-flex gap-2" data-gallery-uploader-target="actions">
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            data-gallery-uploader-target="confirmButton"
+                            data-action="gallery-uploader#confirm"
+                        >Nahrát</button>
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary"
+                            data-action="gallery-uploader#clearQueue"
+                        >Zrušit</button>
+                    </div>
+
+                    <div class="text-danger small mt-2 d-none" data-gallery-uploader-target="error"></div>
                 </form>
             </div>
         </div>

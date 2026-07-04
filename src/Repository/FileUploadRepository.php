@@ -37,6 +37,11 @@ readonly final class FileUploadRepository
         $this->entityManager->persist($project);
     }
 
+    public function remove(FileUpload $file): void
+    {
+        $this->entityManager->remove($file);
+    }
+
     /**
      * Returns all FileUploads for a given project + source, newest first.
      * Powers the project image gallery (Stage 7).
@@ -145,8 +150,8 @@ readonly final class FileUploadRepository
 
     /**
      * Every FileUpload sitting directly inside the given directory, regardless
-     * of source. Used when a directory is deleted to lift its files up to the
-     * parent instead of orphaning them.
+     * of source. Used to check whether a folder is empty before allowing its
+     * deletion (a non-empty folder is refused).
      *
      * @return list<FileUpload>
      */

@@ -120,9 +120,10 @@ export default class extends Controller {
     // computes the box scale from the UNSCALED width (divides by this._zoom), so
     // the boxes are laid out in unscaled coords and the transform scales them.
     //
-    // The initial zoom is auto-fit so the WHOLE canvas fits the screen (crucial
-    // on mobile / for tall portrait canvases). We keep re-fitting on load/resize
-    // until the user zooms manually (_userZoomed); after that we leave it alone.
+    // The initial zoom is auto-fit so the canvas WIDTH fits the screen (crucial
+    // on mobile — no horizontal scrolling); the height is free to scroll. We keep
+    // re-fitting on load/resize until the user zooms manually (_userZoomed); after
+    // that we leave it alone.
 
     zoomIn() {
         this._applyZoom((this._zoom || 1) + 0.25);
@@ -138,34 +139,30 @@ export default class extends Controller {
 
     _applyZoom(z) {
         this._userZoomed = true;
-        // Floor: normally 50 %, but never above the fit-to-screen zoom — a tall
-        // canvas must always be zoomable out far enough to show the whole thing.
-        const floor = Math.min(0.5, this._fitZoom());
-        this._zoom = Math.min(3, Math.max(floor, Math.round(z * 100) / 100));
+        // Low floor so a tall canvas can be zoomed out far enough to see all of it
+        // (the old hard 50 % floor was the "can't go below 50 %" complaint).
+        this._zoom = Math.min(3, Math.max(0.1, Math.round(z * 100) / 100));
         this._updateZoomLabel();
         this.reposition();
     }
 
-    /** Zoom at which the WHOLE stage fits the viewport (both axes), capped at 1. */
+    /** Zoom at which the canvas WIDTH fits the viewport (capped at 100 %); the
+     *  height is free to scroll. Measures the preview's on-screen width so it
+     *  works no matter which branch drew it (img / Fabric canvas) and regardless
+     *  of any intrinsic sizing that would otherwise overflow horizontally. */
     _fitZoom() {
-        if (!this.hasStageTarget) return this._zoom || 1;
-        const stage = this.stageTarget;
-        // offsetWidth/Height are the UNSCALED layout size (transform-independent).
-        const baseW = stage.offsetWidth;
-        const baseH = stage.offsetHeight;
-        if (baseW <= 0 || baseH <= 0) return this._zoom || 1;
-
-        const container = stage.parentElement;
+        if (!this.hasPreviewTarget || !this.hasStageTarget) return this._zoom || 1;
+        const container = this.stageTarget.parentElement;
         const availW = container ? container.clientWidth : window.innerWidth;
-        // Height from the stage's top down to the bottom of the viewport.
-        const top = stage.getBoundingClientRect().top;
-        const availH = window.innerHeight - top - 16;
+        const rect = this.previewTarget.getBoundingClientRect();
+        if (rect.width <= 0 || availW <= 0) return this._zoom || 1;
 
-        const z = Math.min(1, availW / baseW, availH / baseH);
-        return Math.max(0.1, Math.round(z * 100) / 100);
+        // rect.width already reflects the current zoom, so rescale it to availW.
+        const z = (this._zoom || 1) * (availW / rect.width);
+        return Math.min(1, Math.max(0.1, Math.round(z * 100) / 100));
     }
 
-    /** Set the auto zoom so the whole canvas fits the screen (until user zooms). */
+    /** Set the auto zoom so the canvas width fits the screen (until user zooms). */
     _fitToScreen() {
         if (!this._userZoomed) {
             this._zoom = this._fitZoom();
@@ -187,6 +184,9 @@ export default class extends Controller {
         const stage = this.stageTarget;
         stage.style.transformOrigin = "top left";
         stage.style.transform = z === 1 ? "" : `scale(${z})`;
+        // Expose the zoom so the chrome (icon clusters + popover) can counter-scale
+        // itself back to its default size — only the artwork/boxes scale visually.
+        stage.style.setProperty("--fill-zoom", z);
         // offsetWidth/Height are unaffected by transform — the true unscaled size.
         const w = stage.offsetWidth;
         const h = stage.offsetHeight;
@@ -215,10 +215,24 @@ export default class extends Controller {
 
         this._openId = inputId;
         popover.classList.add("is-open");
+
+        // Grow the textarea to fit its current value BEFORE positioning — the
+        // popover's height feeds the above/below flip decision.
+        const field = popover.querySelector('input[type="text"], textarea');
+        if (field) this._autoGrow(field);
+
         this._positionPopover(popover, this._boxFor(inputId));
 
-        const field = popover.querySelector('input[type="text"], textarea');
         if (field) field.focus();
+    }
+
+    /** Resize an auto-growing textarea to fit its content (height = scrollHeight).
+     *  Layout-based (scrollHeight ignores the stage's CSS zoom transform), so it
+     *  stays correct at any zoom level. No-op for a plain input. */
+    _autoGrow(field) {
+        if (!field || field.tagName !== "TEXTAREA") return;
+        field.style.height = "auto";
+        field.style.height = `${field.scrollHeight}px`;
     }
 
     closePopover() {
@@ -358,11 +372,30 @@ export default class extends Controller {
     syncText(event) {
         const inputId = event.params?.inputid;
         if (!inputId) return;
+        const field = event.target;
+
+        // Hard-cap at maxlength. The attribute already blocks typing/paste, but
+        // enforce it here too so the Live-bound mirror (which drives the preview
+        // AND the export POST) can never carry an over-length value, whatever
+        // path filled the field.
+        const max = parseInt(field.getAttribute("maxlength"), 10);
+        if (Number.isInteger(max) && max > 0 && field.value.length > max) {
+            field.value = field.value.slice(0, max);
+        }
+
+        // Grow the field to fit the new value, then re-anchor the popover (its
+        // height just changed, which affects the above/below flip).
+        this._autoGrow(field);
+        if (this._openId !== null) {
+            const popover = this._popoverFor(this._openId);
+            if (popover) this._positionPopover(popover, this._boxFor(this._openId));
+        }
+
         const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
         if (!mirror) return;
-        mirror.value = event.target.value;
+        mirror.value = field.value;
         mirror.dispatchEvent(new Event("input", { bubbles: true }));
-        this._updateCounter(inputId, event.target);
+        this._updateCounter(inputId, field);
         // The preview re-renders after the debounce — show the spinner once the
         // user pauses (not on every keystroke, which would flash the veil).
         this._scheduleSpinner();

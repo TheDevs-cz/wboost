@@ -75,10 +75,23 @@
     max-width: 92vw;
     max-height: 80vh;
     overflow-y: auto;
+    /* Never scroll horizontally — a long <option> label (e.g. a verbose font
+       family name) sizes the <select> to its widest option and would otherwise
+       force a horizontal scrollbar (overflow-y:auto makes overflow-x compute to
+       auto too). The control rule below caps every field at the popover width. */
+    overflow-x: hidden;
     margin: 0;
     border: 1px solid var(--ct-border-color, #e3e6ef);
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+/* Keep every form control inside the popover width so it truncates instead of
+   overflowing (the <select> renders its own ellipsis + arrow when capped). */
+.canvas-stage .canvas-floating-popover .form-select,
+.canvas-stage .canvas-floating-popover .form-control {
+    max-width: 100%;
+    min-width: 0;
 }
 
 .editable-outline {
@@ -136,6 +149,11 @@
     display: flex;
     gap: 4px;
     pointer-events: auto;
+    /* The box scales with the artwork, but the tappable icon cluster must keep
+       its default size at any zoom — counter-scale by the inverse of the stage
+       zoom, anchored at the corner the cluster hangs from. */
+    transform: scale(calc(1 / var(--fill-zoom, 1)));
+    transform-origin: top right;
 }
 
 /* Edge-aware placement (toggled per box in the controller's reposition) so the
@@ -148,6 +166,7 @@
 .fill-box--tools-left .fill-box__tools {
     right: auto;
     left: -14px;
+    transform-origin: top left;
 }
 
 .fill-box--tools-left.fill-box--tools-inside .fill-box__tools {
@@ -236,10 +255,27 @@
     border: 1px solid var(--ct-border-color, #e3e6ef);
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+    /* Keep the edit popover at its default size at any zoom. It's positioned by
+       its top-left corner (screen-measured in the controller), so scaling from
+       that corner needs no positioning changes. */
+    transform: scale(calc(1 / var(--fill-zoom, 1)));
+    transform-origin: top left;
 }
 
 .fill-form.fill-js .fill-popover.is-open {
     display: block;
+}
+
+/* Popover text field: an auto-growing textarea. The controller sets its height
+   to scrollHeight on open + every input, so the whole entered value is always
+   visible — no horizontal scroll, no manual drag handle. */
+.fill-popover__input {
+    resize: none;
+    overflow: hidden;
+    min-height: calc(1.5em + 0.5rem + 2px);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 /* Live-preview spinner overlay. No z-index: DOM order (preview < spinner <
@@ -1029,4 +1065,100 @@
 /* Fix dropdown overlap issues in planner */
 .collapsible-day .dropdown {
     display: inline-block !important;
+}
+
+/* Project image gallery — drag & drop upload dropzone */
+.gallery-dropzone {
+    border: 2px dashed var(--bs-border-color, #dee2e6);
+    border-radius: 0.5rem;
+    padding: 2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.gallery-dropzone:hover,
+.gallery-dropzone:focus-visible {
+    border-color: var(--bs-primary, #0d6efd);
+    background: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.04);
+    outline: none;
+}
+
+.gallery-dropzone--over {
+    border-color: var(--bs-primary, #0d6efd);
+    background: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.09);
+}
+
+/* Let drag/drop + click always target the dropzone itself, never a child
+   (prevents dragleave flicker when hovering the icon/labels). */
+.gallery-dropzone > * {
+    pointer-events: none;
+}
+
+.gallery-dropzone__icon {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 2.5rem;
+    line-height: 1;
+    color: var(--bs-primary, #0d6efd);
+}
+
+.gallery-dropzone__title {
+    font-weight: 600;
+    color: var(--bs-body-color, #212529);
+}
+
+/* Success toast shown after uploads finish (lives on <body>, above modals). */
+.gallery-toast-container {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.gallery-toast {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    border-radius: 0.375rem;
+    background: var(--bs-success, #198754);
+    color: #fff;
+    font-size: 0.9rem;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transform: translateY(-0.5rem);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.gallery-toast--show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Selected-file preview rows (before upload is confirmed). */
+.gallery-upload-item__thumb {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 0.25rem;
+    background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+.gallery-upload-item__thumb--ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-secondary-color, #adb5bd);
+    font-size: 1.25rem;
+}
+
+/* Let the filename column truncate instead of overflowing the row. */
+.gallery-upload-item .min-w-0 {
+    min-width: 0;
 }

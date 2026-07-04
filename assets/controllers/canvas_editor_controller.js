@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { Canvas, Textbox, FabricImage, cache } from "fabric";
 
 import { CANVAS_CUSTOM_PROPERTIES } from './canvas_custom_properties.js';
+import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
  * Orchestrator controller for the social-network template variant editor.
@@ -512,6 +513,7 @@ export default class extends Controller {
             fontFamily: fontFamily,
             fill: '#000000',
             fontSize: 24,
+            lineHeight: DEFAULT_LINE_HEIGHT,
             textAlign: 'left',
             editable: true,
             // Fabric v7 changed the default origin to 'center'/'center'.
