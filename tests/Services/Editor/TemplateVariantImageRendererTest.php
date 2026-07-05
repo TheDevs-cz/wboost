@@ -105,6 +105,8 @@ final class TemplateVariantImageRendererTest extends TestCase
             new ImagePlacement(),
             new UploaderHelper('http://assets.test/bucket'),
             '/nonexistent/fabric.js',
+            '/nonexistent/fabric_break_word.js',
+            '/nonexistent/container_layout.js',
         );
 
         $method = new ReflectionMethod($renderer, 'alignTextboxInputIds');

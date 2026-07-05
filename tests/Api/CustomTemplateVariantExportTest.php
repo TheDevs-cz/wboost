@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Api;
 
+use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -222,6 +223,44 @@ final class CustomTemplateVariantExportTest extends ApiTestCase
         );
 
         $this->assertResponseStatusCodeSame(400);
+    }
+
+    /**
+     * Mirror of the social-module contract: custom-template export is the
+     * STRICT container-overflow path and returns the structured 400.
+     */
+    public function testContainerOverflowReturnsStructured400(): void
+    {
+        $client = self::createClient();
+        // Keep one kernel across the token + export requests: the overflow is
+        // pre-armed on the fake renderer instance, which a kernel reboot
+        // between requests would silently replace.
+        $client->disableReboot();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $this->getRendererFake()->throwContainerOverflow = new ContainerOverflow('11111111-2222-4333-8444-555555555555', 12.0);
+
+        $response = $client->request(
+            'POST',
+            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => '{"inputs":{}}',
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('container_overflow', $body['code'] ?? null);
+        self::assertSame('11111111-2222-4333-8444-555555555555', $body['containerId'] ?? null);
+        self::assertEqualsWithDelta(12.0, $body['overflowPx'] ?? null, 0.001);
     }
 
     private function getRendererFake(): FakeTemplateVariantImageRenderer

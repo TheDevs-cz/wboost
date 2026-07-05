@@ -51,7 +51,15 @@ export default class extends Controller {
             this.history.shift();
         }
 
-        this.history.push(this.canvasEditorOutlet.canvas.toJSON(CANVAS_CUSTOM_PROPERTIES));
+        const canvas = this.canvasEditorOutlet.canvas;
+        const snapshot = canvas.toJSON(CANVAS_CUSTOM_PROPERTIES);
+        // Container definitions live on the canvas instance, not in Fabric's
+        // serialization — carry a deep copy in every undo state so undo/redo
+        // restores them too (loadCanvasWithoutHistory reads .containers).
+        snapshot.containers = Array.isArray(canvas.wboostContainers)
+            ? JSON.parse(JSON.stringify(canvas.wboostContainers))
+            : [];
+        this.history.push(snapshot);
         this.redoStack = [];
         this.updateButtonStates();
     }

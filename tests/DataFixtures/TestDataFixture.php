@@ -94,6 +94,7 @@ final class TestDataFixture extends Fixture
     // slot and a fully-locked "logo" slot, both drawing from the ALLOWED folder.
     public const string SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID = '00000000-0000-0000-0000-000000000045';
     public const string SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000046';
+    public const string SOCIAL_NETWORK_VARIANT_1_CONTAINER_ID = '00000000-0000-0000-0000-000000000047';
 
     // Gallery folders + files (PROJECT_1, ProjectImage source). The photo
     // slot may pull from ALLOWED only; OTHER is off-limits to the slot. The
@@ -349,6 +350,7 @@ final class TestDataFixture extends Fixture
                     'type' => 'Textbox',
                     'left' => 80, 'top' => 60, 'width' => 520, 'height' => 90,
                     'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                    'fontFamily' => 'Rubik (Rubik Bold)', 'fontSize' => 24, 'lineHeight' => 1.4, 'charSpacing' => 0,
                 ],
                 [
                     'type' => 'Textbox',
@@ -367,6 +369,19 @@ final class TestDataFixture extends Fixture
                 ],
             ],
             'backgroundImage' => null,
+            // Container ("smart text area") over headline + tagline: the two
+            // reflow vertically at render time, bounded by 200 px from the
+            // headline's designed top (y=60 → content must end by y=260).
+            'containers' => [
+                [
+                    'id' => self::SOCIAL_NETWORK_VARIANT_1_CONTAINER_ID,
+                    'maxHeight' => 200,
+                    'memberInputIds' => [
+                        self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID,
+                        self::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID,
+                    ],
+                ],
+            ],
         ], JSON_THROW_ON_ERROR);
 
         $socialVariant1->editCanvas(

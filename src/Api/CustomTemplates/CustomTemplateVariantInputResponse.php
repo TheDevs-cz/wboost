@@ -15,6 +15,14 @@ final readonly class CustomTemplateVariantInputResponse
         public null|string $description,
         public bool $hidable,
         public null|CustomTemplateVariantInputFrameResponse $frame,
+        /**
+         * Id of the container this input belongs to (see the variant's
+         * `containers`), or null for an independent input. Members reflow at
+         * render time, so `frame` is the DESIGNED position — the effective
+         * position depends on the fill.
+         */
+        public null|string $containerId = null,
+        public null|CustomTemplateVariantInputTextStyleResponse $textStyle = null,
     ) {
     }
 }

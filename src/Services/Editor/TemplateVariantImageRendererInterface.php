@@ -40,21 +40,34 @@ interface TemplateVariantImageRendererInterface
      * purpose: a flushing StreamedResponse corrupts the next request under
      * FrankenPHP's resident PHP process ("headers already sent"). Use
      * `renderToBytes()` if you only need the raw bytes in PHP.
+     *
+     * `$strictContainerOverflow` selects the container-overflow policy: true
+     * (API export) makes the render fail with
+     * {@see \WBoost\Web\Exceptions\ContainerOverflow} when a container's
+     * filled text cannot fit its max height; false (web fill preview /
+     * download) renders the overflowing state as-is so the user can see it —
+     * the fill page blocks export client-side.
+     *
+     * @throws \WBoost\Web\Exceptions\ContainerOverflow
      */
     public function render(
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
+        bool $strictContainerOverflow = false,
     ): Response;
 
     /**
      * Returns the rendered PNG as a string of bytes. Safe to base64-encode,
      * embed inline, hash for caching, or write to a file. Does not interact
      * with the HTTP response cycle.
+     *
+     * @throws \WBoost\Web\Exceptions\ContainerOverflow
      */
     public function renderToBytes(
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
+        bool $strictContainerOverflow = false,
     ): string;
 }

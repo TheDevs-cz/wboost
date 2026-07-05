@@ -15,6 +15,13 @@
        the file (and the path on the renderer service) with a new pinned
        version. #}
     <script>{{ fabric_inline_script|raw }}</script>
+    {# Shared editor modules, inlined for the same no-outbound-network reason.
+       fabric_break_word.js patches Textbox wrapping (must match the editor +
+       fill page exactly — container reflow correctness rests on identical
+       text measurement everywhere); container_layout.js is the single source
+       of truth for the "smart text area" reflow algorithm. #}
+    <script>{{ break_word_inline_script|raw }}</script>
+    <script>{{ container_layout_inline_script|raw }}</script>
 </head>
 <body>
     <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
@@ -53,74 +60,14 @@
                 const canvasJson = {{ canvas_json|raw }};
                 const textOverrides = {{ text_overrides|json_encode|raw }};
                 const hiddenOverrides = {{ hidden_overrides|json_encode|raw }};
+                const containers = {{ containers|json_encode|raw }};
+                const strictContainerOverflow = {{ strict_container_overflow ? 'true' : 'false' }};
 
-                // ---- overflow-wrap: break-word for Textbox -------------------
-                // Fabric's Textbox only wraps on whitespace (`_wordJoiners`), so a
-                // single long word / unbroken string is never split and overflows
-                // the box width. Worse, its wrapper raises the per-line threshold
-                // to the widest word (`Math.max(desiredWidth, largestWordWidth)`
-                // in _wrapLine), so ONE long word widens the whole text block —
-                // the reported bug. We wrap `getGraphemeDataForRender` (the
-                // word+width builder that feeds _wrapLine): any word wider than the
-                // box is greedily sliced into grapheme chunks that each fit, so
-                // normal text still wraps on spaces while an over-long word
-                // hard-breaks to respect the width. Chunks are packed ~full-width,
-                // so _wrapLine always wraps between them and never re-inserts an
-                // infix space (which would corrupt the text). Grapheme mode already
-                // breaks everywhere, so it's left untouched.
-                (function enableBreakWord(Textbox) {
-                    if (!Textbox || typeof Textbox.prototype.getGraphemeDataForRender !== 'function') {
-                        return;
-                    }
-                    const proto = Textbox.prototype;
-                    const original = proto.getGraphemeDataForRender;
-                    proto.getGraphemeDataForRender = function (lines) {
-                        const data = original.call(this, lines);
-                        if (this.splitByGrapheme || !(this.width > 0)) {
-                            return data;
-                        }
-                        const limit = this.width;
-                        let largest = 0;
-                        const wordsData = data.wordsData.map((lineWords, lineIndex) => {
-                            const out = [];
-                            let offset = 0;
-                            for (const entry of lineWords) {
-                                const { word, width } = entry;
-                                // Fits the box, or a single grapheme that can't be
-                                // broken further — keep as-is.
-                                if (width <= limit || word.length <= 1) {
-                                    out.push(entry);
-                                    largest = Math.max(largest, width);
-                                    offset += word.length + 1;
-                                    continue;
-                                }
-                                // Greedily fill grapheme chunks up to the box width.
-                                let chunk = [];
-                                let chunkWidth = 0;
-                                for (let g = 0; g < word.length; g++) {
-                                    const candidate = chunk.concat(word[g]);
-                                    const candidateWidth = this._measureWord(candidate, lineIndex, offset);
-                                    if (chunk.length > 0 && candidateWidth > limit) {
-                                        out.push({ word: chunk, width: chunkWidth });
-                                        largest = Math.max(largest, chunkWidth);
-                                        chunk = [word[g]];
-                                        chunkWidth = this._measureWord(chunk, lineIndex, offset);
-                                    } else {
-                                        chunk = candidate;
-                                        chunkWidth = candidateWidth;
-                                    }
-                                }
-                                if (chunk.length > 0) {
-                                    out.push({ word: chunk, width: chunkWidth });
-                                    largest = Math.max(largest, chunkWidth);
-                                }
-                                offset += word.length + 1;
-                            }
-                            return out;
-                        });
-                        return { wordsData, largestWordWidth: largest };
-                    };
-                })(fabric.Textbox);
+                // overflow-wrap: break-word for Textbox — shared module (see
+                // assets/editor/fabric_break_word.js, inlined in <head>), the
+                // exact same patch the admin editor and the fill page apply so
+                // all three surfaces wrap text identically.
+                WBoostFabricBreakWord.enable(fabric.Textbox);
 
                 const canvas = new fabric.StaticCanvas('c', {
                     width: {{ variant.dimension.width }},
@@ -185,6 +132,13 @@
                     });
                 });
 
+                // Container reflow, phase A — BEFORE overrides, while every
+                // member still holds its designed text: snapshot the designed
+                // geometry (anchor top + inter-member gaps) the reflow is
+                // computed against. Must run after the custom-prop restore
+                // above (members are resolved by inputId).
+                const preparedContainers = WBoostContainerLayout.prepareFabricContainers(liveObjects, containers);
+
                 // Apply overrides by inputId. CRITICAL: use `obj.set(...)`
                 // and NOT direct property assignment. Fabric v7's Textbox
                 // caches glyph layout / dimensions / styleMap and only
@@ -208,6 +162,30 @@
                         obj.set({ visible: !hiddenOverrides[idKey] });
                     }
                 });
+
+                // Container reflow, phase B — AFTER overrides: every member
+                // Textbox has re-wrapped to its real height, so shift members
+                // down/up along the designed gaps (hidden members collapse).
+                const containerResults = WBoostContainerLayout.applyFabricLayout(preparedContainers);
+                const overflowing = containerResults.find((result) => result.overflowPx > 0);
+                if (strictContainerOverflow && overflowing) {
+                    // The screenshot response can only carry an image, so the
+                    // overflow signal travels as an uncaught console exception:
+                    // Gotenberg (failOnConsoleExceptions) fails the conversion
+                    // and echoes the marker below back in its error body, where
+                    // TemplateVariantImageRenderer parses it into a
+                    // ContainerOverflow (→ API 400). setTimeout escapes both
+                    // this try/catch and the async function body on purpose —
+                    // it must surface as an UNCAUGHT exception. canvasRendered
+                    // is still flipped at the end so waitForExpression never
+                    // times out.
+                    setTimeout(() => {
+                        throw new Error('CONTAINER_OVERFLOW:' + JSON.stringify({
+                            containerId: overflowing.id,
+                            overflowPx: Math.round(overflowing.overflowPx * 100) / 100,
+                        }));
+                    }, 0);
+                }
 
                 canvas.renderAll();
 

@@ -67,6 +67,18 @@ the frame centre; `rotation` is degrees), or `{ "hide": true }` to blank a
 - An adjustment the slot does not permit (move / resize / rotate) → 400.
 - An `imageId` outside the slot's allowed folders, or not in this project → 400.
 - Unfilled slots keep the designer's stand-in image.
+
+## Containers (smart text areas)
+
+Inputs listed in a variant's `containers[]` reflow vertically at render time:
+a filled text that wraps to more lines pushes the members below it down,
+hidden members collapse, and the flow is bounded by the container's
+`maxHeight` (from its `y` downward, canvas px). When the filled content cannot
+fit even after reflow, the export is rejected with **400** and body
+`{ "error": "...", "code": "container_overflow", "containerId": "<uuid>",
+"overflowPx": 12.5 }` — shorten the texts of that container's inputs. Member
+inputs carry `containerId` + `textStyle` in the listing so a consumer can
+mirror the reflow client-side (see docs/api/consumer-prompt.md).
 MD,
                 requestBody: new RequestBody(
                     description: 'Map of inputId UUID → value (string or `{ value, hide }` object).',
@@ -148,7 +160,22 @@ MD,
                             ],
                         ]),
                     ),
-                    '400' => new OpenApiResponse(description: 'Invalid request — malformed JSON, wrong types, or value exceeds maxLength.'),
+                    '400' => new OpenApiResponse(
+                        description: 'Invalid request — malformed JSON, wrong types, value exceeds maxLength, or container content overflows its max height (body carries `code: "container_overflow"`, the `containerId` and the `overflowPx`).',
+                        content: new ArrayObject([
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'error' => ['type' => 'string'],
+                                        'code' => ['type' => 'string', 'enum' => ['container_overflow']],
+                                        'containerId' => ['type' => 'string', 'nullable' => true],
+                                        'overflowPx' => ['type' => 'number'],
+                                    ],
+                                ],
+                            ],
+                        ]),
+                    ),
                     '401' => new OpenApiResponse(description: 'Missing or invalid bearer token.'),
                     '403' => new OpenApiResponse(description: 'Variant is not accessible to the authenticated user.'),
                     '404' => new OpenApiResponse(description: 'Variant not found.'),

@@ -8,10 +8,12 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Exceptions\CustomTemplateVariantNotFound;
 use WBoost\Web\Repository\CustomTemplateVariantRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
@@ -66,7 +68,20 @@ final readonly class ExportProcessor implements ProcessorInterface
             $data->images,
         );
 
-        $response = $this->renderer->render($variant, $overrides, $imageOverrides);
+        try {
+            $response = $this->renderer->render($variant, $overrides, $imageOverrides, strictContainerOverflow: true);
+        } catch (ContainerOverflow $overflow) {
+            // Same contract class as the maxLength 400, but measured in pixels
+            // of wrapped text. Returned as a structured JSON body (documented
+            // in the OpenAPI schema + docs/api/consumer-prompt.md) so a
+            // consumer can point the user at the offending container.
+            return new JsonResponse([
+                'error' => 'Container content overflows its max height. Shorten the texts of its inputs.',
+                'code' => 'container_overflow',
+                'containerId' => $overflow->containerId,
+                'overflowPx' => round($overflow->overflowPx, 2),
+            ], Response::HTTP_BAD_REQUEST);
+        }
         $response->headers->set('Content-Type', 'image/png');
         $response->headers->set('Content-Disposition', sprintf('inline; filename="%s.png"', $variant->id->toString()));
 

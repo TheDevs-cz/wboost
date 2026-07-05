@@ -242,6 +242,83 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
     }
 
     /**
+     * Containers ("smart text areas") + the per-input reflow metadata: the
+     * variant exposes containers[] {id, maxHeight, y, memberInputIds}, member
+     * inputs carry containerId, and every located input carries textStyle so
+     * a consumer can mirror the reflow client-side.
+     */
+    public function testEmbedsContainersAndTextStyles(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+
+        $this->assertResponseIsSuccessful();
+        $template = self::findTemplate($response->toArray(), TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID);
+        $variants = $template['variants'] ?? null;
+        self::assertIsArray($variants);
+        $variant = $variants[0] ?? null;
+        self::assertIsArray($variant);
+
+        // --- containers[] ---------------------------------------------------
+        $containers = $variant['containers'] ?? null;
+        self::assertIsArray($containers);
+        self::assertCount(1, $containers);
+        $container = $containers[0];
+        self::assertIsArray($container);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_CONTAINER_ID, $container['id'] ?? null);
+        self::assertEqualsWithDelta(200.0, $container['maxHeight'] ?? null, 0.001);
+        // y = designed top of the first member (headline textbox at y=60).
+        self::assertEqualsWithDelta(60.0, $container['y'] ?? null, 0.001);
+        self::assertSame(
+            [
+                TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID,
+                TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID,
+            ],
+            $container['memberInputIds'] ?? null,
+        );
+
+        // --- inputs[].containerId + textStyle --------------------------------
+        $inputs = $variant['inputs'] ?? null;
+        self::assertIsArray($inputs);
+        /** @var array<string, array<string, mixed>> $inputsById */
+        $inputsById = [];
+        foreach ($inputs as $input) {
+            self::assertIsArray($input);
+            self::assertIsString($input['id'] ?? null);
+            $inputsById[$input['id']] = $input;
+        }
+
+        $headline = $inputsById[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID];
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_CONTAINER_ID, $headline['containerId'] ?? null);
+        $headlineStyle = $headline['textStyle'] ?? null;
+        self::assertIsArray($headlineStyle);
+        self::assertSame('Rubik (Rubik Bold)', $headlineStyle['fontFamily'] ?? null);
+        self::assertEqualsWithDelta(24.0, $headlineStyle['fontSize'] ?? null, 0.001);
+        self::assertEqualsWithDelta(1.4, $headlineStyle['lineHeight'] ?? null, 0.001);
+        self::assertEqualsWithDelta(0.0, $headlineStyle['charSpacing'] ?? null, 0.001);
+
+        $tagline = $inputsById[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID];
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_CONTAINER_ID, $tagline['containerId'] ?? null);
+        // No explicit style props on the fixture textbox -> Fabric defaults.
+        $taglineStyle = $tagline['textStyle'] ?? null;
+        self::assertIsArray($taglineStyle);
+        self::assertSame('Times New Roman', $taglineStyle['fontFamily'] ?? null);
+        self::assertEqualsWithDelta(40.0, $taglineStyle['fontSize'] ?? null, 0.001);
+
+        // Independent input: no containerId.
+        $locked = $inputsById[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID];
+        self::assertNull($locked['containerId'] ?? null);
+    }
+
+    /**
      * @param array<int|string, mixed> $rows
      * @return array<string, mixed>
      */

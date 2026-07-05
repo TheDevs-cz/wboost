@@ -9,6 +9,7 @@ final readonly class SocialNetworkTemplateVariantResponse
     /**
      * @param list<SocialNetworkTemplateVariantInputResponse> $inputs
      * @param list<SocialNetworkTemplateVariantImageInputResponse> $imageInputs
+     * @param list<SocialNetworkTemplateVariantContainerResponse> $containers
      */
     public function __construct(
         public string $id,
@@ -24,6 +25,7 @@ final readonly class SocialNetworkTemplateVariantResponse
         public string $exportUrl,
         public array $inputs,
         public array $imageInputs,
+        public array $containers = [],
     ) {
     }
 }

@@ -23,6 +23,7 @@ use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 
@@ -109,6 +110,12 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
 
     private function buildVariant(SocialNetworkTemplateVariant $variant): SocialNetworkTemplateVariantResponse
     {
+        $decoded = json_decode($variant->canvas, true);
+        /** @var array<string, mixed> $canvas */
+        $canvas = is_array($decoded) ? $decoded : [];
+        $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+        $containers = CanvasContainer::collectionFromCanvas($canvas);
+
         return new SocialNetworkTemplateVariantResponse(
             id: $variant->id->toString(),
             dimension: $variant->dimension->value,
@@ -128,23 +135,33 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                 ['id' => $variant->id->toString()],
                 UrlGeneratorInterface::ABSOLUTE_URL,
             ),
-            inputs: $this->buildTextInputs($variant),
+            inputs: $this->buildTextInputs($variant, $canvas, $containers),
             imageInputs: $this->buildImageInputs($variant),
+            containers: $this->buildContainers($containers, $frames),
         );
     }
 
     /**
+     * @param array<string, mixed> $canvas
+     * @param list<CanvasContainer> $containers
      * @return list<SocialNetworkTemplateVariantInputResponse>
      */
-    private function buildTextInputs(SocialNetworkTemplateVariant $variant): array
+    private function buildTextInputs(SocialNetworkTemplateVariant $variant, array $canvas, array $containers): array
     {
-        $decoded = json_decode($variant->canvas, true);
-        $canvas = is_array($decoded) ? $decoded : [];
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+        $textStyles = $this->textInputObjectBinder->textStylesByInputId($canvas, $variant->inputs);
+
+        $containerIdByInputId = [];
+        foreach ($containers as $container) {
+            foreach ($container->memberInputIds as $memberInputId) {
+                $containerIdByInputId[$memberInputId] ??= $container->id;
+            }
+        }
 
         return array_values(array_map(
-            function (EditorTextInput $input) use ($frames): SocialNetworkTemplateVariantInputResponse {
+            function (EditorTextInput $input) use ($frames, $textStyles, $containerIdByInputId): SocialNetworkTemplateVariantInputResponse {
                 $frame = $frames[$input->inputId] ?? null;
+                $textStyle = $textStyles[$input->inputId] ?? null;
 
                 return new SocialNetworkTemplateVariantInputResponse(
                     id: $input->inputId,
@@ -162,10 +179,55 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                             $frame->height,
                         )
                         : null,
+                    containerId: $containerIdByInputId[$input->inputId] ?? null,
+                    textStyle: $textStyle !== null
+                        ? new SocialNetworkTemplateVariantInputTextStyleResponse(
+                            fontFamily: $textStyle['fontFamily'],
+                            fontSize: $textStyle['fontSize'],
+                            lineHeight: $textStyle['lineHeight'],
+                            charSpacing: $textStyle['charSpacing'],
+                        )
+                        : null,
                 );
             },
             $variant->inputs,
         ));
+    }
+
+    /**
+     * Container definitions with the zone anchor resolved: `y` is the designed
+     * top of the first member (flow order) that has a frame — the coordinate a
+     * consumer draws the zone from. A container whose members can't be located
+     * on the canvas is omitted (it cannot reflow anything at render time).
+     *
+     * @param list<CanvasContainer> $containers
+     * @param array<string, \WBoost\Web\Value\PlaceholderFrame> $frames
+     * @return list<SocialNetworkTemplateVariantContainerResponse>
+     */
+    private function buildContainers(array $containers, array $frames): array
+    {
+        $result = [];
+        foreach ($containers as $container) {
+            $y = null;
+            foreach ($container->memberInputIds as $memberInputId) {
+                if (isset($frames[$memberInputId])) {
+                    $y = $frames[$memberInputId]->y;
+                    break;
+                }
+            }
+            if ($y === null) {
+                continue;
+            }
+
+            $result[] = new SocialNetworkTemplateVariantContainerResponse(
+                id: $container->id,
+                maxHeight: $container->maxHeight,
+                y: $y,
+                memberInputIds: $container->memberInputIds,
+            );
+        }
+
+        return $result;
     }
 
     /**

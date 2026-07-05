@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Api;
 
+use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -255,6 +256,83 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         self::assertSame([], $lastCall['texts']);
         self::assertSame([], $lastCall['hidden']);
+    }
+
+    /**
+     * The API export is the STRICT container-overflow path: the renderer must
+     * be invoked with strictContainerOverflow=true (web fill/download stay
+     * lenient) so an overfilled container fails instead of silently rendering
+     * a broken PNG.
+     */
+    public function testExportRendersInStrictContainerOverflowMode(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => '{"inputs":{}}',
+            ],
+        );
+
+        $this->assertResponseIsSuccessful();
+        $fake = $this->getRendererFake();
+        $lastCall = $fake->calls[count($fake->calls) - 1];
+        self::assertTrue($lastCall['strictContainerOverflow']);
+    }
+
+    /**
+     * Container overflow → 400 with the documented STRUCTURED body (code +
+     * containerId + overflowPx) so a consumer can point the user at the
+     * offending container's inputs. This is a public API contract consumed by
+     * the mfkfm backoffice.
+     */
+    public function testContainerOverflowReturnsStructured400(): void
+    {
+        $client = self::createClient();
+        // Keep one kernel across the token + export requests: the overflow is
+        // pre-armed on the fake renderer instance, which a kernel reboot
+        // between requests would silently replace.
+        $client->disableReboot();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $this->getRendererFake()->throwContainerOverflow = new ContainerOverflow(
+            TestDataFixture::SOCIAL_NETWORK_VARIANT_1_CONTAINER_ID,
+            37.512,
+        );
+
+        $response = $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => '{"inputs":{}}',
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('container_overflow', $body['code'] ?? null);
+        self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_CONTAINER_ID, $body['containerId'] ?? null);
+        self::assertEqualsWithDelta(37.51, $body['overflowPx'] ?? null, 0.001);
+        self::assertIsString($body['error'] ?? null);
     }
 
     private function getRendererFake(): FakeTemplateVariantImageRenderer

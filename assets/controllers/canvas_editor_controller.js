@@ -27,6 +27,14 @@ export default class extends Controller {
     connect() {
         this.canvas = new Canvas('c');
 
+        // Word-wrap parity with the export: the headless render template
+        // patches Textbox wrapping (break-word for over-long words) — apply
+        // the identical shared patch here so the editor measures/wraps text
+        // exactly like the exported PNG (container reflow depends on it).
+        if (window.WBoostFabricBreakWord) {
+            window.WBoostFabricBreakWord.enable(Textbox);
+        }
+
         // Kick off font loading FIRST and keep the promise. The project fonts
         // are declared as @font-face served over HTTP from Minio, so on a cold
         // browser cache they are NOT resident when connect() runs. The canvas
@@ -229,10 +237,21 @@ export default class extends Controller {
                 this.coverBackgroundImage(this.canvas.backgroundImage);
             }
 
+            // Container definitions ride the canvas document (top-level
+            // `containers` key) — restore them onto the canvas instance, the
+            // shared state the container controller and submitForm read.
+            this.canvas.wboostContainers = Array.isArray(sourceCanvas.containers)
+                ? sourceCanvas.containers.map((c) => ({ ...c }))
+                : [];
+
             this.canvas.renderAll();
         } finally {
             this.loadingCanvas = false;
         }
+
+        // After BOTH initial load and undo/redo restores — the container
+        // controller re-derives its design snapshots + zone overlay from this.
+        this.dispatch('canvas:loaded');
     }
 
     handleKeydown(event) {
@@ -306,6 +325,11 @@ export default class extends Controller {
         activeObject.setCoords();
         this.canvas.renderAll();
         this.markUnsaved();
+        // set() fires no Fabric events, so announce the move explicitly —
+        // history snapshots the step and container members re-derive their
+        // design geometry (otherwise the next reflow would snap the arrow-moved
+        // box back to its stale snapshot position).
+        this.canvas.fire('object:modified', { target: activeObject });
     }
 
     async setBackgroundImage(imageUrl) {
@@ -613,6 +637,11 @@ export default class extends Controller {
                 }
             });
         });
+        // Container definitions travel inside the canvas document. Persist a
+        // sanitized copy: members that no longer exist are pruned, flow order
+        // is re-derived from the members' vertical positions, and containers
+        // that can no longer reflow anything (< 2 members) are dropped.
+        canvasJSON.containers = this.sanitizedContainers(inMemoryObjects);
         this.canvasTarget.value = JSON.stringify(canvasJSON);
 
         // Serialize only the textbox inputs.
@@ -698,6 +727,34 @@ export default class extends Controller {
                 alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
                 return false;
             });
+    }
+
+    /**
+     * @param {Array} objects live canvas objects (flat, canvas order)
+     * @returns {Array} persistable container definitions
+     */
+    sanitizedContainers(objects) {
+        const containers = Array.isArray(this.canvas.wboostContainers) ? this.canvas.wboostContainers : [];
+        const layout = window.WBoostContainerLayout;
+        const textboxIds = new Set(
+            objects
+                .filter((o) => (o.type || '').toLowerCase() === 'textbox' && o.inputId)
+                .map((o) => o.inputId),
+        );
+
+        return containers
+            .map((container) => {
+                let memberInputIds = (container.memberInputIds || []).filter((id) => textboxIds.has(id));
+                if (layout) {
+                    memberInputIds = layout.sortMemberIdsByTop(objects, memberInputIds);
+                }
+                return {
+                    id: container.id,
+                    maxHeight: container.maxHeight,
+                    memberInputIds,
+                };
+            })
+            .filter((container) => container.memberInputIds.length >= 2 && container.maxHeight > 0);
     }
 
     getScaledCanvasDataURI(maxWidth) {

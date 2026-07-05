@@ -74,6 +74,46 @@ readonly final class TextInputObjectBinder
     }
 
     /**
+     * Text-style metrics of every text placeholder, keyed by inputId — what a
+     * Fabric runtime needs to re-measure the wrapped height of a filled text
+     * (container reflow): font family/size, line height, char spacing. Values
+     * are normalized (legacy v5 rows carry numerics as strings); defaults
+     * mirror Fabric's own Textbox defaults. Consumed by the fill overlay and
+     * the API listing so client-side reflow uses the same numbers everywhere.
+     *
+     * @param array<array-key, mixed> $canvas decoded canvas JSON
+     * @param array<EditorTextInput> $inputs
+     * @return array<string, array{fontFamily: string, fontSize: float, lineHeight: float, charSpacing: float}>
+     */
+    public function textStylesByInputId(array $canvas, array $inputs): array
+    {
+        $objects = $canvas['objects'] ?? null;
+        if (!is_array($objects)) {
+            return [];
+        }
+
+        $styles = [];
+
+        foreach ($this->inputIdByObjectIndex($canvas, $inputs) as $index => $inputId) {
+            $object = $objects[$index] ?? null;
+            if (!is_array($object) || isset($styles[$inputId])) {
+                continue;
+            }
+
+            $styles[$inputId] = [
+                'fontFamily' => is_string($object['fontFamily'] ?? null) && $object['fontFamily'] !== ''
+                    ? $object['fontFamily']
+                    : 'Times New Roman',
+                'fontSize' => is_numeric($object['fontSize'] ?? null) ? (float) $object['fontSize'] : 40.0,
+                'lineHeight' => is_numeric($object['lineHeight'] ?? null) ? (float) $object['lineHeight'] : 1.16,
+                'charSpacing' => is_numeric($object['charSpacing'] ?? null) ? (float) $object['charSpacing'] : 0.0,
+            ];
+        }
+
+        return $styles;
+    }
+
+    /**
      * Displayed bounding box of every text placeholder, keyed by inputId,
      * derived from the positional binding + each object's displayed bounding
      * box. Mirrors {@see CanvasPlaceholderGeometry::framesByInputId()} for

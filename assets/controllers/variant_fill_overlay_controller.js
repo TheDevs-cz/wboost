@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { Textbox, cache } from "fabric";
 
 /**
  * Click-into-preview placeholder overlay for the user-fill / export page.
@@ -25,11 +26,26 @@ import { Controller } from "@hotwired/stimulus";
  *
  * Enter inside a text field must NOT submit the form (that would download the
  * PNG); only the Export button downloads. blockEnter handles that.
+ *
+ * CONTAINER REFLOW (live-tracking boxes). Text placeholders grouped into a
+ * container by the designer reflow vertically at render time — the server PNG
+ * moves them. The overlay mirrors that: it measures each filled text's wrapped
+ * height with an offscreen Fabric Textbox (same Fabric build + break-word
+ * patch + fonts as the export render) and runs the shared
+ * window.WBoostContainerLayout algorithm over the designed frames from
+ * `textLayoutValue`, so the boxes/pencils track exactly where the render puts
+ * the text. When a container's content can't fit its max height the export
+ * would be rejected (API contract) — the overlay shows an inline error and
+ * disables the Export button instead of letting the POST produce a broken PNG.
  */
 export default class extends Controller {
-    static targets = ["stage", "preview", "previewSource", "box", "popover", "modal", "spinner", "zoomLabel"];
+    static targets = ["stage", "preview", "previewSource", "box", "popover", "modal", "spinner", "zoomLabel", "exportButton", "overflowAlert"];
     static values = {
         canvasWidth: Number,
+        // { inputs: { <inputId>: {frame, style, locked, uppercase, maxLength, hidable} },
+        //   containers: [ {id, maxHeight, memberInputIds} ] }
+        textLayout: Object,
+        fonts: Array,
     };
 
     connect() {
@@ -38,6 +54,14 @@ export default class extends Controller {
         this._zoom = 1;
         this._userZoomed = false;
         this.element.classList.add("fill-js");
+
+        // Wrap-parity with the export render (see class docblock).
+        if (window.WBoostFabricBreakWord) {
+            window.WBoostFabricBreakWord.enable(Textbox);
+        }
+        this._computedFrames = {};
+        this._measureBoxes = new Map();
+        this._loadFontsThenLayout();
 
         this._boundReposition = () => this.reposition();
         this._boundFit = () => this._fitToScreen();
@@ -351,6 +375,8 @@ export default class extends Controller {
         checkbox.checked = !checkbox.checked;
         checkbox.dispatchEvent(new Event("change", { bubbles: true }));
         this._reflectHide(inputId, checkbox.checked);
+        // Hidden container members collapse — reflow the boxes right away.
+        this._scheduleRecompute();
 
         if (textMirror) this._showSpinner();
     }
@@ -396,6 +422,9 @@ export default class extends Controller {
         mirror.value = field.value;
         mirror.dispatchEvent(new Event("input", { bubbles: true }));
         this._updateCounter(inputId, field);
+        // Local echo of the container reflow: the boxes move immediately, the
+        // debounced server render confirms ~600 ms later.
+        this._scheduleRecompute();
         // The preview re-renders after the debounce — show the spinner once the
         // user pauses (not on every keystroke, which would flash the veil).
         this._scheduleSpinner();
@@ -539,9 +568,184 @@ export default class extends Controller {
         }
     }
 
+    // --- Container reflow (live-tracking boxes) -------------------------------
+
+    /** Load the project fonts, then (re)measure — glyph widths measured with a
+     *  fallback face would put the boxes at wrong reflowed positions. An
+     *  immediate first pass runs anyway so the overlay isn't frameless while
+     *  fonts download. Mirrors the editor's loadFonts + font-cache flush. */
+    _loadFontsThenLayout() {
+        this._recomputeLayout();
+        const families = this.hasFontsValue ? this.fontsValue : [];
+        Promise.all(
+            families.map((family) => document.fonts.load(`16px "${family}"`).catch(() => {})),
+        )
+            .then(() => (document.fonts && document.fonts.ready) || null)
+            .then(() => {
+                try {
+                    cache.clearFontCache();
+                } catch (err) {
+                    // Non-fatal — remeasure below still improves on the fallback.
+                }
+                this._measureBoxes.clear();
+                this._recomputeLayout();
+            });
+    }
+
+    /** Coalesce bursts (every keystroke) into one recompute. setTimeout, NOT
+     *  requestAnimationFrame: rAF never fires in a hidden tab (Chrome pauses
+     *  it), which would freeze the boxes for anything driving the page
+     *  headlessly/backgrounded. */
+    _scheduleRecompute() {
+        if (this._recomputeQueued) return;
+        this._recomputeQueued = true;
+        setTimeout(() => {
+            this._recomputeQueued = false;
+            this._recomputeLayout();
+        }, 30);
+    }
+
+    /**
+     * Mirror of the export render's text pipeline: transform each input's
+     * current value the way ResolveTextOverrides does (truncate to maxLength,
+     * uppercase), measure the wrapped height with an offscreen Fabric Textbox,
+     * then run the shared container layout over the designed frames. Results
+     * land in _computedFrames (consumed by _frameOf → reposition) and in the
+     * overflow UI state.
+     */
+    _recomputeLayout() {
+        const layoutModule = window.WBoostContainerLayout;
+        const data = this.hasTextLayoutValue ? this.textLayoutValue : null;
+        if (!layoutModule || !data || !data.inputs) return;
+
+        const inputs = data.inputs;
+        const computed = {};
+
+        Object.keys(inputs).forEach((inputId) => {
+            const def = inputs[inputId];
+            if (!def.frame) return;
+            let height = def.frame.height;
+            if (!def.locked && def.style) {
+                height = this._measureHeight(inputId, this._currentText(inputId, def), def);
+            }
+            computed[inputId] = { x: def.frame.x, y: def.frame.y, width: def.frame.width, height };
+        });
+
+        let worstOverflow = null;
+        const overflowIds = new Set();
+
+        (data.containers || []).forEach((container) => {
+            const memberIds = (container.memberInputIds || []).filter((id) => inputs[id] && inputs[id].frame);
+            if (memberIds.length < 2) return;
+
+            const designed = memberIds.map((id) => ({
+                designedTop: inputs[id].frame.y,
+                designedHeight: inputs[id].frame.height,
+            }));
+            const gaps = layoutModule.computeGaps(designed);
+            const members = memberIds.map((id, i) => ({
+                designedTop: designed[i].designedTop,
+                actualHeight: computed[id] ? computed[id].height : designed[i].designedHeight,
+                hidden: this._isHidden(id),
+            }));
+            const result = layoutModule.computeLayout(members, container.maxHeight, gaps);
+
+            memberIds.forEach((id, i) => {
+                if (!computed[id]) return;
+                if (result.tops[i] !== null) {
+                    computed[id].y = result.tops[i];
+                } else {
+                    // Hidden member: collapse the box to a zero-height line at
+                    // its would-be flow position so the eye stays reachable.
+                    const nextVisibleTop = result.tops.slice(i + 1).find((t) => t !== null);
+                    computed[id].y = nextVisibleTop !== undefined ? nextVisibleTop : result.contentBottom;
+                    computed[id].height = 0;
+                }
+            });
+
+            if (result.overflowPx > 0.5) {
+                memberIds.forEach((id) => overflowIds.add(id));
+                if (worstOverflow === null || result.overflowPx > worstOverflow) {
+                    worstOverflow = result.overflowPx;
+                }
+            }
+        });
+
+        this._computedFrames = computed;
+        this._setOverflowState(worstOverflow, overflowIds);
+        this.reposition();
+    }
+
+    /** The value the server would render: mirror value, capped + uppercased. */
+    _currentText(inputId, def) {
+        const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
+        let value = mirror ? mirror.value : "";
+        if (Number.isInteger(def.maxLength) && def.maxLength > 0 && value.length > def.maxLength) {
+            value = value.slice(0, def.maxLength);
+        }
+        if (def.uppercase) {
+            value = value.toUpperCase();
+        }
+        return value;
+    }
+
+    _isHidden(inputId) {
+        const mirror = this.element.querySelector(`[data-hide-mirror="${inputId}"]`);
+        return Boolean(mirror && mirror.checked);
+    }
+
+    /** Wrapped height of `text` in the input's designed box (reused offscreen
+     *  Textbox per input — never added to a canvas, Fabric measures detached). */
+    _measureHeight(inputId, text, def) {
+        try {
+            let box = this._measureBoxes.get(inputId);
+            if (!box) {
+                box = new Textbox(text, {
+                    width: def.frame.width,
+                    fontFamily: def.style.fontFamily,
+                    fontSize: def.style.fontSize,
+                    lineHeight: def.style.lineHeight,
+                    charSpacing: def.style.charSpacing,
+                    splitByGrapheme: false,
+                });
+                this._measureBoxes.set(inputId, box);
+            } else {
+                box.set({ text });
+            }
+            return box.height;
+        } catch (err) {
+            return def.frame.height;
+        }
+    }
+
+    _setOverflowState(worstOverflow, overflowIds) {
+        const overflowing = worstOverflow !== null;
+        this.boxTargets.forEach((box) => {
+            box.classList.toggle("fill-box--overflow", overflowIds.has(box.dataset.inputid));
+        });
+        if (this.hasOverflowAlertTarget) {
+            this.overflowAlertTarget.classList.toggle("d-none", !overflowing);
+            if (overflowing) {
+                this.overflowAlertTarget.textContent =
+                    `Texty se nevejdou do vymezené oblasti (přesah ${Math.ceil(worstOverflow)} px). Zkraťte prosím zvýrazněné texty.`;
+            }
+        }
+        if (this.hasExportButtonTarget) {
+            this.exportButtonTarget.disabled = overflowing;
+            this.exportButtonTarget.title = overflowing
+                ? "Zkraťte texty, které se nevejdou do vymezené oblasti"
+                : "";
+        }
+    }
+
     // --- helpers -------------------------------------------------------------
 
     _frameOf(box) {
+        // Live-computed frame (container reflow / measured height) wins over
+        // the static designer frame baked into the data attributes.
+        const computed = this._computedFrames ? this._computedFrames[box.dataset.inputid] : null;
+        if (computed) return computed;
+
         const x = parseFloat(box.dataset.frameX);
         const y = parseFloat(box.dataset.frameY);
         const w = parseFloat(box.dataset.frameWidth);

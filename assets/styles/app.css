@@ -103,6 +103,61 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
+/* Container ("smart text area") zone overlay (canvas_container_controller).
+   Plain DOM in the unscaled stage layer — like .editable-outline it never
+   touches the canvas bitmap, so it can't leak into thumbnails or exports.
+   The zone itself is click-through; only the label + resize handle are
+   interactive. */
+.container-zone {
+    position: absolute;
+    z-index: 899;
+    pointer-events: none;
+    border: 1.5px dashed #39afd1;
+    border-radius: 3px;
+    background: rgba(57, 175, 209, 0.04);
+}
+
+.container-zone--overflow {
+    border-color: #fa5c7c;
+    background: rgba(250, 92, 124, 0.06);
+}
+
+.container-zone__label {
+    position: absolute;
+    top: -20px;
+    left: -1.5px;
+    padding: 1px 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: #fff;
+    background: #39afd1;
+    border-radius: 3px 3px 0 0;
+    pointer-events: auto;
+}
+
+.container-zone--overflow .container-zone__label {
+    background: #fa5c7c;
+}
+
+.container-zone__handle {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    width: 44px;
+    height: 10px;
+    margin-left: -22px;
+    border-radius: 5px;
+    background: #39afd1;
+    box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8);
+    cursor: ns-resize;
+    pointer-events: auto;
+}
+
+.container-zone--overflow .container-zone__handle {
+    background: #fa5c7c;
+}
+
 /* ---- User-fill placeholder overlay (variant_fill_overlay_controller) ----
    Click-into-preview editing: each placeholder shows an always-visible icon
    cluster (pencil = edit, eye = hide) over the preview. The highlight toggle
@@ -236,6 +291,13 @@
 /* The highlight toggle controls ONLY the dashed border. */
 .fill-form.fill-js.fill-highlight-on .fill-box--text {
     border-color: #727cf5;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* Container-overflow state: the affected boxes go red regardless of the
+   highlight toggle — this is a validation signal, not a hint. */
+.fill-form.fill-js .fill-box--overflow {
+    border-color: #fa5c7c !important;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 

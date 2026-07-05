@@ -13,6 +13,7 @@ use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
@@ -20,6 +21,7 @@ use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\ResolvedImageOverrides;
 
@@ -80,6 +82,7 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly PlaceholderAllowedDirectories $allowedDirectories,
         private readonly FileUploadRepository $fileUploadRepository,
         private readonly UploaderHelper $uploaderHelper,
+        private readonly GetFonts $getFonts,
     ) {
     }
 
@@ -317,6 +320,89 @@ abstract class AbstractVariantFiller extends AbstractController
         }
 
         return $result;
+    }
+
+    /**
+     * Project font faces for the fill page: @font-face declarations + explicit
+     * loading so the overlay's client-side Fabric text measurement (container
+     * reflow) uses the exact glyphs the server render does. Family naming
+     * matches the renderer / editor convention: "<font> (<face>)".
+     *
+     * @return list<array{family: string, url: string}>
+     */
+    public function fontFaces(): array
+    {
+        $project = $this->variantEntity()->template->project;
+
+        $result = [];
+        foreach ($this->getFonts->allForProject($project->id) as $font) {
+            foreach ($font->faces as $fontFace) {
+                $result[] = [
+                    'family' => sprintf('%s (%s)', $font->name, $fontFace->name),
+                    'url' => $this->uploaderHelper->getPublicPath($fontFace->filePath),
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * The overlay's client-side reflow payload: per-input designed frame +
+     * text-style metrics (what Fabric needs to measure wrapped height) and the
+     * variant's container definitions. The overlay runs the same shared
+     * container_layout.js algorithm the headless render runs, so the boxes it
+     * draws track exactly where the server render put the text.
+     *
+     * @return array{
+     *     inputs: array<string, array{
+     *         frame: null|array{x: float, y: float, width: float, height: float},
+     *         style: null|array{fontFamily: string, fontSize: float, lineHeight: float, charSpacing: float},
+     *         locked: bool,
+     *         uppercase: bool,
+     *         maxLength: null|int,
+     *         hidable: bool
+     *     }>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>}>
+     * }
+     */
+    public function textLayoutData(): array
+    {
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+        $styles = $this->textInputObjectBinder->textStylesByInputId($canvas, $variant->inputs);
+
+        $inputs = [];
+        foreach ($variant->inputs as $input) {
+            $placeholderFrame = $frames[$input->inputId] ?? null;
+            $inputs[$input->inputId] = [
+                'frame' => $placeholderFrame !== null
+                    ? [
+                        'x' => $placeholderFrame->x,
+                        'y' => $placeholderFrame->y,
+                        'width' => $placeholderFrame->width,
+                        'height' => $placeholderFrame->height,
+                    ]
+                    : null,
+                'style' => $styles[$input->inputId] ?? null,
+                'locked' => $input->locked,
+                'uppercase' => $input->uppercase,
+                'maxLength' => $input->maxLength,
+                'hidable' => $input->hidable,
+            ];
+        }
+
+        return [
+            'inputs' => $inputs,
+            'containers' => array_map(
+                static fn (CanvasContainer $container): array => $container->toArray(),
+                CanvasContainer::collectionFromCanvas($canvas),
+            ),
+        ];
     }
 
     private function renderToDataUri(ResolvedImageOverrides $imageOverrides): string

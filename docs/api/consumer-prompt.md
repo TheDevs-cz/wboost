@@ -148,7 +148,20 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "uppercase": false,                         // true → value is uppercased on render
             "description": "Popissss",                  // nullable; use as help text / placeholder
             "hidable": false,                           // true → offer a "hide this element" toggle
-            "frame": { "x": 80, "y": 60, "width": 520, "height": 90 } // text box in canvas px (top-left, axis-aligned), nullable
+            "frame": { "x": 80, "y": 60, "width": 520, "height": 90 }, // DESIGNED text box in canvas px (top-left, axis-aligned), nullable
+            "containerId": null,                        // nullable; set → this input reflows inside variants[].containers[]
+            "textStyle": {                              // nullable; Fabric metrics to re-measure wrapped text height
+              "fontFamily": "Rubik (Rubik Bold)",
+              "fontSize": 24, "lineHeight": 1.4, "charSpacing": 0
+            }
+          }
+        ],
+        "containers": [                                  // "smart text areas" (may be empty)
+          {
+            "id": "0192f...",                            // referenced by inputs[].containerId
+            "maxHeight": 420,                            // px budget for the whole flow, from y downward
+            "y": 60,                                     // container top (canvas px) = designed top of the first member
+            "memberInputIds": ["95b0...", "a1c3..."]     // member inputs in flow order (top → bottom)
           }
         ],
         "imageInputs": [                                 // fillable IMAGE slots (may be empty)
@@ -242,9 +255,23 @@ same request:
 - **Download:** save the bytes (suggest filename `<template-name>-<dimension>.png`).
 - **Preview:** display the same bytes (see "Live preview").
 
-**Status codes:** `200` PNG · `400` malformed / value too long · `401` bad token ·
-`403` variant not visible to this client's user · `404` variant not found ·
-`500` render backend failure.
+**Status codes:** `200` PNG · `400` malformed / value too long / container
+overflow (see below) · `401` bad token · `403` variant not visible to this
+client's user · `404` variant not found · `500` render backend failure.
+
+**Container overflow 400.** When the filled texts of a container (see
+"Containers" below) cannot fit its `maxHeight` even after reflow, the export
+responds `400` with a **structured JSON body**:
+
+```json
+{ "error": "Container content overflows its max height. Shorten the texts of its inputs.",
+  "code": "container_overflow", "containerId": "0192f...", "overflowPx": 37.5 }
+```
+
+Match on `code === "container_overflow"`, look the container up in
+`variants[].containers[]` and point the user at its member inputs
+(`memberInputIds` / `inputs[].containerId`) — e.g. "shorten these fields by
+~`overflowPx` px worth of lines".
 
 ---
 
@@ -260,10 +287,37 @@ For each entry in `variant.inputs`:
 | `uppercase` | Optional: visually uppercase the field (server uppercases anyway). A hint like "shown in UPPERCASE" is nice. |
 | `locked` | **Don't render an editable field.** Either omit it, or show it read-only/disabled with the description — its value can't be overridden. |
 | `hidable` | Render a checkbox/toggle "Hide this element". When on, send `{ "hide": true }` for that id (you may still include `value`). |
-| `frame` | Optional `{x,y,width,height}` in canvas px (top-left origin, axis-aligned; `null` when the textbox can't be located). Use it to draw a highlight border over the rendered preview and anchor an inline editing affordance at the right spot — same coordinate space as `imageInputs[].frame` and the variant's `width`/`height`. |
+| `frame` | Optional `{x,y,width,height}` in canvas px (top-left origin, axis-aligned; `null` when the textbox can't be located). Use it to draw a highlight border over the rendered preview and anchor an inline editing affordance at the right spot — same coordinate space as `imageInputs[].frame` and the variant's `width`/`height`. **For container members this is the DESIGNED position** — the render may shift the box down/up per the fill (see "Containers"). |
+| `containerId` | Nullable. When set, this input is a member of `variants[].containers[]` entry with that id and reflows at render time. |
+| `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow. |
 
 Build the `inputs` payload as `{ <inputId>: <string|{value,hide}> }`, including only
 the inputs the user actually edited/toggled (omitted = default).
+
+### Containers (`variant.containers`) — smart text areas
+
+A container groups 2+ text inputs into a vertical flow. At render time the
+server reflows them: a filled text that wraps to more lines pushes the members
+below it down, a hidden (`hide: true`) member collapses (takes no space), and
+the whole flow must fit within `maxHeight` px measured from the container's
+`y` downward — otherwise the export fails with the structured
+`container_overflow` 400 above.
+
+Minimal consumer support (recommended): draw the container zone
+(`y` → `y + maxHeight`, spanning its members' frames) as a visual hint that
+these fields move together, keep anchoring the per-input affordances at their
+designed `frame`s (the rendered PNG is always correct — it IS the server
+render), and handle the 400 by highlighting the container's fields.
+
+Full mirror (optional): the reflow algorithm is deliberately simple and
+deterministic so a consumer can reproduce it exactly — designed gaps
+`gap[i] = frame[i].y − (frame[i−1].y + frame[i−1].height)` (members in
+`memberInputIds` order); the first visible member anchors at `y`; each next
+visible member sits at `previousBottom + its own gap`; hidden members are
+skipped; heights are the wrapped text heights measured with Fabric (same
+version the server renders with, break-word patched) using `textStyle` +
+`frame.width` after applying `maxLength` truncation and `uppercase`. Overflow
+= `lastVisibleBottom − (y + maxHeight)` when positive.
 
 **Drawing placeholder boxes over the preview.** Both `inputs[].frame` and
 `imageInputs[].frame` are in the variant's canvas pixel space, and the export PNG is

@@ -33,6 +33,12 @@
 {% endblock %}
 
 {% block content %}
+    {# Shared editor modules as CLASSIC scripts (window globals): the same
+       files are inlined verbatim into the headless Gotenberg render template,
+       so editor, fill page and export all wrap + reflow text identically. #}
+    <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
+    <script src="{{ asset('editor/container_layout.js') }}"></script>
+
     <style>
         {% for font in fonts %}
             {% for font_face in font.faces %}
@@ -46,7 +52,7 @@
 
     <div
         id="canvas-container"
-        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar"
+        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container"
         data-canvas-editor-background-image-value="{{ uploaded_asset(variant.backgroundImage) }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
@@ -58,6 +64,7 @@
         data-canvas-image-properties-canvas-editor-outlet="#canvas-container"
         data-canvas-alignment-canvas-editor-outlet="#canvas-container"
         data-canvas-floating-toolbar-canvas-editor-outlet="#canvas-container"
+        data-canvas-container-canvas-editor-outlet="#canvas-container"
         data-action="
             canvas-editor:selection:changed->canvas-clipboard#onSelectionChanged
             canvas-editor:selection:changed->canvas-text-toolbar#updateFromSelection
@@ -65,7 +72,10 @@
             canvas-editor:selection:changed->canvas-image-properties#updateFromSelection
             canvas-editor:selection:changed->canvas-alignment#onSelectionChanged
             canvas-editor:selection:changed->canvas-floating-toolbar#onSelectionChanged
+            canvas-editor:selection:changed->canvas-container#onSelectionChanged
+            canvas-editor:canvas:loaded->canvas-container#onCanvasLoaded
             canvas-zoom:changed->canvas-floating-toolbar#reposition
+            canvas-zoom:changed->canvas-container#repositionZones
             canvas-editor:copy->canvas-clipboard#copy
             canvas-editor:paste->canvas-clipboard#paste
             asset-selected@window->canvas-editor#onAssetSelected
@@ -126,7 +136,7 @@
             </div>
 
             <div class="col-12 col-lg-10">
-                <div class="canvas-stage" data-canvas-floating-toolbar-target="layer">
+                <div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer">
                     <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
                         <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
                     </div>
@@ -157,6 +167,8 @@
                         <button type="button" class="btn btn-sm btn-light" title="Zarovnat nahoru" data-action="canvas-alignment#alignTop"><i class="mdi mdi-format-vertical-align-top"></i></button>
                         <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed svisle" data-action="canvas-alignment#alignMiddle"><i class="mdi mdi-format-vertical-align-center"></i></button>
                         <button type="button" class="btn btn-sm btn-light" title="Zarovnat dolů" data-action="canvas-alignment#alignBottom"><i class="mdi mdi-format-vertical-align-bottom"></i></button>
+                        <span class="canvas-mini-toolbar-sep"></span>
+                        <button type="button" class="btn btn-sm btn-light" title="Vytvořit kontejner" data-canvas-container-target="createButton" data-action="canvas-container#createFromSelection"><i class="mdi mdi-view-agenda-outline"></i></button>
                         <span class="canvas-mini-toolbar-sep"></span>
                         <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
                         <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
@@ -255,6 +267,20 @@
                             <div class="mb-0 form-check">
                                 <input type="checkbox" id="uppercase-control" class="form-check-input" data-canvas-input-properties-target="uppercase" data-action="change->canvas-input-properties#updateUppercase">
                                 <label for="uppercase-control" class="form-check-label small">Verzálky</label>
+                            </div>
+
+                            {# Container ("smart text area") section — shown only when the
+                               selected textbox is a container member (canvas-container). #}
+                            <div class="d-none" data-canvas-container-target="section">
+                                <hr class="my-2">
+                                <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
+                                <div class="my-2">
+                                    <label for="container-max-height-control" class="form-label small">Max. výška (px)</label>
+                                    <input type="number" id="container-max-height-control" min="20" class="form-control form-control-sm" data-canvas-container-target="maxHeightInput" data-action="input->canvas-container#updateMaxHeightFromInput">
+                                </div>
+                                <p class="text-muted small mb-2">Texty v kontejneru se při vyplňování posouvají podle délky textu nad nimi. Tažením prvku přesunete celý kontejner, s klávesou <kbd>Alt</kbd> jen tento prvek.</p>
+                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mb-1" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger w-100" data-action="canvas-container#dissolveActiveContainer">Rozpustit kontejner</button>
                             </div>
                         </div>
                     </div>

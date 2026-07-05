@@ -15,6 +15,7 @@ final readonly class CustomTemplateVariantResponse
      *
      * @param list<CustomTemplateVariantInputResponse> $inputs
      * @param list<CustomTemplateVariantImageInputResponse> $imageInputs
+     * @param list<CustomTemplateVariantContainerResponse> $containers
      */
     public function __construct(
         public string $id,
@@ -33,6 +34,7 @@ final readonly class CustomTemplateVariantResponse
         public string $exportUrl,
         public array $inputs,
         public array $imageInputs,
+        public array $containers = [],
     ) {
     }
 }

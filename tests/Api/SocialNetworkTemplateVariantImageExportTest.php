@@ -251,7 +251,7 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
     }
 
     /**
-     * @return array{variantId: string, texts: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string}
+     * @return array{variantId: string, texts: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}
      */
     private function lastCall(): array
     {

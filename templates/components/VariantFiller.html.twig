@@ -37,7 +37,27 @@
    the <img> below. Only the text-only branch has a server preview <img>. #}
 {% set previewSrc = hasImages ? null : this.previewDataUri() %}
 
+{% set fontFaces = this.fontFaces() %}
+
 <div {{ attributes }}>
+    {# Shared editor modules (classic scripts, window globals) + the project
+       @font-face declarations — the overlay measures wrapped text heights with
+       the same Fabric build, the same break-word patch and the same fonts the
+       headless export render uses, so its container reflow is pixel-identical.
+       Inside data-live-ignore so a Live re-render never re-injects them. #}
+    <div data-live-ignore hidden>
+        <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
+        <script src="{{ asset('editor/container_layout.js') }}"></script>
+        <style>
+            {% for face in fontFaces %}
+                @font-face {
+                    font-family: '{{ face.family }}';
+                    src: url('{{ face.url }}');
+                }
+            {% endfor %}
+        </style>
+    </div>
+
     <form
         method="POST"
         action="{{ this.downloadPath() }}"
@@ -45,6 +65,8 @@
         class="fill-form fill-highlight-on"
         data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}"
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
+        data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
+        data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
         {% if hasImages %}
             data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
@@ -80,8 +102,15 @@
                 </button>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-sm">Export do PNG</button>
+            <button type="submit" class="btn btn-primary btn-sm" data-variant-fill-overlay-target="exportButton">Export do PNG</button>
         </div>
+
+        {# Container-overflow validation message (variant-fill-overlay). Shown —
+           and the Export button disabled — while the filled texts of a container
+           don't fit its max height even after reflow. Lives in the ignored
+           subtree: it is pure client-side state. #}
+        <div class="alert alert-danger py-1 px-2 small d-none" role="alert" aria-live="polite"
+             data-variant-fill-overlay-target="overflowAlert" data-live-ignore></div>
 
         {# ---- Live-bound hidden mirrors (text) -------------------------------
            The ONLY Live-bound fields: they trigger the backdrop/preview

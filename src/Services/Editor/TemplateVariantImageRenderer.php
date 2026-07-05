@@ -7,18 +7,22 @@ namespace WBoost\Web\Services\Editor;
 use RuntimeException;
 use Sensiolabs\GotenbergBundle\Builder\BuilderFileInterface;
 use Sensiolabs\GotenbergBundle\Enumeration\ScreenshotFormat;
+use Sensiolabs\GotenbergBundle\Exception\ClientException;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
 use Sensiolabs\GotenbergBundle\Processor\InMemoryProcessor;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverride;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -27,12 +31,15 @@ use WBoost\Web\Value\ResolvedInputOverrides;
 final class TemplateVariantImageRenderer implements TemplateVariantImageRendererInterface
 {
     /**
-     * Cached Fabric UMD bundle contents — read once per request from disk and
-     * inlined into every Gotenberg HTML payload so the headless render is
-     * self-contained (no outbound network) and pinned to the version
-     * committed in the repo.
+     * Cached inline-script contents by path — read once per request from disk
+     * and inlined into every Gotenberg HTML payload so the headless render is
+     * self-contained (no outbound network) and pinned to the versions
+     * committed in the repo. Holds the Fabric UMD bundle plus the shared
+     * break-word / container-layout modules.
+     *
+     * @var array<string, string>
      */
-    private null|string $fabricInlineScript = null;
+    private array $inlineScripts = [];
 
     public function __construct(
         private readonly GotenbergScreenshotInterface $gotenberg,
@@ -44,6 +51,10 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         private readonly UploaderHelper $uploaderHelper,
         #[Autowire('%kernel.project_dir%/assets/fabric/fabric-7.3.1.min.js')]
         private readonly string $fabricUmdBundlePath,
+        #[Autowire('%kernel.project_dir%/assets/editor/fabric_break_word.js')]
+        private readonly string $breakWordScriptPath,
+        #[Autowire('%kernel.project_dir%/assets/editor/container_layout.js')]
+        private readonly string $containerLayoutScriptPath,
     ) {
     }
 
@@ -51,6 +62,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
+        bool $strictContainerOverflow = false,
     ): Response {
         // Return a BUFFERED Response, NOT Gotenberg's StreamedResponse. The
         // streamed response echoes + flush()es each chunk to the SAPI. Under
@@ -62,7 +74,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // images are small, so buffering the bytes in memory is cheap and the
         // controllers (download / API export) layer their own headers on top.
         return new Response(
-            $this->renderToBytes($variant, $overrides, $imageOverrides),
+            $this->renderToBytes($variant, $overrides, $imageOverrides, $strictContainerOverflow),
             Response::HTTP_OK,
             ['Content-Type' => 'image/png'],
         );
@@ -72,15 +84,29 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
+        bool $strictContainerOverflow = false,
     ): string {
         // The bundle's InMemoryProcessor drains the chunked HTTP response from
         // Gotenberg into a string. Unlike `stream()`, it never calls echo /
         // flush(), so it does not interfere with the outer HTTP response that
         // is still being assembled (headers, cookies, content-type).
-        $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides)
-            ->generate()
-            ->processor(new InMemoryProcessor())
-            ->process();
+        try {
+            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow)
+                ->generate()
+                ->processor(new InMemoryProcessor())
+                ->process();
+        } catch (ClientException $exception) {
+            // In strict mode the render template signals container overflow
+            // as an uncaught console exception; failOnConsoleExceptions makes
+            // Gotenberg answer 409 with the exception text in the body.
+            // Anything without the marker is a genuine render error.
+            $overflow = ContainerOverflow::tryFromGotenbergError($this->gotenbergErrorBody($exception));
+            if ($overflow !== null) {
+                throw $overflow;
+            }
+
+            throw $exception;
+        }
 
         // InMemoryProcessor is `ProcessorInterface<string>` but the bundle's
         // `process()` is generic-erased at the call site; narrow back here.
@@ -95,6 +121,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
+        bool $strictContainerOverflow,
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
@@ -122,7 +149,14 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'font_faces' => $fontFaceData,
                 'text_overrides' => $overrides->texts,
                 'hidden_overrides' => $overrides->hidden,
-                'fabric_inline_script' => $this->getFabricInlineScript(),
+                'containers' => array_map(
+                    static fn (CanvasContainer $container): array => $container->toArray(),
+                    $this->extractContainers($variant),
+                ),
+                'strict_container_overflow' => $strictContainerOverflow,
+                'fabric_inline_script' => $this->getInlineScript($this->fabricUmdBundlePath),
+                'break_word_inline_script' => $this->getInlineScript($this->breakWordScriptPath),
+                'container_layout_inline_script' => $this->getInlineScript($this->containerLayoutScriptPath),
             ])
             ->width($variant->dimension->width())
             ->height($variant->dimension->height())
@@ -130,7 +164,29 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             ->format(ScreenshotFormat::Png)
             ->waitForExpression('window.canvasRendered === true');
 
+        if ($strictContainerOverflow) {
+            // Container overflow is signalled from inside headless Chromium as
+            // an uncaught exception (the only data channel a screenshot call
+            // has); this makes Gotenberg fail the conversion and echo the
+            // exception text back in the error body. Lenient renders leave
+            // this off — they render the overflowing state for the user to
+            // see, and must not start failing on unrelated page errors that
+            // the template deliberately tolerates (e.g. a corrupt font face).
+            $builder->failOnConsoleExceptions();
+        }
+
         return $builder;
+    }
+
+    /**
+     * @return list<CanvasContainer>
+     */
+    private function extractContainers(SocialNetworkTemplateVariant|CustomTemplateVariant $variant): array
+    {
+        /** @var array<string, mixed> $canvas */
+        $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
+
+        return CanvasContainer::collectionFromCanvas($canvas);
     }
 
     /**
@@ -324,21 +380,42 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         return $canvas;
     }
 
-    private function getFabricInlineScript(): string
+    /**
+     * Extract the Gotenberg error body from the bundle's ClientException. The
+     * bundle's result wrapper calls getHeaders() first, which throws Symfony
+     * HttpClient's own exception on a 4xx BEFORE the bundle reaches its
+     * body-reading line — so the body (with the console-exception text) is
+     * only reachable through the wrapped previous exception's response.
+     */
+    private function gotenbergErrorBody(ClientException $exception): string
     {
-        if ($this->fabricInlineScript === null) {
-            $contents = @file_get_contents($this->fabricUmdBundlePath);
+        $previous = $exception->getPrevious();
+        if ($previous instanceof HttpExceptionInterface) {
+            try {
+                return $previous->getResponse()->getContent(false);
+            } catch (\Throwable) {
+                // Body unavailable — fall back to the wrapper's message.
+            }
+        }
+
+        return $exception->getMessage();
+    }
+
+    private function getInlineScript(string $path): string
+    {
+        if (!isset($this->inlineScripts[$path])) {
+            $contents = @file_get_contents($path);
 
             if ($contents === false) {
                 throw new RuntimeException(sprintf(
-                    'Fabric UMD bundle not readable at "%s". Re-run `bin/console importmap:install` or restore the committed asset.',
-                    $this->fabricUmdBundlePath,
+                    'Inline script not readable at "%s". Restore the committed asset.',
+                    $path,
                 ));
             }
 
-            $this->fabricInlineScript = $contents;
+            $this->inlineScripts[$path] = $contents;
         }
 
-        return $this->fabricInlineScript;
+        return $this->inlineScripts[$path];
     }
 }

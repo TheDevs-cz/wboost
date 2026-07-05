@@ -296,7 +296,11 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
             'font_faces' => [],
             'text_overrides' => [],
             'hidden_overrides' => [],
+            'containers' => [],
+            'strict_container_overflow' => false,
             'fabric_inline_script' => '/* fabric stub */',
+            'break_word_inline_script' => '/* break-word stub */',
+            'container_layout_inline_script' => '/* container-layout stub */',
         ]);
 
         // The restore pass must:
@@ -333,7 +337,11 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
             'font_faces' => [],
             'text_overrides' => [],
             'hidden_overrides' => [],
+            'containers' => [],
+            'strict_container_overflow' => false,
             'fabric_inline_script' => '/* fabric stub */',
+            'break_word_inline_script' => '/* break-word stub */',
+            'container_layout_inline_script' => '/* container-layout stub */',
         ]);
 
         // Must use set() for both text and visibility overrides.
@@ -360,6 +368,53 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
      * This pins the force-load so a future edit cannot regress back to a
      * declaration-only approach.
      */
+    /**
+     * Pins the container-reflow hook in the render template: the designed
+     * geometry snapshot (prepareFabricContainers) must run BEFORE the override
+     * loop (members must still hold their designed text), the reflow
+     * (applyFabricLayout) AFTER it (heights re-wrapped), and strict mode must
+     * signal overflow via the CONTAINER_OVERFLOW uncaught-exception marker the
+     * renderer parses out of Gotenberg's failOnConsoleExceptions error body.
+     */
+    public function testRenderTemplateRunsContainerLayoutAroundOverrides(): void
+    {
+        $twig = self::getContainer()->get('twig');
+
+        $rendered = $twig->render('api/template_variant_render.html.twig', [
+            'variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
+            'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            'font_faces' => [],
+            'text_overrides' => [],
+            'hidden_overrides' => [],
+            'containers' => [
+                ['id' => 'c-1', 'maxHeight' => 120, 'memberInputIds' => ['a-1', 'b-2']],
+            ],
+            'strict_container_overflow' => true,
+            'fabric_inline_script' => '/* fabric stub */',
+            'break_word_inline_script' => '/* break-word stub */',
+            'container_layout_inline_script' => '/* container-layout stub */',
+        ]);
+
+        $prepare = strpos($rendered, 'WBoostContainerLayout.prepareFabricContainers');
+        $overrideLoop = strpos($rendered, 'obj.set({ text: String(textOverrides[idKey]) })');
+        $apply = strpos($rendered, 'WBoostContainerLayout.applyFabricLayout');
+
+        self::assertNotFalse($prepare);
+        self::assertNotFalse($overrideLoop);
+        self::assertNotFalse($apply);
+        self::assertLessThan($overrideLoop, $prepare, 'designed-geometry snapshot must run before overrides');
+        self::assertLessThan($apply, $overrideLoop, 'reflow must run after overrides');
+
+        // The container definitions + strict flag reach the page...
+        self::assertStringContainsString('"memberInputIds":["a-1","b-2"]', $rendered);
+        self::assertStringContainsString('const strictContainerOverflow = true;', $rendered);
+
+        // ...and the overflow signal is the uncaught-exception marker, thrown
+        // via setTimeout so it escapes the template's try/catch.
+        self::assertStringContainsString("throw new Error('CONTAINER_OVERFLOW:'", $rendered);
+        self::assertStringContainsString('setTimeout(() => {', $rendered);
+    }
+
     public function testRenderTemplateForceLoadsFontsBeforeRendering(): void
     {
         $twig = self::getContainer()->get('twig');
@@ -372,7 +427,11 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
             ],
             'text_overrides' => [],
             'hidden_overrides' => [],
+            'containers' => [],
+            'strict_container_overflow' => false,
             'fabric_inline_script' => '/* fabric stub */',
+            'break_word_inline_script' => '/* break-word stub */',
+            'container_layout_inline_script' => '/* container-layout stub */',
         ]);
 
         // The faces must reach the client as data the script iterates over.

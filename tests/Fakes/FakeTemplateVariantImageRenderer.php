@@ -21,15 +21,22 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
 {
     private const string FIXED_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
 
-    /** @var array<int, array{variantId: string, texts: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string}> */
+    /** @var array<int, array{variantId: string, texts: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}> */
     public array $calls = [];
+
+    /**
+     * When set, every render call throws this — lets tests exercise the
+     * container-overflow 400 contract without a real Gotenberg round-trip.
+     */
+    public null|\WBoost\Web\Exceptions\ContainerOverflow $throwContainerOverflow = null;
 
     public function render(
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
+        bool $strictContainerOverflow = false,
     ): Response {
-        $this->record($variant, $overrides, $imageOverrides, 'render');
+        $this->record($variant, $overrides, $imageOverrides, 'render', $strictContainerOverflow);
 
         return new Response($this->png(), Response::HTTP_OK, ['Content-Type' => 'image/png']);
     }
@@ -38,8 +45,9 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
+        bool $strictContainerOverflow = false,
     ): string {
-        $this->record($variant, $overrides, $imageOverrides, 'renderToBytes');
+        $this->record($variant, $overrides, $imageOverrides, 'renderToBytes', $strictContainerOverflow);
 
         return $this->png();
     }
@@ -49,7 +57,12 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
         string $mode,
+        bool $strictContainerOverflow,
     ): void {
+        if ($this->throwContainerOverflow !== null && $strictContainerOverflow) {
+            throw $this->throwContainerOverflow;
+        }
+
         $images = [];
         $imagesHidden = [];
 
@@ -75,6 +88,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
             'images' => $images,
             'imagesHidden' => $imagesHidden,
             'mode' => $mode,
+            'strictContainerOverflow' => $strictContainerOverflow,
         ];
     }
 
