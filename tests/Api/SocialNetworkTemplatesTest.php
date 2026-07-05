@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Api;
 
+use Doctrine\ORM\EntityManagerInterface;
+use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\User;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingApiAuthentication;
+use WBoost\Web\Value\SharingLevel;
 
 /**
  * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateResponse
@@ -74,6 +78,43 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         ]);
 
         $this->assertResponseStatusCodeSame(404);
+    }
+
+    public function testReturnsTemplatesForProjectSharedWithApiUser(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        // Share PROJECT_2 (owned by USER_2) with USER_1: API visibility follows
+        // ProjectVoter, so any share opens the listing — transferring a
+        // project's ownership must not cut off integrations that keep access
+        // through a share.
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $project = $entityManager->find(Project::class, TestDataFixture::PROJECT_2_ID);
+        $user = $entityManager->find(User::class, TestDataFixture::USER_1_ID);
+        self::assertNotNull($project);
+        self::assertNotNull($user);
+        $project->share($user, SharingLevel::Read, new \DateTimeImmutable());
+        $entityManager->flush();
+
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/social-network-templates', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+
+        $this->assertResponseIsSuccessful();
+
+        $ids = [];
+        foreach ($response->toArray() as $row) {
+            self::assertIsArray($row);
+            self::assertArrayHasKey('id', $row);
+            $ids[] = $row['id'];
+        }
+
+        self::assertContains(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_2_ID, $ids);
     }
 
     public function testReturnsNotFoundForUnknownProject(): void

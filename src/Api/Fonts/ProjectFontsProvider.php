@@ -15,6 +15,7 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\UploaderHelper;
 
 /**
@@ -55,9 +56,10 @@ final readonly class ProjectFontsProvider implements ProviderInterface
             throw new NotFoundHttpException();
         }
 
-        // Owner-only scope (matches the templates listing). A 404 for projects
-        // owned by someone else avoids leaking their existence.
-        if (!$project->owner->id->equals($user->id)) {
+        // Same visibility rule as the web UI (ProjectVoter): owner, admin, or
+        // a user the project is shared with. 404 (not 403) so foreign
+        // projects' existence isn't leaked.
+        if (!$this->security->isGranted(ProjectVoter::VIEW, $project)) {
             throw new NotFoundHttpException();
         }
 
