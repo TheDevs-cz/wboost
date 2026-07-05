@@ -53,6 +53,22 @@ export default class extends Controller {
 
         const canvas = this.canvasEditorOutlet.canvas;
         const snapshot = canvas.toJSON(CANVAS_CUSTOM_PROPERTIES);
+        // Fabric v7's toJSON(propertiesToInclude) silently drops some custom
+        // properties (the same quirk submitForm works around) — without this
+        // merge an undo restores objects with NO inputId, the loader re-mints
+        // fresh ids, and anything referencing them (container memberInputIds!)
+        // is orphaned. Merge the live values back by positional index, exactly
+        // like the save path does.
+        const liveObjects = canvas.getObjects();
+        (snapshot.objects || []).forEach((serialized, idx) => {
+            const live = liveObjects[idx];
+            if (!live) return;
+            CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                if (live[prop] !== undefined) {
+                    serialized[prop] = live[prop];
+                }
+            });
+        });
         // Container definitions live on the canvas instance, not in Fabric's
         // serialization — carry a deep copy in every undo state so undo/redo
         // restores them too (loadCanvasWithoutHistory reads .containers).

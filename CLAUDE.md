@@ -118,9 +118,13 @@ an ordinary independent input.
   render LENIENT (overflow shown, fill page blocks the Export button instead).
 - **Editor UX** (`canvas_container_controller.js`): "Vytvořit kontejner" on the
   multi-select bar (2+ textboxes, none already members); dashed DOM zone in the
-  unscaled stage layer (never on the canvas bitmap) with a draggable bottom
-  handle for maxHeight + red overflow warning; dragging any member moves the
-  whole container, Alt-drag repositions one member; typing reflows live.
+  unscaled stage layer (never on the canvas bitmap) with a bottom handle for
+  maxHeight, LEFT/RIGHT side handles that resize the container width (member
+  textbox lefts + wrap widths rescale proportionally anchored at the opposite
+  edge → text re-wraps + reflows live), an × button that drops the container
+  definition (texts stay; undoable), and a red overflow warning. Members are
+  dragged INDIVIDUALLY (plain Fabric drag); the whole container moves by
+  dragging the zone's label. Typing reflows live.
   Containers live on the Fabric instance as `canvas.wboostContainers`;
   `submitForm` writes the sanitized list into the canvas JSON, history
   snapshots carry a deep copy, `loadCanvasWithoutHistory` restores them and

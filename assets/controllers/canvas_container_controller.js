@@ -46,7 +46,6 @@ export default class extends Controller {
         // (member move, member add/remove, load); reflow between re-derivations
         // keeps gaps constant by construction.
         this._snapshots = new Map();
-        this._dragLast = null;
     }
 
     connect() {
@@ -62,9 +61,10 @@ export default class extends Controller {
     canvasEditorOutletConnected(outlet) {
         const canvas = outlet.canvas;
 
-        this._onMouseDown = (e) => this._beginMemberDrag(e);
-        this._onMouseUp = () => { this._dragLast = null; };
-        this._onObjectMoving = (e) => this._handleMemberDrag(e);
+        // Dragging a member moves ONLY that member (standard Fabric drag) —
+        // the whole container is moved by dragging the zone's label instead
+        // (see _beginLabelDrag). During a drag the zone just follows.
+        this._onObjectMoving = () => this.repositionZones();
         this._onObjectModified = () => this._afterDesignChange();
         this._onTextChanged = (e) => this._reflowFor(e.target);
         this._onObjectRemoved = (e) => {
@@ -72,8 +72,6 @@ export default class extends Controller {
         };
         this._onAfterRender = () => { if (this._zones.length) this._positionZones(); };
 
-        canvas.on('mouse:down', this._onMouseDown);
-        canvas.on('mouse:up', this._onMouseUp);
         canvas.on('object:moving', this._onObjectMoving);
         canvas.on('object:modified', this._onObjectModified);
         canvas.on('text:changed', this._onTextChanged);
@@ -90,8 +88,6 @@ export default class extends Controller {
     canvasEditorOutletDisconnected(outlet) {
         const canvas = outlet.canvas;
         if (!canvas) return;
-        canvas.off('mouse:down', this._onMouseDown);
-        canvas.off('mouse:up', this._onMouseUp);
         canvas.off('object:moving', this._onObjectMoving);
         canvas.off('object:modified', this._onObjectModified);
         canvas.off('text:changed', this._onTextChanged);
@@ -159,7 +155,6 @@ export default class extends Controller {
 
     /** canvas-editor:canvas:loaded — initial load AND undo/redo restores. */
     onCanvasLoaded() {
-        this._dragLast = null;
         this._resnapshotAll();
         this.renderZones();
         this._syncSection();
@@ -284,45 +279,6 @@ export default class extends Controller {
         );
     }
 
-    // --- move-together dragging --------------------------------------------
-
-    _beginMemberDrag(e) {
-        const target = e.target;
-        if (!target || (target.type || '').toLowerCase() !== 'textbox' || !target.inputId) {
-            this._dragLast = null;
-            return;
-        }
-        if (!this._containerOf(target.inputId)) {
-            this._dragLast = null;
-            return;
-        }
-        // Capture BEFORE the first object:moving so no delta is lost.
-        this._dragLast = { target, left: target.left, top: target.top };
-    }
-
-    _handleMemberDrag(e) {
-        this.repositionZones();
-
-        const target = e.target;
-        if (!target || !this._dragLast || this._dragLast.target !== target) return;
-        if (e.e && e.e.altKey) return; // Alt = reposition just this member
-
-        const container = this._containerOf(target.inputId);
-        if (!container) return;
-
-        const dx = target.left - this._dragLast.left;
-        const dy = target.top - this._dragLast.top;
-        this._dragLast.left = target.left;
-        this._dragLast.top = target.top;
-        if (dx === 0 && dy === 0) return;
-
-        this._memberObjects(container).forEach((obj) => {
-            if (obj === target) return;
-            obj.set({ left: obj.left + dx, top: obj.top + dy });
-            obj.setCoords();
-        });
-    }
-
     // --- reflow + design snapshots ------------------------------------------
 
     /**
@@ -403,15 +359,39 @@ export default class extends Controller {
             const zone = document.createElement('div');
             zone.className = 'container-zone';
 
+            // The label doubles as the MOVE handle for the whole container
+            // (members are dragged individually with a plain Fabric drag).
             const label = document.createElement('span');
             label.className = 'container-zone__label';
+            label.title = 'Tažením přesunete celý kontejner';
+            label.addEventListener('mousedown', (event) => this._beginLabelDrag(event, container));
             zone.appendChild(label);
+
+            // Removes the container DEFINITION only — the texts stay, they
+            // just stop reflowing. Undoable (containers ride history).
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'container-zone__delete';
+            remove.title = 'Zrušit kontejner (texty zůstanou)';
+            remove.setAttribute('aria-label', 'Zrušit kontejner');
+            remove.textContent = '×';
+            remove.addEventListener('mousedown', (event) => event.stopPropagation());
+            remove.addEventListener('click', (event) => this._deleteContainer(event, container));
+            zone.appendChild(remove);
 
             const handle = document.createElement('div');
             handle.className = 'container-zone__handle';
             handle.title = 'Táhnutím nastavíte maximální výšku kontejneru';
             handle.addEventListener('mousedown', (event) => this._beginHandleDrag(event, container));
             zone.appendChild(handle);
+
+            ['left', 'right'].forEach((side) => {
+                const sideHandle = document.createElement('div');
+                sideHandle.className = `container-zone__side container-zone__side--${side}`;
+                sideHandle.title = 'Táhnutím změníte šířku kontejneru (texty se přizpůsobí)';
+                sideHandle.addEventListener('mousedown', (event) => this._beginSideDrag(event, container, side));
+                zone.appendChild(sideHandle);
+            });
 
             this.layerTarget.appendChild(zone);
             this._zones.push({ container, zone, label });
@@ -467,6 +447,116 @@ export default class extends Controller {
     _clearZones() {
         this._zones.forEach(({ zone }) => zone.remove());
         this._zones = [];
+    }
+
+    /** Zone label drag = move the WHOLE container (all members together). */
+    _beginLabelDrag(event, container) {
+        event.preventDefault();
+        event.stopPropagation();
+        const g = this._geometry();
+        const canvas = this._canvas();
+        if (!g || !canvas) return;
+
+        let lastX = event.clientX;
+        let lastY = event.clientY;
+
+        const onMove = (e) => {
+            const dx = (e.clientX - lastX) / g.scale;
+            const dy = (e.clientY - lastY) / g.scale;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            this._memberObjects(container).forEach((obj) => {
+                obj.set({ left: obj.left + dx, top: obj.top + dy });
+                obj.setCoords();
+            });
+            canvas.requestRenderAll();
+            this._positionZones();
+        };
+        const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            // Dirty + undo snapshot + design re-derivation (gaps unchanged —
+            // everything moved by the same delta).
+            canvas.fire('object:modified', {});
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    /**
+     * Side handle drag = resize the container width. Member textboxes scale
+     * horizontally with it (left + wrap width, proportionally, anchored at the
+     * opposite content edge), so the text re-wraps and the flow re-runs live —
+     * width IS functional for text, it is the wrap width.
+     */
+    _beginSideDrag(event, container, side) {
+        event.preventDefault();
+        event.stopPropagation();
+        const g = this._geometry();
+        const canvas = this._canvas();
+        if (!g || !canvas) return;
+
+        const members = this._memberObjects(container);
+        if (members.length < 2) return;
+
+        const start = members.map((obj) => ({
+            obj,
+            left: obj.left,
+            width: obj.width * (obj.scaleX || 1),
+        }));
+        const minLeft = Math.min(...start.map((s) => s.left));
+        const maxRight = Math.max(...start.map((s) => s.left + s.width));
+        const contentWidth = maxRight - minLeft;
+        if (!(contentWidth > 0)) return;
+        const startX = event.clientX;
+        const MIN_WIDTH = 30;
+
+        const onMove = (e) => {
+            const dxCanvas = (e.clientX - startX) / g.scale;
+            let ratio = side === 'right'
+                ? (contentWidth + dxCanvas) / contentWidth
+                : (contentWidth - dxCanvas) / contentWidth;
+            ratio = Math.max(MIN_WIDTH / contentWidth, ratio);
+
+            start.forEach(({ obj, left, width }) => {
+                const newLeft = side === 'right'
+                    ? minLeft + (left - minLeft) * ratio
+                    : maxRight - (maxRight - left) * ratio;
+                obj.set({ left: newLeft, width: Math.max(10, width * ratio) });
+                obj.setCoords();
+            });
+
+            // New wrap widths → new heights → reflow the members below, still
+            // anchored to the pre-drag snapshot (stable while dragging).
+            this._reflowFor(members[0]);
+            canvas.requestRenderAll();
+            this._positionZones();
+        };
+        const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            canvas.fire('object:modified', {});
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    /** Zone × button: drop the container definition, keep the texts. */
+    _deleteContainer(event, container) {
+        event.preventDefault();
+        event.stopPropagation();
+        const canvas = this._canvas();
+        if (!canvas) return;
+
+        const containers = this._containers();
+        const index = containers.indexOf(container);
+        if (index !== -1) {
+            containers.splice(index, 1);
+        }
+        this._resnapshotAll();
+        this.renderZones();
+        canvas.fire('object:modified', {});
+        this._syncSection();
     }
 
     _beginHandleDrag(event, container) {
