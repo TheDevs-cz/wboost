@@ -66,6 +66,23 @@ readonly final class FileUploadRepository
     }
 
     /**
+     * Number of FileUploads for a project + source, without hydrating the
+     * rows. Powers the gallery tile on the project dashboard.
+     */
+    public function countByProjectAndSource(UuidInterface $projectId, FileSource $source): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('COUNT(f.id)')
+            ->from(FileUpload::class, 'f')
+            ->where('IDENTITY(f.project) = :projectId')
+            ->andWhere('f.source = :source')
+            ->setParameter('projectId', $projectId)
+            ->setParameter('source', $source->value);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
      * FileUploads for a project + source that live directly inside the given
      * directory (or at the gallery root when `$directory` is null), newest
      * first. Powers one level of the nested gallery tree (Stage 8).

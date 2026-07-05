@@ -59,11 +59,11 @@
                                     <span class="dragula-handle dragula-handle-absolute-left"></span>
                                 {% endif %}
 
-                                <span>
+                                <span class="flex-grow-1" style="min-width: 0; overflow-wrap: anywhere;">
                                     {{ font_face.name }}
                                 </span>
 
-                                <span class="ms-auto">
+                                <span class="ms-2 flex-shrink-0">
                                     {% if is_granted('font_edit', font) %}
                                         <a href="#"
                                            class="btn btn-outline-danger btn btn-sm px-1 py-0"

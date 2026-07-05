@@ -47,7 +47,13 @@ export default class extends Controller {
             this.fontFamilyTarget.value = activeObject.fontFamily || this.defaultFontFamilyValue;
         }
         if (this.hasTextDecorationTarget) {
-            this.textDecorationTarget.value = activeObject.textDecoration || 'none';
+            // Read the modern boolean props — `textDecoration` was removed from
+            // Fabric ages ago, so reading it always yielded 'none' and the
+            // dropdown never reflected an underlined/struck-through selection.
+            this.textDecorationTarget.value = activeObject.underline ? 'underline'
+                : activeObject.linethrough ? 'line-through'
+                : activeObject.overline ? 'overline'
+                : 'none';
         }
         if (this.hasMaxLengthTarget) {
             this.maxLengthTarget.value = activeObject.maxLength || '';
@@ -60,7 +66,13 @@ export default class extends Controller {
     updateFontSize(event) {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
-        activeObject.set({ fontSize: event.target.value });
+        // Store a NUMBER: the raw input value is a string, which Fabric mostly
+        // survives (multiplication coerces) but serializes as-is into the
+        // canvas JSON — and from there leaks into the API's textStyle payload
+        // that consumers mirror for their own text measurement.
+        const fontSize = parseFloat(event.target.value);
+        if (!(fontSize > 0)) return;
+        activeObject.set({ fontSize });
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }

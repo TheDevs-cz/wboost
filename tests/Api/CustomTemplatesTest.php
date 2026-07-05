@@ -153,6 +153,22 @@ final class CustomTemplatesTest extends ApiTestCase
         self::assertFalse($photo['includesRoot'] ?? null);
         self::assertIsArray($photo['frame'] ?? null);
         self::assertEqualsWithDelta(100.0, $photo['frame']['x'] ?? null, 0.001);
+
+        // Rich text: headline is WYSIWYG-enabled; the variant exposes the
+        // options (whitelist falls back to ALL project fonts — the custom
+        // canvas references no project font family — plus brand swatches).
+        self::assertTrue($headline['richText'] ?? null);
+        $options = $variant['richTextOptions'] ?? null;
+        self::assertIsArray($options);
+        $fonts = $options['fonts'] ?? null;
+        self::assertIsArray($fonts);
+        $families = [];
+        foreach ($fonts as $font) {
+            self::assertIsArray($font);
+            $families[] = $font['family'] ?? null;
+        }
+        self::assertSame(['Rubik (Rubik Regular)', 'Rubik (Rubik Bold)'], $families);
+        self::assertSame(['#c8102e', '#004e7c'], $options['colors'] ?? null);
     }
 
     /**

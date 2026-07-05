@@ -14,11 +14,13 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use WBoost\Web\Exceptions\ContainerOverflow;
+use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\CustomTemplateVariantNotFound;
 use WBoost\Web\Repository\CustomTemplateVariantRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Security\CustomTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
@@ -33,6 +35,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         private CustomTemplateVariantRepository $variantRepository,
         private TemplateVariantImageRendererInterface $renderer,
         private ResolveTextOverrides $resolveTextOverrides,
+        private ResolveRichTextOptions $resolveRichTextOptions,
         private ResolveImageOverrides $resolveImageOverrides,
         private RecordExportUsage $recordExportUsage,
     ) {
@@ -61,7 +64,24 @@ final readonly class ExportProcessor implements ProcessorInterface
             throw new AccessDeniedHttpException();
         }
 
-        $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $data->inputs);
+        try {
+            $overrides = $this->resolveTextOverrides->resolve(
+                $variant->inputs,
+                $data->inputs,
+                richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
+            );
+        } catch (InvalidRichTextValue $invalidRichText) {
+            // Structured 400 for rich-text contract violations — same pattern
+            // as `container_overflow` below, so consumers can react to the
+            // `code` (rich_text_not_allowed / invalid_rich_text /
+            // font_not_allowed / invalid_color) programmatically.
+            return new JsonResponse([
+                'error' => $invalidRichText->getMessage(),
+                'code' => $invalidRichText->errorCode,
+                ...$invalidRichText->context,
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,
             $variant->template->project->id,

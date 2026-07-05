@@ -293,12 +293,15 @@ export default class extends Controller {
     }
 
     deleteActiveObject() {
-        const activeObject = this.canvas.getActiveObject();
-        if (activeObject) {
+        // getActiveObjects() resolves a multi-selection to its members — the
+        // ActiveSelection wrapper itself is not in the objects array, so
+        // remove(wrapper) would silently do nothing.
+        const objects = this.canvas.getActiveObjects();
+        if (objects.length) {
             // Discard FIRST so selection:cleared fires and the floating chrome
             // hides; then remove.
             this.canvas.discardActiveObject();
-            this.canvas.remove(activeObject);
+            this.canvas.remove(...objects);
             this.canvas.renderAll();
         }
     }
@@ -584,8 +587,9 @@ export default class extends Controller {
             // server-side renderer's expectations.
             originX: 'left',
             originY: 'top',
-            cornersize: 10,
-            hasRotatingPoint: true,
+            // (`cornersize`/`hasRotatingPoint` were dead props — the casing was
+            // wrong and the rotating point ships by default since Fabric v6.)
+            cornerSize: 10,
         });
         // Stamp inputId proactively (Stage 2 convention) so it can be promoted
         // to a fillable image placeholder by id.
@@ -663,6 +667,7 @@ export default class extends Controller {
                 uppercase: textbox.uppercase || false,
                 description: textbox.description || '',
                 hidable: textbox.hidable || false,
+                richText: textbox.richText || false,
             };
         });
 

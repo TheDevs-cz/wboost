@@ -152,7 +152,6 @@ export default class extends Controller {
             top: frame.y + frame.height / 2,
             scaleX: containScale, scaleY: containScale,
             angle: 0,
-            lockUniScaling: true,
             lockMovementX: !placeholder.allowMove,
             lockMovementY: !placeholder.allowMove,
             lockScalingX: !placeholder.allowResize,
@@ -165,6 +164,13 @@ export default class extends Controller {
         });
         img._placeholderId = inputId;
         img._containScale = containScale;
+
+        // Scaling must stay UNIFORM: the placement contract (and the hidden
+        // form fields) carry a single `scale`, so a distorted preview could
+        // never match the server render. `lockUniScaling` was removed in
+        // Fabric v6 — hide the middle handles instead (corner drags are
+        // uniform by default via the canvas's uniformScaling).
+        img.setControlsVisibility({ ml: false, mt: false, mr: false, mb: false });
 
         this._replaceObject(inputId, img);
         if (adjustable) {

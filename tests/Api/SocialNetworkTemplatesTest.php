@@ -319,6 +319,69 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
     }
 
     /**
+     * Rich-text (WYSIWYG) metadata: the headline input carries richText: true
+     * and the variant exposes richTextOptions — the font whitelist (canvas
+     * families expanded to ALL their faces, with grouping metadata + a font
+     * URL for consumer @font-face) and the brand color swatches (primary
+     * first, lowercase #rrggbb).
+     */
+    public function testEmbedsRichTextFlagAndOptions(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+
+        $this->assertResponseIsSuccessful();
+        $template = self::findTemplate($response->toArray(), TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID);
+        $variants = $template['variants'] ?? null;
+        self::assertIsArray($variants);
+        $variant = $variants[0] ?? null;
+        self::assertIsArray($variant);
+
+        $inputs = $variant['inputs'] ?? null;
+        self::assertIsArray($inputs);
+        foreach ($inputs as $input) {
+            self::assertIsArray($input);
+            $id = $input['id'] ?? null;
+            self::assertIsString($id);
+            $expected = $id === TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID;
+            self::assertSame($expected, $input['richText'] ?? null, 'richText flag mismatch for input ' . $id);
+        }
+
+        $options = $variant['richTextOptions'] ?? null;
+        self::assertIsArray($options);
+
+        $fonts = $options['fonts'] ?? null;
+        self::assertIsArray($fonts);
+        $families = [];
+        foreach ($fonts as $font) {
+            self::assertIsArray($font);
+            $families[] = $font['family'] ?? null;
+        }
+        self::assertSame(['Rubik (Rubik Regular)', 'Rubik (Rubik Bold)'], $families);
+
+        $bold = $fonts[1] ?? null;
+        self::assertIsArray($bold);
+        self::assertSame('Rubik', $bold['fontName'] ?? null);
+        self::assertSame('Rubik Bold', $bold['faceName'] ?? null);
+        self::assertSame(700, $bold['weight'] ?? null);
+        self::assertSame('normal', $bold['style'] ?? null);
+        $boldUrl = $bold['url'] ?? null;
+        self::assertIsString($boldUrl);
+        self::assertStringContainsString('fixtures/fonts/rubik-bold.ttf', $boldUrl);
+
+        // Primary brand color first, secondary after, normalized lowercase.
+        self::assertSame(['#c8102e', '#004e7c'], $options['colors'] ?? null);
+    }
+
+    /**
      * @param array<int|string, mixed> $rows
      * @return array<string, mixed>
      */

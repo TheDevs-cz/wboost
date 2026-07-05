@@ -1,9 +1,20 @@
 import { Controller } from "@hotwired/stimulus";
+import { ActiveSelection } from "fabric";
 
 /**
  * Object alignment + z-order + delete buttons. All these buttons enable
  * iff there's an active selection on the canvas; alignment ops require an
- * `activeSelection` (multi-select) specifically.
+ * `activeselection` (multi-select) specifically.
+ *
+ * Fabric v7 gotchas this controller works around:
+ *   - `obj.type` is reported LOWERCASED ('activeselection', not the v5
+ *     'activeSelection') — compare case-insensitively.
+ *   - The ActiveSelection wrapper is NOT in the canvas objects array, so
+ *     collection ops must target `canvas.getActiveObjects()`: `remove(sel)`
+ *     silently no-ops and `bringObjectToFront(sel)` would PUSH the wrapper
+ *     into the objects array (it would then serialize into the save).
+ *   - Member left/top are RELATIVE to the selection transform while grouped —
+ *     measure/move in absolute coordinates after discarding the selection.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
@@ -22,35 +33,49 @@ export default class extends Controller {
     }
 
     bringToFront() {
-        const canvas = this.canvasEditorOutlet.canvas;
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-            // Fabric v7: stacking order methods moved to the canvas.
-            canvas.bringObjectToFront(activeObject);
-            canvas.discardActiveObject();
-            canvas.renderAll();
-        }
+        this._restack('front');
     }
 
     sendToBack() {
+        this._restack('back');
+    }
+
+    /**
+     * Restack the selected object(s). Always operates on the underlying
+     * objects (getActiveObjects), never on the ActiveSelection wrapper —
+     * see the class docblock. Relative order inside the moved block is kept.
+     */
+    _restack(where) {
         const canvas = this.canvasEditorOutlet.canvas;
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-            // Fabric v7: stacking order methods moved to the canvas.
-            canvas.sendObjectToBack(activeObject);
-            canvas.discardActiveObject();
-            canvas.renderAll();
+        const objects = canvas.getActiveObjects();
+        if (!objects.length) {
+            return;
         }
+
+        const stack = canvas.getObjects();
+        const byStack = [...objects].sort((a, b) => stack.indexOf(a) - stack.indexOf(b));
+        if (where === 'front') {
+            byStack.forEach((obj) => canvas.bringObjectToFront(obj));
+        } else {
+            byStack.reverse().forEach((obj) => canvas.sendObjectToBack(obj));
+        }
+
+        canvas.discardActiveObject();
+        canvas.renderAll();
+        // Restacking fires no Fabric events — announce it so the form is
+        // marked dirty and the undo stack picks the change up.
+        canvas.fire('object:modified', {});
     }
 
     deleteObject() {
         const canvas = this.canvasEditorOutlet.canvas;
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-            // Discard FIRST (while the object is still active) so selection:cleared
-            // fires and the floating chrome hides; then remove.
+        const objects = canvas.getActiveObjects();
+        if (objects.length) {
+            // Discard FIRST (while the objects are still active) so
+            // selection:cleared fires and the floating chrome hides; then
+            // remove the real objects (not the ActiveSelection wrapper).
             canvas.discardActiveObject();
-            canvas.remove(activeObject);
+            canvas.remove(...objects);
             canvas.renderAll();
         }
     }
@@ -65,11 +90,22 @@ export default class extends Controller {
     _align(alignment) {
         const canvas = this.canvasEditorOutlet.canvas;
         const activeObject = canvas.getActiveObject();
-        if (!activeObject || activeObject.type !== 'activeSelection') {
+        // Case-insensitive: v7 reports 'activeselection' — the old camelCase
+        // comparison never matched, which made every align a silent no-op.
+        if (!activeObject || (activeObject.type || '').toLowerCase() !== 'activeselection') {
             return;
         }
 
         const objects = activeObject.getObjects();
+        if (objects.length < 2) {
+            return;
+        }
+
+        // Leave the selection so member coordinates are absolute again (the
+        // same convention canvas_container_controller uses), measure + move
+        // in canvas space, then re-select below so align clicks can be chained.
+        canvas.discardActiveObject();
+        objects.forEach((obj) => obj.setCoords());
         const positions = objects.map(obj => obj.getBoundingRect());
 
         if (alignment === 'left' || alignment === 'right' || alignment === 'center') {
@@ -124,7 +160,17 @@ export default class extends Controller {
             });
         }
 
+        const selection = new ActiveSelection(objects, { canvas });
+        canvas.setActiveObject(selection);
         canvas.requestRenderAll();
+
+        // Announce the change: marks the form dirty (orchestrator), pushes an
+        // undo snapshot (history controller), and container members re-derive
+        // their design geometry from the new positions.
+        canvas.fire('object:modified', {});
+        // setActiveObject() fires no Fabric selection events — rebroadcast so
+        // the floating multi-bar re-anchors to the fresh selection bounds.
+        this.canvasEditorOutlet.dispatchSelectionChanged();
     }
 
     updateButtonStates(activeObject) {

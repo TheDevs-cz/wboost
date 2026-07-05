@@ -27,6 +27,7 @@ use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverride;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
+use WBoost\Web\Value\RichText;
 
 final class TemplateVariantImageRenderer implements TemplateVariantImageRendererInterface
 {
@@ -55,6 +56,8 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         private readonly string $breakWordScriptPath,
         #[Autowire('%kernel.project_dir%/assets/editor/container_layout.js')]
         private readonly string $containerLayoutScriptPath,
+        #[Autowire('%kernel.project_dir%/assets/editor/rich_text_runs.js')]
+        private readonly string $richTextRunsScriptPath,
     ) {
     }
 
@@ -142,12 +145,24 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
 
         $canvasJson = $this->buildCanvasJson($variant, $imageOverrides);
 
+        // Disjoint override maps for the template: a rich input's plain
+        // concatenation lives in overrides->texts too (for every plain-text
+        // consumer), but the template must apply EITHER the plain path (clear
+        // styles + set text) OR the rich path (set text + per-char styles) —
+        // never both — so the rich ids are subtracted here.
+        $plainTextOverrides = array_diff_key($overrides->texts, $overrides->richTexts);
+        $richTextOverrides = array_map(
+            static fn (RichText $richText): array => $richText->toArray(),
+            $overrides->richTexts,
+        );
+
         $builder = $this->gotenberg->html()
             ->content('api/template_variant_render.html.twig', [
                 'variant' => $variant,
                 'canvas_json' => $canvasJson,
                 'font_faces' => $fontFaceData,
-                'text_overrides' => $overrides->texts,
+                'text_overrides' => $plainTextOverrides,
+                'rich_text_overrides' => $richTextOverrides,
                 'hidden_overrides' => $overrides->hidden,
                 'containers' => array_map(
                     static fn (CanvasContainer $container): array => $container->toArray(),
@@ -157,6 +172,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'fabric_inline_script' => $this->getInlineScript($this->fabricUmdBundlePath),
                 'break_word_inline_script' => $this->getInlineScript($this->breakWordScriptPath),
                 'container_layout_inline_script' => $this->getInlineScript($this->containerLayoutScriptPath),
+                'rich_text_runs_inline_script' => $this->getInlineScript($this->richTextRunsScriptPath),
             ])
             ->width($variant->dimension->width())
             ->height($variant->dimension->height())

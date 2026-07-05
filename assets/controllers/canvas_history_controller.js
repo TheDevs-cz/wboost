@@ -30,7 +30,27 @@ export default class extends Controller {
         canvas.on('object:removed', this._snapshotIfClean);
 
         // Seed with the initial state so undo always has something to fall back to.
+        // NOTE: the orchestrator loads the canvas JSON asynchronously (fonts +
+        // loadFromJSON), so at outlet-connect time the canvas is still EMPTY —
+        // this seed is a placeholder that onCanvasLoaded() replaces below.
         this.addToHistory();
+    }
+
+    /**
+     * canvas-editor:canvas:loaded — re-seed the BOTTOM of the stack with the
+     * actually-loaded document. Without this, history[0] stays the empty
+     * placeholder snapshotted before the async initial load finished, and
+     * undoing the very first edit restores a BLANK canvas (background gone,
+     * every object wiped). The same event also fires after undo/redo restores,
+     * where the stack must not be touched — those are recognizable because
+     * either an undo left something in redoStack or a redo/edit grew history
+     * past the seed.
+     */
+    onCanvasLoaded() {
+        if (this.history.length === 1 && this.redoStack.length === 0) {
+            this.history = [];
+            this.addToHistory();
+        }
     }
 
     canvasEditorOutletDisconnected(outlet) {

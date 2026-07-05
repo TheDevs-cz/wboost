@@ -14,6 +14,7 @@ use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Security\CustomTemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
@@ -30,6 +31,7 @@ final class CustomTemplateVariantDownloadController extends AbstractController
     public function __construct(
         private readonly TemplateVariantImageRendererInterface $renderer,
         private readonly ResolveTextOverrides $resolveTextOverrides,
+        private readonly ResolveRichTextOptions $resolveRichTextOptions,
         private readonly ResolveImageOverrides $resolveImageOverrides,
         private readonly RecordExportUsage $recordExportUsage,
     ) {
@@ -69,7 +71,12 @@ final class CustomTemplateVariantDownloadController extends AbstractController
             $providedValues[$key]['hide'] = true;
         }
 
-        $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $providedValues, truncateOverflow: true);
+        $overrides = $this->resolveTextOverrides->resolve(
+            $variant->inputs,
+            $providedValues,
+            truncateOverflow: true,
+            richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
+        );
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,
             $variant->template->project->id,

@@ -10,69 +10,159 @@
     </ol>
 {% endblock %}
 
+{% macro module_card(url, icon, color, title, description, count, badge = null) %}
+    <div class="col-sm-6 col-xl-3 d-flex">
+        <a href="{{ url }}" class="text-body d-block w-100">
+            <div class="card module-card h-100 mb-0">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="avatar-sm flex-shrink-0">
+                            <span class="avatar-title bg-{{ color }}-lighten text-{{ color }} rounded">
+                                <i class="{{ icon }} font-20"></i>
+                            </span>
+                        </div>
+                        {% if badge %}
+                            <span class="badge badge-warning-lighten rounded-pill">{{ badge }}</span>
+                        {% else %}
+                            <h2 class="my-0 fw-semibold">{{ count }}</h2>
+                        {% endif %}
+                    </div>
+                    <h4 class="mt-0 mb-1">{{ title }}</h4>
+                    <p class="text-muted font-13 mb-0">{{ description }}</p>
+                </div>
+            </div>
+        </a>
+    </div>
+{% endmacro %}
+
 {% block content %}
-    <div class="row">
+    {% set is_own = project.owner.id.equals(app.user.id) %}
+    {% set intro_manual = manuals|filter(manual => manual.logo.introImage)|first %}
+    {% set color_manual = manuals|filter(manual => manual.detectedColors|length > 0)|first %}
 
-        <div class="col-sm-6 col-lg-3">
-            <a href="{{ path('manuals_list', {'id': project.id}) }}">
-                <div class="card tilebox-one text-center">
-                    <div class="card-body">
-                        <i class="uil-copy-alt position-relative" style="right: auto;"></i>
-                        <h2 class="my-2 mt-0">{{ manuals|length }}</h2>
-                        <h6 class="text-uppercase mb-0">Manuály</h6>
-                    </div>
+    {# Project header — brand identity at a glance #}
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+                <div class="flex-shrink-0 bg-light rounded d-flex align-items-center justify-content-center" style="width: 96px; height: 72px;">
+                    {% if intro_manual %}
+                        <img src="{{ uploaded_asset(intro_manual.logo.introImage.filePath) }}" alt="{{ project.name }}" style="max-width: 84px; max-height: 60px; object-fit: contain;">
+                    {% else %}
+                        <i class="uil-folder-open text-muted" style="font-size: 1.75rem;"></i>
+                    {% endif %}
                 </div>
-            </a>
-        </div>
 
-        <div class="col-sm-6 col-lg-3">
-            <a href="{{ path('social_network_templates', {'projectId': project.id}) }}">
-                <div class="card tilebox-one text-center">
-                    <div class="card-body">
-                        <i class="uil-facebook position-relative" style="right: auto;"></i>
-                        <h2 class="my-2 mt-0">{{ social_templates|length }}</h2>
-                        <h6 class="text-uppercase mb-0">Sociální sítě</h6>
-                    </div>
+                <div class="flex-grow-1">
+                    <h2 class="my-0">{{ project.name }}</h2>
+                    <p class="text-muted mb-0 mt-1">
+                        {% if not is_own %}
+                            <span class="badge bg-secondary me-1">vlastník: {{ project.owner.getDisplayName() }}</span>
+                        {% endif %}
+                        Založeno {{ project.createdAt|date('j. n. Y') }}
+                    </p>
+                    {% if color_manual %}
+                        <div class="mt-2">
+                            {% for detected_color in color_manual.detectedColors|slice(0, 8) %}
+                                <span class="d-inline-block avatar-xs rounded-circle shadow-sm me-1" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detected_color.color.hex }};"></span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
-            </a>
-        </div>
 
-        <div class="col-sm-6 col-lg-3">
-            <a href="{{ path('fonts_list', {'id': project.id}) }}">
-                <div class="card tilebox-one text-center">
-                    <div class="card-body">
-                        <i class="ri-font-family position-relative" style="right: auto;"></i>
-                        <h2 class="my-2 mt-0">{{ fonts|length }}</h2>
-                        <h6 class="text-uppercase mb-0">Fonty</h6>
+                {% if is_granted('project_edit', project) %}
+                    <div class="flex-shrink-0">
+                        <a href="{{ path('edit_project', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill">
+                            <i class="mdi mdi-pencil me-1"></i>Upravit projekt
+                        </a>
                     </div>
-                </div>
-            </a>
+                {% endif %}
+            </div>
         </div>
-
-        <div class="col-sm-6 col-lg-3">
-            <a href="{{ path('email_signature_templates', {'id': project.id}) }}">
-                <div class="card tilebox-one text-center">
-                    <div class="card-body">
-                        <i class="mdi mdi-email position-relative" style="right: auto;"></i>
-                        <h2 class="my-2 mt-0">{{ emails|length }}</h2>
-                        <h6 class="text-uppercase mb-0">E-maily</h6>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-sm-6 col-lg-3">
-            <a href="{{ path('weekly_menus', {'projectId': project.id}) }}">
-                <div class="card tilebox-one text-center">
-                    <div class="card-body">
-                        <i class="uil-restaurant position-relative" style="right: auto;"></i>
-                        <h2 class="my-2 mt-0">{{ weekly_menus|length }}</h2>
-                        <h6 class="text-uppercase mb-0">Jídelníčky</h6>
-                    </div>
-                </div>
-            </a>
-        </div>
-
     </div>
 
+    {# Module tiles — one per left-nav module #}
+    <div class="row g-3">
+        {{ _self.module_card(
+            path('manuals_list', {'id': project.id}),
+            'uil-copy-alt', 'primary', 'Manuály',
+            'Brand a logo manuály projektu',
+            manuals|length
+        ) }}
+
+        {{ _self.module_card(
+            path('social_network_templates', {'projectId': project.id}),
+            'uil-facebook', 'info', 'Sociální sítě',
+            'Šablony příspěvků na sociální sítě',
+            social_templates|length
+        ) }}
+
+        {{ _self.module_card(
+            path('custom_templates', {'projectId': project.id}),
+            'uil-postcard', 'success', 'Šablony',
+            'Tiskoviny a grafiky ve vlastních rozměrech',
+            custom_templates|length
+        ) }}
+
+        {% if is_granted('project_edit', project) %}
+            {{ _self.module_card(
+                path('project_gallery', {'projectId': project.id}),
+                'uil-images', 'warning', 'Galerie',
+                'Sdílená knihovna obrázků projektu',
+                gallery_images_count
+            ) }}
+        {% endif %}
+
+        {{ _self.module_card(
+            path('calendars', {'projectId': project.id}),
+            'uil-calendar-alt', 'secondary', 'Kalendáře',
+            'Firemní kalendáře připravené k tisku',
+            null,
+            'Připravujeme'
+        ) }}
+
+        {{ _self.module_card(
+            path('fonts_list', {'id': project.id}),
+            'ri-font-family', 'primary', 'Fonty',
+            'Písma používaná napříč projektem',
+            fonts|length
+        ) }}
+
+        {{ _self.module_card(
+            path('email_signature_templates', {'id': project.id}),
+            'ri-mail-line', 'danger', 'E-maily',
+            'Šablony e-mailových podpisů',
+            emails|length
+        ) }}
+
+        {{ _self.module_card(
+            path('weekly_menus', {'projectId': project.id}),
+            'uil-restaurant', 'success', 'Jídelníčky',
+            'Týdenní jídelníčky a správa jídel',
+            weekly_menus|length
+        ) }}
+    </div>
+
+    {# Latest templates across both template modules #}
+    {% if recent_templates|length %}
+        <h4 class="mt-4 mb-2">Naposledy přidané šablony</h4>
+        <div class="row g-3 mb-3">
+            {% for item in recent_templates %}
+                {% set template = item.template %}
+                {% set template_url = item.type == 'social'
+                    ? path('social_network_template_variants', {'templateId': template.id})
+                    : path('custom_template_variants', {'templateId': template.id}) %}
+                <div class="col-6 col-md-4 col-xl-2 d-flex">
+                    <a href="{{ template_url }}" class="text-body d-block w-100">
+                        <div class="card module-card h-100 mb-0">
+                            <img class="card-img-top p-2" style="height: 140px; object-fit: contain;" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
+                            <div class="card-body pt-0 pb-2 px-2 text-center">
+                                <h5 class="my-0 text-truncate">{{ template.name }}</h5>
+                                <span class="text-muted font-12">{{ item.type == 'social' ? 'Sociální sítě' : 'Šablony' }}</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
 {% endblock %}

@@ -38,6 +38,7 @@
 {% set previewSrc = hasImages ? null : this.previewDataUri() %}
 
 {% set fontFaces = this.fontFaces() %}
+{% set richToolbar = this.richTextToolbar() %}
 
 <div {{ attributes }}>
     {# Shared editor modules (classic scripts, window globals) + the project
@@ -48,6 +49,7 @@
     <div data-live-ignore hidden>
         <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
         <script src="{{ asset('editor/container_layout.js') }}"></script>
+        <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
         <style>
             {% for face in fontFaces %}
                 @font-face {
@@ -67,6 +69,7 @@
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
+        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged rich-text-editor:commit->variant-fill-overlay#close"
         {% if hasImages %}
             data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
@@ -281,18 +284,85 @@
                         </div>
                     {% endif %}
                 {% endfor %}
+            </div>
+        </div>
+        </div>
 
-                {# Text popovers (all non-locked inputs, so the no-JS list works
-                   even when a frame is missing). #}
-                {% for ph in textPlaceholders %}
-                    {% if not ph.locked %}
-                        <div class="fill-popover card" role="dialog" aria-labelledby="fill-text-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
-                            <div class="card-body p-2">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                    <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0" for="fill-text-{{ ph.inputId }}">{{ ph.name ?? 'Text' }}</label>
-                                    <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
+        {# Text popovers (all non-locked inputs, so the no-JS list works even
+           when a frame is missing). OUTSIDE the zoom-scaled stage and the
+           overflow-clipping .fill-viewport: the controller positions the open
+           popover `fixed` in viewport coordinates and clamps it fully
+           on-screen, so no ancestor can ever clip it. #}
+        <div class="fill-popovers" data-live-ignore>
+            {% for ph in textPlaceholders %}
+                {% if not ph.locked %}
+                    <div class="fill-popover card{% if ph.richText and richToolbar %} fill-popover--rich{% endif %}" role="dialog" aria-labelledby="fill-text-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0" for="fill-text-{{ ph.inputId }}">{{ ph.name ?? 'Text' }}</label>
+                                <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
+                            </div>
+                            {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
+                            {% if ph.richText and richToolbar %}
+                                {# WYSIWYG branch: contenteditable + toolbar, one
+                                   rich-text-editor controller per popover. Seeded
+                                   from parsed runs (NEVER the raw mirror value —
+                                   that may be a JSON envelope); writes the envelope
+                                   back into the mirror on every edit. #}
+                                <div
+                                    data-controller="rich-text-editor"
+                                    data-rich-text-editor-input-id-value="{{ ph.inputId }}"
+                                    data-rich-text-editor-max-length-value="{{ ph.maxLength ?? 0 }}"
+                                    data-rich-text-editor-uppercase-value="{{ ph.uppercase ? 'true' : 'false' }}"
+                                    data-rich-text-editor-runs-value="{{ ph.runs|json_encode }}"
+                                    data-rich-text-editor-design-font-value="{{ ph.designFontFamily ?? '' }}"
+                                    data-rich-text-editor-fonts-value="{{ richToolbar.fonts|json_encode }}"
+                                    data-rich-text-editor-colors-value="{{ richToolbar.colors|json_encode }}"
+                                >
+                                    <div class="fill-richtext-toolbar d-flex align-items-center flex-wrap gap-1 mb-1">
+                                        <select class="form-select form-select-sm fill-richtext-toolbar__font" aria-label="Písmo" data-rich-text-editor-target="fontSelect" data-action="change->rich-text-editor#applyFont">
+                                            <option value="">Výchozí písmo</option>
+                                            {% for group in richToolbar.fontGroups %}
+                                                <optgroup label="{{ group.name }}">
+                                                    {% for face in group.faces %}
+                                                        <option value="{{ face.family }}" style="font-family: '{{ face.family }}'">{{ face.faceName }}</option>
+                                                    {% endfor %}
+                                                </optgroup>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="Řez a podtržení">
+                                            <button type="button" class="btn btn-outline-secondary fw-bold" title="Tučně (Ctrl+B) — přepne řez písma" data-rich-text-editor-target="bold" data-action="rich-text-editor#toggleBold">B</button>
+                                            <button type="button" class="btn btn-outline-secondary fst-italic" title="Kurzíva (Ctrl+I) — přepne řez písma" data-rich-text-editor-target="italic" data-action="rich-text-editor#toggleItalic">I</button>
+                                            <button type="button" class="btn btn-outline-secondary text-decoration-underline" title="Podtržení (Ctrl+U)" data-rich-text-editor-target="underline" data-action="rich-text-editor#toggleUnderline">U</button>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Výchozí styl — odstraní veškeré formátování" data-action="rich-text-editor#clearFormatting"><i class="mdi mdi-format-clear" aria-hidden="true"></i></button>
+                                    </div>
+                                    <div class="fill-richtext-toolbar__swatches d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barva textu">
+                                        <button type="button" class="fill-richtext-swatch fill-richtext-swatch--auto" title="Výchozí barva" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param=""></button>
+                                        {% for color in richToolbar.colors %}
+                                            <button type="button" class="fill-richtext-swatch" style="background-color: {{ color }}" title="{{ color }}" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param="{{ color }}"></button>
+                                        {% endfor %}
+                                        <label class="fill-richtext-swatch fill-richtext-swatch--custom" title="Vlastní barva">
+                                            <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
+                                        </label>
+                                    </div>
+                                    <div
+                                        id="fill-text-{{ ph.inputId }}"
+                                        class="form-control form-control-sm fill-richtext-editor{% if ph.uppercase %} text-uppercase{% endif %}"
+                                        contenteditable="true"
+                                        role="textbox"
+                                        aria-multiline="false"
+                                        aria-labelledby="fill-text-label-{{ ph.inputId }}"
+                                        {% if ph.designFontFamily %}style="font-family: '{{ ph.designFontFamily }}'"{% endif %}
+                                        data-rich-text-editor-target="editor"
+                                        data-action="input->rich-text-editor#input beforeinput->rich-text-editor#beforeInput keydown->rich-text-editor#keydown paste->rich-text-editor#paste compositionstart->rich-text-editor#compositionStart compositionend->rich-text-editor#compositionEnd"
+                                    ></div>
+                                    <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
+                                        {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
+                                        <small class="text-muted" data-rich-text-editor-target="counter"></small>
+                                    </div>
                                 </div>
-                                {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
+                            {% else %}
                                 {# Auto-growing textarea: rows="1" is the collapsed
                                    start; the controller resizes it to fit the full
                                    value so long text is never clipped/scrolled. #}
@@ -308,12 +378,11 @@
                                     {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
                                     {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }} / {{ ph.maxLength }} znaků</small>{% endif %}
                                 </div>
-                            </div>
+                            {% endif %}
                         </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
         </div>
 
         {# Image gallery modals — opened by an image box's pencil. In their own

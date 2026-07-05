@@ -295,12 +295,14 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
             'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             'font_faces' => [],
             'text_overrides' => [],
+            'rich_text_overrides' => [],
             'hidden_overrides' => [],
             'containers' => [],
             'strict_container_overflow' => false,
             'fabric_inline_script' => '/* fabric stub */',
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
+            'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
         ]);
 
         // The restore pass must:
@@ -336,12 +338,14 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
             'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             'font_faces' => [],
             'text_overrides' => [],
+            'rich_text_overrides' => [],
             'hidden_overrides' => [],
             'containers' => [],
             'strict_container_overflow' => false,
             'fabric_inline_script' => '/* fabric stub */',
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
+            'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
         ]);
 
         // Must use set() for both text and visibility overrides.
@@ -385,6 +389,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
             'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             'font_faces' => [],
             'text_overrides' => [],
+            'rich_text_overrides' => [],
             'hidden_overrides' => [],
             'containers' => [
                 ['id' => 'c-1', 'maxHeight' => 120, 'memberInputIds' => ['a-1', 'b-2']],
@@ -393,6 +398,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
             'fabric_inline_script' => '/* fabric stub */',
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
+            'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
         ]);
 
         $prepare = strpos($rendered, 'WBoostContainerLayout.prepareFabricContainers');
@@ -426,12 +432,14 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
                 ['family' => 'Rubik (Rubik ExtraBold Italic)', 'src' => 'data:font/woff2;base64,AAAA'],
             ],
             'text_overrides' => [],
+            'rich_text_overrides' => [],
             'hidden_overrides' => [],
             'containers' => [],
             'strict_container_overflow' => false,
             'fabric_inline_script' => '/* fabric stub */',
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
+            'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
         ]);
 
         // The faces must reach the client as data the script iterates over.

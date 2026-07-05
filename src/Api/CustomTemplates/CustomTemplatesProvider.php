@@ -21,11 +21,13 @@ use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\RichTextFontOption;
 
 /**
  * @implements ProviderInterface<CustomTemplateResponse>
@@ -41,6 +43,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
         private CanvasPlaceholderGeometry $placeholderGeometry,
         private TextInputObjectBinder $textInputObjectBinder,
         private PlaceholderAllowedDirectories $allowedDirectories,
+        private ResolveRichTextOptions $resolveRichTextOptions,
     ) {
     }
 
@@ -141,6 +144,43 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
             inputs: $this->buildTextInputs($variant, $canvas, $containers),
             imageInputs: $this->buildImageInputs($variant),
             containers: $this->buildContainers($containers, $frames),
+            richTextOptions: $this->buildRichTextOptions($variant),
+        );
+    }
+
+    /**
+     * Fonts + swatches for the variant's WYSIWYG inputs. Computed (fonts +
+     * manuals queries) only when the variant actually has a rich input.
+     */
+    private function buildRichTextOptions(CustomTemplateVariant $variant): null|RichTextOptionsResponse
+    {
+        $hasRichInput = false;
+        foreach ($variant->inputs as $input) {
+            if ($input->richText && !$input->locked) {
+                $hasRichInput = true;
+                break;
+            }
+        }
+
+        if (!$hasRichInput) {
+            return null;
+        }
+
+        $options = $this->resolveRichTextOptions->forVariant($variant);
+
+        return new RichTextOptionsResponse(
+            fonts: array_map(
+                static fn (RichTextFontOption $font): RichTextFontOptionResponse => new RichTextFontOptionResponse(
+                    family: $font->family,
+                    fontName: $font->fontName,
+                    faceName: $font->faceName,
+                    weight: $font->weight,
+                    style: $font->style,
+                    url: $font->url,
+                ),
+                $options->fonts,
+            ),
+            colors: $options->colors,
         );
     }
 
@@ -174,6 +214,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                     uppercase: $input->uppercase,
                     description: $input->description,
                     hidable: $input->hidable,
+                    richText: $input->richText,
                     frame: $frame !== null
                         ? new CustomTemplateVariantInputFrameResponse(
                             $frame->x,

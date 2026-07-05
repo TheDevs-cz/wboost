@@ -21,7 +21,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
 {
     private const string FIXED_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
 
-    /** @var array<int, array{variantId: string, texts: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}> */
+    /** @var array<int, array{variantId: string, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}> */
     public array $calls = [];
 
     /**
@@ -81,9 +81,15 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
             $imagesHidden = array_keys($imageOverrides->hidden);
         }
 
+        $richTexts = [];
+        foreach ($overrides->richTexts as $inputId => $richText) {
+            $richTexts[$inputId] = $richText->toArray();
+        }
+
         $this->calls[] = [
             'variantId' => $variant->id->toString(),
             'texts' => $overrides->texts,
+            'richTexts' => $richTexts,
             'hidden' => $overrides->hidden,
             'images' => $images,
             'imagesHidden' => $imagesHidden,

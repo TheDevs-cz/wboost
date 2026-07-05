@@ -22,6 +22,11 @@
        of truth for the "smart text area" reflow algorithm. #}
     <script>{{ break_word_inline_script|raw }}</script>
     <script>{{ container_layout_inline_script|raw }}</script>
+    {# rich_text_runs.js converts rich-text overrides (runs) into Fabric
+       per-character styles — grapheme-indexed, styles-before-text ordering.
+       The fill page loads the same file for its measurement overlay, so the
+       preview reflow and this render can never disagree. #}
+    <script>{{ rich_text_runs_inline_script|raw }}</script>
 </head>
 <body>
     <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
@@ -59,6 +64,7 @@
 
                 const canvasJson = {{ canvas_json|raw }};
                 const textOverrides = {{ text_overrides|json_encode|raw }};
+                const richTextOverrides = {{ rich_text_overrides|json_encode|raw }};
                 const hiddenOverrides = {{ hidden_overrides|json_encode|raw }};
                 const containers = {{ containers|json_encode|raw }};
                 const strictContainerOverflow = {{ strict_container_overflow ? 'true' : 'false' }};
@@ -118,7 +124,7 @@
                 // hydrate on _fromObject.)
                 const CANVAS_CUSTOM_PROPERTIES = [
                     'inputId', 'name', 'maxLength',
-                    'locked', 'uppercase', 'description', 'hidable',
+                    'locked', 'uppercase', 'description', 'hidable', 'richText',
                 ];
                 const sourceObjects = Array.isArray(canvasJson.objects) ? canvasJson.objects : [];
                 const liveObjects = canvas.getObjects();
@@ -150,10 +156,26 @@
                 // override clearly being applied at the JS level.
                 // Verified empirically via /debug/fabric-render-test.html
                 // against the prod canvas JSON.
+                // Every text override REPLACES the content, so any per-char
+                // styles keyed to the old character positions must go first —
+                // Fabric never remaps the styles grid on a programmatic text
+                // set, and stale entries would smear onto arbitrary chars.
                 Object.keys(textOverrides).forEach((idKey) => {
                     const obj = liveObjects.find((o) => o.inputId === idKey);
                     if (obj) {
+                        WBoostRichTextRuns.clearStyles(obj);
                         obj.set({ text: String(textOverrides[idKey]) });
+                    }
+                });
+                // Rich overrides carry per-character styling as runs; the
+                // shared module converts them to grapheme-indexed Fabric
+                // styles and applies them in the styles-before-text order the
+                // re-wrap depends on. The maps are disjoint (renderer-side
+                // split), so no object gets both treatments.
+                Object.keys(richTextOverrides).forEach((idKey) => {
+                    const obj = liveObjects.find((o) => o.inputId === idKey);
+                    if (obj) {
+                        WBoostRichTextRuns.applyToTextbox(obj, richTextOverrides[idKey], fabric.util.stylesFromArray);
                     }
                 });
                 Object.keys(hiddenOverrides).forEach((idKey) => {

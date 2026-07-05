@@ -38,16 +38,16 @@
                 <div class="col-sm-6 col-md-4">
                     <div class="card">
                         <div class="card-body">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <h5 class="mt-0 mb-1">{{ diet.name }}</h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="flex-grow-1" style="min-width: 0;">
+                                    <h5 class="mt-0 mb-1" style="overflow-wrap: anywhere;">{{ diet.name }}</h5>
                                     <div>
                                         {% for code in diet.codes %}
                                             <span class="badge bg-secondary">{{ code }}</span>
                                         {% endfor %}
                                     </div>
                                 </div>
-                                <div>
+                                <div class="d-flex align-items-center gap-1 flex-shrink-0">
                                     {% if is_granted('diet_edit', diet) %}
                                         <a href="{{ path('edit_diet', {'dietId': diet.id}) }}" class="btn btn-outline-secondary btn-sm px-1 py-0">
                                             <i class="mdi mdi-pencil"></i>

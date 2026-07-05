@@ -18,12 +18,16 @@ use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\ResolvedImageOverrides;
+use WBoost\Web\Value\RichText;
+use WBoost\Web\Value\RichTextOptions;
 
 /**
  * Shared engine of the user-fill / export page, used by both canvas template
@@ -74,8 +78,16 @@ abstract class AbstractVariantFiller extends AbstractController
     #[LiveProp(writable: true)]
     public array $hiddenValues = [];
 
+    /**
+     * Per-request cache of the variant's rich-text options (fonts + colors) —
+     * the resolver hits the fonts + manuals queries, and several render
+     * methods need the same options during one request.
+     */
+    private null|RichTextOptions $richTextOptionsCache = null;
+
     public function __construct(
         private readonly ResolveTextOverrides $resolveTextOverrides,
+        private readonly ResolveRichTextOptions $resolveRichTextOptions,
         private readonly TemplateVariantImageRendererInterface $renderer,
         private readonly CanvasPlaceholderGeometry $placeholderGeometry,
         private readonly TextInputObjectBinder $textInputObjectBinder,
@@ -279,8 +291,11 @@ abstract class AbstractVariantFiller extends AbstractController
      *     locked: bool,
      *     uppercase: bool,
      *     hidable: bool,
+     *     richText: bool,
      *     frame: null|array{x: float, y: float, width: float, height: float},
      *     value: string,
+     *     runs: null|list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>,
+     *     designFontFamily: null|string,
      *     hidden: bool
      * }>
      */
@@ -292,6 +307,7 @@ abstract class AbstractVariantFiller extends AbstractController
         $decoded = json_decode($variant->canvas, true);
         $canvas = is_array($decoded) ? $decoded : [];
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+        $styles = $this->textInputObjectBinder->textStylesByInputId($canvas, $variant->inputs);
 
         $result = [];
         foreach ($variant->inputs as $input) {
@@ -313,13 +329,98 @@ abstract class AbstractVariantFiller extends AbstractController
                 'locked' => $input->locked,
                 'uppercase' => $input->uppercase,
                 'hidable' => $input->hidable,
+                'richText' => $input->richText,
                 'frame' => $frame,
                 'value' => $this->textValues[$input->inputId] ?? '',
+                'runs' => $this->seededRuns($input),
+                'designFontFamily' => $styles[$input->inputId]['fontFamily'] ?? null,
                 'hidden' => $this->hiddenValues[$input->inputId] ?? false,
             ];
         }
 
         return $result;
+    }
+
+    /**
+     * The runs a rich input's WYSIWYG editor is seeded with, parsed from the
+     * stored mirror value. The mirror may hold either the `{"runs":[...]}`
+     * envelope the editor writes, or plain text (fresh state / no-JS entry) —
+     * raw JSON must never leak into a visible editing surface. Null for
+     * non-rich inputs.
+     *
+     * @return null|list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>
+     */
+    private function seededRuns(EditorTextInput $input): null|array
+    {
+        if (!$input->richText) {
+            return null;
+        }
+
+        $storedValue = $this->textValues[$input->inputId] ?? '';
+        $envelopeRuns = RichText::tryExtractEnvelopeRuns($storedValue);
+
+        if ($envelopeRuns !== null) {
+            return RichText::fromRaw($envelopeRuns, strict: false, inputLabel: $input->name ?? $input->inputId)->toArray();
+        }
+
+        if ($storedValue === '') {
+            return [];
+        }
+
+        return [['text' => $storedValue, 'fontFamily' => null, 'color' => null, 'underline' => false]];
+    }
+
+    /**
+     * The rich-text toolbar payload (pickable font faces + brand color
+     * swatches), or null when the variant has no rich-text input — the
+     * template then skips the WYSIWYG chrome entirely. `fontGroups` is the
+     * same faces list grouped by family for the <optgroup> dropdown.
+     *
+     * @return null|array{
+     *     fonts: list<array{family: string, fontName: string, faceName: string, weight: int, style: string, url: string}>,
+     *     colors: list<string>,
+     *     fontGroups: list<array{name: string, faces: list<array{family: string, faceName: string}>}>
+     * }
+     */
+    public function richTextToolbar(): null|array
+    {
+        $options = $this->richTextOptions();
+
+        if ($options === null) {
+            return null;
+        }
+
+        /** @var array<string, list<array{family: string, faceName: string}>> $grouped */
+        $grouped = [];
+        foreach ($options->fonts as $font) {
+            $grouped[$font->fontName][] = ['family' => $font->family, 'faceName' => $font->faceName];
+        }
+
+        $fontGroups = [];
+        foreach ($grouped as $name => $faces) {
+            $fontGroups[] = ['name' => $name, 'faces' => $faces];
+        }
+
+        return [...$options->toArray(), 'fontGroups' => $fontGroups];
+    }
+
+    private function richTextOptions(): null|RichTextOptions
+    {
+        $variant = $this->variantEntity();
+
+        $hasRichInput = false;
+        foreach ($variant->inputs as $input) {
+            if ($input->richText && !$input->locked) {
+                $hasRichInput = true;
+                break;
+            }
+        }
+
+        if (!$hasRichInput) {
+            return null;
+        }
+
+        return $this->richTextOptionsCache ??= $this->resolveRichTextOptions->forVariant($variant);
     }
 
     /**
@@ -361,7 +462,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *         locked: bool,
      *         uppercase: bool,
      *         maxLength: null|int,
-     *         hidable: bool
+     *         hidable: bool,
+     *         richText: bool
      *     }>,
      *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>}>
      * }
@@ -393,6 +495,7 @@ abstract class AbstractVariantFiller extends AbstractController
                 'uppercase' => $input->uppercase,
                 'maxLength' => $input->maxLength,
                 'hidable' => $input->hidable,
+                'richText' => $input->richText,
             ];
         }
 
@@ -410,7 +513,12 @@ abstract class AbstractVariantFiller extends AbstractController
         $variant = $this->variantEntity();
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
 
-        $overrides = $this->resolveTextOverrides->resolve($variant->inputs, $this->buildProvidedValues(), truncateOverflow: true);
+        $overrides = $this->resolveTextOverrides->resolve(
+            $variant->inputs,
+            $this->buildProvidedValues(),
+            truncateOverflow: true,
+            richTextOptions: $this->richTextOptions(),
+        );
         $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides);
 
         if ($bytes === '') {

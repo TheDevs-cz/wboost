@@ -107,6 +107,7 @@ final class TemplateVariantImageRendererTest extends TestCase
             '/nonexistent/fabric.js',
             '/nonexistent/fabric_break_word.js',
             '/nonexistent/container_layout.js',
+            '/nonexistent/rich_text_runs.js',
         );
 
         $method = new ReflectionMethod($renderer, 'alignTextboxInputIds');

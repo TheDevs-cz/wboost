@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { Textbox, cache } from "fabric";
+import { Textbox, cache, util } from "fabric";
 
 /**
  * Click-into-preview placeholder overlay for the user-fill / export page.
@@ -139,10 +139,12 @@ export default class extends Controller {
     }
 
     // --- Zoom (whole preview) ------------------------------------------------
-    // Visual CSS scale on the stage: the preview + overlay boxes + popovers all
-    // scale together, so they stay aligned with no re-measuring. reposition()
-    // computes the box scale from the UNSCALED width (divides by this._zoom), so
-    // the boxes are laid out in unscaled coords and the transform scales them.
+    // Visual CSS scale on the stage: the preview + overlay boxes scale together,
+    // so they stay aligned with no re-measuring. reposition() computes the box
+    // scale from the UNSCALED width (divides by this._zoom), so the boxes are
+    // laid out in unscaled coords and the transform scales them. The popovers
+    // live OUTSIDE the stage (position:fixed, viewport coords) so zoom/overflow
+    // never clips them.
     //
     // The initial zoom is auto-fit so the canvas WIDTH fits the screen (crucial
     // on mobile — no horizontal scrolling); the height is free to scroll. We keep
@@ -208,8 +210,8 @@ export default class extends Controller {
         const stage = this.stageTarget;
         stage.style.transformOrigin = "top left";
         stage.style.transform = z === 1 ? "" : `scale(${z})`;
-        // Expose the zoom so the chrome (icon clusters + popover) can counter-scale
-        // itself back to its default size — only the artwork/boxes scale visually.
+        // Expose the zoom so the icon clusters can counter-scale themselves back
+        // to their default size — only the artwork/boxes scale visually.
         stage.style.setProperty("--fill-zoom", z);
         // offsetWidth/Height are unaffected by transform — the true unscaled size.
         const w = stage.offsetWidth;
@@ -241,8 +243,9 @@ export default class extends Controller {
         popover.classList.add("is-open");
 
         // Grow the textarea to fit its current value BEFORE positioning — the
-        // popover's height feeds the above/below flip decision.
-        const field = popover.querySelector('input[type="text"], textarea');
+        // popover's height feeds the above/below flip decision. Rich popovers
+        // have a contenteditable editor instead of a textarea.
+        const field = popover.querySelector('input[type="text"], textarea, [contenteditable="true"]');
         if (field) this._autoGrow(field);
 
         this._positionPopover(popover, this._boxFor(inputId));
@@ -430,6 +433,20 @@ export default class extends Controller {
         this._scheduleSpinner();
     }
 
+    /** A rich-text WYSIWYG (rich_text_editor_controller) changed its value.
+     *  The editor already wrote the mirror + dispatched its `input` (Live
+     *  debounce running); this hook adds the same local echo syncText gives
+     *  plain fields: instant container reflow + the render spinner. Re-anchor
+     *  the open popover too — the editor auto-grows with its content. */
+    richTextChanged() {
+        if (this._openId !== null) {
+            const popover = this._popoverFor(this._openId);
+            if (popover) this._positionPopover(popover, this._boxFor(this._openId));
+        }
+        this._scheduleRecompute();
+        this._scheduleSpinner();
+    }
+
     _updateCounter(inputId, field) {
         const counter = this.element.querySelector(`[data-fill-counter="${inputId}"]`);
         if (!counter) return;
@@ -527,36 +544,35 @@ export default class extends Controller {
 
     _positionPopover(popover, box) {
         if (!box) return;
-        const stage = this.hasStageTarget ? this.stageTarget : this.element;
-        const z = this._zoom || 1;
-        const stageRect = stage.getBoundingClientRect();
         const boxRect = box.getBoundingClientRect();
+        const margin = 8;
 
-        // The popover lives inside the transform-scaled stage, so position it in the
-        // stage's LOCAL (unscaled) coordinates: divide screen deltas by the zoom.
-        let top = (boxRect.bottom - stageRect.top) / z + 8;
-        let left = (boxRect.left - stageRect.left) / z;
+        // The popover is position:fixed OUTSIDE the zoom-scaled stage and the
+        // scrolling viewport (so no ancestor can clip it): position it directly
+        // in viewport coordinates, preferring below the box, flipping above it
+        // when there is more room there, and ALWAYS clamping it fully on-screen.
+        let top = boxRect.bottom + margin;
+        let left = boxRect.left;
 
         popover.style.top = `${top}px`;
         popover.style.left = `${left}px`;
 
         const pRect = popover.getBoundingClientRect();
-        const margin = 8;
 
-        const overflowRight = pRect.right - (window.innerWidth - margin);
-        if (overflowRight > 0) {
-            left = Math.max(0, left - overflowRight / z);
-            popover.style.left = `${left}px`;
+        // Prefer below the box; flip above when below would overflow the
+        // viewport bottom and there is room above.
+        if (top + pRect.height > window.innerHeight - margin) {
+            const aboveTop = boxRect.top - pRect.height - margin;
+            if (aboveTop >= margin) top = aboveTop;
         }
 
-        // Flip above the box if it would overflow the viewport bottom and there is
-        // room above (in local coords).
-        if (pRect.bottom > window.innerHeight - margin) {
-            const aboveTop = (boxRect.top - stageRect.top - pRect.height) / z - 8;
-            if (boxRect.top - pRect.height - 8 > margin) {
-                popover.style.top = `${aboveTop}px`;
-            }
-        }
+        // Whatever the anchor, the popover must stay fully on-screen — even
+        // when the box itself is scrolled out of the viewport.
+        top = Math.max(margin, Math.min(top, window.innerHeight - pRect.height - margin));
+        left = Math.max(margin, Math.min(left, window.innerWidth - pRect.width - margin));
+
+        popover.style.top = `${top}px`;
+        popover.style.left = `${left}px`;
     }
 
     _applyPreviewSrc() {
@@ -626,7 +642,7 @@ export default class extends Controller {
             if (!def.frame) return;
             let height = def.frame.height;
             if (!def.locked && def.style) {
-                height = this._measureHeight(inputId, this._currentText(inputId, def), def);
+                height = this._measureHeight(inputId, this._currentValue(inputId, def), def);
             }
             computed[inputId] = { x: def.frame.x, y: def.frame.y, width: def.frame.width, height };
         });
@@ -676,17 +692,49 @@ export default class extends Controller {
         this.reposition();
     }
 
-    /** The value the server would render: mirror value, capped + uppercased. */
-    _currentText(inputId, def) {
+    /** The value the server would render: mirror value, capped + uppercased.
+     *  Returns { text, runs } — `runs` is non-null only for a rich-text input
+     *  whose mirror carries the {"runs":[...]} envelope; the shared module
+     *  mirrors the server's truncate-then-uppercase pipeline so the measured
+     *  wrap matches the render. */
+    _currentValue(inputId, def) {
         const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
-        let value = mirror ? mirror.value : "";
+        const raw = mirror ? mirror.value : "";
+        const module = window.WBoostRichTextRuns;
+
+        if (def.richText && module) {
+            let runs = null;
+            const trimmed = raw.trim();
+            if (trimmed.startsWith("{")) {
+                try {
+                    const decoded = JSON.parse(trimmed);
+                    if (decoded && Array.isArray(decoded.runs)) {
+                        runs = module.normalize(decoded.runs);
+                    }
+                } catch (err) {
+                    // Not an envelope — treat as plain text below.
+                }
+            }
+            if (runs === null) {
+                runs = raw === "" ? [] : module.normalize([{ text: raw }]);
+            }
+            if (Number.isInteger(def.maxLength) && def.maxLength > 0) {
+                runs = module.truncate(runs, def.maxLength);
+            }
+            if (def.uppercase) {
+                runs = module.upper(runs);
+            }
+            return { text: module.plainText(runs), runs: module.isStyled(runs) ? runs : null };
+        }
+
+        let value = raw;
         if (Number.isInteger(def.maxLength) && def.maxLength > 0 && value.length > def.maxLength) {
             value = value.slice(0, def.maxLength);
         }
         if (def.uppercase) {
             value = value.toUpperCase();
         }
-        return value;
+        return { text: value, runs: null };
     }
 
     _isHidden(inputId) {
@@ -694,13 +742,17 @@ export default class extends Controller {
         return Boolean(mirror && mirror.checked);
     }
 
-    /** Wrapped height of `text` in the input's designed box (reused offscreen
-     *  Textbox per input — never added to a canvas, Fabric measures detached). */
-    _measureHeight(inputId, text, def) {
+    /** Wrapped height of the value in the input's designed box (reused offscreen
+     *  Textbox per input — never added to a canvas, Fabric measures detached).
+     *  `value` is { text, runs } from _currentValue: styled runs are applied as
+     *  per-character styles (a bold face wraps wider!) via the shared module —
+     *  and cleared again when the value flips back to plain, or the box would
+     *  keep measuring with stale styling. */
+    _measureHeight(inputId, value, def) {
         try {
             let box = this._measureBoxes.get(inputId);
             if (!box) {
-                box = new Textbox(text, {
+                box = new Textbox("", {
                     width: def.frame.width,
                     fontFamily: def.style.fontFamily,
                     fontSize: def.style.fontSize,
@@ -709,8 +761,17 @@ export default class extends Controller {
                     splitByGrapheme: false,
                 });
                 this._measureBoxes.set(inputId, box);
+            }
+
+            const module = window.WBoostRichTextRuns;
+            if (value.runs && module) {
+                module.applyToTextbox(box, value.runs, util.stylesFromArray);
+            } else if (module) {
+                module.clearStyles(box);
+                box.set({ text: value.text });
+                box.initDimensions();
             } else {
-                box.set({ text });
+                box.set({ text: value.text });
             }
             return box.height;
         } catch (err) {

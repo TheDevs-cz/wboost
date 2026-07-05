@@ -35,6 +35,9 @@ final readonly class CustomTemplateVariantResponse
         public array $inputs,
         public array $imageInputs,
         public array $containers = [],
+        // Fonts + brand color swatches for rich-text inputs. Null unless at
+        // least one input has `richText: true`.
+        public null|RichTextOptionsResponse $richTextOptions = null,
     ) {
     }
 }

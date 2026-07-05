@@ -8,7 +8,7 @@ import { Controller } from "@hotwired/stimulus";
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["name", "description", "locked", "hidable", "uppercase"];
+    static targets = ["name", "description", "locked", "hidable", "uppercase", "richText"];
 
     canvasEditorOutletConnected(outlet) {
         // Apply uppercase live as the user types into a textbox.
@@ -39,12 +39,19 @@ export default class extends Controller {
         if (this.hasNameTarget)      this.nameTarget.value        = activeObject.name || '';
         if (this.hasDescriptionTarget) this.descriptionTarget.value = activeObject.description || '';
         if (this.hasHidableTarget)   this.hidableTarget.checked   = activeObject.hidable || false;
+        if (this.hasRichTextTarget) {
+            this.richTextTarget.checked = activeObject.richText || false;
+            // Locked inputs are never user-fillable, so the WYSIWYG toggle is
+            // meaningless for them — keep the stored flag, just gray the box.
+            this.richTextTarget.disabled = activeObject.locked || false;
+        }
     }
 
     updateLocked(event) {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.locked = event.target.checked;
+        if (this.hasRichTextTarget) this.richTextTarget.disabled = activeObject.locked;
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }
@@ -66,6 +73,14 @@ export default class extends Controller {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.hidable = event.target.checked;
+        this.canvasEditorOutlet.canvas.renderAll();
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    updateRichText(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        activeObject.richText = event.target.checked;
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }

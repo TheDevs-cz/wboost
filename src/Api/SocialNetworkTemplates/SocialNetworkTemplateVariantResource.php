@@ -39,13 +39,32 @@ Per-input value can be either:
 - an object `{ "value": "...", "hide": true|false }` — `value` sets the text,
   `hide` toggles visibility (only honored when the input definition has
   `hidable: true`; silently ignored otherwise)
+- an object `{ "runs": [...], "hide": true|false }` — **rich text**, accepted
+  only for inputs with `richText: true` (see below)
 
 Server-side behavior:
 
-- `maxLength` from the input definition is enforced (400 if exceeded)
+- `maxLength` from the input definition is enforced (400 if exceeded; for rich
+  values the concatenation of all run texts counts)
 - `uppercase` from the input definition is applied automatically
 - Locked inputs cannot be addressed
 - Unknown input UUIDs are silently ignored
+
+## Rich text (WYSIWYG) inputs
+
+An input with `richText: true` accepts a formatted value as ordered **runs**:
+`{ "runs": [ { "text": "...", "fontFamily": null|string, "color": null|"#rrggbb",
+"underline": bool } ] }`. Null/omitted style = inherit the designed style. Run
+text must not contain line breaks; `runs` and `value` are mutually exclusive.
+
+- `fontFamily` must be one of the variant's `richTextOptions.fonts[].family`
+  (bold/italic are separate font FACES — switch the family, don't send weights);
+  otherwise **400 `font_not_allowed`** (body carries `allowedFonts`).
+- `color` accepts any well-formed hex (`#rrggbb` / `#rgb`, no alpha) —
+  `richTextOptions.colors` are brand swatch suggestions, NOT a whitelist;
+  malformed → **400 `invalid_color`**.
+- Structurally invalid runs → **400 `invalid_rich_text`**; runs on a non-rich
+  input → **400 `rich_text_not_allowed`**.
 
 ## Image placeholders (`images`)
 
@@ -78,7 +97,7 @@ inputs carry `containerId` + `textStyle` in the listing so a consumer can
 mirror the reflow client-side (see docs/api/consumer-prompt.md).
 MD,
                 requestBody: new RequestBody(
-                    description: 'Map of inputId UUID → value (string or `{ value, hide }` object).',
+                    description: 'Map of inputId UUID → value (string, `{ value, hide }`, or `{ runs, hide }` for richText inputs).',
                     content: new ArrayObject([
                         'application/json' => [
                             'schema' => [
@@ -96,6 +115,29 @@ MD,
                                                         'value' => ['type' => 'string'],
                                                         'hide' => ['type' => 'boolean'],
                                                     ],
+                                                    'additionalProperties' => false,
+                                                ],
+                                                [
+                                                    'type' => 'object',
+                                                    'description' => 'Rich text — only for inputs with richText: true.',
+                                                    'properties' => [
+                                                        'runs' => [
+                                                            'type' => 'array',
+                                                            'items' => [
+                                                                'type' => 'object',
+                                                                'properties' => [
+                                                                    'text' => ['type' => 'string'],
+                                                                    'fontFamily' => ['type' => 'string', 'nullable' => true],
+                                                                    'color' => ['type' => 'string', 'nullable' => true],
+                                                                    'underline' => ['type' => 'boolean'],
+                                                                ],
+                                                                'required' => ['text'],
+                                                                'additionalProperties' => false,
+                                                            ],
+                                                        ],
+                                                        'hide' => ['type' => 'boolean'],
+                                                    ],
+                                                    'required' => ['runs'],
                                                     'additionalProperties' => false,
                                                 ],
                                             ],
@@ -158,16 +200,17 @@ MD,
                         ]),
                     ),
                     '400' => new OpenApiResponse(
-                        description: 'Invalid request — malformed JSON, wrong types, value exceeds maxLength, or container content overflows its max height (body carries `code: "container_overflow"`, the `containerId` and the `overflowPx`).',
+                        description: 'Invalid request — malformed JSON, wrong types, value exceeds maxLength, an invalid rich-text value (`code`: `rich_text_not_allowed` / `invalid_rich_text` / `font_not_allowed` — body carries `allowedFonts` — / `invalid_color`), or container content overflows its max height (body carries `code: "container_overflow"`, the `containerId` and the `overflowPx`).',
                         content: new ArrayObject([
                             'application/json' => [
                                 'schema' => [
                                     'type' => 'object',
                                     'properties' => [
                                         'error' => ['type' => 'string'],
-                                        'code' => ['type' => 'string', 'enum' => ['container_overflow']],
+                                        'code' => ['type' => 'string', 'enum' => ['container_overflow', 'rich_text_not_allowed', 'invalid_rich_text', 'font_not_allowed', 'invalid_color']],
                                         'containerId' => ['type' => 'string', 'nullable' => true],
                                         'overflowPx' => ['type' => 'number'],
+                                        'allowedFonts' => ['type' => 'array', 'items' => ['type' => 'string']],
                                     ],
                                 ],
                             ],

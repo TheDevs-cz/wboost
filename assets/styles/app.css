@@ -234,8 +234,9 @@
     max-width: 100%;
 }
 
-/* Base (no-JS) — overlay is a stacked list of the popovers. */
-.fill-overlay {
+/* Base (no-JS) — the popovers render as a plain stacked, editable list under
+   the preview. (The .fill-overlay itself only holds the boxes, hidden here.) */
+.fill-popovers {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -334,9 +335,11 @@
 .fill-form.fill-js .fill-overlay {
     position: absolute;
     inset: 0;
-    display: block;
-    margin-top: 0;
     pointer-events: none;
+}
+
+.fill-form.fill-js .fill-popovers {
+    display: contents;
 }
 
 .fill-form.fill-js .fill-box {
@@ -361,8 +364,12 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
+/* Fixed in viewport coordinates (the controller positions + clamps it fully
+   on-screen). It lives OUTSIDE the zoom-scaled stage and the scrolling
+   .fill-viewport, so no ancestor overflow or transform can ever clip it — and
+   it needs no zoom counter-scale. */
 .fill-form.fill-js .fill-popover {
-    position: absolute;
+    position: fixed;
     z-index: 1200;
     width: 280px;
     max-width: 92vw;
@@ -372,11 +379,6 @@
     border: 1px solid var(--ct-border-color, #e3e6ef);
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
-    /* Keep the edit popover at its default size at any zoom. It's positioned by
-       its top-left corner (screen-measured in the controller), so scaling from
-       that corner needs no positioning changes. */
-    transform: scale(calc(1 / var(--fill-zoom, 1)));
-    transform-origin: top left;
 }
 
 .fill-form.fill-js .fill-popover.is-open {
@@ -393,6 +395,85 @@
     line-height: 1.4;
     white-space: pre-wrap;
     word-break: break-word;
+}
+
+/* --- Rich text (WYSIWYG) popover ------------------------------------------ */
+
+/* The toolbar needs more room than the plain text popover. */
+.fill-form.fill-js .fill-popover--rich {
+    width: 360px;
+}
+
+/* The contenteditable editing surface. Grows with content (no fixed height);
+   single visual line by default, wraps like the exported textbox. */
+.fill-richtext-editor {
+    min-height: calc(1.5em + 0.5rem + 2px);
+    height: auto;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    cursor: text;
+}
+
+.fill-richtext-editor:focus {
+    outline: 0;
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Placeholder hint while empty (contenteditable has no placeholder attr). */
+.fill-richtext-editor:empty::before {
+    content: "Zadejte text\2026";
+    color: var(--ct-secondary-color, #98a6ad);
+    pointer-events: none;
+}
+
+.fill-richtext-toolbar__font {
+    width: auto;
+    max-width: 11rem;
+    flex: 1 1 auto;
+}
+
+/* Color chips: brand swatches + the "default" and free-picker chips. */
+.fill-richtext-swatch {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.fill-richtext-swatch:hover {
+    box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.35);
+}
+
+/* "Default color" chip: white with a diagonal strike = inherit designed color. */
+.fill-richtext-swatch--auto {
+    background:
+        linear-gradient(to top right, transparent 44%, #dc3545 46%, #dc3545 54%, transparent 56%),
+        #fff;
+}
+
+/* Free-picker chip: rainbow ring wrapping a visually-hidden <input type=color>
+   so the native picker opens on click. */
+.fill-richtext-swatch--custom {
+    background: conic-gradient(#f44, #fb0, #4c4, #19d, #b3f, #f44);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+}
+
+.fill-richtext-swatch__input {
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: 0;
+    padding: 0;
 }
 
 /* Live-preview spinner overlay. No z-index: DOM order (preview < spinner <
@@ -1278,4 +1359,16 @@
 /* Let the filename column truncate instead of overflowing the row. */
 .gallery-upload-item .min-w-0 {
     min-width: 0;
+}
+
+/*
+ * Project dashboard — clickable module/template tiles.
+ */
+.module-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.module-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.375rem 1.125rem rgba(0, 0, 0, 0.12);
 }

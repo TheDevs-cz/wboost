@@ -74,6 +74,7 @@
             canvas-editor:selection:changed->canvas-floating-toolbar#onSelectionChanged
             canvas-editor:selection:changed->canvas-container#onSelectionChanged
             canvas-editor:canvas:loaded->canvas-container#onCanvasLoaded
+            canvas-editor:canvas:loaded->canvas-history#onCanvasLoaded
             canvas-zoom:changed->canvas-floating-toolbar#reposition
             canvas-zoom:changed->canvas-container#repositionZones
             canvas-editor:copy->canvas-clipboard#copy
@@ -195,6 +196,13 @@
                             <div class="mb-2 form-check">
                                 <input type="checkbox" id="hidable-control" class="form-check-input" data-canvas-input-properties-target="hidable" data-action="change->canvas-input-properties#updateHidable">
                                 <label for="hidable-control" class="form-check-label small">Schovatelnost</label>
+                            </div>
+
+                            <!-- Rich Text (WYSIWYG) Control -->
+                            <div class="mb-2 form-check">
+                                <input type="checkbox" id="rich-text-control" class="form-check-input" data-canvas-input-properties-target="richText" data-action="change->canvas-input-properties#updateRichText">
+                                <label for="rich-text-control" class="form-check-label small">Formátovatelný text</label>
+                                <div class="form-text small mt-0">Uživatel může měnit písmo, barvu a podtržení částí textu.</div>
                             </div>
 
                             <!-- Font Family Control -->

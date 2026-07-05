@@ -21,11 +21,17 @@ readonly final class EditorTextInput
         public bool $uppercase,
         public null|string $description,
         public bool $hidable,
+        /**
+         * When true the end user fills this input through the simple WYSIWYG
+         * (font face / color / underline as {@see RichTextRun}s) instead of a
+         * plain text field, and the export accepts a `runs` value for it.
+         */
+        public bool $richText = false,
     ) {
     }
 
     /**
-     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool}
+     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool}
      */
     public function toArray(): array
     {
@@ -37,6 +43,7 @@ readonly final class EditorTextInput
             'uppercase' => $this->uppercase,
             'description' => $this->description,
             'hidable' => $this->hidable,
+            'richText' => $this->richText,
         ];
     }
 
@@ -48,7 +55,7 @@ readonly final class EditorTextInput
      * caller is responsible for stamping the matching id onto the canvas
      * object on the next save.
      *
-     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool} $data
+     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool} $data
      */
     public static function fromArray(array $data): self
     {
@@ -70,6 +77,7 @@ readonly final class EditorTextInput
             uppercase: $data['uppercase'] ?? false,
             description: $data['description'] ?? null,
             hidable: $data['hidable'] ?? false,
+            richText: $data['richText'] ?? false,
         );
     }
 
@@ -78,7 +86,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool}> $data */
+        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

@@ -144,6 +144,49 @@ an ordinary independent input.
   (zones + structured-400 highlighting, no client reflow — its preview IS the
   server render).
 
+**Rich text (WYSIWYG) placeholders**
+
+A text input flagged `richText: true` (admin checkbox "Formátovatelný text",
+persisted on `EditorTextInput` + as a canvas custom prop) is filled through a
+simple hand-rolled WYSIWYG instead of a plain field: font-FACE switch (bold/
+italic are separate face families — `"Rubik (Rubik Bold)"` — so B/I buttons
+just swap `fontFamily`), brand-color swatches + free picker, underline.
+
+- **Value model = "runs"**: `[{text, fontFamily|null, color|null, underline}]`;
+  concatenation = plain text (drives `maxLength`, truncate-then-`uppercase`
+  applied PER RUN — case mapping can change length). PHP side:
+  `src/Value/RichText(Run).php` (strict parse for API / lenient sanitize for
+  web), resolved by `ResolveTextOverrides` into
+  `ResolvedInputOverrides::$richTexts` alongside the plain `$texts` concat.
+  The web mirror fields smuggle runs as a `{"runs":[...]}` JSON envelope,
+  detected ONLY for rich inputs inside `ResolveTextOverrides::parseValue()`;
+  unstyled values stay plain strings.
+- **Runs→Fabric = `assets/editor/rich_text_runs.js`** (classic script, the
+  container_layout.js pattern; inlined into the render template, `<script src>`
+  on the fill page). Two load-bearing contracts: style ranges are
+  **grapheme-indexed** (mirrors `fabric.util.stylesFromArray` segmentation) and
+  application order is styles-BEFORE-text + explicit `initDimensions()`
+  (`applyToTextbox`). EVERY text override — plain or rich — clears per-char
+  styles first (Fabric never remaps them on programmatic text set).
+- **Options = `ResolveRichTextOptions`** (single source of truth, the
+  PlaceholderAllowedDirectories pattern): fonts = canvas-used families expanded
+  to ALL their faces (fallback: all project fonts when nothing matches), colors
+  = manual brand colors across `GetManuals::allForProject` (primary →
+  secondary → untyped, deduped lowercase `#rrggbb`; swatches are SUGGESTIONS —
+  export accepts any hex). Consumed by the fill component, both API listing
+  providers (`variants[].richTextOptions`, emitted only when a rich input
+  exists), both ExportProcessors (font whitelist) and download controllers.
+- **Fill page**: `rich_text_editor_controller.js` (per-popover contenteditable;
+  collapsed caret = apply to whole text; IME composition guard; paste as plain
+  text; runs-snapshot undo; envelope→mirror sync + `rich-text-editor:changed`);
+  the overlay measures with per-char styles applied to its offscreen Textboxes
+  (a bold face wraps wider — container overflow gating must match the server).
+- **API**: `inputs[].richText` flag; export accepts `{runs, hide}` (strict:
+  structured 400s `rich_text_not_allowed` / `invalid_rich_text` /
+  `font_not_allowed` (+`allowedFonts`) / `invalid_color` via
+  `InvalidRichTextValue`, the ContainerOverflow pattern). Documented in
+  OpenAPI + consumer-prompt.md; mfkfm consumes it.
+
 **Floating element toolbar.** Selection-contextual editing is NOT in the left
 panel — it floats next to the selected object (Canva/Slides style).
 `canvas_floating_toolbar_controller` owns *when* and *where* the chrome shows;
@@ -184,9 +227,14 @@ icon cluster — **pencil** (text → floating popover with the replace input; i
 (hide, only when `hidable`). The "highlight editable elements" toggle (on by
 default) controls ONLY the dashed border; the icons stay visible regardless. Box
 positions come from the designer frame scaled to the displayed preview
-(`scale = previewWidth / variant.dimension.width()`). The whole overlay (boxes +
-popovers + modals) lives in a `data-live-ignore` subtree so a Live re-render
-never wipes open state or the picker's chosen folder. The ONLY Live-bound fields
+(`scale = previewWidth / variant.dimension.width()`). The overlay, popovers and
+modals all live in `data-live-ignore` subtrees so a Live re-render never wipes
+open state or the picker's chosen folder — but the **text popovers sit in their
+own `.fill-popovers` wrapper OUTSIDE the zoom-scaled `.fill-stage` / scrolling
+`.fill-viewport`** (still inside the controller root) and are `position: fixed`,
+positioned in viewport coords with an unconditional final clamp fully on-screen
+(below the box → flip above → clamp), so no ancestor overflow/transform can ever
+clip them at any zoom. The ONLY Live-bound fields
 are **visually-hidden mirror inputs** (`data-text-mirror` / `data-hide-mirror`,
 with the form `name`): the popover text input writes into the mirror and
 dispatches `input` (`syncText`); the eye flips the mirror / a `data-image-hide`

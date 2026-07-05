@@ -23,6 +23,12 @@ final readonly class SocialNetworkTemplateVariantInputResponse
          */
         public null|string $containerId = null,
         public null|SocialNetworkTemplateVariantInputTextStyleResponse $textStyle = null,
+        /**
+         * When true the export accepts a rich `{ runs: [...] }` value for this
+         * input (fonts limited to the variant's `richTextOptions.fonts`) and a
+         * consumer UI should offer the WYSIWYG instead of a plain text field.
+         */
+        public bool $richText = false,
     ) {
     }
 }

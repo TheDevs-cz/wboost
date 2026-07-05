@@ -335,6 +335,249 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         self::assertIsString($body['error'] ?? null);
     }
 
+    public function testRichRunsRenderAsStyledOverride(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        // headline has richText: true (fixture); Rubik faces are
+                        // whitelisted via the canvas family "Rubik (Rubik Bold)".
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['runs' => [
+                            ['text' => 'Hello '],
+                            ['text' => 'world', 'fontFamily' => 'Rubik (Rubik Regular)', 'color' => '#C8102E', 'underline' => true],
+                        ]],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseHeaderSame('content-type', 'image/png');
+        self::assertStringStartsWith(self::PNG_MAGIC, $response->getContent());
+
+        $fake = $this->getRendererFake();
+        $lastCall = $fake->calls[count($fake->calls) - 1];
+
+        // The plain concatenation always lands in texts…
+        self::assertSame('Hello world', $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
+        // …and the styled runs (color normalized to lowercase) in richTexts.
+        self::assertSame(
+            [
+                ['text' => 'Hello ', 'fontFamily' => null, 'color' => null, 'underline' => false],
+                ['text' => 'world', 'fontFamily' => 'Rubik (Rubik Regular)', 'color' => '#c8102e', 'underline' => true],
+            ],
+            $lastCall['richTexts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null,
+        );
+    }
+
+    public function testUnstyledRichRunsDegradeToPlainOverride(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['runs' => [['text' => 'Plain enough']]],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseIsSuccessful();
+        $fake = $this->getRendererFake();
+        $lastCall = $fake->calls[count($fake->calls) - 1];
+
+        self::assertSame('Plain enough', $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
+        self::assertSame([], $lastCall['richTexts']);
+    }
+
+    public function testRichRunsOnNonRichInputAre400WithCode(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        // tagline is NOT richText-enabled.
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID => ['runs' => [['text' => 'nope']]],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('rich_text_not_allowed', $body['code'] ?? null);
+    }
+
+    public function testRichFontOutsideWhitelistIs400WithAllowedFonts(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['runs' => [
+                            ['text' => 'x', 'fontFamily' => 'Comic Sans (Regular)'],
+                        ]],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('font_not_allowed', $body['code'] ?? null);
+        self::assertSame(['Rubik (Rubik Regular)', 'Rubik (Rubik Bold)'], $body['allowedFonts'] ?? null);
+    }
+
+    public function testRichInvalidColorIs400WithCode(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['runs' => [
+                            ['text' => 'x', 'color' => 'definitely-not-hex'],
+                        ]],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('invalid_color', $body['code'] ?? null);
+    }
+
+    public function testRichRunsCombinedWithValueAre400WithCode(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => [
+                            'runs' => [['text' => 'x']],
+                            'value' => 'y',
+                        ],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('invalid_rich_text', $body['code'] ?? null);
+    }
+
+    public function testRichRunsExceedingMaxLengthAre400(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $client->request(
+            'POST',
+            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        // headline maxLength is 30 — the CONCATENATION counts.
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['runs' => [
+                            ['text' => str_repeat('a', 20)],
+                            ['text' => str_repeat('b', 20), 'underline' => true],
+                        ]],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
     private function getRendererFake(): FakeTemplateVariantImageRenderer
     {
         // In the test env, the renderer interface aliases to the fake (see config/services_test.php).

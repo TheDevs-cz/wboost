@@ -22,7 +22,9 @@ A self-contained **"Export" feature** in our app. The project is fixed/pre-provi
    **same render**.
 6. A **"Download"** button saves the rendered PNG.
 
-The whole thing is powered by **two API endpoints** plus an OAuth2 token call.
+The whole thing is powered by **two API endpoints** plus an OAuth2 token call
+(and an optional **project fonts endpoint** if you want pixel-accurate live
+placeholder boxes — see "Containers → Full mirror").
 
 ---
 
@@ -153,9 +155,23 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "textStyle": {                              // nullable; Fabric metrics to re-measure wrapped text height
               "fontFamily": "Rubik (Rubik Bold)",
               "fontSize": 24, "lineHeight": 1.4, "charSpacing": 0
-            }
+            },
+            "richText": false                           // true → offer the WYSIWYG; export accepts { runs } for this input
           }
         ],
+        "richTextOptions": {                             // present ONLY when some input has richText: true
+          "fonts": [                                     // the font whitelist for rich runs (see "Rich text")
+            { "family": "Rubik (Rubik Regular)",         // exact string a run's fontFamily must carry
+              "fontName": "Rubik", "faceName": "Rubik Regular", // group faces by fontName in the UI
+              "weight": 400, "style": "normal",          // best-effort metadata for B/I button mapping
+              "url": "http://localhost:19000/.../rubik-regular.ttf" }, // font file → @font-face preview
+            { "family": "Rubik (Rubik Bold)",
+              "fontName": "Rubik", "faceName": "Rubik Bold",
+              "weight": 700, "style": "normal",
+              "url": "http://localhost:19000/.../rubik-bold.ttf" }
+          ],
+          "colors": ["#c8102e", "#004e7c"]               // brand swatches, primary first — SUGGESTIONS only
+        },
         "containers": [                                  // "smart text areas" (may be empty)
           {
             "id": "0192f...",                            // referenced by inputs[].containerId
@@ -214,16 +230,26 @@ Content-Type: application/json
   "inputs": {
     "95b025f2-9ea9-40ed-a1e9-737e23a4a953": "Hello world",          // plain string sets the text
     "db3a6588-d604-4c1b-9440-8412d8624bab": { "value": "Line two" },// object form
-    "0a0de75d-57bc-4e35-a2cc-33c8dc5ecd4d": { "hide": true }        // hide (only if hidable)
+    "0a0de75d-57bc-4e35-a2cc-33c8dc5ecd4d": { "hide": true },       // hide (only if hidable)
+    "7c1e42aa-91b3-4f6e-9d3f-2b8f0c11aa55": { "runs": [             // RICH value — only for inputs with richText: true
+      { "text": "Hello " },                                          // unstyled run = inherits the designed style
+      { "text": "world", "fontFamily": "Rubik (Rubik Bold)",         // styled run: font face + color + underline
+        "color": "#c8102e", "underline": true }
+    ] }
   }
 }
 ```
 
 Server rules (mirror these in the UI):
-- Each value is a **string** *or* `{ "value": "...", "hide": true|false }`.
+- Each value is a **string** *or* `{ "value": "...", "hide": true|false }` — or,
+  **only when that input has `richText: true`**, `{ "runs": [...], "hide": ... }`
+  (see "Rich text (WYSIWYG) inputs" below). `runs` and `value` are mutually
+  exclusive (`400 invalid_rich_text` if both are sent).
 - `hide` honored only if that input is `hidable: true`; ignored otherwise.
-- `maxLength` enforced → over-length value returns **`400`**.
-- `uppercase: true` inputs are uppercased automatically.
+- `maxLength` enforced → over-length value returns **`400`** (for rich values it
+  counts the **concatenation** of all run texts).
+- `uppercase: true` inputs are uppercased automatically (rich runs keep their
+  styling; the transform is per run).
 - **Locked inputs cannot be addressed** (always render their canvas default).
 - **Unknown input ids are silently ignored.** Omitted inputs keep the default text.
 - `{ "inputs": {} }` (or omitting fields) renders the variant with all defaults.
@@ -273,6 +299,16 @@ Match on `code === "container_overflow"`, look the container up in
 (`memberInputIds` / `inputs[].containerId`) — e.g. "shorten these fields by
 ~`overflowPx` px worth of lines".
 
+**Rich-text 400s.** A rich value that violates the contract also answers a
+structured `400` `{ "error": "...", "code": "..." }` with one of these codes:
+
+| `code` | Meaning / UI reaction |
+|---|---|
+| `rich_text_not_allowed` | You sent `{ runs }` for an input whose `richText` is `false`. Send a plain string instead. |
+| `invalid_rich_text` | Malformed runs (non-object run, missing/non-string `text`, unknown run key, line breaks in `text`, `runs` + `value` together, > 200 runs, > 10 000 chars total). |
+| `font_not_allowed` | A run's `fontFamily` is not in `richTextOptions.fonts[].family`. The body includes `allowedFonts` (the valid family list). |
+| `invalid_color` | A run's `color` isn't a hex color. Use `#rrggbb` (or `#rgb`); **no alpha**. Colors are otherwise free-form — `richTextOptions.colors` are suggested brand swatches, NOT a whitelist. |
+
 ---
 
 ## Rendering the input form (per selected variant)
@@ -290,9 +326,45 @@ For each entry in `variant.inputs`:
 | `frame` | Optional `{x,y,width,height}` in canvas px (top-left origin, axis-aligned; `null` when the textbox can't be located). Use it to draw a highlight border over the rendered preview and anchor an inline editing affordance at the right spot — same coordinate space as `imageInputs[].frame` and the variant's `width`/`height`. **For container members this is the DESIGNED position** — the render may shift the box down/up per the fill (see "Containers"). |
 | `containerId` | Nullable. When set, this input is a member of `variants[].containers[]` entry with that id and reflows at render time. |
 | `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow. |
+| `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
 
-Build the `inputs` payload as `{ <inputId>: <string|{value,hide}> }`, including only
-the inputs the user actually edited/toggled (omitted = default).
+Build the `inputs` payload as `{ <inputId>: <string|{value,hide}|{runs,hide}> }`,
+including only the inputs the user actually edited/toggled (omitted = default).
+
+### Rich text (WYSIWYG) inputs (`inputs[].richText: true`)
+
+The designer can allow end users to FORMAT parts of their text: switch the font
+face, pick a color, toggle underline. The value is a list of **runs** — ordered
+segments whose concatenation is the plain text:
+
+```jsonc
+{ "runs": [
+  { "text": "Hello " },                                  // null/omitted style = inherit the designed style
+  { "text": "world", "fontFamily": "Rubik (Rubik Bold)", // must be one of richTextOptions.fonts[].family
+    "color": "#c8102e",                                  // any hex color (swatches are suggestions)
+    "underline": true }
+] }
+```
+
+Contract details:
+- Run keys: `text` (required string, **no line breaks**), `fontFamily`
+  (nullable string), `color` (nullable hex), `underline` (bool). No other keys.
+- **Bold/italic are font faces, not flags.** The app stores each uploaded face
+  as its own family (`"Rubik (Rubik Bold)"`). Build a B/I toggle by grouping
+  `richTextOptions.fonts` by `fontName` and switching a run's `fontFamily` to
+  the sibling face with `weight >= 600` (bold) / `style === "italic"` (italic);
+  the metadata is best-effort — disable the button when no candidate face
+  exists. A face dropdown is the reliable fallback.
+- Load `richTextOptions.fonts[].url` via `@font-face` to preview faces in your
+  editor/dropdown (proxy the font through your backend if the store host lacks
+  CORS headers for fonts).
+- Show `richTextOptions.colors` as swatches (primary brand colors first) plus a
+  free color picker — the server accepts any well-formed hex.
+- `maxLength` counts the concatenated plain text; `uppercase` inputs uppercase
+  each run server-side (styling survives).
+- The rendered PNG is authoritative: styled wrapping (a bold face is wider!)
+  and container reflow are computed server-side, so keep using the debounced
+  full render as the preview.
 
 ### Containers (`variant.containers`) — smart text areas
 
@@ -309,15 +381,46 @@ these fields move together, keep anchoring the per-input affordances at their
 designed `frame`s (the rendered PNG is always correct — it IS the server
 render), and handle the 400 by highlighting the container's fields.
 
-Full mirror (optional): the reflow algorithm is deliberately simple and
-deterministic so a consumer can reproduce it exactly — designed gaps
-`gap[i] = frame[i].y − (frame[i−1].y + frame[i−1].height)` (members in
-`memberInputIds` order); the first visible member anchors at `y`; each next
-visible member sits at `previousBottom + its own gap`; hidden members are
-skipped; heights are the wrapped text heights measured with Fabric (same
-version the server renders with, break-word patched) using `textStyle` +
-`frame.width` after applying `maxLength` truncation and `uppercase`. Overflow
-= `lastVisibleBottom − (y + maxHeight)` when positive.
+Full mirror (optional, recommended for a first-class UX): live placeholder
+boxes that grow/reflow while the user types, plus an overflow pre-check that
+disables the export button BEFORE the render 400s. Three ingredients, all
+owned by this repo (they are contract companions — a change to any of them is
+an API contract change):
+
+1. **Fonts.** Wrap points depend on real glyph widths, so measure only with
+   the project's actual fonts:
+   ```
+   GET {API_BASE}/api/projects/{PROJECT_ID}/fonts
+   Authorization: Bearer <token>
+   ```
+   → `[{ "family", "fontName", "faceName", "weight", "style", "url" }]` — one
+   row per uploaded face; `family` is the exact Fabric string that
+   `inputs[].textStyle.fontFamily` (and rich runs' `fontFamily`) carry. Load
+   each via the browser's `FontFace` API (`new FontFace(family, 'url(...)')`,
+   `document.fonts.add`, await) and re-measure once loaded. Fonts are
+   CORS-restricted: proxy the bytes through your backend if the store host
+   doesn't send CORS headers. Measure with a fallback face first if you want
+   instant boxes — then snap after the fonts land.
+
+2. **Measurement** — `assets/editor/text_measure.js`
+   (`WBoostTextMeasure.measureWrappedHeight(value, frame.width, textStyle)`):
+   a dependency-free canvas-2D mirror of the render's Fabric wrap (greedy
+   word wrap, break-word chunking, charSpacing = 1/1000 em per grapheme, line
+   height `fontSize × 1.13 × lineHeight` with the last line un-multiplied).
+   `value` is the string the render would draw — apply `maxLength` truncation
+   and `uppercase` first; a value the export omits (empty / locked input)
+   keeps rendering the designed text, so keep the designed `frame` for it.
+   Rich values pass as segments `[{ text, fontFamily|null }]` (a bold face
+   wraps wider). Vendor the file into your app.
+
+3. **Reflow** — `assets/editor/container_layout.js`
+   (`WBoostContainerLayout.computeGaps` + `computeLayout`): designed gaps
+   `gap[i] = frame[i].y − (frame[i−1].y + frame[i−1].height)` (members in
+   `memberInputIds` order); the first visible member anchors at `y`; each
+   next visible member sits at `previousBottom + its own gap`; hidden members
+   are skipped; overflow = `lastVisibleBottom − (y + maxHeight)` when
+   positive — the same number the render's `container_overflow` 400 reports.
+   Vendor the file into your app.
 
 **Drawing placeholder boxes over the preview.** Both `inputs[].frame` and
 `imageInputs[].frame` are in the variant's canvas pixel space, and the export PNG is

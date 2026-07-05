@@ -15,6 +15,7 @@ use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\CustomTemplate;
 use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
@@ -24,11 +25,15 @@ use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
+use WBoost\Web\Value\Color;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\FontFace;
 use WBoost\Web\Value\CustomTemplateDimension;
+use WBoost\Web\Value\ManualColor;
+use WBoost\Web\Value\ManualColorType;
 use WBoost\Web\Value\ManualType;
 use WBoost\Web\Value\SharingLevel;
 use WBoost\Web\Value\TemplateDimension;
@@ -57,6 +62,9 @@ final class TestDataFixture extends Fixture
 
     public const string PROJECT_1_ID = '00000000-0000-0000-0000-000000000001';
     public const string PROJECT_2_ID = '00000000-0000-0000-0000-000000000002';
+
+    // Project 1 font ("Rubik", faces Regular + Bold) — the rich-text whitelist.
+    public const string FONT_RUBIK_ID = '00000000-0000-0000-0000-0000000000f1';
 
     public const string MANUAL_1_ID = '00000000-0000-0000-0000-000000000001';
     public const string MANUAL_2_ID = '00000000-0000-0000-0000-000000000002';
@@ -148,7 +156,28 @@ final class TestDataFixture extends Fixture
             'Manual 1',
             null,
         );
+        // Brand colors — the swatch source for rich-text (WYSIWYG) inputs.
+        $manual1->editColors(
+            detectedColors: [],
+            customColors: [
+                new ManualColor(new Color('#C8102E'), ManualColorType::Primary, null, null),
+                new ManualColor(new Color('#004E7C'), ManualColorType::Secondary, null, null),
+            ],
+        );
         $manager->persist($manual1);
+
+        // Project font matching the family used by variant 1's headline textbox
+        // ("Rubik (Rubik Bold)") — the rich-text whitelist expands it to BOTH
+        // faces (canvas families → all their faces).
+        $rubik = new Font(
+            Uuid::fromString(self::FONT_RUBIK_ID),
+            $project1,
+            $date,
+            'Rubik',
+            new FontFace('Rubik Regular', 400, 'normal', 'fixtures/fonts/rubik-regular.ttf'),
+        );
+        $rubik->addFontFace(new FontFace('Rubik Bold', 700, 'normal', 'fixtures/fonts/rubik-bold.ttf'));
+        $manager->persist($rubik);
 
         $user2 = new User(
             Uuid::fromString(self::USER_2_ID),
@@ -387,7 +416,7 @@ final class TestDataFixture extends Fixture
         $socialVariant1->editCanvas(
             $variant1Canvas,
             [
-                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false),
+                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false, richText: true),
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID, null, null, true, false, null, false),
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, 'badge', null, false, false, null, true),
@@ -493,7 +522,7 @@ final class TestDataFixture extends Fixture
         $customTemplateVariant1->editCanvas(
             $customTemplateVariant1Canvas,
             [
-                new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false),
+                new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false, richText: true),
                 new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
                 new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_LOCKED_ID, null, null, true, false, null, false),
                 new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_BADGE_ID, 'badge', null, false, false, null, true),
