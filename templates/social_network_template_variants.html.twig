@@ -42,6 +42,9 @@
                                                         <i class="ri-more-fill text-lighter"></i>
                                                     </a>
                                                     <div class="dropdown-menu dropdown-menu-end">
+                                                        {% if variant.group and is_granted('ROLE_DESIGNER') %}
+                                                            <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
+                                                        {% endif %}
                                                         <a href="{{ path('copy_social_network_template_variant', {'variantId': variant.id, 'dimension': variant.dimension.value}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
                                                         {% for dimension in dimensions %}
                                                             {% if dimension != variant.dimension %}
@@ -68,6 +71,11 @@
                                                 <div class="card-body p-1 shadow-lg">
                                                     <img src="{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}" style="max-width: 100%;">
                                                 </div>
+                                                {% if variant.group and is_granted('ROLE_DESIGNER') %}
+                                                    <div class="card-body py-1 px-2">
+                                                        <span class="badge bg-info-lighten text-info" title="Součást skupiny {{ variant.group.name }}"><i class="uil-layer-group"></i> Skupina</span>
+                                                    </div>
+                                                {% endif %}
                                             </a>
                                         </div>
                                     </div>

@@ -10,6 +10,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\Index;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
@@ -18,12 +19,23 @@ use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 
 #[Entity]
+#[Index(name: 'idx_custom_template_group', columns: ['group_id'])]
 class CustomTemplate
 {
     /** @var Collection<int, CustomTemplateVariant>  */
     #[Immutable]
     #[OneToMany(targetEntity: CustomTemplateVariant::class, mappedBy: 'template', fetch: 'EAGER')]
     private Collection $variants;
+
+    /**
+     * Deliberately not a constructor argument: the Copy/Duplicate handlers
+     * construct templates via the constructor only, so a duplicate can never
+     * inherit group membership.
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[ManyToOne]
+    #[JoinColumn(onDelete: "SET NULL")]
+    public null|TemplateGroup $group = null;
 
     public function __construct(
         #[Id]
@@ -79,5 +91,10 @@ class CustomTemplate
     public function sort(int $position): void
     {
         $this->position = $position;
+    }
+
+    public function assignToGroup(TemplateGroup $group): void
+    {
+        $this->group = $group;
     }
 }

@@ -10,6 +10,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\Index;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
@@ -19,12 +20,23 @@ use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Value\TemplateDimension;
 
 #[Entity]
+#[Index(name: 'idx_social_network_template_group', columns: ['group_id'])]
 class SocialNetworkTemplate
 {
     /** @var Collection<int, SocialNetworkTemplateVariant>  */
     #[Immutable]
     #[OneToMany(targetEntity: SocialNetworkTemplateVariant::class, mappedBy: 'template', fetch: 'EAGER')]
     private Collection $variants;
+
+    /**
+     * Deliberately not a constructor argument: the Copy/Duplicate handlers
+     * construct templates via the constructor only, so a duplicate can never
+     * inherit group membership.
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[ManyToOne]
+    #[JoinColumn(onDelete: "SET NULL")]
+    public null|TemplateGroup $group = null;
 
     public function __construct(
         #[Id]
@@ -96,5 +108,10 @@ class SocialNetworkTemplate
     public function sort(int $position): void
     {
         $this->position = $position;
+    }
+
+    public function assignToGroup(TemplateGroup $group): void
+    {
+        $this->group = $group;
     }
 }

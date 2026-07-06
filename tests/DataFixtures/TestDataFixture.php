@@ -22,6 +22,7 @@ use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\RegistrationRequest;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
@@ -127,6 +128,19 @@ final class TestDataFixture extends Fixture
     public const string CUSTOM_TEMPLATE_VARIANT_1_IMAGE_PHOTO_ID = '00000000-0000-0000-0000-000000000095';
     public const string CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000096';
     public const string CUSTOM_TEMPLATE_VARIANT_2_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000097';
+
+    // Template group fixtures — one group (PROJECT_1) spanning BOTH modules.
+    // The two member variants share the same logical input id (the join key
+    // group edits propagate by). The grouped social template ALSO carries a
+    // manually-added variant WITHOUT the group FK — it must never be
+    // group-editable.
+    public const string TEMPLATE_GROUP_1_ID = '00000000-0000-0000-0000-0000000000c0';
+    public const string GROUPED_SOCIAL_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c1';
+    public const string GROUPED_SOCIAL_VARIANT_ID = '00000000-0000-0000-0000-0000000000c2';
+    public const string GROUPED_CUSTOM_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c3';
+    public const string GROUPED_CUSTOM_VARIANT_ID = '00000000-0000-0000-0000-0000000000c4';
+    public const string UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c5';
+    public const string GROUP_SHARED_INPUT_ID = '00000000-0000-0000-0000-0000000000c6';
 
     public function load(ObjectManager $manager): void
     {
@@ -560,6 +574,93 @@ final class TestDataFixture extends Fixture
             null,
         );
         $manager->persist($customTemplateVariant2);
+
+        // Template group spanning both modules (PROJECT_1). Both member
+        // variants carry the SAME textbox inputId — group edits join on it.
+        $templateGroup1 = new TemplateGroup(
+            Uuid::fromString(self::TEMPLATE_GROUP_1_ID),
+            $project1,
+            $date,
+            'Group Campaign',
+        );
+        $manager->persist($templateGroup1);
+
+        $groupSharedCanvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                [
+                    'type' => 'Textbox',
+                    'inputId' => self::GROUP_SHARED_INPUT_ID,
+                    'left' => 80, 'top' => 60, 'width' => 520, 'height' => 90,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+            ],
+            'backgroundImage' => null,
+        ], JSON_THROW_ON_ERROR);
+
+        $groupedSocialTemplate = new SocialNetworkTemplate(
+            Uuid::fromString(self::GROUPED_SOCIAL_TEMPLATE_ID),
+            $project1,
+            null,
+            $date,
+            'Group Campaign',
+            null,
+            1,
+        );
+        $groupedSocialTemplate->assignToGroup($templateGroup1);
+        $manager->persist($groupedSocialTemplate);
+
+        $groupedSocialVariant = new SocialNetworkTemplateVariant(
+            Uuid::fromString(self::GROUPED_SOCIAL_VARIANT_ID),
+            $groupedSocialTemplate,
+            TemplateDimension::InstagramPost,
+            'fixtures/bg-1.png',
+            $date,
+        );
+        $groupedSocialVariant->editCanvas(
+            $groupSharedCanvas,
+            [new EditorTextInput(self::GROUP_SHARED_INPUT_ID, 'headline', null, false, false, null, false)],
+            null,
+        );
+        $groupedSocialVariant->assignToGroup($templateGroup1);
+        $manager->persist($groupedSocialVariant);
+
+        // Manually-added variant on the grouped template — NO group FK.
+        $ungroupedVariantOnGroupedTemplate = new SocialNetworkTemplateVariant(
+            Uuid::fromString(self::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID),
+            $groupedSocialTemplate,
+            TemplateDimension::InstagramStory,
+            'fixtures/bg-1.png',
+            $date,
+        );
+        $manager->persist($ungroupedVariantOnGroupedTemplate);
+
+        $groupedCustomTemplate = new CustomTemplate(
+            Uuid::fromString(self::GROUPED_CUSTOM_TEMPLATE_ID),
+            $project1,
+            null,
+            $date,
+            'Group Campaign',
+            null,
+            1,
+        );
+        $groupedCustomTemplate->assignToGroup($templateGroup1);
+        $manager->persist($groupedCustomTemplate);
+
+        $groupedCustomVariant = new CustomTemplateVariant(
+            Uuid::fromString(self::GROUPED_CUSTOM_VARIANT_ID),
+            $groupedCustomTemplate,
+            new CustomTemplateDimension(DimensionUnit::Mm, 210, 297),
+            'fixtures/custom-template-bg-1.png',
+            $date,
+        );
+        $groupedCustomVariant->editCanvas(
+            $groupSharedCanvas,
+            [new EditorTextInput(self::GROUP_SHARED_INPUT_ID, 'headline', null, false, false, null, false)],
+            null,
+        );
+        $groupedCustomVariant->assignToGroup($templateGroup1);
+        $manager->persist($groupedCustomVariant);
 
         // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
         $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, self::OAUTH2_CLIENT_SECRET);

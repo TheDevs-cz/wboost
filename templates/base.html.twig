@@ -220,6 +220,15 @@
                                 </a>
                             </li>
 
+                            {% if is_granted('ROLE_DESIGNER') %}
+                                <li class="side-nav-item {{ active_menu_item|default == 'template_groups' ? 'menuitem-active' }}">
+                                    <a href="{{ path('template_groups', {'projectId': project.id}) }}" class="side-nav-link">
+                                        <i class="uil-layer-group"></i>
+                                        <span> Skupiny šablon </span>
+                                    </a>
+                                </li>
+                            {% endif %}
+
                             {% if is_granted('project_edit', project) %}
                                 <li class="side-nav-item {{ active_menu_item|default == 'gallery' ? 'menuitem-active' }}">
                                     <a href="{{ path('project_gallery', {'projectId': project.id}) }}" class="side-nav-link">

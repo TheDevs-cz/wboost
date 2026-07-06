@@ -1,0 +1,97 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'template_groups' %}
+
+{% block title %}Skupiny šablon{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="row mb-2">
+        <div class="col-sm-12">
+            <a href="{{ path('add_template_group', {'projectId': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová skupina</a>
+        </div>
+    </div>
+
+    {% if groups|length == 0 %}
+        <div class="card">
+            <div class="card-body text-center text-muted py-5">
+                <i class="uil-layer-group" style="font-size: 2rem;"></i>
+                <p class="mb-1 mt-2"><strong>Zatím tu nejsou žádné skupiny šablon.</strong></p>
+                <p class="mb-0">Skupina vytvoří stejný design ve více rozměrech najednou — pro sociální sítě i tiskoviny — a umožní je upravovat společně.</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="row">
+        {% for item in groups %}
+            <div class="col-md-6 col-xxl-4">
+                <div class="card">
+                    <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                        <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="ri-more-fill text-lighter"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a href="{{ path('add_template_group_dimension', {'groupId': item.group.id}) }}" class="dropdown-item"><i class="mdi mdi-plus me-1"></i>Přidat rozměr</a>
+                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteGroupModal-{{ item.group.id }}"><i class="mdi mdi-delete me-1"></i>Smazat</a>
+                        </div>
+                    </div>
+
+                    <a href="{{ path('template_group_editor', {'groupId': item.group.id}) }}" class="text-body">
+                        <div class="card-body pb-0">
+                            <h4 class="m-0">{{ item.group.name }}</h4>
+                            <p class="text-muted mb-2 mt-1">
+                                {% if item.socialVariants|length %}Sociální sítě: {{ item.socialVariants|length }}{% endif %}
+                                {% if item.socialVariants|length and item.customVariants|length %} · {% endif %}
+                                {% if item.customVariants|length %}Šablony: {{ item.customVariants|length }}{% endif %}
+                                {% if item.variantsCount == 0 %}Skupina nemá žádné varianty{% endif %}
+                            </p>
+                        </div>
+
+                        <div class="card-body pt-0 pb-2 d-flex flex-wrap gap-2">
+                            {% for variant in item.socialVariants %}
+                                <div class="text-center">
+                                    <span class="d-inline-block avatar-md rounded shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                                    <div class="font-11 text-muted">{{ variant.dimension.value }}</div>
+                                </div>
+                            {% endfor %}
+                            {% for variant in item.customVariants %}
+                                <div class="text-center">
+                                    <span class="d-inline-block avatar-md rounded shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                                    <div class="font-11 text-muted">{{ variant.dimension.label }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            {# Delete dialog: both modes as explicit submit buttons of one POST form. #}
+            <div class="modal fade" id="deleteGroupModal-{{ item.group.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <form class="modal-content" method="post" action="{{ path('delete_template_group', {'groupId': item.group.id}) }}">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Smazat skupinu „{{ item.group.name }}"?</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-2"><strong>Zrušit pouze seskupení</strong> — šablony a varianty zůstanou zachovány a budou se chovat jako běžné šablony (jen je nepůjde upravovat společně).</p>
+                            <p class="mb-0 text-danger"><strong>Smazat včetně šablon</strong> — nevratně smaže i obě šablony skupiny se všemi jejich variantami (včetně variant přidaných ručně).</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                            <button type="submit" name="deleteTemplates" value="0" class="btn btn-secondary">Zrušit pouze seskupení</button>
+                            <button type="submit" name="deleteTemplates" value="1" class="btn btn-danger">Smazat včetně šablon</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

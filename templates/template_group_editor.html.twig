@@ -1,0 +1,181 @@
+{#
+    Group canvas editor: edits ALL member variants of a template group at
+    once. Composes the regular `canvas-editor` controller stack (minus
+    canvas-history — undo/redo is group-global here) with the `group-editor`
+    orchestrator that owns tabs, per-variant shadow canvases, miniatures,
+    delta propagation and the multi-variant save.
+
+    Controller vars: project, group, fonts, font_faces, gallery_directories,
+    menu_item, save_url, and `variants` — ordered list of
+    {variant, module, module_label, dimension_label, edit_variant_url, export_url}.
+#}
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'template_groups' %}
+
+{% block title %}Skupinový editor — {{ group.name }}{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('template_groups', {'projectId': project.id}) }}">Skupiny šablon</a></li>
+        <li class="breadcrumb-item active">{{ group.name }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    {% if variants|length == 0 %}
+        <div class="card">
+            <div class="card-body text-center text-muted py-5">
+                <i class="uil-layer-group" style="font-size: 2rem;"></i>
+                <p class="mb-1 mt-2"><strong>Skupina nemá žádné varianty.</strong></p>
+                <p class="mb-3">Všechny členské varianty byly smazány. Přidejte nový rozměr, nebo skupinu smažte.</p>
+                <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}" class="btn btn-outline-primary rounded-pill"><i class="mdi mdi-plus"></i> Přidat rozměr</a>
+            </div>
+        </div>
+    {% else %}
+
+    {{ include('editor/_editor_scripts.html.twig') }}
+    {{ include('editor/_editor_fonts.html.twig') }}
+
+    {% set first = variants|first %}
+
+    <div
+        id="canvas-container"
+        data-controller="canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container group-editor"
+        data-canvas-editor-background-image-value="{{ uploaded_asset(first.variant.backgroundImage) }}"
+        data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
+        data-canvas-editor-canvas-json="{{ first.variant.canvas }}"
+        data-canvas-editor-edit-variant-url-value="{{ first.edit_variant_url }}"
+        data-group-editor-save-url-value="{{ save_url }}"
+        data-group-editor-csrf-value="{{ csrf_token('template_group_editor') }}"
+        data-canvas-clipboard-canvas-editor-outlet="#canvas-container"
+        data-canvas-text-toolbar-canvas-editor-outlet="#canvas-container"
+        data-canvas-input-properties-canvas-editor-outlet="#canvas-container"
+        data-canvas-image-properties-canvas-editor-outlet="#canvas-container"
+        data-canvas-alignment-canvas-editor-outlet="#canvas-container"
+        data-canvas-floating-toolbar-canvas-editor-outlet="#canvas-container"
+        data-canvas-container-canvas-editor-outlet="#canvas-container"
+        data-group-editor-canvas-editor-outlet="#canvas-container"
+        data-action="
+            canvas-editor:selection:changed->canvas-clipboard#onSelectionChanged
+            canvas-editor:selection:changed->canvas-text-toolbar#updateFromSelection
+            canvas-editor:selection:changed->canvas-input-properties#updateFromSelection
+            canvas-editor:selection:changed->canvas-image-properties#updateFromSelection
+            canvas-editor:selection:changed->canvas-alignment#onSelectionChanged
+            canvas-editor:selection:changed->canvas-floating-toolbar#onSelectionChanged
+            canvas-editor:selection:changed->canvas-container#onSelectionChanged
+            canvas-editor:canvas:loaded->canvas-container#onCanvasLoaded
+            canvas-editor:canvas:loaded->group-editor#onCanvasLoaded
+            canvas-editor:dirty->group-editor#onDirty
+            canvas-editor:background:changed->group-editor#onBackgroundChanged
+            canvas-zoom:changed->canvas-floating-toolbar#reposition
+            canvas-zoom:changed->canvas-container#repositionZones
+            canvas-editor:copy->canvas-clipboard#copy
+            canvas-editor:paste->canvas-clipboard#paste
+            asset-selected@window->canvas-editor#onAssetSelected
+        "
+    >
+        {# Per-variant payload for the group-editor controller. #}
+        <script type="application/json" data-group-editor-target="variantsData">[
+            {%- for v in variants -%}
+                {
+                    "id": {{ v.variant.id.toString|json_encode|raw }},
+                    "module": {{ v.module|json_encode|raw }},
+                    "moduleLabel": {{ v.module_label|json_encode|raw }},
+                    "label": {{ v.dimension_label|json_encode|raw }},
+                    "width": {{ v.variant.dimension.width }},
+                    "height": {{ v.variant.dimension.height }},
+                    "canvas": {{ v.variant.canvas|json_encode|raw }},
+                    "backgroundUrl": {{ uploaded_asset(v.variant.backgroundImage)|json_encode|raw }},
+                    "editVariantUrl": {{ v.edit_variant_url|json_encode|raw }}
+                }{{ loop.last ? '' : ',' }}
+            {%- endfor -%}
+        ]</script>
+
+        <div class="card mb-2" data-editor-header style="position: sticky;top: 0px;z-index: 1000;">
+            <div class="card-body p-2">
+                <div class="mb-1">
+                    <button class="btn btn-sm btn-outline-secondary me-3" data-action="canvas-editor#showBackgroundModal" type="button" title="Pozadí aktivní varianty"><i class="mdi mdi-image"></i> Pozadí</button>
+
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-group-editor-target="undoButton" data-action="group-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-group-editor-target="redoButton" data-action="group-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
+
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomOut" data-canvas-zoom-target="zoomOutButton"><i class="ri-zoom-out-line"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomIn" data-canvas-zoom-target="zoomInButton"><i class="ri-zoom-in-line"></i></button>
+
+                    <p class="d-inline-block my-0 small text-muted" data-canvas-zoom-target="scaleDisplay">100%</p>
+
+                    <span class="badge bg-info-lighten text-info ms-2"><i class="uil-layer-group"></i> {{ group.name }}</span>
+
+                    <div class="d-inline-block float-end">
+                        <p data-canvas-editor-target="unsavedChangesMessage" class="d-inline-block d-none my-0 me-2 small fw-bold text-danger">Neuložené změny</p>
+
+                        <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}" class="btn btn-sm btn-outline-secondary me-1"><i class="mdi mdi-plus"></i> Přidat rozměr</a>
+
+                        <button class="btn btn-sm btn-primary me-1" type="button" data-action="group-editor#submitForm">Uložit vše</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Variant rail: live miniatures, tab switching, include toggles,
+           per-variant re-sync, overflow/off-canvas badges. #}
+        <div class="card mb-2">
+            <div class="card-body p-2">
+                <div class="group-variant-rail">
+                    {% for v in variants %}
+                        <div class="group-variant-card{{ loop.first ? ' group-variant-active' }}" data-group-editor-target="card" data-variant-id="{{ v.variant.id }}">
+                            <div class="group-variant-thumb" role="button" title="Přepnout na tuto variantu"
+                                 data-action="click->group-editor#activateVariant"
+                                 data-group-editor-id-param="{{ v.variant.id }}">
+                                <canvas data-group-editor-target="mini" data-variant-id="{{ v.variant.id }}"
+                                        width="{{ (120 * v.variant.dimension.width / v.variant.dimension.height)|round }}"
+                                        height="120"></canvas>
+                                <span class="group-variant-dirty d-none" title="Neuložené změny" data-group-editor-target="dirtyDot" data-variant-id="{{ v.variant.id }}"></span>
+                            </div>
+                            <div class="small text-center mt-1">
+                                {{ v.dimension_label }}
+                                <span class="badge bg-secondary-lighten text-secondary">{{ v.module_label }}</span>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-center gap-2 mt-1">
+                                <div class="form-check form-switch mb-0" title="Zahrnout do skupinových úprav a uložení">
+                                    <input type="checkbox" class="form-check-input" checked
+                                           data-group-editor-target="includeToggle"
+                                           data-variant-id="{{ v.variant.id }}"
+                                           data-group-editor-id-param="{{ v.variant.id }}"
+                                           data-action="change->group-editor#toggleInclude">
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Srovnat celou variantu podle aktivní"
+                                        data-action="group-editor#resyncVariant"
+                                        data-group-editor-id-param="{{ v.variant.id }}"><i class="mdi mdi-sync"></i></button>
+                            </div>
+                            <div class="text-center">
+                                <span class="badge bg-danger-lighten text-danger d-none" data-group-editor-target="badge" data-variant-id="{{ v.variant.id }}"></span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12 col-lg-2">
+                {{ include('editor/_editor_left_panel.html.twig', {'group_mode': true}) }}
+            </div>
+
+            <div class="col-12 col-lg-10">
+                {{ include('editor/_editor_stage.html.twig', {
+                    'canvas_width': first.variant.dimension.width,
+                    'canvas_height': first.variant.dimension.height,
+                    'group_mode': true,
+                }) }}
+            </div>
+        </div>
+
+        {{ include('editor/_editor_modals.html.twig') }}
+
+    </div>
+    {% endif %}
+{% endblock %}

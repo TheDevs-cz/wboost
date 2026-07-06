@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 import { Canvas, Textbox, FabricImage, cache } from "fabric";
 
-import { CANVAS_CUSTOM_PROPERTIES } from './canvas_custom_properties.js';
+import { buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
@@ -102,6 +102,10 @@ export default class extends Controller {
 
     markUnsaved() {
         this.unsavedChangesMessageTarget.classList.remove('d-none');
+        // Universal "something mutated the canvas" signal: every toolbar /
+        // properties / container mutation funnels through markUnsaved, so the
+        // group editor hooks its propagation engine on this single event.
+        this.dispatch('dirty');
     }
 
     markSaved() {
@@ -195,39 +199,13 @@ export default class extends Controller {
             // Fabric v7 loadFromJSON returns a Promise (no callback form).
             await this.canvas.loadFromJSON(sourceCanvas);
 
-            // CRITICAL: Fabric v7's _fromObject does not copy arbitrary
-            // custom properties from the source JSON onto the deserialized
-            // object. Only properties registered as customProperties (or in
-            // the class's known SerializedObjectProps) are restored — our
-            // inputId / name / locked / etc. are stripped. Without this
-            // restore pass:
-            //   - the editor toolbar shows empty input metadata after
-            //     reload (the "I renamed the field, refreshed, the name was
-            //     empty" report);
-            //   - the export renderer cannot match overrides by inputId
-            //     because every loaded object has obj.inputId === undefined
-            //     (the "placeholder text is not replaced" report).
-            // Walk by positional index — Fabric preserves object order
-            // through loadFromJSON.
-            const sourceObjects = Array.isArray(sourceCanvas.objects) ? sourceCanvas.objects : [];
-            this.canvas.getObjects().forEach((obj, idx) => {
-                const source = sourceObjects[idx];
-                if (source) {
-                    CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
-                        if (source[prop] !== undefined) {
-                            obj[prop] = source[prop];
-                        }
-                    });
-                }
-                // Defensive: if a textbox/image still has no inputId (legacy
-                // data, fresh-on-canvas object, etc.), mint one. Type match
-                // is case-insensitive — v5 emitted 'textbox', v7 emits
-                // 'Textbox'.
-                const t = (obj.type || '').toLowerCase();
-                if ((t === 'textbox' || t === 'image') && !obj.inputId) {
-                    obj.inputId = crypto.randomUUID();
-                }
-            });
+            // CRITICAL: Fabric v7 strips our custom annotation properties
+            // (inputId / name / locked / …) during loadFromJSON — without the
+            // restore pass the toolbar shows empty metadata after reload and
+            // the export renderer cannot match overrides by inputId. The pass
+            // lives in canvas_payload.js so the group editor's shadow-canvas
+            // hydration runs the identical code.
+            restoreCustomProperties(this.canvas, sourceCanvas);
 
             // A background restored from saved JSON may predate the cover fix
             // (center origin, no scale → cropped to a quadrant under Fabric v7).
@@ -359,20 +337,7 @@ export default class extends Controller {
      * the editor preview and the exported PNG always match.
      */
     coverBackgroundImage(img) {
-        const element = typeof img.getElement === 'function' ? img.getElement() : null;
-        const imageWidth = (element && (element.naturalWidth || element.width)) || img.width || 1;
-        const imageHeight = (element && (element.naturalHeight || element.height)) || img.height || 1;
-        const scale = Math.max(this.canvas.width / imageWidth, this.canvas.height / imageHeight);
-        img.set({
-            originX: 'center',
-            originY: 'center',
-            left: this.canvas.width / 2,
-            top: this.canvas.height / 2,
-            cropX: 0,
-            cropY: 0,
-            scaleX: scale,
-            scaleY: scale,
-        });
+        coverForDimensions(img, this.canvas.width, this.canvas.height);
     }
 
     /**
@@ -494,6 +459,9 @@ export default class extends Controller {
             if (path && this.hasEditVariantUrlValue) {
                 this.persistBackgroundPath(path);
             }
+            // The group editor tracks per-variant backgrounds — tell it the
+            // active variant's background just changed.
+            this.dispatch('background:changed', { detail: { url, path } });
         } else {
             this.addImageToCanvas(url, path, id);
         }
@@ -615,84 +583,24 @@ export default class extends Controller {
         this.dispatchSelectionChanged();
     }
 
+    /**
+     * Pure serialization of the current canvas into the editor-save payload
+     * strings — shared with the group editor via canvas_payload.js so both
+     * save paths emit byte-identical data.
+     *
+     * @returns {{canvas: string, textInputs: string, imageInputs: string}}
+     */
+    collectEditorPayload() {
+        return buildVariantPayload(this.canvas);
+    }
+
     submitForm() {
         const form = this.canvasTarget.closest('form');
 
-        // Serialize the canvas JSON.
-        //
-        // Fabric v7 silently drops some custom properties from
-        // toJSON(propertiesToInclude) — specifically, properties that aren't
-        // declared in a class's stateProperties don't always survive the
-        // serialization round-trip even when listed in propertiesToInclude.
-        // To guarantee round-trip integrity for our custom annotation
-        // properties (inputId, name, locked, uppercase, etc.) we manually
-        // merge each in-memory object's values back onto the serialized
-        // entry by positional index. This is bulletproof regardless of how
-        // Fabric internally classifies the property.
-        const canvasJSON = this.canvas.toJSON(CANVAS_CUSTOM_PROPERTIES);
-        const inMemoryObjects = this.canvas.getObjects();
-        canvasJSON.objects.forEach((serialized, idx) => {
-            const live = inMemoryObjects[idx];
-            if (!live) return;
-            CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
-                const value = live[prop];
-                if (value !== undefined) {
-                    serialized[prop] = value;
-                }
-            });
-        });
-        // Container definitions travel inside the canvas document. Persist a
-        // sanitized copy: members that no longer exist are pruned, flow order
-        // is re-derived from the members' vertical positions, and containers
-        // that can no longer reflow anything (< 2 members) are dropped.
-        canvasJSON.containers = this.sanitizedContainers(inMemoryObjects);
-        this.canvasTarget.value = JSON.stringify(canvasJSON);
-
-        // Serialize only the textbox inputs.
-        //
-        // Type filter is case-insensitive: Fabric v7's `getObjects('textbox')`
-        // does NOT match v7-saved objects (whose .type is 'Textbox'), so we
-        // walk all objects and filter by lower-case type name. This matches
-        // the same convention used in loadCanvasWithoutHistory.
-        const textboxes = inMemoryObjects.filter((obj) => (obj.type || '').toLowerCase() === 'textbox');
-        const textInputs = textboxes.map((textbox) => {
-            if (!textbox.inputId) {
-                textbox.inputId = crypto.randomUUID();
-            }
-            return {
-                inputId: textbox.inputId,
-                name: textbox.name,
-                maxLength: textbox.maxLength || null,
-                locked: textbox.locked || false,
-                uppercase: textbox.uppercase || false,
-                description: textbox.description || '',
-                hidable: textbox.hidable || false,
-                richText: textbox.richText || false,
-            };
-        });
-
-        this.textInputsTarget.value = JSON.stringify(textInputs);
-
-        // Image placeholders: every image object the designer marked fillable.
-        // (see imageInputs extraction + preview below)
-        const imageInputs = inMemoryObjects
-            .filter((obj) => (obj.type || '').toLowerCase() === 'image' && obj.imagePlaceholder === true)
-            .map((img) => {
-                if (!img.inputId) {
-                    img.inputId = crypto.randomUUID();
-                }
-                return {
-                    inputId: img.inputId,
-                    name: img.name || null,
-                    description: img.description || null,
-                    allowMove: img.allowMove || false,
-                    allowResize: img.allowResize || false,
-                    allowRotate: img.allowRotate || false,
-                    hidable: img.hidable || false,
-                    allowedDirectoryIds: Array.isArray(img.allowedDirectoryIds) ? img.allowedDirectoryIds : [],
-                };
-            });
-        this.imageInputsTarget.value = JSON.stringify(imageInputs);
+        const payload = this.collectEditorPayload();
+        this.canvasTarget.value = payload.canvas;
+        this.textInputsTarget.value = payload.textInputs;
+        this.imageInputsTarget.value = payload.imageInputs;
 
         // Preview thumbnail via canvas.toDataURL(). A cross-origin image can
         // taint the canvas (SecurityError "operation is insecure"), which must
@@ -732,34 +640,6 @@ export default class extends Controller {
                 alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
                 return false;
             });
-    }
-
-    /**
-     * @param {Array} objects live canvas objects (flat, canvas order)
-     * @returns {Array} persistable container definitions
-     */
-    sanitizedContainers(objects) {
-        const containers = Array.isArray(this.canvas.wboostContainers) ? this.canvas.wboostContainers : [];
-        const layout = window.WBoostContainerLayout;
-        const textboxIds = new Set(
-            objects
-                .filter((o) => (o.type || '').toLowerCase() === 'textbox' && o.inputId)
-                .map((o) => o.inputId),
-        );
-
-        return containers
-            .map((container) => {
-                let memberInputIds = (container.memberInputIds || []).filter((id) => textboxIds.has(id));
-                if (layout) {
-                    memberInputIds = layout.sortMemberIdsByTop(objects, memberInputIds);
-                }
-                return {
-                    id: container.id,
-                    maxHeight: container.maxHeight,
-                    memberInputIds,
-                };
-            })
-            .filter((container) => container.memberInputIds.length >= 2 && container.maxHeight > 0);
     }
 
     getScaledCanvasDataURI(maxWidth) {

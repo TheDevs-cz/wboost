@@ -1,0 +1,33 @@
+{# Left panel: add text / add image / highlight toggle. All actions target
+   controllers present on both the single-variant and the group editor page. #}
+<div class="card" style="position: sticky;top: 93px;z-index: 999;">
+    <div class="card-body">
+        {% if fonts|length == 0 %}
+            <p class="text-danger">
+                <i class="text-danger uil-exclamation-triangle me-1"></i> Nejsou nahrány fonty
+            </p>
+        {% else %}
+            <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddTextModal"><i class="uil-text-fields me-1"></i> Přidat text</button>
+        {% endif %}
+
+        <button class="btn btn-sm btn-outline-secondary w-100 mb-2 text-start" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image me-1"></i> Přidat obrázek</button>
+
+        <hr class="my-2">
+
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" id="highlight-editable-control" data-action="change->canvas-floating-toolbar#toggleHighlight">
+            <label class="form-check-label small" for="highlight-editable-control">Zvýraznit editovatelné prvky</label>
+        </div>
+
+        <p class="text-muted small mb-0 mt-2">
+            <i class="mdi mdi-information-outline me-1"></i>Vyberte prvek na plátně — jeho nastavení se zobrazí přímo u něj.
+        </p>
+
+        {% if group_mode|default(false) %}
+            <hr class="my-2">
+            <p class="text-muted small mb-0">
+                <i class="uil-layer-group me-1"></i>Úpravy se přenáší do všech zahrnutých variant — posuny a velikosti poměrově, texty a vlastnosti přesně.
+            </p>
+        {% endif %}
+    </div>
+</div>

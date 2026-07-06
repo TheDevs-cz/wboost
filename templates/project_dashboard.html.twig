@@ -103,6 +103,15 @@
             custom_templates|length
         ) }}
 
+        {% if is_granted('ROLE_DESIGNER') %}
+            {{ _self.module_card(
+                path('template_groups', {'projectId': project.id}),
+                'uil-layer-group', 'info', 'Skupiny šablon',
+                'Jeden design ve více rozměrech najednou',
+                template_groups_count
+            ) }}
+        {% endif %}
+
         {% if is_granted('project_edit', project) %}
             {{ _self.module_card(
                 path('project_gallery', {'projectId': project.id}),

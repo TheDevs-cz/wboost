@@ -15,6 +15,9 @@
     plus the editor data itself: project, template, variant, fonts, editor_form,
     font_faces, gallery_directories. The variant only needs `canvas`,
     `backgroundImage` and `dimension.width/height` (pixels).
+
+    The stage / left panel / fonts / scripts / modals markup is shared with the
+    template-group editor via the templates/editor/_editor_*.html.twig partials.
 #}
 {% extends 'base.html.twig' %}
 
@@ -33,22 +36,8 @@
 {% endblock %}
 
 {% block content %}
-    {# Shared editor modules as CLASSIC scripts (window globals): the same
-       files are inlined verbatim into the headless Gotenberg render template,
-       so editor, fill page and export all wrap + reflow text identically. #}
-    <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
-    <script src="{{ asset('editor/container_layout.js') }}"></script>
-
-    <style>
-        {% for font in fonts %}
-            {% for font_face in font.faces %}
-                @font-face {
-                    font-family: '{{ font.name }} ({{ font_face.name }})';
-                    src: url('{{ uploaded_asset(font_face.filePath) }}');
-                }
-            {% endfor %}
-        {% endfor %}
-    </style>
+    {{ include('editor/_editor_scripts.html.twig') }}
+    {{ include('editor/_editor_fonts.html.twig') }}
 
     <div
         id="canvas-container"
@@ -97,6 +86,10 @@
 
                     <p class="d-inline-block my-0 small text-muted" data-canvas-zoom-target="scaleDisplay">100%</p>
 
+                    {% if variant.group and is_granted('ROLE_DESIGNER') %}
+                        <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="badge bg-info-lighten text-info ms-2" title="Tato varianta vznikla ve skupině — otevřít skupinový editor"><i class="uil-layer-group"></i> Skupina: {{ variant.group.name }}</a>
+                    {% endif %}
+
                     <div class="d-inline-block float-end">
                         <p data-canvas-editor-target="unsavedChangesMessage" class="d-inline-block d-none my-0 me-2 small fw-bold text-danger">Neuložené změny</p>
 
@@ -110,246 +103,14 @@
 
         <div class="row">
             <div class="col-12 col-lg-2">
-                <div class="card" style="position: sticky;top: 93px;z-index: 999;">
-                    <div class="card-body">
-                        {% if fonts|length == 0 %}
-                            <p class="text-danger">
-                                <i class="text-danger uil-exclamation-triangle me-1"></i> Nejsou nahrány fonty
-                            </p>
-                        {% else %}
-                            <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddTextModal"><i class="uil-text-fields me-1"></i> Přidat text</button>
-                        {% endif %}
-
-                        <button class="btn btn-sm btn-outline-secondary w-100 mb-2 text-start" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image me-1"></i> Přidat obrázek</button>
-
-                        <hr class="my-2">
-
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="highlight-editable-control" data-action="change->canvas-floating-toolbar#toggleHighlight">
-                            <label class="form-check-label small" for="highlight-editable-control">Zvýraznit editovatelné prvky</label>
-                        </div>
-
-                        <p class="text-muted small mb-0 mt-2">
-                            <i class="mdi mdi-information-outline me-1"></i>Vyberte prvek na plátně — jeho nastavení se zobrazí přímo u něj.
-                        </p>
-                    </div>
-                </div>
+                {{ include('editor/_editor_left_panel.html.twig') }}
             </div>
 
             <div class="col-12 col-lg-10">
-                <div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer">
-                    <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
-                        <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
-                    </div>
-
-                    {# Floating per-element mini-toolbar (single selection). Quick
-                       actions reuse the existing clipboard / alignment / property
-                       controllers via data-action; the pencil opens the full
-                       options popover below. #}
-                    <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="miniToolbar">
-                        <button type="button" class="btn btn-sm btn-light" title="Upravit" data-action="canvas-floating-toolbar#openPopover"><i class="mdi mdi-pencil"></i></button>
-                        <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="mdi mdi-content-copy"></i></button>
-                        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
-                        <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-image-edit-outline"></i></button>
-                        <span class="canvas-mini-toolbar-sep"></span>
-                        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
-                        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
-                        <span class="canvas-mini-toolbar-sep"></span>
-                        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
-                    </div>
-
-                    {# Floating multi-select bar (activeSelection): 6-way align +
-                       z-order + delete. #}
-                    <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="multiBar">
-                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vlevo" data-action="canvas-alignment#alignLeft"><i class="mdi mdi-format-horizontal-align-left"></i></button>
-                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed" data-action="canvas-alignment#alignCenter"><i class="mdi mdi-format-horizontal-align-center"></i></button>
-                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vpravo" data-action="canvas-alignment#alignRight"><i class="mdi mdi-format-horizontal-align-right"></i></button>
-                        <span class="canvas-mini-toolbar-sep"></span>
-                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat nahoru" data-action="canvas-alignment#alignTop"><i class="mdi mdi-format-vertical-align-top"></i></button>
-                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed svisle" data-action="canvas-alignment#alignMiddle"><i class="mdi mdi-format-vertical-align-center"></i></button>
-                        <button type="button" class="btn btn-sm btn-light" title="Zarovnat dolů" data-action="canvas-alignment#alignBottom"><i class="mdi mdi-format-vertical-align-bottom"></i></button>
-                        <span class="canvas-mini-toolbar-sep"></span>
-                        <button type="button" class="btn btn-sm btn-light" title="Vytvořit kontejner" data-canvas-container-target="createButton" data-action="canvas-container#createFromSelection"><i class="mdi mdi-view-agenda-outline"></i></button>
-                        <span class="canvas-mini-toolbar-sep"></span>
-                        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
-                        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
-                        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
-                    </div>
-
-                    {# Floating full-options popover: TEXT — fields driven by
-                       canvas-text-toolbar + canvas-input-properties (visibility
-                       owned by canvas-floating-toolbar). #}
-                    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="textPopover">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small fw-bold"><i class="uil-text-fields me-1"></i> Text</span>
-                                <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
-                            </div>
-
-                            <!-- Locked Control -->
-                            <div class="mb-2 form-check">
-                                <input type="checkbox" id="locked-control" class="form-check-input" data-canvas-input-properties-target="locked" data-action="change->canvas-input-properties#updateLocked">
-                                <label for="locked-control" class="form-check-label small">Uzamčeno</label>
-                            </div>
-
-                            <!-- Hidable Control -->
-                            <div class="mb-2 form-check">
-                                <input type="checkbox" id="hidable-control" class="form-check-input" data-canvas-input-properties-target="hidable" data-action="change->canvas-input-properties#updateHidable">
-                                <label for="hidable-control" class="form-check-label small">Schovatelnost</label>
-                            </div>
-
-                            <!-- Rich Text (WYSIWYG) Control -->
-                            <div class="mb-2 form-check">
-                                <input type="checkbox" id="rich-text-control" class="form-check-input" data-canvas-input-properties-target="richText" data-action="change->canvas-input-properties#updateRichText">
-                                <label for="rich-text-control" class="form-check-label small">Formátovatelný text</label>
-                                <div class="form-text small mt-0">Uživatel může měnit písmo, barvu a podtržení částí textu.</div>
-                            </div>
-
-                            <!-- Font Family Control -->
-                            <div class="mb-2">
-                                <label for="font-family-control" class="form-label small">Písmo</label>
-                                <select id="font-family-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="fontFamily" data-action="change->canvas-text-toolbar#updateFontFamily">
-                                    <!-- Options will be populated dynamically by Stimulus -->
-                                </select>
-                            </div>
-
-                            <!-- Font Size Control -->
-                            <div class="mb-2">
-                                <label for="font-size-control" class="form-label small">Velikost</label>
-                                <input type="number" id="font-size-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="fontSize" data-action="input->canvas-text-toolbar#updateFontSize">
-                            </div>
-
-                            <!-- Line Height Control -->
-                            <div class="mb-2">
-                                <label for="line-height-control" class="form-label small">Řádkování</label>
-                                <input type="number" id="line-height-control" class="form-control form-control-sm" step="0.1" min="0.5" data-canvas-text-toolbar-target="lineHeight" data-action="input->canvas-text-toolbar#updateLineHeight">
-                            </div>
-
-                            <!-- Font Color Control -->
-                            <div class="mb-2">
-                                <label for="font-color-control" class="form-label small">Barva (hex)</label>
-                                <input type="text" id="font-color-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="fontColor" data-action="input->canvas-text-toolbar#updateFontColor">
-                            </div>
-
-                            <!-- Text Align Control -->
-                            <div class="mb-2">
-                                <label for="text-align-control" class="form-label small">Zarovnání</label>
-                                <select id="text-align-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="textAlign" data-action="change->canvas-text-toolbar#updateTextAlign">
-                                    <option value="left">Vlevo</option>
-                                    <option value="center">Na střed</option>
-                                    <option value="right">Vpravo</option>
-                                    <option value="justify">Do bloku</option>
-                                </select>
-                            </div>
-
-                            <!-- Text Decoration Control -->
-                            <div class="mb-2">
-                                <label for="text-decoration-control" class="form-label small">Dekorace</label>
-                                <select id="text-decoration-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="textDecoration" data-action="change->canvas-text-toolbar#updateTextDecoration">
-                                    <option value="none">Žádná</option>
-                                    <option value="underline">Podtržení</option>
-                                    <option value="line-through">Přeškrtnutí</option>
-                                    <option value="overline">Nadtržení</option>
-                                </select>
-                            </div>
-
-                            <!-- Max Length Control -->
-                            <div class="mb-2">
-                                <label for="max-length-control" class="form-label small">Max. délka</label>
-                                <input type="number" id="max-length-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="maxLength" data-action="input->canvas-text-toolbar#updateMaxLength change->canvas-text-toolbar#updateMaxLength">
-                            </div>
-
-                            <!-- Name Control -->
-                            <div class="mb-2">
-                                <label for="name-control" class="form-label small">Název:</label>
-                                <input type="text" id="name-control" class="form-control form-control-sm" data-canvas-input-properties-target="name" data-action="input->canvas-input-properties#updateName">
-                            </div>
-
-                            <!-- Description Control -->
-                            <div class="mb-2">
-                                <label for="description-control" class="form-label small">Nápověda:</label>
-                                <input type="text" id="description-control" class="form-control form-control-sm" data-canvas-input-properties-target="description" data-action="input->canvas-input-properties#updateDescription">
-                            </div>
-
-                            <!-- Uppercase Control -->
-                            <div class="mb-0 form-check">
-                                <input type="checkbox" id="uppercase-control" class="form-check-input" data-canvas-input-properties-target="uppercase" data-action="change->canvas-input-properties#updateUppercase">
-                                <label for="uppercase-control" class="form-check-label small">Verzálky</label>
-                            </div>
-
-                            {# Container ("smart text area") section — shown only when the
-                               selected textbox is a container member (canvas-container). #}
-                            <div class="d-none" data-canvas-container-target="section">
-                                <hr class="my-2">
-                                <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
-                                <div class="my-2">
-                                    <label for="container-max-height-control" class="form-label small">Max. výška (px)</label>
-                                    <input type="number" id="container-max-height-control" min="20" class="form-control form-control-sm" data-canvas-container-target="maxHeightInput" data-action="input->canvas-container#updateMaxHeightFromInput">
-                                </div>
-                                <p class="text-muted small mb-2">Texty v kontejneru se při vyplňování posouvají podle délky textu nad nimi. Prvky přesouváte jednotlivě; celý kontejner přesunete tažením za jeho štítek, šířku a výšku upravíte úchyty na okrajích rámečku.</p>
-                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mb-1" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
-                                <button type="button" class="btn btn-sm btn-outline-danger w-100" data-action="canvas-container#dissolveActiveContainer">Rozpustit kontejner</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {# Floating full-options popover: IMAGE — fields driven by
-                       canvas-image-properties (visibility owned by
-                       canvas-floating-toolbar). #}
-                    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="imagePopover">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small fw-bold"><i class="uil-image me-1"></i> Obrázek</span>
-                                <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
-                            </div>
-
-                            <div class="mb-2 form-check">
-                                <input type="checkbox" id="image-placeholder-control" class="form-check-input" data-canvas-image-properties-target="placeholder" data-action="change->canvas-image-properties#updatePlaceholder">
-                                <label for="image-placeholder-control" class="form-check-label small">Placeholder (uživatel vyplní obrázek)</label>
-                            </div>
-
-                            <div data-canvas-image-properties-target="details" style="display: none;">
-                                <div class="mb-2">
-                                    <label for="image-name-control" class="form-label small">Název:</label>
-                                    <input type="text" id="image-name-control" class="form-control form-control-sm" data-canvas-image-properties-target="name" data-action="input->canvas-image-properties#updateName">
-                                </div>
-
-                                <div class="mb-2">
-                                    <label for="image-description-control" class="form-label small">Nápověda:</label>
-                                    <input type="text" id="image-description-control" class="form-control form-control-sm" data-canvas-image-properties-target="description" data-action="input->canvas-image-properties#updateDescription">
-                                </div>
-
-                                <div class="mb-2 form-check">
-                                    <input type="checkbox" id="image-allow-move-control" class="form-check-input" data-canvas-image-properties-target="allowMove" data-action="change->canvas-image-properties#updateAllowMove">
-                                    <label for="image-allow-move-control" class="form-check-label small">Povolit posun</label>
-                                </div>
-                                <div class="mb-2 form-check">
-                                    <input type="checkbox" id="image-allow-resize-control" class="form-check-input" data-canvas-image-properties-target="allowResize" data-action="change->canvas-image-properties#updateAllowResize">
-                                    <label for="image-allow-resize-control" class="form-check-label small">Povolit změnu velikosti</label>
-                                </div>
-                                <div class="mb-2 form-check">
-                                    <input type="checkbox" id="image-allow-rotate-control" class="form-check-input" data-canvas-image-properties-target="allowRotate" data-action="change->canvas-image-properties#updateAllowRotate">
-                                    <label for="image-allow-rotate-control" class="form-check-label small">Povolit rotaci</label>
-                                </div>
-                                <div class="mb-2 form-check">
-                                    <input type="checkbox" id="image-hidable-control" class="form-check-input" data-canvas-image-properties-target="hidable" data-action="change->canvas-image-properties#updateHidable">
-                                    <label for="image-hidable-control" class="form-check-label small">Schovatelnost</label>
-                                </div>
-
-                                <label class="form-label small mb-1">Složky galerie pro uživatele:</label>
-                                {% for dir in gallery_directories %}
-                                    <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="image-dir-{{ dir.id }}" data-canvas-image-properties-target="directory" data-directory-id="{{ dir.id }}" data-action="change->canvas-image-properties#updateDirectories">
-                                        <label class="form-check-label small" for="image-dir-{{ dir.id }}">{{ dir.name }}</label>
-                                    </div>
-                                {% endfor %}
-
-                                {# Live guidance: empty allow-list = "offer all folders"; no folders at all = dead end. #}
-                                <div class="alert alert-warning py-1 px-2 small mt-1 mb-0" role="alert" data-canvas-image-properties-target="warning" style="display: none;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                {{ include('editor/_editor_stage.html.twig', {
+                    'canvas_width': variant.dimension.width,
+                    'canvas_height': variant.dimension.height,
+                }) }}
 
                 {{ form_widget(editor_form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}
                 {{ form_widget(editor_form.textInputs, { attr: { 'data-canvas-editor-target': 'textInputs' } }) }}
@@ -360,62 +121,7 @@
 
         {{ form_end(editor_form) }}
 
-        {#
-            Unified project image gallery modal. The canvas-editor orchestrator
-            decides which canvas operation to run when the user picks an asset,
-            based on the mode it sets before opening this modal.
-        #}
-        <div class="modal fade" id="imageGalleryModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <twig:Project:ImageGallery :project="project" />
-                </div>
-            </div>
-        </div>
-
-        <!-- Add text modal -->
-        <div class="modal fade" id="addTextModal" tabindex="-1" aria-labelledby="addTextModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="addTextModalLabel">Přidat text</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="addTextForm" data-action="submit->canvas-editor#submitAddText">
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="lockedCheckbox">
-                                    <label class="form-check-label" for="lockedCheckbox">Zamknout editaci textu</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="hidableCheckbox">
-                                    <label class="form-check-label" for="hidableCheckbox">Povolit schovávatelnost</label>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="textName" class="form-label">Název textového pole</label>
-                                <input type="text" class="form-control" id="textName">
-                            </div>
-                            <div class="mb-3">
-                                <label for="description" class="form-label">Popis</label>
-                                <textarea type="text" class="form-control" id="description"></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="uppercaseCheckbox">
-                                    <label class="form-check-label" for="uppercaseCheckbox">Verzálky</label>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
-                        <button type="button" class="btn btn-primary" data-action="canvas-editor#submitAddText">Přidat text</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {{ include('editor/_editor_modals.html.twig') }}
 
         {# Shown when Export is clicked with unsaved canvas changes. The export
            renders from the last saved variant, so we let the user save first. #}

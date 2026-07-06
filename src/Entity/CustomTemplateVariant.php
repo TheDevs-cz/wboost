@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Embedded;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\Index;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use JetBrains\PhpStorm\Immutable;
@@ -22,6 +23,7 @@ use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\CustomTemplateDimension;
 
 #[Entity]
+#[Index(name: 'idx_custom_template_variant_group', columns: ['group_id'])]
 class CustomTemplateVariant
 {
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
@@ -44,6 +46,16 @@ class CustomTemplateVariant
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: EditorImageInputsDoctrineType::NAME)]
     public array $imageInputs = [];
+
+    /**
+     * Deliberately not a constructor argument: the Copy/Duplicate handlers
+     * construct variants via the constructor only, so a duplicate can never
+     * inherit group membership. Only group-created variants are group-editable.
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[ManyToOne]
+    #[JoinColumn(onDelete: "SET NULL")]
+    public null|TemplateGroup $group = null;
 
     public function __construct(
         #[Id]
@@ -87,5 +99,10 @@ class CustomTemplateVariant
     public function edit(string $backgroundImagePath): void
     {
         $this->backgroundImage = $backgroundImagePath;
+    }
+
+    public function assignToGroup(TemplateGroup $group): void
+    {
+        $this->group = $group;
     }
 }

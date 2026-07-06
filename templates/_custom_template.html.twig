@@ -6,6 +6,9 @@
                     <i class="ri-more-fill text-lighter"></i>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
+                    {% if template.group and is_granted('ROLE_DESIGNER') %}
+                        <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
+                    {% endif %}
                     <a href="{{ path('copy_custom_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
                     <a href="{{ path('edit_custom_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
                     <a href="#"
@@ -29,6 +32,10 @@
                     {% endif %}
 
                     {{ template.name }}
+
+                    {% if template.group and is_granted('ROLE_DESIGNER') %}
+                        <span class="badge bg-info-lighten text-info font-12" title="Vytvořeno ve skupině {{ template.group.name }}"><i class="uil-layer-group"></i> Skupina</span>
+                    {% endif %}
                 </h4>
             </div>
 

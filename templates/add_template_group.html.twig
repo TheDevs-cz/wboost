@@ -1,0 +1,134 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'template_groups' %}
+
+{% block title %}Nová skupina šablon{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('template_groups', {'projectId': project.id}) }}">Skupiny šablon</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    {{ form_start(form) }}
+
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-1">1. Základní údaje</h4>
+            <p class="text-muted">Skupina vytvoří jednu šablonu pro sociální sítě a/nebo jednu šablonu ve vlastních rozměrech — se stejným designem ve všech vybraných rozměrech.</p>
+
+            <div class="row">
+                <div class="col-md-4">{{ form_row(form.name) }}</div>
+                <div class="col-md-4">{{ form_row(form.socialCategory) }}</div>
+                <div class="col-md-4">{{ form_row(form.customCategory) }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-1">2. Rozměry pro sociální sítě</h4>
+            <p class="text-muted">Zaškrtněte rozměry, které chcete vytvořit. Každá varianta potřebuje pozadí — vlastní, nebo společné (níže).</p>
+
+            {{ form_errors(form.socialDimensions) }}
+
+            <div class="row">
+                {% for checkbox in form.socialDimensions %}
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 mb-2">
+                            <div class="form-check form-switch">
+                                {{ form_widget(checkbox, {'attr': {'class': 'form-check-input'}}) }}
+                                {{ form_label(checkbox, null, {'label_attr': {'class': 'form-check-label'}}) }}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">{{ form_row(form.backgroundInstagramPost) }}</div>
+                <div class="col-md-4">{{ form_row(form.backgroundInstagramPortrait) }}</div>
+                <div class="col-md-4">{{ form_row(form.backgroundInstagramStory) }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body" data-controller="form-collection">
+            <h4 class="header-title mb-1">3. Vlastní rozměry (tiskoviny)</h4>
+            <p class="text-muted">Přidejte libovolný počet vlastních rozměrů — pro každý vznikne varianta šablony. Fyzické jednotky (mm/cm) se převádí v tiskové kvalitě 300 DPI.</p>
+
+            <div data-form-collection-target="collection"
+                 data-prototype="{{ '
+                    <div class="form-group border rounded p-3 mb-2" data-controller="custom-template-dimension">
+                        <div class="mb-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill me-1" data-action="custom-template-dimension#applyPreset" data-custom-template-dimension-unit-param="mm" data-custom-template-dimension-width-param="148" data-custom-template-dimension-height-param="210">A5 (148×210 mm)</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill me-1" data-action="custom-template-dimension#applyPreset" data-custom-template-dimension-unit-param="mm" data-custom-template-dimension-width-param="210" data-custom-template-dimension-height-param="297">A4 (210×297 mm)</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill me-1" data-action="custom-template-dimension#applyPreset" data-custom-template-dimension-unit-param="mm" data-custom-template-dimension-width-param="297" data-custom-template-dimension-height-param="420">A3 (297×420 mm)</button>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.unit, { attr: { 'data-custom-template-dimension-target': 'unit' } }) ~ '</div>
+                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.width, { attr: { 'data-custom-template-dimension-target': 'width' } }) ~ '</div>
+                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.height, { attr: { 'data-custom-template-dimension-target': 'height' } }) ~ '</div>
+                            <div class="col-md-4">' ~ form_row(form.customDimensions.vars.prototype.backgroundImage) ~ '</div>
+                            <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
+                        </div>
+                    </div>
+                 '}}"
+            >
+                {% for dimensionForm in form.customDimensions %}
+                    <div class="form-group border rounded p-3 mb-2" data-controller="custom-template-dimension">
+                        <div class="mb-2">
+                            {% for preset in [
+                                {label: 'A5', width: 148, height: 210},
+                                {label: 'A4', width: 210, height: 297},
+                                {label: 'A3', width: 297, height: 420},
+                            ] %}
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                                    data-action="custom-template-dimension#applyPreset"
+                                    data-custom-template-dimension-unit-param="mm"
+                                    data-custom-template-dimension-width-param="{{ preset.width }}"
+                                    data-custom-template-dimension-height-param="{{ preset.height }}"
+                                >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
+                            {% endfor %}
+                        </div>
+                        <div class="row">
+                            <div class="col-md-2">{{ form_row(dimensionForm.unit, { attr: { 'data-custom-template-dimension-target': 'unit' } }) }}</div>
+                            <div class="col-md-2">{{ form_row(dimensionForm.width, { attr: { 'data-custom-template-dimension-target': 'width' } }) }}</div>
+                            <div class="col-md-2">{{ form_row(dimensionForm.height, { attr: { 'data-custom-template-dimension-target': 'height' } }) }}</div>
+                            <div class="col-md-4">{{ form_row(dimensionForm.backgroundImage) }}</div>
+                            <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <button type="button" class="btn btn-outline-primary rounded-pill" data-action="form-collection#add"><i class="mdi mdi-plus"></i> Přidat rozměr</button>
+            </div>
+
+            {# Rows + prototype are rendered manually above — keep form_rest from
+               re-emitting the empty collection with its label. #}
+            {% do form.customDimensions.setRendered %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-1">4. Společné pozadí</h4>
+            <p class="text-muted">Použije se pro každý vybraný rozměr, který nemá nahrané vlastní pozadí (ořízne se na střed).</p>
+
+            {{ form_row(form.commonBackground) }}
+        </div>
+    </div>
+
+    {{ form_rest(form) }}
+
+    <button class="btn btn-primary mb-3" type="submit"><i class="uil-layer-group"></i> Vytvořit skupinu a otevřít editor</button>
+
+    {{ form_end(form) }}
+{% endblock %}

@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use WBoost\Web\Query\GetSocialNetworkTemplates;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Value\FileSource;
 
@@ -30,6 +31,7 @@ final class ProjectDashboardController extends AbstractController
         readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
         readonly private GetWeeklyMenus $getWeeklyMenus,
         readonly private FileUploadRepository $fileUploadRepository,
+        readonly private TemplateGroupRepository $templateGroupRepository,
     ) {
     }
 
@@ -66,6 +68,7 @@ final class ProjectDashboardController extends AbstractController
             'emails' => $this->getEmailSignatureTemplates->allForProject($project->id),
             'weekly_menus' => $this->getWeeklyMenus->allForProject($project->id),
             'gallery_images_count' => $this->fileUploadRepository->countByProjectAndSource($project->id, FileSource::ProjectImage),
+            'template_groups_count' => $this->templateGroupRepository->count($project->id),
             'recent_templates' => array_slice($recentTemplates, 0, 6),
         ]);
     }

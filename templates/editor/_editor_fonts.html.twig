@@ -1,0 +1,12 @@
+{# One @font-face per project font face — family names are emitted in the
+   exact `"<font> (<face>)"` shape the canvas objects reference. #}
+<style>
+    {% for font in fonts %}
+        {% for font_face in font.faces %}
+            @font-face {
+                font-family: '{{ font.name }} ({{ font_face.name }})';
+                src: url('{{ uploaded_asset(font_face.filePath) }}');
+            }
+        {% endfor %}
+    {% endfor %}
+</style>
