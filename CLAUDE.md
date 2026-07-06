@@ -369,6 +369,33 @@ would shadow the `width()` px method in Twig attribute lookup.
 `GET|POST /api/custom-template-variants/{variantId}/placeholders/{inputId}/images`,
 `GET /api/custom-template-variants/{variantId}/thumbnail`.
 
+### Manual mockup pages — canonical grid geometry
+
+A manual's mockup pages (`ManualMockupPage`, `MockupPageLayout` enum with 11
+layouts) all live on ONE canonical grid: 3 columns × 2 rows, page ratio
+1380 : 798, uniform gap 36 units — a slot spans whole tracks
+(`MockupPageLayout::slots()` → `MockupPageSlot {column, columnSpan, row,
+rowSpan}`). This single source of truth drives every surface: the public
+manual render + admin listing thumbnails (`templates/_mockup_page.html.twig`,
+CSS grid + `object-fit: cover`, gap/radius in `cqw` so it scales), the layout
+picker mini-previews, and the interactive add/edit editor
+(`templates/_mockup_page_form_editor.html.twig` +
+`assets/controllers/mockup_page_editor_controller.js`). Geometry reaches JS
+via `MockupPageLayout::exportGeometry()` serialized into a Stimulus value.
+
+The editor: click/drop a segment → instant local preview + fit verdict
+(ratio crop %, low-resolution vs `recommendedWidth/Height` = 2× unit size,
+> 2 MB rejected client-side to match the server `Image` constraint). Files sit
+in the regular Symfony form file inputs — always
+`MockupPageLayout::maxUploadInputsCount()` (6) of them so the layout can be
+switched client-side without losing picks; both controllers `array_slice` to
+the chosen layout's slot count before dispatching. Layout is a form field on
+ADD only (edit keeps it fixed). Edit supports per-slot image REMOVAL via
+hidden `removeImages[]` flags ('1' → `EditManualMockupPage::$removeImages`;
+a new upload for the same slot wins over the flag). Slot order == persisted
+`images` array indexes. NOTE: Stimulus reuses controller instances on
+reconnect — slot state is reset in `connect()`, not `initialize()`.
+
 ### Core Domain Entities
 
 - **Manual**: Brand manuals with colors, fonts, logos, and mockup pages

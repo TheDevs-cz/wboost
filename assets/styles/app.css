@@ -1372,3 +1372,359 @@
     transform: translateY(-3px);
     box-shadow: 0 0.375rem 1.125rem rgba(0, 0, 0, 0.12);
 }
+
+/*
+ * Mockup pages — canonical CSS-grid render.
+ *
+ * Every mockup layout lives on one 3-columns × 2-rows grid (spans define the
+ * segments) with a fixed page aspect ratio and a uniform gap, mirroring
+ * MockupPageLayout::slots(). Used by the manual preview render, the admin
+ * listing thumbnails, the layout picker and the interactive editor, so all
+ * surfaces show identical proportions. Gap/radius use cqw so they scale with
+ * the rendered size (36 / 1380 page units and 20 / 1380 respectively).
+ */
+.mockup-grid-container {
+    container-type: inline-size;
+}
+
+.mockup-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 2.609cqw;
+    aspect-ratio: 1380 / 798;
+}
+
+.mockup-slot {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.45cqw;
+}
+
+.mockup-slot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mockup-slot-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background: #f1f3f9;
+    border: 1px dashed #d3d8e5;
+    border-radius: inherit;
+    color: #98a2b3;
+    font-size: 1.25rem;
+}
+
+/*
+ * Mockup page editor — layout picker (radio cards with live mini previews).
+ */
+.mockup-layout-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+}
+
+.mockup-layout-option {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 0.625rem;
+    border: 2px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.5rem;
+    background: var(--bs-body-bg, #fff);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    margin-bottom: 0;
+}
+
+.mockup-layout-option:hover {
+    border-color: var(--bs-primary, #727cf5);
+}
+
+.mockup-layout-option:has(.mockup-layout-radio:checked) {
+    border-color: var(--bs-primary, #727cf5);
+    box-shadow: 0 0 0 0.2rem rgba(114, 124, 245, 0.2);
+}
+
+.mockup-layout-option-static {
+    width: 120px;
+    cursor: default;
+}
+
+.mockup-layout-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.mockup-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 3px;
+    aspect-ratio: 1380 / 798;
+}
+
+.mockup-mini-grid > span {
+    background: #d6dae7;
+    border-radius: 3px;
+    transition: background-color 0.15s ease;
+}
+
+.mockup-mini-grid > span.is-filled {
+    background: var(--bs-primary, #727cf5);
+}
+
+.mockup-layout-count {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color, #98a2b3);
+    text-align: center;
+}
+
+/*
+ * Mockup page editor — interactive upload stage.
+ */
+.mockup-editor-desk {
+    background: #eef0f4;
+    border-radius: 0.625rem;
+    padding: 1.25rem;
+}
+
+.mockup-editor-stage-container {
+    container-type: inline-size;
+    max-width: 980px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.08);
+    padding: 1.25rem;
+}
+
+.mockup-editor-page {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 2.609cqw;
+    aspect-ratio: 1380 / 798;
+}
+
+.mockup-editor-no-layout {
+    text-align: center;
+    padding: 3rem 1rem;
+    font-size: 0.9375rem;
+}
+
+.mockup-editor-no-layout i {
+    font-size: 2rem;
+}
+
+.mockup-editor-slot {
+    position: relative;
+    overflow: hidden;
+    border: 2px dashed #c4cbdc;
+    border-radius: 1.45cqw;
+    background: #f6f7fb;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.mockup-editor-slot:hover,
+.mockup-editor-slot.is-dragover {
+    border-color: var(--bs-primary, #727cf5);
+    background: #eef0ff;
+}
+
+.mockup-editor-slot.has-image {
+    border-style: solid;
+    border-color: transparent;
+    background: #e9ebf3;
+}
+
+.mockup-editor-slot.has-image.level-warning {
+    border-color: var(--bs-warning, #ffbc00);
+}
+
+.mockup-editor-slot.has-image.level-danger {
+    border-color: var(--bs-danger, #fa5c7c);
+}
+
+.mockup-editor-slot-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.mockup-editor-slot-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    text-align: center;
+    padding: 0.5rem;
+    color: #8790a4;
+    font-size: 0.8125rem;
+}
+
+.mockup-editor-slot-empty i {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.mockup-editor-slot-dims {
+    font-size: 0.75rem;
+}
+
+.mockup-editor-slot-error {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.mockup-editor-slot-removed {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    text-align: center;
+    padding: 0.5rem;
+    color: var(--bs-danger, #fa5c7c);
+    font-size: 0.8125rem;
+}
+
+.mockup-editor-slot-removed i {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.mockup-editor-slot-number {
+    position: absolute;
+    top: 0.375rem;
+    left: 0.375rem;
+    width: 1.375rem;
+    height: 1.375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(55, 62, 80, 0.65);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+.mockup-editor-slot-chip {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.mockup-editor-slot-chip.chip-success {
+    background: var(--bs-success, #0acf97);
+}
+
+.mockup-editor-slot-chip.chip-warning {
+    background: var(--bs-warning, #ffbc00);
+    color: #343a40;
+}
+
+.mockup-editor-slot-chip.chip-danger {
+    background: var(--bs-danger, #fa5c7c);
+}
+
+.mockup-editor-slot-meta {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 1rem 0.5rem 0.375rem;
+    background: linear-gradient(transparent, rgba(23, 27, 38, 0.75));
+    color: #fff;
+    font-size: 0.6875rem;
+    line-height: 1.3;
+}
+
+.mockup-editor-slot-actions {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+    opacity: 0;
+    background: rgba(23, 27, 38, 0.35);
+    transition: opacity 0.15s ease;
+}
+
+.mockup-editor-slot:hover .mockup-editor-slot-actions {
+    opacity: 1;
+}
+
+.mockup-editor-slot:not(.has-image):not(.is-removed) .mockup-editor-slot-actions {
+    display: none;
+}
+
+.mockup-editor-slot.is-removed .mockup-editor-slot-actions {
+    background: transparent;
+    align-items: flex-end;
+    padding-bottom: 0.625rem;
+}
+
+/*
+ * Mockup page editor — sticky save bar with unsaved-changes state.
+ */
+.mockup-editor-savebar {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--bs-body-bg, #fff);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.5rem;
+    box-shadow: 0 -0.125rem 0.75rem rgba(0, 0, 0, 0.06);
+}
+
+.mockup-editor-savebar > :first-child {
+    margin-right: auto;
+}
+
+.mockup-editor-dirty {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--bs-warning-text-emphasis, #997404);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.mockup-editor-dirty-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--bs-warning, #ffbc00);
+}

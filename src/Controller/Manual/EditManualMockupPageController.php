@@ -15,6 +15,7 @@ use WBoost\Web\FormData\ManualMockupPageFormData;
 use WBoost\Web\FormType\ManualMockupPageFormType;
 use WBoost\Web\Message\Manual\EditManualMockupPage;
 use WBoost\Web\Services\Security\ManualMockupPageVoter;
+use WBoost\Web\Value\MockupPageLayout;
 
 final class EditManualMockupPageController extends AbstractController
 {
@@ -30,8 +31,9 @@ final class EditManualMockupPageController extends AbstractController
         Request $request,
     ): Response
     {
-        $formData = new ManualMockupPageFormData($page->layout);
+        $formData = new ManualMockupPageFormData();
         $formData->name = $page->name;
+        $formData->layout = $page->layout;
         $form = $this->createForm(ManualMockupPageFormType::class, $formData);
 
         $form->handleRequest($request);
@@ -41,7 +43,11 @@ final class EditManualMockupPageController extends AbstractController
                 new EditManualMockupPage(
                     $page->id,
                     $formData->name,
-                    $formData->images,
+                    array_slice($formData->images, 0, $page->layout->uploadInputsCount()),
+                    array_map(
+                        static fn (string $flag): bool => $flag === '1',
+                        array_slice($formData->removeImages, 0, $page->layout->uploadInputsCount()),
+                    ),
                 ),
             );
 
@@ -56,6 +62,7 @@ final class EditManualMockupPageController extends AbstractController
             'project' => $page->manual->project,
             'manual' => $page->manual,
             'mockup_page' => $page,
+            'layouts_geometry' => MockupPageLayout::exportGeometry(),
             'form' => $form,
         ]);
     }

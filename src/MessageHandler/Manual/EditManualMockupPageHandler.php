@@ -32,8 +32,9 @@ readonly final class EditManualMockupPageHandler
 
         foreach ($message->images as $index => $image) {
             if ($image === null) {
-                // Index should always exist, if not - something is wrong and should be error
-                $images[] = $page->images[$index];
+                $keepExisting = ($message->removeImages[$index] ?? false) === false;
+
+                $images[] = $keepExisting ? ($page->images[$index] ?? null) : null;
                 continue;
             }
 

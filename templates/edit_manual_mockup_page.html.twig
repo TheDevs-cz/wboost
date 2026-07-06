@@ -16,22 +16,25 @@
 
 {% block content %}
 
+    {% set existing_images = [] %}
+    {% for slot in mockup_page.layout.slots %}
+        {% set image = mockup_page.images[loop.index0] ?? null %}
+        {% set existing_images = existing_images|merge([image ? uploaded_asset(image) : null]) %}
+    {% endfor %}
+
     <div class="row">
         <div class="col-xxl-3">
             {{ include('_manual_nav.html.twig') }}
         </div>
 
         <div class="col-xxl-9">
-            <div class="card">
-                <div class="card-body">
-                    {{ form_start(form) }}
-
-                    {{ form_widget(form) }}
-
-                    <button class="btn btn-primary" type="submit">Uložit</button>
-                    {{ form_end(form) }}
-                </div>
-            </div>
+            {{ include('_mockup_page_form_editor.html.twig', {
+                'form': form,
+                'layouts_geometry': layouts_geometry,
+                'fixed_layout': mockup_page.layout,
+                'existing_images': existing_images,
+                'submit_label': 'Uložit změny',
+            }) }}
         </div>
     </div>
 {% endblock %}

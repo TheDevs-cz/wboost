@@ -14,6 +14,8 @@ readonly final class EditManualMockupPage
         public string $name,
         /** @var array<null|UploadedFile> */
         public array $images,
+        /** @var array<bool> Slot indexes flagged true get their existing image removed (unless a new upload replaces it). */
+        public array $removeImages = [],
     ) {
     }
 }

@@ -20,18 +20,105 @@ enum MockupPageLayout: string
 
     public function uploadInputsCount(): int
     {
+        return count($this->slots());
+    }
+
+    public static function maxUploadInputsCount(): int
+    {
+        $max = 0;
+
+        foreach (self::cases() as $layout) {
+            $max = max($max, $layout->uploadInputsCount());
+        }
+
+        return $max;
+    }
+
+    /**
+     * Slot order matches the persisted ManualMockupPage::$images indexes.
+     *
+     * @return list<MockupPageSlot>
+     */
+    public function slots(): array
+    {
         return match ($this) {
-            self::Layout1 => 4,
-            self::Layout2 => 3,
-            self::Layout3 => 3,
-            self::Layout4 => 5,
-            self::Layout5 => 4,
-            self::Layout6 => 6,
-            self::Layout7 => 1,
-            self::Layout8 => 2,
-            self::Layout9 => 2,
-            self::Layout10 => 3,
-            self::Layout11 => 3,
+            self::Layout1 => [
+                new MockupPageSlot(1, 1, 1, 1),
+                new MockupPageSlot(2, 2, 1, 1),
+                new MockupPageSlot(1, 2, 2, 1),
+                new MockupPageSlot(3, 1, 2, 1),
+            ],
+            self::Layout2 => [
+                new MockupPageSlot(1, 1, 1, 2),
+                new MockupPageSlot(2, 2, 1, 1),
+                new MockupPageSlot(2, 2, 2, 1),
+            ],
+            self::Layout3 => [
+                new MockupPageSlot(1, 1, 1, 2),
+                new MockupPageSlot(2, 1, 1, 2),
+                new MockupPageSlot(3, 1, 1, 2),
+            ],
+            self::Layout4 => [
+                new MockupPageSlot(1, 1, 1, 2),
+                new MockupPageSlot(2, 1, 1, 1),
+                new MockupPageSlot(3, 1, 1, 1),
+                new MockupPageSlot(2, 1, 2, 1),
+                new MockupPageSlot(3, 1, 2, 1),
+            ],
+            self::Layout5 => [
+                new MockupPageSlot(1, 1, 1, 2),
+                new MockupPageSlot(2, 1, 1, 1),
+                new MockupPageSlot(3, 1, 1, 1),
+                new MockupPageSlot(2, 2, 2, 1),
+            ],
+            self::Layout6 => [
+                new MockupPageSlot(1, 1, 1, 1),
+                new MockupPageSlot(2, 1, 1, 1),
+                new MockupPageSlot(3, 1, 1, 1),
+                new MockupPageSlot(1, 1, 2, 1),
+                new MockupPageSlot(2, 1, 2, 1),
+                new MockupPageSlot(3, 1, 2, 1),
+            ],
+            self::Layout7 => [
+                new MockupPageSlot(1, 3, 1, 2),
+            ],
+            self::Layout8 => [
+                new MockupPageSlot(1, 1, 1, 2),
+                new MockupPageSlot(2, 2, 1, 2),
+            ],
+            self::Layout9 => [
+                new MockupPageSlot(1, 2, 1, 2),
+                new MockupPageSlot(3, 1, 1, 2),
+            ],
+            self::Layout10 => [
+                new MockupPageSlot(1, 2, 1, 2),
+                new MockupPageSlot(3, 1, 1, 1),
+                new MockupPageSlot(3, 1, 2, 1),
+            ],
+            self::Layout11 => [
+                new MockupPageSlot(1, 1, 1, 1),
+                new MockupPageSlot(1, 1, 2, 1),
+                new MockupPageSlot(2, 2, 1, 2),
+            ],
         };
+    }
+
+    /**
+     * Geometry of every layout in one structure, for the JS editor.
+     *
+     * @return array<string, list<array{column: int, columnSpan: int, row: int, rowSpan: int, width: int, height: int, recommendedWidth: int, recommendedHeight: int}>>
+     */
+    public static function exportGeometry(): array
+    {
+        $geometry = [];
+
+        foreach (self::cases() as $layout) {
+            $geometry[$layout->value] = array_map(
+                static fn (MockupPageSlot $slot): array => $slot->toArray(),
+                $layout->slots(),
+            );
+        }
+
+        return $geometry;
     }
 }

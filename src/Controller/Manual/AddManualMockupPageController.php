@@ -34,36 +34,40 @@ final class AddManualMockupPageController extends AbstractController
         Manual $manual,
         null|MockupPageLayout $mockupPageLayout = null,
     ): Response {
-        $formData = new ManualMockupPageFormData($mockupPageLayout);
-        $form = $this->createForm(ManualMockupPageFormType::class, $formData);
+        $formData = new ManualMockupPageFormData();
+        $formData->layout = $mockupPageLayout;
 
-        if ($mockupPageLayout !== null) {
-            $form->handleRequest($request);
+        $form = $this->createForm(ManualMockupPageFormType::class, $formData, [
+            'allow_layout_choice' => true,
+        ]);
 
-            if ($form->isSubmitted() && $form->isValid()) {
-                assert($formData->name !== null);
+        $form->handleRequest($request);
 
-                $this->bus->dispatch(
-                    new AddManualMockupPage(
-                        $manual->id,
-                        $formData->name,
-                        $mockupPageLayout,
-                        $formData->images,
-                    ),
-                );
+        if ($form->isSubmitted() && $form->isValid()) {
+            assert($formData->name !== null);
+            assert($formData->layout !== null);
 
-                return $this->redirectToRoute('manual_mockup_pages', [
-                    'id' => $manual->id,
-                ]);
-            }
+            $this->bus->dispatch(
+                new AddManualMockupPage(
+                    $manual->id,
+                    $formData->name,
+                    $formData->layout,
+                    array_slice($formData->images, 0, $formData->layout->uploadInputsCount()),
+                ),
+            );
+
+            $this->addFlash('success', 'Stránka s mockupy přidána!');
+
+            return $this->redirectToRoute('manual_mockup_pages', [
+                'id' => $manual->id,
+            ]);
         }
-
 
         return $this->render('add_manual_mockup_page.html.twig', [
             'project' => $manual->project,
             'manual' => $manual,
             'layouts' => MockupPageLayout::cases(),
-            'selected_layout' => $mockupPageLayout,
+            'layouts_geometry' => MockupPageLayout::exportGeometry(),
             'form' => $form,
         ]);
     }

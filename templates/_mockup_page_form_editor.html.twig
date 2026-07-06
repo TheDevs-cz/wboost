@@ -1,0 +1,124 @@
+{# Interactive mockup page editor shared by the add + edit pages.
+
+   Context:
+   - form: ManualMockupPageFormType view
+   - layouts_geometry: MockupPageLayout::exportGeometry()
+   - fixed_layout: MockupPageLayout|null — set on edit (layout locked)
+   - existing_images: list<string|null> — per-slot uploaded_asset URLs (edit)
+   - submit_label: string
+#}
+{% set existing_images = existing_images|default([]) %}
+{% set fixed_layout = fixed_layout|default(null) %}
+
+{{ form_start(form, {'attr': {
+    'data-controller': 'mockup-page-editor',
+    'data-mockup-page-editor-geometry-value': layouts_geometry|json_encode,
+    'data-mockup-page-editor-existing-images-value': existing_images|json_encode,
+    'data-mockup-page-editor-fixed-layout-value': fixed_layout ? fixed_layout.value : '',
+    'data-mockup-page-editor-max-file-size-value': 2097152,
+    'data-action': 'submit->mockup-page-editor#formSubmitted',
+}}) }}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 col-lg-5">
+                    {{ form_row(form.name, {'attr': {'placeholder': 'Např. Vizitky a hlavičkový papír'}}) }}
+                </div>
+            </div>
+
+            {% if form.layout is defined %}
+                <h4 class="header-title mt-2 mb-1">Rozložení stránky</h4>
+                <p class="text-muted mb-2">Vyberte, jak budou obrázky na stránce manuálu uspořádané. Rozložení můžete změnit i po nahrání obrázků — nahrané obrázky zůstanou zachované.</p>
+
+                {{ form_errors(form.layout) }}
+
+                <div class="mockup-layout-picker mb-3">
+                    {% for child in form.layout %}
+                        {% set slot_count = layouts_geometry[child.vars.value]|length %}
+                        <label class="mockup-layout-option" data-mockup-page-editor-target="layoutOption" data-layout="{{ child.vars.value }}">
+                            {{ form_widget(child, {'attr': {
+                                'class': 'mockup-layout-radio',
+                                'data-mockup-page-editor-target': 'layoutRadio',
+                                'data-action': 'mockup-page-editor#layoutChanged',
+                            }}) }}
+                            <span class="mockup-mini-grid" aria-hidden="true">
+                                {% for slot in layouts_geometry[child.vars.value] %}
+                                    <span data-slot-index="{{ loop.index0 }}" style="grid-column: {{ slot.column }} / span {{ slot.columnSpan }}; grid-row: {{ slot.row }} / span {{ slot.rowSpan }};"></span>
+                                {% endfor %}
+                            </span>
+                            <span class="mockup-layout-count">{{ slot_count }} {{ slot_count == 1 ? 'obrázek' : (slot_count < 5 ? 'obrázky' : 'obrázků') }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            {% elseif fixed_layout %}
+                <h4 class="header-title mt-2 mb-1">Rozložení stránky</h4>
+
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="mockup-layout-option mockup-layout-option-static" data-mockup-page-editor-target="layoutOption" data-layout="{{ fixed_layout.value }}">
+                        <span class="mockup-mini-grid" aria-hidden="true">
+                            {% for slot in layouts_geometry[fixed_layout.value] %}
+                                <span data-slot-index="{{ loop.index0 }}" style="grid-column: {{ slot.column }} / span {{ slot.columnSpan }}; grid-row: {{ slot.row }} / span {{ slot.rowSpan }};"></span>
+                            {% endfor %}
+                        </span>
+                    </span>
+                    <span class="text-muted">Rozložení nelze po vytvoření stránky změnit.</span>
+                </div>
+            {% endif %}
+
+            <h4 class="header-title mt-2 mb-1">Obrázky</h4>
+            <p class="text-muted mb-2">
+                Klikněte na pole (nebo do něj přetáhněte soubor) a nahrajte obrázek.
+                U každého pole vidíte doporučené rozměry — obrázek v jiném poměru stran se při zobrazení ořízne.
+            </p>
+
+            {% for imageField in form.images %}
+                {% if imageField.vars.errors|length > 0 %}
+                    <div class="alert alert-danger py-2">
+                        <strong>Obrázek {{ loop.index }}:</strong> {{ form_errors(imageField) }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="alert alert-warning py-2 d-none" data-mockup-page-editor-target="extraNotice">
+                <i class="ri-alert-line me-1"></i>Zvolené rozložení má méně polí — obrázky navíc se neuloží. Přepnutím zpět na větší rozložení o ně nepřijdete.
+            </div>
+
+            <div class="mockup-editor-desk">
+                <div class="mockup-editor-stage-container">
+                    <div class="mockup-editor-page" data-mockup-page-editor-target="stage"></div>
+                </div>
+                <div class="mockup-editor-no-layout text-muted d-none" data-mockup-page-editor-target="stageEmpty">
+                    <i class="ri-layout-masonry-line d-block mb-1"></i>
+                    Nejdříve vyberte rozložení stránky výše.
+                </div>
+            </div>
+
+            <div class="d-none">
+                {% for imageField in form.images %}
+                    {{ form_widget(imageField, {'attr': {
+                        'accept': 'image/*',
+                        'data-mockup-page-editor-target': 'fileInput',
+                        'data-action': 'change->mockup-page-editor#fileChanged',
+                    }}) }}
+                {% endfor %}
+                {% for removeField in form.removeImages %}
+                    {{ form_widget(removeField, {'attr': {
+                        'data-mockup-page-editor-target': 'removeFlag',
+                    }}) }}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="mockup-editor-savebar" data-mockup-page-editor-target="saveBar">
+        <span class="text-muted" data-mockup-page-editor-target="fillSummary"></span>
+        <span class="mockup-editor-dirty d-none" data-mockup-page-editor-target="dirtyBadge">
+            <span class="mockup-editor-dirty-dot"></span> Neuložené změny
+        </span>
+        <button class="btn btn-primary px-3" type="submit">
+            <i class="ri-save-line me-1"></i>{{ submit_label|default('Uložit stránku') }}
+        </button>
+    </div>
+
+{{ form_end(form) }}
