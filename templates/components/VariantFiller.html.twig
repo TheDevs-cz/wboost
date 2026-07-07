@@ -227,7 +227,7 @@
                             data-frame-height="{{ ph.frame.height }}"
                         >
                             {% if ph.name %}
-                                <span class="fill-box__name fill-box__name--{{ ph.textAlign in ['center', 'right'] ? ph.textAlign : 'left' }}">{{ ph.name }}</span>
+                                <span class="fill-box__name">{{ ph.name }}</span>
                             {% endif %}
                             <div class="fill-box__tools">
                                 <button type="button" class="fill-box__tool fill-box__tool--edit"
@@ -262,7 +262,7 @@
                             data-frame-height="{{ ph.frame.height }}"
                         >
                             {% if ph.name %}
-                                <span class="fill-box__name fill-box__name--left">{{ ph.name }}</span>
+                                <span class="fill-box__name">{{ ph.name }}</span>
                             {% endif %}
                             <div class="fill-box__tools">
                                 <button type="button" class="fill-box__tool fill-box__tool--edit"
@@ -365,7 +365,10 @@
                         <div class="card-body p-2">
                             <div class="d-flex justify-content-between align-items-start mb-1">
                                 <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0" for="fill-text-{{ ph.inputId }}">{{ ph.name ?? 'Text' }}</label>
-                                <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
+                                <div class="d-flex align-items-center gap-1">
+                                    <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="variant-fill-overlay#close"><i class="mdi mdi-check me-1" aria-hidden="true"></i> Uložit</button>
+                                    <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
+                                </div>
                             </div>
                             {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
                             {% if ph.richText and richToolbar %}
@@ -465,7 +468,10 @@
                         <div class="fill-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="fill-modal-title-{{ ph.inputId }}" tabindex="-1">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <h5 class="mb-0" id="fill-modal-title-{{ ph.inputId }}">{{ ph.name ?? 'Vybrat obrázek' }}</h5>
-                                <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closeModal"></button>
+                                <div class="d-flex align-items-center gap-1">
+                                    <button type="button" class="btn btn-success btn-sm py-0 px-2 d-inline-flex align-items-center" style="font-size: .8rem;" data-action="variant-fill-overlay#closeModal"><i class="mdi mdi-check me-1" aria-hidden="true"></i> Uložit</button>
+                                    <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closeModal"></button>
+                                </div>
                             </div>
                             {% if ph.description %}<p class="small text-muted">{{ ph.description }}</p>{% endif %}
 
