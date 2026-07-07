@@ -9,6 +9,7 @@ use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -98,6 +99,16 @@ final class TemplateGroupFormType extends AbstractType
                     maxSize: '2m',
                 ),
             ],
+        ]);
+
+        // "Create from existing template" source, carried through submits as
+        // hidden fields (the picker page fills them via query parameters).
+        $builder->add('sourceModule', HiddenType::class, [
+            'required' => false,
+        ]);
+
+        $builder->add('sourceVariantId', HiddenType::class, [
+            'required' => false,
         ]);
 
         $builder->add('customDimensions', CollectionType::class, [

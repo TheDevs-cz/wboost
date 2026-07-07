@@ -1778,3 +1778,34 @@
     background: var(--bs-danger, #fa5c7c);
     border: 1px solid #fff;
 }
+
+/* "Create group from existing template" picker tiles */
+.template-source-tile {
+    display: inline-block;
+    padding: 0.35rem;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0.35rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.template-source-tile:hover {
+    border-color: var(--bs-primary, #727cf5);
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.template-source-thumb {
+    height: 110px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background-color: #f6f7fb;
+}
+
+.template-source-cta {
+    color: var(--bs-primary, #727cf5);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.template-source-tile:hover .template-source-cta {
+    opacity: 1;
+}

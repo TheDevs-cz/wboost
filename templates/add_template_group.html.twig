@@ -16,6 +16,26 @@
 {% block content %}
     {{ form_start(form) }}
 
+    {% if source_variant %}
+        <div class="card border border-primary">
+            <div class="card-body py-2 d-flex align-items-center flex-wrap gap-2">
+                <span class="d-inline-block rounded shadow-sm flex-shrink-0"
+                      style="height: 64px; aspect-ratio: {{ source_variant.dimension.width }} / {{ source_variant.dimension.height }}; border: 1px solid rgba(0, 0, 0, .1); background: url('{{ uploaded_asset(source_variant.previewImagePath ?: source_variant.backgroundImage) }}') center center no-repeat; background-size: cover;"></span>
+                <div class="me-auto">
+                    <h4 class="mt-0 mb-1">
+                        Výchozí design: {{ source_variant.template.name }}
+                        <span class="badge bg-primary-lighten text-primary ms-1">{{ source_module == 'social' ? source_variant.dimension.value : source_variant.dimension.label }}</span>
+                    </h4>
+                    <p class="text-muted mb-0">Každý vybraný rozměr vznikne jako kopie tohoto designu, poměrově přepočítaná. Pozadí jsou proto nepovinná — rozměry bez vlastního pozadí převezmou pozadí výchozí šablony. Původní šablona zůstane beze změny.</p>
+                </div>
+                <div class="text-nowrap">
+                    <a href="{{ path('template_group_from_template', {'projectId': project.id}) }}" class="btn btn-sm btn-outline-secondary rounded-pill">Změnit</a>
+                    <a href="{{ path('add_template_group', {'projectId': project.id}) }}" class="btn btn-sm btn-link text-muted">Začít od nuly</a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-body">
             <h4 class="header-title mb-1">1. Základní údaje</h4>
@@ -32,7 +52,11 @@
     <div class="card">
         <div class="card-body">
             <h4 class="header-title mb-1">2. Rozměry pro sociální sítě</h4>
-            <p class="text-muted">Zaškrtněte rozměry, které chcete vytvořit. Každá varianta potřebuje pozadí — vlastní, nebo společné (níže).</p>
+            {% if source_variant %}
+                <p class="text-muted">Zaškrtněte rozměry, které chcete vytvořit. Pozadí je nepovinné — rozměry bez vlastního pozadí převezmou pozadí výchozí šablony.</p>
+            {% else %}
+                <p class="text-muted">Zaškrtněte rozměry, které chcete vytvořit. Každá varianta potřebuje pozadí — vlastní, nebo společné (níže).</p>
+            {% endif %}
 
             {{ form_errors(form.socialDimensions) }}
 
@@ -120,7 +144,11 @@
     <div class="card">
         <div class="card-body">
             <h4 class="header-title mb-1">4. Společné pozadí</h4>
-            <p class="text-muted">Použije se pro každý vybraný rozměr, který nemá nahrané vlastní pozadí (ořízne se na střed).</p>
+            {% if source_variant %}
+                <p class="text-muted">Nepovinné. Použije se pro každý vybraný rozměr, který nemá nahrané vlastní pozadí — bez něj se převezme pozadí výchozí šablony.</p>
+            {% else %}
+                <p class="text-muted">Použije se pro každý vybraný rozměr, který nemá nahrané vlastní pozadí (ořízne se na střed).</p>
+            {% endif %}
 
             {{ form_row(form.commonBackground) }}
         </div>

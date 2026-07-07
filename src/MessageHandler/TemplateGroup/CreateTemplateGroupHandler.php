@@ -24,6 +24,9 @@ use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\ProvideIdentity;
+use WBoost\Web\Services\TemplateGroup\CanvasDesignProjector;
+use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\StoredBackgroundImage;
 
 #[AsMessageHandler]
 readonly final class CreateTemplateGroupHandler
@@ -40,6 +43,8 @@ readonly final class CreateTemplateGroupHandler
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private Filesystem $filesystem,
+        private CanvasDesignProjector $projector,
+        private UploaderHelper $uploaderHelper,
     ) {
     }
 
@@ -50,6 +55,14 @@ readonly final class CreateTemplateGroupHandler
     {
         $project = $this->projectRepository->get($message->projectId);
         $now = $this->clock->now();
+
+        $sourceVariant = null;
+
+        if ($message->sourceSocialVariantId !== null) {
+            $sourceVariant = $this->socialVariantRepository->get($message->sourceSocialVariantId);
+        } elseif ($message->sourceCustomVariantId !== null) {
+            $sourceVariant = $this->customVariantRepository->get($message->sourceCustomVariantId);
+        }
 
         $group = new TemplateGroup($message->groupId, $project, $now, $message->name);
         $this->templateGroupRepository->add($group);
@@ -75,14 +88,17 @@ readonly final class CreateTemplateGroupHandler
             foreach ($message->socialVariants as $selection) {
                 $variantId = $this->provideIdentity->next();
 
+                $background = $this->resolveBackground("social-networks/$variantId", $selection->backgroundImage, $sourceVariant);
+
                 $variant = new SocialNetworkTemplateVariant(
                     $variantId,
                     $template,
                     $selection->dimension,
-                    $this->writeBackground("social-networks/$variantId", $selection->backgroundImage),
+                    $background->path,
                     $now,
                 );
 
+                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background);
                 $variant->assignToGroup($group);
                 $this->socialVariantRepository->add($variant);
             }
@@ -109,28 +125,90 @@ readonly final class CreateTemplateGroupHandler
             foreach ($message->customVariants as $selection) {
                 $variantId = $this->provideIdentity->next();
 
+                $background = $this->resolveBackground("custom-templates/$variantId", $selection->backgroundImage, $sourceVariant);
+
                 $variant = new CustomTemplateVariant(
                     $variantId,
                     $template,
                     $selection->dimension,
-                    $this->writeBackground("custom-templates/$variantId", $selection->backgroundImage),
+                    $background->path,
                     $now,
                 );
 
+                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background);
                 $variant->assignToGroup($group);
                 $this->customVariantRepository->add($variant);
             }
         }
     }
 
-    private function writeBackground(string $pathPrefix, UploadedFile $backgroundImage): string
-    {
+    /**
+     * A selection without an uploaded background is only valid when the group
+     * is created from an existing template — the source variant's background
+     * is then copied for the new variant (each variant owns its file, so
+     * changing one later never affects the others).
+     */
+    private function resolveBackground(
+        string $pathPrefix,
+        null|UploadedFile $backgroundImage,
+        null|SocialNetworkTemplateVariant|CustomTemplateVariant $sourceVariant,
+    ): StoredBackgroundImage {
+        if ($backgroundImage !== null) {
+            $bytes = $backgroundImage->getContent();
+            $extension = $backgroundImage->guessExtension();
+        } else {
+            if ($sourceVariant === null) {
+                throw new \LogicException('Selection without a background requires a source variant.');
+            }
+
+            $bytes = $this->filesystem->read($sourceVariant->backgroundImage);
+            $extension = pathinfo($sourceVariant->backgroundImage, PATHINFO_EXTENSION);
+            $extension = $extension !== '' ? $extension : 'png';
+        }
+
         $timestamp = $this->clock->now()->getTimestamp();
-        $extension = $backgroundImage->guessExtension();
-
         $backgroundImagePath = "$pathPrefix/background-$timestamp.$extension";
-        $this->filesystem->write($backgroundImagePath, $backgroundImage->getContent());
+        $this->filesystem->write($backgroundImagePath, $bytes);
 
-        return $backgroundImagePath;
+        $size = getimagesizefromstring($bytes);
+
+        return new StoredBackgroundImage(
+            $backgroundImagePath,
+            is_array($size) ? $size[0] : null,
+            is_array($size) ? $size[1] : null,
+        );
+    }
+
+    /**
+     * Seeds a freshly created group variant with the source design projected
+     * into its own dimension. Inputs and image inputs are copied verbatim
+     * (readonly value objects, shared inputIds = the group join key).
+     */
+    private function seedDesign(
+        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
+        null|SocialNetworkTemplateVariant|CustomTemplateVariant $sourceVariant,
+        int $targetWidth,
+        int $targetHeight,
+        StoredBackgroundImage $background,
+    ): void {
+        if ($sourceVariant === null) {
+            return;
+        }
+
+        $variant->editCanvas(
+            $this->projector->project(
+                $sourceVariant->canvas,
+                $sourceVariant->dimension->width(),
+                $sourceVariant->dimension->height(),
+                $targetWidth,
+                $targetHeight,
+                $this->uploaderHelper->getPublicPath($background->path),
+                $background->naturalWidth,
+                $background->naturalHeight,
+            ),
+            $sourceVariant->inputs,
+            null,
+            $sourceVariant->imageInputs,
+        );
     }
 }

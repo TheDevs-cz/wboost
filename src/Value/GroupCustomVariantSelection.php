@@ -10,7 +10,9 @@ readonly final class GroupCustomVariantSelection
 {
     public function __construct(
         public CustomTemplateDimension $dimension,
-        public UploadedFile $backgroundImage,
+        // Null only when the group is created from an existing template — the
+        // handler then copies the source variant's background instead.
+        public null|UploadedFile $backgroundImage,
     ) {
     }
 }

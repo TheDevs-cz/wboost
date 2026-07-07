@@ -39,6 +39,13 @@ final class TemplateGroupFormData
     /** @var list<CustomTemplateVariantFormData> */
     public array $customDimensions = [];
 
+    // "Create from existing template" design source (hidden fields, set by the
+    // picker page). When present, backgrounds become optional — dimensions
+    // without an upload reuse a copy of the source variant's background.
+    public null|string $sourceModule = null;
+
+    public null|string $sourceVariantId = null;
+
     #[Callback]
     public function validate(ExecutionContextInterface $context): void
     {
@@ -46,6 +53,10 @@ final class TemplateGroupFormData
             $context->buildViolation('Vyberte alespoň jeden rozměr.')
                 ->atPath('socialDimensions')
                 ->addViolation();
+        }
+
+        if ($this->hasDesignSource()) {
+            return;
         }
 
         foreach ($this->socialDimensions as $dimension) {
@@ -63,6 +74,13 @@ final class TemplateGroupFormData
                     ->addViolation();
             }
         }
+    }
+
+    public function hasDesignSource(): bool
+    {
+        return in_array($this->sourceModule, ['social', 'custom'], true)
+            && $this->sourceVariantId !== null
+            && $this->sourceVariantId !== '';
     }
 
     public function backgroundFor(TemplateDimension $dimension): null|UploadedFile
