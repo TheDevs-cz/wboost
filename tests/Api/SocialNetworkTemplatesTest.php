@@ -193,6 +193,11 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertEqualsWithDelta(520.0, $headline['frame']['width'] ?? null, 0.001);
         self::assertEqualsWithDelta(90.0, $headline['frame']['height'] ?? null, 0.001);
 
+        // Stacking order: one index space shared with imageInputs[].layerIndex —
+        // the fixture canvas paints the two image placeholders first (0, 1),
+        // then the four textboxes (2..5).
+        self::assertSame(2, $headline['layerIndex'] ?? null);
+
         $tagline = $variant['inputs'][1];
         self::assertIsArray($tagline);
         self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, $tagline['id'] ?? null);
@@ -201,6 +206,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertNull($tagline['maxLength']);
         self::assertTrue($tagline['uppercase'] ?? null);
         self::assertFalse($tagline['hidable'] ?? null);
+        self::assertSame(3, $tagline['layerIndex'] ?? null);
 
         $locked = $variant['inputs'][2];
         self::assertIsArray($locked);
@@ -219,6 +225,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, $badge['id'] ?? null);
         self::assertSame('badge', $badge['name'] ?? null);
         self::assertTrue($badge['hidable'] ?? null);
+        self::assertSame(5, $badge['layerIndex'] ?? null);
     }
 
     public function testEmbedsImageInputs(): void
@@ -272,6 +279,10 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertIsString($photo['defaultImageUrl'] ?? null);
         self::assertStringContainsString('fixtures/standin-photo.png', $photo['defaultImageUrl']);
 
+        // Stacking order shares one index space with inputs[].layerIndex: the
+        // photo placeholder is the very first (backmost) canvas object.
+        self::assertSame(0, $photo['layerIndex'] ?? null);
+
         // The locked slot exposes its restrictive flags.
         $locked = $variant['imageInputs'][1];
         self::assertIsArray($locked);
@@ -280,6 +291,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         self::assertFalse($locked['allowResize'] ?? null);
         self::assertFalse($locked['allowRotate'] ?? null);
         self::assertFalse($locked['hidable'] ?? null);
+        self::assertSame(1, $locked['layerIndex'] ?? null);
     }
 
     /**

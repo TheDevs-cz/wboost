@@ -138,12 +138,18 @@ final class CustomTemplatesTest extends ApiTestCase
         self::assertEqualsWithDelta(520.0, $headline['frame']['width'] ?? null, 0.001);
         self::assertEqualsWithDelta(90.0, $headline['frame']['height'] ?? null, 0.001);
 
+        // Stacking order: one index space shared with imageInputs[].layerIndex —
+        // the fixture canvas paints the two image placeholders first (0, 1),
+        // then the four textboxes (2..5).
+        self::assertSame(2, $headline['layerIndex'] ?? null);
+
         self::assertIsArray($variant['imageInputs'] ?? null);
         self::assertCount(2, $variant['imageInputs']);
 
         $photo = $variant['imageInputs'][0];
         self::assertIsArray($photo);
         self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_PHOTO_ID, $photo['id'] ?? null);
+        self::assertSame(0, $photo['layerIndex'] ?? null);
         self::assertTrue($photo['allowMove'] ?? null);
         self::assertSame([TestDataFixture::FILE_DIRECTORY_ALLOWED_ID], $photo['allowedDirectoryIds'] ?? null);
         self::assertSame(

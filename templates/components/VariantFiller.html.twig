@@ -39,6 +39,7 @@
 
 {% set fontFaces = this.fontFaces() %}
 {% set richToolbar = this.richTextToolbar() %}
+{% set layers = this.layers() %}
 
 <div {{ attributes }}>
     {# Shared editor modules (classic scripts, window globals) + the project
@@ -157,6 +158,7 @@
             <span data-variant-fill-overlay-target="previewSource" data-src="{{ previewSrc }}" hidden></span>
         {% endif %}
 
+        <div class="fill-body">
         <div class="fill-viewport">
         <div class="fill-stage" data-variant-fill-overlay-target="stage">
             {# ---- Preview --------------------------------------------------- #}
@@ -286,6 +288,63 @@
                 {% endfor %}
             </div>
         </div>
+        </div>
+
+        {# ---- Layers panel (Vrstvy) ------------------------------------------
+           Photoshop-style list of the variant's placeholders, topmost first
+           (canvas stacking order via this.layers()). Hovering a row highlights
+           its box over the preview; clicking opens the same popover/modal the
+           box's pencil opens. Rows are design-fixed, and the eye buttons carry
+           data-hide-toggle so the controller's _reflectHide keeps them in sync
+           with the box eyes — the whole aside can live in data-live-ignore
+           (image hide state is client-only and must never be morphed away).
+           JS-only chrome: hidden without .fill-js. #}
+        {% if layers|length > 0 %}
+            <aside class="fill-layers" data-live-ignore aria-label="Vrstvy šablony">
+                <p class="fill-layers__title"><i class="mdi mdi-layers-outline me-1" aria-hidden="true"></i>Vrstvy</p>
+                <div class="fill-layers__list" role="list">
+                    {% for layer in layers %}
+                        <div
+                            class="fill-layer-row{% if layer.locked %} is-locked{% endif %}"
+                            role="listitem"
+                            data-action="mouseenter->variant-fill-overlay#highlightLayer mouseleave->variant-fill-overlay#unhighlightLayer"
+                            data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
+                        >
+                            {% if layer.interactive %}
+                                <button
+                                    type="button"
+                                    class="fill-layer-row__main"
+                                    title="{{ layer.label }} — kliknutím upravíte"
+                                    data-action="variant-fill-overlay#{{ layer.kind == 'image' ? 'openImageModal' : 'openPopover' }} focus->variant-fill-overlay#highlightLayer blur->variant-fill-overlay#unhighlightLayer"
+                                    data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
+                                >
+                                    <i class="fill-layer-row__icon mdi {{ layer.kind == 'image' ? 'mdi-image-outline' : 'mdi-format-text' }}" aria-hidden="true"></i>
+                                    <span class="fill-layer-row__label">{{ layer.label }}</span>
+                                </button>
+                            {% else %}
+                                <span class="fill-layer-row__main" title="{{ layer.locked ? 'Pevná součást šablony' : layer.label }}">
+                                    <i class="fill-layer-row__icon mdi {{ layer.kind == 'image' ? 'mdi-image-outline' : 'mdi-format-text' }}" aria-hidden="true"></i>
+                                    <span class="fill-layer-row__label">{{ layer.label }}</span>
+                                    {% if layer.locked %}<i class="fill-layer-row__flag mdi mdi-lock" aria-hidden="true"></i>{% endif %}
+                                </span>
+                            {% endif %}
+                            {% if layer.hidable %}
+                                <button
+                                    type="button"
+                                    class="fill-layer-row__eye{{ layer.hidden ? ' is-active' : '' }}"
+                                    data-hide-toggle="{{ layer.inputId }}"
+                                    aria-pressed="{{ layer.hidden ? 'true' : 'false' }}"
+                                    title="{{ layer.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                                    aria-label="{{ layer.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                                    data-action="variant-fill-overlay#toggleHide"
+                                    data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
+                                ><i class="mdi {{ layer.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </aside>
+        {% endif %}
         </div>
 
         {# Text popovers (all non-locked inputs, so the no-JS list works even

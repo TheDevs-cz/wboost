@@ -156,7 +156,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
               "fontFamily": "Rubik (Rubik Bold)",
               "fontSize": 24, "lineHeight": 1.4, "charSpacing": 0
             },
-            "richText": false                           // true → offer the WYSIWYG; export accepts { runs } for this input
+            "richText": false,                          // true → offer the WYSIWYG; export accepts { runs } for this input
+            "layerIndex": 2                             // stacking order (0 = backmost); one index space with imageInputs[].layerIndex, nullable
           }
         ],
         "richTextOptions": {                             // present ONLY when some input has richText: true
@@ -195,7 +196,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             ],
             "includesRoot": false,                        // unrestricted slots also use the gallery root
             "frame": { "x": 100, "y": 120, "width": 400, "height": 300 }, // designer's fixed frame (canvas px), nullable
-            "defaultImageUrl": "http://.../standin.png"  // stand-in shown if left empty, nullable
+            "defaultImageUrl": "http://.../standin.png", // stand-in shown if left empty, nullable
+            "layerIndex": 0                              // stacking order (0 = backmost); one index space with inputs[].layerIndex, nullable
           }
         ]
       }
@@ -327,6 +329,7 @@ For each entry in `variant.inputs`:
 | `containerId` | Nullable. When set, this input is a member of `variants[].containers[]` entry with that id and reflows at render time. |
 | `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow. |
 | `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
+| `layerIndex` | Nullable int — the object's stacking position on the variant canvas (0 = backmost, higher = painted on top). Shares ONE index space with `imageInputs[].layerIndex`: merge both arrays and sort by `layerIndex` **descending** to build a Photoshop-style layers list (topmost first). Values may have gaps (decorative design objects occupy positions too); only the relative order is meaningful. Purely informational for display/navigation — the export accepts no z-order overrides. |
 
 Build the `inputs` payload as `{ <inputId>: <string|{value,hide}|{runs,hide}> }`,
 including only the inputs the user actually edited/toggled (omitted = default).
@@ -430,6 +433,14 @@ in a box of that aspect ratio there is no letterboxing, so a single scale factor
 `left = frame.x*scale`, `top = frame.y*scale`, `width = frame.width*scale`,
 `height = frame.height*scale`. This lets you build a "click the placeholder on the
 preview → edit in a floating panel" UX instead of a disconnected form.
+
+**Layers list (navigation aid).** Merge `inputs[]` and `imageInputs[]` into one
+list and sort it by `layerIndex` descending (topmost first) to show a
+Photoshop-style layers panel next to the preview: hovering a row highlights the
+matching `frame` box, clicking it opens the same editing affordance as clicking
+the box itself. Entries with a `null` `layerIndex` (object not locatable on the
+canvas) belong at the end of the list. The stack is fixed by the designer —
+there is no z-order override on export.
 
 ### Image placeholders (`variant.imageInputs`)
 

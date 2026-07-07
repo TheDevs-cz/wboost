@@ -38,6 +38,14 @@ final readonly class CustomTemplateVariantImageInputResponse
         public bool $includesRoot,
         public null|CustomTemplateVariantImageInputFrameResponse $frame,
         public null|string $defaultImageUrl,
+        /**
+         * Stacking position of this placeholder's object on the variant canvas
+         * (0 = backmost, higher = painted on top). Shares one index space with
+         * `inputs[].layerIndex` — sort both arrays together by this value to
+         * rebuild the design's layer stack. Null when the object cannot be
+         * located on the canvas.
+         */
+        public null|int $layerIndex = null,
     ) {
     }
 }

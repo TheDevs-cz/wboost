@@ -342,6 +342,76 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
+     * Combined layers list for the fill page's "Vrstvy" panel: every text and
+     * image placeholder, ordered by canvas stacking TOPMOST FIRST (Photoshop
+     * convention; the canvas objects array order is Fabric's paint order).
+     * `interactive` marks rows that can open an editor: non-locked text with a
+     * locatable frame (its popover anchors to the overlay box) and any image
+     * slot (the gallery modal needs no anchor). `hidden` reflects only the
+     * server-known text hide state — image hide is client-side and the panel's
+     * eye buttons are kept in sync by the overlay controller.
+     *
+     * @return list<array{
+     *     kind: 'text'|'image',
+     *     inputId: string,
+     *     label: string,
+     *     locked: bool,
+     *     hidable: bool,
+     *     hidden: bool,
+     *     interactive: bool
+     * }>
+     */
+    public function layers(): array
+    {
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $layerIndexes = $this->textInputObjectBinder->layerIndexesByInputId($canvas, $variant->inputs);
+        $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+
+        $layers = [];
+
+        foreach (array_values($variant->inputs) as $position => $input) {
+            $name = trim($input->name ?? '');
+            $layers[] = [
+                'kind' => 'text',
+                'inputId' => $input->inputId,
+                'label' => $name !== '' ? $name : sprintf('Text %d', $position + 1),
+                'locked' => $input->locked,
+                'hidable' => $input->hidable && !$input->locked,
+                'hidden' => $this->hiddenValues[$input->inputId] ?? false,
+                'interactive' => !$input->locked && isset($frames[$input->inputId]),
+            ];
+        }
+
+        foreach (array_values($variant->imageInputs) as $position => $input) {
+            $name = trim($input->name ?? '');
+            $layers[] = [
+                'kind' => 'image',
+                'inputId' => $input->inputId,
+                'label' => $name !== '' ? $name : sprintf('Obrázek %d', $position + 1),
+                'locked' => false,
+                'hidable' => $input->hidable,
+                'hidden' => false,
+                'interactive' => true,
+            ];
+        }
+
+        // Topmost first; placeholders whose object can't be located sink to
+        // the end (usort is stable, so they keep their definition order).
+        usort($layers, static function (array $a, array $b) use ($layerIndexes): int {
+            $aIndex = $layerIndexes[$a['inputId']] ?? PHP_INT_MIN;
+            $bIndex = $layerIndexes[$b['inputId']] ?? PHP_INT_MIN;
+
+            return $bIndex <=> $aIndex;
+        });
+
+        return $layers;
+    }
+
+    /**
      * The runs a rich input's WYSIWYG editor is seeded with, parsed from the
      * stored mirror value. The mirror may hold either the `{"runs":[...]}`
      * envelope the editor writes, or plain text (fresh state / no-JS entry) —

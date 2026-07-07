@@ -192,6 +192,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
     {
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
         $textStyles = $this->textInputObjectBinder->textStylesByInputId($canvas, $variant->inputs);
+        $layerIndexes = $this->textInputObjectBinder->layerIndexesByInputId($canvas, $variant->inputs);
 
         $containerIdByInputId = [];
         foreach ($containers as $container) {
@@ -201,7 +202,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
         }
 
         return array_values(array_map(
-            function (EditorTextInput $input) use ($frames, $textStyles, $containerIdByInputId): SocialNetworkTemplateVariantInputResponse {
+            function (EditorTextInput $input) use ($frames, $textStyles, $containerIdByInputId, $layerIndexes): SocialNetworkTemplateVariantInputResponse {
                 $frame = $frames[$input->inputId] ?? null;
                 $textStyle = $textStyles[$input->inputId] ?? null;
 
@@ -231,6 +232,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                             charSpacing: $textStyle['charSpacing'],
                         )
                         : null,
+                    layerIndex: $layerIndexes[$input->inputId] ?? null,
                 );
             },
             $variant->inputs,
@@ -281,10 +283,11 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
         $decoded = json_decode($variant->canvas, true);
         $canvas = is_array($decoded) ? $decoded : [];
         $objects = $this->placeholderGeometry->placeholderObjectsByInputId($canvas);
+        $layerIndexes = $this->placeholderGeometry->placeholderObjectIndexesByInputId($canvas);
         $projectId = $variant->template->project->id;
 
         return array_values(array_map(
-            function (EditorImageInput $input) use ($objects, $projectId): SocialNetworkTemplateVariantImageInputResponse {
+            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId): SocialNetworkTemplateVariantImageInputResponse {
                 $object = $objects[$input->inputId] ?? null;
 
                 $frame = null;
@@ -323,6 +326,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                     includesRoot: $this->allowedDirectories->includesRoot($input),
                     frame: $frame,
                     defaultImageUrl: $defaultImageUrl,
+                    layerIndex: $layerIndexes[$input->inputId] ?? null,
                 );
             },
             $variant->imageInputs,

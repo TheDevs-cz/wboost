@@ -195,6 +195,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
     {
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
         $textStyles = $this->textInputObjectBinder->textStylesByInputId($canvas, $variant->inputs);
+        $layerIndexes = $this->textInputObjectBinder->layerIndexesByInputId($canvas, $variant->inputs);
 
         $containerIdByInputId = [];
         foreach ($containers as $container) {
@@ -204,7 +205,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
         }
 
         return array_values(array_map(
-            function (EditorTextInput $input) use ($frames, $textStyles, $containerIdByInputId): CustomTemplateVariantInputResponse {
+            function (EditorTextInput $input) use ($frames, $textStyles, $containerIdByInputId, $layerIndexes): CustomTemplateVariantInputResponse {
                 $frame = $frames[$input->inputId] ?? null;
                 $textStyle = $textStyles[$input->inputId] ?? null;
 
@@ -234,6 +235,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                             charSpacing: $textStyle['charSpacing'],
                         )
                         : null,
+                    layerIndex: $layerIndexes[$input->inputId] ?? null,
                 );
             },
             $variant->inputs,
@@ -284,10 +286,11 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
         $decoded = json_decode($variant->canvas, true);
         $canvas = is_array($decoded) ? $decoded : [];
         $objects = $this->placeholderGeometry->placeholderObjectsByInputId($canvas);
+        $layerIndexes = $this->placeholderGeometry->placeholderObjectIndexesByInputId($canvas);
         $projectId = $variant->template->project->id;
 
         return array_values(array_map(
-            function (EditorImageInput $input) use ($objects, $projectId): CustomTemplateVariantImageInputResponse {
+            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId): CustomTemplateVariantImageInputResponse {
                 $object = $objects[$input->inputId] ?? null;
 
                 $frame = null;
@@ -326,6 +329,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                     includesRoot: $this->allowedDirectories->includesRoot($input),
                     frame: $frame,
                     defaultImageUrl: $defaultImageUrl,
+                    layerIndex: $layerIndexes[$input->inputId] ?? null,
                 );
             },
             $variant->imageInputs,

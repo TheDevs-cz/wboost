@@ -1,5 +1,5 @@
-{# Left panel: add text / add image / highlight toggle. All actions target
-   controllers present on both the single-variant and the group editor page. #}
+{# Left panel: add text / add image / layers list / highlight toggle. All actions
+   target controllers present on both the single-variant and the group editor page. #}
 <div class="card" style="position: sticky;top: 93px;z-index: 999;">
     <div class="card-body">
         {% if fonts|length == 0 %}
@@ -11,6 +11,15 @@
         {% endif %}
 
         <button class="btn btn-sm btn-outline-secondary w-100 mb-2 text-start" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image me-1"></i> Přidat obrázek</button>
+
+        <hr class="my-2">
+
+        {# Photoshop-style layers list (canvas_layers_controller): topmost first,
+           hover highlights the object on the stage, click selects it and opens
+           its property popover, arrows restack one step. Rows are built by JS
+           from the live Fabric object list. #}
+        <p class="small fw-bold text-muted text-uppercase mb-1"><i class="mdi mdi-layers-outline me-1"></i>Vrstvy</p>
+        <div class="canvas-layers-list mb-1" data-canvas-layers-target="list" role="list" aria-label="Vrstvy plátna"></div>
 
         <hr class="my-2">
 

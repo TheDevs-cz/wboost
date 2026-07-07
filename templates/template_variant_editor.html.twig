@@ -41,7 +41,7 @@
 
     <div
         id="canvas-container"
-        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container"
+        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers"
         data-canvas-editor-background-image-value="{{ uploaded_asset(variant.backgroundImage) }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
@@ -54,6 +54,8 @@
         data-canvas-alignment-canvas-editor-outlet="#canvas-container"
         data-canvas-floating-toolbar-canvas-editor-outlet="#canvas-container"
         data-canvas-container-canvas-editor-outlet="#canvas-container"
+        data-canvas-layers-canvas-editor-outlet="#canvas-container"
+        data-canvas-layers-canvas-floating-toolbar-outlet="#canvas-container"
         data-action="
             canvas-editor:selection:changed->canvas-clipboard#onSelectionChanged
             canvas-editor:selection:changed->canvas-text-toolbar#updateFromSelection
@@ -62,8 +64,12 @@
             canvas-editor:selection:changed->canvas-alignment#onSelectionChanged
             canvas-editor:selection:changed->canvas-floating-toolbar#onSelectionChanged
             canvas-editor:selection:changed->canvas-container#onSelectionChanged
+            canvas-editor:selection:changed->canvas-layers#onSelectionChanged
             canvas-editor:canvas:loaded->canvas-container#onCanvasLoaded
             canvas-editor:canvas:loaded->canvas-history#onCanvasLoaded
+            canvas-editor:canvas:loaded->canvas-layers#onCanvasLoaded
+            canvas-editor:dirty->canvas-layers#onCanvasDirty
+            canvas-zoom:changed->canvas-layers#unhover
             canvas-zoom:changed->canvas-floating-toolbar#reposition
             canvas-zoom:changed->canvas-container#repositionZones
             canvas-editor:copy->canvas-clipboard#copy

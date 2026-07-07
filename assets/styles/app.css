@@ -103,6 +103,137 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
+/* Hovering a row in the layers panel (canvas_layers_controller) highlights the
+   object on the stage — a stronger, filled sibling of .editable-outline. */
+.layer-hover-outline {
+    position: absolute;
+    z-index: 901;
+    pointer-events: none;
+    border: 2px solid #727cf5;
+    border-radius: 2px;
+    background: rgba(114, 124, 245, 0.12);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* Layers panel (canvas_layers_controller): compact Photoshop-style rows in the
+   left card — topmost object first. Restack arrows appear on hover / focus /
+   selection so the resting state stays quiet. */
+.canvas-layers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 42vh;
+    overflow-y: auto;
+    margin: 0 -0.4rem;
+    padding: 0 0.4rem;
+}
+
+.canvas-layer-row {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    border-radius: 6px;
+    color: var(--ct-body-color, #4a4a5a);
+    transition: background-color .12s ease, color .12s ease;
+}
+
+.canvas-layer-row:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.canvas-layer-row.is-active {
+    background: rgba(114, 124, 245, 0.14);
+    color: #727cf5;
+}
+
+.canvas-layer-row__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 2px 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+.canvas-layer-row__main:focus-visible {
+    outline: 2px solid #727cf5;
+    outline-offset: -2px;
+}
+
+.canvas-layer-row__icon {
+    flex: 0 0 auto;
+    font-size: 0.95rem;
+    opacity: 0.75;
+    line-height: 1;
+}
+
+.canvas-layer-row__label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.canvas-layer-row__flag {
+    flex: 0 0 auto;
+    font-size: 0.8rem;
+    opacity: 0.6;
+    line-height: 1;
+}
+
+.canvas-layer-row__actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-right: 2px;
+    visibility: hidden;
+}
+
+.canvas-layer-row:hover .canvas-layer-row__actions,
+.canvas-layer-row:focus-within .canvas-layer-row__actions,
+.canvas-layer-row.is-active .canvas-layer-row__actions {
+    visibility: visible;
+}
+
+.canvas-layer-row__arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 13px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.55;
+    line-height: 1;
+    font-size: 0.85rem;
+}
+
+.canvas-layer-row__arrow:hover:not(:disabled) {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.canvas-layer-row__arrow:focus-visible {
+    outline: 2px solid #727cf5;
+    outline-offset: -1px;
+    opacity: 1;
+}
+
+.canvas-layer-row__arrow:disabled {
+    opacity: 0.15;
+}
+
 /* Container ("smart text area") zone overlay (canvas_container_controller).
    Plain DOM in the unscaled stage layer — like .editable-outline it never
    touches the canvas bitmap, so it can't leak into thumbnails or exports.
@@ -362,6 +493,177 @@
 .fill-form.fill-js.fill-highlight-on .fill-box--image {
     border-color: #0acf97;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* Hovering a row in the layers panel: a solid, filled highlight regardless of
+   the highlight toggle (it's a pointing gesture, not a hint). */
+.fill-form.fill-js .fill-box--layer-hover {
+    border-color: #727cf5 !important;
+    border-style: solid;
+    background: rgba(114, 124, 245, 0.10);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+.fill-form.fill-js .fill-box--image.fill-box--layer-hover {
+    border-color: #0acf97 !important;
+    background: rgba(10, 207, 151, 0.10);
+}
+
+/* ---- Layers panel (Vrstvy) on the fill page ------------------------------
+   Sits beside the preview viewport; JS-only chrome (rows drive the overlay
+   controller), hidden in the no-JS fallback. Stacks under the preview on
+   narrow screens. */
+.fill-body {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.fill-body .fill-viewport {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.fill-layers {
+    display: none;
+    flex: 0 0 230px;
+    position: sticky;
+    top: 1rem;
+    padding: 0.6rem 0.65rem;
+    background: #fff;
+    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border-radius: 10px;
+}
+
+.fill-form.fill-js .fill-layers {
+    display: block;
+}
+
+@media (max-width: 767.98px) {
+    .fill-body {
+        flex-direction: column;
+    }
+
+    .fill-layers {
+        position: static;
+        width: 100%;
+        flex-basis: auto;
+    }
+}
+
+.fill-layers__title {
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ct-secondary-color, #8a969c);
+}
+
+.fill-layers__list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.fill-layer-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-radius: 6px;
+    color: var(--ct-body-color, #4a4a5a);
+    transition: background-color .12s ease;
+}
+
+.fill-layer-row:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.fill-layer-row.is-locked {
+    opacity: 0.55;
+}
+
+.fill-layer-row__main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 4px 5px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+button.fill-layer-row__main:focus-visible {
+    outline: 2px solid #727cf5;
+    outline-offset: -2px;
+}
+
+.fill-layer-row__icon {
+    flex: 0 0 auto;
+    font-size: 0.95rem;
+    opacity: 0.75;
+    line-height: 1;
+}
+
+.fill-layer-row__label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fill-layer-row__flag {
+    flex: 0 0 auto;
+    font-size: 0.8rem;
+    opacity: 0.6;
+    line-height: 1;
+}
+
+.fill-layer-row__eye {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-right: 2px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.6;
+    line-height: 1;
+}
+
+.fill-layer-row__eye:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.fill-layer-row__eye:focus-visible {
+    outline: 2px solid #727cf5;
+    outline-offset: -1px;
+    opacity: 1;
+}
+
+.fill-layer-row__eye.is-active {
+    color: #fa5c7c;
+    opacity: 1;
+}
+
+/* A hidden layer reads as switched off in the list too. */
+.fill-layer-row:has(.fill-layer-row__eye.is-active) .fill-layer-row__label {
+    opacity: 0.55;
+    text-decoration: line-through;
 }
 
 /* Fixed in viewport coordinates (the controller positions + clamps it fully

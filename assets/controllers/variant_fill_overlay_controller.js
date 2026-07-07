@@ -396,6 +396,26 @@ export default class extends Controller {
         });
     }
 
+    // --- Layers panel (Vrstvy) ------------------------------------------------
+
+    /** Hovering/focusing a layers-panel row highlights the matching box over
+     *  the preview. No-op for placeholders without a box (locked / no frame). */
+    highlightLayer(event) {
+        this._unhighlightLayers();
+        const inputId = event.params?.inputid;
+        if (!inputId) return;
+        const box = this._boxFor(inputId);
+        if (box) box.classList.add("fill-box--layer-hover");
+    }
+
+    unhighlightLayer() {
+        this._unhighlightLayers();
+    }
+
+    _unhighlightLayers() {
+        this.boxTargets.forEach((box) => box.classList.remove("fill-box--layer-hover"));
+    }
+
     // --- Text mirroring + Enter guard ----------------------------------------
 
     syncText(event) {

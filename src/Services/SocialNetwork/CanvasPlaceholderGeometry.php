@@ -33,28 +33,76 @@ readonly final class CanvasPlaceholderGeometry
         $result = [];
 
         foreach ($objects as $object) {
-            if (!is_array($object)) {
+            if (!$this->isImagePlaceholder($object)) {
                 continue;
             }
 
-            $type = $object['type'] ?? null;
-            if (!is_string($type) || strtolower($type) !== 'image') {
-                continue;
-            }
-
-            if (($object['imagePlaceholder'] ?? false) !== true) {
-                continue;
-            }
-
-            $inputId = $object['inputId'] ?? null;
-            if (!is_string($inputId) || $inputId === '') {
-                continue;
-            }
+            /** @var array<array-key, mixed> $object */
+            $inputId = $object['inputId'];
+            assert(is_string($inputId));
 
             $result[$inputId] = $object;
         }
 
         return $result;
+    }
+
+    /**
+     * Stacking position (index within the canvas `objects` array — Fabric's
+     * paint order, 0 = backmost) of every fillable image placeholder, keyed by
+     * `inputId`. Complements {@see placeholderObjectsByInputId()}, which
+     * discards the index. First object wins for a duplicate inputId, matching
+     * the text-frame convention (only reachable with legacy/corrupt data).
+     *
+     * @param array<array-key, mixed> $canvas decoded canvas JSON
+     * @return array<string, int>
+     */
+    public function placeholderObjectIndexesByInputId(array $canvas): array
+    {
+        $objects = $canvas['objects'] ?? null;
+        if (!is_array($objects)) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach ($objects as $index => $object) {
+            if (!is_int($index) || !$this->isImagePlaceholder($object)) {
+                continue;
+            }
+
+            /** @var array<array-key, mixed> $object */
+            $inputId = $object['inputId'];
+            assert(is_string($inputId));
+
+            $result[$inputId] ??= $index;
+        }
+
+        return $result;
+    }
+
+    /**
+     * An image object marked as a fillable placeholder, carrying the inputId
+     * that keys it to an EditorImageInput.
+     */
+    private function isImagePlaceholder(mixed $object): bool
+    {
+        if (!is_array($object)) {
+            return false;
+        }
+
+        $type = $object['type'] ?? null;
+        if (!is_string($type) || strtolower($type) !== 'image') {
+            return false;
+        }
+
+        if (($object['imagePlaceholder'] ?? false) !== true) {
+            return false;
+        }
+
+        $inputId = $object['inputId'] ?? null;
+
+        return is_string($inputId) && $inputId !== '';
     }
 
     /**

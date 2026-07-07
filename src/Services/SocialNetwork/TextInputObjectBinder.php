@@ -74,6 +74,34 @@ readonly final class TextInputObjectBinder
     }
 
     /**
+     * Stacking order of every placeholder — text AND image — keyed by inputId.
+     * The value is the object's index within the canvas `objects` array
+     * (Fabric's paint order: 0 = backmost, higher = painted on top), so sorting
+     * text and image inputs together by this value yields the design's layer
+     * stack. Values may have gaps: decorative (non-placeholder) objects occupy
+     * indexes too — only the relative order is meaningful.
+     *
+     * @param array<array-key, mixed> $canvas decoded canvas JSON
+     * @param array<EditorTextInput> $inputs
+     * @return array<string, int>
+     */
+    public function layerIndexesByInputId(array $canvas, array $inputs): array
+    {
+        $indexes = [];
+
+        foreach ($this->inputIdByObjectIndex($canvas, $inputs) as $index => $inputId) {
+            // First textbox wins for a duplicate inputId — the framesByInputId convention.
+            $indexes[$inputId] ??= $index;
+        }
+
+        foreach ($this->geometry->placeholderObjectIndexesByInputId($canvas) as $inputId => $index) {
+            $indexes[$inputId] ??= $index;
+        }
+
+        return $indexes;
+    }
+
+    /**
      * Text-style metrics of every text placeholder, keyed by inputId — what a
      * Fabric runtime needs to re-measure the wrapped height of a filled text
      * (container reflow): font family/size, line height, char spacing. Values

@@ -29,6 +29,15 @@ final readonly class SocialNetworkTemplateVariantInputResponse
          * consumer UI should offer the WYSIWYG instead of a plain text field.
          */
         public bool $richText = false,
+        /**
+         * Stacking position of this input's textbox on the variant canvas
+         * (0 = backmost, higher = painted on top). Shares one index space with
+         * `imageInputs[].layerIndex`, so sorting BOTH arrays together by this
+         * value yields the design's layer stack (e.g. for a layers panel).
+         * Values may have gaps — decorative design objects occupy positions
+         * too. Null when the textbox cannot be located on the canvas.
+         */
+        public null|int $layerIndex = null,
     ) {
     }
 }
