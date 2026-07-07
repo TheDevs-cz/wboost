@@ -38,6 +38,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Column(nullable: true)]
     public null|string $avatar = null;
 
+    /**
+     * Last time the user was seen making an interactive request. Written by
+     * {@see \WBoost\Web\Services\Usage\UserActivityListener} (via raw DBAL, so
+     * no ORM mutator here); read for the once-per-minute activity throttle and
+     * the admin usage report.
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    public null|DateTimeImmutable $lastActivityAt = null;
+
     public function __construct(
         #[Id]
         #[Immutable]

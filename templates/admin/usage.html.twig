@@ -157,4 +157,119 @@
             })();
         </script>
     {% endif %}
+
+    <h4 class="mt-4 mb-2">Aktivita uživatelů</h4>
+    <p class="text-muted mb-3">
+        Kdy byl každý uživatel naposledy aktivní a jak intenzivně aplikaci používá.
+        Sbírá se od nasazení této funkce — každá minuta aktivního používání se počítá
+        jako jedna akce (přihlášení a běžné proklikávání aplikace).
+    </p>
+
+    <div class="card shadow-sm rounded-3">
+        <div class="card-body">
+            <h4 class="header-title mb-3">Aktivita za posledních 30 dní</h4>
+            {% if activity.hasActivity %}
+                <div id="activity-chart" style="min-height: 300px;"></div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    Zatím nebyla zaznamenána žádná aktivita. Data se začnou sbírat, jakmile
+                    se uživatelé přihlásí a začnou aplikaci používat.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow-sm rounded-3 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="px-3 pt-3">
+                <h4 class="header-title mb-1">Aktivní dny podle uživatele a měsíce</h4>
+                <p class="text-muted small mb-0">
+                    Buňka udává, kolik dní byl uživatel v daném měsíci aktivní. Řádek
+                    „Aktivních uživatelů“ ukazuje, kolik různých uživatelů bylo v měsíci aktivních.
+                </p>
+            </div>
+            <div class="table-responsive rounded-3">
+                <table class="table table-hover table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Uživatel</th>
+                            {% for month in activity.monthCategories %}
+                                <th class="text-center text-nowrap">{{ month }}</th>
+                            {% endfor %}
+                            <th class="text-nowrap">Poslední aktivita</th>
+                            <th class="text-center text-nowrap">Dní celkem</th>
+                            <th class="text-center text-nowrap pe-3">Akcí</th>
+                        </tr>
+                        {% if activity.hasActivity %}
+                            <tr class="fw-semibold">
+                                <td class="ps-3 text-muted">
+                                    <i class="uil-users-alt me-1"></i>Aktivních uživatelů
+                                </td>
+                                {% for month in activity.months %}
+                                    <td class="text-center">{{ activity.activeUsersInMonth(month) ?: '' }}</td>
+                                {% endfor %}
+                                <td></td>
+                                <td class="text-center">{{ activity.activeUserCount }}</td>
+                                <td></td>
+                            </tr>
+                        {% endif %}
+                    </thead>
+                    <tbody>
+                        {% for user in activity.users %}
+                            <tr>
+                                <td class="ps-3">
+                                    <i class="uil-user me-1"></i>{{ user.displayName }}
+                                    {% if user.name %}
+                                        <span class="text-muted small ms-1">{{ user.email }}</span>
+                                    {% endif %}
+                                </td>
+                                {% for month in activity.months %}
+                                    <td class="text-center">{{ user.activeDaysInMonth(month) ?: '—' }}</td>
+                                {% endfor %}
+                                <td class="text-nowrap">
+                                    {% if user.lastActivityAt %}
+                                        {{ user.lastActivityAt|date('d.m.Y H:i') }}
+                                    {% else %}
+                                        <span class="text-muted">Nikdy</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ user.activeDays ?: '—' }}</td>
+                                <td class="text-center pe-3">{{ user.totalHits ?: '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% if activity.hasActivity %}
+        {# ApexCharts (Hyper theme bundle) — safe to load again if the export chart already did. #}
+        <script src="{{ asset('theme/vendor/apexcharts/apexcharts.min.js') }}"></script>
+        <script>
+            (function () {
+                var el = document.getElementById('activity-chart');
+                if (!el || typeof window.ApexCharts === 'undefined') {
+                    return;
+                }
+
+                var options = {
+                    chart: { type: 'area', height: 300, toolbar: { show: false }, zoom: { enabled: false } },
+                    stroke: { curve: 'smooth', width: 2 },
+                    fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
+                    dataLabels: { enabled: false },
+                    series: [
+                        { name: 'Aktivní uživatelé', data: {{ activity.activeUsersSeries|json_encode|raw }} },
+                        { name: 'Akce', data: {{ activity.actionsSeries|json_encode|raw }} }
+                    ],
+                    xaxis: { categories: {{ activity.chartCategories|json_encode|raw }} },
+                    yaxis: { labels: { formatter: function (value) { return Math.round(value); } } },
+                    legend: { position: 'bottom' },
+                    tooltip: { y: { formatter: function (value) { return Math.round(value); } } }
+                };
+
+                new window.ApexCharts(el, options).render();
+            })();
+        </script>
+    {% endif %}
 {% endblock %}

@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use WBoost\Web\Entity\ExportEvent;
+use WBoost\Web\Entity\UserActivityDay;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Value\ExportChannel;
@@ -73,5 +74,33 @@ final class AdminUsageControllerTest extends WebTestCase
         $this->assertSelectorTextContains('body', TestDataFixture::USER_1_EMAIL);
         $this->assertSelectorTextContains('body', 'Projekt Alfa');
         $this->assertSelectorExists('#usage-chart');
+    }
+
+    public function testRendersUserActivityForAdmin(): void
+    {
+        $browser = self::createClient();
+
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->persist(new UserActivityDay(
+            Uuid::uuid7(),
+            Uuid::fromString(TestDataFixture::USER_1_ID),
+            new DateTimeImmutable('today'),
+            5,
+        ));
+        $entityManager->flush();
+
+        // Mirror what the listener would have written onto the user.
+        $connection = $entityManager->getConnection();
+        $connection->executeStatement(
+            'UPDATE "user" SET last_activity_at = ? WHERE id = ?',
+            [(new DateTimeImmutable('today 09:15:00'))->format('Y-m-d H:i:s'), TestDataFixture::USER_1_ID],
+        );
+
+        TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
+        $browser->request('GET', '/admin/usage');
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('body', 'Aktivita uživatelů');
+        $this->assertSelectorExists('#activity-chart');
     }
 }
