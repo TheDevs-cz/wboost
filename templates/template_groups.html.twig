@@ -39,6 +39,9 @@
                             <i class="ri-more-fill text-lighter"></i>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
+                            {% if item.variantsCount > 0 %}
+                                <a href="{{ path('template_group_fill', {'groupId': item.group.id}) }}" class="dropdown-item"><i class="mdi mdi-folder-zip-outline me-1"></i>Vyplnit a exportovat</a>
+                            {% endif %}
                             <a href="{{ path('add_template_group_dimension', {'groupId': item.group.id}) }}" class="dropdown-item"><i class="mdi mdi-plus me-1"></i>Přidat rozměr</a>
                             <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteGroupModal-{{ item.group.id }}"><i class="mdi mdi-delete me-1"></i>Smazat</a>
                         </div>
@@ -70,6 +73,12 @@
                             {% endfor %}
                         </div>
                     </a>
+
+                    {% if item.variantsCount > 0 %}
+                        <div class="card-body pt-0 pb-3">
+                            <a href="{{ path('template_group_fill', {'groupId': item.group.id}) }}" class="btn btn-sm btn-outline-primary rounded-pill"><i class="mdi mdi-folder-zip-outline"></i> Vyplnit a exportovat</a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
 

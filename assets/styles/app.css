@@ -2164,3 +2164,96 @@ button.fill-layer-row__main:focus-visible {
 .template-source-tile:hover .template-source-cta {
     opacity: 1;
 }
+
+/* Group fill & export page (template_group_fill.html.twig) */
+.group-fill-preview-frame {
+    position: relative;
+    width: 100%;
+    background: #f6f7fb;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.25rem 0.25rem 0 0;
+    overflow: hidden;
+}
+
+.group-fill-preview-frame img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: opacity 0.15s ease;
+}
+
+.group-fill-preview-frame.is-pending img,
+.group-fill-preview-frame.is-loading img {
+    opacity: 0.55;
+}
+
+.group-fill-preview-spinner {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.group-fill-preview-frame.is-loading .group-fill-preview-spinner {
+    display: flex;
+}
+
+.group-fill-preview-error {
+    position: absolute;
+    inset: auto 0 0 0;
+    display: none;
+    padding: 0.15rem 0.5rem;
+    background: rgba(250, 92, 124, 0.9);
+    color: #fff;
+    font-size: 11px;
+    text-align: center;
+}
+
+.group-fill-preview-frame.is-error .group-fill-preview-error {
+    display: block;
+}
+
+.group-fill-image-thumb {
+    flex: 0 0 auto;
+    width: 56px;
+    height: 56px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0.25rem;
+    background-color: #f6f7fb;
+    background-size: cover;
+    background-position: center;
+}
+
+.group-fill-image-option {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    padding: 0;
+    border: 2px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.3rem;
+    background: #f6f7fb;
+    overflow: hidden;
+}
+
+.group-fill-image-option img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.group-fill-image-option:hover,
+.group-fill-image-option.selected {
+    border-color: var(--bs-primary, #727cf5);
+}
+
+.group-fill-image-option span {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 1px 0;
+    background: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    text-align: center;
+}

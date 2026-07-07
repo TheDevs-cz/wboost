@@ -1,0 +1,209 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'template_groups' %}
+
+{% block title %}Vyplnit a exportovat{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('template_groups', {'projectId': project.id}) }}">Skupiny šablon</a></li>
+        <li class="breadcrumb-item active">{{ group.name }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    {% if variants|length == 0 %}
+        <div class="card">
+            <div class="card-body text-center text-muted py-5">
+                <i class="uil-layer-group" style="font-size: 2rem;"></i>
+                <p class="mb-1 mt-2"><strong>Skupina zatím nemá žádné varianty.</strong></p>
+                <p class="mb-0">Nejdřív <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}">přidejte rozměr</a>, potom tu půjde vše najednou vyplnit a stáhnout.</p>
+            </div>
+        </div>
+    {% else %}
+        <form method="post" action="{{ export_url }}" data-turbo="false"
+              data-controller="group-fill"
+              data-group-fill-debounce-value="900"
+              data-action="keydown->group-fill#blockEnter submit->group-fill#exportStarted">
+
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h3 class="my-0">{{ group.name }}</h3>
+                    <p class="text-muted my-0">Vyplňte obsah jednou — propíše se do všech rozměrů najednou. Prázdné pole ponechá text ze šablony.</p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit design</a>
+                    <button type="submit" class="btn btn-primary rounded-pill" data-group-fill-target="exportButton">
+                        <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-4 col-xxl-3">
+                    {% if text_inputs|length > 0 %}
+                        <div class="card">
+                            <div class="card-body">
+                                <h4 class="header-title mb-3"><i class="mdi mdi-format-text"></i> Texty</h4>
+
+                                {% for input in text_inputs %}
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <label class="form-label mb-1" for="group-fill-text-{{ input.inputId }}">{{ input.name ?: 'Text ' ~ loop.index }}</label>
+                                            {% if input.hidable %}
+                                                <div class="form-check form-switch" title="Skrýt tento text ve všech rozměrech">
+                                                    <input class="form-check-input" type="checkbox" value="1"
+                                                           name="hiddenValues[{{ input.inputId }}]"
+                                                           id="group-fill-hide-{{ input.inputId }}"
+                                                           data-action="group-fill#changed">
+                                                    <label class="form-check-label font-12 text-muted" for="group-fill-hide-{{ input.inputId }}">Skrýt</label>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <input type="text"
+                                               class="form-control{% if input.uppercase %} text-uppercase{% endif %}"
+                                               id="group-fill-text-{{ input.inputId }}"
+                                               name="textValues[{{ input.inputId }}]"
+                                               value=""
+                                               {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
+                                               placeholder="Ponechat text ze šablony"
+                                               autocomplete="off"
+                                               data-action="input->group-fill#changed">
+                                        {% if input.description %}
+                                            <div class="form-text">{{ input.description }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if image_inputs|length > 0 %}
+                        <div class="card">
+                            <div class="card-body">
+                                <h4 class="header-title mb-3"><i class="mdi mdi-image-outline"></i> Obrázky</h4>
+
+                                {% for slot in image_inputs %}
+                                    {% set input = slot.input %}
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <label class="form-label mb-1">{{ input.name ?: 'Obrázek ' ~ loop.index }}</label>
+                                            {% if input.hidable %}
+                                                <div class="form-check form-switch" title="Skrýt tento obrázek ve všech rozměrech">
+                                                    <input class="form-check-input" type="checkbox" value="1"
+                                                           name="images[{{ input.inputId }}][hide]"
+                                                           id="group-fill-image-hide-{{ input.inputId }}"
+                                                           data-action="group-fill#changed">
+                                                    <label class="form-check-label font-12 text-muted" for="group-fill-image-hide-{{ input.inputId }}">Skrýt</label>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="group-fill-image-thumb"
+                                                  data-group-fill-target="imageThumb"
+                                                  data-input-id="{{ input.inputId }}"
+                                                  {% if slot.defaultImageUrl %}style="background-image: url('{{ slot.defaultImageUrl }}');"{% endif %}></span>
+                                            {% if slot.images|length > 0 %}
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#groupFillImageModal-{{ input.inputId }}">
+                                                    <i class="mdi mdi-image-search-outline"></i> Vybrat obrázek
+                                                </button>
+                                            {% else %}
+                                                <span class="text-muted font-12">V povolených složkách galerie zatím nejsou žádné obrázky.</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if input.description %}
+                                            <div class="form-text">{{ input.description }}</div>
+                                        {% endif %}
+                                        <input type="hidden" name="images[{{ input.inputId }}][imageId]" value=""
+                                               data-group-fill-target="imageValue" data-input-id="{{ input.inputId }}">
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if text_inputs|length == 0 and image_inputs|length == 0 %}
+                        <div class="card">
+                            <div class="card-body text-muted">
+                                <i class="mdi mdi-information-outline"></i>
+                                Šablony ve skupině nemají žádné vyplnitelné prvky — export stáhne všechny rozměry tak, jak jsou navržené.
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="col-lg-8 col-xxl-9">
+                    <div class="row">
+                        {% for v in variants %}
+                            <div class="col-sm-6 col-xl-4">
+                                <div class="card">
+                                    <div class="group-fill-preview-frame" style="aspect-ratio: {{ v.width }} / {{ v.height }};">
+                                        <img src="{{ uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) }}"
+                                             alt="{{ v.dimension_label }}"
+                                             data-group-fill-target="preview"
+                                             data-preview-endpoint="{{ v.preview_endpoint }}">
+                                        <div class="group-fill-preview-spinner">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                        </div>
+                                        <div class="group-fill-preview-error">Náhled se nepodařilo načíst</div>
+                                    </div>
+                                    <div class="card-body py-2 d-flex align-items-center justify-content-between gap-1">
+                                        <span class="badge bg-secondary-lighten text-secondary">{{ v.module_label }}</span>
+                                        <span class="text-muted font-12 text-end">{{ v.dimension_label }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            {# Image pickers: one modal per unified slot, plain thumbnails from
+               the slot's allowed gallery folders + a "keep the designed
+               picture" option. Picks land in the hidden imageId field. #}
+            {% for slot in image_inputs %}
+                {% set input = slot.input %}
+                {% if slot.images|length > 0 %}
+                    <div class="modal fade" id="groupFillImageModal-{{ input.inputId }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h4 class="modal-title">{{ input.name ?: 'Vybrat obrázek' }}</h4>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="group-fill-image-option selected"
+                                                data-action="group-fill#pickImage"
+                                                data-input-id="{{ input.inputId }}"
+                                                data-image-id=""
+                                                data-image-url="{{ slot.defaultImageUrl ?: '' }}"
+                                                data-bs-dismiss="modal"
+                                                title="Ponechat obrázek ze šablony">
+                                            {% if slot.defaultImageUrl %}
+                                                <img src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy">
+                                            {% endif %}
+                                            <span>Výchozí</span>
+                                        </button>
+                                        {% for image in slot.images %}
+                                            <button type="button" class="group-fill-image-option"
+                                                    data-action="group-fill#pickImage"
+                                                    data-input-id="{{ input.inputId }}"
+                                                    data-image-id="{{ image.id }}"
+                                                    data-image-url="{{ image.url }}"
+                                                    data-bs-dismiss="modal">
+                                                <img src="{{ image.url }}" alt="" loading="lazy">
+                                            </button>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </form>
+    {% endif %}
+{% endblock %}
