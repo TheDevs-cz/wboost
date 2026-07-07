@@ -296,6 +296,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     value: string,
      *     runs: null|list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>,
      *     designFontFamily: null|string,
+     *     textAlign: string,
      *     hidden: bool
      * }>
      */
@@ -334,6 +335,7 @@ abstract class AbstractVariantFiller extends AbstractController
                 'value' => $this->textValues[$input->inputId] ?? '',
                 'runs' => $this->seededRuns($input),
                 'designFontFamily' => $styles[$input->inputId]['fontFamily'] ?? null,
+                'textAlign' => $styles[$input->inputId]['textAlign'] ?? 'left',
                 'hidden' => $this->hiddenValues[$input->inputId] ?? false,
             ];
         }
@@ -528,7 +530,7 @@ abstract class AbstractVariantFiller extends AbstractController
      * @return array{
      *     inputs: array<string, array{
      *         frame: null|array{x: float, y: float, width: float, height: float},
-     *         style: null|array{fontFamily: string, fontSize: float, lineHeight: float, charSpacing: float},
+     *         style: null|array{fontFamily: string, fontSize: float, lineHeight: float, charSpacing: float, textAlign: string},
      *         locked: bool,
      *         uppercase: bool,
      *         maxLength: null|int,

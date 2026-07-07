@@ -509,6 +509,59 @@
     background: rgba(10, 207, 151, 0.10);
 }
 
+/* Field-name tag INSIDE the box (never hanging outside like the container
+   label, so neighbouring boxes' tags can't collide). Horizontally anchored by
+   the text alignment so it hints where the copy sits. Shown together with the
+   dashed border (the highlight toggle); the interactive tool cluster paints on
+   top of it (it comes later in the DOM). */
+.fill-box__name {
+    position: absolute;
+    top: 0;
+    max-width: calc(100% - 2px);
+    padding: 1px 5px;
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+    background: #727cf5;
+    border-radius: 0 0 3px 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .12s ease;
+}
+
+.fill-box--image .fill-box__name {
+    background: #0acf97;
+}
+
+.fill-box__name--left {
+    left: 0;
+}
+
+.fill-box__name--center {
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 0 0 3px 3px;
+}
+
+.fill-box__name--right {
+    right: 0;
+    border-radius: 0 0 0 3px;
+}
+
+/* Visible with the highlight border, and always for an overflowing member. */
+.fill-form.fill-js.fill-highlight-on .fill-box__name {
+    opacity: 1;
+}
+
+.fill-form.fill-js .fill-box--overflow .fill-box__name {
+    background: #fa5c7c;
+    opacity: 1;
+}
+
 /* ---- Layers panel (Vrstvy) on the fill page ------------------------------
    Sits beside the preview viewport; JS-only chrome (rows drive the overlay
    controller), hidden in the no-JS fallback. Stacks under the preview on

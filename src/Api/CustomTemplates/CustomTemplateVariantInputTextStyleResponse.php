@@ -17,6 +17,8 @@ final readonly class CustomTemplateVariantInputTextStyleResponse
         public float $fontSize,
         public float $lineHeight,
         public float $charSpacing,
+        /** Fabric horizontal alignment: left|center|right|justify. */
+        public string $textAlign = 'left',
     ) {
     }
 }

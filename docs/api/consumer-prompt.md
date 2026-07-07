@@ -154,7 +154,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "containerId": null,                        // nullable; set → this input reflows inside variants[].containers[]
             "textStyle": {                              // nullable; Fabric metrics to re-measure wrapped text height
               "fontFamily": "Rubik (Rubik Bold)",
-              "fontSize": 24, "lineHeight": 1.4, "charSpacing": 0
+              "fontSize": 24, "lineHeight": 1.4, "charSpacing": 0,
+              "textAlign": "left"                       // left|center|right|justify — e.g. to anchor a name tag on the box
             },
             "richText": false,                          // true → offer the WYSIWYG; export accepts { runs } for this input
             "layerIndex": 2                             // stacking order (0 = backmost); one index space with imageInputs[].layerIndex, nullable
@@ -327,7 +328,7 @@ For each entry in `variant.inputs`:
 | `hidable` | Render a checkbox/toggle "Hide this element". When on, send `{ "hide": true }` for that id (you may still include `value`). |
 | `frame` | Optional `{x,y,width,height}` in canvas px (top-left origin, axis-aligned; `null` when the textbox can't be located). Use it to draw a highlight border over the rendered preview and anchor an inline editing affordance at the right spot — same coordinate space as `imageInputs[].frame` and the variant's `width`/`height`. **For container members this is the DESIGNED position** — the render may shift the box down/up per the fill (see "Containers"). |
 | `containerId` | Nullable. When set, this input is a member of `variants[].containers[]` entry with that id and reflows at render time. |
-| `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow. |
+| `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing, textAlign}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow, or to anchor a name tag by `textAlign` (`left`\|`center`\|`right`\|`justify`). |
 | `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
 | `layerIndex` | Nullable int — the object's stacking position on the variant canvas (0 = backmost, higher = painted on top). Shares ONE index space with `imageInputs[].layerIndex`: merge both arrays and sort by `layerIndex` **descending** to build a Photoshop-style layers list (topmost first). Values may have gaps (decorative design objects occupy positions too); only the relative order is meaningful. Purely informational for display/navigation — the export accepts no z-order overrides. |
 

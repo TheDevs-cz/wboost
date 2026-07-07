@@ -226,6 +226,9 @@
                             data-frame-width="{{ ph.frame.width }}"
                             data-frame-height="{{ ph.frame.height }}"
                         >
+                            {% if ph.name %}
+                                <span class="fill-box__name fill-box__name--{{ ph.textAlign in ['center', 'right'] ? ph.textAlign : 'left' }}">{{ ph.name }}</span>
+                            {% endif %}
                             <div class="fill-box__tools">
                                 <button type="button" class="fill-box__tool fill-box__tool--edit"
                                     title="Upravit text" aria-label="Upravit text{% if ph.name %}: {{ ph.name }}{% endif %}"
@@ -258,6 +261,9 @@
                             data-frame-width="{{ ph.frame.width }}"
                             data-frame-height="{{ ph.frame.height }}"
                         >
+                            {% if ph.name %}
+                                <span class="fill-box__name fill-box__name--left">{{ ph.name }}</span>
+                            {% endif %}
                             <div class="fill-box__tools">
                                 <button type="button" class="fill-box__tool fill-box__tool--edit"
                                     title="Vybrat obrázek" aria-label="Vybrat obrázek{% if ph.name %}: {{ ph.name }}{% endif %}"

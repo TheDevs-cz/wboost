@@ -230,6 +230,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                             fontSize: $textStyle['fontSize'],
                             lineHeight: $textStyle['lineHeight'],
                             charSpacing: $textStyle['charSpacing'],
+                            textAlign: $textStyle['textAlign'],
                         )
                         : null,
                     layerIndex: $layerIndexes[$input->inputId] ?? null,

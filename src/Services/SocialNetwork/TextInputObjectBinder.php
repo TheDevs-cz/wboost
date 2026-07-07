@@ -111,7 +111,7 @@ readonly final class TextInputObjectBinder
      *
      * @param array<array-key, mixed> $canvas decoded canvas JSON
      * @param array<EditorTextInput> $inputs
-     * @return array<string, array{fontFamily: string, fontSize: float, lineHeight: float, charSpacing: float}>
+     * @return array<string, array{fontFamily: string, fontSize: float, lineHeight: float, charSpacing: float, textAlign: string}>
      */
     public function textStylesByInputId(array $canvas, array $inputs): array
     {
@@ -135,6 +135,9 @@ readonly final class TextInputObjectBinder
                 'fontSize' => is_numeric($object['fontSize'] ?? null) ? (float) $object['fontSize'] : 40.0,
                 'lineHeight' => is_numeric($object['lineHeight'] ?? null) ? (float) $object['lineHeight'] : 1.16,
                 'charSpacing' => is_numeric($object['charSpacing'] ?? null) ? (float) $object['charSpacing'] : 0.0,
+                'textAlign' => in_array($object['textAlign'] ?? null, ['left', 'center', 'right', 'justify'], true)
+                    ? $object['textAlign']
+                    : 'left',
             ];
         }
 
