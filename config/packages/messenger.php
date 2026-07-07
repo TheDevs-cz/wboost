@@ -30,6 +30,14 @@ return App::config([
                     'options' => [
                         'auto_setup' => false,
                     ],
+                    // Exponential backoff: ~30s, ~5min, ~15min (max_delay caps the
+                    // third retry, otherwise 30s * 10^2 would be 50min).
+                    'retry_strategy' => [
+                        'max_retries' => 3,
+                        'delay' => 30000,
+                        'multiplier' => 10,
+                        'max_delay' => 900000,
+                    ],
                 ],
             ],
             'routing' => [
