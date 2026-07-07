@@ -226,9 +226,7 @@
                             data-frame-width="{{ ph.frame.width }}"
                             data-frame-height="{{ ph.frame.height }}"
                         >
-                            {% if ph.name %}
-                                <span class="fill-box__name">{{ ph.name }}</span>
-                            {% endif %}
+                            <span class="fill-box__name">{{ ph.name ?: 'Text' }}</span>
                             <div class="fill-box__tools">
                                 <button type="button" class="fill-box__tool fill-box__tool--edit"
                                     title="Upravit text" aria-label="Upravit text{% if ph.name %}: {{ ph.name }}{% endif %}"
@@ -261,9 +259,7 @@
                             data-frame-width="{{ ph.frame.width }}"
                             data-frame-height="{{ ph.frame.height }}"
                         >
-                            {% if ph.name %}
-                                <span class="fill-box__name">{{ ph.name }}</span>
-                            {% endif %}
+                            <span class="fill-box__name">{{ ph.name ?: 'Obrázek' }}</span>
                             <div class="fill-box__tools">
                                 <button type="button" class="fill-box__tool fill-box__tool--edit"
                                     title="Vybrat obrázek" aria-label="Vybrat obrázek{% if ph.name %}: {{ ph.name }}{% endif %}"

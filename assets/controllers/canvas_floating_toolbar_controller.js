@@ -229,10 +229,28 @@ export default class extends Controller {
         this._outlines = objects.map((obj) => {
             const el = document.createElement('div');
             el.className = 'editable-outline';
+            const label = this._outlineLabel(obj);
+            if (label) {
+                const name = document.createElement('span');
+                name.className = 'editable-outline__name';
+                name.textContent = label;
+                el.appendChild(name);
+            }
             this.layerTarget.appendChild(el);
             return { obj, el };
         });
         this._positionOutlines();
+    }
+
+    /** Field-name tag shown inside the highlight outline, for fillable inputs
+     *  only (text boxes + image placeholders) — decorative objects get none.
+     *  Falls back to a generic type label when the input has no name, mirroring
+     *  the user-fill page. */
+    _outlineLabel(obj) {
+        const type = (obj.type || '').toLowerCase();
+        if (type === 'textbox') return obj.name || 'Text';
+        if (type === 'image' && obj.imagePlaceholder === true) return obj.name || 'Obrázek';
+        return null;
     }
 
     _positionOutlines(g) {

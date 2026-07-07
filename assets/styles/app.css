@@ -103,6 +103,26 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
+/* Field-name tag inside a highlight outline (same look as the fill page's
+   .fill-box__name), so the designer sees which input each box is. */
+.editable-outline__name {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: calc(100% - 4px);
+    padding: 1px 5px;
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+    background: #727cf5;
+    border-radius: 0 0 3px 0;
+    pointer-events: none;
+}
+
 /* Hovering a row in the layers panel (canvas_layers_controller) highlights the
    object on the stage — a stronger, filled sibling of .editable-outline. */
 .layer-hover-outline {
