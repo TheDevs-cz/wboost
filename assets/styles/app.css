@@ -208,6 +208,21 @@
     line-height: 1;
 }
 
+/* Drag affordance at the row's right edge (the whole row is draggable). */
+.canvas-layer-row__grip {
+    flex: 0 0 auto;
+    align-self: center;
+    margin-right: 4px;
+    font-size: 0.9rem;
+    line-height: 1;
+    opacity: 0.3;
+    cursor: grab;
+}
+
+.canvas-layer-row:hover .canvas-layer-row__grip {
+    opacity: 0.7;
+}
+
 /* The cursor-following drag mirror (SortableJS fallback clone, .gu-mirror
    adds the fixed positioning): give the detached row a card so it reads as
    "picked up" over any backdrop. */
@@ -610,10 +625,6 @@
 
 .fill-layer-row:hover {
     background: rgba(0, 0, 0, 0.05);
-}
-
-.fill-layer-row.is-locked {
-    opacity: 0.55;
 }
 
 .fill-layer-row__main {

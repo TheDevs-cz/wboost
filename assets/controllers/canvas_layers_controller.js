@@ -246,6 +246,13 @@ export default class extends Controller {
 
         row.appendChild(main);
 
+        // Drag affordance only — the whole row is the Sortable drag target.
+        const grip = document.createElement('i');
+        grip.className = 'canvas-layer-row__grip mdi mdi-drag-vertical';
+        grip.title = 'Tažením změníte pořadí';
+        grip.setAttribute('aria-hidden', 'true');
+        row.appendChild(grip);
+
         return row;
     }
 

@@ -344,20 +344,21 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
-     * Combined layers list for the fill page's "Vrstvy" panel: every text and
-     * image placeholder, ordered by canvas stacking TOPMOST FIRST (Photoshop
-     * convention; the canvas objects array order is Fabric's paint order).
-     * `interactive` marks rows that can open an editor: non-locked text with a
-     * locatable frame (its popover anchors to the overlay box) and any image
-     * slot (the gallery modal needs no anchor). `hidden` reflects only the
-     * server-known text hide state — image hide is client-side and the panel's
-     * eye buttons are kept in sync by the overlay controller.
+     * Combined layers list for the fill page's "Vrstvy" panel: the FILLABLE
+     * placeholders only — non-locked text inputs and image slots — ordered by
+     * canvas stacking TOPMOST FIRST (Photoshop convention; the canvas objects
+     * array order is Fabric's paint order). Locked texts, decorative images
+     * and the background are fixed design, shown only in the admin editor's
+     * layers panel. `interactive` marks rows that can open an editor: text
+     * with a locatable frame (its popover anchors to the overlay box) and any
+     * image slot (the gallery modal needs no anchor). `hidden` reflects only
+     * the server-known text hide state — image hide is client-side and the
+     * panel's eye buttons are kept in sync by the overlay controller.
      *
      * @return list<array{
      *     kind: 'text'|'image',
      *     inputId: string,
      *     label: string,
-     *     locked: bool,
      *     hidable: bool,
      *     hidden: bool,
      *     interactive: bool
@@ -376,15 +377,21 @@ abstract class AbstractVariantFiller extends AbstractController
         $layers = [];
 
         foreach (array_values($variant->inputs) as $position => $input) {
+            if ($input->locked) {
+                continue;
+            }
+
             $name = trim($input->name ?? '');
             $layers[] = [
                 'kind' => 'text',
                 'inputId' => $input->inputId,
+                // The generic fallback numbers by the FULL inputs list, so
+                // "Text 4" matches the admin editor even with locked inputs
+                // filtered out here.
                 'label' => $name !== '' ? $name : sprintf('Text %d', $position + 1),
-                'locked' => $input->locked,
-                'hidable' => $input->hidable && !$input->locked,
+                'hidable' => $input->hidable,
                 'hidden' => $this->hiddenValues[$input->inputId] ?? false,
-                'interactive' => !$input->locked && isset($frames[$input->inputId]),
+                'interactive' => isset($frames[$input->inputId]),
             ];
         }
 
@@ -394,7 +401,6 @@ abstract class AbstractVariantFiller extends AbstractController
                 'kind' => 'image',
                 'inputId' => $input->inputId,
                 'label' => $name !== '' ? $name : sprintf('Obrázek %d', $position + 1),
-                'locked' => false,
                 'hidable' => $input->hidable,
                 'hidden' => false,
                 'interactive' => true,

@@ -293,21 +293,22 @@
         </div>
 
         {# ---- Layers panel (Vrstvy) ------------------------------------------
-           Photoshop-style list of the variant's placeholders, topmost first
-           (canvas stacking order via this.layers()). Hovering a row highlights
-           its box over the preview; clicking opens the same popover/modal the
-           box's pencil opens. Rows are design-fixed, and the eye buttons carry
-           data-hide-toggle so the controller's _reflectHide keeps them in sync
-           with the box eyes — the whole aside can live in data-live-ignore
-           (image hide state is client-only and must never be morphed away).
-           JS-only chrome: hidden without .fill-js. #}
+           Photoshop-style list of the variant's FILLABLE placeholders, topmost
+           first (canvas stacking order via this.layers() — locked texts,
+           decorative images and the background are admin-editor-only).
+           Hovering a row highlights its box over the preview; clicking opens
+           the same popover/modal the box's pencil opens. Rows are design-fixed,
+           and the eye buttons carry data-hide-toggle so the controller's
+           _reflectHide keeps them in sync with the box eyes — the whole aside
+           can live in data-live-ignore (image hide state is client-only and
+           must never be morphed away). JS-only chrome: hidden without .fill-js. #}
         {% if layers|length > 0 %}
             <aside class="fill-layers" data-live-ignore aria-label="Vrstvy šablony">
                 <p class="fill-layers__title"><i class="mdi mdi-layers-outline me-1" aria-hidden="true"></i>Vrstvy</p>
                 <div class="fill-layers__list" role="list">
                     {% for layer in layers %}
                         <div
-                            class="fill-layer-row{% if layer.locked %} is-locked{% endif %}"
+                            class="fill-layer-row"
                             role="listitem"
                             data-action="mouseenter->variant-fill-overlay#highlightLayer mouseleave->variant-fill-overlay#unhighlightLayer"
                             data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
@@ -324,10 +325,9 @@
                                     <span class="fill-layer-row__label">{{ layer.label }}</span>
                                 </button>
                             {% else %}
-                                <span class="fill-layer-row__main" title="{{ layer.locked ? 'Pevná součást šablony' : layer.label }}">
+                                <span class="fill-layer-row__main" title="{{ layer.label }}">
                                     <i class="fill-layer-row__icon mdi {{ layer.kind == 'image' ? 'mdi-image-outline' : 'mdi-format-text' }}" aria-hidden="true"></i>
                                     <span class="fill-layer-row__label">{{ layer.label }}</span>
-                                    {% if layer.locked %}<i class="fill-layer-row__flag mdi mdi-lock" aria-hidden="true"></i>{% endif %}
                                 </span>
                             {% endif %}
                             {% if layer.hidable %}
