@@ -925,6 +925,30 @@ button.fill-layer-row__main:focus-visible {
     max-height: 120px;
 }
 
+/* Equal-height logo cards.
+   Horizontal / square cards are laid out in 2-column grids, but each card used
+   to size to its own logo, so columns drifted out of alignment (logos have
+   different aspect ratios). Give every card of a type one fixed height and
+   center the logo inside it, so neighbouring columns always line up.
+   Height = image max-height cap + wrapper padding (72px/side) + border (1px/side),
+   so the tallest possible logo still fits (never clipped) and shorter logos are
+   centered with even whitespace. Applies to every manual (backward compatible
+   + future proof); protected-zone / vertical-big variants keep their own sizing. */
+.manual-image-wrapper.manual-image-horizontal,
+.manual-image-wrapper.manual-image-square {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.manual-image-wrapper.manual-image-horizontal {
+    min-height: 266px;
+}
+
+.manual-image-wrapper.manual-image-square {
+    min-height: 346px;
+}
+
 .manual-image-wrapper.manual-image-square-smaller img {
     max-height: 200px;
 }
