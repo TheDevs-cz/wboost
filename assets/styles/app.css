@@ -136,8 +136,8 @@
 }
 
 /* Layers panel (canvas_layers_controller): compact Photoshop-style rows in the
-   left card — topmost object first. Restack arrows appear on hover / focus /
-   selection so the resting state stays quiet. */
+   left card — topmost object first. Rows are drag-sortable (SortableJS,
+   fallback mode reusing the shared .gu-mirror / .gu-transit drag classes). */
 .canvas-layers-list {
     display: flex;
     flex-direction: column;
@@ -208,50 +208,14 @@
     line-height: 1;
 }
 
-.canvas-layer-row__actions {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding-right: 2px;
-    visibility: hidden;
-}
-
-.canvas-layer-row:hover .canvas-layer-row__actions,
-.canvas-layer-row:focus-within .canvas-layer-row__actions,
-.canvas-layer-row.is-active .canvas-layer-row__actions {
-    visibility: visible;
-}
-
-.canvas-layer-row__arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 13px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
-    color: inherit;
-    opacity: 0.55;
-    line-height: 1;
-    font-size: 0.85rem;
-}
-
-.canvas-layer-row__arrow:hover:not(:disabled) {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.08);
-}
-
-.canvas-layer-row__arrow:focus-visible {
-    outline: 2px solid #727cf5;
-    outline-offset: -1px;
-    opacity: 1;
-}
-
-.canvas-layer-row__arrow:disabled {
-    opacity: 0.15;
+/* The cursor-following drag mirror (SortableJS fallback clone, .gu-mirror
+   adds the fixed positioning): give the detached row a card so it reads as
+   "picked up" over any backdrop. */
+.canvas-layer-row.gu-mirror {
+    background: #fff;
+    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
 }
 
 /* Container ("smart text area") zone overlay (canvas_container_controller).

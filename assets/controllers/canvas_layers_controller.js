@@ -1,17 +1,19 @@
 import { Controller } from "@hotwired/stimulus";
+import Sortable from "sortablejs";
 
 /**
  * Photoshop-style layers panel for the admin canvas editor (left panel).
  *
  * Lists every object on the Fabric canvas TOPMOST FIRST (the reverse of
  * Fabric's objects array, whose order IS the z-order). Each row:
- *   - hover  → a DOM highlight box over the object in the unscaled stage
- *              layer (same coordinate math as the floating toolbar; never
- *              drawn on the canvas bitmap),
- *   - click  → selects the object and opens its floating property popover,
- *   - ↑ / ↓  → restacks the object one step (same announce convention as
- *              canvas-alignment: fire object:modified so the form goes
- *              dirty and the history controller snapshots the change).
+ *   - hover → a DOM highlight box over the object in the unscaled stage
+ *             layer (same coordinate math as the floating toolbar; never
+ *             drawn on the canvas bitmap),
+ *   - click → selects the object and opens its floating property popover,
+ *   - drag  → restacks the object (SortableJS on the list; the new DOM
+ *             order reversed = the new Fabric stack; same announce
+ *             convention as canvas-alignment: fire object:modified so the
+ *             form goes dirty and the history controller snapshots it).
  *
  * The list rebuilds off the orchestrator's events: `canvas-editor:dirty`
  * fires on every mutation (add / remove / modify / restack / typing) and
@@ -27,9 +29,38 @@ export default class extends Controller {
     initialize() {
         this._hoverEl = null;
         this._rebuildTimer = null;
+        this._sortable = null;
+        this._dragging = false;
+    }
+
+    connect() {
+        // Same fallback-drag convention as dragula_controller: the fixed-
+        // position mirror clone (.gu-mirror) follows the cursor while the
+        // in-flow row keeps only the ghost treatment. The instance lives on
+        // the CONTAINER, so it survives every rebuild's replaceChildren().
+        this._sortable = Sortable.create(this.listTarget, {
+            draggable: '.canvas-layer-row',
+            direction: 'vertical',
+            animation: 150,
+            forceFallback: true,
+            ghostClass: 'gu-transit',
+            dragClass: 'gu-mirror',
+            onStart: () => {
+                this._dragging = true;
+                this._clearHover();
+            },
+            onEnd: () => {
+                this._dragging = false;
+                this._applySortedOrder();
+            },
+        });
     }
 
     disconnect() {
+        if (this._sortable) {
+            this._sortable.destroy();
+            this._sortable = null;
+        }
         this._clearHover();
         clearTimeout(this._rebuildTimer);
     }
@@ -56,6 +87,9 @@ export default class extends Controller {
 
     rebuild() {
         if (!this.hasListTarget || !this.hasCanvasEditorOutlet) return;
+        // Never replace the rows mid-drag (a debounced dirty rebuild would
+        // yank the dragged element) — _applySortedOrder rebuilds on drop.
+        if (this._dragging) return;
         const canvas = this.canvasEditorOutlet.canvas;
         if (!canvas) return;
 
@@ -73,7 +107,7 @@ export default class extends Controller {
 
         // Topmost layer first (Photoshop convention).
         for (let index = objects.length - 1; index >= 0; index--) {
-            this.listTarget.appendChild(this._buildRow(objects[index], index, objects.length));
+            this.listTarget.appendChild(this._buildRow(objects[index], index));
         }
         this._syncActive();
     }
@@ -95,45 +129,47 @@ export default class extends Controller {
         }
     }
 
-    moveUp(event) {
-        this._restackOneStep(event, 'up');
-    }
-
-    moveDown(event) {
-        this._restackOneStep(event, 'down');
-    }
-
-    _restackOneStep(event, direction) {
-        const obj = this._objectFromEvent(event);
-        if (!obj) return;
+    /**
+     * A drag ended: the rows' NEW DOM order (topmost first) reversed is the
+     * desired Fabric stack. Each row still carries its PRE-drag stack index,
+     * so the objects can be resolved before any restacking mutates indexes.
+     */
+    _applySortedOrder() {
+        if (!this.hasCanvasEditorOutlet) return;
         const canvas = this.canvasEditorOutlet.canvas;
-        if (direction === 'up') {
-            canvas.bringObjectForward(obj);
-        } else {
-            canvas.sendObjectBackwards(obj);
-        }
-        canvas.renderAll();
-        // Restacking fires no Fabric events — announce it (dirty + history),
-        // the same convention canvas-alignment uses for its z-order buttons.
-        canvas.fire('object:modified', {});
+        if (!canvas) return;
 
+        const objects = canvas.getObjects();
+        const desired = Array.from(this.listTarget.querySelectorAll('.canvas-layer-row'))
+            .map((row) => objects[Number(row.dataset.index)])
+            .filter(Boolean)
+            .reverse();
+
+        // A rebuild raced the drag (rows out of sync with the canvas) —
+        // re-render from the source of truth instead of guessing.
+        if (desired.length !== objects.length) {
+            this.rebuild();
+            return;
+        }
+
+        let changed = false;
+        desired.forEach((obj, index) => {
+            if (canvas.getObjects().indexOf(obj) !== index) {
+                canvas.moveObjectTo(obj, index);
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            canvas.renderAll();
+            // Restacking fires no Fabric events — announce it (dirty +
+            // history), the same convention canvas-alignment uses.
+            canvas.fire('object:modified', {});
+        }
+
+        // Re-render even when nothing changed: Sortable moved the DOM node,
+        // and the rows' data-index attributes must match the fresh stack.
         this.rebuild();
-        this._refocusArrow(canvas.getObjects().indexOf(obj), direction);
-    }
-
-    /** Keep keyboard focus on "the same object's arrow" across the rebuild. */
-    _refocusArrow(index, direction) {
-        if (index < 0) return;
-        const row = this.listTarget.querySelector(`.canvas-layer-row[data-index="${index}"]`);
-        if (!row) return;
-        const arrow = row.querySelector(direction === 'up' ? '[data-layer-arrow="up"]' : '[data-layer-arrow="down"]');
-        if (arrow && !arrow.disabled) {
-            arrow.focus();
-        } else if (arrow) {
-            // Hit the top/bottom — the pressed arrow is now disabled; keep
-            // focus in the row so the panel stays keyboard-navigable.
-            row.querySelector('.canvas-layer-row__main')?.focus();
-        }
     }
 
     // --- hover highlight ------------------------------------------------------
@@ -169,7 +205,7 @@ export default class extends Controller {
 
     // --- row construction -----------------------------------------------------
 
-    _buildRow(obj, index, count) {
+    _buildRow(obj, index) {
         const type = (obj.type || '').toLowerCase();
         const isText = type === 'textbox';
         const isPlaceholder = !isText && !!obj.imagePlaceholder;
@@ -187,7 +223,7 @@ export default class extends Controller {
 
         const label = this._labelFor(obj, isText, isPlaceholder);
         const typeLabel = isText ? 'Text' : (isPlaceholder ? 'Obrázkový placeholder' : 'Obrázek');
-        main.title = `${label} — ${typeLabel} (kliknutím upravíte)`;
+        main.title = `${label} — ${typeLabel} (kliknutím upravíte, tažením změníte pořadí)`;
         main.setAttribute('aria-label', `${typeLabel}: ${label}`);
 
         const icon = document.createElement('i');
@@ -210,29 +246,7 @@ export default class extends Controller {
 
         row.appendChild(main);
 
-        const actions = document.createElement('div');
-        actions.className = 'canvas-layer-row__actions';
-        actions.appendChild(this._arrowButton('up', 'Posunout vrstvu výš', index === count - 1));
-        actions.appendChild(this._arrowButton('down', 'Posunout vrstvu níž', index === 0));
-        row.appendChild(actions);
-
         return row;
-    }
-
-    _arrowButton(direction, title, disabled) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'canvas-layer-row__arrow';
-        btn.title = title;
-        btn.setAttribute('aria-label', title);
-        btn.dataset.layerArrow = direction;
-        btn.dataset.action = direction === 'up' ? 'canvas-layers#moveUp' : 'canvas-layers#moveDown';
-        btn.disabled = disabled;
-        const icon = document.createElement('i');
-        icon.className = `mdi ${direction === 'up' ? 'mdi-chevron-up' : 'mdi-chevron-down'}`;
-        icon.setAttribute('aria-hidden', 'true');
-        btn.appendChild(icon);
-        return btn;
     }
 
     _labelFor(obj, isText, isPlaceholder) {
