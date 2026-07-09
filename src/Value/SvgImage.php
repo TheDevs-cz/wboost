@@ -17,6 +17,8 @@ final class SvgImage
         public array $colorsMapping = [],
         public null|string $widthInfo = null,
         public null|string $heightInfo = null,
+        /** Logo width in the manual preview, as a percentage of the card (1-100); null = default. */
+        public null|int $displayWidth = null,
     ) {
     }
 
@@ -27,6 +29,7 @@ final class SvgImage
      *     colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>,
      *     widthInfo?: null|string,
      *     heightInfo?: null|string,
+     *     displayWidth?: null|int,
      * } $data
      */
     public static function fromArray(array $data): self
@@ -43,6 +46,7 @@ final class SvgImage
             colorsMapping: $colorMapping,
             widthInfo: $data['widthInfo'] ?? null,
             heightInfo: $data['heightInfo'] ?? null,
+            displayWidth: $data['displayWidth'] ?? null,
         );
     }
 
@@ -53,6 +57,7 @@ final class SvgImage
      *     colorsMapping: array<string, array{background: null|string, colors: array<string, string>}>,
      *     widthInfo: null|string,
      *     heightInfo: null|string,
+     *     displayWidth: null|int,
      *   }
      */
     public function toArray(): array
@@ -69,6 +74,7 @@ final class SvgImage
             'colorsMapping' => $colorMapping,
             'widthInfo' => $this->widthInfo,
             'heightInfo' => $this->heightInfo,
+            'displayWidth' => $this->displayWidth,
         ];
     }
 
@@ -89,5 +95,16 @@ final class SvgImage
     {
         $this->widthInfo = $width;
         $this->heightInfo = $height;
+    }
+
+    /**
+     * Percentage width of the logo inside its manual-preview card (1-100).
+     * 0, null or out-of-range values reset to default (null = no override).
+     */
+    public function updateDisplayWidth(null|int $displayWidth): void
+    {
+        $this->displayWidth = ($displayWidth !== null && $displayWidth > 0)
+            ? min($displayWidth, 100)
+            : null;
     }
 }

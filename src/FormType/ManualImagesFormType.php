@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormType;
 
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use WBoost\Web\FormData\ManualImagesFormData;
 use Symfony\Component\Form\AbstractType;
@@ -11,6 +12,7 @@ use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Image;
+use Symfony\Component\Validator\Constraints\Range;
 
 /**
  * @extends AbstractType<ManualImagesFormData>
@@ -44,6 +46,8 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
         ]);
 
+        $builder->add('logoHorizontalDisplayWidth', IntegerType::class, $this->displayWidthOptions());
+
         $builder->add('logoVertical', FileType::class, [
             'label' => 'Logo vertikální',
             'required' => false,
@@ -65,6 +69,8 @@ final class ManualImagesFormType extends AbstractType
             'label' => 'Výška',
             'required' => false,
         ]);
+
+        $builder->add('logoVerticalDisplayWidth', IntegerType::class, $this->displayWidthOptions());
 
         $builder->add('logoHorizontalWithClaim', FileType::class, [
             'label' => 'Logo horizontální se sloganem',
@@ -88,6 +94,8 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
         ]);
 
+        $builder->add('logoHorizontalWithClaimDisplayWidth', IntegerType::class, $this->displayWidthOptions());
+
         $builder->add('logoVerticalWithClaim', FileType::class, [
             'label' => 'Logo vertikální se sloganem',
             'required' => false,
@@ -110,6 +118,8 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
         ]);
 
+        $builder->add('logoVerticalWithClaimDisplayWidth', IntegerType::class, $this->displayWidthOptions());
+
         $builder->add('logoSymbol', FileType::class, [
             'label' => 'Symbol',
             'required' => false,
@@ -131,6 +141,35 @@ final class ManualImagesFormType extends AbstractType
             'label' => 'Výška',
             'required' => false,
         ]);
+
+        $builder->add('logoSymbolDisplayWidth', IntegerType::class, $this->displayWidthOptions());
+    }
+
+    /**
+     * Shared options for the "logo width in the manual (%)" fields.
+     *
+     * @return array<string, mixed>
+     */
+    private function displayWidthOptions(): array
+    {
+        return [
+            'label' => 'Šířka loga v manuálu (%)',
+            'required' => false,
+            'help' => '0 nebo prázdné = výchozí velikost. 1–100 = šířka v procentech rámečku (výška zůstává stejná).',
+            'constraints' => [
+                new Range(
+                    min: 0,
+                    max: 100,
+                    notInRangeMessage: 'Zadejte hodnotu mezi {{ min }} a {{ max }}.',
+                ),
+            ],
+            'attr' => [
+                'min' => 0,
+                'max' => 100,
+                'step' => 1,
+                'placeholder' => 'výchozí',
+            ],
+        ];
     }
 
     public function configureOptions(OptionsResolver $resolver): void

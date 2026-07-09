@@ -43,6 +43,8 @@
                                         </div>
                                     </div>
 
+                                    {{ form_row(form.logoHorizontalDisplayWidth) }}
+
                                     {% if manual.logo.horizontal %}
                                         {% for detectedColor in manual.logo.horizontal.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -72,6 +74,8 @@
                                             {{ form_row(form.logoVerticalHeightInfo) }}
                                         </div>
                                     </div>
+
+                                    {{ form_row(form.logoVerticalDisplayWidth) }}
 
                                     {% if manual.logo.vertical %}
                                         {% for detectedColor in manual.logo.vertical.detectedColors %}
@@ -103,6 +107,8 @@
                                         </div>
                                     </div>
 
+                                    {{ form_row(form.logoHorizontalWithClaimDisplayWidth) }}
+
                                     {% if manual.logo.horizontalWithClaim %}
                                         {% for detectedColor in manual.logo.horizontalWithClaim.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -133,6 +139,8 @@
                                         </div>
                                     </div>
 
+                                    {{ form_row(form.logoVerticalWithClaimDisplayWidth) }}
+
                                     {% if manual.logo.verticalWithClaim %}
                                         {% for detectedColor in manual.logo.verticalWithClaim.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -162,6 +170,8 @@
                                             {{ form_row(form.logoSymbolHeightInfo) }}
                                         </div>
                                     </div>
+
+                                    {{ form_row(form.logoSymbolDisplayWidth) }}
 
                                     {% if manual.logo.symbol %}
                                         {% for detectedColor in manual.logo.symbol.detectedColors %}

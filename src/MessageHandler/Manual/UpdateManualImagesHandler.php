@@ -68,6 +68,12 @@ readonly final class UpdateManualImagesHandler
         $logoVerticalWithClaim?->updateDimensionsInfo($message->logoVerticalWithClaimWidthInfo, $message->logoVerticalWithClaimHeightInfo);
         $logoSymbol?->updateDimensionsInfo($message->logoSymbolWidthInfo, $message->logoSymbolHeightInfo);
 
+        $logoHorizontal?->updateDisplayWidth($message->logoHorizontalDisplayWidth);
+        $logoVertical?->updateDisplayWidth($message->logoVerticalDisplayWidth);
+        $logoHorizontalWithClaim?->updateDisplayWidth($message->logoHorizontalWithClaimDisplayWidth);
+        $logoVerticalWithClaim?->updateDisplayWidth($message->logoVerticalWithClaimDisplayWidth);
+        $logoSymbol?->updateDisplayWidth($message->logoSymbolDisplayWidth);
+
         $manual->editLogo(
             new Logo(
                 horizontal: $logoHorizontal,

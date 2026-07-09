@@ -16,22 +16,27 @@ readonly final class UpdateManualImages
         public null|UploadedFile $logoHorizontal,
         public null|string $logoHorizontalWidthInfo,
         public null|string $logoHorizontalHeightInfo,
+        public null|int $logoHorizontalDisplayWidth,
 
         public null|UploadedFile $logoVertical,
         public null|string $logoVerticalWidthInfo,
         public null|string $logoVerticalHeightInfo,
+        public null|int $logoVerticalDisplayWidth,
 
         public null|UploadedFile $logoHorizontalWithClaim,
         public null|string $logoHorizontalWithClaimWidthInfo,
         public null|string $logoHorizontalWithClaimHeightInfo,
+        public null|int $logoHorizontalWithClaimDisplayWidth,
 
         public null|UploadedFile $logoVerticalWithClaim,
         public null|string $logoVerticalWithClaimWidthInfo,
         public null|string $logoVerticalWithClaimHeightInfo,
+        public null|int $logoVerticalWithClaimDisplayWidth,
 
         public null|UploadedFile $logoSymbol,
         public null|string $logoSymbolWidthInfo,
         public null|string $logoSymbolHeightInfo,
+        public null|int $logoSymbolDisplayWidth,
     ) {
     }
 
@@ -42,18 +47,23 @@ readonly final class UpdateManualImages
             logoHorizontal: $formData->logoHorizontal,
             logoHorizontalWidthInfo: $formData->logoHorizontalWidthInfo,
             logoHorizontalHeightInfo: $formData->logoHorizontalHeightInfo,
+            logoHorizontalDisplayWidth: $formData->logoHorizontalDisplayWidth,
             logoVertical: $formData->logoVertical,
             logoVerticalWidthInfo: $formData->logoVerticalWidthInfo,
             logoVerticalHeightInfo: $formData->logoVerticalHeightInfo,
+            logoVerticalDisplayWidth: $formData->logoVerticalDisplayWidth,
             logoHorizontalWithClaim: $formData->logoHorizontalWithClaim,
             logoHorizontalWithClaimWidthInfo: $formData->logoHorizontalWithClaimWidthInfo,
             logoHorizontalWithClaimHeightInfo: $formData->logoHorizontalWithClaimHeightInfo,
+            logoHorizontalWithClaimDisplayWidth: $formData->logoHorizontalWithClaimDisplayWidth,
             logoVerticalWithClaim: $formData->logoVerticalWithClaim,
             logoVerticalWithClaimWidthInfo: $formData->logoVerticalWithClaimWidthInfo,
             logoVerticalWithClaimHeightInfo: $formData->logoVerticalWithClaimHeightInfo,
+            logoVerticalWithClaimDisplayWidth: $formData->logoVerticalWithClaimDisplayWidth,
             logoSymbol: $formData->logoSymbol,
             logoSymbolWidthInfo: $formData->logoSymbolWidthInfo,
             logoSymbolHeightInfo: $formData->logoSymbolHeightInfo,
+            logoSymbolDisplayWidth: $formData->logoSymbolDisplayWidth,
         );
     }
 }
