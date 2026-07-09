@@ -349,6 +349,28 @@ export default class extends Controller {
             span.textContent = run.text;
             editor.appendChild(span);
         });
+        this._ensureTrailingBreak();
+    }
+
+    /** A trailing "\n" in white-space: pre-wrap renders NO final line box: the
+     *  caret can't sit on the new line, and Chrome then inserts the next typed
+     *  character BEFORE the invisible newline — the "first Shift+Enter doesn't
+     *  take, the second one does" bug (browser-verified). The standard
+     *  contenteditable cure is a placeholder <br> after the final newline: it
+     *  makes the last line real. Called from _render AND after every native
+     *  edit (_commitDomState) because Chrome consumes the placeholder while
+     *  typing on the last line — without the re-add, backspacing back to a
+     *  trailing "\n" re-enters the broken state. Appending never disturbs the
+     *  caret (text nodes are untouched), _parseDom ignores <br> (only text
+     *  nodes carry value) and the selection TreeWalker is text-only, so
+     *  plain-text offsets stay in lockstep. */
+    _ensureTrailingBreak() {
+        const lastRun = this.runs[this.runs.length - 1];
+        if (!lastRun || !lastRun.text.endsWith("\n")) return;
+        const last = this.editorTarget.lastChild;
+        if (!(last && last.nodeType === Node.ELEMENT_NODE && last.tagName === "BR")) {
+            this.editorTarget.appendChild(document.createElement("br"));
+        }
     }
 
     /** Whitelist parser: only span[data-rt-run] attributes carry style; any
@@ -399,6 +421,10 @@ export default class extends Controller {
         if (truncated) {
             this._render();
             this._restoreSelection(this._endOffsets());
+        } else {
+            // _render (via truncation) already guarantees the placeholder;
+            // every other native edit must re-guarantee it — see the helper.
+            this._ensureTrailingBreak();
         }
 
         this._sync();
