@@ -9,8 +9,10 @@ import { Textbox, cache, util } from "fabric";
  * always-visible icon cluster:
  *  - pencil → text: opens the floating text popover; image: opens the gallery modal;
  *  - eye    → toggles "hide this element" (only when the slot is hidable).
- * The highlight toggle controls ONLY the dashed border of the boxes — the icons
- * stay visible either way.
+ * The "Zobrazit oblasti k vyplnění" toggle shows/hides the dashed borders AND
+ * the icon clusters together (via the `fill-highlight-on` CSS class), so turning
+ * it off leaves a clean, undisturbed preview. An overflowing box keeps its icons
+ * regardless — the field must stay reachable to fix the validation error.
  *
  * Editing writes through the Live region without disturbing the overlay:
  *  - text value → the popover input mirrors into a visually-hidden Live-bound
@@ -139,7 +141,7 @@ export default class extends Controller {
         }
     }
 
-    // --- Highlight toggle (borders only) ------------------------------------
+    // --- Show-areas toggle (borders + icon clusters, gated in CSS) ----------
 
     toggleHighlight(event) {
         this.element.classList.toggle("fill-highlight-on", event.target.checked);
