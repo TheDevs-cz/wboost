@@ -44,3 +44,30 @@ export function applyEditorLock(obj) {
     obj.hoverCursor = locked ? 'not-allowed' : null;
     if (typeof obj.setCoords === 'function') obj.setCoords();
 }
+
+/**
+ * Re-apply the deliberate interaction flags every text placeholder is created
+ * with (see submitAddText) so a RELOADED textbox behaves identically to a
+ * freshly added one: it resizes by WIDTH ONLY (drag the side handles → the text
+ * re-wraps), never by corner-scaling that stretches the glyphs and desyncs the
+ * fill-page / container measurement (which is driven by fontSize, not scaleX)
+ * and can shift the box on drag.
+ *
+ * Fabric does NOT serialize these flags (see the note above), so without this
+ * pass a saved textbox comes back with Fabric's permissive defaults
+ * (corner-scalable + rotatable) — the "text stretches / jumps when I resize it"
+ * reports on already-saved templates. Runs from restoreCustomProperties, the
+ * shared load path, so the single-variant editor and the group editor stay in
+ * lockstep. Movement / selection are left untouched (textboxes stay draggable);
+ * the `locked` custom prop is a fill-time flag and never gates editor
+ * interaction.
+ */
+export function applyTextboxDefaults(obj) {
+    if (!obj) return;
+    obj.lockScalingX = true;
+    obj.lockScalingY = true;
+    obj.lockScalingFlip = true;
+    obj.lockRotation = true;
+    obj.hasControls = true;
+    if (typeof obj.setCoords === 'function') obj.setCoords();
+}

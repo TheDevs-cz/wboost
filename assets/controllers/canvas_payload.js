@@ -1,4 +1,4 @@
-import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_properties.js';
+import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
 
 /**
  * Canvas (de)serialization helpers shared by the single-variant editor
@@ -40,10 +40,16 @@ export function restoreCustomProperties(canvas, sourceCanvas) {
         }
 
         // Custom props are restored above, but Fabric's interaction flags are
-        // not — re-derive them from editorLocked so a saved editor-lock is live
-        // (image can't be dragged) the instant the canvas finishes loading.
+        // not — re-derive them so a saved textbox / image behaves like a
+        // freshly created one the instant the canvas finishes loading. Images:
+        // honour editorLocked (can't be dragged when set). Textboxes: width-only
+        // resize (no glyph-stretching corner scale / rotation), matching
+        // submitAddText — otherwise Fabric's permissive defaults let the user
+        // stretch and shift a reloaded box.
         if (t === 'image') {
             applyEditorLock(obj);
+        } else if (t === 'textbox') {
+            applyTextboxDefaults(obj);
         }
     });
 }

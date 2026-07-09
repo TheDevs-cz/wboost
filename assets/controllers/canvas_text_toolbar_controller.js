@@ -160,13 +160,24 @@ export default class extends Controller {
         const maxLength = parseInt(event.target.value, 10);
         if (maxLength > 0) {
             activeObject.maxLength = maxLength;
-            // Truncate the sample text only when the value is COMMITTED (change),
-            // not on every keystroke (input): otherwise typing "50" would first
-            // apply maxLength 5 and permanently cut the text to 5 characters.
-            if (event.type === 'change') {
-                activeObject.text = activeObject.text.slice(0, maxLength);
+            // `maxLength` is purely a FILL-TIME character limit — it must NEVER
+            // touch the box geometry or its interaction flags. The old code
+            // resized the box to fit `'W' × maxLength` and set
+            // `hasControls:false` / `lockScalingX/Y:true`, which (a) threw away
+            // the designer's manual width, (b) grew the box far off-canvas for
+            // large limits — dragging the selection and the floating toolbar
+            // off-screen — and (c) made the box impossible to resize. Width is
+            // the designer's concern (drag the side handles → text re-wraps);
+            // the limit only truncates what a user may type when filling.
+            //
+            // Truncate the design-time sample text only when the value is
+            // COMMITTED (change), never on every keystroke (input): otherwise
+            // typing "50" would first apply maxLength 5 and permanently cut the
+            // text to 5 characters.
+            if (event.type === 'change' && activeObject.text.length > maxLength) {
+                activeObject.set({ text: activeObject.text.slice(0, maxLength) });
+                activeObject.setCoords();
             }
-            this._adjustTextWidth(activeObject);
         } else {
             // Remove max length restriction if the input is empty or zero
             activeObject.maxLength = undefined;
@@ -174,24 +185,6 @@ export default class extends Controller {
 
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
-    }
-
-    _adjustTextWidth(textObject) {
-        if (!textObject.maxLength) return;
-        const canvas = this.canvasEditorOutlet.canvas;
-        const canvasContext = canvas.getContext();
-        canvasContext.font = `${textObject.fontSize}px ${textObject.fontFamily}`;
-        // Use a wide character to estimate the maximum width
-        const sampleText = 'W'.repeat(textObject.maxLength);
-        const textWidth = canvasContext.measureText(sampleText).width;
-
-        textObject.set({
-            width: textWidth,
-            lockScalingX: true,  // Lock horizontal scaling
-            lockScalingY: true,  // Lock vertical scaling
-            editable: true,      // Keep text editable
-            hasControls: false,  // Disable resize controls
-        });
     }
 
     _getActiveTextbox() {
