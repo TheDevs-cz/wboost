@@ -1,4 +1,4 @@
-import { CANVAS_CUSTOM_PROPERTIES } from './canvas_custom_properties.js';
+import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_properties.js';
 
 /**
  * Canvas (de)serialization helpers shared by the single-variant editor
@@ -37,6 +37,13 @@ export function restoreCustomProperties(canvas, sourceCanvas) {
         const t = (obj.type || '').toLowerCase();
         if ((t === 'textbox' || t === 'image') && !obj.inputId) {
             obj.inputId = crypto.randomUUID();
+        }
+
+        // Custom props are restored above, but Fabric's interaction flags are
+        // not — re-derive them from editorLocked so a saved editor-lock is live
+        // (image can't be dragged) the instant the canvas finishes loading.
+        if (t === 'image') {
+            applyEditorLock(obj);
         }
     });
 }

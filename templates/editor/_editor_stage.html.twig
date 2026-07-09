@@ -17,6 +17,7 @@
         <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="mdi mdi-content-copy"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-image-edit-outline"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout obrázek v editoru (proti posunutí)" data-canvas-floating-toolbar-target="editorLockButton" data-action="canvas-image-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
         {% if group_mode|default(false) %}
             <button type="button" class="btn btn-sm btn-light" title="Srovnat podle skupiny (přenést pozici a velikost tohoto prvku do ostatních variant)" data-action="group-editor#resyncActiveObject"><i class="mdi mdi-sync"></i></button>
         {% endif %}
@@ -182,6 +183,11 @@
                     <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="canvas-floating-toolbar#closePopovers"><i class="uil-check me-1"></i> Uložit</button>
                     <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
                 </div>
+            </div>
+
+            <div class="mb-2 form-check">
+                <input type="checkbox" id="image-editor-locked-control" class="form-check-input" data-canvas-image-properties-target="editorLocked" data-action="change->canvas-image-properties#updateEditorLock">
+                <label for="image-editor-locked-control" class="form-check-label small">Zamknout v editoru <span class="text-muted">(chrání před náhodným posunutím; neovlivní export)</span></label>
             </div>
 
             <div class="mb-2 form-check">

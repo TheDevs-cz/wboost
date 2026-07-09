@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { applyEditorLock } from "./canvas_custom_properties.js";
 
 /**
  * Editor-side metadata for IMAGE objects — the image counterpart of
@@ -19,7 +20,7 @@ export default class extends Controller {
     static targets = [
         "details", "placeholder", "name", "description",
         "allowMove", "allowResize", "allowRotate", "hidable", "directory",
-        "warning",
+        "warning", "editorLocked",
     ];
 
     canvasEditorOutletConnected(outlet) {
@@ -36,6 +37,7 @@ export default class extends Controller {
 
         const isPlaceholder = activeObject.imagePlaceholder === true;
 
+        if (this.hasEditorLockedTarget) this.editorLockedTarget.checked = activeObject.editorLocked === true;
         if (this.hasPlaceholderTarget)  this.placeholderTarget.checked  = isPlaceholder;
         if (this.hasNameTarget)         this.nameTarget.value           = activeObject.name || '';
         if (this.hasDescriptionTarget)  this.descriptionTarget.value    = activeObject.description || '';
@@ -76,6 +78,37 @@ export default class extends Controller {
         if (!this.hasPlaceholderTarget) return;
         this.placeholderTarget.checked = !this.placeholderTarget.checked;
         this.updatePlaceholder({ target: this.placeholderTarget });
+    }
+
+    /**
+     * EDITOR-ONLY lock: freeze the image against accidental drags/resizes while
+     * the designer works on nearby elements. Not a user-facing constraint (it
+     * never reaches the imageInputs DTO nor the server render) — it only flips
+     * Fabric's interaction flags in the editor. Persisted via the editorLocked
+     * custom prop so the lock survives a reload.
+     */
+    updateEditorLock(event) {
+        const image = this._getActiveImage();
+        if (!image) return;
+        image.editorLocked = event.target.checked;
+        applyEditorLock(image);
+        this.canvasEditorOutlet.canvas.renderAll();
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    /**
+     * Inline editor-lock toggle from the floating mini-toolbar. Flips the flag,
+     * applies it, and mirrors the state onto the popover checkbox so both stay
+     * in sync (mirrors togglePlaceholder / input-properties#toggleLocked).
+     */
+    toggleEditorLock() {
+        const image = this._getActiveImage();
+        if (!image) return;
+        image.editorLocked = !image.editorLocked;
+        applyEditorLock(image);
+        if (this.hasEditorLockedTarget) this.editorLockedTarget.checked = image.editorLocked === true;
+        this.canvasEditorOutlet.canvas.renderAll();
+        this.canvasEditorOutlet.markUnsaved();
     }
 
     updateName(event) {

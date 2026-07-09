@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 import { ActiveSelection } from "fabric";
 
-import { CANVAS_CUSTOM_PROPERTIES } from './canvas_custom_properties.js';
+import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_properties.js';
 
 /**
  * Copy / paste / duplicate for the canvas editor. The orchestrator dispatches
@@ -60,12 +60,14 @@ export default class extends Controller {
             clonedObj.forEachObject((obj) => {
                 // Always overwrite inputId on paste to avoid id collisions.
                 obj.inputId = crypto.randomUUID();
+                this._unlockPasted(obj);
                 canvas.add(obj);
             });
             clonedObj.setCoords();
         } else {
             // Always overwrite inputId on paste to avoid id collisions.
             clonedObj.inputId = crypto.randomUUID();
+            this._unlockPasted(clonedObj);
             canvas.add(clonedObj);
         }
 
@@ -81,6 +83,19 @@ export default class extends Controller {
         // copy() is async and stores into this.clipboard; await it before paste
         // so paste() sees the freshly-cloned object.
         this.copy().then(() => this.paste());
+    }
+
+    /**
+     * A pasted/duplicated image starts UNLOCKED: the editor-lock is a
+     * "leave this placed image alone" guard, and the fresh copy is exactly the
+     * thing the user now wants to drag into place. Clearing editorLocked also
+     * keeps the live Fabric flags in sync with the serialized prop (clone does
+     * not carry the interaction flags across).
+     */
+    _unlockPasted(obj) {
+        if ((obj.type || '').toLowerCase() !== 'image') return;
+        obj.editorLocked = false;
+        applyEditorLock(obj);
     }
 
     updateButton(activeObject) {

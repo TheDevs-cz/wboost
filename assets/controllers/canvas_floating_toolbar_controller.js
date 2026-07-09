@@ -27,7 +27,7 @@ export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
         "layer", "miniToolbar", "multiBar",
-        "lockButton", "placeholderButton",
+        "lockButton", "placeholderButton", "editorLockButton",
         "textPopover", "imagePopover",
     ];
 
@@ -156,6 +156,7 @@ export default class extends Controller {
             const isImage = type === 'image';
             if (this.hasLockButtonTarget) this.lockButtonTarget.classList.toggle('d-none', !isText);
             if (this.hasPlaceholderButtonTarget) this.placeholderButtonTarget.classList.toggle('d-none', !isImage);
+            if (this.hasEditorLockButtonTarget) this.editorLockButtonTarget.classList.toggle('d-none', !isImage);
             this.refreshContextToggle();
         }
 
@@ -233,6 +234,17 @@ export default class extends Controller {
             this.placeholderButtonTarget.setAttribute('aria-pressed', String(placeholder));
             const icon = this.placeholderButtonTarget.querySelector('i');
             if (icon) icon.className = placeholder ? 'mdi mdi-image-edit' : 'mdi mdi-image-edit-outline';
+        }
+
+        if (type === 'image' && this.hasEditorLockButtonTarget) {
+            const locked = obj.editorLocked === true;
+            const label = locked ? 'Odemknout obrázek v editoru' : 'Uzamknout obrázek v editoru (proti posunutí)';
+            this.editorLockButtonTarget.classList.toggle('active', locked);
+            this.editorLockButtonTarget.title = label;
+            this.editorLockButtonTarget.setAttribute('aria-label', label);
+            this.editorLockButtonTarget.setAttribute('aria-pressed', String(locked));
+            const icon = this.editorLockButtonTarget.querySelector('i');
+            if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
         }
     }
 
