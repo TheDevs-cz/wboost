@@ -383,8 +383,7 @@
 
 /* The icon cluster follows the "Zobrazit oblasti k vyplnění" toggle: shown with
    the highlight, hidden when it's off so the preview is clean (see the
-   :not(.fill-highlight-on) rule below). An overflowing box keeps its tools even
-   when off — the user must reach the field to fix the validation error. */
+   :not(.fill-highlight-on) rule below). */
 .fill-box__tools {
     position: absolute;
     top: -14px;
@@ -496,14 +495,10 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
-/* Toggle off: hide the pencil/eye clusters too so the preview is undisturbed.
-   Overflowing boxes keep theirs — the field must stay reachable to fix it. */
+/* Toggle off: hide the pencil/eye clusters too (all boxes, overflow included)
+   so the preview is completely undisturbed. */
 .fill-form.fill-js:not(.fill-highlight-on) .fill-box__tools {
     display: none;
-}
-
-.fill-form.fill-js:not(.fill-highlight-on) .fill-box--overflow .fill-box__tools {
-    display: flex;
 }
 
 /* Hovering a row in the layers panel: a solid, filled highlight regardless of
