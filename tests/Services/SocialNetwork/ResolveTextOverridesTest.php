@@ -106,6 +106,24 @@ final class ResolveTextOverridesTest extends TestCase
         self::assertArrayNotHasKey(self::INPUT_ID, $result->richTexts);
     }
 
+    public function testUnstyledNewlineEnvelopePreservesLineBreaksAsPlainOverride(): void
+    {
+        // The web WYSIWYG smuggles multi-line values through the string mirror
+        // as a {"runs":[...]} envelope (an <input> would otherwise strip the
+        // literal "\n"). Even with no styling the envelope must be honored and
+        // the newline must survive into the plain override the renderer uses.
+        $envelope = '{"runs":[{"text":"first\nsecond\n\nfourth","fontFamily":null,"color":null,"underline":false}]}';
+
+        $result = (new ResolveTextOverrides())->resolve(
+            [$this->richInput()],
+            [self::INPUT_ID => $envelope],
+            truncateOverflow: true,
+        );
+
+        self::assertSame("first\nsecond\n\nfourth", $result->texts[self::INPUT_ID]);
+        self::assertArrayNotHasKey(self::INPUT_ID, $result->richTexts);
+    }
+
     public function testEnvelopeStringIsDetectedOnlyForRichInputs(): void
     {
         $envelope = '{"runs":[{"text":"styled","underline":true}]}';

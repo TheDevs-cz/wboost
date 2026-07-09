@@ -544,9 +544,16 @@ export default class extends Controller {
     _sync() {
         const module = this._module();
         const plain = module.plainText(this.runs);
-        // Plain string while unstyled: untouched values keep today's wire
-        // shape, and the envelope only exists where styling does.
-        const mirrorValue = module.isStyled(this.runs) && plain !== ""
+        // The mirror is an <input type="text">, whose value sanitization
+        // STRIPS literal newlines — so a multi-line value must travel as the
+        // {"runs":[...]} envelope (JSON escapes "\n" to two chars) or the line
+        // breaks silently vanish before they reach the server. Plain string is
+        // kept only for single-line, unstyled values (today's wire shape for
+        // untouched inputs); styling OR a newline promotes to the envelope,
+        // which the server's rich-input envelope detection unwraps (an unstyled
+        // one degrades to a plain override that preserves the newline).
+        const needsEnvelope = plain !== "" && (module.isStyled(this.runs) || plain.indexOf("\n") !== -1);
+        const mirrorValue = needsEnvelope
             ? JSON.stringify({ runs: this.runs })
             : plain;
 
