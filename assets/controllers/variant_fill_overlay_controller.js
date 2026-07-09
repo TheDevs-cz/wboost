@@ -67,10 +67,16 @@ export default class extends Controller {
         this._boundFit = () => this._fitToScreen();
         this._boundKeydown = (event) => this._onKeydown(event);
         this._boundOutside = (event) => this._maybeCloseOnOutside(event);
+        // Remember where each press STARTED so a text-selection drag that begins
+        // inside the popover but releases outside (its click lands on an outside
+        // ancestor) is not mistaken for an outside click. Capture phase so we see
+        // it even when openPopover stops the bubbling click.
+        this._boundPointerDown = (event) => { this._pressOrigin = event.target; };
 
         window.addEventListener("resize", this._boundFit);
         window.addEventListener("scroll", this._boundReposition, true);
         document.addEventListener("keydown", this._boundKeydown);
+        document.addEventListener("pointerdown", this._boundPointerDown, true);
         document.addEventListener("click", this._boundOutside);
 
         // Hide the live-preview spinner once the next server render lands. The
@@ -112,6 +118,7 @@ export default class extends Controller {
         window.removeEventListener("resize", this._boundFit);
         window.removeEventListener("scroll", this._boundReposition, true);
         document.removeEventListener("keydown", this._boundKeydown);
+        document.removeEventListener("pointerdown", this._boundPointerDown, true);
         document.removeEventListener("click", this._boundOutside);
         if (this._resizeObserver) this._resizeObserver.disconnect();
         if (this._previewObserver) this._previewObserver.disconnect();
@@ -279,8 +286,12 @@ export default class extends Controller {
         if (this._openId === null) return;
         const popover = this._popoverFor(this._openId);
         const box = this._boxFor(this._openId);
-        if (popover && popover.contains(event.target)) return;
-        if (box && box.contains(event.target)) return;
+        const inside = (node) =>
+            Boolean(node) && ((popover && popover.contains(node)) || (box && box.contains(node)));
+        // Keep the popover open when the click's target OR the press that produced
+        // it started inside the popover/box — the latter covers a text-selection
+        // drag inside the WYSIWYG editor that releases beyond the popover edge.
+        if (inside(event.target) || inside(this._pressOrigin)) return;
         this.closePopover();
     }
 
