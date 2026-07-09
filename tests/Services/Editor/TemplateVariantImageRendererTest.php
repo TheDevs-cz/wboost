@@ -122,4 +122,70 @@ final class TemplateVariantImageRendererTest extends TestCase
     {
         return new EditorTextInput($inputId, 'Name', null, false, false, null, false);
     }
+
+    public function testReferencedFontFamiliesCollectsObjectAndOverrideFaces(): void
+    {
+        $canvas = json_encode([
+            'objects' => [
+                ['type' => 'Textbox', 'fontFamily' => 'Hero New (Hero New Super)'],
+                ['type' => 'Image', 'src' => 'x'],
+                ['type' => 'Textbox', 'fontFamily' => 'Hero New (Hero New ExtraBold)'],
+            ],
+        ]);
+        self::assertNotFalse($canvas);
+
+        $families = TemplateVariantImageRenderer::referencedFontFamilies(
+            $canvas,
+            ['Rubik (Rubik Bold)'], // a rich-text override run face
+        );
+
+        self::assertNotNull($families);
+        sort($families);
+        self::assertSame(
+            ['Hero New (Hero New ExtraBold)', 'Hero New (Hero New Super)', 'Rubik (Rubik Bold)'],
+            $families,
+        );
+    }
+
+    public function testReferencedFontFamiliesCollectsNestedPerCharacterStyleFaces(): void
+    {
+        // Fabric serialized styles — both the object form ({line:{char:{...}}})
+        // and the array form ([{start,end,style:{...}}]) must be scanned so a
+        // per-character face is never dropped.
+        $canvas = json_encode([
+            'objects' => [
+                [
+                    'type' => 'Textbox',
+                    'fontFamily' => 'Base (Base Regular)',
+                    'styles' => ['0' => ['2' => ['fontFamily' => 'Base (Base Italic)']]],
+                ],
+                [
+                    'type' => 'Textbox',
+                    'styles' => [['start' => 0, 'end' => 3, 'style' => ['fontFamily' => 'Accent (Accent Bold)']]],
+                ],
+            ],
+        ]);
+        self::assertNotFalse($canvas);
+
+        $families = TemplateVariantImageRenderer::referencedFontFamilies($canvas, []);
+
+        self::assertNotNull($families);
+        sort($families);
+        self::assertSame(
+            ['Accent (Accent Bold)', 'Base (Base Italic)', 'Base (Base Regular)'],
+            $families,
+        );
+    }
+
+    public function testReferencedFontFamiliesFallsBackToNullWhenUndetermined(): void
+    {
+        // Unparseable, no objects array, and text-free canvases all mean
+        // "inline every face" — narrowing must never guess.
+        self::assertNull(TemplateVariantImageRenderer::referencedFontFamilies('not json', []));
+        self::assertNull(TemplateVariantImageRenderer::referencedFontFamilies('{}', []));
+        self::assertNull(TemplateVariantImageRenderer::referencedFontFamilies(
+            json_encode(['objects' => [['type' => 'Image', 'src' => 'x']]]) ?: '{}',
+            [],
+        ));
+    }
 }

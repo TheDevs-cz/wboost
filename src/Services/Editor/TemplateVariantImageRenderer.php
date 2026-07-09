@@ -42,6 +42,16 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      */
     private array $inlineScripts = [];
 
+    /**
+     * Memoized base64 font data URIs by storage path. Font uploads are
+     * immutable per path, so caching avoids re-reading from Minio and
+     * re-encoding the same face on every live-preview render (persists across
+     * requests in the FrankenPHP worker, like {@see $inlineScripts}).
+     *
+     * @var array<string, null|string>
+     */
+    private array $inlinedFonts = [];
+
     public function __construct(
         private readonly GotenbergScreenshotInterface $gotenberg,
         private readonly GetFonts $getFonts,
@@ -128,16 +138,45 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
+        // Narrow the inlined font faces to the ones this render can actually
+        // reference. Every keystroke on the fill page re-renders through
+        // Gotenberg, and inlining EVERY project face bloats the payload and
+        // makes headless Chromium await a FontFace.load() per face. `null`
+        // means "couldn't determine safely" → inline everything (today's
+        // behaviour), so narrowing can only ever drop provably-unused fonts,
+        // never silently swap in a fallback face.
+        $overrideFamilies = [];
+        foreach ($overrides->richTexts as $richText) {
+            foreach ($richText->runs as $run) {
+                if ($run->fontFamily !== null) {
+                    $overrideFamilies[] = $run->fontFamily;
+                }
+            }
+        }
+        $neededFamilies = self::referencedFontFamilies($variant->canvas, $overrideFamilies);
+
         $fonts = $this->getFonts->allForProject($project->id);
         $fontFaceData = [];
         foreach ($fonts as $font) {
+            $faceFamilies = [];
             foreach ($font->faces as $fontFace) {
-                $dataUri = $this->assetInliner->inlineFont($fontFace->filePath);
+                $faceFamilies[] = sprintf('%s (%s)', $font->name, $fontFace->name);
+            }
+
+            if ($neededFamilies !== null && array_intersect($faceFamilies, $neededFamilies) === []) {
+                continue;
+            }
+
+            foreach ($font->faces as $index => $fontFace) {
+                // Immutable per path → memoized across renders (persists in the
+                // FrankenPHP worker like $inlineScripts), so repeated live-preview
+                // renders skip the Minio fetch + base64 for fonts already seen.
+                $dataUri = $this->inlineFontCached($fontFace->filePath);
                 if ($dataUri === null) {
                     continue;
                 }
                 $fontFaceData[] = [
-                    'family' => sprintf('%s (%s)', $font->name, $fontFace->name),
+                    'family' => $faceFamilies[$index],
                     'src' => $dataUri,
                 ];
             }
@@ -415,6 +454,92 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         }
 
         return $exception->getMessage();
+    }
+
+    private function inlineFontCached(string $path): null|string
+    {
+        if (!array_key_exists($path, $this->inlinedFonts)) {
+            $this->inlinedFonts[$path] = $this->assetInliner->inlineFont($path);
+        }
+
+        return $this->inlinedFonts[$path];
+    }
+
+    /**
+     * The set of face-family strings ("Font name (Face name)") a render can
+     * reference: every canvas object's `fontFamily`, any `fontFamily` nested in
+     * a per-character `styles` map, plus the rich-text override run faces the
+     * caller passes in. Returns null when the canvas JSON can't be parsed, has
+     * no objects array, or yields no families at all — the caller then inlines
+     * ALL faces (today's behaviour). Pure + static so the narrowing decision is
+     * unit-testable in isolation.
+     *
+     * @param list<string> $overrideFamilies
+     * @return list<string>|null
+     */
+    public static function referencedFontFamilies(string $canvasJson, array $overrideFamilies): null|array
+    {
+        try {
+            /** @var mixed $canvas */
+            $canvas = json_decode($canvasJson, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+
+        $objects = is_array($canvas) ? ($canvas['objects'] ?? null) : null;
+        if (!is_array($objects)) {
+            return null;
+        }
+
+        /** @var array<string, true> $families */
+        $families = [];
+        foreach ($overrideFamilies as $family) {
+            if ($family !== '') {
+                $families[$family] = true;
+            }
+        }
+        foreach ($objects as $object) {
+            if (is_array($object)) {
+                self::collectObjectFontFamilies($object, $families);
+            }
+        }
+
+        return $families === [] ? null : array_keys($families);
+    }
+
+    /**
+     * @param array<array-key, mixed> $object
+     * @param array<string, true> $families
+     */
+    private static function collectObjectFontFamilies(array $object, array &$families): void
+    {
+        $fontFamily = $object['fontFamily'] ?? null;
+        if (is_string($fontFamily) && $fontFamily !== '') {
+            $families[$fontFamily] = true;
+        }
+
+        // Fabric per-character styling — either the object form
+        // ({line: {char: {fontFamily}}}) or the serialized array form
+        // ([{start, end, style: {fontFamily}}]); recurse into both.
+        $styles = $object['styles'] ?? null;
+        if (is_array($styles)) {
+            self::collectNestedFontFamilies($styles, $families);
+        }
+    }
+
+    /**
+     * @param array<array-key, mixed> $node
+     * @param array<string, true> $families
+     */
+    private static function collectNestedFontFamilies(array $node, array &$families): void
+    {
+        foreach ($node as $key => $value) {
+            if ($key === 'fontFamily' && is_string($value) && $value !== '') {
+                $families[$value] = true;
+            } elseif (is_array($value)) {
+                self::collectNestedFontFamilies($value, $families);
+            }
+        }
     }
 
     private function getInlineScript(string $path): string
