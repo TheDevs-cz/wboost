@@ -15,7 +15,7 @@ export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
         "fontFamily", "fontSize", "fontColor",
-        "textAlign", "textDecoration", "maxLength", "lineHeight",
+        "textAlign", "textDecoration", "maxLength", "maxLengthHint", "lineHeight",
     ];
 
     static values = {
@@ -23,7 +23,28 @@ export default class extends Controller {
     };
 
     canvasEditorOutletConnected(outlet) {
+        // Keep the "znaků na řádek" hint in sync while the designer resizes the
+        // box (width → wrap capacity) or edits its text — the field-driven
+        // recompute below covers font/size/limit changes, these cover the
+        // canvas-side geometry changes.
+        this._refreshHint = () => {
+            const active = outlet.canvas.getActiveObject();
+            if (active && (active.type || '').toLowerCase() === 'textbox') this._updateMaxLengthHint();
+        };
+        outlet.canvas.on('object:resizing', this._refreshHint);
+        outlet.canvas.on('object:scaling', this._refreshHint);
+        outlet.canvas.on('object:modified', this._refreshHint);
+        outlet.canvas.on('text:changed', this._refreshHint);
+
         this.updateFromSelection({ detail: { activeObject: outlet.canvas.getActiveObject() } });
+    }
+
+    canvasEditorOutletDisconnected(outlet) {
+        if (!this._refreshHint || !outlet.canvas) return;
+        outlet.canvas.off('object:resizing', this._refreshHint);
+        outlet.canvas.off('object:scaling', this._refreshHint);
+        outlet.canvas.off('object:modified', this._refreshHint);
+        outlet.canvas.off('text:changed', this._refreshHint);
     }
 
     updateFromSelection(event) {
@@ -61,6 +82,7 @@ export default class extends Controller {
         if (this.hasLineHeightTarget) {
             this.lineHeightTarget.value = activeObject.lineHeight ?? DEFAULT_LINE_HEIGHT;
         }
+        this._updateMaxLengthHint();
     }
 
     updateFontSize(event) {
@@ -75,6 +97,8 @@ export default class extends Controller {
         activeObject.set({ fontSize });
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
+        // Bigger glyphs → fewer characters per line; keep the hint honest.
+        this._updateMaxLengthHint();
     }
 
     updateFontColor(event) {
@@ -122,6 +146,8 @@ export default class extends Controller {
         activeObject.set({ fontFamily: event.target.value });
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
+        // A different face has different advance widths → recompute capacity.
+        this._updateMaxLengthHint();
     }
 
     updateTextDecoration(event) {
@@ -185,6 +211,78 @@ export default class extends Controller {
 
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
+        this._updateMaxLengthHint();
+    }
+
+    /**
+     * Live guidance under the "Max. délka" field. Because the character limit
+     * no longer resizes the box (that produced the off-canvas jumps), the
+     * designer needs a way to understand how the limit relates to the box they
+     * drew: this estimates how many characters fit on ONE line at the current
+     * font + box width and warns when the limit is bigger (the fill will wrap
+     * to multiple lines). Purely informational — it never mutates the canvas.
+     */
+    _updateMaxLengthHint() {
+        if (!this.hasMaxLengthHintTarget) return;
+        const el = this.maxLengthHintTarget;
+        const box = this._getActiveTextbox();
+
+        if (!box || !box.maxLength) {
+            el.classList.add('d-none');
+            el.textContent = '';
+            return;
+        }
+
+        const perLine = this._perLineCapacity(box);
+        if (!perLine) {
+            el.classList.add('d-none');
+            el.textContent = '';
+            return;
+        }
+
+        el.classList.remove('d-none');
+        if (box.maxLength > perLine) {
+            el.className = 'form-text small mt-1 text-warning';
+            el.innerHTML = `<i class="mdi mdi-alert-outline me-1" aria-hidden="true"></i>`
+                + `Na řádek se při této velikosti vejde ~${perLine} znaků — delší text se zalomí na více řádků.`;
+        } else {
+            el.className = 'form-text small mt-1 text-muted';
+            el.innerHTML = `<i class="mdi mdi-information-outline me-1" aria-hidden="true"></i>`
+                + `Limit ${box.maxLength} znaků se při této velikosti vejde na jeden řádek (~${perLine}).`;
+        }
+    }
+
+    /**
+     * Rough estimate of how many characters fit on one line of `textbox` at its
+     * current font + design width. Uses a private offscreen 2D context — never
+     * the live Fabric canvas context (mutating that was part of the old
+     * max-length bug) — and an average glyph advance over a mixed sample.
+     */
+    _perLineCapacity(textbox) {
+        const width = textbox.width;
+        if (!(width > 0) || !(textbox.fontSize > 0)) return null;
+
+        const ctx = this._measureContext();
+        ctx.font = `${textbox.fontSize}px ${this._cssFontFamily(textbox.fontFamily)}`;
+        const sample = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const avg = ctx.measureText(sample).width / sample.length;
+        if (!(avg > 0)) return null;
+
+        return Math.max(1, Math.floor(width / avg));
+    }
+
+    /** Lazily-created offscreen measuring context (isolated from Fabric). */
+    _measureContext() {
+        if (!this._mctx) {
+            this._mctx = document.createElement('canvas').getContext('2d');
+        }
+        return this._mctx;
+    }
+
+    /** Quote the family so multi-word / parenthesised faces (rich-text bold/
+     *  italic families like `Rubik (Rubik Bold)`) form a valid CSS font. */
+    _cssFontFamily(family) {
+        return family ? `"${family}"` : 'sans-serif';
     }
 
     _getActiveTextbox() {
