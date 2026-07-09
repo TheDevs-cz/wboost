@@ -288,6 +288,13 @@ export default class extends Controller {
         const activeObject = this.canvas.getActiveObject();
         if (!activeObject) return;
 
+        // Respect Fabric's movement locks per axis so keyboard nudging can't
+        // bypass what dragging is prevented from doing — an editor-locked image
+        // sets both flags, so all four arrows are inert on it.
+        const horizontal = key === 'ArrowLeft' || key === 'ArrowRight';
+        if (horizontal && activeObject.lockMovementX) return;
+        if (!horizontal && activeObject.lockMovementY) return;
+
         switch (key) {
             case 'ArrowLeft':
                 activeObject.set('left', activeObject.left - 1);
