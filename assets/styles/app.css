@@ -141,6 +141,51 @@
     pointer-events: none;
 }
 
+/* Smart-guide chrome (canvas_snapping_controller): magenta alignment lines +
+   gap badges + `=` equal-spacing marks. Plain DOM in the unscaled stage layer,
+   like .editable-outline — shown only mid-drag, never on the canvas bitmap, so
+   they can't leak into the saved preview or the server PNG export. Above the
+   outlines, below the floating toolbar (z 1005). Never intercept the drag. */
+.snap-guide {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: none;
+    background: #f24bb0;
+}
+
+.snap-guide--v {
+    width: 1px;
+    transform: translateX(-0.5px);
+}
+
+.snap-guide--h {
+    height: 1px;
+    transform: translateY(-0.5px);
+}
+
+.snap-badge {
+    position: absolute;
+    z-index: 1001;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    padding: 1px 5px;
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #fff;
+    background: #f24bb0;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* Equal-spacing mark: a bolder `=` chip so an even rhythm reads at a glance. */
+.snap-badge--eq {
+    min-width: 16px;
+    text-align: center;
+    font-size: 12px;
+}
+
 /* Hovering a row in the layers panel (canvas_layers_controller) highlights the
    object on the stage — a stronger, filled sibling of .editable-outline. */
 .layer-hover-outline {

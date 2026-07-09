@@ -41,7 +41,7 @@
 
     <div
         id="canvas-container"
-        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers"
+        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping"
         data-canvas-editor-background-image-value="{{ uploaded_asset(variant.backgroundImage) }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
@@ -56,6 +56,7 @@
         data-canvas-container-canvas-editor-outlet="#canvas-container"
         data-canvas-layers-canvas-editor-outlet="#canvas-container"
         data-canvas-layers-canvas-floating-toolbar-outlet="#canvas-container"
+        data-canvas-snapping-canvas-editor-outlet="#canvas-container"
         data-action="
             canvas-editor:selection:changed->canvas-clipboard#onSelectionChanged
             canvas-editor:selection:changed->canvas-text-toolbar#updateFromSelection

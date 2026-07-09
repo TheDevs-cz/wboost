@@ -3,7 +3,7 @@
    text + image popovers. Expects: canvas_width, canvas_height (px),
    gallery_directories, and optional group_mode (adds the per-element
    "Srovnat podle skupiny" re-sync button targeting group-editor). #}
-<div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage">
+<div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage" data-canvas-snapping-target="layer">
     <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
         <canvas id="c" width="{{ canvas_width }}" height="{{ canvas_height }}"></canvas>
     </div>
