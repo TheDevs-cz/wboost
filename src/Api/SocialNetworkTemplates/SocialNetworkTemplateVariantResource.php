@@ -55,7 +55,8 @@ Server-side behavior:
 An input with `richText: true` accepts a formatted value as ordered **runs**:
 `{ "runs": [ { "text": "...", "fontFamily": null|string, "color": null|"#rrggbb",
 "underline": bool } ] }`. Null/omitted style = inherit the designed style. Run
-text must not contain line breaks; `runs` and `value` are mutually exclusive.
+text may contain newlines (`\n` renders as a hard line break; CRLF/CR are
+canonicalized to `\n`); `runs` and `value` are mutually exclusive.
 
 - `fontFamily` must be one of the variant's `richTextOptions.fonts[].family`
   (bold/italic are separate font FACES — switch the family, don't send weights);

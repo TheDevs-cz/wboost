@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
 
 /**
  * Floating, element-anchored editing chrome for the admin canvas editor.
@@ -32,13 +33,30 @@ export default class extends Controller {
 
     connect() {
         this._outlines = [];
-        this._highlight = false;
+        // Default the highlight overlay to the toggle's initial state (checked by
+        // default in the left panel) so editable outlines are drawn on load; the
+        // outlet hook below renders them once the canvas is wired.
+        const toggle = this.element.querySelector('#highlight-editable-control');
+        this._highlight = toggle ? toggle.checked : false;
         this._editing = false;
         this._boundReposition = () => this.reposition();
         this._boundKeydown = (event) => { if (event.key === 'Escape') this.closePopovers(); };
         window.addEventListener('resize', this._boundReposition);
         document.addEventListener('keydown', this._boundKeydown);
         this._labelIconButtons();
+        this._setupPopoverDrag();
+    }
+
+    /** Let the user drag each popover by its title grip; the drag flag makes
+     *  reposition() leave the manually-placed popover alone (reset on close). */
+    _setupPopoverDrag() {
+        [this.hasTextPopoverTarget ? this.textPopoverTarget : null,
+         this.hasImagePopoverTarget ? this.imagePopoverTarget : null]
+            .filter(Boolean)
+            .forEach((popover) => {
+                const handle = popover.querySelector('[data-popover-drag-handle]');
+                if (handle) makeDraggable(handle, popover);
+            });
     }
 
     disconnect() {
@@ -89,6 +107,10 @@ export default class extends Controller {
         };
         canvas.on('object:added', this._onObjAdded);
         canvas.on('object:removed', this._onObjRemoved);
+
+        // Draw outlines for objects already on the canvas when the toggle starts
+        // on (later object:added events keep them in sync as the canvas loads).
+        if (this._highlight) this._renderOutlines();
 
         this._hideChrome();
     }
@@ -165,8 +187,8 @@ export default class extends Controller {
     }
 
     closePopovers() {
-        if (this.hasTextPopoverTarget) this.textPopoverTarget.classList.add('d-none');
-        if (this.hasImagePopoverTarget) this.imagePopoverTarget.classList.add('d-none');
+        if (this.hasTextPopoverTarget) { this.textPopoverTarget.classList.add('d-none'); resetDrag(this.textPopoverTarget); }
+        if (this.hasImagePopoverTarget) { this.imagePopoverTarget.classList.add('d-none'); resetDrag(this.imagePopoverTarget); }
         this._setPencilExpanded(false);
     }
 
@@ -311,7 +333,7 @@ export default class extends Controller {
         if (barShown) this._placeBar(bar, box, g);
 
         const popover = this._openPopoverEl();
-        if (popover) {
+        if (popover && !isDragged(popover)) {
             // TEXT popover: place it BESIDE the element so font/size/colour changes
             // stay visible live (it must never cover the text it edits). IMAGE
             // popover: drop it straight down from the toolbar (placeholder settings

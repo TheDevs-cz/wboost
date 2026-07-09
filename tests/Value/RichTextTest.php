@@ -77,18 +77,18 @@ final class RichTextTest extends TestCase
         RichText::fromRaw([['underline' => true]], strict: true, inputLabel: 'Headline');
     }
 
-    public function testStrictRejectsLineBreaks(): void
+    public function testStrictKeepsLineBreaks(): void
     {
-        $this->expectException(InvalidRichTextValue::class);
+        $rich = RichText::fromRaw([['text' => "a\nb"]], strict: true, inputLabel: 'Headline');
 
-        RichText::fromRaw([['text' => "a\nb"]], strict: true, inputLabel: 'Headline');
+        self::assertSame("a\nb", $rich->toPlainText());
     }
 
-    public function testLenientFlattensLineBreaksToSpaces(): void
+    public function testCanonicalizesLineBreaksToLf(): void
     {
-        $rich = RichText::fromRaw([['text' => "a\r\nb\nc"]], strict: false, inputLabel: 'Headline');
+        $rich = RichText::fromRaw([['text' => "a\r\nb\nc\rd"]], strict: false, inputLabel: 'Headline');
 
-        self::assertSame('a b c', $rich->toPlainText());
+        self::assertSame("a\nb\nc\nd", $rich->toPlainText());
     }
 
     public function testLenientDropsGarbageRunsAndStyles(): void

@@ -25,8 +25,10 @@ import { Controller } from "@hotwired/stimulus";
  * fontsValue; the face dropdown remains the source of truth.
  *
  * Reliability guards: IME composition (no DOM rebuild between
- * compositionstart/end), paste forced to plain text (newlines flattened),
- * Enter blocked (no newlines in fill values), runs-snapshot undo stack
+ * compositionstart/end), paste forced to plain text (external formatting
+ * stripped; newlines KEPT — multi-line values are supported), Enter / Shift+Enter
+ * insert a newline (rendered via the editor's white-space: pre-wrap, and by
+ * Fabric's /\r?\n/ line split in the export), runs-snapshot undo stack
  * (programmatic re-renders kill native undo), maxLength enforced on the
  * PLAIN text length in code points (PHP mb_strlen parity).
  */
@@ -62,12 +64,12 @@ export default class extends Controller {
 
     // --- editor events --------------------------------------------------------
 
-    /** Block Enter (fill values carry no newlines — parity with the plain
-     *  textarea's blockEnter) and handle undo/redo + B/I/U shortcuts. */
+    /** Enter / Shift+Enter insert a newline (multi-line fill values); handle
+     *  undo/redo + B/I/U shortcuts. */
     keydown(event) {
         if (event.key === "Enter") {
             event.preventDefault();
-            this.dispatch("commit", { detail: { inputId: this.inputIdValue } });
+            this._insertText("\n");
             return;
         }
 
@@ -130,16 +132,30 @@ export default class extends Controller {
     }
 
     /** Paste as PLAIN text only (external formatting must never leak into the
-     *  runs model), newlines flattened, inserted with the style of the run at
-     *  the caret so mid-run pastes look seamless. */
+     *  runs model), newlines KEPT (CRLF/CR canonicalized to LF), inserted with
+     *  the style of the run at the caret so mid-run pastes look seamless. */
     paste(event) {
         event.preventDefault();
         const raw = (event.clipboardData || window.clipboardData)?.getData("text/plain") || "";
-        const text = raw.replace(/[\r\n]+/g, " ");
+        this._insertText(raw.replace(/\r\n?/g, "\n"));
+    }
+
+    /** Insert plain text (possibly multi-line) at the caret / over the
+     *  selection, styled like the run at the insertion point. Shared by Enter
+     *  (a single "\n") and paste. Respects maxLength: nothing is inserted once
+     *  the value is full, and an over-long insert is truncated to fit. */
+    _insertText(text) {
         if (text === "") return;
 
         const module = this._module();
         const selection = this._selectionOffsets() || this._endOffsets();
+
+        if (this.maxLengthValue) {
+            const plainLength = module.codePointLength(module.plainText(this.runs));
+            const selectionLength = selection.end - selection.start;
+            if (plainLength - selectionLength >= this.maxLengthValue) return;
+        }
+
         this._pushUndo();
 
         const plain = module.plainText(this.runs);
@@ -337,8 +353,10 @@ export default class extends Controller {
 
     /** Whitelist parser: only span[data-rt-run] attributes carry style; any
      *  markup the browser (or an extension) sneaks in is flattened to the
-     *  nearest styled ancestor. <br>/block breaks contribute nothing — the
-     *  value has no newlines. */
+     *  nearest styled ancestor. Newlines live INSIDE the text nodes (we render
+     *  "\n" with white-space: pre-wrap and never emit <br>), so a stray browser
+     *  <br> contributes nothing — this keeps the runs' plain-text offsets in
+     *  lockstep with the text-only TreeWalker used for selection. */
     _parseDom() {
         const runs = [];
         const walk = (node, inherited) => {

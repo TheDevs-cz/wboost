@@ -94,6 +94,24 @@
     min-width: 0;
 }
 
+/* Drag grip in the popover title: lets the user nudge the popover aside when it
+   covers the element it edits. Shared look with the fill-page grip below. */
+.canvas-popover-drag,
+.fill-popover__drag {
+    flex: 0 0 auto;
+    cursor: move;
+    opacity: 0.45;
+    touch-action: none;
+    transition: opacity .12s ease;
+}
+
+.canvas-popover-drag:hover,
+.fill-popover__drag:hover,
+.canvas-popover-drag.is-dragging,
+.fill-popover__drag.is-dragging {
+    opacity: 0.85;
+}
+
 .editable-outline {
     position: absolute;
     z-index: 900;

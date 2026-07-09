@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import { Textbox, cache, util } from "fabric";
+import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
 
 /**
  * Click-into-preview placeholder overlay for the user-fill / export page.
@@ -55,6 +56,14 @@ export default class extends Controller {
         this._zoom = 1;
         this._userZoomed = false;
         this.element.classList.add("fill-js");
+
+        // Let the user drag each text popover by its title grip (it sometimes
+        // covers the text it edits). The drag flag makes _positionPopover leave
+        // the manually-placed popover alone; it's reset when the popover closes.
+        this.popoverTargets.forEach((popover) => {
+            const handle = popover.querySelector('[data-popover-drag-handle]');
+            if (handle) makeDraggable(handle, popover);
+        });
 
         // Wrap-parity with the export render (see class docblock).
         if (window.WBoostFabricBreakWord) {
@@ -273,7 +282,7 @@ export default class extends Controller {
     closePopover() {
         if (this._openId === null) return;
         const popover = this._popoverFor(this._openId);
-        if (popover) popover.classList.remove("is-open");
+        if (popover) { popover.classList.remove("is-open"); resetDrag(popover); }
         this._openId = null;
     }
 
@@ -575,6 +584,9 @@ export default class extends Controller {
     }
 
     _positionPopover(popover, box) {
+        // The user dragged it somewhere deliberately — keep it put (fixed, so it
+        // stays in the viewport regardless of scroll/zoom) until it's closed.
+        if (isDragged(popover)) return;
         if (!box) return;
         const boxRect = box.getBoundingClientRect();
         const margin = 8;

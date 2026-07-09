@@ -24,6 +24,8 @@
  *     'grapheme' }) when available, else a surrogate-pair-aware split —
  *     mirrored 1:1 from the Fabric 7.3.1 bundle. Using code units (or code
  *     points) here would shift every style boundary after an emoji/diacritic.
+ *     NEWLINES are excluded from this index (stylesFromArray splits on /\r?\n/
+ *     and counts graphemes per line) — see styleIndexLength.
  *
  * applyToTextbox() ordering contract (empirically load-bearing in Fabric v7):
  * assign `styles` FIRST (not dimension-affecting), then set `text` through
@@ -70,6 +72,23 @@
         return graphemeSplit(text).length;
     }
 
+    /**
+     * Grapheme count as Fabric's stylesFromArray indexes styles: it splits the
+     * text on /\r?\n/ and counts graphemes PER LINE, so newline separators
+     * occupy no style position. Style ranges (toFabric) must advance by this,
+     * NOT by graphemeLength, or every style boundary after a newline shifts.
+     * Text reaching here is normalized to LF.
+     */
+    function styleIndexLength(text) {
+        let count = 0;
+        graphemeSplit(text).forEach(function (grapheme) {
+            if (grapheme !== '\n') {
+                count += 1;
+            }
+        });
+        return count;
+    }
+
     /** Code-point length — parity with PHP mb_strlen (NOT UTF-16 .length). */
     function codePointLength(text) {
         return Array.from(text).length;
@@ -86,9 +105,10 @@
     }
 
     /**
-     * Coerce + normalize a runs list: string texts (line breaks flattened to a
-     * space — the fill contract has no newlines), null-or-string styles, empty
-     * runs dropped, adjacent equal-styled runs merged. Mirrors
+     * Coerce + normalize a runs list: string texts (CRLF/CR canonicalized to LF,
+     * but newlines PRESERVED — multi-line fill values are supported and Fabric
+     * renders `\n` as a hard line break), null-or-string styles, empty runs
+     * dropped, adjacent equal-styled runs merged. Mirrors
      * RichText::fromRaw(strict: false) + normalized() on the server.
      */
     function normalize(runs) {
@@ -98,7 +118,7 @@
                 return;
             }
             const text = typeof raw.text === 'string'
-                ? raw.text.replace(/[\r\n]+/g, ' ')
+                ? raw.text.replace(/\r\n?/g, '\n')
                 : '';
             if (text === '') {
                 return;
@@ -182,7 +202,9 @@
         const ranges = [];
 
         normalized.forEach(function (run) {
-            const length = graphemeLength(run.text);
+            // Style offsets skip newlines (see styleIndexLength); `text` still
+            // carries the LF so Fabric splits lines from it.
+            const length = styleIndexLength(run.text);
             const style = {};
             if (run.fontFamily) {
                 style.fontFamily = run.fontFamily;

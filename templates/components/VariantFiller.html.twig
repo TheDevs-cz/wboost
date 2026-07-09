@@ -70,7 +70,7 @@
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
-        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged rich-text-editor:commit->variant-fill-overlay#close"
+        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged"
         {% if hasImages %}
             data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
@@ -360,7 +360,10 @@
                     <div class="fill-popover card{% if ph.richText and richToolbar %} fill-popover--rich{% endif %}" role="dialog" aria-labelledby="fill-text-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
                         <div class="card-body p-2">
                             <div class="d-flex justify-content-between align-items-start mb-1">
-                                <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0" for="fill-text-{{ ph.inputId }}">{{ ph.name ?? 'Text' }}</label>
+                                <span class="d-inline-flex align-items-center" style="min-width: 0;">
+                                    <i class="mdi mdi-drag fill-popover__drag me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                                    <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0 text-truncate" for="fill-text-{{ ph.inputId }}">{{ ph.name ?? 'Text' }}</label>
+                                </span>
                                 <div class="d-flex align-items-center gap-1">
                                     <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="variant-fill-overlay#close"><i class="mdi mdi-check me-1" aria-hidden="true"></i> Uložit</button>
                                     <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
@@ -415,14 +418,14 @@
                                         class="form-control form-control-sm fill-richtext-editor{% if ph.uppercase %} text-uppercase{% endif %}"
                                         contenteditable="true"
                                         role="textbox"
-                                        aria-multiline="false"
+                                        aria-multiline="true"
                                         aria-labelledby="fill-text-label-{{ ph.inputId }}"
                                         {% if ph.designFontFamily %}style="font-family: '{{ ph.designFontFamily }}'"{% endif %}
                                         data-rich-text-editor-target="editor"
                                         data-action="input->rich-text-editor#input beforeinput->rich-text-editor#beforeInput keydown->rich-text-editor#keydown paste->rich-text-editor#paste compositionstart->rich-text-editor#compositionStart compositionend->rich-text-editor#compositionEnd"
                                     ></div>
                                     <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
-                                        {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
+                                        <small class="text-muted">{% if ph.uppercase %}Zobrazí se VELKÝMI písmeny · {% endif %}Shift+Enter pro nový řádek</small>
                                         <small class="text-muted" data-rich-text-editor-target="counter"></small>
                                     </div>
                                 </div>

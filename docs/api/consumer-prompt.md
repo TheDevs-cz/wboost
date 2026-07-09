@@ -308,7 +308,7 @@ structured `400` `{ "error": "...", "code": "..." }` with one of these codes:
 | `code` | Meaning / UI reaction |
 |---|---|
 | `rich_text_not_allowed` | You sent `{ runs }` for an input whose `richText` is `false`. Send a plain string instead. |
-| `invalid_rich_text` | Malformed runs (non-object run, missing/non-string `text`, unknown run key, line breaks in `text`, `runs` + `value` together, > 200 runs, > 10 000 chars total). |
+| `invalid_rich_text` | Malformed runs (non-object run, missing/non-string `text`, unknown run key, `runs` + `value` together, > 200 runs, > 10 000 chars total). |
 | `font_not_allowed` | A run's `fontFamily` is not in `richTextOptions.fonts[].family`. The body includes `allowedFonts` (the valid family list). |
 | `invalid_color` | A run's `color` isn't a hex color. Use `#rrggbb` (or `#rgb`); **no alpha**. Colors are otherwise free-form — `richTextOptions.colors` are suggested brand swatches, NOT a whitelist. |
 
@@ -351,7 +351,8 @@ segments whose concatenation is the plain text:
 ```
 
 Contract details:
-- Run keys: `text` (required string, **no line breaks**), `fontFamily`
+- Run keys: `text` (required string; newlines allowed — `\n` renders as a hard
+  line break, CRLF/CR are canonicalized to `\n`), `fontFamily`
   (nullable string), `color` (nullable hex), `underline` (bool). No other keys.
 - **Bold/italic are font faces, not flags.** The app stores each uploaded face
   as its own family (`"Rubik (Rubik Bold)"`). Build a B/I toggle by grouping

@@ -63,7 +63,8 @@ readonly final class RichText
      * Validate + sanitize a raw runs payload into a normalized RichText:
      * adjacent equal-styled runs merged, empty runs dropped, colors normalized
      * to lowercase `#rrggbb`, fonts checked against the whitelist, line breaks
-     * rejected (strict) or flattened to spaces (lenient), caps enforced.
+     * kept (CRLF/CR canonicalized to LF — multi-line values are supported),
+     * caps enforced.
      *
      * @param list<mixed> $rawRuns
      * @param null|list<string> $allowedFontFamilies null = skip the whitelist check
@@ -285,12 +286,12 @@ readonly final class RichText
             $text = (string) $text;
         }
 
-        if (preg_match('/[\r\n]/', $text) === 1) {
-            if ($strict) {
-                throw InvalidRichTextValue::invalidValue($inputLabel, 'run text must not contain line breaks');
-            }
-
-            $text = (string) preg_replace('/[\r\n]+/', ' ', $text);
+        // Newlines are allowed (multi-line fill values — Fabric renders `\n` as a
+        // hard line break). Canonicalize CRLF/CR to LF so the value matches the
+        // JS runs mirror (assets/editor/rich_text_runs.js) and Fabric's /\r?\n/
+        // line split.
+        if (str_contains($text, "\r")) {
+            $text = str_replace(["\r\n", "\r"], "\n", $text);
         }
 
         $fontFamily = $rawRun['fontFamily'] ?? null;
