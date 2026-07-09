@@ -91,8 +91,6 @@ readonly final class ConvertImage
         imagedestroy($srcImg);
         imagedestroy($dstImg);
 
-        assert(is_string($jpegData));
-
         return $jpegData;
     }
 }
