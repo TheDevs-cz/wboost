@@ -17,9 +17,20 @@
         <div class="col-sm-12">
             <a href="{{ path('add_email_signature_variant', {'id': email_template.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová varianta</a>
 
+            <button type="button" class="ms-2 btn btn-outline-secondary rounded-pill mb-3" data-bs-toggle="modal" data-bs-target="#demo-template-{{ email_template.id }}">
+                <i class="mdi mdi-email-outline"></i> Vyzkoušet v e-mailu
+            </button>
+
             {% if is_granted('ROLE_DESIGNER') %}
                 <a href="{{ path('email_signature_template_editor', {'id': email_template.id}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="ri-list-view"></i> Editor šablony</a>
             {% endif %}
+
+            {{ include('_email_signature_demo_modal.html.twig', {
+                modal_id: 'demo-template-' ~ email_template.id,
+                action: path('email_signature_template_send_demo', {'id': email_template.id}),
+                subject_name: email_template.name,
+                note: 'Odešle se šablona s výchozími texty. Pro konkrétní osobu pošlete ukázku z její varianty.',
+            }) }}
         </div>
     </div>
 
@@ -34,6 +45,7 @@
                         </a>
                         <div class="dropdown-menu dropdown-menu-end">
                             <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#demo-variant-{{ variant.id }}"><i class="mdi mdi-email-outline me-1"></i>Odeslat zkušební e-mail</a>
                             <a href="#"
                                class="dropdown-item"
                                data-modal-id="{{ variant.id }}"
@@ -47,6 +59,12 @@
                         id="{{ variant.id }}"
                         url="{{ path('delete_email_signature_variant', {'id': variant.id}) }}"
                         confirmationText="Opravdu chcete smazat tuto variantu?" />
+
+                    {{ include('_email_signature_demo_modal.html.twig', {
+                        modal_id: 'demo-variant-' ~ variant.id,
+                        action: path('email_signature_variant_send_demo', {'id': variant.id}),
+                        subject_name: variant.name,
+                    }) }}
 
                     <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="text-body">
                         <div class="card-body">

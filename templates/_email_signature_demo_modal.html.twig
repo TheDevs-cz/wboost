@@ -1,0 +1,52 @@
+{# Reusable "send demo signature email" modal.
+
+   Required vars:
+     - modal_id: unique DOM id (the opening button targets it via data-bs-target)
+     - action:   POST endpoint (template or variant send-demo route)
+     - subject_name: human name of what will be sent (shown in the intro text)
+   Optional:
+     - note: extra small print shown under the address fields
+#}
+<div class="modal fade" id="{{ modal_id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="{{ action }}" method="post" data-controller="email-demo-form" data-action="submit->email-demo-form#submitting">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="mdi mdi-email-outline me-1"></i> Odeslat zkušební e-mail</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">
+                        Pošleme zkušební e-mail s podpisem <strong>{{ subject_name }}</strong>,
+                        abyste si mohli prohlédnout, jak bude vypadat ve skutečné e-mailové schránce.
+                    </p>
+
+                    <label class="form-label">Komu poslat <span class="text-muted fw-normal">(max. 5 adres)</span></label>
+
+                    <div data-email-demo-form-target="rows">
+                        <div class="d-flex align-items-center gap-1 mb-2" data-email-demo-form-target="row">
+                            <input type="email" class="form-control" name="emails[]" placeholder="např. jmeno@firma.cz" required>
+                            <button type="button" class="btn btn-sm btn-link text-danger px-1 invisible" data-role="remove" data-action="email-demo-form#removeRow" tabindex="-1" aria-label="Odebrat adresu">
+                                <i class="mdi mdi-close"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-sm btn-link ps-0" data-email-demo-form-target="addButton" data-action="email-demo-form#addRow">
+                        <i class="mdi mdi-plus"></i> Přidat další adresu
+                    </button>
+
+                    {% if note is defined and note %}
+                        <p class="text-muted small mb-0 mt-2"><i class="mdi mdi-information-outline"></i> {{ note }}</p>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-primary" data-email-demo-form-target="submitButton">
+                        <i class="mdi mdi-send"></i> Odeslat
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

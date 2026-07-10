@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ukázka e-mailového podpisu</title>
+</head>
+{# The body is intentionally plain (white background, ordinary paragraphs) so
+   the signature below shows exactly the way it will look under a real message. #}
+<body style="margin: 0; padding: 0; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+        <tr>
+            <td style="padding: 24px;">
+                <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
+                    Dobrý den,
+                </p>
+
+                <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
+                    toto je zkušební e-mail s podpisem ze systému <strong>WBoost</strong>.
+                    Níže vidíte, jak bude podpis <strong>{{ signatureName }}</strong> vypadat pod textem skutečné zprávy.
+                </p>
+
+                <p style="margin: 0 0 24px; color: #333; font-size: 15px; line-height: 1.5;">
+                    Hezký den!
+                </p>
+
+                {{ signatureHtml|raw }}
+
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 40px;">
+                    <tr>
+                        <td style="border-top: 1px solid #e9ecef; padding-top: 12px;">
+                            <p style="margin: 0; color: #999; font-size: 12px; line-height: 1.5;">
+                                Tento zkušební e-mail byl odeslán na vyžádání z aplikace WBoost,
+                                abyste si mohli podpis prohlédnout v reálné e-mailové schránce.
+                                Pokud jste ho neočekávali, můžete ho ignorovat.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

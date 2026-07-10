@@ -58,9 +58,15 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <h5>HTML kód:</h5>
 
-                    <button type="button" class="btn btn-outline-primary btn-sm mb-1" data-action="click->email-signature-export#downloadHtml">
-                        <i class="uil-download-alt"></i> Stáhnout HTML
-                    </button>
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-bs-toggle="modal" data-bs-target="#demo-variant-{{ variant.id }}">
+                            <i class="mdi mdi-email-outline"></i> Odeslat zkušební e-mail
+                        </button>
+
+                        <button type="button" class="btn btn-outline-primary btn-sm mb-1 ms-1" data-action="click->email-signature-export#downloadHtml">
+                            <i class="uil-download-alt"></i> Stáhnout HTML
+                        </button>
+                    </div>
                 </div>
 
                 <div>
@@ -71,4 +77,11 @@
 
         {{ form_end(form) }}
     </div>
+
+    {{ include('_email_signature_demo_modal.html.twig', {
+        modal_id: 'demo-variant-' ~ variant.id,
+        action: path('email_signature_variant_send_demo', {'id': variant.id}),
+        subject_name: variant.name,
+        note: 'Odešle se naposledy uložená verze varianty — neuložené změny nejprve uložte.',
+    }) }}
 {% endblock %}
