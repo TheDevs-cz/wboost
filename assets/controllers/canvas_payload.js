@@ -105,6 +105,11 @@ export function buildVariantPayload(canvas) {
     // stale members pruned, flow order re-derived, inert containers dropped).
     canvasJSON.containers = sanitizedContainers(canvas, inMemoryObjects);
 
+    // Ruler guides ride the canvas document the same way (top-level `guides`
+    // key). Fabric's loadFromJSON ignores unknown top-level keys, and guides
+    // are not objects, so they can never render into the export.
+    canvasJSON.guides = sanitizedGuides(canvas);
+
     // Textbox inputs. Type filter is case-insensitive: Fabric v7's
     // getObjects('textbox') does NOT match v7-saved objects ('Textbox').
     const textInputs = inMemoryObjects
@@ -149,6 +154,31 @@ export function buildVariantPayload(canvas) {
         textInputs: JSON.stringify(textInputs),
         imageInputs: JSON.stringify(imageInputs),
     };
+}
+
+/**
+ * Ruler guides (canvas_rulers_controller): `[{axis: 'x'|'y', pos}]` in canvas
+ * px — axis 'x' is a VERTICAL guide at x=pos, 'y' a horizontal one at y=pos.
+ * Deliberately dimension-free (no clamping): group-editor shadow canvases
+ * have thumbnail-scale ELEMENT sizes, so canvas.getWidth() is not the
+ * variant's logical size there. In-canvas placement is enforced at drag time.
+ *
+ * @param {Object} canvas Fabric canvas carrying `wboostGuides`
+ * @returns {Array} persistable guide definitions
+ */
+export function sanitizedGuides(canvas) {
+    const guides = Array.isArray(canvas.wboostGuides) ? canvas.wboostGuides : [];
+    const seen = new Set();
+    return guides
+        .filter((g) => g && (g.axis === 'x' || g.axis === 'y') && Number.isFinite(g.pos) && g.pos >= 0)
+        .map((g) => ({ axis: g.axis, pos: Math.round(g.pos * 10) / 10 }))
+        .filter((g) => {
+            const key = `${g.axis}:${g.pos}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .sort((a, b) => (a.axis === b.axis ? a.pos - b.pos : a.axis.localeCompare(b.axis)));
 }
 
 /**

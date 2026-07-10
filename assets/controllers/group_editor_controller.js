@@ -293,6 +293,13 @@ export default class extends Controller {
             ? source.containers.map((c) => ({ ...c }))
             : [];
 
+        // Ruler guides ride the document too — restore them onto the shadow so
+        // buildVariantPayload round-trips them through group saves (guides are
+        // per-variant; the propagation engine never touches them).
+        shadow.wboostGuides = Array.isArray(source.guides)
+            ? source.guides.map((g) => ({ ...g }))
+            : [];
+
         // Always (re)apply the variant's own background — a fresh group
         // variant has an empty canvas document with no background in it.
         if (variant.backgroundUrl) {

@@ -3,10 +3,17 @@
    text + image popovers. Expects: canvas_width, canvas_height (px),
    gallery_directories, and optional group_mode (adds the per-element
    "Srovnat podle skupiny" re-sync button targeting group-editor). #}
-<div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage" data-canvas-snapping-target="layer">
+<div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage" data-canvas-snapping-target="layer" data-canvas-rulers-target="layer">
     <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
         <canvas id="c" width="{{ canvas_width }}" height="{{ canvas_height }}"></canvas>
     </div>
+
+    {# Photoshop-style rulers (canvas_rulers_controller): px-scale bars along
+       the canvas top/left; drag out of a bar to place a guide, drag a guide
+       off-canvas to remove it. Positioned + drawn entirely by the controller. #}
+    <canvas class="canvas-ruler canvas-ruler--h d-none" data-canvas-rulers-target="hBar" data-action="mousedown->canvas-rulers#startCreateH" aria-hidden="true"></canvas>
+    <canvas class="canvas-ruler canvas-ruler--v d-none" data-canvas-rulers-target="vBar" data-action="mousedown->canvas-rulers#startCreateV" aria-hidden="true"></canvas>
+    <div class="canvas-ruler-corner d-none" data-canvas-rulers-target="corner" aria-hidden="true"></div>
 
     {# Floating per-element mini-toolbar (single selection). Quick
        actions reuse the existing clipboard / alignment / property

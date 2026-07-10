@@ -222,6 +222,16 @@ export default class extends Controller {
                 ? sourceCanvas.containers.map((c) => ({ ...c }))
                 : [];
 
+            // Ruler guides too (top-level `guides` key) — but ONLY when the
+            // key is present: history snapshots don't carry guides (guide
+            // edits are deliberately outside undo), so an undo/redo restore
+            // must keep the current guides instead of wiping them.
+            if (Array.isArray(sourceCanvas.guides)) {
+                this.canvas.wboostGuides = sourceCanvas.guides.map((g) => ({ ...g }));
+            } else if (!Array.isArray(this.canvas.wboostGuides)) {
+                this.canvas.wboostGuides = [];
+            }
+
             this.canvas.renderAll();
         } finally {
             this.loadingCanvas = false;

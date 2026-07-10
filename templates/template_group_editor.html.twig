@@ -43,7 +43,7 @@
 
     <div
         id="canvas-container"
-        data-controller="canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping group-editor"
+        data-controller="canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers group-editor"
         data-canvas-editor-background-image-value="{{ uploaded_asset(first.variant.backgroundImage) }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ first.variant.canvas }}"
@@ -60,6 +60,7 @@
         data-canvas-layers-canvas-editor-outlet="#canvas-container"
         data-canvas-layers-canvas-floating-toolbar-outlet="#canvas-container"
         data-canvas-snapping-canvas-editor-outlet="#canvas-container"
+        data-canvas-rulers-canvas-editor-outlet="#canvas-container"
         data-group-editor-canvas-editor-outlet="#canvas-container"
         data-action="
             canvas-editor:selection:changed->canvas-clipboard#onSelectionChanged
@@ -79,6 +80,8 @@
             canvas-editor:background:changed->group-editor#onBackgroundChanged
             canvas-zoom:changed->canvas-floating-toolbar#reposition
             canvas-zoom:changed->canvas-container#repositionZones
+            canvas-zoom:changed->canvas-rulers#refresh
+            canvas-editor:canvas:loaded->canvas-rulers#onCanvasLoaded
             canvas-editor:copy->canvas-clipboard#copy
             canvas-editor:paste->canvas-clipboard#paste
             asset-selected@window->canvas-editor#onAssetSelected

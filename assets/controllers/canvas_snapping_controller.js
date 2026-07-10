@@ -194,6 +194,7 @@ export default class extends Controller {
         for (const t of this._targets) {
             for (const [mk, tk] of this.constructor.PAIRS[axis]) {
                 const coord = t[tk];
+                if (!Number.isFinite(coord)) continue; // guide rects only carry their own axis
                 const raw = Math.abs(coord - lines[mk]);
                 if (raw > cap) continue;
                 const score = raw - (mk === centerKey && tk === centerKey ? bias : 0);
@@ -230,7 +231,7 @@ export default class extends Controller {
 
         let lo = null, hi = null;
         for (const t of this._targets) {
-            if (t.isCanvas || !this._overlapsPerp(axis, free, t)) continue;
+            if (t.isCanvas || t.isGuide || !this._overlapsPerp(axis, free, t)) continue;
             if (t[farKey] <= near + slack && (!lo || t[farKey] > lo[farKey])) lo = t;
             if (t[nearKey] >= far - slack && (!hi || t[nearKey] < hi[nearKey])) hi = t;
         }
@@ -260,10 +261,11 @@ export default class extends Controller {
 
         if (rx && rx.kind === 'align') {
             const t = rx.target;
-            const y1 = t.isCanvas ? 0 : Math.min(fr.top, t.top);
-            const y2 = t.isCanvas ? this._canvas.getHeight() : Math.max(fr.bottom, t.bottom);
+            const fullSpan = t.isCanvas || t.isGuide; // guides span the whole canvas
+            const y1 = fullSpan ? 0 : Math.min(fr.top, t.top);
+            const y2 = fullSpan ? this._canvas.getHeight() : Math.max(fr.bottom, t.bottom);
             this._line('v', rx.coord, y1, y2, geo);
-            if (!t.isCanvas) {
+            if (!fullSpan) {
                 const gap = this._gap1D(fr.top, fr.bottom, t.top, t.bottom);
                 if (gap) this._badge(bi++, rx.coord, gap.mid, `${Math.round(gap.size)}`, geo);
             }
@@ -271,10 +273,11 @@ export default class extends Controller {
 
         if (ry && ry.kind === 'align') {
             const t = ry.target;
-            const x1 = t.isCanvas ? 0 : Math.min(fr.left, t.left);
-            const x2 = t.isCanvas ? this._canvas.getWidth() : Math.max(fr.right, t.right);
+            const fullSpan = t.isCanvas || t.isGuide;
+            const x1 = fullSpan ? 0 : Math.min(fr.left, t.left);
+            const x2 = fullSpan ? this._canvas.getWidth() : Math.max(fr.right, t.right);
             this._line('h', ry.coord, x1, x2, geo);
-            if (!t.isCanvas) {
+            if (!fullSpan) {
                 const gap = this._gap1D(fr.left, fr.right, t.left, t.right);
                 if (gap) this._badge(bi++, gap.mid, ry.coord, `${Math.round(gap.size)}`, geo);
             }
@@ -356,6 +359,25 @@ export default class extends Controller {
         const W = this._canvas.getWidth();
         const H = this._canvas.getHeight();
         rects.push({ left: 0, top: 0, right: W, bottom: H, cx: W / 2, cy: H / 2, isCanvas: true });
+
+        // Ruler guides (canvas_rulers_controller) are snap lines too — a
+        // vertical guide is a zero-width "rect" spanning the canvas, so the
+        // matched-role pairs all resolve to the same coordinate. Skipped when
+        // the rulers toggle is off (hidden guides must not snap); isGuide
+        // keeps them out of equal-spacing (they're lines, not neighbours).
+        if (!this._canvas.wboostGuidesHidden && Array.isArray(this._canvas.wboostGuides)) {
+            this._canvas.wboostGuides.forEach((guide) => {
+                if (!Number.isFinite(guide.pos)) return;
+                // Only the guide's OWN axis carries lines — the perpendicular
+                // fields stay undefined and the capture loop's finite guard
+                // skips them (a horizontal guide must never offer X lines).
+                if (guide.axis === 'x') {
+                    rects.push({ left: guide.pos, right: guide.pos, cx: guide.pos, isCanvas: false, isGuide: true });
+                } else if (guide.axis === 'y') {
+                    rects.push({ top: guide.pos, bottom: guide.pos, cy: guide.pos, isCanvas: false, isGuide: true });
+                }
+            });
+        }
         return rects;
     }
 

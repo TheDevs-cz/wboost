@@ -186,6 +186,112 @@
     font-size: 12px;
 }
 
+/* Photoshop-style rulers + guides (canvas_rulers_controller). The bars are 2D
+   <canvas> elements in the unscaled stage layer; .has-rulers reserves a gutter
+   for them so they never cover the artwork. Guides are DOM lines with a wider
+   transparent hit strip (grabbable), all export-invisible by construction. */
+.canvas-stage.has-rulers {
+    padding-top: 23px;
+    padding-left: 23px;
+}
+
+.canvas-ruler {
+    position: absolute;
+    z-index: 996;
+    background: #fafbfe;
+    border: 1px solid #e3e6ef;
+    user-select: none;
+}
+
+.canvas-ruler--h {
+    border-left: 0;
+    cursor: row-resize;
+}
+
+.canvas-ruler--v {
+    border-top: 0;
+    cursor: col-resize;
+}
+
+.canvas-ruler-corner {
+    position: absolute;
+    z-index: 997;
+    background: #fafbfe;
+    border: 1px solid #e3e6ef;
+}
+
+/* A guide: 7px invisible hit strip centered on a 1px cyan line (the span
+   child). Sits under the snap chrome (z 1000) so magenta feedback wins. */
+.canvas-guide {
+    position: absolute;
+    z-index: 940;
+}
+
+.canvas-guide--v {
+    width: 7px;
+    transform: translateX(-3.5px);
+    cursor: col-resize;
+}
+
+.canvas-guide--h {
+    height: 7px;
+    transform: translateY(-3.5px);
+    cursor: row-resize;
+}
+
+.canvas-guide > span {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(0, 184, 216, 0.85);
+}
+
+.canvas-guide--v > span {
+    left: 3px;
+    top: 0;
+    width: 1px;
+    height: 100%;
+}
+
+.canvas-guide--h > span {
+    top: 3px;
+    left: 0;
+    height: 1px;
+    width: 100%;
+}
+
+.canvas-guide:hover > span,
+.canvas-guide.is-dragging > span {
+    background: #00b8d8;
+    box-shadow: 0 0 0 0.5px rgba(0, 184, 216, 0.35);
+}
+
+/* Dragged outside the canvas = will be deleted on release. */
+.canvas-guide.is-deleting > span {
+    background: rgba(250, 92, 124, 0.9);
+}
+
+/* Live position chip next to the cursor while dragging a guide. */
+.canvas-guide-badge {
+    position: absolute;
+    z-index: 1010;
+    pointer-events: none;
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: #fff;
+    background: #37404a;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Axis-lock cursor everywhere while a guide drag is in flight. */
+body.is-dragging-guide-v,
+body.is-dragging-guide-v * { cursor: col-resize !important; }
+body.is-dragging-guide-h,
+body.is-dragging-guide-h * { cursor: row-resize !important; }
+
 /* Hovering a row in the layers panel (canvas_layers_controller) highlights the
    object on the stage — a stronger, filled sibling of .editable-outline. */
 .layer-hover-outline {
