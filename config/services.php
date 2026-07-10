@@ -19,7 +19,17 @@ return static function (ContainerConfigurator $container): void {
     $container->parameters()
         ->set('.container.dumper.inline_factories', true)
         ->set('doctrine.orm.enable_lazy_ghost_objects', true)
-        ->set('publicAssetsBaseUrl', '%env(UPLOADS_BASE_URL)%/%env(S3_BUCKET_NAME)%');
+        ->set('publicAssetsBaseUrl', '%env(UPLOADS_BASE_URL)%/%env(S3_BUCKET_NAME)%')
+        // Facebook/Instagram env defaults: prod's .env is rendered from
+        // Infisical, so a deploy made before these vars exist there must NOT
+        // take the site down (MetaGraphApi resolves them on instantiation,
+        // which happens on every authenticated request via the authenticator).
+        // With empty credentials the Facebook buttons render but the OAuth
+        // dance fails at facebook.com — degraded, not broken.
+        ->set('env(FACEBOOK_APP_ID)', '')
+        ->set('env(FACEBOOK_APP_SECRET)', '')
+        ->set('env(META_GRAPH_BASE_URL)', 'https://graph.facebook.com/v23.0/')
+        ->set('env(SOCIAL_TOKEN_ENCRYPTION_KEY)', '');
 
     $services = $container->services();
 
@@ -80,6 +90,12 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(
         \WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface::class,
         \WBoost\Web\Services\Editor\TemplateVariantImageRenderer::class,
+    );
+
+    // Meta Graph API client — same pattern: tests replace it with a fake.
+    $services->alias(
+        \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,
+        \WBoost\Web\Services\Meta\MetaGraphApi::class,
     );
 
     /** @see https://github.com/doctrine/migrations/issues/1406 */

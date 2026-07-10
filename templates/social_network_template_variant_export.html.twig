@@ -25,5 +25,5 @@
     {# Stage 5: page is now driven by a Live Component. The component renders
        its own preview server-side (Gotenberg PNG → base64 data URI), so this
        page no longer needs custom @font-face declarations or canvas markup. #}
-    <twig:SocialNetwork:VariantFiller :variant="variant" />
+    <twig:SocialNetwork:VariantFiller :variant="variant" :facebookConnected="facebookConnected" />
 {% endblock %}

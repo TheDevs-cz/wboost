@@ -20,7 +20,9 @@ use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\RegistrationRequest;
+use WBoost\Web\Entity\SocialAccount;
 use WBoost\Web\Entity\SocialNetworkTemplate;
+use WBoost\Web\Services\Security\TokenCrypto;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\User;
@@ -37,6 +39,7 @@ use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
 use WBoost\Web\Value\ManualType;
 use WBoost\Web\Value\SharingLevel;
+use WBoost\Web\Value\SocialProvider;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\WeeklyMenuApprovalStatus;
 
@@ -60,6 +63,12 @@ final class TestDataFixture extends Fixture
     // Pending public signup request — drives the admin requests list + dismiss/convert.
     public const string REGISTRATION_REQUEST_PENDING_ID = '00000000-0000-0000-0000-0000000000b1';
     public const string REGISTRATION_REQUEST_PENDING_EMAIL = 'wantsaccess@test.cz';
+
+    // Facebook social account (USER_1) — really-encrypted long-lived token;
+    // USER_2 deliberately has none (exercises the not-connected paths).
+    public const string SOCIAL_ACCOUNT_1_ID = '00000000-0000-0000-0000-0000000000d0';
+    public const string SOCIAL_ACCOUNT_1_PROVIDER_USER_ID = 'fb-user-1';
+    public const string SOCIAL_ACCOUNT_1_TOKEN = 'plaintext-long-lived-token-1';
 
     public const string PROJECT_1_ID = '00000000-0000-0000-0000-000000000001';
     public const string PROJECT_2_ID = '00000000-0000-0000-0000-000000000002';
@@ -142,6 +151,11 @@ final class TestDataFixture extends Fixture
     public const string UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c5';
     public const string GROUP_SHARED_INPUT_ID = '00000000-0000-0000-0000-0000000000c6';
 
+    public function __construct(
+        private readonly TokenCrypto $tokenCrypto,
+    ) {
+    }
+
     public function load(ObjectManager $manager): void
     {
         $date = new DateTimeImmutable('00:00:00 2024/01/01');
@@ -153,6 +167,20 @@ final class TestDataFixture extends Fixture
             true,
         );
         $manager->persist($user1);
+
+        // The token is REALLY encrypted (test env key) — destination/publish
+        // flows decrypt it before hitting the (faked) Graph API.
+        $manager->persist(new SocialAccount(
+            Uuid::fromString(self::SOCIAL_ACCOUNT_1_ID),
+            $user1,
+            SocialProvider::Facebook,
+            self::SOCIAL_ACCOUNT_1_PROVIDER_USER_ID,
+            $this->tokenCrypto->encrypt(self::SOCIAL_ACCOUNT_1_TOKEN),
+            $date->modify('+60 days'),
+            ['public_profile', 'email', 'pages_show_list', 'pages_read_engagement', 'pages_manage_posts', 'instagram_basic', 'instagram_content_publish'],
+            'Test FB User',
+            $date,
+        ));
 
         $project1 = new Project(
             Uuid::fromString(self::PROJECT_1_ID),

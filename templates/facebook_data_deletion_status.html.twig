@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Smazání dat{% endblock %}
+
+{% block body_class %}authentication-bg{% endblock %}
+
+{% block full_content %}
+    <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-xxl-4 col-lg-5">
+                    <div class="card">
+                        <div class="card-header py-4 text-center bg-dark">
+                            <span><img src="{{ asset('images/logo-lg.svg') }}" alt="logo" height="22"></span>
+                        </div>
+                        <div class="card-body p-4 text-center">
+                            <h4 class="text-dark-50 fw-bold">Žádost o smazání dat</h4>
+                            <p class="text-muted mt-3">
+                                Propojení vašeho facebookového účtu s aplikací WBoost bylo smazáno,
+                                včetně uloženého přístupového tokenu.
+                            </p>
+                            {% if confirmationCode %}
+                                <p class="text-muted mb-0"><strong>Potvrzovací kód:</strong> {{ confirmationCode }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

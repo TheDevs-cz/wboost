@@ -1,0 +1,22 @@
+# Two clients over the SAME Meta app, separated by intent:
+#   facebook_login   — "Sign in with Facebook" (identity only, no business perms)
+#   facebook_connect — profile-page "connect" flow requesting the publishing
+#                      scopes (Pages + Instagram). Separate redirect routes
+#                      replace session intent flags; the login dialog never
+#                      asks for publishing permissions.
+knpu_oauth2_client:
+    clients:
+        facebook_login:
+            type: facebook
+            client_id: '%env(FACEBOOK_APP_ID)%'
+            client_secret: '%env(FACEBOOK_APP_SECRET)%'
+            redirect_route: oauth_facebook_check
+            redirect_params: {}
+            graph_api_version: v23.0
+        facebook_connect:
+            type: facebook
+            client_id: '%env(FACEBOOK_APP_ID)%'
+            client_secret: '%env(FACEBOOK_APP_SECRET)%'
+            redirect_route: oauth_facebook_connect_check
+            redirect_params: {}
+            graph_api_version: v23.0

@@ -7,6 +7,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Services\Security\FacebookAuthenticator;
 use WBoost\Web\Services\Security\UserChecker;
 
 return App::config([
@@ -54,6 +55,12 @@ return App::config([
                 'lazy' => true,
                 'provider' => 'user_provider',
                 'user_checker' => UserChecker::class,
+                'custom_authenticators' => [
+                    FacebookAuthenticator::class,
+                ],
+                // Required once the firewall has more than one authenticator:
+                // unauthenticated users still get the login form.
+                'entry_point' => 'form_login',
                 'form_login' => [
                     'login_path' => 'login',
                     'check_path' => 'login',
@@ -77,6 +84,14 @@ return App::config([
             ],
             [
                 'path' => '^/(login|registration|forgotten-password|set-password/.*|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png|email-signature-demo/vcard-qr-code\.png|weekly-menu/.*/public|weekly-menu/.*/approval/.*)',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
+            // Facebook OAuth: login start/callback for anonymous users + Meta's
+            // server-to-server data-deletion callback. The connect start/check
+            // controllers under the same prefix enforce IS_AUTHENTICATED_FULLY
+            // themselves via #[IsGranted].
+            [
+                'path' => '^/oauth/facebook/',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [

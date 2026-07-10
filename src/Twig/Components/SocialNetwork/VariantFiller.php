@@ -48,6 +48,13 @@ final class VariantFiller extends AbstractVariantFiller
         ]);
     }
 
+    public function publishPath(): string
+    {
+        return $this->generateUrl('social_network_template_variant_publish', [
+            'variantId' => $this->variantEntity()->id,
+        ]);
+    }
+
     public function uploadPath(string $inputId): string
     {
         return $this->generateUrl('social_network_variant_placeholder_upload', [

@@ -64,6 +64,13 @@
 
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
                             </form>
+
+                            <div class="text-center mt-3">
+                                <p class="text-muted small mb-2">nebo</p>
+                                <a href="{{ path('oauth_facebook_login') }}" class="btn btn-outline-primary">
+                                    <i class="mdi mdi-facebook me-1"></i> Přihlásit se přes Facebook
+                                </a>
+                            </div>
                         </div> <!-- end card-body -->
                     </div>
                     <!-- end card -->

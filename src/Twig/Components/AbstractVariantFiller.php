@@ -59,6 +59,14 @@ abstract class AbstractVariantFiller extends AbstractController
     use DefaultActionTrait;
 
     /**
+     * Whether the current user has a usable Facebook connection (drives the
+     * publish buttons vs. the connect CTA). Set by the page controller when
+     * the module supports publishing; stays false elsewhere.
+     */
+    #[LiveProp]
+    public bool $facebookConnected = false;
+
+    /**
      * Map of inputId UUID → text value the user has typed.
      *
      * `writable: true` lets Live Components write into any sub-key of this
@@ -113,6 +121,15 @@ abstract class AbstractVariantFiller extends AbstractController
      * The plain form POST target producing the PNG download.
      */
     abstract public function downloadPath(): string;
+
+    /**
+     * The direct social-publish endpoint (fetch POST, JSON response), or null
+     * when the module doesn't support publishing — no publish UI renders.
+     */
+    public function publishPath(): null|string
+    {
+        return null;
+    }
 
     /**
      * The session-authed placeholder upload endpoint for one image slot.

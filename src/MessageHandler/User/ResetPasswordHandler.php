@@ -39,7 +39,9 @@ readonly final class ResetPasswordHandler
         $token->use($this->clock->now());
 
         // Log the (possibly not-yet-authenticated) user in. Safe because this handler runs
-        // synchronously inside the request, under the stateful `main` firewall.
-        $this->security->login($user, firewallName: 'main');
+        // synchronously inside the request, under the stateful `main` firewall. The
+        // authenticator must be named explicitly since the firewall gained a second
+        // one (FacebookAuthenticator).
+        $this->security->login($user, 'form_login', 'main');
     }
 }

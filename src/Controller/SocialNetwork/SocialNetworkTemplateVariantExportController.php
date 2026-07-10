@@ -8,17 +8,26 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Entity\User;
+use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 
 final class SocialNetworkTemplateVariantExportController extends AbstractController
 {
+    public function __construct(
+        readonly private GetFacebookDestinations $destinations,
+    ) {
+    }
+
     #[Route(path: '/social-network-template-variant/{variantId}/export', name: 'social_network_template_variant_export')]
     #[IsGranted(SocialNetworkTemplateVariantVoter::VIEW, 'variant')]
     public function __invoke(
         #[MapEntity(id: 'variantId')]
         SocialNetworkTemplateVariant $variant,
+        #[CurrentUser] User $user,
     ): Response {
         // Stage 5: the user-fill UI is now a Live Component
         // (`SocialNetwork:VariantFiller`). Fonts and canvas JSON are no longer
@@ -30,6 +39,7 @@ final class SocialNetworkTemplateVariantExportController extends AbstractControl
             'project' => $template->project,
             'template' => $template,
             'variant' => $variant,
+            'facebookConnected' => $this->destinations->connectedAccount($user) !== null,
         ]);
     }
 }

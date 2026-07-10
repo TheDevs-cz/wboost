@@ -58,4 +58,53 @@
         </div>
     </div>
 
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-3">Propojené účty</h4>
+
+            {% if facebookAccount %}
+                {% if facebookAccount.needsReconnect %}
+                    <div class="alert alert-warning">
+                        Připojení k Facebooku vypršelo nebo bylo odvoláno — pro publikování je potřeba účet znovu propojit.
+                    </div>
+                {% endif %}
+
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <i class="mdi mdi-facebook text-primary me-1 font-18 align-middle"></i>
+                        <strong>Facebook</strong>
+                        <span class="text-muted ms-2">{{ facebookAccount.displayName ?: 'propojeno' }}</span>
+                        <span class="text-muted ms-2 small">od {{ facebookAccount.connectedAt|date('d.m.Y') }}</span>
+                    </div>
+                    <div>
+                        {% if facebookAccount.needsReconnect %}
+                            <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-sm btn-primary me-1">
+                                <i class="mdi mdi-refresh me-1"></i>Znovu propojit
+                            </a>
+                        {% else %}
+                            <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-sm btn-outline-primary me-1" title="Obnovit oprávnění a token">
+                                <i class="mdi mdi-refresh me-1"></i>Obnovit propojení
+                            </a>
+                        {% endif %}
+                        <a href="{{ path('facebook_disconnect') }}" class="btn btn-sm btn-outline-danger">
+                            <i class="mdi mdi-link-off me-1"></i>Odpojit
+                        </a>
+                    </div>
+                </div>
+                <p class="text-muted small mt-2 mb-0">
+                    Přes propojený facebookový účet lze publikovat šablony na vaše facebookové stránky
+                    a instagramové profesionální účty (propojené se stránkou).
+                </p>
+            {% else %}
+                <p class="text-muted">
+                    Propojte svůj facebookový účet a publikujte vyplněné šablony přímo na facebookové
+                    stránky a Instagram — bez stahování PNG.
+                </p>
+                <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-primary">
+                    <i class="mdi mdi-facebook me-1"></i> Propojit Facebook
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
 {% endblock %}

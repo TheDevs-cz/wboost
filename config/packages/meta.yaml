@@ -1,0 +1,8 @@
+framework:
+    http_client:
+        scoped_clients:
+            # Meta Graph API (Facebook Pages + Instagram publishing). The base
+            # URI carries the API version — bump it here in one place.
+            meta.client:
+                base_uri: '%env(META_GRAPH_BASE_URL)%'
+                timeout: 20

@@ -26,6 +26,12 @@ return static function (ContainerConfigurator $container): void {
         \WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer::class,
     );
 
+    // Meta Graph API double — publish tests never talk to graph.facebook.com.
+    $services->alias(
+        \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,
+        \WBoost\Web\Tests\Fakes\FakeMetaGraphApi::class,
+    );
+
     // Object store: a LOCAL directory instead of Minio (S3). Placeholder-image
     // tests read/write real bytes (inline for dimensions, upload, preview), and
     // CI's test runner can't resolve the `minio` host ("Could not resolve host:

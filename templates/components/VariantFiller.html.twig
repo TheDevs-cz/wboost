@@ -66,7 +66,7 @@
         action="{{ this.downloadPath() }}"
         data-turbo="false"
         class="fill-form fill-highlight-on"
-        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}"
+        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if this.publishPath() and this.facebookConnected %} variant-publish{% endif %}"
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
@@ -76,6 +76,11 @@
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
             data-variant-image-fill-height-value="{{ variant.dimension.height }}"
             data-variant-image-fill-backdrop-id-value="variant-backdrop-source"
+        {% endif %}
+        {% if this.publishPath() and this.facebookConnected %}
+            data-variant-publish-publish-url-value="{{ this.publishPath() }}"
+            data-variant-publish-destinations-url-value="{{ path('social_facebook_destinations') }}"
+            data-variant-publish-profile-url-value="{{ path('user_profile') }}"
         {% endif %}
     >
         {# ---- Toolbar -------------------------------------------------------
@@ -106,6 +111,21 @@
                 </button>
             </div>
 
+            {% if this.publishPath() %}
+                {% if this.facebookConnected %}
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-action="variant-publish#open" data-variant-publish-platform-param="facebook" title="Publikovat na facebookovou stránku">
+                        <i class="mdi mdi-facebook me-1" aria-hidden="true"></i>Facebook
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-action="variant-publish#open" data-variant-publish-platform-param="instagram" title="Publikovat na instagramový profesionální účet">
+                        <i class="mdi mdi-instagram me-1" aria-hidden="true"></i>Instagram
+                    </button>
+                {% else %}
+                    {# CTA instead of dead buttons: publishing needs a connected Facebook account. #}
+                    <a href="{{ path('user_profile') }}" class="btn btn-outline-secondary btn-sm" title="Publikování na sociální sítě vyžaduje propojený facebookový účet — propojte jej ve svém profilu.">
+                        <i class="mdi mdi-facebook" aria-hidden="true"></i><i class="mdi mdi-instagram me-1" aria-hidden="true"></i>Publikovat — propojit účet
+                    </a>
+                {% endif %}
+            {% endif %}
             <button type="submit" class="btn btn-primary btn-sm" data-variant-fill-overlay-target="exportButton">Export do PNG</button>
         </div>
 
@@ -451,6 +471,47 @@
                 {% endif %}
             {% endfor %}
         </div>
+
+        {# Publish modal (variant-publish) — destination picker + caption. Own
+           data-live-ignore block: open state, fetched destinations and the
+           typed caption must survive Live re-renders. All inputs inside are
+           deliberately UNNAMED so they never leak into the form's FormData —
+           the controller appends platform/targetId/caption explicitly. #}
+        {% if this.publishPath() and this.facebookConnected %}
+            <div data-live-ignore>
+                <div class="fill-modal" data-variant-publish-target="modal" data-action="click->variant-publish#closeBackdrop">
+                    <div class="fill-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="publish-modal-title" tabindex="-1">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="mb-0" id="publish-modal-title" data-variant-publish-target="title">Publikovat</h5>
+                            <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-publish#close"></button>
+                        </div>
+
+                        <label class="form-label small text-muted mb-1">Kam publikovat</label>
+                        <div class="mb-2" data-variant-publish-target="destinations">
+                            <p class="text-muted small mb-0">Načítám…</p>
+                        </div>
+
+                        <label class="form-label small text-muted mb-1" for="publish-caption">Text příspěvku</label>
+                        <textarea
+                            id="publish-caption"
+                            class="form-control form-control-sm mb-2"
+                            rows="3"
+                            maxlength="2200"
+                            placeholder="Popisek příspěvku (nepovinné)"
+                            data-variant-publish-target="caption"
+                        ></textarea>
+
+                        <div class="small mb-2" data-variant-publish-target="status" aria-live="polite"></div>
+
+                        <div class="text-end">
+                            <button type="button" class="btn btn-primary btn-sm" data-action="variant-publish#submit" data-variant-publish-target="submit">
+                                <i class="mdi mdi-send me-1" aria-hidden="true"></i>Publikovat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
 
         {# Image gallery modals — opened by an image box's pencil. In their own
            data-live-ignore so the chosen folder + open state survive Live
