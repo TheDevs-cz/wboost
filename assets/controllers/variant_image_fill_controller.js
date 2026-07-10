@@ -59,8 +59,13 @@ export default class extends Controller {
     // --- Rendering / layout -------------------------------------------------
 
     _fitToWrapper() {
+        // Measure the scroll viewport, NOT the wrapper: in JS mode the stage
+        // shrink-wraps the canvas, so the wrapper's width IS the canvas width
+        // (circular). The viewport is the real on-screen budget for the raster;
+        // the overlay's fit zoom handles the visual fitting on top.
         const wrapper = this.hasWrapperTarget ? this.wrapperTarget : this.canvasTarget.parentElement;
-        const available = wrapper ? wrapper.clientWidth : this.widthValue;
+        const viewport = this.element.querySelector('.fill-viewport') || wrapper;
+        const available = viewport ? viewport.clientWidth : this.widthValue;
         const scale = available > 0 ? Math.min(1, available / this.widthValue) : 1;
         this.canvas.setDimensions({ width: this.widthValue * scale, height: this.heightValue * scale });
         this.canvas.setZoom(scale);

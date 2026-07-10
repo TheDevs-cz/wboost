@@ -415,16 +415,41 @@
    Progressive enhancement: the BASE rules (no `.fill-js`) render the popovers as
    a plain stacked, editable list and hide the boxes, so a JS failure never
    strands the user. The controller adds `.fill-js` on connect. */
-/* Scroll viewport around the stage: at 100% the preview fits; zooming in scales
-   the stage (CSS transform) and reserves space via margins, so it scrolls here. */
+/* Viewport around the stage. The controller caps its max-height to the visible
+   area and picks a fit zoom where the WHOLE canvas fits inside, so by default
+   nothing scrolls anywhere; only a manual zoom-in past fit pans in here.
+   overscroll-behavior keeps that panning from chaining into a page scroll. */
 .fill-viewport {
     overflow: auto;
+    overscroll-behavior: contain;
 }
 
 .fill-stage {
     position: relative;
     display: inline-block;
+    /* Top-align the inline-block: sitting on the text baseline would add the
+       line box's descender space below it — a few phantom pixels that turn
+       into a needless scrollbar in the exactly-fitted viewport. */
+    vertical-align: top;
     max-width: 100%;
+}
+
+/* JS mode: the fit/zoom transform owns ALL fitting, so the responsive clamps
+   must not fight it — a shrink-to-fit-clamped stage makes zooming in shrink
+   the layout box instead of growing the artwork (self-cancelling zoom). The
+   base max-widths above/below stay for the no-JS fallback. */
+.fill-form.fill-js .fill-stage {
+    max-width: none;
+}
+
+.fill-preview-img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+.fill-form.fill-js .fill-preview-img {
+    max-width: none;
 }
 
 /* Base (no-JS) — the popovers render as a plain stacked, editable list under

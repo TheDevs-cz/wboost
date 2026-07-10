@@ -163,10 +163,12 @@ export default class extends Controller {
     // live OUTSIDE the stage (position:fixed, viewport coords) so zoom/overflow
     // never clips them.
     //
-    // The initial zoom is auto-fit so the canvas WIDTH fits the screen (crucial
-    // on mobile — no horizontal scrolling); the height is free to scroll. We keep
-    // re-fitting on load/resize until the user zooms manually (_userZoomed); after
-    // that we leave it alone.
+    // The initial zoom is auto-fit so the WHOLE canvas fits the visible part of
+    // the screen — width AND height — and the viewport's max-height is capped to
+    // that same visible area, so by default nothing scrolls anywhere (no page
+    // scroll, no inner scrollbar). Only a manual zoom-in past fit makes the
+    // viewport pan its content. We keep re-fitting on load/resize until the user
+    // zooms manually (_userZoomed); after that we leave it alone.
 
     zoomIn() {
         this._applyZoom((this._zoom || 1) + 0.25);
@@ -189,24 +191,46 @@ export default class extends Controller {
         this.reposition();
     }
 
-    /** Zoom at which the canvas WIDTH fits the viewport (capped at 100 %); the
-     *  height is free to scroll. Measures the preview's on-screen width so it
-     *  works no matter which branch drew it (img / Fabric canvas) and regardless
-     *  of any intrinsic sizing that would otherwise overflow horizontally. */
+    /** Zoom at which the WHOLE canvas fits the visible viewport box (capped at
+     *  100 %) — width and height both, so the full artwork is on screen with no
+     *  scrolling. Measures the preview's on-screen size so it works no matter
+     *  which branch drew it (img / Fabric canvas). */
     _fitZoom() {
         if (!this.hasPreviewTarget || !this.hasStageTarget) return this._zoom || 1;
         const container = this.stageTarget.parentElement;
         const availW = container ? container.clientWidth : window.innerWidth;
+        const availH = container ? this._availableHeight(container) : window.innerHeight;
         const rect = this.previewTarget.getBoundingClientRect();
-        if (rect.width <= 0 || availW <= 0) return this._zoom || 1;
+        if (rect.width <= 0 || rect.height <= 0 || availW <= 0 || availH <= 0) return this._zoom || 1;
 
-        // rect.width already reflects the current zoom, so rescale it to availW.
-        const z = (this._zoom || 1) * (availW / rect.width);
-        return Math.min(1, Math.max(0.1, Math.round(z * 100) / 100));
+        // rect already reflects the current zoom, so rescale it to the available
+        // box. Floor (not round): erring a pixel small never creates a scrollbar.
+        const z = (this._zoom || 1) * Math.min(availW / rect.width, availH / rect.height);
+        return Math.min(1, Math.max(0.1, Math.floor(z * 100) / 100));
     }
 
-    /** Set the auto zoom so the canvas width fits the screen (until user zooms). */
+    /** Visible height below the viewport's top edge (document-space, so the
+     *  current scroll position doesn't skew it). The fixed reserve covers the
+     *  theme's content padding below the preview, so fitting into this height
+     *  leaves the PAGE itself scroll-free too; the floor keeps a usable
+     *  preview area on tiny windows. */
+    _availableHeight(viewport) {
+        const top = viewport.getBoundingClientRect().top + window.scrollY;
+        return Math.max(220, Math.round(window.innerHeight - top - 72));
+    }
+
+    /** Cap the viewport to the visible area: at fit zoom nothing scrolls at
+     *  all, and a manual zoom-in pans INSIDE this box instead of stretching
+     *  the page under the user. */
+    _sizeViewport() {
+        const viewport = this.hasStageTarget ? this.stageTarget.parentElement : null;
+        if (!viewport) return;
+        viewport.style.maxHeight = `${this._availableHeight(viewport)}px`;
+    }
+
+    /** Set the auto zoom so the whole canvas fits the screen (until user zooms). */
     _fitToScreen() {
+        this._sizeViewport();
         if (!this._userZoomed) {
             this._zoom = this._fitZoom();
             this._updateZoomLabel();
