@@ -71,7 +71,7 @@
 .canvas-stage .canvas-floating-popover {
     position: absolute;
     z-index: 1006;
-    width: 300px;
+    width: 360px;
     max-width: 92vw;
     max-height: 80vh;
     overflow-y: auto;
