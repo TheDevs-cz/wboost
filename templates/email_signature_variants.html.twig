@@ -29,7 +29,9 @@
                 modal_id: 'demo-template-' ~ email_template.id,
                 action: path('email_signature_template_send_demo', {'id': email_template.id}),
                 subject_name: email_template.name,
-                note: 'Odešle se šablona s výchozími texty. Pro konkrétní osobu pošlete ukázku z její varianty.',
+                note: '___vcard_qr___' in email_template.code
+                    ? 'Odešle se šablona s výchozími texty a ukázkovým QR kódem vizitky. Pro konkrétní osobu pošlete ukázku z její varianty.'
+                    : 'Odešle se šablona s výchozími texty. Pro konkrétní osobu pošlete ukázku z její varianty.',
             }) }}
         </div>
     </div>

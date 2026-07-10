@@ -28,10 +28,31 @@ readonly final class VcardQrCodeGenerator
         }
 
         $vcard = $this->buildVcard($vcardData);
-        $vcardContent = $vcard->getOutput();
 
+        return $this->buildQrCode($vcard->getOutput());
+    }
+
+    /**
+     * Same styling as the per-variant QR, but encodes an obviously fake sample
+     * contact. Used by the template-level demo email, which has no variant
+     * (and therefore no real vCard data) to encode.
+     */
+    public function generateDemoQrCode(): QrCode
+    {
+        $vcard = $this->buildVcard([
+            VcardFieldType::Name->value => 'Jan Ukázka',
+            VcardFieldType::Email->value => 'jan.ukazka@example.com',
+            VcardFieldType::Phone->value => '+420 123 456 789',
+            VcardFieldType::Company->value => 'Ukázková firma s.r.o.',
+        ]);
+
+        return $this->buildQrCode($vcard->getOutput());
+    }
+
+    private function buildQrCode(string $data): QrCode
+    {
         return new QrCode(
-            data: $vcardContent,
+            data: $data,
             encoding: new Encoding('UTF-8'),
             errorCorrectionLevel: ErrorCorrectionLevel::Low,
             size: 300,

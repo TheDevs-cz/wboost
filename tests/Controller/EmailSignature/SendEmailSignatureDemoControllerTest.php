@@ -43,6 +43,8 @@ final class SendEmailSignatureDemoControllerTest extends WebTestCase
         self::assertSame('Ukázka e-mailového podpisu – Podpisy', $email->getSubject());
         self::assertStringContainsString('Výchozí jméno', (string) $email->getHtmlBody());
         self::assertStringContainsString('zkušební e-mail', (string) $email->getHtmlBody());
+        // No variant → the vCard QR token resolves to the sample QR endpoint.
+        self::assertStringContainsString('/email-signature-demo/vcard-qr-code.png', (string) $email->getHtmlBody());
     }
 
     public function testVariantDemoUsesVariantValues(): void
@@ -65,6 +67,12 @@ final class SendEmailSignatureDemoControllerTest extends WebTestCase
         self::assertSame('Ukázka e-mailového podpisu – Podpisy – Obchod', $email->getSubject());
         self::assertStringContainsString('Jan Novák', (string) $email->getHtmlBody());
         self::assertStringNotContainsString('Výchozí jméno', (string) $email->getHtmlBody());
+        // Variant demo carries the variant's REAL vCard QR, not the sample one.
+        self::assertStringContainsString(
+            '/email-signature-variant/' . $variant->id->toString() . '/vcard-qr-code.png',
+            (string) $email->getHtmlBody(),
+        );
+        self::assertStringNotContainsString('/email-signature-demo/vcard-qr-code.png', (string) $email->getHtmlBody());
     }
 
     public function testInvalidAddressSendsNothing(): void
@@ -129,7 +137,7 @@ final class SendEmailSignatureDemoControllerTest extends WebTestCase
         );
 
         $template->changeCode(
-            '<table><tr><td><span id="' . self::INPUT_ID . '" data-text-placeholder="">Výchozí jméno</span></td></tr></table>',
+            '<table><tr><td><span id="' . self::INPUT_ID . '" data-text-placeholder="">Výchozí jméno</span><img src="___vcard_qr___" alt="QR"></td></tr></table>',
             [new EmailTextInput(self::INPUT_ID, 'Výchozí jméno')],
         );
 

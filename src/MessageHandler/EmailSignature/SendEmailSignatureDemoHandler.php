@@ -38,7 +38,6 @@ readonly final class SendEmailSignatureDemoHandler
         $template = $this->emailSignatureTemplateRepository->get($message->templateId);
 
         $variant = null;
-        $vcardQrCodeUrl = null;
 
         if ($message->variantId !== null) {
             $variant = $this->emailSignatureVariantRepository->get($message->variantId);
@@ -46,6 +45,13 @@ readonly final class SendEmailSignatureDemoHandler
             $vcardQrCodeUrl = $this->urlGenerator->generate('email_signature_variant_vcard_qr_code', [
                 'variantId' => $variant->id->toString(),
             ], UrlGeneratorInterface::ABSOLUTE_URL);
+        } else {
+            // Template demo has no variant to build a vCard from — substitute
+            // a sample QR so the layout still shows a scannable code.
+            $vcardQrCodeUrl = $this->urlGenerator->generate(
+                'email_signature_demo_vcard_qr_code',
+                referenceType: UrlGeneratorInterface::ABSOLUTE_URL,
+            );
         }
 
         $signatureName = $variant !== null
