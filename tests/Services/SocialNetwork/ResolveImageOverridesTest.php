@@ -111,6 +111,52 @@ final class ResolveImageOverridesTest extends TestCase
         );
     }
 
+    public function testRatioPanWithoutImageIdIsRejected(): void
+    {
+        $this->expectException(BadRequestHttpException::class);
+
+        $this->resolver()->resolve(
+            [$this->input(self::INPUT_A, allowMove: true)],
+            Uuid::uuid4(),
+            [self::INPUT_A => ['offsetXRatio' => 0.25]],
+        );
+    }
+
+    public function testRatioPanOnAnUnmovableSlotIsRejected(): void
+    {
+        // The move gate must hold whichever form the pan arrives in, or the
+        // portable form would be a way around the designer's lock.
+        $this->expectException(BadRequestHttpException::class);
+
+        $this->resolver()->resolve(
+            [$this->input(self::INPUT_A, allowMove: false)],
+            Uuid::uuid4(),
+            [self::INPUT_A => ['imageId' => Uuid::uuid4()->toString(), 'offsetYRatio' => 0.1]],
+        );
+    }
+
+    public function testBothPanFormsOnTheSameAxisAreRejected(): void
+    {
+        $this->expectException(BadRequestHttpException::class);
+
+        $this->resolver()->resolve(
+            [$this->input(self::INPUT_A, allowMove: true)],
+            Uuid::uuid4(),
+            [self::INPUT_A => ['imageId' => Uuid::uuid4()->toString(), 'offsetX' => 10.0, 'offsetXRatio' => 0.25]],
+        );
+    }
+
+    public function testNonNumericRatioIsRejected(): void
+    {
+        $this->expectException(BadRequestHttpException::class);
+
+        $this->resolver()->resolve(
+            [$this->input(self::INPUT_A, allowMove: true)],
+            Uuid::uuid4(),
+            [self::INPUT_A => ['imageId' => Uuid::uuid4()->toString(), 'offsetXRatio' => 'quarter']],
+        );
+    }
+
     public function testInvalidImageIdUuidIsRejected(): void
     {
         $this->expectException(BadRequestHttpException::class);

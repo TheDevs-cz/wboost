@@ -341,6 +341,8 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                         $override->offsetX,
                         $override->offsetY,
                         $override->rotation,
+                        $override->offsetXRatio,
+                        $override->offsetYRatio,
                     );
                     $object = array_merge($object, $placement);
                     $object['src'] = $override->dataUri;

@@ -26,6 +26,8 @@
         <form method="post" action="{{ export_url }}" data-turbo="false"
               data-controller="group-fill"
               data-group-fill-debounce-value="900"
+              data-group-fill-slots-value="{{ placement_slots|json_encode }}"
+              data-group-fill-variants-value="{{ placement_variants|json_encode }}"
               data-action="keydown->group-fill#blockEnter submit->group-fill#exportStarted">
 
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -118,6 +120,61 @@
                                         {% endif %}
                                         <input type="hidden" name="images[{{ input.inputId }}][imageId]" value=""
                                                data-group-fill-target="imageValue" data-input-id="{{ input.inputId }}">
+
+                                        {# Placement the designer allowed. These edit the SHARED
+                                           placement — dimensions the user unlinked keep their own.
+                                           The primary interaction is dragging the picture in the
+                                           preview itself; these are the precise counterpart. #}
+                                        {% if input.allowMove or input.allowResize or input.allowRotate %}
+                                            <div class="group-fill-placement-controls mt-2 d-none"
+                                                 data-group-fill-target="placementControls"
+                                                 data-input-id="{{ input.inputId }}">
+                                                {% if input.allowResize %}
+                                                    <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-zoom-{{ input.inputId }}">
+                                                        <span><i class="mdi mdi-magnify-plus-outline"></i> Zvětšení</span>
+                                                        <span data-group-fill-target="zoomLabel" data-input-id="{{ input.inputId }}">100 %</span>
+                                                    </label>
+                                                    <input type="range" class="form-range" id="group-fill-zoom-{{ input.inputId }}"
+                                                           min="1" max="4" step="0.01" value="1"
+                                                           data-group-fill-target="zoomRange" data-input-id="{{ input.inputId }}"
+                                                           data-action="input->group-fill#zoomChanged">
+                                                    <input type="hidden" name="images[{{ input.inputId }}][scale]" value=""
+                                                           data-group-fill-target="placementField"
+                                                           data-input-id="{{ input.inputId }}" data-field="scale">
+                                                {% endif %}
+                                                {% if input.allowRotate %}
+                                                    <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-rotation-{{ input.inputId }}">
+                                                        <span><i class="mdi mdi-rotate-right"></i> Otočení</span>
+                                                        <span data-group-fill-target="rotationLabel" data-input-id="{{ input.inputId }}">0°</span>
+                                                    </label>
+                                                    <input type="range" class="form-range" id="group-fill-rotation-{{ input.inputId }}"
+                                                           min="-180" max="180" step="1" value="0"
+                                                           data-group-fill-target="rotationRange" data-input-id="{{ input.inputId }}"
+                                                           data-action="input->group-fill#rotationChanged">
+                                                    <input type="hidden" name="images[{{ input.inputId }}][rotation]" value=""
+                                                           data-group-fill-target="placementField"
+                                                           data-input-id="{{ input.inputId }}" data-field="rotation">
+                                                {% endif %}
+                                                {% if input.allowMove %}
+                                                    {# Pan travels as a FRACTION of the frame so one value
+                                                       lands correctly in every dimension's own frame. #}
+                                                    <input type="hidden" name="images[{{ input.inputId }}][offsetXRatio]" value=""
+                                                           data-group-fill-target="placementField"
+                                                           data-input-id="{{ input.inputId }}" data-field="offsetXRatio">
+                                                    <input type="hidden" name="images[{{ input.inputId }}][offsetYRatio]" value=""
+                                                           data-group-fill-target="placementField"
+                                                           data-input-id="{{ input.inputId }}" data-field="offsetYRatio">
+                                                {% endif %}
+                                                <div class="d-flex justify-content-between align-items-center gap-1 mt-1">
+                                                    <span class="font-11 text-muted">
+                                                        {% if input.allowMove %}Obrázek posunete tažením přímo v náhledu.{% endif %}
+                                                    </span>
+                                                    <button type="button" class="btn btn-link btn-sm p-0 font-12"
+                                                            data-action="group-fill#resetPlacement"
+                                                            data-group-fill-inputid-param="{{ input.inputId }}">Vycentrovat</button>
+                                                </div>
+                                            </div>
+                                        {% endif %}
                                     </div>
                                 {% endfor %}
                             </div>
@@ -137,13 +194,21 @@
                 <div class="col-lg-8 col-xxl-9">
                     <div class="row">
                         {% for v in variants %}
+                            {% set variantId = v.variant.id %}
                             <div class="col-sm-6 col-xl-4">
                                 <div class="card">
                                     <div class="group-fill-preview-frame" style="aspect-ratio: {{ v.width }} / {{ v.height }};">
                                         <img src="{{ uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) }}"
                                              alt="{{ v.dimension_label }}"
                                              data-group-fill-target="preview"
+                                             data-variant-id="{{ variantId }}"
                                              data-preview-endpoint="{{ v.preview_endpoint }}">
+                                        {# Draggable stand-ins for the picked pictures, drawn where the
+                                           server will render them in THIS dimension. Only visible while
+                                           the user is placing (and until the fresh render lands). #}
+                                        <div class="group-fill-placement-layer"
+                                             data-group-fill-target="placementLayer"
+                                             data-variant-id="{{ variantId }}"></div>
                                         <div class="group-fill-preview-spinner">
                                             <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                         </div>
@@ -153,6 +218,40 @@
                                         <span class="badge bg-secondary-lighten text-secondary">{{ v.module_label }}</span>
                                         <span class="text-muted font-12 text-end">{{ v.dimension_label }}</span>
                                     </div>
+                                    {% if adjustable_image_inputs|length > 0 %}
+                                        <div class="card-body pt-0 pb-2 d-none" data-group-fill-target="overrideBar" data-variant-id="{{ variantId }}">
+                                            <button type="button" class="btn btn-link btn-sm p-0 font-12 text-decoration-none"
+                                                    data-action="group-fill#toggleOverride"
+                                                    data-group-fill-variantid-param="{{ variantId }}"
+                                                    data-group-fill-target="overrideButton"
+                                                    data-variant-id="{{ variantId }}">
+                                                <i class="mdi mdi-link-variant"></i> Umístění podle společného
+                                            </button>
+                                            {# Per-dimension placement override. Empty = this dimension
+                                               follows the shared placement; filled = it was unlinked. #}
+                                            {% for slot in adjustable_image_inputs %}
+                                                {% set input = slot.input %}
+                                                {% if input.allowResize %}
+                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][scale]" value=""
+                                                           data-group-fill-target="overrideField"
+                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="scale">
+                                                {% endif %}
+                                                {% if input.allowRotate %}
+                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][rotation]" value=""
+                                                           data-group-fill-target="overrideField"
+                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="rotation">
+                                                {% endif %}
+                                                {% if input.allowMove %}
+                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][offsetXRatio]" value=""
+                                                           data-group-fill-target="overrideField"
+                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="offsetXRatio">
+                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][offsetYRatio]" value=""
+                                                           data-group-fill-target="overrideField"
+                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="offsetYRatio">
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% endfor %}

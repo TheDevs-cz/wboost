@@ -55,6 +55,7 @@ final class TemplateGroupExportController extends AbstractController
         $rawTextValues = $request->request->all('textValues');
         $rawHiddenValues = $request->request->all('hiddenValues');
         $rawImages = $request->request->all('images');
+        $rawPlacements = $request->request->all('imagePlacements');
 
         $groupSlug = $this->nonEmptySlug($group->name, 'export');
 
@@ -62,7 +63,7 @@ final class TemplateGroupExportController extends AbstractController
         $files = [];
 
         foreach ($variants as $variant) {
-            $bytes = $this->groupFillRenderer->renderPng($variant, $rawTextValues, $rawHiddenValues, $rawImages);
+            $bytes = $this->groupFillRenderer->renderPng($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements);
 
             $baseName = sprintf('%s-%s', $groupSlug, $this->dimensionSlug($variant));
             $fileName = "$baseName.png";

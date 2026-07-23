@@ -88,6 +88,20 @@ the frame centre; `rotation` is degrees), or `{ "hide": true }` to blank a
 - An `imageId` outside the slot's allowed folders, or not in this project → 400.
 - Unfilled slots keep the designer's stand-in image.
 
+### Portable pan (`offsetXRatio` / `offsetYRatio`)
+
+The pan may instead be sent as a FRACTION of the frame:
+`{ "imageId": "...", "scale": 1.4, "offsetXRatio": -0.12, "offsetYRatio": 0.05 }`
+— `offsetX = offsetXRatio × frame.width`, `offsetY = offsetYRatio × frame.height`.
+`scale` and `rotation` are already frame-independent, so they need no second form.
+
+Use it when ONE placement is reused across variants: the same placeholder has a
+different `frame` in every dimension, so pixel offsets carry a crop from a
+1080×1080 into a 1080×1920 wrongly, while the ratio keeps the intent. Send one
+form or the other per axis — both for the same axis is a 400. Editors that let a
+user drag a picture should store the ratio (`Δpx ÷ frame edge`) and convert to
+pixels only for drawing.
+
 ## Containers (smart text areas)
 
 Inputs listed in a variant's `containers[]` reflow vertically at render time:
@@ -160,6 +174,8 @@ MD,
                                                         'scale' => ['type' => 'number'],
                                                         'offsetX' => ['type' => 'number'],
                                                         'offsetY' => ['type' => 'number'],
+                                                        'offsetXRatio' => ['type' => 'number'],
+                                                        'offsetYRatio' => ['type' => 'number'],
                                                         'rotation' => ['type' => 'number'],
                                                         'hide' => ['type' => 'boolean'],
                                                     ],

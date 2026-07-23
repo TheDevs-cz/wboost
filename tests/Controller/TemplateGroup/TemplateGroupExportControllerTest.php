@@ -86,6 +86,114 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         }
     }
 
+    public function testSharedPlacementFansOutToEveryDimension(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('POST', $this->exportUrl(), [
+            'images' => [
+                TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
+                    'imageId' => TestDataFixture::FILE_IN_ALLOWED_ID,
+                    'scale' => '1.4',
+                    'offsetXRatio' => '-0.12',
+                    'offsetYRatio' => '0.05',
+                ],
+            ],
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $calls = $this->getRendererFake()->calls;
+        self::assertCount(2, $calls);
+
+        // The pan travels as a FRACTION of the frame, so the identical value is
+        // correct in both dimensions — the renderer resolves it against each
+        // variant's own frame.
+        foreach ($calls as $call) {
+            $placed = $call['images'][TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID] ?? null;
+            self::assertIsArray($placed);
+            self::assertSame(1.4, $placed['scale']);
+            self::assertSame(-0.12, $placed['offsetXRatio']);
+            self::assertSame(0.05, $placed['offsetYRatio']);
+        }
+    }
+
+    public function testUnlinkedDimensionUsesItsOwnPlacement(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('POST', $this->exportUrl(), [
+            'images' => [
+                TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
+                    'imageId' => TestDataFixture::FILE_IN_ALLOWED_ID,
+                    'scale' => '1.4',
+                    'offsetXRatio' => '-0.12',
+                ],
+            ],
+            'imagePlacements' => [
+                // Only the custom-template dimension was unlinked.
+                TestDataFixture::GROUPED_CUSTOM_VARIANT_ID => [
+                    TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
+                        'scale' => '2',
+                        'offsetXRatio' => '0.3',
+                    ],
+                ],
+                // An empty entry is what a dimension that still follows the
+                // shared placement posts — it must NOT count as an override.
+                TestDataFixture::GROUPED_SOCIAL_VARIANT_ID => [
+                    TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
+                        'scale' => '',
+                        'offsetXRatio' => '',
+                    ],
+                ],
+            ],
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $byVariant = [];
+        foreach ($this->getRendererFake()->calls as $call) {
+            $byVariant[$call['variantId']] = $call['images'][TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID] ?? null;
+        }
+
+        $shared = $byVariant[TestDataFixture::GROUPED_SOCIAL_VARIANT_ID];
+        self::assertIsArray($shared);
+        self::assertSame(1.4, $shared['scale']);
+        self::assertSame(-0.12, $shared['offsetXRatio']);
+
+        $own = $byVariant[TestDataFixture::GROUPED_CUSTOM_VARIANT_ID];
+        self::assertIsArray($own);
+        self::assertSame(2.0, $own['scale']);
+        self::assertSame(0.3, $own['offsetXRatio']);
+    }
+
+    public function testPlacementWithoutAPictureIsDropped(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        // An untouched form legitimately posts neutral placement fields with no
+        // imageId; carrying them through would 400 the whole export.
+        $client->request('POST', $this->exportUrl(), [
+            'images' => [
+                TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
+                    'imageId' => '',
+                    'scale' => '1',
+                    'offsetXRatio' => '0',
+                    'offsetYRatio' => '0',
+                ],
+            ],
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        foreach ($this->getRendererFake()->calls as $call) {
+            self::assertSame([], $call['images'], 'no picture chosen → the designed stand-in renders');
+        }
+    }
+
     public function testExportIsForbiddenForNonDesigner(): void
     {
         $client = self::createClient();

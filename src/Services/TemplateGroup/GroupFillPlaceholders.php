@@ -134,6 +134,44 @@ readonly final class GroupFillPlaceholders
     }
 
     /**
+     * The image placeholders' frames (canvas px) as designed in ONE variant,
+     * keyed by inputId.
+     *
+     * The same placeholder occupies a different rectangle in every dimension,
+     * which is exactly why the group fill page carries pans as a fraction of the
+     * frame rather than in pixels: the fill page hands these frames to the
+     * client so it can draw each dimension's picture where the server will
+     * render it, and resolve one shared relative placement into that dimension's
+     * pixels.
+     *
+     * @return array<string, array{x: float, y: float, width: float, height: float}>
+     */
+    public function imageFrames(SocialNetworkTemplateVariant|CustomTemplateVariant $variant): array
+    {
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+
+        $frames = [];
+
+        foreach ($this->placeholderGeometry->placeholderObjectsByInputId($canvas) as $inputId => $object) {
+            $frame = $this->placeholderGeometry->frameFromObject($object);
+
+            if ($frame === null) {
+                continue;
+            }
+
+            $frames[$inputId] = [
+                'x' => $frame->x,
+                'y' => $frame->y,
+                'width' => $frame->width,
+                'height' => $frame->height,
+            ];
+        }
+
+        return $frames;
+    }
+
+    /**
      * @param list<FileDirectory> $directories
      * @return list<array{id: string, url: string}>
      */

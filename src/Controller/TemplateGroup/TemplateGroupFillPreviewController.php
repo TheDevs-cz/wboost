@@ -49,6 +49,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
             $request->request->all('textValues'),
             $request->request->all('hiddenValues'),
             $request->request->all('images'),
+            $request->request->all('imagePlacements'),
         );
 
         return new Response($bytes, Response::HTTP_OK, [

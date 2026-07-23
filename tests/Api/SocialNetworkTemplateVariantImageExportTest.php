@@ -168,6 +168,57 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
         self::assertSame(1, $placed['naturalHeight']);
     }
 
+    public function testAcceptsThePortableRatioPan(): void
+    {
+        $this->writeTestImage('fixtures/in-allowed.png');
+
+        $this->export(['images' => [
+            TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => [
+                'imageId' => TestDataFixture::FILE_IN_ALLOWED_ID,
+                'scale' => 1.4,
+                'offsetXRatio' => -0.12,
+                'offsetYRatio' => 0.05,
+            ],
+        ]]);
+
+        $this->assertResponseIsSuccessful();
+
+        $placed = $this->lastCall()['images'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID] ?? null;
+        self::assertIsArray($placed);
+        self::assertSame(1.4, $placed['scale']);
+        self::assertSame(-0.12, $placed['offsetXRatio']);
+        self::assertSame(0.05, $placed['offsetYRatio']);
+        // The px form stays neutral — the renderer resolves the ratio against
+        // this variant's own frame.
+        self::assertSame(0.0, $placed['offsetX']);
+        self::assertSame(0.0, $placed['offsetY']);
+    }
+
+    public function testRatioPanOnLockedSlotIsRejected(): void
+    {
+        $this->export(['images' => [
+            TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID => [
+                'imageId' => TestDataFixture::FILE_IN_ALLOWED_ID,
+                'offsetXRatio' => 0.2,
+            ],
+        ]]);
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
+    public function testBothPanFormsOnTheSameAxisAreRejected(): void
+    {
+        $this->export(['images' => [
+            TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => [
+                'imageId' => TestDataFixture::FILE_IN_ALLOWED_ID,
+                'offsetY' => 10.0,
+                'offsetYRatio' => 0.2,
+            ],
+        ]]);
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
     public function testShorthandImageIdDefaultsToCenteredContain(): void
     {
         $this->writeTestImage('fixtures/in-allowed.png');
@@ -251,7 +302,7 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
     }
 
     /**
-     * @return array{variantId: string, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}
+     * @return array{variantId: string, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}
      */
     private function lastCall(): array
     {

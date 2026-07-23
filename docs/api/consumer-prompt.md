@@ -269,6 +269,9 @@ same request:
                       "scale": 1.4,                  //   × the contain-fit (1 = contain)
                       "offsetX": 20, "offsetY": -10, //   pan from the frame centre, canvas px
                       "rotation": 8 },               //   degrees
+    "d4e5f6a7-...": { "imageId": "f0e1d2c3-...",     // portable pan (see below):
+                      "offsetXRatio": -0.12,         //   × frame.width
+                      "offsetYRatio": 0.05 },        //   × frame.height
     "c3d4e5f6-...": { "hide": true }                 // blank a hidable slot
   }
 }
@@ -277,7 +280,9 @@ same request:
 - `imageId` must be an image from one of that slot's `allowedDirectoryIds` (list them
   via the gallery endpoint below) — otherwise **`400`**.
 - A `scale`/`offset`/`rotation` the slot doesn't permit (`allowResize`/`allowMove`/
-  `allowRotate: false`) returns **`400`**.
+  `allowRotate: false`) returns **`400`** — in either pan form.
+- Send a pan as `offsetX`/`offsetY` **or** `offsetXRatio`/`offsetYRatio`, never both
+  for the same axis (**`400`**).
 - Omit a slot → its designer stand-in renders.
 
 **Response:** raw **PNG binary**, `Content-Type: image/png`. **Don't JSON-parse it.**
@@ -474,10 +479,40 @@ For each image slot, let the user pick a picture (and, if allowed, position it):
    - a folder outside `directories` → **`403`**.
 
 3. **Placement** defaults to centered + object-contain inside `frame`. Expose `scale`
-   (zoom), `offsetX`/`offsetY` (pan, canvas px) and `rotation` (deg) only for the
-   `allow*` flags the slot sets, and send them in `images`. `frame` + the variant's
-   `width`/`height` give you the geometry for a positioning UI. Leave a slot empty to
-   keep its `defaultImageUrl` stand-in.
+   (zoom), the pan and `rotation` (deg) only for the `allow*` flags the slot sets, and
+   send them in `images`. `frame` + the variant's `width`/`height` give you the
+   geometry for a positioning UI. Leave a slot empty to keep its `defaultImageUrl`
+   stand-in.
+
+   **Store the pan as a fraction of the frame, not in pixels.** The same placeholder
+   has a DIFFERENT `frame` in every variant of a template, so a pixel pan carries a
+   crop from a 1080×1080 into a 1080×1920 wrongly, while the fraction keeps the
+   intent. Send it as `offsetXRatio` / `offsetYRatio`:
+
+   ```
+   offsetXRatio = panPixels / frame.width          // what you send
+   offsetX      = offsetXRatio * frame.width       // what the render resolves it to
+   ```
+
+   This is exactly how our own template-group fill page fans ONE placement out over
+   every dimension.
+
+   **Drag-to-place UI.** The export is a server render (~1–2 s), so let the user drag
+   a local stand-in and let the render catch up. Draw the picture inside a
+   frame-sized, `overflow: hidden` box using the render's own math — mirror it
+   exactly or the picture visibly jumps when the render lands:
+
+   ```
+   contain    = min(frame.width / naturalWidth, frame.height / naturalHeight)
+   finalScale = contain * scale                     // drawn size = natural * finalScale
+   centre     = frame centre + (offsetXRatio * frame.width, offsetYRatio * frame.height)
+   rotation   = degrees, clockwise, about that centre
+   ```
+
+   A drag of `Δpx` on screen is `Δpx / (frame.width * displayScale)` of pan — dividing
+   by the ON-SCREEN frame size makes the preview's own zoom cancel out. Reveal the
+   stand-in on the first gesture and drop it when the next render arrives, so the
+   authoritative PNG is what the user sees at rest.
 
 ---
 

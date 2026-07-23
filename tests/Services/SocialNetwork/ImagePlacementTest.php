@@ -113,4 +113,76 @@ final class ImagePlacementTest extends TestCase
         self::assertSame(0.25, $result['scaleX']);
         self::assertSame(0.25, $result['scaleY']);
     }
+
+    public function testRatioPanResolvesAgainstTheFrameEdges(): void
+    {
+        // A quarter of the frame right and a tenth down, in a 200×100 frame.
+        $result = (new ImagePlacement())->compute(
+            new PlaceholderFrame(0.0, 0.0, 200.0, 100.0),
+            200,
+            100,
+            scale: 1.0,
+            offsetX: 0.0,
+            offsetY: 0.0,
+            rotation: 0.0,
+            offsetXRatio: 0.25,
+            offsetYRatio: 0.1,
+        );
+
+        self::assertSame(150.0, $result['left']);  // centre 100 + 0.25 × 200
+        self::assertSame(60.0, $result['top']);    // centre  50 + 0.10 × 100
+    }
+
+    public function testTheSameRatioCarriesOneCropIntoAnotherDimension(): void
+    {
+        // What makes the ratio form portable: the identical placement lands a
+        // quarter-frame right of centre in BOTH frames, while a pixel offset
+        // would mean a different crop in each.
+        $placement = new ImagePlacement();
+
+        $square = $placement->compute(
+            new PlaceholderFrame(0.0, 0.0, 400.0, 400.0),
+            800,
+            800,
+            scale: 1.0,
+            offsetX: 0.0,
+            offsetY: 0.0,
+            rotation: 0.0,
+            offsetXRatio: 0.25,
+            offsetYRatio: 0.0,
+        );
+
+        $story = $placement->compute(
+            new PlaceholderFrame(0.0, 0.0, 200.0, 600.0),
+            800,
+            800,
+            scale: 1.0,
+            offsetX: 0.0,
+            offsetY: 0.0,
+            rotation: 0.0,
+            offsetXRatio: 0.25,
+            offsetYRatio: 0.0,
+        );
+
+        self::assertSame(300.0, $square['left']);  // 200 + 0.25 × 400
+        self::assertSame(150.0, $story['left']);   // 100 + 0.25 × 200
+    }
+
+    public function testRatioWinsOverThePixelFormPerAxis(): void
+    {
+        $result = (new ImagePlacement())->compute(
+            new PlaceholderFrame(0.0, 0.0, 100.0, 100.0),
+            100,
+            100,
+            scale: 1.0,
+            offsetX: 40.0,
+            offsetY: 40.0,
+            rotation: 0.0,
+            offsetXRatio: 0.1,
+            offsetYRatio: null,
+        );
+
+        self::assertSame(60.0, $result['left']); // ratio: 50 + 0.1 × 100
+        self::assertSame(90.0, $result['top']);  // px kept for the axis with no ratio
+    }
 }

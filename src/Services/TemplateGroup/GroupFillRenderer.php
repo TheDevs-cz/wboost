@@ -43,13 +43,15 @@ readonly final class GroupFillRenderer
     /**
      * @param array<array-key, mixed> $rawTextValues `textValues[<inputId>]` form fields
      * @param array<array-key, mixed> $rawHiddenValues `hiddenValues[<inputId>]` checkboxes (present = hide)
-     * @param array<array-key, mixed> $rawImages `images[<inputId>]` fields — a fileId string or `{imageId?, hide?}`
+     * @param array<array-key, mixed> $rawImages `images[<inputId>]` fields — a fileId string or `{imageId?, hide?, scale?, offsetXRatio?, offsetYRatio?, rotation?}`
+     * @param array<array-key, mixed> $rawPlacements `imagePlacements[<variantId>][<inputId>]` per-dimension placement overrides
      */
     public function renderPng(
         SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
         array $rawTextValues,
         array $rawHiddenValues,
         array $rawImages,
+        array $rawPlacements = [],
     ): string {
         /** @var array<string, array{value?: string, hide?: bool}> $providedValues */
         $providedValues = [];
@@ -79,10 +81,12 @@ readonly final class GroupFillRenderer
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
         );
 
+        $variantPlacements = $rawPlacements[$variant->id->toString()] ?? [];
+
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,
             $variant->template->project->id,
-            $this->parseImageValues($rawImages),
+            $this->parseImageValues($rawImages, is_array($variantPlacements) ? $variantPlacements : []),
         );
 
         return $this->renderer->renderToBytes($variant, $overrides, $imageOverrides);
@@ -91,13 +95,27 @@ readonly final class GroupFillRenderer
     /**
      * Normalises the posted `images[inputId][...]` fields into the shape
      * ResolveImageOverrides expects (mirrors the single-variant download
-     * controller). The group fill UI only produces `imageId` + `hide`, but
-     * the full transform shape is tolerated for parity.
+     * controller).
+     *
+     * Placement is layered: the SHARED value from `images[...]` is the group's
+     * one-fill-for-every-dimension placement, and `$variantPlacements` (posted
+     * as `imagePlacements[<variantId>][<inputId>]`) is this dimension's opt-in
+     * override, which replaces the shared placement wholesale for that slot —
+     * partially merging the two would produce a placement the user never saw in
+     * any preview.
+     *
+     * Pans travel as `offsetXRatio`/`offsetYRatio` (a fraction of the frame), the
+     * one form that means the same thing in every dimension; absolute px are
+     * still accepted for parity with the single-variant path. A transform without
+     * a picture is dropped rather than sent on — the resolver rejects that
+     * combination, and a neutral placement on an unfilled slot is what an
+     * untouched form legitimately posts.
      *
      * @param array<array-key, mixed> $raw
+     * @param array<array-key, mixed> $variantPlacements
      * @return array<string, mixed>
      */
-    private function parseImageValues(array $raw): array
+    private function parseImageValues(array $raw, array $variantPlacements = []): array
     {
         $provided = [];
 
@@ -123,10 +141,17 @@ readonly final class GroupFillRenderer
                 $entry['imageId'] = $imageId;
             }
 
-            foreach (['scale', 'offsetX', 'offsetY', 'rotation'] as $field) {
-                $candidate = $value[$field] ?? null;
-                if (is_numeric($candidate)) {
-                    $entry[$field] = (float) $candidate;
+            $override = $variantPlacements[$key] ?? null;
+            $placementSource = is_array($override) && $this->hasPlacement($override) ? $override : $value;
+
+            // A transform is meaningless without a picture (and the resolver
+            // 400s on it) — only carry placement once a slot is actually filled.
+            if (isset($entry['imageId'])) {
+                foreach (['scale', 'offsetX', 'offsetY', 'offsetXRatio', 'offsetYRatio', 'rotation'] as $field) {
+                    $candidate = $placementSource[$field] ?? null;
+                    if (is_numeric($candidate)) {
+                        $entry[$field] = (float) $candidate;
+                    }
                 }
             }
 
@@ -141,5 +166,23 @@ readonly final class GroupFillRenderer
         }
 
         return $provided;
+    }
+
+    /**
+     * Whether a posted per-dimension entry actually carries a placement. The
+     * override fields only exist once the user unlinked that dimension, so an
+     * empty / non-numeric entry must fall back to the shared placement.
+     *
+     * @param array<array-key, mixed> $entry
+     */
+    private function hasPlacement(array $entry): bool
+    {
+        foreach (['scale', 'offsetX', 'offsetY', 'offsetXRatio', 'offsetYRatio', 'rotation'] as $field) {
+            if (is_numeric($entry[$field] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

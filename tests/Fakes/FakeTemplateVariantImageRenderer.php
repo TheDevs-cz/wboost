@@ -21,7 +21,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
 {
     private const string FIXED_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
 
-    /** @var array<int, array{variantId: string, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}> */
+    /** @var array<int, array{variantId: string, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool}> */
     public array $calls = [];
 
     /**
@@ -72,6 +72,8 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
                     'scale' => $override->scale,
                     'offsetX' => $override->offsetX,
                     'offsetY' => $override->offsetY,
+                    'offsetXRatio' => $override->offsetXRatio,
+                    'offsetYRatio' => $override->offsetYRatio,
                     'rotation' => $override->rotation,
                     'naturalWidth' => $override->naturalWidth,
                     'naturalHeight' => $override->naturalHeight,

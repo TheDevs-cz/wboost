@@ -2429,6 +2429,72 @@ button.fill-layer-row__main:focus-visible {
     display: block;
 }
 
+/* Image placement over a group preview.
+   The layer never intercepts pointer events itself — only the per-slot grab
+   boxes do — so the rest of the preview stays inert. A box exists as soon as a
+   picture is chosen (it IS the grab handle); the picture inside it is revealed
+   only while placing, until the fresh server render lands and takes over. */
+.group-fill-placement-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.group-fill-ghost {
+    position: absolute;
+    overflow: hidden;
+    pointer-events: auto;
+    cursor: grab;
+    border: 1px dashed transparent;
+    border-radius: 2px;
+}
+
+.group-fill-ghost:hover,
+.group-fill-ghost:focus-visible {
+    border-color: rgba(114, 124, 245, 0.9);
+    outline: none;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
+
+.group-fill-ghost:active {
+    cursor: grabbing;
+}
+
+.group-fill-ghost img {
+    position: absolute;
+    display: block;
+    max-width: none;
+    object-fit: fill;
+    opacity: 0;
+    transform-origin: center center;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+/* While placing, the stand-in replaces the (now stale) rendered pixels of that
+   slot — the neutral backdrop hides the old position underneath. */
+.group-fill-placement-layer.is-active .group-fill-ghost {
+    background: #fff;
+    border-color: rgba(114, 124, 245, 0.9);
+}
+
+.group-fill-placement-layer.is-active .group-fill-ghost img,
+.group-fill-preview-frame.is-loading .group-fill-placement-layer.is-active .group-fill-ghost img,
+.group-fill-preview-frame.is-pending .group-fill-placement-layer.is-active .group-fill-ghost img {
+    opacity: 1;
+}
+
+.group-fill-placement-controls {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.3rem;
+    background: #fbfbfe;
+}
+
+.group-fill-placement-controls .form-range {
+    margin-bottom: 0.35rem;
+}
+
 .group-fill-image-thumb {
     flex: 0 0 auto;
     width: 56px;

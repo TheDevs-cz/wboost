@@ -28,7 +28,16 @@ final class ExportRequest
      * `{ "imageId": "...", "scale": 1, "offsetX": 0, "offsetY": 0, "rotation": 0 }`
      * (`scale` multiplies the contain-fit, `offsetX/Y` pan in canvas px from the
      * frame centre, `rotation` is degrees), or `{ "hide": true }` to blank a
-     * hidable slot. Discover the ids, frames and allowed folders via
+     * hidable slot.
+     *
+     * The pan may instead be given as `offsetXRatio` / `offsetYRatio` — the same
+     * pan as a FRACTION of the frame's width / height (0.25 = a quarter of the
+     * frame to the right / down). That form is portable: the same value keeps
+     * one crop intent when it is reused on another variant of the same template
+     * whose frame differs. Send one form or the other per axis; both for the
+     * same axis is a 400.
+     *
+     * Discover the ids, frames and allowed folders via
      * `GET /api/projects/{projectId}/custom-templates`
      * (`variants[].imageInputs[]`); list a slot's pickable images via
      * `GET /api/custom-template-variants/{variantId}/placeholders/{inputId}/images`.

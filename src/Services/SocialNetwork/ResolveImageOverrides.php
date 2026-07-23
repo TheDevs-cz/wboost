@@ -64,7 +64,7 @@ readonly final class ResolveImageOverrides
             }
 
             if ($parsed['imageId'] === null) {
-                if ($parsed['scale'] !== null || $parsed['offsetX'] !== null || $parsed['offsetY'] !== null || $parsed['rotation'] !== null) {
+                if ($parsed['scale'] !== null || $parsed['offsetX'] !== null || $parsed['offsetY'] !== null || $parsed['rotation'] !== null || $parsed['offsetXRatio'] !== null || $parsed['offsetYRatio'] !== null) {
                     throw new BadRequestHttpException(sprintf('Image input "%s" requires an "imageId" when a transform is supplied.', $label));
                 }
 
@@ -77,12 +77,18 @@ readonly final class ResolveImageOverrides
             $offsetX = $parsed['offsetX'] ?? 0.0;
             $offsetY = $parsed['offsetY'] ?? 0.0;
             $rotation = $parsed['rotation'] ?? 0.0;
+            $offsetXRatio = $parsed['offsetXRatio'];
+            $offsetYRatio = $parsed['offsetYRatio'];
 
             if (!$input->allowResize && $scale !== 1.0) {
                 throw new BadRequestHttpException(sprintf('Image input "%s" cannot be resized.', $label));
             }
 
-            if (!$input->allowMove && ($offsetX !== 0.0 || $offsetY !== 0.0)) {
+            // The pan is gated whichever form it arrives in — px or frame ratio.
+            $movedInPixels = $offsetX !== 0.0 || $offsetY !== 0.0;
+            $movedInRatio = ($offsetXRatio ?? 0.0) !== 0.0 || ($offsetYRatio ?? 0.0) !== 0.0;
+
+            if (!$input->allowMove && ($movedInPixels || $movedInRatio)) {
                 throw new BadRequestHttpException(sprintf('Image input "%s" cannot be moved.', $label));
             }
 
@@ -106,6 +112,8 @@ readonly final class ResolveImageOverrides
                 offsetX: $offsetX,
                 offsetY: $offsetY,
                 rotation: $rotation,
+                offsetXRatio: $offsetXRatio,
+                offsetYRatio: $offsetYRatio,
             );
         }
 
@@ -151,14 +159,18 @@ readonly final class ResolveImageOverrides
 
     /**
      * Accepts a shorthand string (the imageId) or an object
-     * `{ imageId?, scale?, offsetX?, offsetY?, rotation?, hide? }`.
+     * `{ imageId?, scale?, offsetX?, offsetY?, offsetXRatio?, offsetYRatio?, rotation?, hide? }`.
      *
-     * @return array{imageId: null|string, scale: null|float, offsetX: null|float, offsetY: null|float, rotation: null|float, hide: null|bool}
+     * The pan is given EITHER in canvas px (`offsetX`/`offsetY`) OR as a
+     * fraction of the frame (`offsetXRatio`/`offsetYRatio`) — both forms for the
+     * same axis is a contradiction, not a precedence puzzle, so it is refused.
+     *
+     * @return array{imageId: null|string, scale: null|float, offsetX: null|float, offsetY: null|float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: null|float, hide: null|bool}
      */
     private function parseValue(string $label, mixed $raw): array
     {
         if (is_string($raw)) {
-            return ['imageId' => $raw, 'scale' => null, 'offsetX' => null, 'offsetY' => null, 'rotation' => null, 'hide' => null];
+            return ['imageId' => $raw, 'scale' => null, 'offsetX' => null, 'offsetY' => null, 'offsetXRatio' => null, 'offsetYRatio' => null, 'rotation' => null, 'hide' => null];
         }
 
         if (!is_array($raw)) {
@@ -181,14 +193,29 @@ readonly final class ResolveImageOverrides
             $hide = $raw['hide'];
         }
 
-        return [
+        $parsed = [
             'imageId' => $imageId,
             'scale' => $this->optionalFloat($label, $raw, 'scale'),
             'offsetX' => $this->optionalFloat($label, $raw, 'offsetX'),
             'offsetY' => $this->optionalFloat($label, $raw, 'offsetY'),
+            'offsetXRatio' => $this->optionalFloat($label, $raw, 'offsetXRatio'),
+            'offsetYRatio' => $this->optionalFloat($label, $raw, 'offsetYRatio'),
             'rotation' => $this->optionalFloat($label, $raw, 'rotation'),
             'hide' => $hide,
         ];
+
+        foreach ([['offsetX', 'offsetXRatio'], ['offsetY', 'offsetYRatio']] as [$pixels, $ratio]) {
+            if ($parsed[$pixels] !== null && $parsed[$ratio] !== null) {
+                throw new BadRequestHttpException(sprintf(
+                    'Image input "%s": send either "%s" (canvas px) or "%s" (fraction of the frame), not both.',
+                    $label,
+                    $pixels,
+                    $ratio,
+                ));
+            }
+        }
+
+        return $parsed;
     }
 
     /**

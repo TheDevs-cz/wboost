@@ -50,6 +50,9 @@ final class TemplateGroupFillController extends AbstractController
                     'groupId' => $group->id,
                     'variantId' => $variant->id,
                 ]),
+                // Per-dimension placeholder geometry: the client resolves the
+                // shared relative placement into THIS dimension's pixels.
+                'image_frames' => $this->placeholders->imageFrames($variant),
             ];
         }
 
@@ -64,10 +67,21 @@ final class TemplateGroupFillController extends AbstractController
                     'groupId' => $group->id,
                     'variantId' => $variant->id,
                 ]),
+                // Per-dimension placeholder geometry: the client resolves the
+                // shared relative placement into THIS dimension's pixels.
+                'image_frames' => $this->placeholders->imageFrames($variant),
             ];
         }
 
         $allVariants = [...$socialVariants, ...$customVariants];
+        $imageInputs = $this->placeholders->imageInputs($allVariants, $group->project->id);
+
+        // Slots the designer left adjustable are the only ones that get the
+        // placement UI (and the only ones allowed to post a transform at all).
+        $adjustableImageInputs = array_values(array_filter(
+            $imageInputs,
+            static fn (array $slot): bool => $slot['input']->allowMove || $slot['input']->allowResize || $slot['input']->allowRotate,
+        ));
 
         return $this->render('template_group_fill.html.twig', [
             'project' => $group->project,
@@ -75,7 +89,28 @@ final class TemplateGroupFillController extends AbstractController
             'menu_item' => 'template_groups',
             'variants' => $variants,
             'text_inputs' => $this->placeholders->textInputs($allVariants),
-            'image_inputs' => $this->placeholders->imageInputs($allVariants, $group->project->id),
+            'image_inputs' => $imageInputs,
+            'adjustable_image_inputs' => $adjustableImageInputs,
+            'placement_slots' => array_map(
+                static fn (array $slot): array => [
+                    'inputId' => $slot['input']->inputId,
+                    'name' => $slot['input']->name,
+                    'allowMove' => $slot['input']->allowMove,
+                    'allowResize' => $slot['input']->allowResize,
+                    'allowRotate' => $slot['input']->allowRotate,
+                ],
+                $adjustableImageInputs,
+            ),
+            'placement_variants' => array_map(
+                static fn (array $entry): array => [
+                    'variantId' => $entry['variant']->id->toString(),
+                    'width' => $entry['width'],
+                    'height' => $entry['height'],
+                    'label' => $entry['dimension_label'],
+                    'frames' => $entry['image_frames'],
+                ],
+                $variants,
+            ),
             'export_url' => $this->generateUrl('template_group_export', ['groupId' => $group->id]),
         ]);
     }
