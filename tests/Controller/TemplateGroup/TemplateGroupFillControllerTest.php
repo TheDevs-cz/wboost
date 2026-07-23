@@ -48,6 +48,32 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         self::assertStringEndsWith('/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/export', (string) $form->attr('action'));
     }
 
+    public function testImagePlaceholderOffersGalleryPickAndOwnUpload(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $crawler = $client->request('GET', $this->fillUrl());
+
+        self::assertResponseIsSuccessful();
+
+        // Both member variants share the image placeholder — one unified slot.
+        $imageFields = $crawler->filter('input[name="images[' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '][imageId]"]');
+        self::assertCount(1, $imageFields);
+
+        // The slot is unrestricted, so the user may upload their own picture;
+        // the file input must post to the group-scoped upload endpoint.
+        $uploadField = $crawler->filter('input[type="file"][data-group-fill-inputid-param="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
+        self::assertCount(1, $uploadField);
+        self::assertStringEndsWith(
+            '/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/placeholders/' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '/upload',
+            (string) $uploadField->attr('data-group-fill-uploadurl-param'),
+        );
+
+        // Freshly uploaded pictures are appended into the picker's option grid.
+        self::assertSelectorExists('[data-group-fill-target="imageOptions"][data-input-id="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
+    }
+
     public function testFillPageIsForbiddenForNonDesigner(): void
     {
         $client = self::createClient();

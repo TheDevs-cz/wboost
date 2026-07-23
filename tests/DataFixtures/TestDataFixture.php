@@ -150,6 +150,8 @@ final class TestDataFixture extends Fixture
     public const string GROUPED_CUSTOM_VARIANT_ID = '00000000-0000-0000-0000-0000000000c4';
     public const string UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c5';
     public const string GROUP_SHARED_INPUT_ID = '00000000-0000-0000-0000-0000000000c6';
+    /** Image placeholder shared by both member variants — unrestricted slot (whole gallery + root). */
+    public const string GROUP_SHARED_IMAGE_INPUT_ID = '00000000-0000-0000-0000-0000000000c7';
 
     public function __construct(
         private readonly TokenCrypto $tokenCrypto,
@@ -622,9 +624,29 @@ final class TestDataFixture extends Fixture
                     'left' => 80, 'top' => 60, 'width' => 520, 'height' => 90,
                     'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
                 ],
+                [
+                    'type' => 'Image',
+                    'inputId' => self::GROUP_SHARED_IMAGE_INPUT_ID,
+                    'imagePlaceholder' => true,
+                    'left' => 80, 'top' => 200, 'width' => 400, 'height' => 300,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
             ],
             'backgroundImage' => null,
         ], JSON_THROW_ON_ERROR);
+
+        // Unrestricted slot (empty allow-list = whole gallery + root), so the
+        // fill page must offer the "upload your own" field.
+        $groupSharedImageInput = new EditorImageInput(
+            self::GROUP_SHARED_IMAGE_INPUT_ID,
+            'photo',
+            null,
+            allowMove: true,
+            allowResize: true,
+            allowRotate: false,
+            hidable: true,
+            allowedDirectoryIds: [],
+        );
 
         $groupedSocialTemplate = new SocialNetworkTemplate(
             Uuid::fromString(self::GROUPED_SOCIAL_TEMPLATE_ID),
@@ -649,6 +671,7 @@ final class TestDataFixture extends Fixture
             $groupSharedCanvas,
             [new EditorTextInput(self::GROUP_SHARED_INPUT_ID, 'headline', null, false, false, null, false)],
             null,
+            [$groupSharedImageInput],
         );
         $groupedSocialVariant->assignToGroup($templateGroup1);
         $manager->persist($groupedSocialVariant);
@@ -686,6 +709,7 @@ final class TestDataFixture extends Fixture
             $groupSharedCanvas,
             [new EditorTextInput(self::GROUP_SHARED_INPUT_ID, 'headline', null, false, false, null, false)],
             null,
+            [$groupSharedImageInput],
         );
         $groupedCustomVariant->assignToGroup($templateGroup1);
         $manager->persist($groupedCustomVariant);

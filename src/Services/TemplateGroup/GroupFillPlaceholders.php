@@ -66,14 +66,18 @@ readonly final class GroupFillPlaceholders
 
     /**
      * One unified image slot per distinct placeholder, with the gallery
-     * pictures it may be filled from (scoped to the slot's allowed folders)
-     * and the designer's stand-in as the "keep default" preview.
+     * pictures it may be filled from (scoped to the slot's allowed folders),
+     * the folders a user may upload their OWN picture into, and the designer's
+     * stand-in as the "keep default" preview.
      *
      * @param list<SocialNetworkTemplateVariant|CustomTemplateVariant> $variants
      * @return list<array{
      *     input: EditorImageInput,
      *     defaultImageUrl: null|string,
-     *     images: list<array{id: string, url: string}>
+     *     images: list<array{id: string, url: string}>,
+     *     directories: list<array{id: string, name: string}>,
+     *     includesRoot: bool,
+     *     canUpload: bool
      * }>
      */
     public function imageInputs(array $variants, UuidInterface $projectId): array
@@ -109,6 +113,20 @@ readonly final class GroupFillPlaceholders
                 'input' => $input,
                 'defaultImageUrl' => $defaultUrls[$inputId] ?? null,
                 'images' => $this->allowedImages($projectId, $directories, $includesRoot),
+                // Upload targets, mirroring the per-variant fill page: with
+                // several possible targets the user picks one (the server
+                // refuses to guess); a single folder — or the root of an
+                // unrestricted slot — is resolved server-side. Only a
+                // restricted slot whose every folder was deleted is a dead end.
+                'directories' => array_map(
+                    static fn (FileDirectory $directory): array => [
+                        'id' => $directory->id->toString(),
+                        'name' => $directory->name,
+                    ],
+                    $directories,
+                ),
+                'includesRoot' => $includesRoot,
+                'canUpload' => $directories !== [] || $includesRoot,
             ];
         }
 

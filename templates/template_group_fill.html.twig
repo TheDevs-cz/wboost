@@ -105,12 +105,12 @@
                                                   data-group-fill-target="imageThumb"
                                                   data-input-id="{{ input.inputId }}"
                                                   {% if slot.defaultImageUrl %}style="background-image: url('{{ slot.defaultImageUrl }}');"{% endif %}></span>
-                                            {% if slot.images|length > 0 %}
+                                            {% if slot.images|length > 0 or slot.canUpload %}
                                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#groupFillImageModal-{{ input.inputId }}">
-                                                    <i class="mdi mdi-image-search-outline"></i> Vybrat obrázek
+                                                    <i class="mdi mdi-image-search-outline"></i> {{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
                                                 </button>
                                             {% else %}
-                                                <span class="text-muted font-12">V povolených složkách galerie zatím nejsou žádné obrázky.</span>
+                                                <span class="text-muted font-12">Šablona nemá nastavenou složku galerie — kontaktujte správce šablony.</span>
                                             {% endif %}
                                         </div>
                                         {% if input.description %}
@@ -162,10 +162,12 @@
 
             {# Image pickers: one modal per unified slot, plain thumbnails from
                the slot's allowed gallery folders + a "keep the designed
-               picture" option. Picks land in the hidden imageId field. #}
+               picture" option, plus an upload field when the designer left the
+               slot a folder to upload into. Picks land in the hidden imageId
+               field; a fresh upload is appended as an option and auto-picked. #}
             {% for slot in image_inputs %}
                 {% set input = slot.input %}
-                {% if slot.images|length > 0 %}
+                {% if slot.images|length > 0 or slot.canUpload %}
                     <div class="modal fade" id="groupFillImageModal-{{ input.inputId }}" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                             <div class="modal-content">
@@ -174,7 +176,9 @@
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <div class="d-flex flex-wrap gap-2">
+                                    <div class="d-flex flex-wrap gap-2"
+                                         data-group-fill-target="imageOptions"
+                                         data-input-id="{{ input.inputId }}">
                                         <button type="button" class="group-fill-image-option selected"
                                                 data-action="group-fill#pickImage"
                                                 data-input-id="{{ input.inputId }}"
@@ -198,6 +202,42 @@
                                             </button>
                                         {% endfor %}
                                     </div>
+
+                                    {% if slot.canUpload %}
+                                        {% if slot.images|length == 0 %}
+                                            <p class="text-muted small mt-2 mb-0">V povolených složkách galerie zatím nejsou žádné obrázky — nahrajte vlastní níže.</p>
+                                        {% endif %}
+
+                                        <hr class="my-3">
+
+                                        {# The file input is deliberately UNNAMED so it never lands in
+                                           the export FormData — the upload POSTs separately and the
+                                           form only ever carries the resulting imageId. #}
+                                        {% set uploadTargetCount = slot.directories|length + (slot.includesRoot ? 1 : 0) %}
+                                        {% if uploadTargetCount > 1 %}
+                                            <label class="form-label small text-muted mb-0" for="group-fill-upload-directory-{{ input.inputId }}">Nahrát do složky</label>
+                                            <select id="group-fill-upload-directory-{{ input.inputId }}"
+                                                    class="form-select form-select-sm mb-2"
+                                                    data-upload-directory="{{ input.inputId }}">
+                                                {% if slot.includesRoot %}
+                                                    <option value="">Galerie (bez složky)</option>
+                                                {% endif %}
+                                                {% for directory in slot.directories %}
+                                                    <option value="{{ directory.id }}">{{ directory.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        {% endif %}
+
+                                        <label class="form-label small text-muted mb-0" for="group-fill-upload-file-{{ input.inputId }}">Nahrát vlastní obrázek <span class="text-muted">(JPG, PNG…)</span></label>
+                                        <input type="file"
+                                               id="group-fill-upload-file-{{ input.inputId }}"
+                                               class="form-control form-control-sm"
+                                               accept="image/*"
+                                               data-action="change->group-fill#uploadImage"
+                                               data-group-fill-inputid-param="{{ input.inputId }}"
+                                               data-group-fill-uploadurl-param="{{ path('template_group_placeholder_upload', {'groupId': group.id, 'inputId': input.inputId}) }}">
+                                        <div class="small mt-1" data-upload-status="{{ input.inputId }}" aria-live="polite"></div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

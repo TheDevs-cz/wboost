@@ -13,7 +13,7 @@ import { Controller } from '@hotwired/stimulus';
  * would send — previews and the ZIP can never disagree.
  */
 export default class extends Controller {
-    static targets = ['preview', 'imageThumb', 'imageValue', 'exportButton'];
+    static targets = ['preview', 'imageThumb', 'imageValue', 'imageOptions', 'exportButton'];
 
     static values = {
         debounce: { type: Number, default: 900 },
@@ -52,10 +52,19 @@ export default class extends Controller {
 
     pickImage(event) {
         const option = event.currentTarget;
-        const inputId = option.dataset.inputId;
-        const imageId = option.dataset.imageId || '';
-        const imageUrl = option.dataset.imageUrl || '';
 
+        this.selectImage(
+            option.dataset.inputId,
+            option.dataset.imageId || '',
+            option.dataset.imageUrl || '',
+            option,
+        );
+    }
+
+    // Mirrors the chosen picture into the hidden form field (the value the
+    // preview + ZIP export actually run on), the side-panel thumbnail and the
+    // picker's selection ring.
+    selectImage(inputId, imageId, imageUrl, option) {
         const hiddenField = this.imageValueTargets.find((element) => element.dataset.inputId === inputId);
         if (hiddenField) {
             hiddenField.value = imageId;
@@ -66,14 +75,103 @@ export default class extends Controller {
             thumb.style.backgroundImage = imageUrl !== '' ? `url('${imageUrl}')` : 'none';
         }
 
-        const modal = option.closest('.modal');
-        if (modal) {
-            modal.querySelectorAll('.group-fill-image-option').forEach((element) => {
+        const options = this.imageOptionsTargets.find((element) => element.dataset.inputId === inputId);
+        if (options) {
+            options.querySelectorAll('.group-fill-image-option').forEach((element) => {
                 element.classList.toggle('selected', element === option);
             });
         }
 
         this.changed();
+    }
+
+    /**
+     * "Upload your own image" inside a picker modal. The file goes to the
+     * group-scoped placeholder upload endpoint (which validates the slot and
+     * the target folder server-side), then lands in the project gallery — so
+     * it is appended to this picker as a regular option and auto-picked.
+     */
+    uploadImage(event) {
+        const input = event.target;
+        const file = input.files && input.files[0];
+        if (!file) {
+            return;
+        }
+
+        const inputId = event.params.inputid;
+        const uploadUrl = event.params.uploadurl;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // With several allowed folders the picker renders a select and the
+        // server requires an explicit choice; a single target resolves
+        // server-side.
+        const directorySelect = this.element.querySelector(`select[data-upload-directory="${inputId}"]`);
+        if (directorySelect && directorySelect.value) {
+            formData.append('directoryId', directorySelect.value);
+        }
+
+        input.disabled = true;
+        this.setUploadStatus(inputId, 'Nahrávám…', 'busy');
+
+        fetch(uploadUrl, { method: 'POST', body: formData, headers: { Accept: 'application/json' } })
+            .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+            .then((data) => {
+                if (!data || !data.id || !data.url) {
+                    this.setUploadStatus(inputId, 'Nahrání obrázku se nepovedlo.', 'error');
+                    return;
+                }
+
+                const option = this.appendImageOption(inputId, data.id, data.url);
+                this.selectImage(inputId, data.id, data.url, option);
+                this.setUploadStatus(inputId, 'Obrázek nahrán a vybrán.', 'ok');
+            })
+            .catch(() => {
+                this.setUploadStatus(inputId, 'Nahrání obrázku se nepovedlo. Zkuste to znovu.', 'error');
+            })
+            .finally(() => {
+                input.value = '';
+                input.disabled = false;
+            });
+    }
+
+    appendImageOption(inputId, imageId, imageUrl) {
+        const options = this.imageOptionsTargets.find((element) => element.dataset.inputId === inputId);
+        if (!options) {
+            return null;
+        }
+
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'group-fill-image-option';
+        option.dataset.action = 'group-fill#pickImage';
+        option.dataset.inputId = inputId;
+        option.dataset.imageId = imageId;
+        option.dataset.imageUrl = imageUrl;
+        option.dataset.bsDismiss = 'modal';
+
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = '';
+        img.loading = 'lazy';
+        option.appendChild(img);
+
+        options.appendChild(option);
+
+        return option;
+    }
+
+    // Inline busy / success / error feedback (no blocking alert).
+    setUploadStatus(inputId, text, kind) {
+        const status = this.element.querySelector(`[data-upload-status="${inputId}"]`);
+        if (!status) {
+            return;
+        }
+
+        status.textContent = text;
+        status.className = `small mt-1 ${kind === 'error' ? 'text-danger' : kind === 'ok' ? 'text-success' : 'text-muted'}`;
+        status.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     }
 
     // The download itself is handled natively by the browser (Content-
