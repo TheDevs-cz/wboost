@@ -1929,6 +1929,45 @@ button.fill-layer-row__main:focus-visible {
     pointer-events: none;
 }
 
+/* Compact strip variant: always visible above the folder grid, so it states
+   the upload target ("Nahraje se do: …") without eating vertical space. */
+.gallery-dropzone--compact {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    text-align: left;
+}
+
+.gallery-dropzone--compact .gallery-dropzone__icon {
+    display: block;
+    margin-bottom: 0;
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.gallery-dropzone--compact .gallery-dropzone__title {
+    font-size: 0.875rem;
+    margin-bottom: 0;
+}
+
+.gallery-dropzone--compact .gallery-dropzone__text {
+    min-width: 0;
+}
+
+/* Freshly uploaded thumbnail: a short highlight pulse so the user sees the
+   file land in the folder they are looking at. */
+.gallery-asset--new {
+    outline: 2px solid var(--bs-success, #0acf97);
+    outline-offset: 1px;
+    animation: gallery-asset-new-pulse 1.2s ease-out 2;
+}
+
+@keyframes gallery-asset-new-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(10, 207, 151, 0.55); }
+    100% { box-shadow: 0 0 0 12px rgba(10, 207, 151, 0); }
+}
+
 .gallery-dropzone__icon {
     display: block;
     margin-bottom: 0.5rem;

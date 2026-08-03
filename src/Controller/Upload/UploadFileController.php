@@ -68,9 +68,12 @@ final class UploadFileController extends AbstractController
             // the editor controllers that already drop it onto a Fabric canvas
             // verbatim. `storagePath` is the raw S3 key — used by the Stage 7
             // image gallery to persist the chosen background on the variant.
+            // `id` identifies the FileUpload row (used by the gallery's
+            // asset-selected event for uploaded-then-placed images).
             return $this->json([
                 'filePath' => $this->uploaderHelper->getPublicPath($file->path),
                 'storagePath' => $file->path,
+                'id' => $fileId->toString(),
             ]);
         }
 

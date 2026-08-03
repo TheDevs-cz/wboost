@@ -1,32 +1,33 @@
 {#
     Stage 8: project-scoped, filesystem-like image gallery used inside the admin
-    editor's "Pozadí" / "Přidat obrázek" modal.
+    editor's "Pozadí" / "Přidat obrázek" modal and standalone on the project
+    gallery page.
 
-    Two tabs:
-      - "Z galerie": breadcrumb-navigated folder tree. Folders can be created,
-        renamed, and deleted ONLY when empty (a non-empty folder is refused with
-        a warning — its contents are never relocated) — all via LiveActions.
-        Clicking an image dispatches an `asset-selected` CustomEvent (with
-        { url, path, id }) on the modal root so the canvas-editor orchestrator
-        routes the URL to setBackgroundImage or addImageToCanvas. Each image
-        also has a "move to folder" menu and a delete button (deleteFile, which
-        also removes the file from storage).
-      - "Nahrát nový": a drag-and-drop dropzone managed by the gallery-uploader
-        Stimulus controller. Accepts MULTIPLE images at once and shows them as a
-        preview list (thumbnail + name + size, each removable) BEFORE uploading;
-        only the "Nahrát" confirm button POSTs each file to `project_upload_file`
-        (into the currently-open folder via the hidden `directoryId` field),
-        updating per-file status and showing a success toast. On the standalone
-        page the user stays on the dropzone tab and the grid re-renders lazily
-        when they next open the gallery tab; in the editor modal a single
-        uploaded image is auto-selected onto the canvas and multi-upload flips
-        to the gallery tab to pick.
+    SINGLE SCREEN (no tabs): breadcrumb-navigated folder tree with a compact,
+    always-visible upload strip right under the toolbar. The strip states the
+    upload target explicitly ("Nahraje se do: <open folder>") — uploads always
+    land in the folder currently open (hidden `directoryId` field, kept fresh
+    by every Live re-render). Files upload IMMEDIATELY on drop/pick (per-file
+    progress rows managed by the gallery-uploader Stimulus controller inside a
+    data-live-ignore island, so mid-upload grid refreshes never wipe them);
+    after each upload the grid re-renders in place and the new thumbnails pulse
+    highlighted (image-gallery controller matches them by data-storage-path),
+    so the user SEES the file arrive in the open folder. No auto-select in the
+    modal: the uploaded image appears highlighted and one click places it.
+
+    Folders can be created, renamed, and deleted ONLY when empty (a non-empty
+    folder is refused with a warning — its contents are never relocated) — all
+    via LiveActions. Clicking an image (modal only) dispatches an
+    `asset-selected` CustomEvent (with { url, path, id }) on the modal root so
+    the canvas-editor orchestrator routes the URL to setBackgroundImage or
+    addImageToCanvas. Each image also has a "move to folder" menu and a delete
+    button (deleteFile, which also removes the file from storage).
 #}
 <div {{ attributes.defaults({'data-controller': 'image-gallery'}) }}>
     {#
         Hidden trigger for the LiveAction that re-fetches the asset list. The
         image-gallery Stimulus controller programmatically clicks this button
-        after a successful upload so the new FileUpload shows up in the grid.
+        after each successful upload so the new FileUpload shows up in the grid.
     #}
     <button
         type="button"
@@ -44,343 +45,297 @@
     {% endif %}
 
     <div class="{{ modal ? 'modal-body' : '' }}">
-        <ul class="nav nav-tabs mb-3" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button
-                    class="nav-link active"
-                    id="gallery-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#gallery-tab-pane"
-                    type="button"
-                    role="tab"
-                >Z galerie</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button
-                    class="nav-link"
-                    id="upload-tab"
-                    data-bs-toggle="tab"
-                    data-bs-target="#upload-tab-pane"
-                    type="button"
-                    role="tab"
-                >Nahrát nový</button>
-            </li>
-        </ul>
+        {% set breadcrumbs = this.breadcrumbs() %}
+        {% set directories = this.directories() %}
+        {% set gallery_assets = this.assets() %}
+        {% set move_targets = this.moveTargets() %}
+        {% set current_folder_label = breadcrumbs is empty ? 'Galerie (kořen)' : (breadcrumbs|last).name %}
 
-        <div class="tab-content">
-            <div class="tab-pane fade show active" id="gallery-tab-pane" role="tabpanel">
-                {% set breadcrumbs = this.breadcrumbs() %}
-                {% set directories = this.directories() %}
-                {% set gallery_assets = this.assets() %}
-                {% set move_targets = this.moveTargets() %}
+        {#
+            Grid layout differs by host: the modal is narrow, so 4 fixed
+            columns (Bootstrap col-3); the standalone management page is
+            full-width, so an auto-filling CSS grid packs ~2x more
+            thumbnails per row. Driven by the `modal` LiveProp; the cell
+            keeps col-3 in the modal and becomes a plain grid item
+            standalone.
+        #}
+        {% set cell_class = modal ? 'col-3' : '' %}
 
-                {#
-                    Grid layout differs by host: the modal is narrow, so 4 fixed
-                    columns (Bootstrap col-3); the standalone management page is
-                    full-width, so an auto-filling CSS grid packs ~2x more
-                    thumbnails per row. Driven by the `modal` LiveProp; the cell
-                    keeps col-3 in the modal and becomes a plain grid item
-                    standalone.
-                #}
-                {% set cell_class = modal ? 'col-3' : '' %}
-
-                {# Breadcrumb navigation #}
-                <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
+        {# Breadcrumb navigation #}
+        <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
+            <button
+                type="button"
+                class="btn btn-sm btn-link p-0 text-decoration-none {{ breadcrumbs is empty ? 'fw-bold text-body' : '' }}"
+                data-action="live#action"
+                data-live-action-param="openRoot"
+            ><i class="mdi mdi-folder-home"></i> Galerie</button>
+            {% for crumb in breadcrumbs %}
+                <span class="text-muted">/</span>
+                {% if loop.last %}
+                    <span class="fw-bold">{{ crumb.name }}</span>
+                {% else %}
                     <button
                         type="button"
-                        class="btn btn-sm btn-link p-0 text-decoration-none {{ breadcrumbs is empty ? 'fw-bold text-body' : '' }}"
+                        class="btn btn-sm btn-link p-0 text-decoration-none"
                         data-action="live#action"
-                        data-live-action-param="openRoot"
-                    ><i class="mdi mdi-folder-home"></i> Galerie</button>
-                    {% for crumb in breadcrumbs %}
-                        <span class="text-muted">/</span>
-                        {% if loop.last %}
-                            <span class="fw-bold">{{ crumb.name }}</span>
-                        {% else %}
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-link p-0 text-decoration-none"
-                                data-action="live#action"
-                                data-live-action-param="openDirectory"
-                                data-live-directoryid-param="{{ crumb.id }}"
-                            >{{ crumb.name }}</button>
-                        {% endif %}
-                    {% endfor %}
-                </nav>
+                        data-live-action-param="openDirectory"
+                        data-live-directoryid-param="{{ crumb.id }}"
+                    >{{ crumb.name }}</button>
+                {% endif %}
+            {% endfor %}
+        </nav>
 
-                {# New-folder inline form #}
-                <div class="input-group input-group-sm mb-3" style="max-width: 22rem;">
-                    <span class="input-group-text"><i class="mdi mdi-folder-plus"></i></span>
-                    <input
-                        type="text"
-                        class="form-control"
-                        placeholder="Název nové složky"
-                        data-model="norender|newDirectoryName"
-                        value="{{ this.newDirectoryName }}"
-                    >
-                    <button
-                        type="button"
-                        class="btn btn-outline-primary"
-                        data-action="live#action"
-                        data-live-action-param="createDirectory"
-                    >Vytvořit složku</button>
+        {# New-folder inline form #}
+        <div class="input-group input-group-sm mb-2" style="max-width: 22rem;">
+            <span class="input-group-text"><i class="mdi mdi-folder-plus"></i></span>
+            <input
+                type="text"
+                class="form-control"
+                placeholder="Název nové složky"
+                data-model="norender|newDirectoryName"
+                value="{{ this.newDirectoryName }}"
+            >
+            <button
+                type="button"
+                class="btn btn-outline-primary"
+                data-action="live#action"
+                data-live-action-param="createDirectory"
+            >Vytvořit složku</button>
+        </div>
+
+        {#
+            Upload strip. The hidden CSRF `_token` and `directoryId` fields are
+            OUTSIDE the data-live-ignore island so folder navigation keeps them
+            fresh; the queue/progress island below is inside it so an in-flight
+            batch survives every Live morph (each finished file triggers one).
+        #}
+        <form
+            id="gallery-upload-form"
+            class="mb-3"
+            data-controller="gallery-uploader"
+            data-gallery-uploader-url-value="{{ this.uploadUrl() }}"
+        >
+            <input type="hidden" name="upload_project_file_form[_token]" value="{{ csrf_token('submit') }}">
+
+            {# The currently-open folder the new upload lands in (empty = root). #}
+            <input type="hidden" name="directoryId" value="{{ this.currentDirectoryId }}">
+
+            <div
+                class="gallery-dropzone gallery-dropzone--compact"
+                data-gallery-uploader-target="dropzone"
+                data-action="
+                    click->gallery-uploader#browse
+                    keydown->gallery-uploader#keydown
+                    dragover->gallery-uploader#dragOver
+                    dragleave->gallery-uploader#dragLeave
+                    drop->gallery-uploader#drop
+                "
+                role="button"
+                tabindex="0"
+                aria-label="Nahrát obrázky do složky {{ current_folder_label }}"
+            >
+                <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
+                <div class="gallery-dropzone__text">
+                    <div class="gallery-dropzone__title">
+                        Přetáhněte obrázky sem <span class="fw-normal text-muted">nebo klikněte pro výběr</span>
+                    </div>
+                    <div class="small text-muted">
+                        Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> {{ current_folder_label }}</strong>
+                        &middot; více souborů najednou, max. 10&nbsp;MB / soubor
+                    </div>
                 </div>
+            </div>
 
-                {% if this.folderActionError %}
-                    <div class="alert alert-warning py-2 small" role="alert">
-                        <i class="mdi mdi-alert-outline me-1"></i>{{ this.folderActionError }}
-                    </div>
-                {% endif %}
+            <input
+                type="file"
+                name="upload_project_file_form[file]"
+                class="d-none"
+                accept="image/*"
+                multiple
+                data-gallery-uploader-target="input"
+                data-action="change->gallery-uploader#filesChosen"
+            >
 
-                {% if directories is empty and gallery_assets is empty %}
-                    <p class="text-muted small mb-0">
-                        Tato složka je prázdná. Vytvořte podsložku nebo použijte záložku „Nahrát nový“.
-                    </p>
-                {% endif %}
+            {#
+                Per-file progress rows (spinner → check / error). Populated by
+                the controller; successful rows dissolve shortly after the grid
+                picks the file up, failed rows stay dismissable.
+            #}
+            <div data-live-ignore>
+                <div class="mt-2 d-flex flex-column gap-2" data-gallery-uploader-target="queue"></div>
+            </div>
+        </form>
 
-                {# Folders #}
-                {% if directories is not empty %}
-                    <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }} mb-3"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"{% endif %}>
-                        {% for directory in directories %}
-                            <div class="{{ cell_class }}">
-                                {% if this.renamingDirectoryId == directory.id %}
-                                    <div class="border rounded p-2 h-100 d-flex flex-column gap-1">
-                                        <input
-                                            type="text"
-                                            class="form-control form-control-sm"
-                                            data-model="norender|renameValue"
-                                            value="{{ this.renameValue }}"
-                                            autofocus
-                                        >
-                                        <div class="d-flex gap-1">
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-primary flex-grow-1"
-                                                data-action="live#action"
-                                                data-live-action-param="renameDirectory"
-                                            ><i class="mdi mdi-check"></i></button>
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-action="live#action"
-                                                data-live-action-param="cancelRename"
-                                            ><i class="mdi mdi-close"></i></button>
-                                        </div>
-                                    </div>
-                                {% else %}
-                                    <div class="border rounded p-2 h-100 d-flex align-items-center position-relative folder-card">
-                                        <button
-                                            type="button"
-                                            class="btn p-0 text-start flex-grow-1 text-truncate d-flex align-items-center gap-1"
-                                            data-action="live#action"
-                                            data-live-action-param="openDirectory"
-                                            data-live-directoryid-param="{{ directory.id }}"
-                                            title="{{ directory.name }}"
-                                        >
-                                            <i class="mdi mdi-folder text-warning fs-4"></i>
-                                            <span class="text-truncate">{{ directory.name }}</span>
-                                        </button>
-                                        <div class="dropdown">
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-link text-muted p-0 ms-1"
-                                                data-bs-toggle="dropdown"
-                                                aria-expanded="false"
-                                            ><i class="mdi mdi-dots-vertical"></i></button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li>
-                                                    <button
-                                                        type="button"
-                                                        class="dropdown-item"
-                                                        data-action="live#action"
-                                                        data-live-action-param="startRename"
-                                                        data-live-directoryid-param="{{ directory.id }}"
-                                                    ><i class="mdi mdi-pencil me-1"></i> Přejmenovat</button>
-                                                </li>
-                                                <li>
-                                                    <button
-                                                        type="button"
-                                                        class="dropdown-item text-danger"
-                                                        data-controller="confirm"
-                                                        data-confirm-message-value="Opravdu smazat složku „{{ directory.name }}“? Smazat lze jen prázdnou složku."
-                                                        data-action="confirm#confirm live#action"
-                                                        data-live-action-param="deleteDirectory"
-                                                        data-live-directoryid-param="{{ directory.id }}"
-                                                    ><i class="mdi mdi-delete me-1"></i> Smazat</button>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
+        {% if this.folderActionError %}
+            <div class="alert alert-warning py-2 small" role="alert">
+                <i class="mdi mdi-alert-outline me-1"></i>{{ this.folderActionError }}
+            </div>
+        {% endif %}
 
-                {# Images #}
-                {% if gallery_assets is not empty %}
-                    <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));"{% endif %}>
-                        {% for asset in gallery_assets %}
-                            <div class="{{ cell_class }}">
-                                <div class="position-relative border rounded">
-                                    {% if modal %}
-                                        <button
-                                            type="button"
-                                            class="btn p-1 w-100"
-                                            data-action="click->image-gallery#select"
-                                            data-image-gallery-url-param="{{ asset.url }}"
-                                            data-image-gallery-path-param="{{ asset.path }}"
-                                            data-image-gallery-id-param="{{ asset.id }}"
-                                            title="Nahráno {{ asset.uploadedAt }}"
-                                        >
-                                            <img
-                                                crossorigin="anonymous"
-                                                src="{{ asset.url }}"
-                                                alt=""
-                                                class="img-fluid"
-                                                style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
-                                            >
-                                        </button>
-                                    {% else %}
-                                        <div class="p-1" title="Nahráno {{ asset.uploadedAt }}">
-                                            <img
-                                                crossorigin="anonymous"
-                                                src="{{ asset.url }}"
-                                                alt=""
-                                                class="img-fluid"
-                                                style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
-                                            >
-                                        </div>
-                                    {% endif %}
+        {% if directories is empty and gallery_assets is empty %}
+            <p class="text-muted small mb-0">
+                Tato složka je prázdná. Nahrajte obrázky přetažením výše nebo vytvořte podsložku.
+            </p>
+        {% endif %}
+
+        {# Folders #}
+        {% if directories is not empty %}
+            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }} mb-3"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"{% endif %}>
+                {% for directory in directories %}
+                    <div class="{{ cell_class }}">
+                        {% if this.renamingDirectoryId == directory.id %}
+                            <div class="border rounded p-2 h-100 d-flex flex-column gap-1">
+                                <input
+                                    type="text"
+                                    class="form-control form-control-sm"
+                                    data-model="norender|renameValue"
+                                    value="{{ this.renameValue }}"
+                                    autofocus
+                                >
+                                <div class="d-flex gap-1">
                                     <button
                                         type="button"
-                                        class="btn btn-sm btn-light border shadow-sm py-0 px-1 text-danger position-absolute top-0 start-0 m-1"
-                                        title="Smazat obrázek"
-                                        aria-label="Smazat obrázek"
-                                        onclick="event.stopPropagation();"
-                                        data-controller="confirm"
-                                        data-confirm-message-value="Smazat tento obrázek? Akce je nevratná – pokud je obrázek použitý v šabloně, šablona o něj přijde."
-                                        data-action="confirm#confirm live#action"
-                                        data-live-action-param="deleteFile"
-                                        data-live-fileid-param="{{ asset.id }}"
-                                    ><i class="mdi mdi-delete"></i></button>
-                                    <div class="dropdown position-absolute top-0 end-0 m-1">
-                                        <button
-                                            type="button"
-                                            class="btn btn-sm btn-light border shadow-sm py-0 px-1"
-                                            data-bs-toggle="dropdown"
-                                            aria-expanded="false"
-                                            title="Přesunout do složky"
-                                            onclick="event.stopPropagation();"
-                                        ><i class="mdi mdi-folder-move"></i></button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            <li><h6 class="dropdown-header">Přesunout do…</h6></li>
-                                            {% for target in move_targets %}
-                                                {% if target.id != this.currentDirectoryId %}
-                                                    <li>
-                                                        <button
-                                                            type="button"
-                                                            class="dropdown-item"
-                                                            data-action="live#action"
-                                                            data-live-action-param="moveFile"
-                                                            data-live-fileid-param="{{ asset.id }}"
-                                                            data-live-directoryid-param="{{ target.id }}"
-                                                        >{{ target.label }}</button>
-                                                    </li>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </ul>
-                                    </div>
+                                        class="btn btn-sm btn-primary flex-grow-1"
+                                        data-action="live#action"
+                                        data-live-action-param="renameDirectory"
+                                    ><i class="mdi mdi-check"></i></button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        data-action="live#action"
+                                        data-live-action-param="cancelRename"
+                                    ><i class="mdi mdi-close"></i></button>
                                 </div>
                             </div>
-                        {% endfor %}
+                        {% else %}
+                            <div class="border rounded p-2 h-100 d-flex align-items-center position-relative folder-card">
+                                <button
+                                    type="button"
+                                    class="btn p-0 text-start flex-grow-1 text-truncate d-flex align-items-center gap-1"
+                                    data-action="live#action"
+                                    data-live-action-param="openDirectory"
+                                    data-live-directoryid-param="{{ directory.id }}"
+                                    title="{{ directory.name }}"
+                                >
+                                    <i class="mdi mdi-folder text-warning fs-4"></i>
+                                    <span class="text-truncate">{{ directory.name }}</span>
+                                </button>
+                                <div class="dropdown">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-link text-muted p-0 ms-1"
+                                        data-bs-toggle="dropdown"
+                                        aria-expanded="false"
+                                    ><i class="mdi mdi-dots-vertical"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="dropdown-item"
+                                                data-action="live#action"
+                                                data-live-action-param="startRename"
+                                                data-live-directoryid-param="{{ directory.id }}"
+                                            ><i class="mdi mdi-pencil me-1"></i> Přejmenovat</button>
+                                        </li>
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="dropdown-item text-danger"
+                                                data-controller="confirm"
+                                                data-confirm-message-value="Opravdu smazat složku „{{ directory.name }}“? Smazat lze jen prázdnou složku."
+                                                data-action="confirm#confirm live#action"
+                                                data-live-action-param="deleteDirectory"
+                                                data-live-directoryid-param="{{ directory.id }}"
+                                            ><i class="mdi mdi-delete me-1"></i> Smazat</button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
-                {% endif %}
+                {% endfor %}
             </div>
+        {% endif %}
 
-            <div class="tab-pane fade" id="upload-tab-pane" role="tabpanel">
-                <form
-                    data-controller="gallery-uploader"
-                    data-gallery-uploader-url-value="{{ this.uploadUrl() }}"
-                    data-gallery-uploader-modal-value="{{ modal ? 'true' : 'false' }}"
-                >
-                    {#
-                        Stateless-CSRF token for the `project_upload_file` route. The
-                        form posts via fetch(), so the token must be a real form field
-                        the controller can include in its FormData — without it the
-                        server rejects the upload with "Invalid form submission".
-                        Token id matches framework.form.csrf_protection.token_id.
-                    #}
-                    <input type="hidden" name="upload_project_file_form[_token]" value="{{ csrf_token('submit') }}">
-
-                    {# The currently-open folder the new upload should land in (empty = root). #}
-                    <input type="hidden" name="directoryId" value="{{ this.currentDirectoryId }}">
-
-                    <div class="mb-2 small text-muted">
-                        Nahrát do:
-                        <strong>
-                            {%- if breadcrumbs is empty -%}
-                                Galerie (kořen)
-                            {%- else -%}
-                                {{ breadcrumbs|last.name }}
-                            {%- endif -%}
-                        </strong>
+        {# Images. data-storage-path lets the image-gallery controller pulse
+           freshly-uploaded thumbnails after the Live re-render. #}
+        {% if gallery_assets is not empty %}
+            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));"{% endif %}>
+                {% for asset in gallery_assets %}
+                    <div class="{{ cell_class }}">
+                        <div class="position-relative border rounded gallery-asset" data-storage-path="{{ asset.path }}">
+                            {% if modal %}
+                                <button
+                                    type="button"
+                                    class="btn p-1 w-100"
+                                    data-action="click->image-gallery#select"
+                                    data-image-gallery-url-param="{{ asset.url }}"
+                                    data-image-gallery-path-param="{{ asset.path }}"
+                                    data-image-gallery-id-param="{{ asset.id }}"
+                                    title="Nahráno {{ asset.uploadedAt }}"
+                                >
+                                    <img
+                                        crossorigin="anonymous"
+                                        src="{{ asset.url }}"
+                                        alt=""
+                                        class="img-fluid"
+                                        style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                    >
+                                </button>
+                            {% else %}
+                                <div class="p-1" title="Nahráno {{ asset.uploadedAt }}">
+                                    <img
+                                        crossorigin="anonymous"
+                                        src="{{ asset.url }}"
+                                        alt=""
+                                        class="img-fluid"
+                                        style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                    >
+                                </div>
+                            {% endif %}
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-light border shadow-sm py-0 px-1 text-danger position-absolute top-0 start-0 m-1"
+                                title="Smazat obrázek"
+                                aria-label="Smazat obrázek"
+                                onclick="event.stopPropagation();"
+                                data-controller="confirm"
+                                data-confirm-message-value="Smazat tento obrázek? Akce je nevratná – pokud je obrázek použitý v šabloně, šablona o něj přijde."
+                                data-action="confirm#confirm live#action"
+                                data-live-action-param="deleteFile"
+                                data-live-fileid-param="{{ asset.id }}"
+                            ><i class="mdi mdi-delete"></i></button>
+                            <div class="dropdown position-absolute top-0 end-0 m-1">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-light border shadow-sm py-0 px-1"
+                                    data-bs-toggle="dropdown"
+                                    aria-expanded="false"
+                                    title="Přesunout do složky"
+                                    onclick="event.stopPropagation();"
+                                ><i class="mdi mdi-folder-move"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><h6 class="dropdown-header">Přesunout do…</h6></li>
+                                    {% for target in move_targets %}
+                                        {% if target.id != this.currentDirectoryId %}
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    class="dropdown-item"
+                                                    data-action="live#action"
+                                                    data-live-action-param="moveFile"
+                                                    data-live-fileid-param="{{ asset.id }}"
+                                                    data-live-directoryid-param="{{ target.id }}"
+                                                >{{ target.label }}</button>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
                     </div>
-
-                    {# Drag-and-drop dropzone (also opens the file picker on click). #}
-                    <div
-                        class="gallery-dropzone"
-                        data-gallery-uploader-target="dropzone"
-                        data-action="
-                            click->gallery-uploader#browse
-                            keydown->gallery-uploader#keydown
-                            dragover->gallery-uploader#dragOver
-                            dragleave->gallery-uploader#dragLeave
-                            drop->gallery-uploader#drop
-                        "
-                        role="button"
-                        tabindex="0"
-                    >
-                        <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
-                        <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
-                        <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
-                        <div class="text-muted small mt-1">Můžete nahrát více obrázků najednou (max. 10 MB / soubor)</div>
-                    </div>
-
-                    <input
-                        type="file"
-                        name="upload_project_file_form[file]"
-                        class="d-none"
-                        accept="image/*"
-                        multiple
-                        data-gallery-uploader-target="input"
-                        data-action="change->gallery-uploader#filesChosen"
-                    >
-
-                    {#
-                        Preview of the selected-but-not-yet-uploaded files (thumbnail
-                        + name + size, with a per-file remove). Populated by the
-                        controller; upload only happens on the confirm button below.
-                    #}
-                    <div class="mt-3 d-none d-flex flex-column gap-2" data-gallery-uploader-target="preview"></div>
-
-                    <div class="mt-3 d-none d-flex gap-2" data-gallery-uploader-target="actions">
-                        <button
-                            type="button"
-                            class="btn btn-primary"
-                            data-gallery-uploader-target="confirmButton"
-                            data-action="gallery-uploader#confirm"
-                        >Nahrát</button>
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary"
-                            data-action="gallery-uploader#clearQueue"
-                        >Zrušit</button>
-                    </div>
-
-                    <div class="text-danger small mt-2 d-none" data-gallery-uploader-target="error"></div>
-                </form>
+                {% endfor %}
             </div>
-        </div>
+        {% endif %}
     </div>
 </div>

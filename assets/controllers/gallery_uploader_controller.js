@@ -1,35 +1,33 @@
 import { Controller } from "@hotwired/stimulus";
 
 /**
- * Upload controller for the Project:ImageGallery modal's "Nahrát nový" tab.
+ * Upload controller for the Project:ImageGallery's compact upload strip.
  *
- * A drag-and-drop dropzone that also opens the file picker on click and accepts
- * MULTIPLE images at once. Selected files are NOT uploaded immediately: they
- * first appear as a preview list (thumbnail + name + size) with a confirm
- * button, so the user can review / remove files before committing. Only on
- * "Nahrát" does it POST each file (one at a time) to the existing
- * `project_upload_file` route, updating each row's status (spinner → check /
- * error) and showing a success toast when done. The user stays on the dropzone
- * tab so they can queue another batch.
+ * A drag-and-drop dropzone that also opens the file picker on click and
+ * accepts MULTIPLE images at once. Files upload IMMEDIATELY on drop/pick
+ * (no confirm step): each file gets a progress row (spinner → check / error)
+ * in the queue island, POSTed one at a time to the existing
+ * `project_upload_file` route. Per successful file a bubbling
+ * `gallery-uploader:uploaded` event carries `{ asset: { url, path, id } }` —
+ * the parent image-gallery controller refreshes the Live grid and pulses the
+ * new thumbnail, which is the user-facing "it landed in THIS folder" feedback.
+ * Successful rows dissolve shortly after (the grid shows the real thumbnail
+ * by then); failed rows stay dismissable with the reason. A toast summarises
+ * each drained batch.
  *
- * Live Components have no built-in way to stream a File through a LiveProp, so
- * we post directly via fetch(). The hidden CSRF `_token` and the current
- * `directoryId` fields live in the same <form> and are read fresh for every
- * request (the folder field is kept up to date by the Live Component when the
- * user navigates folders).
- *
- * Dispatches `gallery-uploader:uploaded` (bubbling) once after a batch with
- * `{ count, autoSelect, asset, modal }`. The parent image-gallery controller
- * refreshes the grid (lazily on the standalone page, immediately in the modal);
- * when `autoSelect` is true (modal host + exactly one file) it also routes that
- * single asset straight onto the canvas.
+ * Live Components have no built-in way to stream a File through a LiveProp,
+ * so we post directly via fetch(). The hidden CSRF `_token` and the current
+ * `directoryId` fields live in the same <form> OUTSIDE the data-live-ignore
+ * island and are read fresh for every request — the Live re-render keeps the
+ * folder field pointing at the currently open folder. The queue rows live
+ * INSIDE data-live-ignore so the per-file grid refreshes can never wipe an
+ * in-flight batch.
  */
 export default class extends Controller {
-    static targets = ["input", "dropzone", "preview", "actions", "confirmButton", "error"];
+    static targets = ["input", "dropzone", "queue"];
 
     static values = {
         url: String,
-        modal: Boolean,
         // Must match the server constraint exactly, or a file could pass here
         // and still be rejected on upload. Symfony's `maxSize: '10m'` is
         // DECIMAL (10 * 1000 * 1000), not 10 MiB.
@@ -37,10 +35,12 @@ export default class extends Controller {
     };
 
     connect() {
-        // Queue of files chosen but not yet (or already) uploaded. Each entry:
-        // { id, file, url (objectURL|null), status: 'pending'|'uploading'|'done'|'error', message }.
+        // Upload queue. Each entry: { id, file, url (objectURL|null),
+        // status: 'queued'|'uploading'|'done'|'error', message }.
         this.queue = [];
         this.seq = 0;
+        this._processing = false;
+        this._batchSuccess = 0;
     }
 
     disconnect() {
@@ -87,15 +87,6 @@ export default class extends Controller {
             return;
         }
 
-        this.clearError();
-
-        // If the previous batch is finished (nothing pending/uploading left),
-        // start fresh so old ✓/✗ rows don't pile up under the new selection.
-        const active = this.queue.some((i) => i.status === "pending" || i.status === "uploading");
-        if (!active && this.queue.length > 0) {
-            this.resetQueue();
-        }
-
         for (const file of files) {
             if (!file.type.startsWith("image/")) {
                 this.queue.push({ id: ++this.seq, file, url: null, status: "error", message: "Není obrázek" });
@@ -103,13 +94,14 @@ export default class extends Controller {
                 const limitMb = Math.round(this.maxSizeValue / (1000 * 1000));
                 this.queue.push({ id: ++this.seq, file, url: null, status: "error", message: `Větší než ${limitMb} MB` });
             } else {
-                this.queue.push({ id: ++this.seq, file, url: URL.createObjectURL(file), status: "pending" });
+                this.queue.push({ id: ++this.seq, file, url: URL.createObjectURL(file), status: "queued" });
             }
         }
 
         // Let the same file be re-picked later (change only fires on a new value).
         this.inputTarget.value = "";
         this.render();
+        this.process();
     }
 
     removeFile(event) {
@@ -125,38 +117,35 @@ export default class extends Controller {
         this.render();
     }
 
-    clearQueue() {
-        this.resetQueue();
-        this.clearError();
-        this.render();
-    }
-
-    resetQueue() {
-        this.queue.forEach((item) => item.url && URL.revokeObjectURL(item.url));
-        this.queue = [];
-        this.inputTarget.value = "";
-    }
-
     // --- uploading ---------------------------------------------------------
 
-    async confirm() {
-        const pending = this.queue.filter((i) => i.status === "pending");
-        if (pending.length === 0) {
+    /** Sequential worker: uploads queued files one at a time; new drops while
+     *  a batch runs simply extend the queue the running loop drains. */
+    async process() {
+        if (this._processing) {
             return;
         }
+        this._processing = true;
 
-        this.confirmButtonTarget.disabled = true;
-
-        let successCount = 0;
-        let lastAsset = null;
-
-        for (const item of pending) {
+        let item;
+        while ((item = this.queue.find((i) => i.status === "queued"))) {
             item.status = "uploading";
             this.render();
+
             try {
-                lastAsset = await this.uploadOne(item.file);
+                const asset = await this.uploadOne(item.file);
                 item.status = "done";
-                successCount++;
+                this._batchSuccess++;
+
+                this.dispatch("uploaded", {
+                    detail: { asset },
+                    bubbles: true,
+                });
+
+                // The grid refresh triggered by the event shows the real
+                // thumbnail highlighted — dissolve the ✓ row shortly after.
+                const doneId = item.id;
+                setTimeout(() => this.dropItem(doneId), 2500);
             } catch (error) {
                 item.status = "error";
                 item.message = error.message || "Nahrání selhalo";
@@ -164,24 +153,24 @@ export default class extends Controller {
             this.render();
         }
 
-        this.confirmButtonTarget.disabled = false;
+        this._processing = false;
 
-        if (successCount === 0) {
-            this.showError("Žádný soubor se nepodařilo nahrát.");
+        if (this._batchSuccess > 0) {
+            this.showToast(this._batchSuccess);
+            this._batchSuccess = 0;
+        }
+    }
+
+    dropItem(id) {
+        const idx = this.queue.findIndex((i) => i.id === id);
+        if (idx === -1) {
             return;
         }
-
-        this.showToast(successCount);
-
-        this.dispatch("uploaded", {
-            detail: {
-                count: successCount,
-                autoSelect: this.modalValue && successCount === 1 && lastAsset !== null,
-                asset: lastAsset,
-                modal: this.modalValue,
-            },
-            bubbles: true,
-        });
+        const [item] = this.queue.splice(idx, 1);
+        if (item.url) {
+            URL.revokeObjectURL(item.url);
+        }
+        this.render();
     }
 
     async uploadOne(file) {
@@ -213,37 +202,19 @@ export default class extends Controller {
             throw new Error(data.error || "Nahrání selhalo");
         }
 
-        return { url: data.filePath, path: data.storagePath };
+        return { url: data.filePath, path: data.storagePath, id: data.id || null };
     }
 
     // --- rendering ---------------------------------------------------------
 
     render() {
-        if (this.queue.length === 0) {
-            this.previewTarget.classList.add("d-none");
-            this.previewTarget.innerHTML = "";
-            this.actionsTarget.classList.add("d-none");
+        if (!this.hasQueueTarget) {
             return;
         }
-
-        this.previewTarget.classList.remove("d-none");
-        this.previewTarget.innerHTML = "";
+        this.queueTarget.innerHTML = "";
         for (const item of this.queue) {
-            this.previewTarget.appendChild(this.renderItem(item));
+            this.queueTarget.appendChild(this.renderItem(item));
         }
-
-        this.actionsTarget.classList.remove("d-none");
-
-        const pending = this.queue.filter((i) => i.status === "pending").length;
-        const uploading = this.queue.some((i) => i.status === "uploading");
-        if (pending > 0) {
-            this.confirmButtonTarget.classList.remove("d-none");
-            this.confirmButtonTarget.textContent =
-                pending === 1 ? "Nahrát obrázek" : "Nahrát " + pending + " obrázků";
-        } else {
-            this.confirmButtonTarget.classList.add("d-none");
-        }
-        this.confirmButtonTarget.disabled = uploading;
     }
 
     renderItem(item) {
@@ -262,7 +233,7 @@ export default class extends Controller {
             "</div>" +
             '<span class="gallery-upload-item__icon">' + this.iconHtml(item.status) + "</span>";
 
-        // A remove/dismiss control, hidden only while that row is uploading.
+        // A dismiss control, hidden only while that row is uploading.
         if (item.status !== "uploading") {
             const remove = document.createElement("button");
             remove.type = "button";
@@ -347,15 +318,5 @@ export default class extends Controller {
         const div = document.createElement("div");
         div.textContent = text;
         return div.innerHTML;
-    }
-
-    clearError() {
-        this.errorTarget.classList.add("d-none");
-        this.errorTarget.textContent = "";
-    }
-
-    showError(message) {
-        this.errorTarget.textContent = message;
-        this.errorTarget.classList.remove("d-none");
     }
 }
