@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Controller\TemplateGroup;
 
+use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use WBoost\Web\Entity\TemplateGroup;
+use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
+use WBoost\Web\Value\BackgroundMode;
 
 /**
  * @covers \WBoost\Web\Controller\TemplateGroup\AddTemplateGroupController
@@ -20,6 +24,16 @@ final class AddTemplateGroupControllerTest extends WebTestCase
     private function wizardUrl(): string
     {
         return '/project/' . TestDataFixture::PROJECT_1_ID . '/add-template-group';
+    }
+
+    private function groupByName(string $name): TemplateGroup
+    {
+        $group = self::getContainer()->get(EntityManagerInterface::class)
+            ->getRepository(TemplateGroup::class)
+            ->findOneBy(['name' => $name]);
+        self::assertInstanceOf(TemplateGroup::class, $group);
+
+        return $group;
     }
 
     public function testWizardCreatesGroupAndRedirectsToGroupEditor(): void
@@ -55,8 +69,11 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         self::assertSelectorTextContains('body', 'Wizard Group');
     }
 
-    public function testValidationFailsWhenSelectedDimensionHasNoBackground(): void
+    public function testSelectedDimensionWithoutBackgroundIsAllowed(): void
     {
+        // Backgrounds are optional since the background-as-layer rework: a
+        // dimension without an upload starts without a background (layer mode,
+        // transparent render) instead of failing validation.
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
@@ -74,9 +91,16 @@ final class AddTemplateGroupControllerTest extends WebTestCase
             ],
         ]);
 
-        // Invalid form → the wizard re-renders with 422, no redirect.
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('body', 'Nahrajte pozadí');
+        self::assertResponseRedirects();
+
+        $group = $this->groupByName('No Background Group');
+        $members = self::getContainer()->get(GetTemplateGroupMembers::class);
+        $variants = $members->socialVariants($group->id);
+
+        self::assertCount(1, $variants);
+        self::assertSame(BackgroundMode::Layer, $variants[0]->backgroundMode);
+        self::assertNull($variants[0]->backgroundImage);
+        self::assertSame('{}', $variants[0]->canvas, 'no background, no source design → the canvas stays empty');
     }
 
     public function testForbiddenForOwnerWithoutDesignerRole(): void

@@ -39,11 +39,19 @@ readonly final class EditorImageInput
         public bool $allowRotate,
         public bool $hidable,
         public array $allowedDirectoryIds,
+        /**
+         * True when this slot is a layer-mode variant's BACKGROUND layer the
+         * designer marked fillable. Background fills are deterministic —
+         * cover-fit anchored top-left over the whole canvas — so
+         * move/resize/rotate are forced off (see fromArray) and any transform
+         * sent for the slot is rejected by ResolveImageOverrides.
+         */
+        public bool $isBackground = false,
     ) {
     }
 
     /**
-     * @return array{inputId: string, name: null|string, description: null|string, allowMove: bool, allowResize: bool, allowRotate: bool, hidable: bool, allowedDirectoryIds: list<string>}
+     * @return array{inputId: string, name: null|string, description: null|string, allowMove: bool, allowResize: bool, allowRotate: bool, hidable: bool, allowedDirectoryIds: list<string>, isBackground: bool}
      */
     public function toArray(): array
     {
@@ -56,6 +64,7 @@ readonly final class EditorImageInput
             'allowRotate' => $this->allowRotate,
             'hidable' => $this->hidable,
             'allowedDirectoryIds' => $this->allowedDirectoryIds,
+            'isBackground' => $this->isBackground,
         ];
     }
 
@@ -92,15 +101,20 @@ readonly final class EditorImageInput
             }
         }
 
+        $isBackground = (bool) ($data['isBackground'] ?? false);
+
         return new self(
             inputId: $inputId,
             name: is_string($name) ? $name : null,
             description: is_string($description) ? $description : null,
-            allowMove: (bool) ($data['allowMove'] ?? false),
-            allowResize: (bool) ($data['allowResize'] ?? false),
-            allowRotate: (bool) ($data['allowRotate'] ?? false),
+            // Background fills are a fixed cover — no user transform, whatever
+            // a stale payload may claim.
+            allowMove: !$isBackground && (bool) ($data['allowMove'] ?? false),
+            allowResize: !$isBackground && (bool) ($data['allowResize'] ?? false),
+            allowRotate: !$isBackground && (bool) ($data['allowRotate'] ?? false),
             hidable: (bool) ($data['hidable'] ?? false),
             allowedDirectoryIds: $allowedDirectoryIds,
+            isBackground: $isBackground,
         );
     }
 

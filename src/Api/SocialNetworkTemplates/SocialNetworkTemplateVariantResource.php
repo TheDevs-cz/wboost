@@ -85,6 +85,18 @@ the frame centre; `rotation` is degrees), or `{ "hide": true }` to blank a
 - An `imageId` outside the slot's allowed folders, or not in this project → 400.
 - Unfilled slots keep the designer's stand-in image.
 
+### Background slots (`imageInputs[].isBackground: true`)
+
+A slot flagged `isBackground` is the variant's background layer. Its fill is
+deterministic: the picture is **cover-fitted over the whole canvas** (least
+scale that covers it) and **anchored top-left** — overflow crops away
+bottom-right. No transform is accepted (the limit flags are always false; send
+the plain `"<imageId>"` string or `{ "imageId": "..." }`, plus `{ "hide": true }`
+when `hidable`). `frame` is the full canvas rect. Unfilled → the designed
+background stays; a variant may also have no background at all, in which case
+the export PNG is transparent there (`backgroundImageUrl` is null for such
+variants).
+
 ### Portable pan (`offsetXRatio` / `offsetYRatio`)
 
 The pan may instead be sent as a FRACTION of the frame:

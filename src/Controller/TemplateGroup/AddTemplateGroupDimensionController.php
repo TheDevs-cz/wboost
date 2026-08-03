@@ -42,7 +42,6 @@ final class AddTemplateGroupDimensionController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $variantId = $this->provideIdentity->next();
             $backgroundImage = $data->backgroundImage;
-            assert($backgroundImage !== null);
 
             if ($data->module === TemplateGroupDimensionFormData::MODULE_SOCIAL) {
                 $dimension = $data->socialDimension;

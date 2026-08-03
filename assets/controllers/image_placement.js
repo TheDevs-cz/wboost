@@ -34,6 +34,18 @@ export function containScale(frame, naturalWidth, naturalHeight) {
     return contain > 0 ? contain : 1;
 }
 
+/**
+ * Cover twin of `containScale` — the least scale that fills the whole frame.
+ * Background slots use it with the frame = the canvas rect.
+ */
+export function coverScale(frame, naturalWidth, naturalHeight) {
+    const width = naturalWidth > 0 ? naturalWidth : 1;
+    const height = naturalHeight > 0 ? naturalHeight : 1;
+    const cover = Math.max(frame.width / width, frame.height / height);
+
+    return cover > 0 ? cover : 1;
+}
+
 /** Resolve a pan expressed as a fraction of a frame edge into canvas px. */
 export function offsetFromRatio(ratio, frameSize) {
     return ratio * frameSize;
@@ -62,6 +74,28 @@ export function placementGeometry(frame, natural, placement) {
         centerX: frame.width / 2 + offsetX,
         centerY: frame.height / 2 + offsetY,
         rotation: placement.rotation ?? 0,
+    };
+}
+
+/**
+ * Background-slot geometry: cover fit anchored to the frame's TOP-LEFT
+ * (overflow crops bottom-right), no user transform. The browser mirror of the
+ * server's `ImagePlacement::computeCover` — the two must agree exactly.
+ */
+export function coverGeometry(frame, natural) {
+    const scale = coverScale(frame, natural.width, natural.height);
+    const width = (natural.width > 0 ? natural.width : 1) * scale;
+    const height = (natural.height > 0 ? natural.height : 1) * scale;
+
+    return {
+        width,
+        height,
+        // Same centre-based shape as `placementGeometry` so ghost rendering
+        // code can treat both fits uniformly (centre of the displayed image,
+        // relative to the frame's top-left corner).
+        centerX: width / 2,
+        centerY: height / 2,
+        rotation: 0,
     };
 }
 

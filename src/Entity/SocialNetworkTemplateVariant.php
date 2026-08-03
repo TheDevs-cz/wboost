@@ -17,6 +17,7 @@ use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Doctrine\CanvasJsonbType;
 use WBoost\Web\Doctrine\EditorImageInputsDoctrineType;
 use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
+use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\TemplateDimension;
@@ -72,11 +73,15 @@ class SocialNetworkTemplateVariant
         readonly public TemplateDimension $dimension,
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-        #[Column]
-        public string $backgroundImage,
+        #[Column(nullable: true)]
+        public null|string $backgroundImage,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public \DateTimeImmutable $createdAt,
+
+        #[Immutable]
+        #[Column(length: 16, enumType: BackgroundMode::class, options: ['default' => 'canvas'])]
+        readonly public BackgroundMode $backgroundMode = BackgroundMode::Canvas,
     ) {
     }
 
@@ -97,7 +102,7 @@ class SocialNetworkTemplateVariant
         $this->previewImagePath = $previewImagePath;
     }
 
-    public function edit(string $backgroundImagePath): void
+    public function edit(null|string $backgroundImagePath): void
     {
         $this->backgroundImage = $backgroundImagePath;
     }

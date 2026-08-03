@@ -10,6 +10,8 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\SocialNetworkTemplateVariantNotFound;
 use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
+use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Value\BackgroundMode;
 
 #[AsMessageHandler]
 readonly final class EditSocialNetworkTemplateVariantCanvasHandler
@@ -18,6 +20,7 @@ readonly final class EditSocialNetworkTemplateVariantCanvasHandler
         private SocialNetworkTemplateVariantRepository $variantRepository,
         #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
         private FilesystemOperator $filesystem,
+        private BackgroundLayer $backgroundLayer,
     ) {
     }
 
@@ -35,6 +38,14 @@ readonly final class EditSocialNetworkTemplateVariantCanvasHandler
             : $this->persistPreviewImage($message->variantId->toString(), $message->previewImageDataUri);
 
         $variant->editCanvas($message->canvas, $message->inputs, $previewImagePath, $message->imageInputs);
+
+        if ($variant->backgroundMode === BackgroundMode::Layer) {
+            // The canvas document is the layer-mode source of truth; keep the
+            // denormalized background_image pointer (thumbnail fallback, API
+            // backgroundImageUrl) in sync — null when the designer removed
+            // the background layer.
+            $variant->edit($this->backgroundLayer->extractAssetPath($message->canvas));
+        }
     }
 
     /**

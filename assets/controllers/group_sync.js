@@ -34,6 +34,17 @@ function isTextboxObject(obj) {
 }
 
 /**
+ * Objects the propagation engine is allowed to touch. Background layers are
+ * NEVER syncable — backgrounds are strictly per-dimension: their cover fit is
+ * an absolute function of (image, canvas size), so relative deltas would
+ * compound into drift across variants, and group-seeded siblings share the
+ * background's inputId, so a resync would clobber every sibling's own cover.
+ */
+function isSyncable(obj) {
+    return !!obj.inputId && obj.isBackground !== true;
+}
+
+/**
  * Absolute left/top even while the object sits inside an ActiveSelection —
  * mirrors canvas_container_controller._absTop/_absLeft (the transform
  * matrix's translation is the object's absolute centre).
@@ -112,7 +123,7 @@ export class GroupSync {
         this.baselineOrder = [];
 
         canvas.getObjects().forEach((obj) => {
-            if (!obj.inputId) {
+            if (!isSyncable(obj)) {
                 return;
             }
             this.baseline.set(obj.inputId, {
@@ -138,7 +149,7 @@ export class GroupSync {
         const touched = new Set();
 
         canvas.getObjects().forEach((obj) => {
-            if (!obj.inputId) {
+            if (!isSyncable(obj)) {
                 return;
             }
 
@@ -208,9 +219,16 @@ export class GroupSync {
      * relative to yet).
      */
     async projectNewObject(obj) {
+        const touched = new Set();
+
+        // Background layers never fan out — every dimension keeps (or lacks)
+        // its own. Belt to the caller's event-gate suspenders.
+        if (obj.isBackground === true) {
+            return touched;
+        }
+
         const activeDims = this.activeDims();
         const targets = this.targets();
-        const touched = new Set();
 
         for (const target of targets) {
             if (target.shadow.getObjects().some((o) => o.inputId === obj.inputId)) {
@@ -290,7 +308,7 @@ export class GroupSync {
         const touched = new Set();
 
         objects.forEach((obj) => {
-            if (!obj.inputId) {
+            if (!isSyncable(obj)) {
                 return;
             }
 
@@ -363,8 +381,12 @@ export class GroupSync {
 
     _syncZOrder(targets, touched) {
         const canvas = this.activeCanvas();
+        // Backgrounds are excluded on both sides: the active background's id
+        // never enters currentOrder, so a target's background fails the
+        // currentOrder.includes() check below and keeps its own absolute
+        // stack slot while the shared objects reorder through the rest.
         const currentOrder = canvas.getObjects()
-            .filter((o) => o.inputId)
+            .filter((o) => isSyncable(o))
             .map((o) => o.inputId);
 
         const baselineShared = this.baselineOrder.filter((id) => currentOrder.includes(id));

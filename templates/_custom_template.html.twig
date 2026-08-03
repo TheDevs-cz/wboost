@@ -52,7 +52,7 @@
                             <div class="flex-grow-1 ms-2"></div>
 
                             <div class="text-end">
-                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat;background-size: cover;"></span>
                             </div>
                         </div>
                     {% endfor %}

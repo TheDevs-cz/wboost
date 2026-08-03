@@ -91,10 +91,16 @@ export default class extends Controller {
      * thing the user now wants to drag into place. Clearing editorLocked also
      * keeps the live Fabric flags in sync with the serialized prop (clone does
      * not carry the interaction flags across).
+     *
+     * The `isBackground` marker is stripped too — there is only ever ONE
+     * background layer, so a copy of it is just a normal image (otherwise the
+     * next background swap could replace the wrong twin, and the group editor
+     * would exclude the copy from propagation for no visible reason).
      */
     _unlockPasted(obj) {
         if ((obj.type || '').toLowerCase() !== 'image') return;
         obj.editorLocked = false;
+        obj.isBackground = false;
         applyEditorLock(obj);
     }
 

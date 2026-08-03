@@ -216,20 +216,23 @@
                 </div>
 
                 <label class="form-label small mb-1">Povolit uživateli:</label>
+                {# Background layers: fill = fixed top-left cover, so the transform
+                   limits are hidden (the hint below shows instead). #}
+                <p class="small text-muted mb-1" data-canvas-image-properties-target="backgroundHint" style="display: none;">Pozadí se vyplní automaticky přes celé plátno (bez posunu, změny velikosti a rotace).</p>
                 <div class="row g-1 mb-2">
-                    <div class="col-6">
+                    <div class="col-6" data-canvas-image-properties-target="transformLimit">
                         <div class="form-check mb-0">
                             <input type="checkbox" id="image-allow-move-control" class="form-check-input" data-canvas-image-properties-target="allowMove" data-action="change->canvas-image-properties#updateAllowMove">
                             <label for="image-allow-move-control" class="form-check-label small">Posun</label>
                         </div>
                     </div>
-                    <div class="col-6">
+                    <div class="col-6" data-canvas-image-properties-target="transformLimit">
                         <div class="form-check mb-0">
                             <input type="checkbox" id="image-allow-resize-control" class="form-check-input" data-canvas-image-properties-target="allowResize" data-action="change->canvas-image-properties#updateAllowResize">
                             <label for="image-allow-resize-control" class="form-check-label small">Změnu velikosti</label>
                         </div>
                     </div>
-                    <div class="col-6">
+                    <div class="col-6" data-canvas-image-properties-target="transformLimit">
                         <div class="form-check mb-0">
                             <input type="checkbox" id="image-allow-rotate-control" class="form-check-input" data-canvas-image-properties-target="allowRotate" data-action="change->canvas-image-properties#updateAllowRotate">
                             <label for="image-allow-rotate-control" class="form-check-label small">Rotaci</label>

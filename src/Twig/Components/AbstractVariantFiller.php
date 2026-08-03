@@ -224,7 +224,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     images: list<array{id: string, url: string}>,
      *     directories: list<array{id: string, name: string}>,
      *     includesRoot: bool,
-     *     canUpload: bool
+     *     canUpload: bool,
+     *     isBackground: bool
      * }>
      */
     public function imagePlaceholders(): array
@@ -244,14 +245,26 @@ abstract class AbstractVariantFiller extends AbstractController
             $frame = null;
             $defaultImageUrl = null;
             if ($object !== null) {
-                $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);
-                if ($placeholderFrame !== null) {
+                if ($input->isBackground) {
+                    // Background slot: the frame IS the canvas — the designed
+                    // object's cover-fit bbox overflows it and a fill re-covers
+                    // the whole canvas anyway.
                     $frame = [
-                        'x' => $placeholderFrame->x,
-                        'y' => $placeholderFrame->y,
-                        'width' => $placeholderFrame->width,
-                        'height' => $placeholderFrame->height,
+                        'x' => 0.0,
+                        'y' => 0.0,
+                        'width' => (float) $variant->dimension->width(),
+                        'height' => (float) $variant->dimension->height(),
                     ];
+                } else {
+                    $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);
+                    if ($placeholderFrame !== null) {
+                        $frame = [
+                            'x' => $placeholderFrame->x,
+                            'y' => $placeholderFrame->y,
+                            'width' => $placeholderFrame->width,
+                            'height' => $placeholderFrame->height,
+                        ];
+                    }
                 }
                 $defaultImageUrl = $this->defaultImageUrl($object);
             }
@@ -286,6 +299,10 @@ abstract class AbstractVariantFiller extends AbstractController
                 ),
                 'includesRoot' => $includesRoot,
                 'canUpload' => $directories !== [] || $includesRoot,
+                // Fill semantics differ: cover-fit anchored top-left over the
+                // whole canvas, no user transform (the limits above are forced
+                // false for background slots).
+                'isBackground' => $input->isBackground,
             ];
         }
 
@@ -417,7 +434,7 @@ abstract class AbstractVariantFiller extends AbstractController
             $layers[] = [
                 'kind' => 'image',
                 'inputId' => $input->inputId,
-                'label' => $name !== '' ? $name : sprintf('Obrázek %d', $position + 1),
+                'label' => $name !== '' ? $name : ($input->isBackground ? 'Pozadí' : sprintf('Obrázek %d', $position + 1)),
                 'hidable' => $input->hidable,
                 'hidden' => false,
                 'interactive' => true,

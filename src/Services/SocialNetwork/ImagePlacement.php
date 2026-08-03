@@ -36,6 +36,57 @@ readonly final class ImagePlacement
     }
 
     /**
+     * Background-slot placement: cover fit anchored TOP-LEFT. The least scale
+     * that covers the whole frame (for backgrounds the frame is the canvas
+     * itself), so any overflow crops away bottom-right. Deliberately takes no
+     * user transform — a filled background is deterministic; move/resize/rotate
+     * are forced off for background slots.
+     *
+     * @return array<string, mixed> Fabric object properties to merge onto the placeholder.
+     */
+    public function computeCover(PlaceholderFrame $frame, int $imageWidth, int $imageHeight): array
+    {
+        $imageWidth = $imageWidth > 0 ? $imageWidth : 1;
+        $imageHeight = $imageHeight > 0 ? $imageHeight : 1;
+
+        $coverScale = max($frame->width / $imageWidth, $frame->height / $imageHeight);
+        if ($coverScale <= 0.0) {
+            $coverScale = 1.0;
+        }
+
+        return [
+            'left' => $frame->x,
+            'top' => $frame->y,
+            'originX' => 'left',
+            'originY' => 'top',
+            'scaleX' => $coverScale,
+            'scaleY' => $coverScale,
+            'angle' => 0.0,
+            'width' => $imageWidth,
+            'height' => $imageHeight,
+            'cropX' => 0,
+            'cropY' => 0,
+            'flipX' => false,
+            'flipY' => false,
+            'skewX' => 0,
+            'skewY' => 0,
+            'clipPath' => [
+                'type' => 'Rect',
+                'originX' => 'center',
+                'originY' => 'center',
+                'left' => $frame->centerX(),
+                'top' => $frame->centerY(),
+                'width' => $frame->width,
+                'height' => $frame->height,
+                'scaleX' => 1,
+                'scaleY' => 1,
+                'angle' => 0,
+                'absolutePositioned' => true,
+            ],
+        ];
+    }
+
+    /**
      * @return array<string, mixed> Fabric object properties to merge onto the placeholder.
      */
     public function compute(

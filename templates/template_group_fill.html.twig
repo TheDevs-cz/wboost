@@ -198,7 +198,7 @@
                             <div class="col-sm-6 col-xl-4">
                                 <div class="card">
                                     <div class="group-fill-preview-frame" style="aspect-ratio: {{ v.width }} / {{ v.height }};">
-                                        <img src="{{ uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) }}"
+                                        <img src="{{ (v.variant.previewImagePath ?: v.variant.backgroundImage) ? uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) : asset('images/manual-placeholder.png') }}"
                                              alt="{{ v.dimension_label }}"
                                              data-group-fill-target="preview"
                                              data-variant-id="{{ variantId }}"

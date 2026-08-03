@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Services\TemplateGroup;
 
 use PHPUnit\Framework\TestCase;
+use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Services\TemplateGroup\CanvasDesignProjector;
+use WBoost\Web\Value\BackgroundMode;
 
 /**
  * @covers \WBoost\Web\Services\TemplateGroup\CanvasDesignProjector
@@ -16,7 +18,7 @@ final class CanvasDesignProjectorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->projector = new CanvasDesignProjector();
+        $this->projector = new CanvasDesignProjector(new BackgroundLayer());
     }
 
     public function testTextboxProjectsWidthAndFontSizeByWidthRatio(): void
@@ -155,6 +157,124 @@ final class CanvasDesignProjectorTest extends TestCase
             '{}',
             $this->projector->project('{"version":"5.2.4","objects":[]}', 1080, 1080, 1080, 1920, 'https://assets/bg.png'),
             'a design with no objects keeps the empty-canvas contract',
+        );
+    }
+
+    public function testLayerModeRecoversBackgroundLayerForTargetAndNeverStampsCanvasLevel(): void
+    {
+        $canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                ['type' => 'Textbox', 'inputId' => 'a', 'left' => 100, 'top' => 90, 'width' => 520],
+                [
+                    // Mid-stack on purpose: the layer keeps its position.
+                    'type' => 'Image',
+                    'inputId' => 'bg-1',
+                    'isBackground' => true,
+                    'imagePlaceholder' => true,
+                    'name' => 'Moje pozadí',
+                    'left' => 0, 'top' => 0, 'scaleX' => 2.7, 'scaleY' => 2.7,
+                    'src' => 'https://assets/source-bg.png',
+                ],
+                ['type' => 'Image', 'inputId' => 'img-1', 'left' => 216, 'top' => 108, 'scaleX' => 0.5, 'scaleY' => 0.5],
+            ],
+            // Stale canvas-level block must not survive into a layer-mode doc.
+            'backgroundImage' => ['type' => 'image', 'src' => 'https://assets/stale.png'],
+        ], JSON_THROW_ON_ERROR);
+
+        $projected = $this->decode($this->projector->project(
+            $canvas,
+            1080,
+            1080,
+            2480,
+            3508,
+            'https://assets/target-bg.png',
+            800,
+            600,
+            BackgroundMode::Layer,
+            'custom-templates/v1/background-1.png',
+        ));
+
+        self::assertArrayNotHasKey('backgroundImage', $projected, 'layer mode never carries a canvas-level background');
+
+        $background = $this->objectAt($projected, 1);
+        self::assertTrue($background['isBackground'] ?? null);
+        self::assertSame('https://assets/target-bg.png', $background['src'], 'the layer points at the TARGET variant\'s own file');
+        self::assertSame('custom-templates/v1/background-1.png', $background['assetPath']);
+        // Re-covered for the target dims (max ratio, top-left) — NOT rx-scaled.
+        $scale = max(2480 / 800, 3508 / 600);
+        self::assertSame('left', $background['originX']);
+        self::assertSame('top', $background['originY']);
+        self::assertEqualsWithDelta($scale, $background['scaleX'], 0.001);
+        self::assertEqualsWithDelta($scale, $background['scaleY'], 0.001);
+        // Designer-set input metadata survives the swap.
+        self::assertSame('bg-1', $background['inputId']);
+        self::assertSame('Moje pozadí', $background['name']);
+        self::assertTrue($background['imagePlaceholder']);
+
+        // Sibling objects still project by the normal ratio rules.
+        $textbox = $this->objectAt($projected, 0);
+        self::assertEqualsWithDelta(100 * (2480 / 1080), $textbox['left'], 0.001);
+        $image = $this->objectAt($projected, 2);
+        self::assertEqualsWithDelta(0.5 * (2480 / 1080), $image['scaleX'], 0.001);
+    }
+
+    public function testLayerModeDropsBackgroundLayerWhenTargetHasNoBackground(): void
+    {
+        $canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                ['type' => 'Image', 'inputId' => 'bg-1', 'isBackground' => true, 'left' => 0, 'top' => 0, 'src' => 'https://assets/source-bg.png'],
+                ['type' => 'Textbox', 'inputId' => 'a', 'left' => 100, 'top' => 90, 'width' => 520],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $projected = $this->decode($this->projector->project(
+            $canvas,
+            1080,
+            1080,
+            1080,
+            1920,
+            null,
+            null,
+            null,
+            BackgroundMode::Layer,
+        ));
+
+        $objects = $projected['objects'] ?? null;
+        self::assertIsArray($objects);
+        self::assertCount(1, $objects, 'no target background → the layer is dropped');
+        $textbox = $this->objectAt($projected, 0);
+        self::assertSame('a', $textbox['inputId']);
+    }
+
+    public function testLayerModeBlankDesignWithBackgroundSeedsSingleLayerDocument(): void
+    {
+        $projected = $this->decode($this->projector->project(
+            '{}',
+            1080,
+            1080,
+            1080,
+            1920,
+            'https://assets/bg.png',
+            800,
+            600,
+            BackgroundMode::Layer,
+            'social-networks/v1/background-1.png',
+        ));
+
+        self::assertArrayNotHasKey('backgroundImage', $projected);
+        $layer = $this->objectAt($projected, 0);
+        self::assertTrue($layer['isBackground'] ?? null);
+        self::assertSame('left', $layer['originX']);
+        self::assertEqualsWithDelta(max(1080 / 800, 1920 / 600), $layer['scaleX'], 0.001);
+    }
+
+    public function testLayerModeBlankDesignWithoutBackgroundStaysBlank(): void
+    {
+        self::assertSame(
+            '{}',
+            $this->projector->project('{}', 1080, 1080, 1080, 1920, null, null, null, BackgroundMode::Layer),
         );
     }
 

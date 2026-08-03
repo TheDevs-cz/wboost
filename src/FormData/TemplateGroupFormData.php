@@ -40,8 +40,8 @@ final class TemplateGroupFormData
     public array $customDimensions = [];
 
     // "Create from existing template" design source (hidden fields, set by the
-    // picker page). When present, backgrounds become optional — dimensions
-    // without an upload reuse a copy of the source variant's background.
+    // picker page). When present, dimensions without an upload reuse a copy of
+    // the source variant's background.
     public null|string $sourceModule = null;
 
     public null|string $sourceVariantId = null;
@@ -55,25 +55,9 @@ final class TemplateGroupFormData
                 ->addViolation();
         }
 
-        if ($this->hasDesignSource()) {
-            return;
-        }
-
-        foreach ($this->socialDimensions as $dimension) {
-            if ($this->backgroundFor($dimension) === null) {
-                $context->buildViolation('Nahrajte pozadí pro tento rozměr, nebo použijte společné pozadí.')
-                    ->atPath('background' . $dimension->name)
-                    ->addViolation();
-            }
-        }
-
-        foreach ($this->customDimensions as $index => $row) {
-            if ($row->backgroundImage === null && $this->commonBackground === null) {
-                $context->buildViolation('Nahrajte pozadí pro tento rozměr, nebo použijte společné pozadí.')
-                    ->atPath(sprintf('customDimensions[%d].backgroundImage', $index))
-                    ->addViolation();
-            }
-        }
+        // Backgrounds are optional since the background-as-layer rework: a
+        // dimension without an upload (and without a design source to copy
+        // from) starts without a background and renders transparent.
     }
 
     public function hasDesignSource(): bool

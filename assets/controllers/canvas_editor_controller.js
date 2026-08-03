@@ -20,6 +20,10 @@ export default class extends Controller {
 
     static values = {
         backgroundImage: String,
+        // 'canvas' (legacy: background = canvas-level backgroundImage, mirrored
+        // from the entity) or 'layer' (background = regular `isBackground`
+        // object inside the canvas document, optional).
+        backgroundMode: { type: String, default: 'canvas' },
         customFonts: Array,
         editVariantUrl: String,
     };
@@ -53,10 +57,15 @@ export default class extends Controller {
             this.loadCanvasWithoutHistory(canvasJson);
         }
 
-        // Always override background when loaded
-        if (this.backgroundImageValue) {
+        // Always override background when loaded — canvas mode only. In layer
+        // mode the background is an ordinary object already inside the canvas
+        // JSON; assigning a canvas-level background on top of it would shadow
+        // the layer (and in the group editor, re-add it on every tab switch).
+        if (this.backgroundModeValue !== 'layer' && this.backgroundImageValue) {
             this.setBackgroundImage(this.backgroundImageValue);
         }
+
+        this._syncTransparencyHint();
 
         // Safety net: once the browser reports every face ready, drop Fabric's
         // glyph-measurement cache and repaint. Catches any face that settles
@@ -211,7 +220,12 @@ export default class extends Controller {
             // (center origin, no scale → cropped to a quadrant under Fabric v7).
             // Re-apply cover/center from the image's natural size so the editor
             // matches the export. Idempotent for backgrounds already covered.
-            if (this.canvas.backgroundImage) {
+            if (this.backgroundModeValue === 'layer') {
+                // Layer mode never has a canvas-level background. Clear any
+                // leftover (e.g. a group-editor tab switch from a canvas-mode
+                // sibling) instead of re-covering it.
+                this.canvas.backgroundImage = undefined;
+            } else if (this.canvas.backgroundImage) {
                 this.coverBackgroundImage(this.canvas.backgroundImage);
             }
 
@@ -330,6 +344,27 @@ export default class extends Controller {
         this.canvas.fire('object:modified', { target: activeObject });
     }
 
+    /**
+     * A layer-mode variant with no background layer renders transparent —
+     * show the classic checkerboard behind the canvas element so that state
+     * is visible. Re-evaluated when the group editor switches the active
+     * variant (backgroundModeValue changes).
+     */
+    _syncTransparencyHint() {
+        const element = this.canvas && typeof this.canvas.getElement === 'function'
+            ? this.canvas.getElement()
+            : null;
+        const wrapper = element ? element.closest('.canvas-wrapper') : null;
+        if (!wrapper) return;
+        wrapper.classList.toggle('canvas-wrapper--transparent', this.backgroundModeValue === 'layer');
+    }
+
+    backgroundModeValueChanged() {
+        // The initial callback fires before connect() creates the canvas —
+        // connect() calls _syncTransparencyHint() itself once ready.
+        this._syncTransparencyHint();
+    }
+
     async setBackgroundImage(imageUrl) {
         // Fabric v7: FabricImage.fromURL is Promise-based;
         // backgroundImage is now a property assignment, not a setter method.
@@ -337,6 +372,47 @@ export default class extends Controller {
         this.coverBackgroundImage(img);
         this.canvas.backgroundImage = img;
         this.canvas.renderAll();
+    }
+
+    /**
+     * Layer-mode counterpart of setBackgroundImage: the background is a
+     * regular image object marked `isBackground`, cover-fitted TOP-LEFT
+     * (overflow crops bottom-right; must match the server's
+     * `ImagePlacement::computeCover` / `BackgroundLayer::buildObject`).
+     *
+     * Replaces the existing background layer IN PLACE — same stack index,
+     * same inputId/name/placeholder metadata — so picking a new picture never
+     * duplicates the layer or rebinds its fill slot. Without an existing
+     * layer it lands at the bottom of the stack. Unlike the legacy flow this
+     * is an ordinary canvas edit: dirty until saved, undoable, no
+     * persistBackgroundPath side channel (the entity column is synced
+     * server-side from the saved canvas).
+     */
+    async setBackgroundLayer(imageUrl, assetPath = null, assetId = null) {
+        const existing = this.canvas.getObjects().find((o) => o.isBackground === true);
+
+        const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
+        coverForDimensions(img, this.canvas.width, this.canvas.height, 'top-left');
+
+        img.isBackground = true;
+        img.inputId = existing?.inputId || crypto.randomUUID();
+        img.imagePlaceholder = existing?.imagePlaceholder === true;
+        if (existing?.name !== undefined) img.name = existing.name;
+        if (existing?.description !== undefined) img.description = existing.description;
+        if (existing?.hidable !== undefined) img.hidable = existing.hidable;
+        if (existing?.allowedDirectoryIds !== undefined) img.allowedDirectoryIds = existing.allowedDirectoryIds;
+        img.assetPath = assetPath || undefined;
+        img.assetId = assetId || undefined;
+
+        let index = 0;
+        if (existing) {
+            index = this.canvas.getObjects().indexOf(existing);
+            this.canvas.remove(existing);
+        }
+        this.canvas.add(img);
+        this.canvas.moveObjectTo(img, index);
+        this.canvas.renderAll();
+        this.markUnsaved();
     }
 
     /**
@@ -472,13 +548,20 @@ export default class extends Controller {
         const mode = this.galleryMode || 'addImage';
 
         if (mode === 'background') {
-            this.setBackgroundImage(url);
-            if (path && this.hasEditVariantUrlValue) {
-                this.persistBackgroundPath(path);
+            if (this.backgroundModeValue === 'layer') {
+                // Layer mode: an ordinary (undoable, dirty-until-saved) canvas
+                // edit — no side-channel POST, the entity column follows the
+                // saved canvas server-side.
+                this.setBackgroundLayer(url, path, id);
+            } else {
+                this.setBackgroundImage(url);
+                if (path && this.hasEditVariantUrlValue) {
+                    this.persistBackgroundPath(path);
+                }
             }
             // The group editor tracks per-variant backgrounds — tell it the
             // active variant's background just changed.
-            this.dispatch('background:changed', { detail: { url, path } });
+            this.dispatch('background:changed', { detail: { url, path, layerMode: this.backgroundModeValue === 'layer' } });
         } else {
             this.addImageToCanvas(url, path, id);
         }

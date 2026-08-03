@@ -209,9 +209,13 @@ export default class extends Controller {
         const type = (obj.type || '').toLowerCase();
         const isText = type === 'textbox';
         const isPlaceholder = !isText && !!obj.imagePlaceholder;
+        // Background layer: visually distinct row so the designer always knows
+        // which layer is the background — but still an ordinary, freely
+        // reorderable row (no pinning).
+        const isBackground = !isText && obj.isBackground === true;
 
         const row = document.createElement('div');
-        row.className = 'canvas-layer-row';
+        row.className = isBackground ? 'canvas-layer-row canvas-layer-row--background' : 'canvas-layer-row';
         row.dataset.index = String(index);
         row.setAttribute('role', 'listitem');
         row.dataset.action = 'mouseenter->canvas-layers#hover mouseleave->canvas-layers#unhover';
@@ -221,13 +225,20 @@ export default class extends Controller {
         main.className = 'canvas-layer-row__main';
         main.dataset.action = 'canvas-layers#select focus->canvas-layers#hover blur->canvas-layers#unhover';
 
-        const label = this._labelFor(obj, isText, isPlaceholder);
-        const typeLabel = isText ? 'Text' : (isPlaceholder ? 'Obrázkový placeholder' : 'Obrázek');
+        const label = this._labelFor(obj, isText, isPlaceholder, isBackground);
+        const typeLabel = isText
+            ? 'Text'
+            : (isBackground
+                ? (isPlaceholder ? 'Pozadí (placeholder)' : 'Pozadí')
+                : (isPlaceholder ? 'Obrázkový placeholder' : 'Obrázek'));
         main.title = `${label} — ${typeLabel} (kliknutím upravíte, tažením změníte pořadí)`;
         main.setAttribute('aria-label', `${typeLabel}: ${label}`);
 
         const icon = document.createElement('i');
-        icon.className = `canvas-layer-row__icon mdi ${isText ? 'mdi-format-text' : (isPlaceholder ? 'mdi-image-edit-outline' : 'mdi-image-outline')}`;
+        const iconGlyph = isText
+            ? 'mdi-format-text'
+            : (isBackground ? 'mdi-wallpaper' : (isPlaceholder ? 'mdi-image-edit-outline' : 'mdi-image-outline'));
+        icon.className = `canvas-layer-row__icon mdi ${iconGlyph}`;
         icon.setAttribute('aria-hidden', 'true');
         main.appendChild(icon);
 
@@ -256,13 +267,14 @@ export default class extends Controller {
         return row;
     }
 
-    _labelFor(obj, isText, isPlaceholder) {
+    _labelFor(obj, isText, isPlaceholder, isBackground = false) {
         const name = (obj.name || '').trim();
         if (name !== '') return name;
         if (isText) {
             const firstLine = (obj.text || '').split('\n')[0].trim();
             return firstLine !== '' ? firstLine : 'Text';
         }
+        if (isBackground) return 'Pozadí';
         return isPlaceholder ? 'Obrázek (placeholder)' : 'Obrázek';
     }
 

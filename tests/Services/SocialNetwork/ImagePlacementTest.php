@@ -185,4 +185,70 @@ final class ImagePlacementTest extends TestCase
         self::assertSame(60.0, $result['left']); // ratio: 50 + 0.1 × 100
         self::assertSame(90.0, $result['top']);  // px kept for the axis with no ratio
     }
+
+    public function testCoverUsesLeastCoveringScaleAnchoredTopLeft(): void
+    {
+        // 1080×1080 canvas-frame, a 2000×1000 (wide) image → cover by height:
+        // max(1080/2000, 1080/1000) = 1.08; overflow crops away bottom-right.
+        $result = (new ImagePlacement())->computeCover(
+            new PlaceholderFrame(0.0, 0.0, 1080.0, 1080.0),
+            2000,
+            1000,
+        );
+
+        self::assertSame('left', $result['originX']);
+        self::assertSame('top', $result['originY']);
+        self::assertSame(0.0, $result['left']);
+        self::assertSame(0.0, $result['top']);
+        self::assertEqualsWithDelta(1.08, $result['scaleX'], 0.0001);
+        self::assertEqualsWithDelta(1.08, $result['scaleY'], 0.0001);
+        self::assertSame(0.0, $result['angle']);
+        self::assertSame(2000, $result['width']);
+        self::assertSame(1000, $result['height']);
+    }
+
+    public function testCoverTallImageCoversByWidth(): void
+    {
+        // 100×400 (tall) into 100×100 → cover = max(1, 0.25) = 1.
+        $result = (new ImagePlacement())->computeCover(
+            new PlaceholderFrame(0.0, 0.0, 100.0, 100.0),
+            100,
+            400,
+        );
+
+        self::assertSame(1.0, $result['scaleX']);
+        self::assertSame(1.0, $result['scaleY']);
+    }
+
+    public function testCoverClipPathMatchesTheFrame(): void
+    {
+        $result = (new ImagePlacement())->computeCover(
+            new PlaceholderFrame(0.0, 0.0, 200.0, 100.0),
+            50,
+            50,
+        );
+
+        $clip = $result['clipPath'];
+        self::assertIsArray($clip);
+        self::assertSame('Rect', $clip['type']);
+        self::assertSame(100.0, $clip['left']);
+        self::assertSame(50.0, $clip['top']);
+        self::assertSame(200.0, $clip['width']);
+        self::assertSame(100.0, $clip['height']);
+        self::assertTrue($clip['absolutePositioned']);
+    }
+
+    public function testCoverDegenerateImageSizeFallsBackSafely(): void
+    {
+        $result = (new ImagePlacement())->computeCover(
+            new PlaceholderFrame(0.0, 0.0, 100.0, 100.0),
+            0,
+            0,
+        );
+
+        // 0×0 is normalized to 1×1 → cover = 100.
+        self::assertSame(100.0, $result['scaleX']);
+        self::assertSame(1, $result['width']);
+        self::assertSame(1, $result['height']);
+    }
 }

@@ -33,6 +33,7 @@ readonly final class CopySocialNetworkTemplateVariantHandler
             $message->dimension,
             $originalVariant->backgroundImage,
             $this->clock->now(),
+            $originalVariant->backgroundMode,
         );
 
         $variant->editCanvas(

@@ -132,7 +132,9 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
             previewImageUrl: $variant->previewImagePath !== null
                 ? $this->uploaderHelper->getPublicPath($variant->previewImagePath)
                 : null,
-            backgroundImageUrl: $this->uploaderHelper->getPublicPath($variant->backgroundImage),
+            backgroundImageUrl: $variant->backgroundImage !== null
+                ? $this->uploaderHelper->getPublicPath($variant->backgroundImage)
+                : null,
             thumbnailUrl: $this->urlGenerator->generate(
                 'api_custom_template_variant_thumbnail',
                 ['variantId' => $variant->id->toString()],
@@ -291,21 +293,33 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
         $projectId = $variant->template->project->id;
 
         return array_values(array_map(
-            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId): CustomTemplateVariantImageInputResponse {
+            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId, $variant): CustomTemplateVariantImageInputResponse {
                 $object = $objects[$input->inputId] ?? null;
 
                 $frame = null;
                 $defaultImageUrl = null;
 
                 if ($object !== null) {
-                    $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);
-                    if ($placeholderFrame !== null) {
+                    if ($input->isBackground) {
+                        // Background slot: the frame IS the canvas — the designed
+                        // object's cover-fit bbox overflows it, and a fill
+                        // re-covers the whole canvas anyway.
                         $frame = new CustomTemplateVariantImageInputFrameResponse(
-                            $placeholderFrame->x,
-                            $placeholderFrame->y,
-                            $placeholderFrame->width,
-                            $placeholderFrame->height,
+                            0,
+                            0,
+                            $variant->dimension->width(),
+                            $variant->dimension->height(),
                         );
+                    } else {
+                        $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);
+                        if ($placeholderFrame !== null) {
+                            $frame = new CustomTemplateVariantImageInputFrameResponse(
+                                $placeholderFrame->x,
+                                $placeholderFrame->y,
+                                $placeholderFrame->width,
+                                $placeholderFrame->height,
+                            );
+                        }
                     }
 
                     $defaultImageUrl = $this->defaultImageUrl($object);
@@ -331,6 +345,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                     frame: $frame,
                     defaultImageUrl: $defaultImageUrl,
                     layerIndex: $layerIndexes[$input->inputId] ?? null,
+                    isBackground: $input->isBackground,
                 );
             },
             $variant->imageInputs,

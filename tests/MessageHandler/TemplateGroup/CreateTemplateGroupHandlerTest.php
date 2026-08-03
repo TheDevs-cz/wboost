@@ -17,6 +17,7 @@ use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
+use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CustomTemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\GroupCustomVariantSelection;
@@ -67,9 +68,26 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         // Dimension case order: 1:1 before 9:16.
         self::assertSame(TemplateDimension::InstagramPost, $socialVariants[0]->dimension);
         self::assertSame(TemplateDimension::InstagramStory, $socialVariants[1]->dimension);
-        self::assertSame('{}', $socialVariants[0]->canvas, 'Group variants start with an empty canvas.');
-        self::assertStringStartsWith('social-networks/', $socialVariants[0]->backgroundImage);
-        self::assertStringContainsString('/background-', $socialVariants[0]->backgroundImage);
+
+        // Fresh groups are layer-mode: the uploaded background is seeded as an
+        // `isBackground` canvas object (cover-fit top-left), no canvas-level
+        // backgroundImage, and the column keeps the denormalized pointer.
+        $postVariant = $socialVariants[0];
+        self::assertSame(BackgroundMode::Layer, $postVariant->backgroundMode);
+        $postBackgroundPath = $postVariant->backgroundImage;
+        self::assertNotNull($postBackgroundPath);
+        self::assertStringStartsWith('social-networks/', $postBackgroundPath);
+        self::assertStringContainsString('/background-', $postBackgroundPath);
+
+        $postCanvas = $this->decodeCanvas($postVariant->canvas);
+        self::assertArrayNotHasKey('backgroundImage', $postCanvas);
+        $postLayer = $this->firstObject($postCanvas);
+        self::assertTrue($postLayer['isBackground'] ?? null);
+        self::assertSame('left', $postLayer['originX']);
+        self::assertSame('top', $postLayer['originY']);
+        // The 1×1 upload cover-fitted onto 1080×1080: scale = max ratio.
+        self::assertEqualsWithDelta(1080.0, $postLayer['scaleX'], 0.001);
+        self::assertSame($postBackgroundPath, $postLayer['assetPath']);
 
         $customTemplate = $members->customTemplate($groupId);
         self::assertInstanceOf(CustomTemplate::class, $customTemplate);
@@ -78,7 +96,9 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         $customVariants = $members->customVariants($groupId);
         self::assertCount(1, $customVariants);
         self::assertSame(2480, $customVariants[0]->dimension->width());
-        self::assertStringStartsWith('custom-templates/', $customVariants[0]->backgroundImage);
+        $customBackgroundPath = $customVariants[0]->backgroundImage;
+        self::assertNotNull($customBackgroundPath);
+        self::assertStringStartsWith('custom-templates/', $customBackgroundPath);
     }
 
     public function testSingleModuleGroupSkipsTheOtherModule(): void
@@ -156,15 +176,19 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         self::assertSame(TestDataFixture::GROUP_SHARED_INPUT_ID, $storyVariant->inputs[0]->inputId);
         self::assertSame('headline', $storyVariant->inputs[0]->name);
 
+        // Seeding from an existing (canvas-mode) design inherits its style.
+        self::assertSame(BackgroundMode::Canvas, $storyVariant->backgroundMode);
+        $storyBackgroundPath = $storyVariant->backgroundImage;
+        self::assertIsString($storyBackgroundPath);
         self::assertSame(
             $sourceBackgroundBytes,
-            $filesystem->read($storyVariant->backgroundImage),
+            $filesystem->read($storyBackgroundPath),
             'no upload → the source variant\'s background bytes are copied into the new variant\'s own file',
         );
 
         $storyBackground = $storyCanvas['backgroundImage'] ?? null;
         self::assertIsArray($storyBackground);
-        self::assertSame($uploaderHelper->getPublicPath($storyVariant->backgroundImage), $storyBackground['src']);
+        self::assertSame($uploaderHelper->getPublicPath($storyBackgroundPath), $storyBackground['src']);
         // The 1×1 source PNG cover-fitted onto 1080×1920: scale = max ratio.
         self::assertSame('center', $storyBackground['originX']);
         self::assertEqualsWithDelta(1920.0, $storyBackground['scaleX'], 0.001);
@@ -183,9 +207,11 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         self::assertEqualsWithDelta(520 * $rx, $a4Textbox['width'], 0.001);
         self::assertSame(TestDataFixture::GROUP_SHARED_INPUT_ID, $a4Textbox['inputId']);
 
+        $a4BackgroundPath = $a4Variant->backgroundImage;
+        self::assertIsString($a4BackgroundPath);
         self::assertNotSame(
             $sourceBackgroundBytes,
-            $filesystem->read($a4Variant->backgroundImage),
+            $filesystem->read($a4BackgroundPath),
             'a selection with its own upload keeps that upload',
         );
     }

@@ -196,7 +196,9 @@
                         <input type="hidden" name="images[{{ ph.inputId }}][hide]" data-placeholder="{{ ph.inputId }}" data-field="hide" value="">
                     {% endfor %}
 
-                    <div class="canvas-wrapper" data-variant-image-fill-target="wrapper" style="position: relative;">
+                    {# Layer-mode variants may render transparent (no background) —
+                       the checkerboard makes that visible, any background paints over it. #}
+                    <div class="canvas-wrapper{{ variant.backgroundMode.value == 'layer' ? ' canvas-wrapper--transparent' }}" data-variant-image-fill-target="wrapper" style="position: relative;">
                         <canvas
                             data-variant-image-fill-target="canvas"
                             data-variant-fill-overlay-target="preview"
@@ -209,7 +211,7 @@
                 <div data-live-ignore>
                     {% if previewSrc %}
                         <img
-                            class="fill-preview-img"
+                            class="fill-preview-img{{ variant.backgroundMode.value == 'layer' ? ' fill-preview-img--transparent' }}"
                             data-variant-fill-overlay-target="preview"
                             src="{{ previewSrc }}"
                             alt=""

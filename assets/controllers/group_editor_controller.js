@@ -88,7 +88,11 @@ export default class extends Controller {
         canvas.on('text:editing:exited', () => this._afterMutation({ immediate: true }));
 
         canvas.on('object:added', (e) => {
-            if (this._quiet(editor) || !e.target || !e.target.inputId) {
+            // Background layers are strictly per-dimension: adding/replacing
+            // the active variant's background must never fan a clone into the
+            // sibling shadows — even when the add happens outside the _quiet
+            // window (e.g. the layer-mode "Pozadí" pick).
+            if (this._quiet(editor) || !e.target || !e.target.inputId || e.target.isBackground === true) {
                 return;
             }
             this.sync.projectNewObject(e.target).then((touched) => {
@@ -99,7 +103,7 @@ export default class extends Controller {
         });
 
         canvas.on('object:removed', (e) => {
-            if (this._quiet(editor) || !e.target || !e.target.inputId) {
+            if (this._quiet(editor) || !e.target || !e.target.inputId || e.target.isBackground === true) {
                 return;
             }
             const touched = this.sync.removeObject(e.target.inputId);
@@ -177,11 +181,20 @@ export default class extends Controller {
     /** canvas-editor:background:changed — active variant picked a new background. */
     onBackgroundChanged(event) {
         const active = this._variant(this.activeId);
-        if (active && event.detail && event.detail.url) {
-            active.backgroundUrl = event.detail.url;
-            active.dirty = true;
-            this._refreshDirtyDots();
+        if (!active || !event.detail || !event.detail.url) {
+            return;
         }
+
+        // Layer mode: the background is an object inside the canvas document
+        // (already added by setBackgroundLayer, already marked dirty). Keeping
+        // backgroundUrl null here is what keeps every canvas-level re-apply
+        // site (_loadShadow / _activate / _restoreSnapshot) a no-op.
+        if (!event.detail.layerMode) {
+            active.backgroundUrl = event.detail.url;
+        }
+
+        active.dirty = true;
+        this._refreshDirtyDots();
     }
 
     // ------------------------------------------------------------------ propagation
@@ -366,6 +379,11 @@ export default class extends Controller {
 
             editor.canvas.setDimensions({ width: incoming.width, height: incoming.height });
             editor.editVariantUrlValue = incoming.editVariantUrl;
+            // Mode BEFORE load: loadCanvasWithoutHistory branches on it (layer
+            // mode clears any leftover canvas-level background instead of
+            // re-covering it). backgroundUrl is null for layer-mode variants,
+            // which keeps the canvas-level re-apply below a natural no-op.
+            editor.backgroundModeValue = incoming.backgroundMode || 'canvas';
             editor.backgroundImageValue = incoming.backgroundUrl || '';
 
             const incomingPayload = buildVariantPayload(incoming.shadow);
@@ -551,6 +569,10 @@ export default class extends Controller {
             if (active) {
                 editor.canvas.setDimensions({ width: active.width, height: active.height });
                 editor.editVariantUrlValue = active.editVariantUrl;
+                // Mode BEFORE load (layer mode clears any leftover canvas-level
+                // background); backgroundUrl is null for layer-mode variants,
+                // so the re-apply below stays canvas-mode-only.
+                editor.backgroundModeValue = active.backgroundMode || 'canvas';
                 await editor.loadCanvasWithoutHistory(snapshot.states[active.id] || '{}');
                 if (active.backgroundUrl) {
                     await editor.setBackgroundImage(active.backgroundUrl);

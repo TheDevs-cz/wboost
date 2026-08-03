@@ -53,7 +53,7 @@ final class EditSocialNetworkTemplateVariantController extends AbstractControlle
 
             $variant = $this->variantRepository->get($variant->id);
 
-            return $this->json(['filePath' => $this->uploaderHelper->getPublicPath($variant->backgroundImage)]);
+            return $this->json(['filePath' => $variant->backgroundImage !== null ? $this->uploaderHelper->getPublicPath($variant->backgroundImage) : null]);
         }
 
         $data = new SocialNetworkTemplateVariantFormData();
@@ -71,7 +71,7 @@ final class EditSocialNetworkTemplateVariantController extends AbstractControlle
             // Get fresh one
             $variant = $this->variantRepository->get($variant->id);
 
-            return $this->json(['filePath' => $this->uploaderHelper->getPublicPath($variant->backgroundImage)]);
+            return $this->json(['filePath' => $variant->backgroundImage !== null ? $this->uploaderHelper->getPublicPath($variant->backgroundImage) : null]);
         }
 
         return $this->json(['error' => 'Invalid form submission'], 400);

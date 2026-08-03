@@ -72,7 +72,7 @@ final class TemplateGroupDimensionFormType extends AbstractType
 
         $builder->add('backgroundImage', FileType::class, [
             'label' => 'Obrázek pozadí',
-            'required' => true,
+            'required' => false,
             'constraints' => [
                 new Image(
                     maxSize: '10m',

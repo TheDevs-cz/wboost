@@ -353,8 +353,12 @@ export default class extends Controller {
     // --- helpers ----------------------------------------------------------
 
     _collectTargets(exclude) {
+        // The background layer is excluded: its cover-fit rect overflows the
+        // canvas, so its right/bottom/center lines would be off-canvas noise —
+        // and the canvas edges it visually coincides with already snap via the
+        // isCanvas rect below.
         const rects = this._canvas.getObjects()
-            .filter((o) => !exclude.has(o) && o.visible !== false)
+            .filter((o) => !exclude.has(o) && o.visible !== false && o.isBackground !== true)
             .map((o) => this._rect(o));
         const W = this._canvas.getWidth();
         const H = this._canvas.getHeight();

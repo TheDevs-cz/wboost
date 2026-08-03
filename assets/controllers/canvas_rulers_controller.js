@@ -383,6 +383,9 @@ export default class extends Controller {
         if (axis === 'x') lines.push(0, W / 2, W); else lines.push(0, H / 2, H);
         this._canvas.getObjects().forEach((o) => {
             if (o.visible === false) return;
+            // Background layer: cover-fit overflows the canvas — its edges are
+            // off-canvas noise, and the canvas lines above already cover 0/W/H.
+            if (o.isBackground === true) return;
             const r = o.getBoundingRect();
             if (axis === 'x') lines.push(r.left, r.left + r.width / 2, r.left + r.width);
             else lines.push(r.top, r.top + r.height / 2, r.top + r.height);

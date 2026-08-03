@@ -20,7 +20,7 @@ export default class extends Controller {
     static targets = [
         "details", "placeholder", "name", "description",
         "allowMove", "allowResize", "allowRotate", "hidable", "directory",
-        "warning", "editorLocked",
+        "warning", "editorLocked", "transformLimit", "backgroundHint",
     ];
 
     canvasEditorOutletConnected(outlet) {
@@ -36,15 +36,21 @@ export default class extends Controller {
         }
 
         const isPlaceholder = activeObject.imagePlaceholder === true;
+        const isBackground = activeObject.isBackground === true;
 
         if (this.hasEditorLockedTarget) this.editorLockedTarget.checked = activeObject.editorLocked === true;
         if (this.hasPlaceholderTarget)  this.placeholderTarget.checked  = isPlaceholder;
         if (this.hasNameTarget)         this.nameTarget.value           = activeObject.name || '';
         if (this.hasDescriptionTarget)  this.descriptionTarget.value    = activeObject.description || '';
-        if (this.hasAllowMoveTarget)    this.allowMoveTarget.checked    = activeObject.allowMove || false;
-        if (this.hasAllowResizeTarget)  this.allowResizeTarget.checked  = activeObject.allowResize || false;
-        if (this.hasAllowRotateTarget)  this.allowRotateTarget.checked  = activeObject.allowRotate || false;
+        if (this.hasAllowMoveTarget)    this.allowMoveTarget.checked    = !isBackground && (activeObject.allowMove || false);
+        if (this.hasAllowResizeTarget)  this.allowResizeTarget.checked  = !isBackground && (activeObject.allowResize || false);
+        if (this.hasAllowRotateTarget)  this.allowRotateTarget.checked  = !isBackground && (activeObject.allowRotate || false);
         if (this.hasHidableTarget)      this.hidableTarget.checked      = activeObject.hidable || false;
+
+        // Background fills are a fixed top-left cover — the transform limits
+        // don't apply, so hide them and show the explanatory hint instead.
+        this.transformLimitTargets.forEach((el) => { el.style.display = isBackground ? 'none' : ''; });
+        if (this.hasBackgroundHintTarget) this.backgroundHintTarget.style.display = isBackground ? 'block' : 'none';
 
         const allowed = Array.isArray(activeObject.allowedDirectoryIds) ? activeObject.allowedDirectoryIds : [];
         this.directoryTargets.forEach((checkbox) => {

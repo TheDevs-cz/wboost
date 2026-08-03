@@ -129,7 +129,9 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
             previewImageUrl: $variant->previewImagePath !== null
                 ? $this->uploaderHelper->getPublicPath($variant->previewImagePath)
                 : null,
-            backgroundImageUrl: $this->uploaderHelper->getPublicPath($variant->backgroundImage),
+            backgroundImageUrl: $variant->backgroundImage !== null
+                ? $this->uploaderHelper->getPublicPath($variant->backgroundImage)
+                : null,
             thumbnailUrl: $this->urlGenerator->generate(
                 'api_social_network_template_variant_thumbnail',
                 ['variantId' => $variant->id->toString()],
@@ -288,21 +290,33 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
         $projectId = $variant->template->project->id;
 
         return array_values(array_map(
-            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId): SocialNetworkTemplateVariantImageInputResponse {
+            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId, $variant): SocialNetworkTemplateVariantImageInputResponse {
                 $object = $objects[$input->inputId] ?? null;
 
                 $frame = null;
                 $defaultImageUrl = null;
 
                 if ($object !== null) {
-                    $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);
-                    if ($placeholderFrame !== null) {
+                    if ($input->isBackground) {
+                        // Background slot: the frame IS the canvas — the designed
+                        // object's cover-fit bbox overflows it, and a fill
+                        // re-covers the whole canvas anyway.
                         $frame = new SocialNetworkTemplateVariantImageInputFrameResponse(
-                            $placeholderFrame->x,
-                            $placeholderFrame->y,
-                            $placeholderFrame->width,
-                            $placeholderFrame->height,
+                            0,
+                            0,
+                            $variant->dimension->width(),
+                            $variant->dimension->height(),
                         );
+                    } else {
+                        $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);
+                        if ($placeholderFrame !== null) {
+                            $frame = new SocialNetworkTemplateVariantImageInputFrameResponse(
+                                $placeholderFrame->x,
+                                $placeholderFrame->y,
+                                $placeholderFrame->width,
+                                $placeholderFrame->height,
+                            );
+                        }
                     }
 
                     $defaultImageUrl = $this->defaultImageUrl($object);
@@ -328,6 +342,7 @@ final readonly class SocialNetworkTemplatesProvider implements ProviderInterface
                     frame: $frame,
                     defaultImageUrl: $defaultImageUrl,
                     layerIndex: $layerIndexes[$input->inputId] ?? null,
+                    isBackground: $input->isBackground,
                 );
             },
             $variant->imageInputs,

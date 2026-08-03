@@ -55,22 +55,25 @@ export function restoreCustomProperties(canvas, sourceCanvas) {
 }
 
 /**
- * Scale + center a background image so it COVERS a canvas of the given
- * logical dimensions (CSS `object-fit: cover`, centered). Takes explicit
- * dimensions instead of reading them off a canvas so the group editor can
- * cover-fit backgrounds on thumbnail-scale shadow canvases whose ELEMENT
- * size differs from the variant's logical size.
+ * Scale a background image so it COVERS a canvas of the given logical
+ * dimensions (CSS `object-fit: cover`). Takes explicit dimensions instead of
+ * reading them off a canvas so the group editor can cover-fit backgrounds on
+ * thumbnail-scale shadow canvases whose ELEMENT size differs from the
+ * variant's logical size.
+ *
+ * `anchor` — 'center' (legacy canvas-level backgrounds, overflow split evenly)
+ * or 'top-left' (background LAYERS: pinned to 0,0 so overflow crops away
+ * bottom-right; must match the server's `ImagePlacement::computeCover`).
  */
-export function coverForDimensions(img, canvasWidth, canvasHeight) {
+export function coverForDimensions(img, canvasWidth, canvasHeight, anchor = 'center') {
     const element = typeof img.getElement === 'function' ? img.getElement() : null;
     const imageWidth = (element && (element.naturalWidth || element.width)) || img.width || 1;
     const imageHeight = (element && (element.naturalHeight || element.height)) || img.height || 1;
     const scale = Math.max(canvasWidth / imageWidth, canvasHeight / imageHeight);
     img.set({
-        originX: 'center',
-        originY: 'center',
-        left: canvasWidth / 2,
-        top: canvasHeight / 2,
+        ...(anchor === 'top-left'
+            ? { originX: 'left', originY: 'top', left: 0, top: 0 }
+            : { originX: 'center', originY: 'center', left: canvasWidth / 2, top: canvasHeight / 2 }),
         cropX: 0,
         cropY: 0,
         scaleX: scale,
@@ -137,15 +140,18 @@ export function buildVariantPayload(canvas) {
             if (!img.inputId) {
                 img.inputId = crypto.randomUUID();
             }
+            const isBackground = img.isBackground === true;
             return {
                 inputId: img.inputId,
                 name: img.name || null,
                 description: img.description || null,
-                allowMove: img.allowMove || false,
-                allowResize: img.allowResize || false,
-                allowRotate: img.allowRotate || false,
+                // A background fill is a fixed top-left cover — no user transform.
+                allowMove: !isBackground && (img.allowMove || false),
+                allowResize: !isBackground && (img.allowResize || false),
+                allowRotate: !isBackground && (img.allowRotate || false),
                 hidable: img.hidable || false,
                 allowedDirectoryIds: Array.isArray(img.allowedDirectoryIds) ? img.allowedDirectoryIds : [],
+                isBackground,
             };
         });
 

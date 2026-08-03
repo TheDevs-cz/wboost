@@ -15,10 +15,15 @@
 // It is deliberately NOT part of the imageInputs DTO and is ignored by the
 // server renderer and the user-fill flow; it only ever shapes Fabric's
 // interaction flags in the editor (see applyEditorLock).
+// isBackground marks THE background layer of a layer-mode variant (regular
+// image object, initially cover-fitted top-left at the bottom of the stack):
+// styled distinctly in the layers panel, replaced in place by the "Pozadí"
+// picker, excluded from snapping and from ALL group-editor propagation
+// (backgrounds stay per-dimension), stripped on copy/paste.
 export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
-    'assetPath', 'assetId', 'editorLocked',
+    'assetPath', 'assetId', 'editorLocked', 'isBackground',
 ];
 
 /**

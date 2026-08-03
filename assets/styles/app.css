@@ -335,6 +335,36 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     color: #727cf5;
 }
 
+/* The background layer of a layer-mode variant: visually distinct (tint +
+   colored icon) so it always reads as "the background", yet an ordinary,
+   freely reorderable row like any other layer. */
+.canvas-layer-row--background {
+    background: rgba(57, 175, 209, 0.10);
+    border: 1px dashed rgba(57, 175, 209, 0.45);
+}
+
+.canvas-layer-row--background:hover {
+    background: rgba(57, 175, 209, 0.18);
+}
+
+.canvas-layer-row--background .canvas-layer-row__icon {
+    color: #39afd1;
+}
+
+/* Layer-mode variants may have no background at all — a checkerboard behind
+   the (transparent) canvas element makes that state visible in the editor,
+   like every raster editor does. Any background layer paints over it. */
+.canvas-wrapper--transparent canvas.lower-canvas,
+.canvas-wrapper--transparent > canvas,
+.fill-preview-img--transparent {
+    background-image:
+        linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%),
+        linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%);
+    background-color: #f8f9fb;
+    background-size: 24px 24px;
+    background-position: 0 0, 12px 12px;
+}
+
 .canvas-layer-row__main {
     flex: 1 1 auto;
     min-width: 0;

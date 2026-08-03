@@ -47,6 +47,12 @@ final class SocialNetworkTemplateVariantThumbnailController extends AbstractCont
     ): Response {
         $path = $variant->previewImagePath ?? $variant->backgroundImage;
 
+        // A layer-mode variant may have neither a saved preview nor a
+        // background — there is simply no thumbnail to serve.
+        if ($path === null) {
+            throw new NotFoundHttpException();
+        }
+
         try {
             $contents = $this->filesystem->read($path);
         } catch (FilesystemException) {

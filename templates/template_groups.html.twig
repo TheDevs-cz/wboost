@@ -61,13 +61,13 @@
                         <div class="card-body pt-0 pb-2 d-flex flex-wrap gap-2">
                             {% for variant in item.socialVariants %}
                                 <div class="text-center">
-                                    <span class="d-inline-block avatar-md rounded shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                                    <span class="d-inline-block avatar-md rounded shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat;background-size: cover;"></span>
                                     <div class="font-11 text-muted">{{ variant.dimension.value }}</div>
                                 </div>
                             {% endfor %}
                             {% for variant in item.customVariants %}
                                 <div class="text-center">
-                                    <span class="d-inline-block avatar-md rounded shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat;background-size: cover;"></span>
+                                    <span class="d-inline-block avatar-md rounded shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat;background-size: cover;"></span>
                                     <div class="font-11 text-muted">{{ variant.dimension.label }}</div>
                                 </div>
                             {% endfor %}

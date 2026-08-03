@@ -16,6 +16,7 @@ use WBoost\Web\MessageHandler\TemplateGroup\AddTemplateGroupSocialDimensionHandl
 use WBoost\Web\MessageHandler\TemplateGroup\CreateTemplateGroupHandler;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
+use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CustomTemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\GroupSocialVariantSelection;
@@ -59,7 +60,20 @@ final class AddTemplateGroupDimensionHandlersTest extends KernelTestCase
         self::assertNotNull($added);
         self::assertSame(TemplateDimension::InstagramPortrait, $added->dimension);
         self::assertSame(TestDataFixture::GROUPED_SOCIAL_TEMPLATE_ID, $added->template->id->toString(), 'Variant lands on the group\'s existing module template.');
-        self::assertSame('{}', $added->canvas);
+
+        // New dimensions are layer-mode: the uploaded background is seeded as
+        // an `isBackground` object, not left to render-time synthesis.
+        self::assertSame(BackgroundMode::Layer, $added->backgroundMode);
+        $decoded = json_decode($added->canvas, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        self::assertArrayNotHasKey('backgroundImage', $decoded);
+        $objects = $decoded['objects'] ?? null;
+        self::assertIsArray($objects);
+        self::assertCount(1, $objects);
+        $layer = $objects[0];
+        self::assertIsArray($layer);
+        self::assertTrue($layer['isBackground'] ?? null);
+        self::assertSame($added->backgroundImage, $layer['assetPath']);
     }
 
     public function testCreatesModuleTemplateLazilyWhenGroupLacksIt(): void

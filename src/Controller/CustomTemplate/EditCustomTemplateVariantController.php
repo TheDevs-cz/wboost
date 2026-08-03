@@ -53,7 +53,7 @@ final class EditCustomTemplateVariantController extends AbstractController
 
             $variant = $this->variantRepository->get($variant->id);
 
-            return $this->json(['filePath' => $this->uploaderHelper->getPublicPath($variant->backgroundImage)]);
+            return $this->json(['filePath' => $variant->backgroundImage !== null ? $this->uploaderHelper->getPublicPath($variant->backgroundImage) : null]);
         }
 
         $data = new CustomTemplateVariantFormData();
@@ -71,7 +71,7 @@ final class EditCustomTemplateVariantController extends AbstractController
             // Get fresh one
             $variant = $this->variantRepository->get($variant->id);
 
-            return $this->json(['filePath' => $this->uploaderHelper->getPublicPath($variant->backgroundImage)]);
+            return $this->json(['filePath' => $variant->backgroundImage !== null ? $this->uploaderHelper->getPublicPath($variant->backgroundImage) : null]);
         }
 
         return $this->json(['error' => 'Invalid form submission'], 400);

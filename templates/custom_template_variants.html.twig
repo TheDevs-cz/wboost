@@ -56,7 +56,7 @@
 
                             <a href="{{ is_granted('custom_template_variant_edit', variant) ? path('custom_template_variant_editor', {'variantId': variant.id}) : path('custom_template_variant_export', {'variantId': variant.id}) }}" class="text-body">
                                 <div class="card-body p-1 shadow-lg">
-                                    <img src="{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}" style="max-width: 100%;">
+                                    <img src="{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}" style="max-width: 100%;">
                                 </div>
                                 <div class="card-body py-1 px-2">
                                     <p class="small text-muted my-0">

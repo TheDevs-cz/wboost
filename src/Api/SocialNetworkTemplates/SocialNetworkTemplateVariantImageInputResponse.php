@@ -46,6 +46,16 @@ final readonly class SocialNetworkTemplateVariantImageInputResponse
          * located on the canvas.
          */
         public null|int $layerIndex = null,
+        /**
+         * True when this slot is the variant's BACKGROUND layer. Fill
+         * semantics differ from regular slots: the picture is cover-fitted
+         * over the WHOLE canvas (least scale that covers it), anchored
+         * top-left — overflow crops away bottom-right — and no transform is
+         * accepted (`allowMove`/`allowResize`/`allowRotate` are always false;
+         * send `"<imageId>"` or `{imageId}` only). `frame` is the full canvas
+         * rect for these slots.
+         */
+        public bool $isBackground = false,
     ) {
     }
 }

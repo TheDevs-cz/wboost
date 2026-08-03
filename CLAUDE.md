@@ -47,7 +47,8 @@ Fabric v5) have been retired.
 
 - `canvas`: **JSONB** (Stage 1). The serialized Fabric document. Empty rows
   are stored as `'{}'` (never `''`) and the renderer synthesizes a minimal
-  Fabric document with just a background image when it sees an empty canvas.
+  Fabric document with just a background image when it sees an empty canvas
+  (canvas-mode rows only — see Backgrounds below).
 - `preview_image_path`: nullable string (Stage 1). Path to a PNG in Minio
   (rendered server-side after each admin save). Replaces the legacy
   `preview_image` BLOB column. The full URL is built via the upload helper.
@@ -61,6 +62,52 @@ Fabric v5) have been retired.
   inputs. The `EditorTextInput::fromArray` factory keeps a defensive UUID-mint
   fallback for legacy rows; once the migration has run on prod, no live row
   hits it.
+
+**Backgrounds — canvas mode vs LAYER mode (`background_mode` column)**
+
+Two styles, discriminated by the `background_mode` column (`BackgroundMode`
+enum, on both variant tables). **Canvas mode** ('canvas', every pre-rework
+row): the background is Fabric's canvas-level `backgroundImage`, mirrored from
+the NOT-NULL-in-practice `background_image` column, center-cover re-applied on
+every load (editor connect + render template), set via the editor's "Pozadí"
+gallery pick + `persistBackgroundPath` side-channel POST. Untouched forever.
+**Layer mode** ('layer', every NEWLY created variant): the background is a
+regular image object in `objects[]` marked `isBackground: true`, initially
+placed **cover-fit anchored top-left** (`scale = max(cw/iw, ch/ih)`, overflow
+crops bottom-right) at stack index 0 — reorderable, undoable, snapping-excluded,
+styled distinctly in the layers panel ("Pozadí" row). Key facts:
+
+- **Optional**: add-variant/group forms no longer require a background; a
+  layer-mode variant without one renders a TRANSPARENT PNG (renderer calls
+  Gotenberg `omitBackground()`; editor/fill show a checkerboard). The
+  `background_image` column is now NULLABLE and in layer mode is a
+  denormalized pointer to the layer's `assetPath` (synced in the two
+  EditCanvas handlers; feeds thumbnails + nullable API `backgroundImageUrl`).
+- **Server-side authoring** via `Services/Editor/BackgroundLayer` (build /
+  replace-in-place / extractAssetPath): Add handlers seed the layer, Edit
+  handlers swap it in place (empty input NEVER removes; a new upload replaces
+  the picture but preserves stack index + slot metadata), Copy inherits the
+  source's mode, `CanvasDesignProjector` re-covers (never rx-scales) the layer
+  per dimension and stamps NO canvas-level block for layer-mode sources.
+  Editor-side the "Pozadí" pick calls `setBackgroundLayer` (ordinary dirty
+  canvas edit, NO side-channel POST).
+- **Group editor**: backgrounds are strictly per-dimension. `isBackground`
+  objects are excluded from the whole group_sync engine (baseline/diff,
+  projectNewObject, removeObject, resync, z-order — `isSyncable()`), the
+  `object:added/removed` handlers gate on the flag, and layer-mode variants
+  get `backgroundUrl: null` in variantsData so every canvas-level re-apply
+  site no-ops. Cover fit is absolute per (image, canvas size) — propagating it
+  relatively would compound drift, and group-seeded siblings SHARE the
+  background's inputId, so a resync would clobber per-dimension covers.
+- **Fillable (Phase B)**: the designer can mark the layer `imagePlaceholder` →
+  it flows into `imageInputs` with `isBackground: true` (new `EditorImageInput`
+  field; `allowMove/Resize/Rotate` forced false — the fill is a deterministic
+  cover, `ImagePlacement::computeCover` + JS mirrors). Unfilled → designed
+  background renders (stand-in contract); background slots' `frame` = the full
+  canvas rect (the designed object's bbox overflows it). API docs +
+  consumer-prompt.md describe the contract; mfkfm is ported.
+- `'isBackground'` is in `CANVAS_CUSTOM_PROPERTIES` (and stripped on
+  clipboard paste — only ever ONE background layer per canvas).
 
 **Admin editor — Stimulus controllers (Stage 4)**
 

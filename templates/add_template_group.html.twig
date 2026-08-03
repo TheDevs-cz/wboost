@@ -20,7 +20,7 @@
         <div class="card border border-primary">
             <div class="card-body py-2 d-flex align-items-center flex-wrap gap-2">
                 <span class="d-inline-block rounded shadow-sm flex-shrink-0"
-                      style="height: 64px; aspect-ratio: {{ source_variant.dimension.width }} / {{ source_variant.dimension.height }}; border: 1px solid rgba(0, 0, 0, .1); background: url('{{ uploaded_asset(source_variant.previewImagePath ?: source_variant.backgroundImage) }}') center center no-repeat; background-size: cover;"></span>
+                      style="height: 64px; aspect-ratio: {{ source_variant.dimension.width }} / {{ source_variant.dimension.height }}; border: 1px solid rgba(0, 0, 0, .1); background: url('{{ (source_variant.previewImagePath ?: source_variant.backgroundImage) ? uploaded_asset(source_variant.previewImagePath ?: source_variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat; background-size: cover;"></span>
                 <div class="me-auto">
                     <h4 class="mt-0 mb-1">
                         Výchozí design: {{ source_variant.template.name }}

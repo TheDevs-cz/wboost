@@ -104,21 +104,13 @@ final class AddTemplateGroupController extends AbstractController
             $socialVariants = [];
 
             foreach ($data->socialDimensions as $dimension) {
-                $backgroundImage = $data->backgroundFor($dimension);
-                // Guaranteed by the form callback validation.
-                assert($backgroundImage !== null || $sourceVariant !== null);
-
-                $socialVariants[] = new GroupSocialVariantSelection($dimension, $backgroundImage);
+                $socialVariants[] = new GroupSocialVariantSelection($dimension, $data->backgroundFor($dimension));
             }
 
             $customVariants = [];
 
             foreach ($data->customDimensions as $row) {
-                $backgroundImage = $row->backgroundImage ?? $data->commonBackground;
-                // Guaranteed by the form callback validation.
-                assert($backgroundImage !== null || $sourceVariant !== null);
-
-                $customVariants[] = new GroupCustomVariantSelection($row->dimension(), $backgroundImage);
+                $customVariants[] = new GroupCustomVariantSelection($row->dimension(), $row->backgroundImage ?? $data->commonBackground);
             }
 
             assert(is_string($data->name));

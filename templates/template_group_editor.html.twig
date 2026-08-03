@@ -44,7 +44,10 @@
     <div
         id="canvas-container"
         data-controller="canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers group-editor"
-        data-canvas-editor-background-image-value="{{ uploaded_asset(first.variant.backgroundImage) }}"
+        {# Canvas-mode only: a layer-mode variant's background is an isBackground
+           object inside its canvas JSON — a canvas-level override would shadow it. #}
+        data-canvas-editor-background-image-value="{{ first.variant.backgroundMode.value == 'canvas' and first.variant.backgroundImage ? uploaded_asset(first.variant.backgroundImage) }}"
+        data-canvas-editor-background-mode-value="{{ first.variant.backgroundMode.value }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
         data-canvas-editor-canvas-json="{{ first.variant.canvas }}"
         data-canvas-editor-edit-variant-url-value="{{ first.edit_variant_url }}"
@@ -98,7 +101,12 @@
                     "width": {{ v.variant.dimension.width }},
                     "height": {{ v.variant.dimension.height }},
                     "canvas": {{ v.variant.canvas|json_encode|raw }},
-                    "backgroundUrl": {{ uploaded_asset(v.variant.backgroundImage)|json_encode|raw }},
+                    {#- backgroundUrl deliberately null for layer-mode variants: it feeds
+                        the canvas-LEVEL background re-apply sites (_loadShadow/_activate/
+                        _restoreSnapshot), which must all no-op when the background is a
+                        layer inside the canvas document. -#}
+                    "backgroundMode": {{ v.variant.backgroundMode.value|json_encode|raw }},
+                    "backgroundUrl": {{ (v.variant.backgroundMode.value == 'canvas' and v.variant.backgroundImage ? uploaded_asset(v.variant.backgroundImage) : null)|json_encode|raw }},
                     "editVariantUrl": {{ v.edit_variant_url|json_encode|raw }}
                 }{{ loop.last ? '' : ',' }}
             {%- endfor -%}

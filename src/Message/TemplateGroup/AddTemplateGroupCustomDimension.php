@@ -14,7 +14,7 @@ readonly final class AddTemplateGroupCustomDimension
         public UuidInterface $groupId,
         public UuidInterface $variantId,
         public CustomTemplateDimension $dimension,
-        public UploadedFile $backgroundImage,
+        public null|UploadedFile $backgroundImage,
     ) {
     }
 }

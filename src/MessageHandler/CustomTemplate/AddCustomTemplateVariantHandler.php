@@ -12,6 +12,9 @@ use WBoost\Web\Exceptions\CustomTemplateNotFound;
 use WBoost\Web\Message\CustomTemplate\AddCustomTemplateVariant;
 use WBoost\Web\Repository\CustomTemplateRepository;
 use WBoost\Web\Repository\CustomTemplateVariantRepository;
+use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\BackgroundMode;
 
 #[AsMessageHandler]
 readonly final class AddCustomTemplateVariantHandler
@@ -21,6 +24,8 @@ readonly final class AddCustomTemplateVariantHandler
         private CustomTemplateVariantRepository $variantRepository,
         private ClockInterface $clock,
         private Filesystem $filesystem,
+        private BackgroundLayer $backgroundLayer,
+        private UploaderHelper $uploaderHelper,
     ) {
     }
 
@@ -33,14 +38,30 @@ readonly final class AddCustomTemplateVariantHandler
         $variantId = $message->variantId;
         $backgroundImage = $message->backgroundImage;
 
-        // Maybe in future it will be possible to not have background when creating
-        assert($backgroundImage !== null);
+        // New variants are layer-mode: the background (when provided at all)
+        // is a regular canvas object, not the canvas-level backgroundImage.
+        $backgroundImagePath = null;
+        $canvas = null;
 
-        $timestamp = $this->clock->now()->getTimestamp();
+        if ($backgroundImage !== null) {
+            $timestamp = $this->clock->now()->getTimestamp();
 
-        $extension = $backgroundImage->guessExtension();
-        $backgroundImagePath = "custom-templates/$variantId/background-$timestamp.$extension";
-        $this->filesystem->write($backgroundImagePath, $backgroundImage->getContent());
+            $extension = $backgroundImage->guessExtension();
+            $backgroundImagePath = "custom-templates/$variantId/background-$timestamp.$extension";
+            $bytes = $backgroundImage->getContent();
+            $this->filesystem->write($backgroundImagePath, $bytes);
+
+            $size = getimagesizefromstring($bytes);
+
+            $canvas = $this->backgroundLayer->applyToCanvas('{}', $this->backgroundLayer->buildObject(
+                $this->uploaderHelper->getPublicPath($backgroundImagePath),
+                $backgroundImagePath,
+                is_array($size) ? $size[0] : null,
+                is_array($size) ? $size[1] : null,
+                $message->dimension->width(),
+                $message->dimension->height(),
+            ));
+        }
 
         $variant = new CustomTemplateVariant(
             $variantId,
@@ -48,7 +69,12 @@ readonly final class AddCustomTemplateVariantHandler
             $message->dimension,
             $backgroundImagePath,
             $this->clock->now(),
+            BackgroundMode::Layer,
         );
+
+        if ($canvas !== null) {
+            $variant->editCanvas($canvas, [], null);
+        }
 
         $this->variantRepository->add($variant);
     }

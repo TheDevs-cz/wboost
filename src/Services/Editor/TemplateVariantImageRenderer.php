@@ -22,7 +22,9 @@ use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\PlaceholderFrame;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverride;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -219,6 +221,14 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             ->format(ScreenshotFormat::Png)
             ->waitForExpression('window.canvasRendered === true');
 
+        if ($variant->backgroundMode === BackgroundMode::Layer) {
+            // A layer-mode variant may have no background at all — the PNG
+            // must come out with real alpha where nothing is drawn, not
+            // Chromium's default white page paint. (The render template's
+            // body is already CSS-transparent.)
+            $builder->omitBackground();
+        }
+
         if ($strictContainerOverflow) {
             // Container overflow is signalled from inside headless Chromium as
             // an uncaught exception (the only data channel a screenshot call
@@ -249,38 +259,59 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * with a base64 data URI so Gotenberg's headless Chromium doesn't need to
      * reach Minio (whose public host is not resolvable from inside the
      * container in dev).
+     *
+     * Canvas-mode variants only: the empty-canvas synthesis and the src swap
+     * both target the canvas-level backgroundImage slot. A layer-mode
+     * variant's background is a regular `isBackground` object in objects[],
+     * inlined by {@see applyImagePlaceholders} like every other image — and a
+     * layer-mode variant without a background legitimately renders nothing
+     * behind its objects (transparent export).
      */
     private function buildCanvasJson(SocialNetworkTemplateVariant|CustomTemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides): string
     {
-        $backgroundDataUri = $this->assetInliner->inlineImage($variant->backgroundImage);
-
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
 
-        if ($canvas === [] || !isset($canvas['objects'])) {
+        if ($variant->backgroundMode === BackgroundMode::Canvas) {
+            $backgroundDataUri = $variant->backgroundImage !== null
+                ? $this->assetInliner->inlineImage($variant->backgroundImage)
+                : null;
+
+            if ($canvas === [] || !isset($canvas['objects'])) {
+                $canvas = [
+                    'version' => '5.2.4',
+                    'objects' => [],
+                    'backgroundImage' => [
+                        'type' => 'image',
+                        'version' => '5.2.4',
+                        'originX' => 'left',
+                        'originY' => 'top',
+                        'left' => 0,
+                        'top' => 0,
+                        'width' => $variant->dimension->width(),
+                        'height' => $variant->dimension->height(),
+                        'src' => $backgroundDataUri ?? '',
+                        'crossOrigin' => null,
+                    ],
+                ];
+            } elseif ($backgroundDataUri !== null && isset($canvas['backgroundImage']) && is_array($canvas['backgroundImage'])) {
+                $canvas['backgroundImage']['src'] = $backgroundDataUri;
+                $canvas['backgroundImage']['crossOrigin'] = null;
+            }
+        } elseif ($canvas === [] || !isset($canvas['objects'])) {
             $canvas = [
                 'version' => '5.2.4',
                 'objects' => [],
-                'backgroundImage' => [
-                    'type' => 'image',
-                    'version' => '5.2.4',
-                    'originX' => 'left',
-                    'originY' => 'top',
-                    'left' => 0,
-                    'top' => 0,
-                    'width' => $variant->dimension->width(),
-                    'height' => $variant->dimension->height(),
-                    'src' => $backgroundDataUri ?? '',
-                    'crossOrigin' => null,
-                ],
             ];
-        } elseif ($backgroundDataUri !== null && isset($canvas['backgroundImage']) && is_array($canvas['backgroundImage'])) {
-            $canvas['backgroundImage']['src'] = $backgroundDataUri;
-            $canvas['backgroundImage']['crossOrigin'] = null;
         }
 
         $canvas = $this->alignTextboxInputIds($canvas, $variant->inputs);
-        $canvas = $this->applyImagePlaceholders($canvas, $imageOverrides ?? ResolvedImageOverrides::none());
+        $canvas = $this->applyImagePlaceholders(
+            $canvas,
+            $imageOverrides ?? ResolvedImageOverrides::none(),
+            $variant->dimension->width(),
+            $variant->dimension->height(),
+        );
 
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     }
@@ -301,7 +332,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * @param array<string, mixed> $canvas
      * @return array<string, mixed>
      */
-    private function applyImagePlaceholders(array $canvas, ResolvedImageOverrides $imageOverrides): array
+    private function applyImagePlaceholders(array $canvas, ResolvedImageOverrides $imageOverrides, int $canvasWidth, int $canvasHeight): array
     {
         if (!isset($canvas['objects']) || !is_array($canvas['objects'])) {
             return $canvas;
@@ -331,6 +362,22 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             // Filled placeholder → swap in the chosen picture + placement.
             $override = $inputId !== null ? ($imageOverrides->images[$inputId] ?? null) : null;
             if ($override instanceof ResolvedImageOverride) {
+                if (($object['isBackground'] ?? false) === true) {
+                    // Background slot: the frame IS the canvas (the designed
+                    // object's cover-fit bbox overflows it) and the fill is a
+                    // deterministic cover anchored top-left — no user transform.
+                    $placement = $this->imagePlacement->computeCover(
+                        new PlaceholderFrame(0, 0, $canvasWidth, $canvasHeight),
+                        $override->naturalWidth,
+                        $override->naturalHeight,
+                    );
+                    $object = array_merge($object, $placement);
+                    $object['src'] = $override->dataUri;
+                    $object['crossOrigin'] = null;
+                    $objects[$index] = $object;
+                    continue;
+                }
+
                 $frame = $this->placeholderGeometry->frameFromObject($object);
                 if ($frame !== null) {
                     $placement = $this->imagePlacement->compute(

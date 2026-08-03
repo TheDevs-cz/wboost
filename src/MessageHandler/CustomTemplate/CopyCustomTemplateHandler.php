@@ -52,6 +52,7 @@ readonly final class CopyCustomTemplateHandler
                 $originalVariant->dimension,
                 $originalVariant->backgroundImage,
                 $this->clock->now(),
+                $originalVariant->backgroundMode,
             );
 
             $newVariant->editCanvas(

@@ -49,7 +49,7 @@
                                class="template-source-tile text-center text-body"
                                title="Použít tento design jako výchozí">
                                 <span class="template-source-thumb d-block rounded"
-                                      style="aspect-ratio: {{ variant.dimension.width }} / {{ variant.dimension.height }}; background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat; background-size: cover;"></span>
+                                      style="aspect-ratio: {{ variant.dimension.width }} / {{ variant.dimension.height }}; background: url('{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat; background-size: cover;"></span>
                                 <span class="font-11 text-muted d-block mt-1">{{ variant.dimension.value }}</span>
                                 <span class="template-source-cta font-11 d-block">Použít <i class="mdi mdi-arrow-right"></i></span>
                             </a>
@@ -77,7 +77,7 @@
                                class="template-source-tile text-center text-body"
                                title="Použít tento design jako výchozí">
                                 <span class="template-source-thumb d-block rounded"
-                                      style="aspect-ratio: {{ variant.dimension.width }} / {{ variant.dimension.height }}; background: url('{{ uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) }}') center center no-repeat; background-size: cover;"></span>
+                                      style="aspect-ratio: {{ variant.dimension.width }} / {{ variant.dimension.height }}; background: url('{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat; background-size: cover;"></span>
                                 <span class="font-11 text-muted d-block mt-1">{{ variant.dimension.label }}</span>
                                 <span class="template-source-cta font-11 d-block">Použít <i class="mdi mdi-arrow-right"></i></span>
                             </a>

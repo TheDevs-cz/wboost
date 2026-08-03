@@ -23,9 +23,11 @@ use WBoost\Web\Repository\SocialNetworkCategoryRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
+use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\TemplateGroup\CanvasDesignProjector;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\StoredBackgroundImage;
 
 #[AsMessageHandler]
@@ -45,6 +47,7 @@ readonly final class CreateTemplateGroupHandler
         private Filesystem $filesystem,
         private CanvasDesignProjector $projector,
         private UploaderHelper $uploaderHelper,
+        private BackgroundLayer $backgroundLayer,
     ) {
     }
 
@@ -63,6 +66,10 @@ readonly final class CreateTemplateGroupHandler
         } elseif ($message->sourceCustomVariantId !== null) {
             $sourceVariant = $this->customVariantRepository->get($message->sourceCustomVariantId);
         }
+
+        // Seeded variants inherit the source design's background style verbatim
+        // (zero conversion risk for old designs); fresh groups are layer-mode.
+        $mode = $sourceVariant !== null ? $sourceVariant->backgroundMode : BackgroundMode::Layer;
 
         $group = new TemplateGroup($message->groupId, $project, $now, $message->name);
         $this->templateGroupRepository->add($group);
@@ -94,11 +101,12 @@ readonly final class CreateTemplateGroupHandler
                     $variantId,
                     $template,
                     $selection->dimension,
-                    $background->path,
+                    $background?->path,
                     $now,
+                    $mode,
                 );
 
-                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background);
+                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background, $mode);
                 $variant->assignToGroup($group);
                 $this->socialVariantRepository->add($variant);
             }
@@ -131,11 +139,12 @@ readonly final class CreateTemplateGroupHandler
                     $variantId,
                     $template,
                     $selection->dimension,
-                    $background->path,
+                    $background?->path,
                     $now,
+                    $mode,
                 );
 
-                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background);
+                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background, $mode);
                 $variant->assignToGroup($group);
                 $this->customVariantRepository->add($variant);
             }
@@ -143,26 +152,29 @@ readonly final class CreateTemplateGroupHandler
     }
 
     /**
-     * A selection without an uploaded background is only valid when the group
-     * is created from an existing template — the source variant's background
-     * is then copied for the new variant (each variant owns its file, so
-     * changing one later never affects the others).
+     * A selection without an uploaded background copies the source variant's
+     * background when the group is created from an existing template (each
+     * variant owns its file, so changing one later never affects the others).
+     * No upload and no source background → null: the variant starts without a
+     * background (layer mode renders it transparent).
      */
     private function resolveBackground(
         string $pathPrefix,
         null|UploadedFile $backgroundImage,
         null|SocialNetworkTemplateVariant|CustomTemplateVariant $sourceVariant,
-    ): StoredBackgroundImage {
+    ): null|StoredBackgroundImage {
         if ($backgroundImage !== null) {
             $bytes = $backgroundImage->getContent();
             $extension = $backgroundImage->guessExtension();
         } else {
-            if ($sourceVariant === null) {
-                throw new \LogicException('Selection without a background requires a source variant.');
+            $sourcePath = $sourceVariant?->backgroundImage;
+
+            if ($sourcePath === null) {
+                return null;
             }
 
-            $bytes = $this->filesystem->read($sourceVariant->backgroundImage);
-            $extension = pathinfo($sourceVariant->backgroundImage, PATHINFO_EXTENSION);
+            $bytes = $this->filesystem->read($sourcePath);
+            $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
             $extension = $extension !== '' ? $extension : 'png';
         }
 
@@ -189,9 +201,28 @@ readonly final class CreateTemplateGroupHandler
         null|SocialNetworkTemplateVariant|CustomTemplateVariant $sourceVariant,
         int $targetWidth,
         int $targetHeight,
-        StoredBackgroundImage $background,
+        null|StoredBackgroundImage $background,
+        BackgroundMode $mode,
     ): void {
         if ($sourceVariant === null) {
+            // Fresh group (no source design): a layer-mode variant with an
+            // uploaded background still needs its layer seeded — nothing
+            // synthesizes it at render time.
+            if ($mode === BackgroundMode::Layer && $background !== null) {
+                $variant->editCanvas(
+                    $this->backgroundLayer->applyToCanvas('{}', $this->backgroundLayer->buildObject(
+                        $this->uploaderHelper->getPublicPath($background->path),
+                        $background->path,
+                        $background->naturalWidth,
+                        $background->naturalHeight,
+                        $targetWidth,
+                        $targetHeight,
+                    )),
+                    [],
+                    null,
+                );
+            }
+
             return;
         }
 
@@ -202,9 +233,11 @@ readonly final class CreateTemplateGroupHandler
                 $sourceVariant->dimension->height(),
                 $targetWidth,
                 $targetHeight,
-                $this->uploaderHelper->getPublicPath($background->path),
-                $background->naturalWidth,
-                $background->naturalHeight,
+                $background !== null ? $this->uploaderHelper->getPublicPath($background->path) : null,
+                $background?->naturalWidth,
+                $background?->naturalHeight,
+                $mode,
+                $background?->path,
             ),
             $sourceVariant->inputs,
             null,

@@ -14,7 +14,7 @@ readonly final class AddTemplateGroupSocialDimension
         public UuidInterface $groupId,
         public UuidInterface $variantId,
         public TemplateDimension $dimension,
-        public UploadedFile $backgroundImage,
+        public null|UploadedFile $backgroundImage,
     ) {
     }
 }

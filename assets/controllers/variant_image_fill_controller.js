@@ -104,20 +104,34 @@ export default class extends Controller {
             const frame = placeholder.frame;
             const naturalWidth = img.width || 1;
             const naturalHeight = img.height || 1;
-            img.set({
-                originX: 'left', originY: 'top',
-                left: frame.x, top: frame.y,
-                scaleX: frame.width / naturalWidth,
-                scaleY: frame.height / naturalHeight,
-                angle: 0,
-                selectable: false, evented: false,
-            });
+            if (placeholder.isBackground) {
+                // Background slot: uniform cover anchored top-left (the frame
+                // is the whole canvas) — a frame-stretch would distort it.
+                const cover = Math.max(frame.width / naturalWidth, frame.height / naturalHeight) || 1;
+                img.set({
+                    originX: 'left', originY: 'top',
+                    left: frame.x, top: frame.y,
+                    scaleX: cover, scaleY: cover,
+                    angle: 0,
+                    selectable: false, evented: false,
+                    clipPath: this._frameClip(frame),
+                });
+            } else {
+                img.set({
+                    originX: 'left', originY: 'top',
+                    left: frame.x, top: frame.y,
+                    scaleX: frame.width / naturalWidth,
+                    scaleY: frame.height / naturalHeight,
+                    angle: 0,
+                    selectable: false, evented: false,
+                });
+            }
             img._placeholderId = placeholder.inputId;
-            this._replaceObject(placeholder.inputId, img);
+            this._replaceObject(placeholder.inputId, img, placeholder.isBackground === true);
         } catch (error) { /* a missing stand-in just leaves the slot empty */ }
     }
 
-    _replaceObject(inputId, fabricObject) {
+    _replaceObject(inputId, fabricObject, sendToBack = false) {
         const existing = this.objects[inputId];
         if (existing && existing.object) {
             this.canvas.remove(existing.object);
@@ -125,6 +139,12 @@ export default class extends Controller {
         this.objects[inputId] = { object: fabricObject };
         if (fabricObject) {
             this.canvas.add(fabricObject);
+            if (sendToBack) {
+                // Background slots render UNDER every other placeholder object
+                // (the server render keeps the layer's designed stack position;
+                // on the fill canvas bottom-of-placeholders is the analogue).
+                this.canvas.moveObjectTo(fabricObject, 0);
+            }
         }
         this.canvas.requestRenderAll();
     }
@@ -148,6 +168,28 @@ export default class extends Controller {
         const frame = placeholder.frame;
         const naturalWidth = img.width || 1;
         const naturalHeight = img.height || 1;
+
+        if (placeholder.isBackground) {
+            // Background slot: deterministic cover anchored top-left over the
+            // whole canvas — no user transform, mirrors ImagePlacement::computeCover.
+            const cover = Math.max(frame.width / naturalWidth, frame.height / naturalHeight) || 1;
+            img.set({
+                originX: 'left', originY: 'top',
+                left: frame.x, top: frame.y,
+                scaleX: cover, scaleY: cover,
+                angle: 0,
+                selectable: false, evented: false,
+                clipPath: this._frameClip(frame),
+            });
+            img._placeholderId = inputId;
+            this._replaceObject(inputId, img, true);
+            this.canvas.requestRenderAll();
+
+            this._setField(inputId, 'hide', '');
+            this._setField(inputId, 'imageId', imageId);
+            return;
+        }
+
         const containScale = Math.min(frame.width / naturalWidth, frame.height / naturalHeight) || 1;
         const adjustable = placeholder.allowMove || placeholder.allowResize || placeholder.allowRotate;
 

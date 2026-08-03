@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\TemplateGroup;
 
+use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Value\BackgroundMode;
+
 /**
  * Projects a designer canvas document into a different dimension — the PHP
  * counterpart of the group editor's absolute projection in
@@ -21,27 +24,43 @@ namespace WBoost\Web\Services\TemplateGroup;
  * source design — the join key group edits propagate on — and keep the
  * positional textbox↔input contract intact.
  *
- * The background entry is replaced with a block pointed at the TARGET
- * variant's own background: the source's cover transform was computed for the
- * source dimensions and image, so carrying it over would mis-fit. When the
- * background's natural size is known the block is COVER-FITTED server-side
- * (the exact coverForDimensions formula from canvas_payload.js — center
- * origin, scale = max ratio) and marked crossOrigin=anonymous, so the editor
- * paints it correctly on first load regardless of load ordering and the
- * canvas never taints. Without a natural size it falls back to the renderer's
- * minimal full-bleed shape (the empty-canvas contract).
+ * THE BACKGROUND IS NEVER RATIO-PROJECTED — cover fit is an absolute function
+ * of (image natural size, canvas size), so scaling the source transform would
+ * mis-fit any aspect-changing target. Instead it is rebuilt for the TARGET
+ * variant's own background file, per the source's {@see BackgroundMode}:
+ *
+ *  - Canvas mode (legacy): the canvas-level `backgroundImage` block is
+ *    replaced with a centre-anchored cover block (the exact
+ *    coverForDimensions formula from canvas_payload.js), crossOrigin
+ *    anonymous so the editor canvas never taints. Without a natural size it
+ *    falls back to the renderer's minimal full-bleed shape (the empty-canvas
+ *    contract).
+ *  - Layer mode: no canvas-level block is ever stamped. The source's
+ *    `isBackground` object is swapped for a top-left-anchored cover layer
+ *    pointing at the target's own file ({@see BackgroundLayer::buildObject}),
+ *    keeping its stack position and input metadata (shared inputId = the
+ *    group join key). No target background → the layer is dropped; a blank
+ *    layer-mode design with a background becomes a single-layer document
+ *    (the '{}' contract only renders backgrounds for canvas-mode rows).
  */
 readonly final class CanvasDesignProjector
 {
+    public function __construct(
+        private BackgroundLayer $backgroundLayer,
+    ) {
+    }
+
     public function project(
         string $canvasJson,
         float $sourceWidth,
         float $sourceHeight,
         float $targetWidth,
         float $targetHeight,
-        string $backgroundSrc,
+        null|string $backgroundSrc,
         null|int $backgroundNaturalWidth = null,
         null|int $backgroundNaturalHeight = null,
+        BackgroundMode $mode = BackgroundMode::Canvas,
+        null|string $backgroundAssetPath = null,
     ): string {
         /** @var mixed $decoded */
         $decoded = json_decode($canvasJson, true, 512, JSON_THROW_ON_ERROR);
@@ -51,6 +70,19 @@ readonly final class CanvasDesignProjector
             || !is_array($decoded['objects'])
             || $decoded['objects'] === []
         ) {
+            if ($mode === BackgroundMode::Layer && $backgroundSrc !== null) {
+                // Layer-mode rows get no render-time background synthesis, so
+                // a blank design with a background must carry the layer itself.
+                return $this->backgroundLayer->applyToCanvas('{}', $this->targetBackgroundObject(
+                    $backgroundSrc,
+                    $backgroundAssetPath,
+                    $backgroundNaturalWidth,
+                    $backgroundNaturalHeight,
+                    $targetWidth,
+                    $targetHeight,
+                ));
+            }
+
             // Blank design → keep the empty-canvas contract ('{}' rows render
             // as background-only documents).
             return '{}';
@@ -62,6 +94,24 @@ readonly final class CanvasDesignProjector
         $objects = [];
 
         foreach ($decoded['objects'] as $object) {
+            if (is_array($object) && ($object['isBackground'] ?? false) === true) {
+                // Background layer: re-covered for the target, never scaled.
+                if ($backgroundSrc === null) {
+                    continue;
+                }
+
+                $objects[] = $this->backgroundLayer->mergePreservedProperties($object, $this->targetBackgroundObject(
+                    $backgroundSrc,
+                    $backgroundAssetPath,
+                    $backgroundNaturalWidth,
+                    $backgroundNaturalHeight,
+                    $targetWidth,
+                    $targetHeight,
+                ));
+
+                continue;
+            }
+
             if (is_array($object)) {
                 $object = $this->projectObject($object, $rx, $ry);
             }
@@ -85,15 +135,42 @@ readonly final class CanvasDesignProjector
             $decoded['containers'] = $containers;
         }
 
-        $decoded['backgroundImage'] = $this->backgroundBlock(
-            $targetWidth,
-            $targetHeight,
-            $backgroundSrc,
-            $backgroundNaturalWidth,
-            $backgroundNaturalHeight,
-        );
+        if ($mode === BackgroundMode::Canvas && $backgroundSrc !== null) {
+            $decoded['backgroundImage'] = $this->backgroundBlock(
+                $targetWidth,
+                $targetHeight,
+                $backgroundSrc,
+                $backgroundNaturalWidth,
+                $backgroundNaturalHeight,
+            );
+        } else {
+            // Layer mode never carries a canvas-level background — drop any
+            // block the source document may still hold.
+            unset($decoded['backgroundImage']);
+        }
 
         return json_encode($decoded, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function targetBackgroundObject(
+        string $src,
+        null|string $assetPath,
+        null|int $naturalWidth,
+        null|int $naturalHeight,
+        float $targetWidth,
+        float $targetHeight,
+    ): array {
+        return $this->backgroundLayer->buildObject(
+            $src,
+            $assetPath ?? '',
+            $naturalWidth,
+            $naturalHeight,
+            $targetWidth,
+            $targetHeight,
+        );
     }
 
     /**

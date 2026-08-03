@@ -139,7 +139,7 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
         "width": 1080,
         "height": 1080,                                // use width/height for the preview box aspect ratio
         "previewImageUrl": null,                        // nullable — cached DEFAULT render (zero user input)
-        "backgroundImageUrl": "http://localhost:19000/.../background-....png",  // thumbnail
+        "backgroundImageUrl": "http://localhost:19000/.../background-....png",  // thumbnail, nullable (layer-mode variants may have none)
         "exportUrl": "http://localhost:8099/api/social-network-template-variants/0191f2be-.../export",
         "inputs": [
           {
@@ -198,7 +198,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "includesRoot": false,                        // unrestricted slots also use the gallery root
             "frame": { "x": 100, "y": 120, "width": 400, "height": 300 }, // designer's fixed frame (canvas px), nullable
             "defaultImageUrl": "http://.../standin.png", // stand-in shown if left empty, nullable
-            "layerIndex": 0                              // stacking order (0 = backmost); one index space with inputs[].layerIndex, nullable
+            "layerIndex": 0,                             // stacking order (0 = backmost); one index space with inputs[].layerIndex, nullable
+            "isBackground": false                        // true = the variant's BACKGROUND layer (cover-fit top-left fill, no transform; frame = full canvas)
           }
         ]
       }
@@ -210,7 +211,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
 UI use:
 - Group templates by `categoryName`; order by `position`.
 - Variant chooser: show `dimension` + `width`×`height`; use `backgroundImageUrl` or
-  `previewImageUrl` as a thumbnail.
+  `previewImageUrl` as a thumbnail. **Both are nullable** — newer (layer-mode)
+  variants may have no background at all; fall back to your own placeholder.
 - **Bind inputs by `id` (UUID), never by `name`** — names are not unique.
 
 ---
@@ -284,6 +286,18 @@ same request:
 - Send a pan as `offsetX`/`offsetY` **or** `offsetXRatio`/`offsetYRatio`, never both
   for the same axis (**`400`**).
 - Omit a slot → its designer stand-in renders.
+
+**Background slots** (`imageInputs[].isBackground: true`) — newer variants store
+their background as a fillable layer. The fill is deterministic: **cover-fit
+over the whole canvas** (least scale that covers it), **anchored top-left**
+(overflow crops away bottom-right). No transform is accepted — the limit flags
+are always `false`; send the shorthand string or `{ "imageId": "..." }` only
+(`{ "hide": true }` works when `hidable`). `frame` is the full canvas rect, so
+your preview overlay can treat it like any other slot; just draw the fill with
+`scale = max(frame.width / naturalWidth, frame.height / naturalHeight)` from the
+frame's top-left corner instead of the contain math. A variant may have **no
+background at all**: `backgroundImageUrl` is then `null` and the export PNG has
+real alpha where nothing is drawn.
 
 **Response:** raw **PNG binary**, `Content-Type: image/png`. **Don't JSON-parse it.**
 - **Download:** save the bytes (suggest filename `<template-name>-<dimension>.png`).
