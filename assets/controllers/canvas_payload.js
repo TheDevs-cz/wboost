@@ -115,8 +115,13 @@ export function buildVariantPayload(canvas) {
 
     // Textbox inputs. Type filter is case-insensitive: Fabric v7's
     // getObjects('textbox') does NOT match v7-saved objects ('Textbox').
+    // Design-hidden layers (the layers panel's eye toggle → visible: false)
+    // are NOT fillable: they are excluded from inputs[]/imageInputs[] so the
+    // fill page, API listing and export never offer them. The positional
+    // textbox↔input contract survives because the server-side counterpart
+    // (TextInputObjectBinder) skips invisible textboxes identically.
     const textInputs = inMemoryObjects
-        .filter((obj) => (obj.type || '').toLowerCase() === 'textbox')
+        .filter((obj) => (obj.type || '').toLowerCase() === 'textbox' && obj.visible !== false)
         .map((textbox) => {
             if (!textbox.inputId) {
                 textbox.inputId = crypto.randomUUID();
@@ -133,9 +138,10 @@ export function buildVariantPayload(canvas) {
             };
         });
 
-    // Image placeholders: every image object the designer marked fillable.
+    // Image placeholders: every image object the designer marked fillable
+    // (design-hidden ones excluded — see the textbox filter above).
     const imageInputs = inMemoryObjects
-        .filter((obj) => (obj.type || '').toLowerCase() === 'image' && obj.imagePlaceholder === true)
+        .filter((obj) => (obj.type || '').toLowerCase() === 'image' && obj.imagePlaceholder === true && obj.visible !== false)
         .map((img) => {
             if (!img.inputId) {
                 img.inputId = crypto.randomUUID();

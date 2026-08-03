@@ -147,7 +147,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
             ),
             inputs: $this->buildTextInputs($variant, $canvas, $containers),
             imageInputs: $this->buildImageInputs($variant),
-            containers: $this->buildContainers($containers, $frames),
+            containers: $this->buildContainers($containers, $frames, $variant->inputs),
             richTextOptions: $this->buildRichTextOptions($variant),
         );
     }
@@ -251,16 +251,32 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
      * consumer draws the zone from. A container whose members can't be located
      * on the canvas is omitted (it cannot reflow anything at render time).
      *
+     * Member ids are narrowed to the LISTED inputs: a design-hidden member
+     * (the editor's per-layer eye toggle) is not fillable, is absent from
+     * inputs[], and the render-time layout skips it exactly like a deleted
+     * member — a consumer mirroring the reflow must not see it either.
+     *
      * @param list<CanvasContainer> $containers
      * @param array<string, \WBoost\Web\Value\PlaceholderFrame> $frames
+     * @param array<EditorTextInput> $inputs
      * @return list<CustomTemplateVariantContainerResponse>
      */
-    private function buildContainers(array $containers, array $frames): array
+    private function buildContainers(array $containers, array $frames, array $inputs): array
     {
+        $inputIds = [];
+        foreach ($inputs as $input) {
+            $inputIds[$input->inputId] = true;
+        }
+
         $result = [];
         foreach ($containers as $container) {
+            $memberInputIds = array_values(array_filter(
+                $container->memberInputIds,
+                static fn (string $id): bool => isset($inputIds[$id]),
+            ));
+
             $y = null;
-            foreach ($container->memberInputIds as $memberInputId) {
+            foreach ($memberInputIds as $memberInputId) {
                 if (isset($frames[$memberInputId])) {
                     $y = $frames[$memberInputId]->y;
                     break;
@@ -274,7 +290,7 @@ final readonly class CustomTemplatesProvider implements ProviderInterface
                 id: $container->id,
                 maxHeight: $container->maxHeight,
                 y: $y,
-                memberInputIds: $container->memberInputIds,
+                memberInputIds: $memberInputIds,
             );
         }
 

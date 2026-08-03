@@ -407,6 +407,42 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     line-height: 1;
 }
 
+/* Photoshop-style visibility eye. Subtle until hovered/hidden so the panel
+   stays calm; a hidden row dims as a whole (the eye keeps full opacity as
+   the affordance to un-hide). */
+.canvas-layer-row__eye {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 2px 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font-size: 0.9rem;
+    line-height: 1;
+    opacity: 0.45;
+}
+
+.canvas-layer-row__eye:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.07);
+}
+
+.canvas-layer-row__eye:focus-visible {
+    outline: 2px solid #727cf5;
+    outline-offset: -2px;
+    opacity: 1;
+}
+
+.canvas-layer-row--hidden .canvas-layer-row__main,
+.canvas-layer-row--hidden .canvas-layer-row__grip {
+    opacity: 0.4;
+}
+
+.canvas-layer-row--hidden .canvas-layer-row__eye {
+    opacity: 0.8;
+}
+
 /* Drag affordance at the row's right edge (the whole row is draggable). */
 .canvas-layer-row__grip {
     flex: 0 0 auto;

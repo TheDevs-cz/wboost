@@ -399,6 +399,12 @@ the whole flow must fit within `maxHeight` px measured from the container's
 `y` downward — otherwise the export fails with the structured
 `container_overflow` 400 above.
 
+Note: a layer the DESIGNER hid in the admin editor (per-layer eye toggle) is
+not part of the template's fillable surface at all — it never appears in
+`inputs[]`, `imageInputs[]` or `containers[].memberInputIds`, and the render
+treats it exactly like a deleted element (it does not anchor a container and
+contributes no gap). You will simply never see such elements in the listing.
+
 Minimal consumer support (recommended): draw the container zone
 (`y` → `y + maxHeight`, spanning its members' frames) as a visual hint that
 these fields move together, keep anchoring the per-input affordances at their

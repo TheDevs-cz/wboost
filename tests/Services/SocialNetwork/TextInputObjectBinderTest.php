@@ -45,6 +45,31 @@ final class TextInputObjectBinderTest extends TestCase
         );
     }
 
+    public function testDesignHiddenTextboxesDoNotConsumeAnInputSlot(): void
+    {
+        // The layers panel's eye toggle persists `visible: false`; the editor
+        // excludes such textboxes from inputs[] on save, so the positional
+        // binding must skip them the same way or every binding after the
+        // hidden one shifts by one.
+        $canvas = [
+            'objects' => [
+                // index 0: first textbox → inputs[0]
+                ['type' => 'Textbox', 'left' => 0, 'top' => 0, 'width' => 100, 'height' => 20],
+                // index 1: design-hidden — not in inputs[], consumes no slot
+                ['type' => 'Textbox', 'visible' => false, 'left' => 0, 'top' => 30, 'width' => 100, 'height' => 20],
+                // index 2: second VISIBLE textbox → inputs[1]
+                ['type' => 'Textbox', 'visible' => true, 'left' => 0, 'top' => 60, 'width' => 100, 'height' => 20],
+            ],
+        ];
+
+        $inputs = [$this->input('id-a'), $this->input('id-b')];
+
+        self::assertSame(
+            [0 => 'id-a', 2 => 'id-b'],
+            $this->binder()->inputIdByObjectIndex($canvas, $inputs),
+        );
+    }
+
     public function testExtraTextboxesWithoutAnInputAreNotBound(): void
     {
         $canvas = [

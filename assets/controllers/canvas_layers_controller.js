@@ -10,6 +10,13 @@ import Sortable from "sortablejs";
  *             layer (same coordinate math as the floating toolbar; never
  *             drawn on the canvas bitmap),
  *   - click → selects the object and opens its floating property popover,
+ *   - eye   → Photoshop-style visibility toggle. PERSISTED: `visible` is a
+ *             native Fabric prop that rides the canvas JSON, so a hidden
+ *             layer stays hidden in saves, exports and thumbnails, and is
+ *             excluded from the fillable inputs (buildVariantPayload +
+ *             TextInputObjectBinder skip invisible objects). Announced via
+ *             the synthetic object:modified so it goes through dirty +
+ *             history + group propagation like any other property edit.
  *   - drag  → restacks the object (SortableJS on the list; the new DOM
  *             order reversed = the new Fabric stack; same announce
  *             convention as canvas-alignment: fire object:modified so the
@@ -257,6 +264,25 @@ export default class extends Controller {
 
         row.appendChild(main);
 
+        // Photoshop-style eye: a sibling of the main button so toggling
+        // visibility never selects the row.
+        const isHidden = obj.visible === false;
+        if (isHidden) {
+            row.classList.add('canvas-layer-row--hidden');
+        }
+        const eye = document.createElement('button');
+        eye.type = 'button';
+        eye.className = 'canvas-layer-row__eye';
+        eye.dataset.action = 'canvas-layers#toggleVisibility';
+        eye.title = isHidden ? 'Zobrazit vrstvu' : 'Skrýt vrstvu';
+        eye.setAttribute('aria-label', `${isHidden ? 'Zobrazit' : 'Skrýt'} vrstvu: ${label}`);
+        eye.setAttribute('aria-pressed', String(isHidden));
+        const eyeIcon = document.createElement('i');
+        eyeIcon.className = `mdi ${isHidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline'}`;
+        eyeIcon.setAttribute('aria-hidden', 'true');
+        eye.appendChild(eyeIcon);
+        row.appendChild(eye);
+
         // Drag affordance only — the whole row is the Sortable drag target.
         const grip = document.createElement('i');
         grip.className = 'canvas-layer-row__grip mdi mdi-drag-vertical';
@@ -265,6 +291,34 @@ export default class extends Controller {
         row.appendChild(grip);
 
         return row;
+    }
+
+    /**
+     * The eye toggle. Hiding the object drops it from the current selection
+     * (Fabric skips invisible objects in findTarget and draws no controls for
+     * them — a "selected but invisible" object would leave the floating
+     * chrome anchored to empty pixels).
+     */
+    toggleVisibility(event) {
+        event.stopPropagation();
+        const obj = this._objectFromEvent(event);
+        if (!obj || !this.hasCanvasEditorOutlet) return;
+        const canvas = this.canvasEditorOutlet.canvas;
+
+        const hide = obj.visible !== false;
+        obj.set('visible', !hide);
+        obj.setCoords();
+
+        if (hide && canvas.getActiveObjects().includes(obj)) {
+            canvas.discardActiveObject();
+            this.canvasEditorOutlet.dispatchSelectionChanged();
+        }
+
+        canvas.requestRenderAll();
+        // No Fabric event fires for set() — announce (dirty + history +
+        // group propagation), the codebase-wide convention.
+        canvas.fire('object:modified', {});
+        this.rebuild();
     }
 
     _labelFor(obj, isText, isPlaceholder, isBackground = false) {

@@ -92,12 +92,20 @@
      * flat object list, preserving the persisted flow order. Members that no
      * longer exist are skipped — a container that resolves to fewer than 2
      * members is inert.
+     *
+     * DESIGN-hidden members (the editor's per-layer eye toggle → the object is
+     * visible:false already at membership-resolution time, i.e. phase A) are
+     * treated as non-existent, exactly like deleted ones: they do not anchor
+     * the flow, contribute no gap, and the surfaces that never see them (the
+     * fill overlay measures only fillable inputs) lay out identically. This is
+     * distinct from FILL-time hides, which are applied AFTER phase A and
+     * therefore still resolve as members and collapse in phase B.
      */
     function collectMembers(objects, container) {
         const members = [];
         const ids = Array.isArray(container.memberInputIds) ? container.memberInputIds : [];
         for (const inputId of ids) {
-            const found = objects.find((o) => isTextboxObject(o) && o.inputId === inputId);
+            const found = objects.find((o) => isTextboxObject(o) && o.inputId === inputId && o.visible !== false);
             if (found) {
                 members.push(found);
             }

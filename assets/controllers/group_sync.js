@@ -26,7 +26,7 @@ const STYLE_KEYS = [
 const META_KEYS = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable',
     'richText', 'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate',
-    'allowedDirectoryIds',
+    'allowedDirectoryIds', 'visible',
 ];
 
 function isTextboxObject(obj) {

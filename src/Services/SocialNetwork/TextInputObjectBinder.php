@@ -16,9 +16,13 @@ use WBoost\Web\Value\PlaceholderFrame;
  * objects cannot be trusted to carry that property: variants saved during the
  * Fabric v7 migration window lost the custom property off their canvas objects
  * while keeping it on inputs[]. So text geometry is bound POSITIONALLY: the
- * i-th Textbox object on the canvas corresponds to inputs[i] (non-textbox
- * objects never appear in inputs[] and are skipped). This is the exact contract
- * the editor uses on save, so it is authoritative.
+ * i-th VISIBLE Textbox object on the canvas corresponds to inputs[i] —
+ * non-textbox objects never appear in inputs[], and neither do DESIGN-hidden
+ * textboxes (the editor's per-layer eye toggle → `visible: false` in the
+ * canvas document; the editor excludes them from inputs[] on save, so they are
+ * not fillable). This is the exact contract the editor uses on save
+ * (buildVariantPayload in assets/controllers/canvas_payload.js applies the
+ * identical filters), so it is authoritative.
  *
  * Both the renderer (which re-stamps the inputId before applying overrides) and
  * every consumer that needs per-text-input geometry (API listing, web fill
@@ -59,6 +63,13 @@ readonly final class TextInputObjectBinder
 
             $type = $object['type'] ?? null;
             if (!is_string($type) || strtolower($type) !== 'textbox') {
+                continue;
+            }
+
+            // Design-hidden textbox: not in inputs[] (see class docblock) —
+            // it must not consume an input slot or every binding after it
+            // would shift by one.
+            if (($object['visible'] ?? true) === false) {
                 continue;
             }
 
