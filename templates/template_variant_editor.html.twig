@@ -79,6 +79,7 @@
             canvas-zoom:changed->canvas-container#repositionZones
             canvas-zoom:changed->canvas-rulers#refresh
             canvas-editor:canvas:loaded->canvas-rulers#onCanvasLoaded
+            canvas-editor:canvas:loaded->canvas-zoom#fitToScreen
             canvas-editor:copy->canvas-clipboard#copy
             canvas-editor:paste->canvas-clipboard#paste
             asset-selected@window->canvas-editor#onAssetSelected
