@@ -29,7 +29,7 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                     mimeTypes: ['image/svg+xml'],
                     mimeTypesMessage: 'Soubor není validní SVG obrázek.',
                 ),
@@ -53,7 +53,7 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                     mimeTypes: ['image/svg+xml'],
                     mimeTypesMessage: 'Soubor není validní SVG obrázek.',
                 ),
@@ -77,7 +77,7 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                     mimeTypes: ['image/svg+xml'],
                     mimeTypesMessage: 'Soubor není validní SVG obrázek.',
                 ),
@@ -101,7 +101,7 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                     mimeTypes: ['image/svg+xml'],
                     mimeTypesMessage: 'Soubor není validní SVG obrázek.',
                 ),
@@ -125,7 +125,7 @@ final class ManualImagesFormType extends AbstractType
             'required' => false,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                     mimeTypes: ['image/svg+xml'],
                     mimeTypesMessage: 'Soubor není validní SVG obrázek.',
                 ),

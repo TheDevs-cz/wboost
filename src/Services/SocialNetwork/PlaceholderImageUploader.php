@@ -28,6 +28,18 @@ use WBoost\Web\Value\FileSource;
  */
 readonly final class PlaceholderImageUploader
 {
+    /**
+     * Mirrors the `maxSize: '10m'` constraint the Symfony form types apply to
+     * every other upload. These endpoints take the raw `UploadedFile` off the
+     * request with no form behind them, so the cap has to live here — the one
+     * chokepoint all four callers (web + API, social + custom) share.
+     *
+     * Symfony reads the `m` suffix as DECIMAL megabytes, so this is 10 * 1000 *
+     * 1000 and not 10 MiB — the two limits have to agree or the same file would
+     * be accepted through one upload path and rejected through another.
+     */
+    public const int MAX_FILE_SIZE_BYTES = 10 * 1000 * 1000;
+
     public function __construct(
         private MessageBusInterface $bus,
         private ProvideIdentity $provideIdentity,
@@ -49,6 +61,13 @@ readonly final class PlaceholderImageUploader
         $input = $this->findImageInput($variant, $inputId);
         if ($input === null) {
             throw new NotFoundHttpException();
+        }
+
+        if ($file->getSize() > self::MAX_FILE_SIZE_BYTES) {
+            throw new BadRequestHttpException(sprintf(
+                'The uploaded file is too large — the limit is %d MB.',
+                intdiv(self::MAX_FILE_SIZE_BYTES, 1024 * 1024),
+            ));
         }
 
         $project = $variant->template->project;

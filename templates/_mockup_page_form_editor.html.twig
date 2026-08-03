@@ -10,12 +10,13 @@
 {% set existing_images = existing_images|default([]) %}
 {% set fixed_layout = fixed_layout|default(null) %}
 
+{# max-file-size mirrors ManualMockupPageFormType's `maxSize: '10m'` — Symfony reads that suffix as DECIMAL MB. #}
 {{ form_start(form, {'attr': {
     'data-controller': 'mockup-page-editor',
     'data-mockup-page-editor-geometry-value': layouts_geometry|json_encode,
     'data-mockup-page-editor-existing-images-value': existing_images|json_encode,
     'data-mockup-page-editor-fixed-layout-value': fixed_layout ? fixed_layout.value : '',
-    'data-mockup-page-editor-max-file-size-value': 2097152,
+    'data-mockup-page-editor-max-file-size-value': 10000000,
     'data-action': 'submit->mockup-page-editor#formSubmitted',
 }}) }}
 

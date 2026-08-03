@@ -470,6 +470,10 @@ For each image slot, let the user pick a picture (and, if allowed, position it):
    → `{ "id", "url", "directoryId" }` (null `directoryId` = gallery root). Use
    the returned `id` as the `imageId`.
 
+   **Max file size: 10 MB** (10 000 000 bytes). A larger upload is rejected with
+   **`400`** — check the size client-side before posting so the user gets a
+   useful message instead of a bare 400.
+
    `directoryId` rules — render the slot's `directories` (+ a "Galerie" root
    option when `includesRoot`) as a folder select next to the upload control:
    - several folders in `directories` (restricted slot) → `directoryId`

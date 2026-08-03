@@ -26,7 +26,7 @@ final class UploadProjectFileFormType extends AbstractType
             'required' => true,
             'constraints' => [
                 new File(
-                    maxSize: '2m',
+                    maxSize: '10m',
                 ),
             ],
         ]);

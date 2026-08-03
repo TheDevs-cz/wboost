@@ -293,7 +293,9 @@ export default class extends Controller {
 
         if (file.size > this.maxFileSizeValue) {
             event.target.value = '';
-            state.error = `Obrázek má ${(file.size / 1048576).toFixed(1)} MB — maximum jsou 2 MB. Zmenšete ho a nahrajte znovu.`;
+            // Decimal MB throughout, matching Symfony's `maxSize: '10m'`.
+            const limitMb = Math.round(this.maxFileSizeValue / 1e6);
+            state.error = `Obrázek má ${(file.size / 1e6).toFixed(1)} MB — maximum je ${limitMb} MB. Zmenšete ho a nahrajte znovu.`;
             this.afterSlotChange(index);
             return;
         }

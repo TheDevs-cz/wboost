@@ -1,0 +1,166 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'admin_usage' %}
+
+{% block title %}Soubory v úložišti{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item">Administrace</li>
+        <li class="breadcrumb-item"><a href="{{ path('admin_usage') }}">Statistiky</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+        <p class="text-muted mb-0">
+            Jednotlivé soubory v úložišti podle poslední inventury.
+            <strong>Nepoužívaný</strong> znamená, že na soubor neodkazuje žádný záznam v databázi.
+        </p>
+        <form method="post" action="{{ path('admin_storage_rescan') }}" class="d-inline">
+            <input type="hidden" name="_token" value="{{ csrf_token('storage_rescan') }}">
+            <input type="hidden" name="back" value="files">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="uil-sync me-1"></i>Načíst znovu
+            </button>
+        </form>
+    </div>
+
+    <div class="card shadow-sm rounded-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label small mb-1" for="filter-project">Projekt</label>
+                    <select class="form-select form-select-sm" id="filter-project" name="project">
+                        <option value="">Všechny projekty</option>
+                        <option value="none" {{ filters.project == 'none' ? 'selected' }}>Bez projektu</option>
+                        {% for project in files.projects %}
+                            <option value="{{ project.id }}" {{ filters.project == project.id ? 'selected' }}>{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label small mb-1" for="filter-category">Typ</label>
+                    <select class="form-select form-select-sm" id="filter-category" name="category">
+                        <option value="">Všechny typy</option>
+                        {% for category in categories %}
+                            <option value="{{ category.value }}" {{ filters.category == category.value ? 'selected' }}>{{ category.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label small mb-1" for="filter-orphaned">Stav</label>
+                    <select class="form-select form-select-sm" id="filter-orphaned" name="orphaned">
+                        <option value="">Vše</option>
+                        <option value="yes" {{ filters.orphaned == 'yes' ? 'selected' }}>Jen nepoužívané</option>
+                        <option value="no" {{ filters.orphaned == 'no' ? 'selected' }}>Jen používané</option>
+                    </select>
+                </div>
+
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label small mb-1" for="filter-q">Cesta obsahuje</label>
+                    <input type="search" class="form-control form-control-sm" id="filter-q" name="q" value="{{ filters.q }}" placeholder="např. background">
+                </div>
+
+                <div class="col-lg-1">
+                    <button type="submit" class="btn btn-sm btn-primary w-100">Filtrovat</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm rounded-3 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="px-3 pt-3 d-flex flex-wrap justify-content-between">
+                <h4 class="header-title mb-1">
+                    {{ files.totalCount }} souborů · {{ files.totalSize|file_size }}
+                </h4>
+                {% if files.pageCount > 1 %}
+                    <span class="text-muted small">Stránka {{ files.page }} z {{ files.pageCount }}</span>
+                {% endif %}
+            </div>
+
+            {% if files.rows is empty %}
+                <div class="p-3">
+                    <div class="alert alert-info mb-0">
+                        Žádné soubory neodpovídají zvolenému filtru.
+                    </div>
+                </div>
+            {% else %}
+                <div class="table-responsive rounded-3">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Cesta</th>
+                                <th class="text-nowrap">Typ</th>
+                                <th class="text-nowrap">Projekt</th>
+                                <th class="text-nowrap">Odkazuje</th>
+                                <th class="text-nowrap">Změněno</th>
+                                <th class="text-end text-nowrap pe-3">Velikost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for file in files.rows %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <a href="{{ uploaded_asset(file.path) }}" target="_blank" rel="noopener" class="text-reset text-decoration-none">
+                                            {{ file.fileName }}
+                                        </a>
+                                        <div class="text-muted small text-break">{{ file.path }}</div>
+                                    </td>
+                                    <td class="text-nowrap">{{ file.category.label }}</td>
+                                    <td class="text-nowrap">
+                                        {% if file.projectName %}
+                                            {{ file.projectName }}
+                                            {% if file.ownerEmail %}
+                                                <div class="text-muted small">{{ file.ownerEmail }}</div>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-nowrap">
+                                        {% if file.orphaned %}
+                                            <span class="badge bg-warning text-dark">Nepoužívaný</span>
+                                        {% else %}
+                                            <code class="small">{{ file.referencedBy }}</code>
+                                            {% if file.isShared %}
+                                                <span class="badge bg-secondary ms-1" title="Na tento soubor odkazuje více záznamů — sdílí ho např. zkopírovaná varianta šablony.">
+                                                    ×{{ file.referenceCount }}
+                                                </span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-nowrap text-muted small">
+                                        {{ file.lastModifiedAt ? file.lastModifiedAt|date('d.m.Y H:i') : '—' }}
+                                    </td>
+                                    <td class="text-end text-nowrap pe-3">{{ file.size|file_size }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if files.pageCount > 1 %}
+        <nav class="d-flex justify-content-center">
+            <ul class="pagination pagination-sm">
+                <li class="page-item {{ files.hasPrevious ? '' : 'disabled' }}">
+                    <a class="page-link" href="{{ path('admin_storage_files', filters|merge({page: files.page - 1})) }}">Předchozí</a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">{{ files.page }} / {{ files.pageCount }}</span>
+                </li>
+                <li class="page-item {{ files.hasNext ? '' : 'disabled' }}">
+                    <a class="page-link" href="{{ path('admin_storage_files', filters|merge({page: files.page + 1})) }}">Další</a>
+                </li>
+            </ul>
+        </nav>
+    {% endif %}
+{% endblock %}

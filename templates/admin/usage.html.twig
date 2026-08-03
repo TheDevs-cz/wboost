@@ -272,4 +272,215 @@
             })();
         </script>
     {% endif %}
+
+    <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 mb-2">
+        <h4 class="mb-0">Úložiště</h4>
+        <div class="d-flex align-items-center gap-2">
+            {% if storage.lastScannedAt %}
+                <span class="text-muted small">Načteno {{ storage.lastScannedAt|date('d.m.Y H:i') }}</span>
+            {% endif %}
+            <form method="post" action="{{ path('admin_storage_rescan') }}" class="d-inline">
+                <input type="hidden" name="_token" value="{{ csrf_token('storage_rescan') }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    <i class="uil-sync me-1"></i>Načíst znovu
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <p class="text-muted mb-3">
+        Kolik místa v úložišti zabírají soubory jednotlivých klientů a projektů.
+        <strong>Nepoužívané</strong> jsou soubory, na které už neodkazuje žádný záznam
+        v databázi — typicky pozůstatky po smazaných projektech nebo po přepsání
+        obrázku novým (aplikace stará data z úložiště nemaže). Data pochází z posledního
+        načtení úložiště, ne z živého stavu.
+    </p>
+
+    <div class="row">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-database position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0">{{ storage.totalSize|file_size }}</h2>
+                    <h6 class="text-uppercase mb-0">Celkem v úložišti</h6>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-file-alt position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0">{{ storage.totalFiles }}</h2>
+                    <h6 class="text-uppercase mb-0">Souborů</h6>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-trash-alt position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0 {{ storage.orphanSize > 0 ? 'text-warning' : '' }}">{{ storage.orphanSize|file_size }}</h2>
+                    <h6 class="text-uppercase mb-0">Nepoužívané ({{ storage.orphanFiles }} souborů)</h6>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card tilebox-one text-center">
+                <div class="card-body">
+                    <i class="uil-question-circle position-relative" style="right: auto;"></i>
+                    <h2 class="my-2 mt-0">{{ storage.unattributedSize|file_size }}</h2>
+                    <h6 class="text-uppercase mb-0">Bez projektu ({{ storage.unattributedFiles }} souborů)</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if storage.isEmpty %}
+        <div class="alert alert-info">
+            Inventura úložiště zatím neproběhla. Spusťte ji tlačítkem „Načíst znovu“
+            nebo příkazem <code>app:storage:scan</code>.
+        </div>
+    {% else %}
+        <div class="card shadow-sm rounded-3">
+            <div class="card-body">
+                <h4 class="header-title mb-3">Zabrané místo podle klienta (MB)</h4>
+                <div id="storage-chart" style="min-height: 360px;"></div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm rounded-3 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="d-flex flex-wrap align-items-center justify-content-between px-3 pt-3">
+                    <h4 class="header-title mb-1">Úložiště podle klienta a projektu</h4>
+                    <a href="{{ path('admin_storage_files') }}" class="btn btn-sm btn-link">
+                        Zobrazit jednotlivé soubory <i class="uil-angle-right-b"></i>
+                    </a>
+                </div>
+                <div class="table-responsive rounded-3">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Klient / Projekt</th>
+                                <th class="text-center text-nowrap">Souborů</th>
+                                <th class="text-end text-nowrap">Velikost</th>
+                                <th class="text-center text-nowrap">Nepoužívaných</th>
+                                <th class="text-end text-nowrap">Nepoužito</th>
+                                <th class="text-end text-nowrap pe-3">Podíl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for owner in storage.owners %}
+                                <tr class="table-light fw-semibold">
+                                    <td class="ps-3"><i class="uil-user me-1"></i>{{ owner.ownerEmail }}</td>
+                                    <td class="text-center">{{ owner.fileCount }}</td>
+                                    <td class="text-end">{{ owner.totalSize|file_size }}</td>
+                                    <td class="text-center">{{ owner.orphanCount ?: '—' }}</td>
+                                    <td class="text-end">{{ owner.orphanSize ? owner.orphanSize|file_size : '—' }}</td>
+                                    <td class="text-end pe-3">{{ owner.orphanShare > 0 ? owner.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
+                                </tr>
+                                {% for project in owner.projects %}
+                                    <tr>
+                                        <td class="ps-4 text-muted">
+                                            <a href="{{ path('admin_storage_files', {project: project.projectId}) }}" class="text-reset text-decoration-none">
+                                                <i class="uil-folder me-1"></i>{{ project.projectName }}
+                                            </a>
+                                        </td>
+                                        <td class="text-center">{{ project.fileCount }}</td>
+                                        <td class="text-end">{{ project.totalSize|file_size }}</td>
+                                        <td class="text-center">{{ project.orphanCount ?: '—' }}</td>
+                                        <td class="text-end">{{ project.orphanSize ? project.orphanSize|file_size : '—' }}</td>
+                                        <td class="text-end pe-3">{{ project.orphanShare > 0 ? project.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                            {% if storage.unattributedFiles > 0 %}
+                                <tr class="table-light fw-semibold">
+                                    <td class="ps-3">
+                                        <a href="{{ path('admin_storage_files', {project: 'none'}) }}" class="text-reset text-decoration-none">
+                                            <i class="uil-question-circle me-1"></i>Bez projektu
+                                        </a>
+                                        <span class="text-muted fw-normal small ms-1">(vlastník už neexistuje)</span>
+                                    </td>
+                                    <td class="text-center">{{ storage.unattributedFiles }}</td>
+                                    <td class="text-end">{{ storage.unattributedSize|file_size }}</td>
+                                    <td class="text-center">—</td>
+                                    <td class="text-end">—</td>
+                                    <td class="text-end pe-3">—</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm rounded-3 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="px-3 pt-3">
+                    <h4 class="header-title mb-1">Podle typu souboru</h4>
+                    <p class="text-muted small mb-0">
+                        Typ se odvozuje z cesty v úložišti — kam který modul soubory ukládá.
+                    </p>
+                </div>
+                <div class="table-responsive rounded-3">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Typ</th>
+                                <th class="text-center text-nowrap">Souborů</th>
+                                <th class="text-end text-nowrap">Velikost</th>
+                                <th class="text-center text-nowrap">Nepoužívaných</th>
+                                <th class="text-end text-nowrap pe-3">Nepoužito</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in storage.categories %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <a href="{{ path('admin_storage_files', {category: row.category.value}) }}" class="text-reset text-decoration-none">
+                                            {{ row.category.label }}
+                                        </a>
+                                    </td>
+                                    <td class="text-center">{{ row.fileCount }}</td>
+                                    <td class="text-end">{{ row.totalSize|file_size }}</td>
+                                    <td class="text-center">{{ row.orphanCount ?: '—' }}</td>
+                                    <td class="text-end pe-3">{{ row.orphanSize ? row.orphanSize|file_size : '—' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {# ApexCharts (Hyper theme bundle) — safe to load again if a chart above already did. #}
+        <script src="{{ asset('theme/vendor/apexcharts/apexcharts.min.js') }}"></script>
+        <script>
+            (function () {
+                var el = document.getElementById('storage-chart');
+                if (!el || typeof window.ApexCharts === 'undefined') {
+                    return;
+                }
+
+                var options = {
+                    chart: { type: 'bar', height: 360, stacked: true, toolbar: { show: false } },
+                    plotOptions: { bar: { horizontal: true, barHeight: '60%', borderRadius: 4 } },
+                    colors: ['#727cf5', '#ffbc00'],
+                    dataLabels: { enabled: false },
+                    series: {{ storage.chartSeries|json_encode|raw }},
+                    xaxis: {
+                        categories: {{ storage.chartLabels|json_encode|raw }},
+                        title: { text: 'MB' }
+                    },
+                    legend: { position: 'bottom' },
+                    tooltip: { y: { formatter: function (value) { return value + ' MB'; } } }
+                };
+
+                new window.ApexCharts(el, options).render();
+            })();
+        </script>
+    {% endif %}
 {% endblock %}

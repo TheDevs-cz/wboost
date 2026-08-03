@@ -75,7 +75,7 @@ final class TemplateGroupDimensionFormType extends AbstractType
             'required' => true,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                 ),
             ],
         ]);

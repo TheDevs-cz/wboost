@@ -385,7 +385,8 @@ via `MockupPageLayout::exportGeometry()` serialized into a Stimulus value.
 
 The editor: click/drop a segment → instant local preview + fit verdict
 (ratio crop %, low-resolution vs `recommendedWidth/Height` = 2× unit size,
-> 2 MB rejected client-side to match the server `Image` constraint). Files sit
+over the upload limit rejected client-side to match the server `Image`
+constraint — see **Upload size limit** below). Files sit
 in the regular Symfony form file inputs — always
 `MockupPageLayout::maxUploadInputsCount()` (6) of them so the layout can be
 switched client-side without losing picks; both controllers `array_slice` to
@@ -395,6 +396,70 @@ hidden `removeImages[]` flags ('1' → `EditManualMockupPage::$removeImages`;
 a new upload for the same slot wins over the flag). Slot order == persisted
 `images` array indexes. NOTE: Stimulus reuses controller instances on
 reconnect — slot state is reset in `connect()`, not `initialize()`.
+
+### Upload size limit — 10 MB, decimal
+
+Every image upload is capped at **10 MB**, expressed server-side as
+`maxSize: '10m'` on the `Image`/`File` constraint in the form types (16
+occurrences across 13 `src/FormType/*` classes — logos, intro image, mockup
+pages, every template + variant background, template groups, email signatures,
+the project gallery).
+
+**Symfony reads the `m` suffix as DECIMAL megabytes — 10 000 000 bytes, not
+10 MiB.** Every mirror of the limit must use that same number or a file in the
+gap is accepted by one layer and rejected by the next:
+`gallery_uploader_controller.js` (`maxSize` Stimulus value),
+`mockup_page_editor_controller.js` (fed by
+`_mockup_page_form_editor.html.twig`), and
+`PlaceholderImageUploader::MAX_FILE_SIZE_BYTES`.
+
+The placeholder upload endpoints (web + API, social + custom, 5 controllers)
+take the raw `UploadedFile` off the request with no form behind them, so the cap
+lives in `PlaceholderImageUploader::upload()` — the single chokepoint they all
+share — and surfaces as a `400`. Documented in `docs/api/consumer-prompt.md`.
+
+PHP/Caddy allow 50 MB (`upload_max_filesize`/`post_max_size` come from the
+`ghcr.io/thedevs-cz/php` base image, not this repo), so the app-level limit is
+the only thing in play.
+
+### Storage inventory — admin usage/orphan report
+
+`/admin/usage` carries a **Úložiště** section (bytes per project, rolled up per
+client) plus a file drill-down at `/admin/storage/files`. Both are
+`#[IsGranted(User::ROLE_ADMIN)]`.
+
+It is backed by `storage_object` — one row per object that actually exists in
+the Minio bucket, **derived data rebuilt by a scan, never written at upload
+time**. That is the whole point: an inventory built from what the app believes
+it wrote could not surface the objects it forgot about, and those dominate
+(deleting a project/manual/template has never removed its files, and every
+`Edit*` handler that re-uploads writes a new timestamped key and abandons the
+old one — on the dev mirror that is ~70 % of all bytes).
+
+- `ScanStorage` (`src/Services/Storage/`) lists the bucket and cross-references
+  `BuildStorageReferenceIndex`, which enumerates **every** column that stores a
+  path: plain strings, the JSON documents (`manual.logo`,
+  `manual_mockup_page.images`, `font.faces`) and the canvas JSONB, where paths
+  only appear embedded in full public URLs (matched by storage-prefix regex, so
+  it is environment-independent). **A writer missing from that list makes a live
+  file look like an orphan** — add new ones there.
+- Unreferenced objects are still attributed to a project by
+  `ResolveStorageOwnerByPath`, which pulls the first UUID out of the key and
+  looks it up across every namespacing entity. Objects whose entity is gone stay
+  unattributed and are reported as their own bucket, never folded into a client.
+- Transient by-products (`social-publish/`, `thumbnails/`) are inventoried but
+  never flagged as orphans — they are unreferenced by design.
+- Writes are UPSERTs on `path` followed by `DELETE WHERE scan_id <> :scanId`.
+  The delete keys on a **per-run `scan_id`, not `scanned_at`**: that column is
+  `TIMESTAMP(0)`, so two scans in the same second could not tell each other
+  apart and stale rows would survive.
+- Refresh: `app:storage:scan` (idempotent; the one-time backfill and the
+  recurring job) or the "Načíst znovu" button. The scan **only reads** from
+  storage — there is no delete action, because a copied template variant shares
+  its source's background key (`reference_count > 1`, shown as a `×N` badge), so
+  "delete what looks unused" is not safe to automate.
+- The scan also reports **dangling references** — DB rows pointing at keys that
+  are not in the bucket (broken images), the mirror image of an orphan.
 
 ### Core Domain Entities
 

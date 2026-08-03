@@ -103,4 +103,49 @@ final class AdminUsageControllerTest extends WebTestCase
         $this->assertSelectorTextContains('body', 'Aktivita uživatelů');
         $this->assertSelectorExists('#activity-chart');
     }
+
+    public function testRendersStorageEmptyStateBeforeAnyScan(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $browser->request('GET', '/admin/usage');
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('body', 'Inventura úložiště zatím neproběhla');
+    }
+
+    public function testRendersStorageUsagePerProjectAndOwner(): void
+    {
+        $browser = self::createClient();
+
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->getConnection()->executeStatement(
+            'INSERT INTO storage_object (
+                id, path, size, last_modified_at, category, referenced_by, reference_count,
+                project_id, project_name, owner_id, owner_email, orphaned, scanned_at, scan_id
+             ) VALUES (?, ?, ?, NULL, ?, ?, 1, ?, ?, ?, ?, false, ?, ?)',
+            [
+                Uuid::uuid7()->toString(),
+                'fixtures/billed.png',
+                5 * 1024 * 1024,
+                'gallery_image',
+                'file_upload.path',
+                TestDataFixture::PROJECT_1_ID,
+                'Projekt Alfa',
+                TestDataFixture::USER_1_ID,
+                TestDataFixture::USER_1_EMAIL,
+                '2026-08-03 10:00:00',
+                Uuid::uuid7()->toString(),
+            ],
+        );
+
+        TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
+        $browser->request('GET', '/admin/usage');
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('body', 'Úložiště');
+        $this->assertSelectorTextContains('body', '5,0 MB');
+        $this->assertSelectorExists('#storage-chart');
+    }
 }

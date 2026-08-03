@@ -7,6 +7,7 @@ namespace WBoost\Web\Tests\Api;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Services\SocialNetwork\PlaceholderImageUploader;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingApiAuthentication;
 use WBoost\Web\Value\EditorImageInput;
@@ -123,6 +124,34 @@ final class SocialNetworkPlaceholderUploadTest extends ApiTestCase
     }
 
     /**
+     * These endpoints take the raw upload off the request with no form behind
+     * them, so the size cap the form types apply everywhere else has to be
+     * enforced in {@see \WBoost\Web\Services\SocialNetwork\PlaceholderImageUploader}.
+     */
+    public function testRejectsFileOverTheSizeLimit(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $client->request('POST', $this->uploadUrl(
+            TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
+            TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID,
+        ), [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+            'extra' => [
+                'parameters' => [],
+                'files' => ['file' => $this->oversizedUpload()],
+            ],
+        ]);
+
+        $this->assertResponseStatusCodeSame(400);
+    }
+
+    /**
      * @param array<string, string> $parameters
      * @return array<array-key, mixed>
      */
@@ -186,5 +215,15 @@ final class SocialNetworkPlaceholderUploadTest extends ApiTestCase
 
         // test mode (5th arg) bypasses is_uploaded_file().
         return new UploadedFile($tmp, 'photo.png', 'image/png', null, true);
+    }
+
+    private function oversizedUpload(): UploadedFile
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'big');
+        self::assertIsString($tmp);
+
+        file_put_contents($tmp, str_repeat('x', PlaceholderImageUploader::MAX_FILE_SIZE_BYTES + 1));
+
+        return new UploadedFile($tmp, 'huge.png', 'image/png', null, true);
     }
 }

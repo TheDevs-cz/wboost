@@ -30,7 +30,10 @@ export default class extends Controller {
     static values = {
         url: String,
         modal: Boolean,
-        maxSize: { type: Number, default: 2 * 1024 * 1024 },
+        // Must match the server constraint exactly, or a file could pass here
+        // and still be rejected on upload. Symfony's `maxSize: '10m'` is
+        // DECIMAL (10 * 1000 * 1000), not 10 MiB.
+        maxSize: { type: Number, default: 10 * 1000 * 1000 },
     };
 
     connect() {
@@ -97,7 +100,8 @@ export default class extends Controller {
             if (!file.type.startsWith("image/")) {
                 this.queue.push({ id: ++this.seq, file, url: null, status: "error", message: "Není obrázek" });
             } else if (file.size > this.maxSizeValue) {
-                this.queue.push({ id: ++this.seq, file, url: null, status: "error", message: "Větší než 2 MB" });
+                const limitMb = Math.round(this.maxSizeValue / (1000 * 1000));
+                this.queue.push({ id: ++this.seq, file, url: null, status: "error", message: `Větší než ${limitMb} MB` });
             } else {
                 this.queue.push({ id: ++this.seq, file, url: URL.createObjectURL(file), status: "pending" });
             }

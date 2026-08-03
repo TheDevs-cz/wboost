@@ -26,7 +26,7 @@ final class SocialNetworkTemplateVariantFormType extends AbstractType
             'required' => false,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                 ),
             ],
         ]);

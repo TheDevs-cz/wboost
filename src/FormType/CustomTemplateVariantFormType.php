@@ -49,7 +49,7 @@ final class CustomTemplateVariantFormType extends AbstractType
             'required' => false,
             'constraints' => [
                 new Image(
-                    maxSize: '2m',
+                    maxSize: '10m',
                 ),
             ],
         ]);

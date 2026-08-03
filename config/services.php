@@ -81,6 +81,8 @@ return static function (ContainerConfigurator $container): void {
             __DIR__ . '/../src/Query/UsageMonthMetrics.php',
             __DIR__ . '/../src/Query/UserActivityOverview.php',
             __DIR__ . '/../src/Query/TemplateGroupListItem.php',
+            __DIR__ . '/../src/Query/StorageOverview.php',
+            __DIR__ . '/../src/Query/StorageFilesPage.php',
         ]);
 
     // API Platform State Providers / Processors (DTOs themselves are not services).
