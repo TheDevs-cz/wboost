@@ -345,9 +345,6 @@ export default class extends Controller {
         if (!incoming || this._switching || variantId === this.activeId) {
             return;
         }
-        if (!incoming.included) {
-            return; // excluded variants are not editable — re-include first
-        }
         if (!incoming.shadow) {
             return; // still hydrating
         }
@@ -366,6 +363,20 @@ export default class extends Controller {
             editor.dispatchSelectionChanged();
 
             const outgoing = this._variant(this.activeId);
+
+            if (!incoming.included) {
+                // Clicking an excluded card switches to it — the edited
+                // variant must be included. Mutate the flags AFTER the sync
+                // flush above so edits pending from before the switch never
+                // propagate into the newly included variant. If the outgoing
+                // variant was the ONLY included one, swap it off, so "edit
+                // one variant in isolation" survives tab switches.
+                const outgoingWasAlone = this.variants.filter((v) => v.included).length === 1;
+                incoming.included = true;
+                if (outgoing && outgoingWasAlone) {
+                    outgoing.included = false;
+                }
+            }
 
             if (!skipSerialize && outgoing && outgoing.shadow) {
                 // Serialize the interactive canvas into the outgoing shadow so
@@ -597,8 +608,14 @@ export default class extends Controller {
         const formData = new FormData();
         formData.append('_token', this.csrfValue);
 
+        const savedIds = [];
+
         for (const variant of this.variants) {
-            if (!variant.included) {
+            // Included variants always save; excluded ones save too when
+            // they carry unsaved edits (e.g. after switching away from an
+            // isolated edit) — the toggle controls propagation, not
+            // persistence.
+            if (!variant.included && !variant.dirty) {
                 continue;
             }
 
@@ -628,6 +645,7 @@ export default class extends Controller {
             formData.append(`variants[${variant.id}][textInputs]`, payload.textInputs);
             formData.append(`variants[${variant.id}][imageInputs]`, payload.imageInputs);
             formData.append(`variants[${variant.id}][imagePreview]`, preview);
+            savedIds.push(variant.id);
         }
 
         try {
@@ -641,7 +659,7 @@ export default class extends Controller {
             if (data.status === 'success') {
                 editor.markSaved();
                 this.variants.forEach((variant) => {
-                    if (variant.included) {
+                    if (savedIds.includes(variant.id)) {
                         variant.dirty = false;
                     }
                 });
