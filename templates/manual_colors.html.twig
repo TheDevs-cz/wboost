@@ -16,6 +16,7 @@
 {% block content %}
 
     {{ form_start(form) }}
+    {{ form_errors(form) }}
     <div class="row">
         <div class="col-xxl-3">
             {{ include('_manual_nav.html.twig') }}
@@ -153,6 +154,8 @@
                                                     {{ form_label(customColorForm.k) }}
                                                 </div>
                                             </div>
+
+                                            {{ form_errors(customColorForm.color) }}
                                         </div>
 
                                         {{ form_widget(customColorForm.order) }}

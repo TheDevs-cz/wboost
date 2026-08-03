@@ -62,6 +62,10 @@ final class ManualColorsFormData
         $manualColors = [];
 
         foreach ($this->detectedColors as $detectedColor) {
+            if ($detectedColor->color === null || $detectedColor->color === '') {
+                continue;
+            }
+
             $order = $detectedColor->order;
 
             $manualColor = new ManualColor(
@@ -91,7 +95,7 @@ final class ManualColorsFormData
         $manualColors = [];
 
         foreach ($this->customColors as $customColor) {
-            if ($customColor === null) {
+            if ($customColor === null || $customColor->color === null || $customColor->color === '') {
                 continue;
             }
 

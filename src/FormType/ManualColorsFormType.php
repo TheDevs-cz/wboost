@@ -6,6 +6,7 @@ namespace WBoost\Web\FormType;
 
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Validator\Constraints\Valid;
+use WBoost\Web\FormData\ManualColorFormData;
 use WBoost\Web\FormData\ManualColorsFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -48,6 +49,10 @@ final class ManualColorsFormType extends AbstractType
             ],
             'allow_add' => true,
             'allow_delete' => true,
+            // A row added but never filled in still submits an "order" (the drag&drop
+            // controller stamps every row on reorder), so it is not "empty" to Symfony.
+            // Drop it instead of failing its NotBlank on the HEX field.
+            'delete_empty' => static fn (null|ManualColorFormData $color): bool => $color === null || self::isBlankColor($color),
             'attr' => ['data-controller' => 'form-collection'],
             'by_reference' => false,
             'constraints' => [
@@ -62,5 +67,19 @@ final class ManualColorsFormType extends AbstractType
             'data_class' => ManualColorsFormData::class,
             'allow_extra_fields' => true,
         ]);
+    }
+
+    /**
+     * Everything but the (machine written) order is blank.
+     */
+    private static function isBlankColor(ManualColorFormData $color): bool
+    {
+        foreach ([$color->color, $color->type, $color->c, $color->m, $color->y, $color->k, $color->pantone] as $value) {
+            if ($value !== null && trim($value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
