@@ -65,10 +65,14 @@
         <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
             <button
                 type="button"
-                class="btn btn-sm btn-link p-0 text-decoration-none {{ breadcrumbs is empty ? 'fw-bold text-body' : '' }}"
+                class="btn btn-sm btn-link p-0 text-decoration-none {{ breadcrumbs is empty and not this.showingTrash ? 'fw-bold text-body' : '' }}"
                 data-action="live#action"
                 data-live-action-param="openRoot"
             ><i class="mdi mdi-folder-home"></i> Galerie</button>
+            {% if this.showingTrash %}
+                <span class="text-muted">/</span>
+                <span class="fw-bold"><i class="mdi mdi-trash-can-outline"></i> Koš</span>
+            {% endif %}
             {% for crumb in breadcrumbs %}
                 <span class="text-muted">/</span>
                 {% if loop.last %}
@@ -84,6 +88,23 @@
                 {% endif %}
             {% endfor %}
         </nav>
+
+        {% if this.fileActionNotice %}
+            <div class="alert alert-success py-2 small d-flex align-items-center gap-2" role="alert">
+                <i class="mdi mdi-check-circle-outline"></i>
+                <span class="flex-grow-1">{{ this.fileActionNotice }}</span>
+                {% if not this.showingTrash %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-link p-0 text-decoration-none"
+                        data-action="live#action"
+                        data-live-action-param="openTrash"
+                    >Zobrazit koš</button>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if not this.showingTrash %}
 
         {# New-folder inline form #}
         <div class="input-group input-group-sm mb-2" style="max-width: 22rem;">
@@ -176,6 +197,26 @@
             <p class="text-muted small mb-0">
                 Tato složka je prázdná. Nahrajte obrázky přetažením výše nebo vytvořte podsložku.
             </p>
+        {% endif %}
+
+        {# Koš — read-only special directory, shown at the gallery root only. #}
+        {% if breadcrumbs is empty %}
+            {% set trash_count = this.trashedCount() %}
+            <div class="mb-3">
+                <button
+                    type="button"
+                    class="gallery-trash-card border rounded p-2 d-inline-flex align-items-center gap-2"
+                    data-action="live#action"
+                    data-live-action-param="openTrash"
+                    title="Koš — smazané obrázky ({{ this.trashRetentionDays() }} dní do trvalého smazání)"
+                >
+                    <i class="mdi mdi-trash-can-outline fs-4 text-muted"></i>
+                    <span>Koš</span>
+                    {% if trash_count > 0 %}
+                        <span class="badge bg-secondary-lighten text-secondary">{{ trash_count }}</span>
+                    {% endif %}
+                </button>
+            </div>
         {% endif %}
 
         {# Folders #}
@@ -293,15 +334,15 @@
                                     >
                                 </div>
                             {% endif %}
+                            {# No confirm: the delete is reversible (Koš + 7-day retention);
+                               only the bin's "Smazat ihned" keeps a confirmation. #}
                             <button
                                 type="button"
                                 class="btn btn-sm btn-light border shadow-sm py-0 px-1 text-danger position-absolute top-0 start-0 m-1"
-                                title="Smazat obrázek"
-                                aria-label="Smazat obrázek"
+                                title="Přesunout do koše"
+                                aria-label="Přesunout do koše"
                                 onclick="event.stopPropagation();"
-                                data-controller="confirm"
-                                data-confirm-message-value="Smazat tento obrázek? Akce je nevratná – pokud je obrázek použitý v šabloně, šablona o něj přijde."
-                                data-action="confirm#confirm live#action"
+                                data-action="live#action"
                                 data-live-action-param="deleteFile"
                                 data-live-fileid-param="{{ asset.id }}"
                             ><i class="mdi mdi-delete"></i></button>
@@ -336,6 +377,65 @@
                     </div>
                 {% endfor %}
             </div>
+        {% endif %}
+
+        {% else %}
+        {# ------------------------------------------------------------------
+           Koš (trash bin): READ-ONLY. No upload, no folders, no select —
+           images here can't be used in templates. Only Obnovit (back to the
+           original folder, or the root when it's gone) and Smazat ihned
+           (irreversible, keeps a confirm). Auto-purged after the retention
+           window by app:gallery:purge-trash. #}
+        {% set trashed_assets = this.trashedAssets() %}
+
+        <p class="text-muted small">
+            <i class="mdi mdi-information-outline me-1"></i>Obrázky v koši se po
+            {{ this.trashRetentionDays() }} dnech trvale smažou a nelze je mezitím
+            používat v šablonách ani editoru.
+        </p>
+
+        {% if trashed_assets is empty %}
+            <p class="text-muted small mb-0">Koš je prázdný.</p>
+        {% else %}
+            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));"{% endif %}>
+                {% for asset in trashed_assets %}
+                    <div class="{{ cell_class }}">
+                        <div class="border rounded gallery-asset gallery-asset--trashed">
+                            <div class="p-1" title="Do koše {{ asset.deletedAt }}">
+                                <img
+                                    crossorigin="anonymous"
+                                    src="{{ asset.url }}"
+                                    alt=""
+                                    class="img-fluid"
+                                    style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                >
+                            </div>
+                            <div class="small text-danger px-1">{{ asset.purgeLabel }}</div>
+                            <div class="d-flex gap-1 p-1">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary flex-grow-1 py-0"
+                                    data-action="live#action"
+                                    data-live-action-param="restoreFile"
+                                    data-live-fileid-param="{{ asset.id }}"
+                                ><i class="mdi mdi-restore"></i> Obnovit</button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger py-0"
+                                    title="Smazat ihned (nevratné)"
+                                    aria-label="Smazat ihned"
+                                    data-controller="confirm"
+                                    data-confirm-message-value="Trvale smazat tento obrázek? Akce je nevratná – pokud je obrázek použitý v šabloně, šablona o něj přijde."
+                                    data-action="confirm#confirm live#action"
+                                    data-live-action-param="purgeFile"
+                                    data-live-fileid-param="{{ asset.id }}"
+                                ><i class="mdi mdi-delete-forever"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
         {% endif %}
     </div>
 </div>

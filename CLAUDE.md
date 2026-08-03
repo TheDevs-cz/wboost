@@ -327,11 +327,24 @@ Stage 8 added a **filesystem-like nested folder tree** on top:
   a folder that still holds images or sub-folders is refused (the handler throws
   `FileDirectoryNotEmpty`; the component pre-checks and shows the transient
   non-LiveProp `$folderActionError` notice), so contents are never silently
-  relocated or discarded; the user empties it first. **Deleting an image**
-  (`deleteFile` → `DeleteFileUpload`) removes the DB row AND the physical object
-  from storage (`Filesystem::delete`, guarded by `fileExists` for idempotency) —
-  the only place in the app that hard-deletes storage; an image in use as a
-  template background/placeholder default would lose its source. **`#[LiveArg]`
+  relocated or discarded; the user empties it first. **Deleting an image moves
+  it to the Koš (trash bin)** — `deleteFile` → `DeleteFileUpload` sets
+  `deleted_at`, DETACHES the file from its folder (remembered in
+  `restore_directory_id`, SET NULL) and needs no confirm; the bin is a
+  read-only special directory at the gallery root (both hosts) showing a
+  per-file purge countdown with only Obnovit (`RestoreFileUpload` — back to
+  the original folder, root when it's gone) and Smazat ihned
+  (`PurgeFileUpload`, confirmed). Trashed images are invisible/unusable
+  everywhere: every live listing in `FileUploadRepository` filters
+  `deletedAt IS NULL` (load-bearing at the ROOT — detached bin entries would
+  otherwise surface as root files), `ResolveImageOverrides` rejects trashed
+  ids explicitly (the unrestricted-slot root branch would accept them), and
+  `MoveFileUploadHandler` refuses to move a trashed file (a move would
+  silently un-trash it). `PurgeFileUploadHandler` is the only place in the
+  app that hard-deletes gallery storage (row + object; an image in use as a
+  template background/placeholder default loses its source there). The purge
+  cron is `app:gallery:purge-trash` (daily; retention =
+  `FileUpload::TRASH_RETENTION_DAYS` = 7). **`#[LiveArg]`
   names must be lowercase** (e.g. `#[LiveArg('directoryid')]` / `#[LiveArg('fileid')]`)
   to match the HTML-lowercased `data-live-*-param`.
 - Uploads still POST to `project_upload_file`; the modal's upload form carries a

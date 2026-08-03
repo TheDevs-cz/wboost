@@ -98,7 +98,7 @@ final class ImageGalleryComponentTest extends WebTestCase
         self::assertTrue($this->directoryRepository()->get($child->id)->parent?->id->equals($parent->id));
     }
 
-    public function testDeleteFileActionRemovesUpload(): void
+    public function testDeleteFileActionMovesUploadToTrash(): void
     {
         $client = self::createClient();
 
@@ -108,9 +108,47 @@ final class ImageGalleryComponentTest extends WebTestCase
             ->call('deleteFile', ['fileid' => $file->id->toString()]);
 
         $this->em()->clear();
+        $trashed = $this->em()->find(FileUpload::class, $file->id);
+        self::assertNotNull($trashed, 'Deleting moves to the bin — the row survives.');
+        self::assertTrue($trashed->isTrashed());
+    }
+
+    public function testRestoreFileActionReturnsUploadFromTrash(): void
+    {
+        $client = self::createClient();
+
+        $file = $this->persistFile(null);
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+        $component->call('deleteFile', ['fileid' => $file->id->toString()]);
+        $component->call('restoreFile', ['fileid' => $file->id->toString()]);
+
+        $this->em()->clear();
+        $restored = $this->em()->find(FileUpload::class, $file->id);
+        self::assertNotNull($restored);
+        self::assertFalse($restored->isTrashed());
+    }
+
+    public function testPurgeFileActionPermanentlyRemovesTrashedUpload(): void
+    {
+        $client = self::createClient();
+
+        $file = $this->persistFile(null);
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+
+        // Purge refuses live images — they must go through the bin first.
+        $component->call('purgeFile', ['fileid' => $file->id->toString()]);
+        $this->em()->clear();
+        self::assertNotNull($this->em()->find(FileUpload::class, $file->id));
+
+        $component->call('deleteFile', ['fileid' => $file->id->toString()]);
+        $component->call('purgeFile', ['fileid' => $file->id->toString()]);
+
+        $this->em()->clear();
         self::assertNull(
             $this->em()->find(FileUpload::class, $file->id),
-            'Gallery image should have been deleted.',
+            'Purging a trashed image removes the row for good.',
         );
     }
 

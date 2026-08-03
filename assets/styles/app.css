@@ -1955,6 +1955,21 @@ button.fill-layer-row__main:focus-visible {
     min-width: 0;
 }
 
+/* Koš (trash bin): the read-only special directory at the gallery root. */
+.gallery-trash-card {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    color: inherit;
+}
+
+.gallery-trash-card:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.gallery-asset--trashed img {
+    opacity: 0.8;
+    filter: grayscale(0.25);
+}
+
 /* Freshly uploaded thumbnail: a short highlight pulse so the user sees the
    file land in the folder they are looking at. */
 .gallery-asset--new {

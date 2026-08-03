@@ -28,6 +28,12 @@ readonly final class MoveFileUploadHandler
     {
         $file = $this->fileUploadRepository->get($message->fileId);
 
+        // The bin is read-only: a trashed file leaves it via restore/purge
+        // only, never via a move (which would silently un-trash it).
+        if ($file->isTrashed()) {
+            return;
+        }
+
         $directory = $message->directoryId !== null
             ? $this->fileDirectoryRepository->get($message->directoryId)
             : null;

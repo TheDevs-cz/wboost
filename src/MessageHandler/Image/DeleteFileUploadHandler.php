@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\Image;
 
-use League\Flysystem\Filesystem;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Message\Image\DeleteFileUpload;
@@ -15,21 +15,19 @@ readonly final class DeleteFileUploadHandler
 {
     public function __construct(
         private FileUploadRepository $fileUploadRepository,
-        private Filesystem $filesystem,
+        private ClockInterface $clock,
     ) {
     }
 
     /**
-     * Permanently delete a gallery image: drop the physical object from storage
-     * AND remove the database row. `Filesystem::delete()` on the S3/Minio
-     * adapter is idempotent (DeleteObject succeeds even when the key is already
-     * gone), so a retry after a partially-applied delete is harmless.
-     *
-     * The storage delete runs inside the command bus's doctrine_transaction, so
-     * it happens just before the row removal is committed. A commit failure
-     * after the object is gone would leave a row pointing at a missing file —
-     * acceptable and self-healing here: the gallery shows a broken thumbnail
-     * the admin can simply delete again (the now-missing object is a no-op).
+     * "Delete" a gallery image = move it to the trash bin. The row and the
+     * storage object BOTH survive (templates referencing the picture keep
+     * rendering during the retention window), the file just detaches from its
+     * folder and disappears from every consumer surface — gallery browse,
+     * placeholder pick lists, fill/export validation. Recoverable via
+     * {@see RestoreFileUploadHandler}; permanently removed by
+     * {@see PurgeFileUploadHandler} ("Smazat ihned" or the
+     * app:gallery:purge-trash cron after FileUpload::TRASH_RETENTION_DAYS).
      *
      * @throws FileUploadNotFound
      */
@@ -37,8 +35,6 @@ readonly final class DeleteFileUploadHandler
     {
         $file = $this->fileUploadRepository->get($message->fileId);
 
-        $this->filesystem->delete($file->path);
-
-        $this->fileUploadRepository->remove($file);
+        $file->moveToTrash($this->clock->now());
     }
 }

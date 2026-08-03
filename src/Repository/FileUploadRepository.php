@@ -43,8 +43,8 @@ readonly final class FileUploadRepository
     }
 
     /**
-     * Returns all FileUploads for a given project + source, newest first.
-     * Powers the project image gallery (Stage 7).
+     * Returns all LIVE (non-trashed) FileUploads for a given project + source,
+     * newest first. Powers the project image gallery (Stage 7).
      *
      * @return list<FileUpload>
      */
@@ -55,6 +55,7 @@ readonly final class FileUploadRepository
             ->from(FileUpload::class, 'f')
             ->where('IDENTITY(f.project) = :projectId')
             ->andWhere('f.source = :source')
+            ->andWhere('f.deletedAt IS NULL')
             ->setParameter('projectId', $projectId)
             ->setParameter('source', $source->value)
             ->orderBy('f.uploadedAt', 'DESC');
@@ -66,8 +67,8 @@ readonly final class FileUploadRepository
     }
 
     /**
-     * Number of FileUploads for a project + source, without hydrating the
-     * rows. Powers the gallery tile on the project dashboard.
+     * Number of LIVE (non-trashed) FileUploads for a project + source, without
+     * hydrating the rows. Powers the gallery tile on the project dashboard.
      */
     public function countByProjectAndSource(UuidInterface $projectId, FileSource $source): int
     {
@@ -76,6 +77,7 @@ readonly final class FileUploadRepository
             ->from(FileUpload::class, 'f')
             ->where('IDENTITY(f.project) = :projectId')
             ->andWhere('f.source = :source')
+            ->andWhere('f.deletedAt IS NULL')
             ->setParameter('projectId', $projectId)
             ->setParameter('source', $source->value);
 
@@ -83,9 +85,12 @@ readonly final class FileUploadRepository
     }
 
     /**
-     * FileUploads for a project + source that live directly inside the given
-     * directory (or at the gallery root when `$directory` is null), newest
-     * first. Powers one level of the nested gallery tree (Stage 8).
+     * LIVE (non-trashed) FileUploads for a project + source that live directly
+     * inside the given directory (or at the gallery root when `$directory` is
+     * null), newest first. Powers one level of the nested gallery tree
+     * (Stage 8). The trashed filter is load-bearing at the ROOT level: a
+     * trashed file detaches to `directory = NULL`, which without the filter
+     * would surface every bin entry as a root file.
      *
      * @return list<FileUpload>
      */
@@ -99,6 +104,7 @@ readonly final class FileUploadRepository
             ->from(FileUpload::class, 'f')
             ->where('IDENTITY(f.project) = :projectId')
             ->andWhere('f.source = :source')
+            ->andWhere('f.deletedAt IS NULL')
             ->setParameter('projectId', $projectId)
             ->setParameter('source', $source->value)
             ->orderBy('f.uploadedAt', 'DESC');
@@ -143,6 +149,7 @@ readonly final class FileUploadRepository
             ->from(FileUpload::class, 'f')
             ->where('IDENTITY(f.project) = :projectId')
             ->andWhere('f.source = :source')
+            ->andWhere('f.deletedAt IS NULL')
             ->setParameter('projectId', $projectId)
             ->setParameter('source', $source->value)
             ->orderBy('f.uploadedAt', 'DESC');
@@ -168,7 +175,9 @@ readonly final class FileUploadRepository
     /**
      * Every FileUpload sitting directly inside the given directory, regardless
      * of source. Used to check whether a folder is empty before allowing its
-     * deletion (a non-empty folder is refused).
+     * deletion (a non-empty folder is refused). Trashed files never block a
+     * folder delete — trashing detaches them (`directory = NULL`), so they
+     * cannot appear here; their `restoreDirectory` FK is SET NULL.
      *
      * @return list<FileUpload>
      */
@@ -179,6 +188,65 @@ readonly final class FileUploadRepository
             ->from(FileUpload::class, 'f')
             ->where('IDENTITY(f.directory) = :directoryId')
             ->setParameter('directoryId', $directory->id);
+
+        /** @var list<FileUpload> $result */
+        $result = $qb->getQuery()->getResult();
+
+        return $result;
+    }
+
+    /**
+     * Bin contents for a project + source, closest-to-purge first.
+     *
+     * @return list<FileUpload>
+     */
+    public function listTrashed(UuidInterface $projectId, FileSource $source): array
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('f')
+            ->from(FileUpload::class, 'f')
+            ->where('IDENTITY(f.project) = :projectId')
+            ->andWhere('f.source = :source')
+            ->andWhere('f.deletedAt IS NOT NULL')
+            ->setParameter('projectId', $projectId)
+            ->setParameter('source', $source->value)
+            ->orderBy('f.deletedAt', 'ASC');
+
+        /** @var list<FileUpload> $result */
+        $result = $qb->getQuery()->getResult();
+
+        return $result;
+    }
+
+    /** Number of bin entries for a project + source (the Koš card badge). */
+    public function countTrashed(UuidInterface $projectId, FileSource $source): int
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('COUNT(f.id)')
+            ->from(FileUpload::class, 'f')
+            ->where('IDENTITY(f.project) = :projectId')
+            ->andWhere('f.source = :source')
+            ->andWhere('f.deletedAt IS NOT NULL')
+            ->setParameter('projectId', $projectId)
+            ->setParameter('source', $source->value);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Bin entries (across ALL projects) trashed on or before the given moment
+     * — the purge cron's work list. Pass `now - FileUpload::TRASH_RETENTION_DAYS`.
+     *
+     * @return list<FileUpload>
+     */
+    public function listTrashedBefore(\DateTimeImmutable $deadline): array
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('f')
+            ->from(FileUpload::class, 'f')
+            ->where('f.deletedAt IS NOT NULL')
+            ->andWhere('f.deletedAt <= :deadline')
+            ->setParameter('deadline', $deadline);
 
         /** @var list<FileUpload> $result */
         $result = $qb->getQuery()->getResult();

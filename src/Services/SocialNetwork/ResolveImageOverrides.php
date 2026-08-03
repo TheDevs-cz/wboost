@@ -136,6 +136,13 @@ readonly final class ResolveImageOverrides
             throw new BadRequestHttpException(sprintf('Image input "%s": image does not belong to this project.', $label));
         }
 
+        // A trashed image is not usable anywhere. The check must be explicit:
+        // trashing detaches the file to the root (`directory = NULL`), which
+        // the unrestricted-slot branch below would otherwise happily accept.
+        if ($file->isTrashed()) {
+            throw new BadRequestHttpException(sprintf('Image input "%s": image not found.', $label));
+        }
+
         $directoryId = $file->directory?->id->toString();
 
         // A root file (no folder) is usable exactly when the slot is

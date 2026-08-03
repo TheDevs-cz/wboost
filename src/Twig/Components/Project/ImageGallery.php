@@ -20,11 +20,14 @@ use WBoost\Web\Entity\Project;
 use WBoost\Web\Exceptions\FileDirectoryNotEmpty;
 use WBoost\Web\Exceptions\FileDirectoryNotFound;
 use WBoost\Web\Exceptions\FileUploadNotFound;
+use Psr\Clock\ClockInterface;
 use WBoost\Web\Message\Image\CreateFileDirectory;
 use WBoost\Web\Message\Image\DeleteFileDirectory;
 use WBoost\Web\Message\Image\DeleteFileUpload;
 use WBoost\Web\Message\Image\MoveFileUpload;
+use WBoost\Web\Message\Image\PurgeFileUpload;
 use WBoost\Web\Message\Image\RenameFileDirectory;
+use WBoost\Web\Message\Image\RestoreFileUpload;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\ProvideIdentity;
@@ -118,6 +121,14 @@ final class ImageGallery extends AbstractController
     public string $renameValue = '';
 
     /**
+     * Whether the special read-only "Koš" (trash bin) view is open instead of
+     * a regular folder. Server-set by openTrash()/openRoot()/openDirectory()
+     * only, mirroring the `$currentDirectoryId` trust model.
+     */
+    #[LiveProp]
+    public bool $showingTrash = false;
+
+    /**
      * Transient, request-scoped notice shown when a folder delete is refused
      * because the folder still holds images or sub-folders. Deliberately NOT a
      * LiveProp: it is set during the blocked `deleteDirectory` action and
@@ -127,12 +138,21 @@ final class ImageGallery extends AbstractController
      */
     public null|string $folderActionError = null;
 
+    /**
+     * Transient success notice (same non-LiveProp lifecycle as
+     * `$folderActionError`): set by deleteFile ("moved to bin") and
+     * restoreFile ("restored") so the reversible actions leave visible
+     * feedback without a confirm dialog.
+     */
+    public null|string $fileActionNotice = null;
+
     public function __construct(
         private readonly FileUploadRepository $fileUploadRepository,
         private readonly FileDirectoryRepository $fileDirectoryRepository,
         private readonly UploaderHelper $uploaderHelper,
         private readonly MessageBusInterface $bus,
         private readonly ProvideIdentity $provideIdentity,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -236,6 +256,64 @@ final class ImageGallery extends AbstractController
     }
 
     /**
+     * Bin contents, closest-to-purge first, with a human countdown. Rendered
+     * only by the read-only Koš view — no select/move/delete affordances,
+     * just Obnovit / Smazat ihned.
+     *
+     * @return list<array{id: string, url: string, deletedAt: string, purgeLabel: string}>
+     */
+    public function trashedAssets(): array
+    {
+        $project = $this->guard();
+        $now = $this->clock->now();
+
+        return array_map(
+            fn (FileUpload $f): array => [
+                'id' => $f->id->toString(),
+                'url' => $this->uploaderHelper->getPublicPath($f->path),
+                'deletedAt' => $f->deletedAt?->format('Y-m-d H:i') ?? '',
+                'purgeLabel' => $this->purgeLabel($f, $now),
+            ],
+            $this->fileUploadRepository->listTrashed($project->id, $this->source),
+        );
+    }
+
+    /** Number of images in the bin — the Koš card badge at the gallery root. */
+    public function trashedCount(): int
+    {
+        $project = $this->guard();
+
+        return $this->fileUploadRepository->countTrashed($project->id, $this->source);
+    }
+
+    /** Retention window for the bin info line. */
+    public function trashRetentionDays(): int
+    {
+        return FileUpload::TRASH_RETENTION_DAYS;
+    }
+
+    private function purgeLabel(FileUpload $file, \DateTimeImmutable $now): string
+    {
+        $purgeAt = $file->purgeAt();
+        if ($purgeAt === null) {
+            return '';
+        }
+
+        $seconds = $purgeAt->getTimestamp() - $now->getTimestamp();
+        if ($seconds <= 0) {
+            return 'Smaže se při nejbližším úklidu';
+        }
+
+        $days = (int) ceil($seconds / 86400);
+
+        return match (true) {
+            $days === 1 => 'Smaže se za 1 den',
+            $days >= 2 && $days <= 4 => sprintf('Smaže se za %d dny', $days),
+            default => sprintf('Smaže se za %d dní', $days),
+        };
+    }
+
+    /**
      * Re-render hook the uploader clicks after a successful upload so the new
      * asset shows up. Re-render happens by default on every action.
      */
@@ -250,6 +328,7 @@ final class ImageGallery extends AbstractController
     {
         $this->guard();
         $this->cancelRenameState();
+        $this->showingTrash = false;
 
         $directory = $this->ownedDirectory($directoryId);
         if ($directory !== null) {
@@ -262,6 +341,16 @@ final class ImageGallery extends AbstractController
     {
         $this->guard();
         $this->cancelRenameState();
+        $this->showingTrash = false;
+        $this->currentDirectoryId = null;
+    }
+
+    #[LiveAction]
+    public function openTrash(): void
+    {
+        $this->guard();
+        $this->cancelRenameState();
+        $this->showingTrash = true;
         $this->currentDirectoryId = null;
     }
 
@@ -367,44 +456,64 @@ final class ImageGallery extends AbstractController
         );
     }
 
+    /**
+     * Reversible "delete": moves the image to the Koš. No confirm dialog —
+     * the bin plus the notice below ARE the safety net; only the bin's
+     * "Smazat ihned" is irreversible (and keeps its confirmation).
+     */
     #[LiveAction]
     public function deleteFile(#[LiveArg('fileid')] string $fileId): void
     {
-        $project = $this->guard();
+        $this->guard();
 
-        if (!Uuid::isValid($fileId)) {
-            return;
-        }
-
-        try {
-            $file = $this->fileUploadRepository->get(Uuid::fromString($fileId));
-        } catch (FileUploadNotFound) {
-            return;
-        }
-
-        if (!$file->project->id->equals($project->id)) {
+        $file = $this->ownedFile($fileId);
+        if ($file === null || $file->isTrashed()) {
             return;
         }
 
         $this->bus->dispatch(new DeleteFileUpload($file->id));
+        $this->fileActionNotice = sprintf(
+            'Obrázek byl přesunut do koše. Trvale se smaže za %d dní.',
+            FileUpload::TRASH_RETENTION_DAYS,
+        );
+    }
+
+    #[LiveAction]
+    public function restoreFile(#[LiveArg('fileid')] string $fileId): void
+    {
+        $this->guard();
+
+        $file = $this->ownedFile($fileId);
+        if ($file === null || !$file->isTrashed()) {
+            return;
+        }
+
+        $this->bus->dispatch(new RestoreFileUpload($file->id));
+        $this->fileActionNotice = 'Obrázek byl obnoven z koše.';
+    }
+
+    /** Irreversible removal from the bin ("Smazat ihned") — row AND storage. */
+    #[LiveAction]
+    public function purgeFile(#[LiveArg('fileid')] string $fileId): void
+    {
+        $this->guard();
+
+        $file = $this->ownedFile($fileId);
+        if ($file === null || !$file->isTrashed()) {
+            // Live images are never purged directly — they go through the bin.
+            return;
+        }
+
+        $this->bus->dispatch(new PurgeFileUpload($file->id));
     }
 
     #[LiveAction]
     public function moveFile(#[LiveArg('fileid')] string $fileId, #[LiveArg('directoryid')] string $directoryId): void
     {
-        $project = $this->guard();
+        $this->guard();
 
-        if (!Uuid::isValid($fileId)) {
-            return;
-        }
-
-        try {
-            $file = $this->fileUploadRepository->get(Uuid::fromString($fileId));
-        } catch (FileUploadNotFound) {
-            return;
-        }
-
-        if (!$file->project->id->equals($project->id)) {
+        $file = $this->ownedFile($fileId);
+        if ($file === null) {
             return;
         }
 
@@ -439,6 +548,32 @@ final class ImageGallery extends AbstractController
     private function currentDirectory(): null|FileDirectory
     {
         return $this->currentDirectoryId !== null ? $this->ownedDirectory($this->currentDirectoryId) : null;
+    }
+
+    /**
+     * Resolve a client-supplied id to a FileUpload ONLY if it belongs to this
+     * project; otherwise null — the file counterpart of {@see ownedDirectory()}.
+     */
+    private function ownedFile(string $fileId): null|FileUpload
+    {
+        if (!Uuid::isValid($fileId)) {
+            return null;
+        }
+
+        try {
+            $file = $this->fileUploadRepository->get(Uuid::fromString($fileId));
+        } catch (FileUploadNotFound) {
+            return null;
+        }
+
+        $project = $this->project;
+        assert($project !== null);
+
+        if (!$file->project->id->equals($project->id)) {
+            return null;
+        }
+
+        return $file;
     }
 
     /**
