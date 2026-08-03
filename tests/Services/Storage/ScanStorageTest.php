@@ -101,6 +101,28 @@ final class ScanStorageTest extends KernelTestCase
         self::assertNull($this->row(self::ORPHAN_PATH));
     }
 
+    /**
+     * Regression: an e-mail signature embeds its images as full public URLs in
+     * the HTML `code`, not in a path column. Missing that source made a LIVE
+     * background look like an orphan — found on prod by diffing the scan
+     * against a full pg_dump, one command away from deleting a real file.
+     */
+    public function testImageEmbeddedOnlyInSignatureMarkupIsNotAnOrphan(): void
+    {
+        $path = 'emails/00000000-0000-0000-0000-0000000000e1/background-1753361194.png';
+        $this->write($path, 'signature-background');
+        $this->seedEmailSignatureReferencing($path);
+
+        self::getContainer()->get(ScanStorage::class)->scan();
+
+        $row = $this->row($path);
+
+        self::assertNotNull($row);
+        self::assertFalse((bool) $row['orphaned']);
+        self::assertSame('email_signature_variant.code', $row['referenced_by']);
+        self::assertSame(TestDataFixture::PROJECT_1_ID, $row['project_id']);
+    }
+
     public function testDatabaseRowsPointingAtMissingFilesAreReportedAsDangling(): void
     {
         // The fixtures reference `fixtures/in-allowed.png`; not writing it means
@@ -108,6 +130,33 @@ final class ScanStorageTest extends KernelTestCase
         $result = self::getContainer()->get(ScanStorage::class)->scan();
 
         self::assertContains(self::REFERENCED_PATH, $result->danglingReferences);
+    }
+
+    /**
+     * An e-mail signature template + variant whose markup embeds `$path` the
+     * way the editor does — inside an `<img src>`, single-quoted, so the
+     * pattern's delimiter handling is exercised too.
+     */
+    private function seedEmailSignatureReferencing(string $path): void
+    {
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $connection = $entityManager->getConnection();
+
+        $templateId = '00000000-0000-0000-0000-0000000000e1';
+        $variantId = '00000000-0000-0000-0000-0000000000e2';
+        $url = 'https://example.test/wboost/' . $path;
+
+        $connection->executeStatement(
+            "INSERT INTO email_signature_template (id, created_at, name, code, project_id, background_image, text_inputs, vcard_info)
+             VALUES (?, ?, ?, '', ?, NULL, '[]'::jsonb, '{}'::json)",
+            [$templateId, '2026-08-03 10:00:00', 'Podpis', TestDataFixture::PROJECT_1_ID],
+        );
+
+        $connection->executeStatement(
+            "INSERT INTO email_signature_variant (id, created_at, name, code, template_id, text_inputs)
+             VALUES (?, ?, ?, ?, ?, '[]'::json)",
+            [$variantId, '2026-08-03 10:00:00', 'Varianta', sprintf("<img src='%s' alt=''>", $url), $templateId],
+        );
     }
 
     private function write(string $path, string $contents): void

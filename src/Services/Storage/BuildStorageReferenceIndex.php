@@ -25,12 +25,8 @@ use WBoost\Web\Value\StorageReferenceIndex;
  */
 readonly final class BuildStorageReferenceIndex
 {
-    /**
-     * Storage-key namespaces the app writes. Used to pull paths back out of the
-     * canvas JSON, where they only ever appear embedded in a full public URL
-     * (which differs per environment, so the prefix is the stable anchor).
-     */
-    private const string CANVAS_PATH_PATTERN = '((?:file-upload|manuals|social-networks|custom-templates|emails)/[^"]+)';
+    /** Storage-key namespaces the app writes. */
+    private const string PATH_PREFIXES = '(?:file-upload|manuals|social-networks|custom-templates|emails)';
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -69,6 +65,25 @@ readonly final class BuildStorageReferenceIndex
         }
 
         return new StorageReferenceIndex($references, $counts);
+    }
+
+    /**
+     * Pulls paths back out of the columns that EMBED them in a full public URL
+     * instead of storing the bare key — the canvas JSON and the e-mail
+     * signature HTML. The base URL differs per environment, so the namespace
+     * prefix is the stable anchor.
+     *
+     * The delimiter class covers the JSON string terminator (`"`) AND the HTML
+     * attribute terminators (`'`, `<`, `>`, `)`, whitespace): an `<img src>` or
+     * a CSS `url(...)` in signature markup is not quoted like a JSON value.
+     *
+     * The single quote is doubled because the result is interpolated into a
+     * single-quoted SQL literal — get that wrong and the quote terminates the
+     * literal instead of joining the character class.
+     */
+    private function embeddedPathPattern(): string
+    {
+        return '(' . self::PATH_PREFIXES . "/[^\"''<>)[:space:]\\\\]+)";
     }
 
     /**
@@ -153,7 +168,7 @@ readonly final class BuildStorageReferenceIndex
                  CROSS JOIN LATERAL regexp_matches(v.canvas::text || v.image_inputs::text, '%s', 'g') AS m",
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
-                self::CANVAS_PATH_PATTERN,
+                $this->embeddedPathPattern(),
             ),
 
             'social_network_template.image' => sprintf(
@@ -190,7 +205,7 @@ readonly final class BuildStorageReferenceIndex
                  CROSS JOIN LATERAL regexp_matches(v.canvas::text || v.image_inputs::text, '%s', 'g') AS m",
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
-                self::CANVAS_PATH_PATTERN,
+                $this->embeddedPathPattern(),
             ),
 
             'email_signature_template.background_image' => sprintf(
@@ -200,6 +215,31 @@ readonly final class BuildStorageReferenceIndex
                  WHERE t.background_image IS NOT NULL AND t.background_image <> ''",
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
+            ),
+
+            // The signature MARKUP embeds images as full public URLs — an
+            // `<img src>` the designer pasted in, not a path column. Missing
+            // these made a live signature background look like an orphan
+            // (caught on prod by diffing the scan against a full pg_dump).
+            'email_signature_template.code' => sprintf(
+                "SELECT DISTINCT m[1] AS path, %s
+                 FROM email_signature_template t
+                 %s
+                 CROSS JOIN LATERAL regexp_matches(t.code || t.text_inputs::text, '%s', 'g') AS m",
+                $ownerColumns,
+                sprintf($ownerJoin, 't.project_id'),
+                $this->embeddedPathPattern(),
+            ),
+
+            'email_signature_variant.code' => sprintf(
+                "SELECT DISTINCT m[1] AS path, %s
+                 FROM email_signature_variant v
+                 JOIN email_signature_template t ON t.id = v.template_id
+                 %s
+                 CROSS JOIN LATERAL regexp_matches(v.code || v.text_inputs::text, '%s', 'g') AS m",
+                $ownerColumns,
+                sprintf($ownerJoin, 't.project_id'),
+                $this->embeddedPathPattern(),
             ),
 
             // font.faces is a JSONB array of `{name, style, weight, filePath}`.

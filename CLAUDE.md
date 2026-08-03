@@ -439,10 +439,14 @@ old one — on the dev mirror that is ~70 % of all bytes).
 - `ScanStorage` (`src/Services/Storage/`) lists the bucket and cross-references
   `BuildStorageReferenceIndex`, which enumerates **every** column that stores a
   path: plain strings, the JSON documents (`manual.logo`,
-  `manual_mockup_page.images`, `font.faces`) and the canvas JSONB, where paths
-  only appear embedded in full public URLs (matched by storage-prefix regex, so
-  it is environment-independent). **A writer missing from that list makes a live
-  file look like an orphan** — add new ones there.
+  `manual_mockup_page.images`, `font.faces`), the canvas JSONB **and the e-mail
+  signature `code`** — the last two EMBED paths inside full public URLs rather
+  than storing the key, so they are matched by storage-prefix regex (the base
+  URL is environment-specific; the prefix is the stable anchor). **A writer
+  missing from that list makes a live file look like an orphan** — add new ones
+  there. The signature `code` case was found the hard way, by diffing a prod
+  scan against a full `pg_dump`; if you ever act on the orphan list in bulk, do
+  that diff first rather than trusting the flag.
 - Unreferenced objects are still attributed to a project by
   `ResolveStorageOwnerByPath`, which pulls the first UUID out of the key and
   looks it up across every namespacing entity. Objects whose entity is gone stay
@@ -460,6 +464,21 @@ old one — on the dev mirror that is ~70 % of all bytes).
   "delete what looks unused" is not safe to automate.
 - The scan also reports **dangling references** — DB rows pointing at keys that
   are not in the bucket (broken images), the mirror image of an orphan.
+
+**Deleting a project deletes its storage.** `DeleteProjectHandler` collects the
+project's key namespaces via `CollectProjectStoragePaths` **before** removing
+the row, flushes so the DELETE + cascades actually execute, and only then calls
+`DeleteProjectStorage`. Order is load-bearing: most namespaces are keyed by a
+CHILD entity id (`manuals/{manualId}`, `social-networks/{variantId}`, …), not by
+the project id, so the cascade destroys the only record of what belonged where —
+and an image can never be referenced from another project, so there is no later
+chance to reattach it. Two details that must not be "simplified":
+per-variant previews are deleted as individual FILES because
+`social-networks/preview/` is shared by every project, and an email-signature
+template clears BOTH `emails/{id}/` and `manuals/{id}/` (the ADD and EDIT
+handlers disagree on the prefix). Storage failures are logged and swallowed —
+the row is already gone, so throwing would only turn a leaked file into a failed
+request.
 
 ### Core Domain Entities
 
