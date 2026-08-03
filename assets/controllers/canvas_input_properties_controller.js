@@ -5,16 +5,32 @@ import { Controller } from "@hotwired/stimulus";
  * uppercase. These are the properties consumed by the export form
  * (template-input fields) — they live on the canvas object as custom
  * properties and round-trip through CANVAS_CUSTOM_PROPERTIES.
+ *
+ * Name↔text smart sync: submitAddText seeds a new textbox's CANVAS text from
+ * its name, so as long as the designer hasn't written real stand-in text yet
+ * (canvas text still equals the name), renaming keeps the canvas text in
+ * step — matching the expectation the seeding itself creates. The link is
+ * computed when the selection populates the panel and is broken by any
+ * inline canvas edit (Fabric fires text:changed only for interactive edits,
+ * never for our programmatic set), after which renaming never touches the
+ * designed text again.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = ["name", "description", "locked", "hidable", "uppercase", "richText"];
 
     canvasEditorOutletConnected(outlet) {
-        // Apply uppercase live as the user types into a textbox.
+        // Apply uppercase live as the user types into a textbox — and break
+        // the name↔text link, because an interactive text:changed means the
+        // designer is writing real stand-in text.
         this._applyUppercaseOnInput = () => {
             const activeObject = outlet.canvas.getActiveObject();
             if (activeObject && (activeObject.type || '').toLowerCase() === 'textbox') {
+                // Our own synthetic text:changed (rename sync) must not
+                // unlink — only genuine inline edits do.
+                if (!this._syncingText) {
+                    this._nameTextLinked = false;
+                }
                 this._applyUppercase(activeObject);
             }
         };
@@ -33,6 +49,8 @@ export default class extends Controller {
         const activeObject = event.detail.activeObject;
         const isTextbox = activeObject && (activeObject.type || '').toLowerCase() === 'textbox';
         if (!isTextbox) return;
+
+        this._nameTextLinked = this._textEqualsName(activeObject);
 
         if (this.hasLockedTarget)    this.lockedTarget.checked    = activeObject.locked || false;
         if (this.hasUppercaseTarget) this.uppercaseTarget.checked = activeObject.uppercase || false;
@@ -89,8 +107,34 @@ export default class extends Controller {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.name = event.target.value;
+
+        // Seeded state: the canvas text is still just the (old) name — keep
+        // it following the rename. An empty mid-typing value passes through
+        // (the element visibly empties, and the link self-heals: '' === '').
+        if (this._nameTextLinked) {
+            const canvas = this.canvasEditorOutlet.canvas;
+            activeObject.set('text', activeObject.uppercase
+                ? event.target.value.toUpperCase()
+                : event.target.value);
+            if (typeof activeObject.initDimensions === 'function') {
+                activeObject.initDimensions();
+            }
+            activeObject.setCoords();
+            // Synthetic announce so container reflow and the group editor
+            // treat this like typing (our programmatic set fires nothing).
+            this._syncingText = true;
+            canvas.fire('text:changed', { target: activeObject });
+            this._syncingText = false;
+        }
+
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
+    }
+
+    _textEqualsName(textbox) {
+        const name = textbox.name || '';
+        const text = textbox.text || '';
+        return text === name || (textbox.uppercase === true && text === name.toUpperCase());
     }
 
     updateDescription(event) {
