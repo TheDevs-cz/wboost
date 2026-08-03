@@ -84,12 +84,67 @@ final class GetStorageOverviewTest extends KernelTestCase
         self::assertSame(0.0, $overview->orphanShare());
     }
 
+    public function testSplitsEachProjectAndClientByFileType(): void
+    {
+        // One project holding two kinds of file — the split is what says WHY a
+        // client is big, which a global by-type table cannot show.
+        $this->seed(TestDataFixture::PROJECT_1_ID, TestDataFixture::USER_1_ID, TestDataFixture::USER_1_EMAIL, 500, false, StorageCategory::Manual);
+        $this->seed(TestDataFixture::PROJECT_1_ID, TestDataFixture::USER_1_ID, TestDataFixture::USER_1_EMAIL, 200, false, StorageCategory::SocialNetwork);
+        $this->seed(TestDataFixture::PROJECT_2_ID, TestDataFixture::USER_1_ID, TestDataFixture::USER_1_EMAIL, 300, false, StorageCategory::Manual);
+
+        $overview = self::getContainer()->get(GetStorageOverview::class)->overview();
+
+        $owner = $overview->owners[0];
+        self::assertSame(800, $owner->sizeInCategory(StorageCategory::Manual->value));
+        self::assertSame(200, $owner->sizeInCategory(StorageCategory::SocialNetwork->value));
+        self::assertSame(0, $owner->sizeInCategory(StorageCategory::Font->value));
+
+        // Projects are ordered by size desc → project 1 (700 B) first.
+        self::assertSame(500, $owner->projects[0]->sizeInCategory(StorageCategory::Manual->value));
+        self::assertSame(200, $owner->projects[0]->sizeInCategory(StorageCategory::SocialNetwork->value));
+        self::assertSame(300, $owner->projects[1]->sizeInCategory(StorageCategory::Manual->value));
+        self::assertSame(0, $owner->projects[1]->sizeInCategory(StorageCategory::SocialNetwork->value));
+
+        // Category columns stay ordered by total size desc.
+        self::assertSame(
+            [StorageCategory::Manual, StorageCategory::SocialNetwork],
+            array_map(static fn ($row) => $row->category, $overview->categories),
+        );
+    }
+
+    public function testUnattributedLeftoversAreTheirOwnRowWithTheSameBreakdown(): void
+    {
+        $this->seed(TestDataFixture::PROJECT_1_ID, TestDataFixture::USER_1_ID, TestDataFixture::USER_1_EMAIL, 100, false, StorageCategory::Manual);
+        $this->seed(null, null, null, 400, true, StorageCategory::SocialNetwork);
+        $this->seed(null, null, null, 50, true, StorageCategory::Font);
+
+        $overview = self::getContainer()->get(GetStorageOverview::class)->overview();
+
+        self::assertNotNull($overview->unattributed);
+        self::assertSame('none', $overview->unattributed->projectId);
+        self::assertSame(450, $overview->unattributed->totalSize);
+        self::assertSame(400, $overview->unattributed->sizeInCategory(StorageCategory::SocialNetwork->value));
+        self::assertSame(50, $overview->unattributed->sizeInCategory(StorageCategory::Font->value));
+
+        // It must never be folded into a client's numbers.
+        self::assertCount(1, $overview->owners);
+        self::assertSame(100, $overview->owners[0]->totalSize);
+    }
+
+    public function testNoUnattributedRowWhenEverythingIsAttributed(): void
+    {
+        $this->seed(TestDataFixture::PROJECT_1_ID, TestDataFixture::USER_1_ID, TestDataFixture::USER_1_EMAIL, 100, false);
+
+        self::assertNull(self::getContainer()->get(GetStorageOverview::class)->overview()->unattributed);
+    }
+
     private function seed(
         null|string $projectId,
         null|string $ownerId,
         null|string $ownerEmail,
         int $size,
         bool $orphaned,
+        StorageCategory $category = StorageCategory::GalleryImage,
     ): void {
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
 
@@ -102,7 +157,7 @@ final class GetStorageOverviewTest extends KernelTestCase
                 Uuid::uuid7()->toString(),
                 'fixtures/' . Uuid::uuid4()->toString() . '.png',
                 $size,
-                StorageCategory::GalleryImage->value,
+                $category->value,
                 $orphaned ? null : 'file_upload.path',
                 $orphaned ? 0 : 1,
                 $projectId,

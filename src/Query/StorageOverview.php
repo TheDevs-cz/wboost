@@ -22,6 +22,8 @@ readonly final class StorageOverview
     public function __construct(
         public array $owners,
         public array $categories,
+        /** Objects whose owning project no longer exists, as a row of its own. */
+        public null|StorageProjectRow $unattributed,
         public int $totalFiles,
         public int $totalSize,
         public int $orphanFiles,

@@ -359,14 +359,24 @@
                         Zobrazit jednotlivé soubory <i class="uil-angle-right-b"></i>
                     </a>
                 </div>
+                <p class="text-muted small px-3 pb-2 mb-0">
+                    Sloupce podle typu ukazují, čím je který projekt velký. Typ se odvozuje
+                    z cesty v úložišti — kam který modul soubory ukládá.
+                </p>
                 <div class="table-responsive rounded-3">
                     <table class="table table-hover table-sm align-middle mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th class="ps-3">Klient / Projekt</th>
+                                {% for row in storage.categories %}
+                                    <th class="text-end text-nowrap">
+                                        <a href="{{ path('admin_storage_files', {category: row.category.value}) }}" class="text-reset text-decoration-none">
+                                            {{ row.category.label }}
+                                        </a>
+                                    </th>
+                                {% endfor %}
                                 <th class="text-center text-nowrap">Souborů</th>
                                 <th class="text-end text-nowrap">Velikost</th>
-                                <th class="text-center text-nowrap">Nepoužívaných</th>
                                 <th class="text-end text-nowrap">Nepoužito</th>
                                 <th class="text-end text-nowrap pe-3">Podíl</th>
                             </tr>
@@ -375,9 +385,12 @@
                             {% for owner in storage.owners %}
                                 <tr class="table-light fw-semibold">
                                     <td class="ps-3"><i class="uil-user me-1"></i>{{ owner.ownerEmail }}</td>
+                                    {% for row in storage.categories %}
+                                        {% set size = owner.sizeInCategory(row.category.value) %}
+                                        <td class="text-end">{{ size ? size|file_size : '' }}</td>
+                                    {% endfor %}
                                     <td class="text-center">{{ owner.fileCount }}</td>
                                     <td class="text-end">{{ owner.totalSize|file_size }}</td>
-                                    <td class="text-center">{{ owner.orphanCount ?: '—' }}</td>
                                     <td class="text-end">{{ owner.orphanSize ? owner.orphanSize|file_size : '—' }}</td>
                                     <td class="text-end pe-3">{{ owner.orphanShare > 0 ? owner.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
                                 </tr>
@@ -388,69 +401,63 @@
                                                 <i class="uil-folder me-1"></i>{{ project.projectName }}
                                             </a>
                                         </td>
+                                        {% for row in storage.categories %}
+                                            {% set size = project.sizeInCategory(row.category.value) %}
+                                            <td class="text-end">
+                                                {% if size %}
+                                                    <a href="{{ path('admin_storage_files', {project: project.projectId, category: row.category.value}) }}"
+                                                       class="text-reset text-decoration-none">{{ size|file_size }}</a>
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
                                         <td class="text-center">{{ project.fileCount }}</td>
                                         <td class="text-end">{{ project.totalSize|file_size }}</td>
-                                        <td class="text-center">{{ project.orphanCount ?: '—' }}</td>
                                         <td class="text-end">{{ project.orphanSize ? project.orphanSize|file_size : '—' }}</td>
                                         <td class="text-end pe-3">{{ project.orphanShare > 0 ? project.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
                                     </tr>
                                 {% endfor %}
                             {% endfor %}
-                            {% if storage.unattributedFiles > 0 %}
+                            {% if storage.unattributed %}
+                                {% set leftovers = storage.unattributed %}
                                 <tr class="table-light fw-semibold">
                                     <td class="ps-3">
-                                        <a href="{{ path('admin_storage_files', {project: 'none'}) }}" class="text-reset text-decoration-none">
+                                        <a href="{{ path('admin_storage_files', {project: leftovers.projectId}) }}" class="text-reset text-decoration-none">
                                             <i class="uil-question-circle me-1"></i>Bez projektu
                                         </a>
                                         <span class="text-muted fw-normal small ms-1">(vlastník už neexistuje)</span>
                                     </td>
-                                    <td class="text-center">{{ storage.unattributedFiles }}</td>
-                                    <td class="text-end">{{ storage.unattributedSize|file_size }}</td>
-                                    <td class="text-center">—</td>
-                                    <td class="text-end">—</td>
-                                    <td class="text-end pe-3">—</td>
+                                    {% for row in storage.categories %}
+                                        {% set size = leftovers.sizeInCategory(row.category.value) %}
+                                        <td class="text-end">
+                                            {% if size %}
+                                                <a href="{{ path('admin_storage_files', {project: leftovers.projectId, category: row.category.value}) }}"
+                                                   class="text-reset text-decoration-none">{{ size|file_size }}</a>
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                    <td class="text-center">{{ leftovers.fileCount }}</td>
+                                    <td class="text-end">{{ leftovers.totalSize|file_size }}</td>
+                                    <td class="text-end">{{ leftovers.orphanSize ? leftovers.orphanSize|file_size : '—' }}</td>
+                                    <td class="text-end pe-3">{{ leftovers.orphanShare > 0 ? leftovers.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
                                 </tr>
                             {% endif %}
                         </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm rounded-3 overflow-hidden">
-            <div class="card-body p-0">
-                <div class="px-3 pt-3">
-                    <h4 class="header-title mb-1">Podle typu souboru</h4>
-                    <p class="text-muted small mb-0">
-                        Typ se odvozuje z cesty v úložišti — kam který modul soubory ukládá.
-                    </p>
-                </div>
-                <div class="table-responsive rounded-3">
-                    <table class="table table-hover table-sm align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">Typ</th>
-                                <th class="text-center text-nowrap">Souborů</th>
-                                <th class="text-end text-nowrap">Velikost</th>
-                                <th class="text-center text-nowrap">Nepoužívaných</th>
-                                <th class="text-end text-nowrap pe-3">Nepoužito</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in storage.categories %}
-                                <tr>
-                                    <td class="ps-3">
-                                        <a href="{{ path('admin_storage_files', {category: row.category.value}) }}" class="text-reset text-decoration-none">
-                                            {{ row.category.label }}
-                                        </a>
-                                    </td>
-                                    <td class="text-center">{{ row.fileCount }}</td>
+                        <tfoot class="table-light">
+                            <tr class="fw-semibold">
+                                <td class="ps-3">Celkem</td>
+                                {% for row in storage.categories %}
                                     <td class="text-end">{{ row.totalSize|file_size }}</td>
-                                    <td class="text-center">{{ row.orphanCount ?: '—' }}</td>
-                                    <td class="text-end pe-3">{{ row.orphanSize ? row.orphanSize|file_size : '—' }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
+                                {% endfor %}
+                                <td class="text-center">{{ storage.totalFiles }}</td>
+                                <td class="text-end">{{ storage.totalSize|file_size }}</td>
+                                <td class="text-end">{{ storage.orphanSize ? storage.orphanSize|file_size : '—' }}</td>
+                                <td class="text-end pe-3">{{ storage.orphanShare > 0 ? storage.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>

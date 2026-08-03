@@ -21,6 +21,13 @@ readonly final class GetStorageOverview
     /** Cap on the number of per-client chart bars before the rest roll into "Ostatní". */
     private const int CHART_OWNER_LIMIT = 12;
 
+    /**
+     * Stand-in id for objects whose owning project no longer exists. Doubles as
+     * the `project` filter value the file list understands, so the row links
+     * through like any other.
+     */
+    public const string UNATTRIBUTED = 'none';
+
     public function __construct(
         private EntityManagerInterface $entityManager,
     ) {
@@ -30,22 +37,27 @@ readonly final class GetStorageOverview
     {
         $connection = $this->entityManager->getConnection();
 
-        // Only attributable objects go into the owner ▸ project tree; the rest
-        // are reported as their own "unattributed" bucket rather than being
-        // silently dropped or lumped under a fake owner.
+        // Grouped by CATEGORY as well, so each project row can be broken down
+        // by file type in place rather than in a separate global table — the
+        // per-project split is what says WHY a client is big, which one merged
+        // "all clients by type" table cannot.
+        //
+        // NULL project rows are included and split off afterwards into their own
+        // "unattributed" bucket rather than being dropped or lumped under a fake
+        // owner.
         $perProjectSql = <<<SQL
             SELECT
               owner_id,
               (array_agg(owner_email))[1] AS owner_email,
               project_id,
               (array_agg(project_name))[1] AS project_name,
+              category,
               COUNT(*) AS file_count,
               COALESCE(SUM(size), 0) AS total_size,
               COUNT(*) FILTER (WHERE orphaned) AS orphan_count,
               COALESCE(SUM(size) FILTER (WHERE orphaned), 0) AS orphan_size
             FROM storage_object
-            WHERE project_id IS NOT NULL AND owner_id IS NOT NULL
-            GROUP BY owner_id, project_id
+            GROUP BY owner_id, project_id, category
         SQL;
 
         $totalsSql = <<<SQL
@@ -76,27 +88,81 @@ readonly final class GetStorageOverview
         $totals = $connection->executeQuery($totalsSql)->fetchAssociative();
         $categoryRows = $connection->executeQuery($categoriesSql)->fetchAllAssociative();
 
-        /** @var array<string, list<StorageProjectRow>> $projectsByOwner */
-        $projectsByOwner = [];
+        // Fold the per-category rows back up into one row per project, keeping
+        // the by-type split alongside the totals.
+        /** @var array<string, array<string, array{name: string, files: int, size: int, orphanFiles: int, orphanSize: int, byCategory: array<string, int>}>> $accumulator */
+        $accumulator = [];
         $ownerEmails = [];
+        $unattributed = null;
 
         foreach ($perProjectRows as $row) {
-            $ownerId = $this->asString($row['owner_id']);
+            $projectId = $this->asNullableString($row['project_id']);
+            $ownerId = $this->asNullableString($row['owner_id']);
+            $bucketKey = $projectId ?? self::UNATTRIBUTED;
+            $ownerKey = $projectId === null || $ownerId === null ? self::UNATTRIBUTED : $ownerId;
 
-            $projectsByOwner[$ownerId][] = new StorageProjectRow(
-                $this->asString($row['project_id']),
-                $this->asString($row['project_name']),
-                $this->asInt($row['file_count']),
-                $this->asInt($row['total_size']),
-                $this->asInt($row['orphan_count']),
-                $this->asInt($row['orphan_size']),
+            $bucket = $accumulator[$ownerKey][$bucketKey] ?? [
+                'name' => $this->asNullableString($row['project_name']) ?? 'Bez projektu',
+                'files' => 0,
+                'size' => 0,
+                'orphanFiles' => 0,
+                'orphanSize' => 0,
+                'byCategory' => [],
+            ];
+
+            $category = $this->asString($row['category']);
+            $size = $this->asInt($row['total_size']);
+
+            $bucket['files'] += $this->asInt($row['file_count']);
+            $bucket['size'] += $size;
+            $bucket['orphanFiles'] += $this->asInt($row['orphan_count']);
+            $bucket['orphanSize'] += $this->asInt($row['orphan_size']);
+            $bucket['byCategory'][$category] = ($bucket['byCategory'][$category] ?? 0) + $size;
+
+            $accumulator[$ownerKey][$bucketKey] = $bucket;
+
+            if ($ownerKey !== self::UNATTRIBUTED) {
+                $ownerEmails[$ownerKey] = $this->asString($row['owner_email']);
+            }
+        }
+
+        if (isset($accumulator[self::UNATTRIBUTED][self::UNATTRIBUTED])) {
+            $bucket = $accumulator[self::UNATTRIBUTED][self::UNATTRIBUTED];
+            unset($accumulator[self::UNATTRIBUTED]);
+
+            $unattributed = new StorageProjectRow(
+                self::UNATTRIBUTED,
+                'Bez projektu',
+                $bucket['files'],
+                $bucket['size'],
+                $bucket['orphanFiles'],
+                $bucket['orphanSize'],
+                $bucket['byCategory'],
             );
-            $ownerEmails[$ownerId] = $this->asString($row['owner_email']);
         }
 
         $owners = [];
 
-        foreach ($projectsByOwner as $ownerId => $projects) {
+        foreach ($accumulator as $ownerId => $buckets) {
+            $projects = [];
+            $ownerByCategory = [];
+
+            foreach ($buckets as $projectId => $bucket) {
+                $projects[] = new StorageProjectRow(
+                    $projectId,
+                    $bucket['name'],
+                    $bucket['files'],
+                    $bucket['size'],
+                    $bucket['orphanFiles'],
+                    $bucket['orphanSize'],
+                    $bucket['byCategory'],
+                );
+
+                foreach ($bucket['byCategory'] as $category => $size) {
+                    $ownerByCategory[$category] = ($ownerByCategory[$category] ?? 0) + $size;
+                }
+            }
+
             usort(
                 $projects,
                 static fn (StorageProjectRow $a, StorageProjectRow $b): int =>
@@ -104,13 +170,14 @@ readonly final class GetStorageOverview
             );
 
             $owners[] = new StorageOwnerRow(
-                $ownerId,
-                $ownerEmails[$ownerId],
+                (string) $ownerId,
+                $ownerEmails[(string) $ownerId],
                 array_sum(array_map(static fn (StorageProjectRow $p): int => $p->fileCount, $projects)),
                 array_sum(array_map(static fn (StorageProjectRow $p): int => $p->totalSize, $projects)),
                 array_sum(array_map(static fn (StorageProjectRow $p): int => $p->orphanCount, $projects)),
                 array_sum(array_map(static fn (StorageProjectRow $p): int => $p->orphanSize, $projects)),
                 $projects,
+                $ownerByCategory,
             );
         }
 
@@ -143,6 +210,7 @@ readonly final class GetStorageOverview
         return new StorageOverview(
             $owners,
             $categories,
+            $unattributed,
             $totals === false ? 0 : $this->asInt($totals['file_count']),
             $totals === false ? 0 : $this->asInt($totals['total_size']),
             $totals === false ? 0 : $this->asInt($totals['orphan_count']),
@@ -221,6 +289,11 @@ readonly final class GetStorageOverview
         assert(is_string($value));
 
         return $value;
+    }
+
+    private function asNullableString(mixed $value): null|string
+    {
+        return is_string($value) ? $value : null;
     }
 
     private function asInt(mixed $value): int

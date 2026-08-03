@@ -8,6 +8,7 @@ readonly final class StorageOwnerRow
 {
     /**
      * @param list<StorageProjectRow> $projects
+     * @param array<string, int> $sizesByCategory bytes keyed by StorageCategory value
      */
     public function __construct(
         public string $ownerId,
@@ -17,7 +18,14 @@ readonly final class StorageOwnerRow
         public int $orphanCount,
         public int $orphanSize,
         public array $projects,
+        public array $sizesByCategory = [],
     ) {
+    }
+
+    /** Bytes this client holds in one file type — 0 when they have none. */
+    public function sizeInCategory(string $category): int
+    {
+        return $this->sizesByCategory[$category] ?? 0;
     }
 
     public function orphanShare(): float

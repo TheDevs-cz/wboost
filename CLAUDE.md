@@ -428,6 +428,15 @@ the only thing in play.
 client) plus a file drill-down at `/admin/storage/files`. Both are
 `#[IsGranted(User::ROLE_ADMIN)]`.
 
+File types are **columns on each client/project row**, not a separate global
+by-type table — the per-project split is what says *why* a client is big, which
+one merged "all clients by type" table cannot. The column set is derived from
+the data (only categories actually present get a column, ordered by total size
+desc), the same way the usage table above derives its month columns; cells link
+through to the file list pre-filtered by project + category. Objects whose
+project is gone render as one "Bez projektu" row carrying the identical
+breakdown (`StorageOverview::$unattributed`), never folded into a client.
+
 It is backed by `storage_object` — one row per object that actually exists in
 the Minio bucket, **derived data rebuilt by a scan, never written at upload
 time**. That is the whole point: an inventory built from what the app believes
