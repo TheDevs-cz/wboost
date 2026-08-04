@@ -51,9 +51,9 @@ readonly final class ResolveStorageOwnerByPath
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
             ),
-            sprintf('SELECT t.id AS entity_id, %s FROM custom_template t %s', $ownerColumns, sprintf($ownerJoin, 't.project_id')),
+            sprintf('SELECT t.id AS entity_id, %s FROM template t %s', $ownerColumns, sprintf($ownerJoin, 't.project_id')),
             sprintf(
-                'SELECT v.id AS entity_id, %s FROM custom_template_variant v JOIN custom_template t ON t.id = v.template_id %s',
+                'SELECT v.id AS entity_id, %s FROM template_variant v JOIN template t ON t.id = v.template_id %s',
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
             ),

@@ -12,19 +12,19 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
-use WBoost\Web\Exceptions\CustomTemplateVariantNotFound;
+use WBoost\Web\Exceptions\TemplateVariantNotFound;
 use WBoost\Web\Exceptions\SocialNetworkTemplateVariantNotFound;
-use WBoost\Web\FormData\CustomTemplateVariantFormData;
+use WBoost\Web\FormData\TemplateVariantFormData;
 use WBoost\Web\FormData\TemplateGroupFormData;
 use WBoost\Web\FormType\TemplateGroupFormType;
 use WBoost\Web\Message\TemplateGroup\CreateTemplateGroup;
-use WBoost\Web\Query\GetCustomTemplateCategories;
+use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Query\GetSocialNetworkCategories;
-use WBoost\Web\Repository\CustomTemplateVariantRepository;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
@@ -37,9 +37,9 @@ final class AddTemplateGroupController extends AbstractController
         readonly private MessageBusInterface $bus,
         readonly private ProvideIdentity $provideIdentity,
         readonly private GetSocialNetworkCategories $getSocialNetworkCategories,
-        readonly private GetCustomTemplateCategories $getCustomTemplateCategories,
+        readonly private GetTemplateCategories $getTemplateCategories,
         readonly private SocialNetworkTemplateVariantRepository $socialVariantRepository,
-        readonly private CustomTemplateVariantRepository $customVariantRepository,
+        readonly private TemplateVariantRepository $customVariantRepository,
     ) {
     }
 
@@ -70,7 +70,7 @@ final class AddTemplateGroupController extends AbstractController
                 if ($sourceVariant instanceof SocialNetworkTemplateVariant) {
                     $data->socialDimensions = [$sourceVariant->dimension];
                 } else {
-                    $row = new CustomTemplateVariantFormData();
+                    $row = new TemplateVariantFormData();
                     $row->unit = $sourceVariant->dimension->unit;
                     $row->width = $sourceVariant->dimension->unitWidth;
                     $row->height = $sourceVariant->dimension->unitHeight;
@@ -82,7 +82,7 @@ final class AddTemplateGroupController extends AbstractController
 
         $form = $this->createForm(TemplateGroupFormType::class, $data, [
             'social_categories' => $this->getSocialNetworkCategories->allForProject($project->id),
-            'custom_categories' => $this->getCustomTemplateCategories->allForProject($project->id),
+            'custom_categories' => $this->getTemplateCategories->allForProject($project->id),
         ]);
 
         $form->handleRequest($request);
@@ -125,7 +125,7 @@ final class AddTemplateGroupController extends AbstractController
                     $socialVariants,
                     $customVariants,
                     $sourceVariant instanceof SocialNetworkTemplateVariant ? $sourceVariant->id : null,
-                    $sourceVariant instanceof CustomTemplateVariant ? $sourceVariant->id : null,
+                    $sourceVariant instanceof TemplateVariant ? $sourceVariant->id : null,
                 ),
             );
 
@@ -142,7 +142,7 @@ final class AddTemplateGroupController extends AbstractController
             'source_variant' => $sourceVariant,
             'source_module' => match (true) {
                 $sourceVariant instanceof SocialNetworkTemplateVariant => 'social',
-                $sourceVariant instanceof CustomTemplateVariant => 'custom',
+                $sourceVariant instanceof TemplateVariant => 'custom',
                 default => null,
             },
         ]);
@@ -152,7 +152,7 @@ final class AddTemplateGroupController extends AbstractController
         Project $project,
         string $module,
         string $variantId,
-    ): SocialNetworkTemplateVariant|CustomTemplateVariant {
+    ): SocialNetworkTemplateVariant|TemplateVariant {
         if (!in_array($module, ['social', 'custom'], true) || !Uuid::isValid($variantId)) {
             throw $this->createNotFoundException();
         }
@@ -161,7 +161,7 @@ final class AddTemplateGroupController extends AbstractController
             $variant = $module === 'social'
                 ? $this->socialVariantRepository->get(Uuid::fromString($variantId))
                 : $this->customVariantRepository->get(Uuid::fromString($variantId));
-        } catch (SocialNetworkTemplateVariantNotFound | CustomTemplateVariantNotFound) {
+        } catch (SocialNetworkTemplateVariantNotFound | TemplateVariantNotFound) {
             throw $this->createNotFoundException();
         }
 

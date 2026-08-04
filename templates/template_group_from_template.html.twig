@@ -21,7 +21,7 @@
         </div>
     </div>
 
-    {% if social_templates|length == 0 and custom_templates|length == 0 %}
+    {% if social_templates|length == 0 and templates|length == 0 %}
         <div class="card">
             <div class="card-body text-center text-muted py-5">
                 <i class="uil-images" style="font-size: 2rem;"></i>
@@ -60,10 +60,10 @@
         {% endfor %}
     {% endif %}
 
-    {% if custom_templates|length %}
+    {% if templates|length %}
         <h4 class="header-title mb-2 mt-1">Šablony (vlastní rozměry)</h4>
 
-        {% for template in custom_templates %}
+        {% for template in templates %}
             <div class="card">
                 <div class="card-body py-2">
                     <p class="fw-bold mb-2 mt-1">

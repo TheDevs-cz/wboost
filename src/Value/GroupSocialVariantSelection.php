@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 readonly final class GroupSocialVariantSelection
 {
     public function __construct(
-        public TemplateDimension $dimension,
+        public DimensionPreset $dimension,
         // Null only when the group is created from an existing template — the
         // handler then copies the source variant's background instead.
         public null|UploadedFile $backgroundImage,

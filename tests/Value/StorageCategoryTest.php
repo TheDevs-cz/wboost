@@ -20,7 +20,7 @@ final class StorageCategoryTest extends TestCase
         yield 'manual mockup page' => ['manuals/0191-a/pages/0192-b/image-1-1724056158.png', StorageCategory::Manual];
         yield 'social variant background' => ['social-networks/0191-a/background-1725995356.png', StorageCategory::SocialNetwork];
         yield 'social template image' => ['social-networks/templates/0191-a/image-1727462023.png', StorageCategory::SocialNetwork];
-        yield 'custom variant background' => ['custom-templates/0191-a/background-1.png', StorageCategory::CustomTemplate];
+        yield 'custom variant background' => ['custom-templates/0191-a/background-1.png', StorageCategory::Template];
         yield 'font face' => ['fonts/0191-a/Biotic Bold-1724058155.otf', StorageCategory::Font];
         yield 'email signature background' => ['emails/0191-a/background-1.png', StorageCategory::EmailSignature];
         yield 'publish temp file' => ['social-publish/0191-a.jpg', StorageCategory::SocialPublish];

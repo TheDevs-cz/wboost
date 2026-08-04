@@ -20,7 +20,7 @@ use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 #[Entity]
 #[Index(name: 'idx_social_network_template_variant_group', columns: ['group_id'])]
@@ -70,7 +70,7 @@ class SocialNetworkTemplateVariant
         public SocialNetworkTemplate $template,
 
         #[Column]
-        readonly public TemplateDimension $dimension,
+        readonly public DimensionPreset $dimension,
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(nullable: true)]

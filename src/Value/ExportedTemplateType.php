@@ -12,13 +12,13 @@ namespace WBoost\Web\Value;
 enum ExportedTemplateType: string
 {
     case SocialNetwork = 'social_network';
-    case CustomTemplate = 'custom_template';
+    case Template = 'template';
 
     public function label(): string
     {
         return match ($this) {
             self::SocialNetwork => 'Sociální sítě',
-            self::CustomTemplate => 'Šablony',
+            self::Template => 'Šablony',
         };
     }
 }

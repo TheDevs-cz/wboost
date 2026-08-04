@@ -16,7 +16,7 @@
 
 {% block content %}
     <div class="card">
-        <div class="card-body" data-controller="custom-template-dimension template-group-dimension">
+        <div class="card-body" data-controller="template-dimension template-group-dimension">
             {{ form_start(form) }}
 
             {{ form_row(form.module, {'attr': {'data-action': 'change->template-group-dimension#toggleModule'}}) }}
@@ -36,23 +36,23 @@
                         <button
                             type="button"
                             class="btn btn-sm btn-outline-secondary rounded-pill me-1"
-                            data-action="custom-template-dimension#applyPreset"
-                            data-custom-template-dimension-unit-param="mm"
-                            data-custom-template-dimension-width-param="{{ preset.width }}"
-                            data-custom-template-dimension-height-param="{{ preset.height }}"
+                            data-action="template-dimension#applyPreset"
+                            data-template-dimension-unit-param="mm"
+                            data-template-dimension-width-param="{{ preset.width }}"
+                            data-template-dimension-height-param="{{ preset.height }}"
                         >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
                     {% endfor %}
                 </div>
 
                 <div class="row">
                     <div class="col-md-2">
-                        {{ form_row(form.unit, { attr: { 'data-custom-template-dimension-target': 'unit' } }) }}
+                        {{ form_row(form.unit, { attr: { 'data-template-dimension-target': 'unit' } }) }}
                     </div>
                     <div class="col-md-2">
-                        {{ form_row(form.width, { attr: { 'data-custom-template-dimension-target': 'width' } }) }}
+                        {{ form_row(form.width, { attr: { 'data-template-dimension-target': 'width' } }) }}
                     </div>
                     <div class="col-md-2">
-                        {{ form_row(form.height, { attr: { 'data-custom-template-dimension-target': 'height' } }) }}
+                        {{ form_row(form.height, { attr: { 'data-template-dimension-target': 'height' } }) }}
                     </div>
                 </div>
 

@@ -17,7 +17,7 @@ use WBoost\Web\FormType\SocialNetworkTemplateVariantFormType;
 use WBoost\Web\Message\SocialNetwork\AddSocialNetworkTemplateVariant;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVoter;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 final class AddSocialNetworkTemplateVariantController extends AbstractController
 {
@@ -32,7 +32,7 @@ final class AddSocialNetworkTemplateVariantController extends AbstractController
     public function __invoke(
         #[MapEntity(id: 'templateId')]
         SocialNetworkTemplate $template,
-        TemplateDimension $dimension,
+        DimensionPreset $dimension,
         Request $request,
     ): Response {
         $data = new SocialNetworkTemplateVariantFormData();

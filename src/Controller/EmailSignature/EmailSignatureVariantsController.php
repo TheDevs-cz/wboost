@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\EmailSignatureTemplate;
 use WBoost\Web\Services\Security\EmailSignatureTemplateVoter;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 final class EmailSignatureVariantsController extends AbstractController
 {

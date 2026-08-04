@@ -14,7 +14,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Image;
 use WBoost\Web\FormData\TemplateGroupDimensionFormData;
 use WBoost\Web\Value\DimensionUnit;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 /**
  * @extends AbstractType<TemplateGroupDimensionFormData>
@@ -37,9 +37,9 @@ final class TemplateGroupDimensionFormType extends AbstractType
 
         $builder->add('socialDimension', EnumType::class, [
             'label' => 'Rozměr',
-            'class' => TemplateDimension::class,
+            'class' => DimensionPreset::class,
             'required' => false,
-            'choice_label' => static fn (TemplateDimension $dimension): string => sprintf(
+            'choice_label' => static fn (DimensionPreset $dimension): string => sprintf(
                 '%s (%dx%d px)',
                 $dimension->value,
                 $dimension->width(),

@@ -14,10 +14,10 @@ use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Image;
-use WBoost\Web\Entity\CustomTemplateCategory;
+use WBoost\Web\Entity\TemplateCategory;
 use WBoost\Web\Entity\SocialNetworkCategory;
 use WBoost\Web\FormData\TemplateGroupFormData;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 /**
  * @extends AbstractType<TemplateGroupFormData>
@@ -50,7 +50,7 @@ final class TemplateGroupFormType extends AbstractType
             'choices' => $socialChoices,
         ]);
 
-        /** @var array<CustomTemplateCategory> $customCategories */
+        /** @var array<TemplateCategory> $customCategories */
         $customCategories = $options['custom_categories'];
         $customChoices = [];
 
@@ -67,11 +67,11 @@ final class TemplateGroupFormType extends AbstractType
 
         $builder->add('socialDimensions', EnumType::class, [
             'label' => 'Rozměry pro sociální sítě',
-            'class' => TemplateDimension::class,
+            'class' => DimensionPreset::class,
             'multiple' => true,
             'expanded' => true,
             'required' => false,
-            'choice_label' => static fn (TemplateDimension $dimension): string => sprintf(
+            'choice_label' => static fn (DimensionPreset $dimension): string => sprintf(
                 '%s (%dx%d px)',
                 $dimension->value,
                 $dimension->width(),
@@ -79,7 +79,7 @@ final class TemplateGroupFormType extends AbstractType
             ),
         ]);
 
-        foreach (TemplateDimension::cases() as $dimension) {
+        foreach (DimensionPreset::cases() as $dimension) {
             $builder->add('background' . $dimension->name, FileType::class, [
                 'label' => sprintf('Pozadí %s', $dimension->value),
                 'required' => false,
@@ -113,7 +113,7 @@ final class TemplateGroupFormType extends AbstractType
 
         $builder->add('customDimensions', CollectionType::class, [
             'label' => 'Vlastní rozměry',
-            'entry_type' => CustomTemplateVariantFormType::class,
+            'entry_type' => TemplateVariantFormType::class,
             'entry_options' => ['label' => false],
             'allow_add' => true,
             'allow_delete' => true,

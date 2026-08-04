@@ -9,9 +9,9 @@ use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
-use WBoost\Web\Value\CustomTemplateDimension;
-use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionUnit;
+use WBoost\Web\Value\DimensionPreset;
 
 final class TemplateGroupDimensionFormData
 {
@@ -24,7 +24,7 @@ final class TemplateGroupDimensionFormData
     #[NotBlank]
     public null|string $module = self::MODULE_SOCIAL;
 
-    public null|TemplateDimension $socialDimension = TemplateDimension::InstagramPost;
+    public null|DimensionPreset $socialDimension = DimensionPreset::InstagramPost;
 
     public null|DimensionUnit $unit = DimensionUnit::Mm;
 
@@ -76,10 +76,10 @@ final class TemplateGroupDimensionFormData
         }
     }
 
-    public function customDimension(): CustomTemplateDimension
+    public function customDimension(): TemplateDimension
     {
         assert($this->unit !== null && $this->width !== null && $this->height !== null);
 
-        return new CustomTemplateDimension($this->unit, $this->width, $this->height);
+        return new TemplateDimension($this->unit, $this->width, $this->height);
     }
 }

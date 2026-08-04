@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace WBoost\Web\Controller\Project;
 
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\CustomTemplate;
+use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\SocialNetworkTemplate;
-use WBoost\Web\Query\GetCustomTemplates;
+use WBoost\Web\Query\GetTemplates;
 use WBoost\Web\Query\GetEmailSignatureTemplates;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
@@ -27,7 +27,7 @@ final class ProjectDashboardController extends AbstractController
         readonly private GetManuals $getManuals,
         readonly private GetFonts $getFonts,
         readonly private GetSocialNetworkTemplates $getSocialNetworkTemplates,
-        readonly private GetCustomTemplates $getCustomTemplates,
+        readonly private GetTemplates $getTemplates,
         readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
         readonly private GetWeeklyMenus $getWeeklyMenus,
         readonly private FileUploadRepository $fileUploadRepository,
@@ -40,17 +40,17 @@ final class ProjectDashboardController extends AbstractController
     public function __invoke(Project $project): Response
     {
         $socialTemplates = $this->getSocialNetworkTemplates->allForProject($project->id);
-        $customTemplates = $this->getCustomTemplates->allForProject($project->id);
+        $templates = $this->getTemplates->allForProject($project->id);
 
-        /** @var list<array{type: 'social'|'custom', template: SocialNetworkTemplate|CustomTemplate}> $recentTemplates */
+        /** @var list<array{type: 'social'|'custom', template: SocialNetworkTemplate|Template}> $recentTemplates */
         $recentTemplates = [
             ...array_map(
                 static fn (SocialNetworkTemplate $template): array => ['type' => 'social', 'template' => $template],
                 $socialTemplates,
             ),
             ...array_map(
-                static fn (CustomTemplate $template): array => ['type' => 'custom', 'template' => $template],
-                $customTemplates,
+                static fn (Template $template): array => ['type' => 'custom', 'template' => $template],
+                $templates,
             ),
         ];
 
@@ -64,7 +64,7 @@ final class ProjectDashboardController extends AbstractController
             'manuals' => $this->getManuals->allForProject($project->id),
             'fonts' => $this->getFonts->allForProject($project->id),
             'social_templates' => $socialTemplates,
-            'custom_templates' => $customTemplates,
+            'templates' => $templates,
             'emails' => $this->getEmailSignatureTemplates->allForProject($project->id),
             'weekly_menus' => $this->getWeeklyMenus->allForProject($project->id),
             'gallery_images_count' => $this->fileUploadRepository->countByProjectAndSource($project->id, FileSource::ProjectImage),

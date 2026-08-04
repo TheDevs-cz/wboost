@@ -14,7 +14,7 @@ use WBoost\Web\MessageHandler\SocialNetwork\CopySocialNetworkTemplateVariantHand
 use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 /**
  * Duplicating a template (or a single variant) must carry over the FULL canvas
@@ -57,13 +57,13 @@ final class CopySocialNetworkTemplateHandlersTest extends KernelTestCase
         $handler(new CopySocialNetworkTemplateVariant(
             Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
             $newVariantId,
-            TemplateDimension::InstagramStory,
+            DimensionPreset::InstagramStory,
         ));
         $this->em()->flush();
         $this->em()->clear();
 
         $copy = self::getContainer()->get(SocialNetworkTemplateVariantRepository::class)->get($newVariantId);
-        self::assertSame(TemplateDimension::InstagramStory, $copy->dimension);
+        self::assertSame(DimensionPreset::InstagramStory, $copy->dimension);
         self::assertCount(4, $copy->inputs);
         self::assertCount(2, $copy->imageInputs, 'Image placeholders must survive variant duplication.');
         self::assertSame(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, $copy->imageInputs[0]->inputId);

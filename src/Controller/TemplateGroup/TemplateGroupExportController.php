@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
@@ -45,7 +45,7 @@ final class TemplateGroupExportController extends AbstractController
         TemplateGroup $group,
         Request $request,
     ): Response {
-        /** @var list<SocialNetworkTemplateVariant|CustomTemplateVariant> $variants */
+        /** @var list<SocialNetworkTemplateVariant|TemplateVariant> $variants */
         $variants = [...$this->members->socialVariants($group->id), ...$this->members->customVariants($group->id)];
 
         if ($variants === []) {
@@ -126,7 +126,7 @@ final class TemplateGroupExportController extends AbstractController
         }
     }
 
-    private function dimensionSlug(SocialNetworkTemplateVariant|CustomTemplateVariant $variant): string
+    private function dimensionSlug(SocialNetworkTemplateVariant|TemplateVariant $variant): string
     {
         if ($variant instanceof SocialNetworkTemplateVariant) {
             return $this->nonEmptySlug(

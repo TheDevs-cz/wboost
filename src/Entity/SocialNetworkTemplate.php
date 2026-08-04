@@ -17,7 +17,7 @@ use Doctrine\ORM\Mapping\OneToMany;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 #[Entity]
 #[Index(name: 'idx_social_network_template_group', columns: ['group_id'])]
@@ -92,7 +92,7 @@ class SocialNetworkTemplate
     /**
      * @return array<SocialNetworkTemplateVariant>
      */
-    public function dimensionVariants(TemplateDimension $dimension): array
+    public function dimensionVariants(DimensionPreset $dimension): array
     {
         $variants = [];
 

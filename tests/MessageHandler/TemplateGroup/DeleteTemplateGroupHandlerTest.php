@@ -7,12 +7,12 @@ namespace WBoost\Web\Tests\MessageHandler\TemplateGroup;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use WBoost\Web\Exceptions\CustomTemplateNotFound;
+use WBoost\Web\Exceptions\TemplateNotFound;
 use WBoost\Web\Exceptions\SocialNetworkTemplateNotFound;
 use WBoost\Web\Exceptions\TemplateGroupNotFound;
 use WBoost\Web\Message\TemplateGroup\DeleteTemplateGroup;
 use WBoost\Web\MessageHandler\TemplateGroup\DeleteTemplateGroupHandler;
-use WBoost\Web\Repository\CustomTemplateRepository;
+use WBoost\Web\Repository\TemplateRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
@@ -48,9 +48,9 @@ final class DeleteTemplateGroupHandlerTest extends KernelTestCase
             ->get(Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID));
         self::assertNull($socialVariant->group);
 
-        $customTemplate = self::getContainer()->get(CustomTemplateRepository::class)
+        $template = self::getContainer()->get(TemplateRepository::class)
             ->get(Uuid::fromString(TestDataFixture::GROUPED_CUSTOM_TEMPLATE_ID));
-        self::assertNull($customTemplate->group);
+        self::assertNull($template->group);
     }
 
     public function testDeleteIncludingTemplatesRemovesEverything(): void
@@ -70,10 +70,10 @@ final class DeleteTemplateGroupHandlerTest extends KernelTestCase
         }
 
         try {
-            self::getContainer()->get(CustomTemplateRepository::class)
+            self::getContainer()->get(TemplateRepository::class)
                 ->get(Uuid::fromString(TestDataFixture::GROUPED_CUSTOM_TEMPLATE_ID));
             self::fail('Grouped custom template must be deleted.');
-        } catch (CustomTemplateNotFound) {
+        } catch (TemplateNotFound) {
         }
 
         // Variant rows cascade with their template — INCLUDING the variant a

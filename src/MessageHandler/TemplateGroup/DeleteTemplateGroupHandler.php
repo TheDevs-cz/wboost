@@ -8,7 +8,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\TemplateGroupNotFound;
 use WBoost\Web\Message\TemplateGroup\DeleteTemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
-use WBoost\Web\Repository\CustomTemplateRepository;
+use WBoost\Web\Repository\TemplateRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 
@@ -19,7 +19,7 @@ readonly final class DeleteTemplateGroupHandler
         private TemplateGroupRepository $templateGroupRepository,
         private GetTemplateGroupMembers $members,
         private SocialNetworkTemplateRepository $socialTemplateRepository,
-        private CustomTemplateRepository $customTemplateRepository,
+        private TemplateRepository $templateRepository,
     ) {
     }
 
@@ -39,10 +39,10 @@ readonly final class DeleteTemplateGroupHandler
                 $this->socialTemplateRepository->remove($socialTemplate);
             }
 
-            $customTemplate = $this->members->customTemplate($group->id);
+            $template = $this->members->template($group->id);
 
-            if ($customTemplate !== null) {
-                $this->customTemplateRepository->remove($customTemplate);
+            if ($template !== null) {
+                $this->templateRepository->remove($template);
             }
         }
 

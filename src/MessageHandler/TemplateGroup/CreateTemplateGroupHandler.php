@@ -8,16 +8,16 @@ use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use WBoost\Web\Entity\CustomTemplate;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Message\TemplateGroup\CreateTemplateGroup;
-use WBoost\Web\Repository\CustomTemplateCategoryRepository;
-use WBoost\Web\Repository\CustomTemplateRepository;
-use WBoost\Web\Repository\CustomTemplateVariantRepository;
+use WBoost\Web\Repository\TemplateCategoryRepository;
+use WBoost\Web\Repository\TemplateRepository;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Repository\SocialNetworkCategoryRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateRepository;
@@ -39,9 +39,9 @@ readonly final class CreateTemplateGroupHandler
         private SocialNetworkTemplateRepository $socialTemplateRepository,
         private SocialNetworkTemplateVariantRepository $socialVariantRepository,
         private SocialNetworkCategoryRepository $socialCategoryRepository,
-        private CustomTemplateRepository $customTemplateRepository,
-        private CustomTemplateVariantRepository $customVariantRepository,
-        private CustomTemplateCategoryRepository $customCategoryRepository,
+        private TemplateRepository $templateRepository,
+        private TemplateVariantRepository $customVariantRepository,
+        private TemplateCategoryRepository $customCategoryRepository,
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private Filesystem $filesystem,
@@ -117,25 +117,25 @@ readonly final class CreateTemplateGroupHandler
                 ? $this->customCategoryRepository->get($message->customCategoryId)
                 : null;
 
-            $template = new CustomTemplate(
+            $template = new Template(
                 $this->provideIdentity->next(),
                 $project,
                 $category,
                 $now,
                 $message->name,
                 null,
-                $this->customTemplateRepository->count($project->id),
+                $this->templateRepository->count($project->id),
             );
 
             $template->assignToGroup($group);
-            $this->customTemplateRepository->add($template);
+            $this->templateRepository->add($template);
 
             foreach ($message->customVariants as $selection) {
                 $variantId = $this->provideIdentity->next();
 
                 $background = $this->resolveBackground("custom-templates/$variantId", $selection->backgroundImage, $sourceVariant);
 
-                $variant = new CustomTemplateVariant(
+                $variant = new TemplateVariant(
                     $variantId,
                     $template,
                     $selection->dimension,
@@ -161,7 +161,7 @@ readonly final class CreateTemplateGroupHandler
     private function resolveBackground(
         string $pathPrefix,
         null|UploadedFile $backgroundImage,
-        null|SocialNetworkTemplateVariant|CustomTemplateVariant $sourceVariant,
+        null|SocialNetworkTemplateVariant|TemplateVariant $sourceVariant,
     ): null|StoredBackgroundImage {
         if ($backgroundImage !== null) {
             $bytes = $backgroundImage->getContent();
@@ -197,8 +197,8 @@ readonly final class CreateTemplateGroupHandler
      * (readonly value objects, shared inputIds = the group join key).
      */
     private function seedDesign(
-        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
-        null|SocialNetworkTemplateVariant|CustomTemplateVariant $sourceVariant,
+        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        null|SocialNetworkTemplateVariant|TemplateVariant $sourceVariant,
         int $targetWidth,
         int $targetHeight,
         null|StoredBackgroundImage $background,

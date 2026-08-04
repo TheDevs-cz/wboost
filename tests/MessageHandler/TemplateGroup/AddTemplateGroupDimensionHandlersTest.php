@@ -17,10 +17,10 @@ use WBoost\Web\MessageHandler\TemplateGroup\CreateTemplateGroupHandler;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\BackgroundMode;
-use WBoost\Web\Value\CustomTemplateDimension;
+use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\GroupSocialVariantSelection;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 /**
  * @covers \WBoost\Web\MessageHandler\TemplateGroup\AddTemplateGroupSocialDimensionHandler
@@ -39,7 +39,7 @@ final class AddTemplateGroupDimensionHandlersTest extends KernelTestCase
         $handler(new AddTemplateGroupSocialDimension(
             $groupId,
             $variantId,
-            TemplateDimension::InstagramPortrait,
+            DimensionPreset::InstagramPortrait,
             $this->pngUpload(),
         ));
         $this->em()->flush();
@@ -58,7 +58,7 @@ final class AddTemplateGroupDimensionHandlersTest extends KernelTestCase
         }
 
         self::assertNotNull($added);
-        self::assertSame(TemplateDimension::InstagramPortrait, $added->dimension);
+        self::assertSame(DimensionPreset::InstagramPortrait, $added->dimension);
         self::assertSame(TestDataFixture::GROUPED_SOCIAL_TEMPLATE_ID, $added->template->id->toString(), 'Variant lands on the group\'s existing module template.');
 
         // New dimensions are layer-mode: the uploaded background is seeded as
@@ -87,7 +87,7 @@ final class AddTemplateGroupDimensionHandlersTest extends KernelTestCase
             'Lazy Custom',
             null,
             null,
-            [new GroupSocialVariantSelection(TemplateDimension::InstagramPost, $this->pngUpload())],
+            [new GroupSocialVariantSelection(DimensionPreset::InstagramPost, $this->pngUpload())],
             [],
         ));
         $this->em()->flush();
@@ -98,7 +98,7 @@ final class AddTemplateGroupDimensionHandlersTest extends KernelTestCase
         $handler(new AddTemplateGroupCustomDimension(
             $groupId,
             $variantId,
-            new CustomTemplateDimension(DimensionUnit::Mm, 148, 210),
+            new TemplateDimension(DimensionUnit::Mm, 148, 210),
             $this->pngUpload(),
         ));
         $this->em()->flush();
@@ -106,10 +106,10 @@ final class AddTemplateGroupDimensionHandlersTest extends KernelTestCase
 
         $members = self::getContainer()->get(GetTemplateGroupMembers::class);
 
-        $customTemplate = $members->customTemplate($groupId);
-        self::assertNotNull($customTemplate, 'The custom module template must be created lazily.');
-        self::assertSame('Lazy Custom', $customTemplate->name);
-        self::assertNotNull($customTemplate->group);
+        $template = $members->template($groupId);
+        self::assertNotNull($template, 'The custom module template must be created lazily.');
+        self::assertSame('Lazy Custom', $template->name);
+        self::assertNotNull($template->group);
 
         $variants = $members->customVariants($groupId);
         self::assertCount(1, $variants);

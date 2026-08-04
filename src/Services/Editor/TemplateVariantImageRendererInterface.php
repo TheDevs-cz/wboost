@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Editor;
 
 use Symfony\Component\HttpFoundation\Response;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -55,7 +55,7 @@ interface TemplateVariantImageRendererInterface
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      */
     public function render(
-        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
+        SocialNetworkTemplateVariant|TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
@@ -70,7 +70,7 @@ interface TemplateVariantImageRendererInterface
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      */
     public function renderToBytes(
-        SocialNetworkTemplateVariant|CustomTemplateVariant $variant,
+        SocialNetworkTemplateVariant|TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,

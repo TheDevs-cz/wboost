@@ -12,11 +12,11 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
-use WBoost\Web\Message\CustomTemplate\EditCustomTemplateVariantCanvasEditor;
+use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
@@ -89,8 +89,8 @@ final class TemplateGroupEditorController extends AbstractController
                 'module' => 'custom',
                 'module_label' => 'Šablony',
                 'dimension_label' => sprintf('%s (%dx%dpx)', $variant->dimension->label(), $variant->dimension->width(), $variant->dimension->height()),
-                'edit_variant_url' => $this->generateUrl('edit_custom_template_variant', ['variantId' => $variant->id]),
-                'export_url' => $this->generateUrl('custom_template_variant_export', ['variantId' => $variant->id]),
+                'edit_variant_url' => $this->generateUrl('edit_template_variant', ['variantId' => $variant->id]),
+                'export_url' => $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
             ];
         }
 
@@ -113,7 +113,7 @@ final class TemplateGroupEditorController extends AbstractController
      * editor form. Validates ALL entries before dispatching anything.
      *
      * @param list<SocialNetworkTemplateVariant> $socialVariants
-     * @param list<CustomTemplateVariant> $customVariants
+     * @param list<TemplateVariant> $customVariants
      */
     private function save(Request $request, array $socialVariants, array $customVariants): Response
     {
@@ -190,7 +190,7 @@ final class TemplateGroupEditorController extends AbstractController
                     EditorImageInput::createCollectionFromJson($entry['imageInputs']),
                     previewImageDataUri: $entry['imagePreview'],
                 )
-                : new EditCustomTemplateVariantCanvasEditor(
+                : new EditTemplateVariantCanvasEditor(
                     $entry['variant']->id,
                     $entry['canvas'],
                     EditorTextInput::createCollectionFromJson($entry['textInputs']),

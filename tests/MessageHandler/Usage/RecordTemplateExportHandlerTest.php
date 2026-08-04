@@ -24,7 +24,7 @@ final class RecordTemplateExportHandlerTest extends KernelTestCase
         $variantId = Uuid::uuid4();
 
         $handler(new RecordTemplateExport(
-            ExportedTemplateType::CustomTemplate,
+            ExportedTemplateType::Template,
             ExportChannel::Api,
             Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_1_ID),
             'Letáček A4',
@@ -41,7 +41,7 @@ final class RecordTemplateExportHandlerTest extends KernelTestCase
         $event = $entityManager->getRepository(ExportEvent::class)->findOneBy(['variantId' => $variantId]);
 
         self::assertInstanceOf(ExportEvent::class, $event);
-        self::assertSame(ExportedTemplateType::CustomTemplate, $event->templateType);
+        self::assertSame(ExportedTemplateType::Template, $event->templateType);
         self::assertSame(ExportChannel::Api, $event->channel);
         self::assertSame('Letáček A4', $event->templateName);
         self::assertSame('Projekt číslo 1', $event->projectName);

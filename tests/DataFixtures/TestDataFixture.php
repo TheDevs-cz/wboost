@@ -13,8 +13,8 @@ use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
-use WBoost\Web\Entity\CustomTemplate;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\OAuth2ClientUser;
@@ -34,13 +34,13 @@ use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\FontFace;
-use WBoost\Web\Value\CustomTemplateDimension;
+use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
 use WBoost\Web\Value\ManualType;
 use WBoost\Web\Value\SharingLevel;
 use WBoost\Web\Value\SocialProvider;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\WeeklyMenuApprovalStatus;
 
 final class TestDataFixture extends Fixture
@@ -394,7 +394,7 @@ final class TestDataFixture extends Fixture
         $socialVariant1 = new SocialNetworkTemplateVariant(
             Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
             $socialTemplate1,
-            TemplateDimension::InstagramPost,
+            DimensionPreset::InstagramPost,
             'fixtures/bg-1.png',
             $date,
         );
@@ -488,7 +488,7 @@ final class TestDataFixture extends Fixture
         $socialVariant2 = new SocialNetworkTemplateVariant(
             Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID),
             $socialTemplate2,
-            TemplateDimension::InstagramPost,
+            DimensionPreset::InstagramPost,
             'fixtures/bg-2.png',
             $date,
         );
@@ -501,7 +501,7 @@ final class TestDataFixture extends Fixture
 
         // Custom template (USER_1 / PROJECT_1) — same input mix as the social
         // variant, with a free-form A4 (210×297 mm @ 300 DPI) dimension.
-        $customTemplate1 = new CustomTemplate(
+        $template1 = new Template(
             Uuid::fromString(self::CUSTOM_TEMPLATE_1_ID),
             $project1,
             null,
@@ -510,16 +510,16 @@ final class TestDataFixture extends Fixture
             null,
             0,
         );
-        $manager->persist($customTemplate1);
+        $manager->persist($template1);
 
-        $customTemplateVariant1 = new CustomTemplateVariant(
+        $templateVariant1 = new TemplateVariant(
             Uuid::fromString(self::CUSTOM_TEMPLATE_VARIANT_1_ID),
-            $customTemplate1,
-            new CustomTemplateDimension(DimensionUnit::Mm, 210, 297),
+            $template1,
+            new TemplateDimension(DimensionUnit::Mm, 210, 297),
             'fixtures/custom-template-bg-1.png',
             $date,
         );
-        $customTemplateVariant1Canvas = json_encode([
+        $templateVariant1Canvas = json_encode([
             'version' => '5.2.4',
             'objects' => [
                 [
@@ -563,8 +563,8 @@ final class TestDataFixture extends Fixture
             'backgroundImage' => null,
         ], JSON_THROW_ON_ERROR);
 
-        $customTemplateVariant1->editCanvas(
-            $customTemplateVariant1Canvas,
+        $templateVariant1->editCanvas(
+            $templateVariant1Canvas,
             [
                 new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false, richText: true),
                 new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
@@ -577,10 +577,10 @@ final class TestDataFixture extends Fixture
                 new EditorImageInput(self::CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID, 'logo', null, false, false, false, false, [self::FILE_DIRECTORY_ALLOWED_ID]),
             ],
         );
-        $manager->persist($customTemplateVariant1);
+        $manager->persist($templateVariant1);
 
         // Custom template owned by USER_2 — cross-user scoping isolation.
-        $customTemplate2 = new CustomTemplate(
+        $template2 = new Template(
             Uuid::fromString(self::CUSTOM_TEMPLATE_2_ID),
             $project2,
             null,
@@ -589,21 +589,21 @@ final class TestDataFixture extends Fixture
             null,
             0,
         );
-        $manager->persist($customTemplate2);
+        $manager->persist($template2);
 
-        $customTemplateVariant2 = new CustomTemplateVariant(
+        $templateVariant2 = new TemplateVariant(
             Uuid::fromString(self::CUSTOM_TEMPLATE_VARIANT_2_ID),
-            $customTemplate2,
-            new CustomTemplateDimension(DimensionUnit::Px, 800, 600),
+            $template2,
+            new TemplateDimension(DimensionUnit::Px, 800, 600),
             'fixtures/custom-template-bg-2.png',
             $date,
         );
-        $customTemplateVariant2->editCanvas(
+        $templateVariant2->editCanvas(
             '{"version":"5.2.4","objects":[],"backgroundImage":null}',
             [new EditorTextInput(self::CUSTOM_TEMPLATE_VARIANT_2_INPUT_HEADLINE_ID, 'headline', null, false, false, null, false)],
             null,
         );
-        $manager->persist($customTemplateVariant2);
+        $manager->persist($templateVariant2);
 
         // Template group spanning both modules (PROJECT_1). Both member
         // variants carry the SAME textbox inputId — group edits join on it.
@@ -663,7 +663,7 @@ final class TestDataFixture extends Fixture
         $groupedSocialVariant = new SocialNetworkTemplateVariant(
             Uuid::fromString(self::GROUPED_SOCIAL_VARIANT_ID),
             $groupedSocialTemplate,
-            TemplateDimension::InstagramPost,
+            DimensionPreset::InstagramPost,
             'fixtures/bg-1.png',
             $date,
         );
@@ -680,13 +680,13 @@ final class TestDataFixture extends Fixture
         $ungroupedVariantOnGroupedTemplate = new SocialNetworkTemplateVariant(
             Uuid::fromString(self::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID),
             $groupedSocialTemplate,
-            TemplateDimension::InstagramStory,
+            DimensionPreset::InstagramStory,
             'fixtures/bg-1.png',
             $date,
         );
         $manager->persist($ungroupedVariantOnGroupedTemplate);
 
-        $groupedCustomTemplate = new CustomTemplate(
+        $groupedTemplate = new Template(
             Uuid::fromString(self::GROUPED_CUSTOM_TEMPLATE_ID),
             $project1,
             null,
@@ -695,13 +695,13 @@ final class TestDataFixture extends Fixture
             null,
             1,
         );
-        $groupedCustomTemplate->assignToGroup($templateGroup1);
-        $manager->persist($groupedCustomTemplate);
+        $groupedTemplate->assignToGroup($templateGroup1);
+        $manager->persist($groupedTemplate);
 
-        $groupedCustomVariant = new CustomTemplateVariant(
+        $groupedCustomVariant = new TemplateVariant(
             Uuid::fromString(self::GROUPED_CUSTOM_VARIANT_ID),
-            $groupedCustomTemplate,
-            new CustomTemplateDimension(DimensionUnit::Mm, 210, 297),
+            $groupedTemplate,
+            new TemplateDimension(DimensionUnit::Mm, 210, 297),
             'fixtures/custom-template-bg-1.png',
             $date,
         );

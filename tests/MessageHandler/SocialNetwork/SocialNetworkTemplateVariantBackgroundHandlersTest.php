@@ -17,7 +17,7 @@ use WBoost\Web\MessageHandler\SocialNetwork\EditSocialNetworkTemplateVariantHand
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\BackgroundMode;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 /**
  * The background-as-layer contracts on the variant Add / Edit / Copy handlers:
@@ -44,7 +44,7 @@ final class SocialNetworkTemplateVariantBackgroundHandlersTest extends KernelTes
         $handler(new AddSocialNetworkTemplateVariant(
             Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID),
             $variantId,
-            TemplateDimension::InstagramStory,
+            DimensionPreset::InstagramStory,
             null,
         ));
         $this->em()->flush();
@@ -65,7 +65,7 @@ final class SocialNetworkTemplateVariantBackgroundHandlersTest extends KernelTes
         $handler(new AddSocialNetworkTemplateVariant(
             Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID),
             $variantId,
-            TemplateDimension::InstagramStory,
+            DimensionPreset::InstagramStory,
             $this->pngUpload(),
         ));
         $this->em()->flush();
@@ -145,13 +145,13 @@ final class SocialNetworkTemplateVariantBackgroundHandlersTest extends KernelTes
         $copyHandler(new CopySocialNetworkTemplateVariant(
             Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
             $legacyCopyId,
-            TemplateDimension::InstagramStory,
+            DimensionPreset::InstagramStory,
         ));
 
         // A fresh (layer-mode) variant copies as layer-mode.
         $layerVariantId = $this->addVariantWithBackground();
         $layerCopyId = Uuid::uuid4();
-        $copyHandler(new CopySocialNetworkTemplateVariant($layerVariantId, $layerCopyId, TemplateDimension::InstagramPost));
+        $copyHandler(new CopySocialNetworkTemplateVariant($layerVariantId, $layerCopyId, DimensionPreset::InstagramPost));
 
         $this->em()->flush();
         $this->em()->clear();
@@ -168,7 +168,7 @@ final class SocialNetworkTemplateVariantBackgroundHandlersTest extends KernelTes
         $handler(new AddSocialNetworkTemplateVariant(
             Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID),
             $variantId,
-            TemplateDimension::InstagramStory,
+            DimensionPreset::InstagramStory,
             $this->pngUpload(),
         ));
         $this->em()->flush();

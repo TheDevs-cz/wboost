@@ -13,7 +13,7 @@ use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetSocialNetworkCategories;
 use WBoost\Web\Query\GetSocialNetworkTemplates;
 use WBoost\Web\Services\Security\ProjectVoter;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 final class SocialNetworkTemplatesController extends AbstractController
 {
@@ -33,7 +33,7 @@ final class SocialNetworkTemplatesController extends AbstractController
             'project' => $project,
             'categories' => $this->getSocialNetworkCategories->allForProject($project->id),
             'templates_without_category' => $this->getSocialNetworkTemplates->withoutCategoryForProject($project->id),
-            'dimensions' => TemplateDimension::cases(),
+            'dimensions' => DimensionPreset::cases(),
         ]);
     }
 }

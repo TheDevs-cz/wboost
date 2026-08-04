@@ -14,7 +14,7 @@ use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Message\SocialNetwork\CopySocialNetworkTemplateVariant;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 final class DuplicateSocialNetworkTemplateVariantController extends AbstractController
 {
@@ -29,7 +29,7 @@ final class DuplicateSocialNetworkTemplateVariantController extends AbstractCont
     public function __invoke(
         #[MapEntity(id: 'variantId')]
         SocialNetworkTemplateVariant $variant,
-        TemplateDimension $dimension,
+        DimensionPreset $dimension,
     ): Response {
         $newId = $this->provideIdentity->next();
 

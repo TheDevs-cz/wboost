@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
-use WBoost\Web\Query\GetCustomTemplates;
+use WBoost\Web\Query\GetTemplates;
 use WBoost\Web\Query\GetSocialNetworkTemplates;
 use WBoost\Web\Services\Security\ProjectVoter;
 
@@ -24,7 +24,7 @@ final class TemplateGroupFromTemplateController extends AbstractController
 {
     public function __construct(
         readonly private GetSocialNetworkTemplates $getSocialNetworkTemplates,
-        readonly private GetCustomTemplates $getCustomTemplates,
+        readonly private GetTemplates $getTemplates,
     ) {
     }
 
@@ -40,15 +40,15 @@ final class TemplateGroupFromTemplateController extends AbstractController
             static fn ($template): bool => $template->variants() !== [],
         ));
 
-        $customTemplates = array_values(array_filter(
-            $this->getCustomTemplates->allForProject($project->id),
+        $templates = array_values(array_filter(
+            $this->getTemplates->allForProject($project->id),
             static fn ($template): bool => $template->variants() !== [],
         ));
 
         return $this->render('template_group_from_template.html.twig', [
             'project' => $project,
             'social_templates' => $socialTemplates,
-            'custom_templates' => $customTemplates,
+            'templates' => $templates,
         ]);
     }
 }

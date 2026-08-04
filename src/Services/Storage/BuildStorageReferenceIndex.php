@@ -134,36 +134,36 @@ readonly final class BuildStorageReferenceIndex
                 sprintf($ownerJoin, 'm.project_id'),
             ),
 
-            'custom_template.image' => sprintf(
-                "SELECT t.image AS path, %s FROM custom_template t %s WHERE t.image IS NOT NULL AND t.image <> ''",
+            'template.image' => sprintf(
+                "SELECT t.image AS path, %s FROM template t %s WHERE t.image IS NOT NULL AND t.image <> ''",
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
             ),
 
-            'custom_template_variant.background_image' => sprintf(
+            'template_variant.background_image' => sprintf(
                 "SELECT v.background_image AS path, %s
-                 FROM custom_template_variant v
-                 JOIN custom_template t ON t.id = v.template_id
+                 FROM template_variant v
+                 JOIN template t ON t.id = v.template_id
                  %s
                  WHERE v.background_image <> ''",
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
             ),
 
-            'custom_template_variant.preview_image_path' => sprintf(
+            'template_variant.preview_image_path' => sprintf(
                 "SELECT v.preview_image_path AS path, %s
-                 FROM custom_template_variant v
-                 JOIN custom_template t ON t.id = v.template_id
+                 FROM template_variant v
+                 JOIN template t ON t.id = v.template_id
                  %s
                  WHERE v.preview_image_path IS NOT NULL AND v.preview_image_path <> ''",
                 $ownerColumns,
                 sprintf($ownerJoin, 't.project_id'),
             ),
 
-            'custom_template_variant.canvas' => sprintf(
+            'template_variant.canvas' => sprintf(
                 "SELECT DISTINCT m[1] AS path, %s
-                 FROM custom_template_variant v
-                 JOIN custom_template t ON t.id = v.template_id
+                 FROM template_variant v
+                 JOIN template t ON t.id = v.template_id
                  %s
                  CROSS JOIN LATERAL regexp_matches(v.canvas::text || v.image_inputs::text, '%s', 'g') AS m",
                 $ownerColumns,

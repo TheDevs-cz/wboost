@@ -8,7 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use WBoost\Web\Repository\CustomTemplateVariantRepository;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
@@ -77,7 +77,7 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
             ->get(Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID));
         self::assertStringContainsString('social-updated', $socialVariant->canvas);
 
-        $customVariant = self::getContainer()->get(CustomTemplateVariantRepository::class)
+        $customVariant = self::getContainer()->get(TemplateVariantRepository::class)
             ->get(Uuid::fromString(TestDataFixture::GROUPED_CUSTOM_VARIANT_ID));
         self::assertStringContainsString('custom-updated', $customVariant->canvas);
     }

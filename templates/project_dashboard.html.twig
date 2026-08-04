@@ -97,10 +97,10 @@
         ) }}
 
         {{ _self.module_card(
-            path('custom_templates', {'projectId': project.id}),
+            path('templates', {'projectId': project.id}),
             'uil-postcard', 'Šablony',
             'Tiskoviny a grafiky ve vlastních rozměrech',
-            custom_templates|length
+            templates|length
         ) }}
 
         {% if is_granted('ROLE_DESIGNER') %}
@@ -159,7 +159,7 @@
                 {% set template = item.template %}
                 {% set template_url = item.type == 'social'
                     ? path('social_network_template_variants', {'templateId': template.id})
-                    : path('custom_template_variants', {'templateId': template.id}) %}
+                    : path('template_variants', {'templateId': template.id}) %}
                 <div class="col-6 col-md-4 col-xl-2 d-flex">
                     <a href="{{ template_url }}" class="text-body d-block w-100">
                         <div class="card module-card h-100 mb-0">

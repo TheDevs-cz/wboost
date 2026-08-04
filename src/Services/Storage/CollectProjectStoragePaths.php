@@ -63,13 +63,13 @@ readonly final class CollectProjectStoragePaths
             $files[] = sprintf('social-networks/preview/%s.png', $variantId);
         }
 
-        foreach ($this->ids('SELECT id FROM custom_template WHERE project_id = ?', $id) as $templateId) {
+        foreach ($this->ids('SELECT id FROM template WHERE project_id = ?', $id) as $templateId) {
             $directories[] = sprintf('custom-templates/templates/%s', $templateId);
         }
 
         foreach ($this->ids(
-            'SELECT v.id FROM custom_template_variant v
-             JOIN custom_template t ON t.id = v.template_id
+            'SELECT v.id FROM template_variant v
+             JOIN template t ON t.id = v.template_id
              WHERE t.project_id = ?',
             $id,
         ) as $variantId) {

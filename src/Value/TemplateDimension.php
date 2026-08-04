@@ -4,27 +4,68 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Value;
 
-enum TemplateDimension: string
-{
-    case InstagramPost = '1:1';
-    case InstagramPortrait = '4:5';
-    case InstagramStory = '9:16';
+use Doctrine\ORM\Mapping\Column;
+use Doctrine\ORM\Mapping\Embeddable;
 
-    public function width(): int
-    {
-        return match($this) {
-            self::InstagramPost => 1080,
-            self::InstagramPortrait => 1080,
-            self::InstagramStory => 1080,
-        };
+/**
+ * Free-form custom-template dimension chosen by the designer in px / mm / cm.
+ *
+ * Exposes the same `width()` / `height()` pixel accessors as
+ * {@see DimensionPreset}, so the canvas editor and the render pipeline
+ * consume both interchangeably. Physical units are rasterized at
+ * {@see DimensionUnit::PRINT_DPI} (print quality).
+ */
+#[Embeddable]
+final class TemplateDimension
+{
+    /**
+     * The size properties are deliberately NOT named `width`/`height`: Twig
+     * resolves `dimension.width` to a public property before the `width()`
+     * method, and the shared editor/render templates rely on `dimension.width`
+     * meaning PIXELS for both this VO and the DimensionPreset enum.
+     */
+    public function __construct(
+        #[Column]
+        readonly public DimensionUnit $unit,
+
+        #[Column]
+        readonly public float $unitWidth,
+
+        #[Column]
+        readonly public float $unitHeight,
+    ) {
     }
 
+    /**
+     * Canvas width in pixels.
+     */
+    public function width(): int
+    {
+        return $this->unit->toPixels($this->unitWidth);
+    }
+
+    /**
+     * Canvas height in pixels.
+     */
     public function height(): int
     {
-        return match($this) {
-            self::InstagramPost => 1080,
-            self::InstagramPortrait => 1350,
-            self::InstagramStory => 1920,
-        };
+        return $this->unit->toPixels($this->unitHeight);
+    }
+
+    public function label(): string
+    {
+        return sprintf(
+            '%s × %s %s',
+            self::formatNumber($this->unitWidth),
+            self::formatNumber($this->unitHeight),
+            $this->unit->value,
+        );
+    }
+
+    private static function formatNumber(float $value): string
+    {
+        $formatted = rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+
+        return $formatted === '' ? '0' : $formatted;
     }
 }

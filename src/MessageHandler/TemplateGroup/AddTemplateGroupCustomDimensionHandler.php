@@ -7,13 +7,13 @@ namespace WBoost\Web\MessageHandler\TemplateGroup;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use WBoost\Web\Entity\CustomTemplate;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\TemplateGroupNotFound;
 use WBoost\Web\Message\TemplateGroup\AddTemplateGroupCustomDimension;
 use WBoost\Web\Query\GetTemplateGroupMembers;
-use WBoost\Web\Repository\CustomTemplateRepository;
-use WBoost\Web\Repository\CustomTemplateVariantRepository;
+use WBoost\Web\Repository\TemplateRepository;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Services\ProvideIdentity;
@@ -26,8 +26,8 @@ readonly final class AddTemplateGroupCustomDimensionHandler
     public function __construct(
         private TemplateGroupRepository $templateGroupRepository,
         private GetTemplateGroupMembers $members,
-        private CustomTemplateRepository $templateRepository,
-        private CustomTemplateVariantRepository $variantRepository,
+        private TemplateRepository $templateRepository,
+        private TemplateVariantRepository $variantRepository,
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private Filesystem $filesystem,
@@ -42,11 +42,11 @@ readonly final class AddTemplateGroupCustomDimensionHandler
     public function __invoke(AddTemplateGroupCustomDimension $message): void
     {
         $group = $this->templateGroupRepository->get($message->groupId);
-        $template = $this->members->customTemplate($group->id);
+        $template = $this->members->template($group->id);
 
         // A group created without this module gets its module template lazily.
         if ($template === null) {
-            $template = new CustomTemplate(
+            $template = new Template(
                 $this->provideIdentity->next(),
                 $group->project,
                 null,
@@ -87,7 +87,7 @@ readonly final class AddTemplateGroupCustomDimensionHandler
             ));
         }
 
-        $variant = new CustomTemplateVariant(
+        $variant = new TemplateVariant(
             $variantId,
             $template,
             $message->dimension,

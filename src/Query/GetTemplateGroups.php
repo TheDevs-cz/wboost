@@ -6,7 +6,7 @@ namespace WBoost\Web\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 
@@ -46,9 +46,9 @@ readonly final class GetTemplateGroups
             ->getQuery()
             ->getResult();
 
-        /** @var list<CustomTemplateVariant> $customVariants */
+        /** @var list<TemplateVariant> $customVariants */
         $customVariants = $this->entityManager->createQueryBuilder()
-            ->from(CustomTemplateVariant::class, 'variant')
+            ->from(TemplateVariant::class, 'variant')
             ->select('variant')
             ->where('variant.group IN (:groups)')
             ->setParameter('groups', $groups)
@@ -66,7 +66,7 @@ readonly final class GetTemplateGroups
 
             $groupCustom = array_values(array_filter(
                 $customVariants,
-                static fn (CustomTemplateVariant $variant): bool => $variant->group === $group,
+                static fn (TemplateVariant $variant): bool => $variant->group === $group,
             ));
 
             $items[] = new TemplateGroupListItem($group, $groupSocial, $groupCustom);

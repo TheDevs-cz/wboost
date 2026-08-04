@@ -9,7 +9,7 @@ use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use WBoost\Web\Entity\CustomTemplate;
+use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Message\TemplateGroup\CreateTemplateGroup;
 use WBoost\Web\MessageHandler\TemplateGroup\CreateTemplateGroupHandler;
@@ -18,11 +18,11 @@ use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\BackgroundMode;
-use WBoost\Web\Value\CustomTemplateDimension;
+use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\GroupCustomVariantSelection;
 use WBoost\Web\Value\GroupSocialVariantSelection;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 /**
  * @covers \WBoost\Web\MessageHandler\TemplateGroup\CreateTemplateGroupHandler
@@ -43,11 +43,11 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
             null,
             null,
             [
-                new GroupSocialVariantSelection(TemplateDimension::InstagramPost, $this->pngUpload()),
-                new GroupSocialVariantSelection(TemplateDimension::InstagramStory, $this->pngUpload()),
+                new GroupSocialVariantSelection(DimensionPreset::InstagramPost, $this->pngUpload()),
+                new GroupSocialVariantSelection(DimensionPreset::InstagramStory, $this->pngUpload()),
             ],
             [
-                new GroupCustomVariantSelection(new CustomTemplateDimension(DimensionUnit::Mm, 210, 297), $this->pngUpload()),
+                new GroupCustomVariantSelection(new TemplateDimension(DimensionUnit::Mm, 210, 297), $this->pngUpload()),
             ],
         ));
         $this->em()->flush();
@@ -66,8 +66,8 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         $socialVariants = $members->socialVariants($groupId);
         self::assertCount(2, $socialVariants);
         // Dimension case order: 1:1 before 9:16.
-        self::assertSame(TemplateDimension::InstagramPost, $socialVariants[0]->dimension);
-        self::assertSame(TemplateDimension::InstagramStory, $socialVariants[1]->dimension);
+        self::assertSame(DimensionPreset::InstagramPost, $socialVariants[0]->dimension);
+        self::assertSame(DimensionPreset::InstagramStory, $socialVariants[1]->dimension);
 
         // Fresh groups are layer-mode: the uploaded background is seeded as an
         // `isBackground` canvas object (cover-fit top-left), no canvas-level
@@ -89,9 +89,9 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         self::assertEqualsWithDelta(1080.0, $postLayer['scaleX'], 0.001);
         self::assertSame($postBackgroundPath, $postLayer['assetPath']);
 
-        $customTemplate = $members->customTemplate($groupId);
-        self::assertInstanceOf(CustomTemplate::class, $customTemplate);
-        self::assertSame('Test Group', $customTemplate->name);
+        $template = $members->template($groupId);
+        self::assertInstanceOf(Template::class, $template);
+        self::assertSame('Test Group', $template->name);
 
         $customVariants = $members->customVariants($groupId);
         self::assertCount(1, $customVariants);
@@ -112,7 +112,7 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
             'Social Only',
             null,
             null,
-            [new GroupSocialVariantSelection(TemplateDimension::InstagramPost, $this->pngUpload())],
+            [new GroupSocialVariantSelection(DimensionPreset::InstagramPost, $this->pngUpload())],
             [],
         ));
         $this->em()->flush();
@@ -121,7 +121,7 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         $members = self::getContainer()->get(GetTemplateGroupMembers::class);
 
         self::assertNotNull($members->socialTemplate($groupId));
-        self::assertNull($members->customTemplate($groupId), 'No custom template must be created without custom dimensions.');
+        self::assertNull($members->template($groupId), 'No custom template must be created without custom dimensions.');
         self::assertCount(0, $members->customVariants($groupId));
     }
 
@@ -148,9 +148,9 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
             null,
             null,
             // No upload → background copied from the source variant.
-            [new GroupSocialVariantSelection(TemplateDimension::InstagramStory, null)],
+            [new GroupSocialVariantSelection(DimensionPreset::InstagramStory, null)],
             // Own upload wins over the source background.
-            [new GroupCustomVariantSelection(new CustomTemplateDimension(DimensionUnit::Mm, 210, 297), $this->pngUpload())],
+            [new GroupCustomVariantSelection(new TemplateDimension(DimensionUnit::Mm, 210, 297), $this->pngUpload())],
             sourceSocialVariantId: Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID),
         ));
         $this->em()->flush();

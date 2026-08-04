@@ -20,7 +20,7 @@ enum StorageCategory: string
     case GalleryImage = 'gallery_image';
     case Manual = 'manual';
     case SocialNetwork = 'social_network';
-    case CustomTemplate = 'custom_template';
+    case Template = 'template';
     case Preview = 'preview';
     case Font = 'font';
     case EmailSignature = 'email_signature';
@@ -38,7 +38,7 @@ enum StorageCategory: string
             str_starts_with($path, 'file-upload/') => self::GalleryImage,
             str_starts_with($path, 'manuals/') => self::Manual,
             str_starts_with($path, 'social-networks/') => self::SocialNetwork,
-            str_starts_with($path, 'custom-templates/') => self::CustomTemplate,
+            str_starts_with($path, 'custom-templates/') => self::Template,
             str_starts_with($path, 'fonts/') => self::Font,
             str_starts_with($path, 'emails/') => self::EmailSignature,
             str_starts_with($path, 'social-publish/') => self::SocialPublish,
@@ -53,7 +53,7 @@ enum StorageCategory: string
             self::GalleryImage => 'Galerie',
             self::Manual => 'Manuál',
             self::SocialNetwork => 'Sociální sítě',
-            self::CustomTemplate => 'Šablony',
+            self::Template => 'Šablony',
             self::Preview => 'Náhled',
             self::Font => 'Font',
             self::EmailSignature => 'E-mailový podpis',

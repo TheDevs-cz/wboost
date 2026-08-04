@@ -36,7 +36,7 @@ final class ProjectDashboardControllerTest extends WebTestCase
         $projectId = TestDataFixture::PROJECT_1_ID;
         self::assertSelectorExists(sprintf('a[href="/project/%s/manuals"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/social-networks"]', $projectId));
-        self::assertSelectorExists(sprintf('a[href="/project/%s/custom-templates"]', $projectId));
+        self::assertSelectorExists(sprintf('a[href="/project/%s/templates"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/gallery"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/calendars"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/fonts"]', $projectId));

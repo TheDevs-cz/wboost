@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 final class TemplateGroupFormData
 {
@@ -19,7 +19,7 @@ final class TemplateGroupFormData
 
     public null|string $customCategory = null;
 
-    /** @var list<TemplateDimension> */
+    /** @var list<DimensionPreset> */
     public array $socialDimensions = [];
 
     // One optional upload per enum case. Field names use the case NAMES
@@ -36,7 +36,7 @@ final class TemplateGroupFormData
      */
     public null|UploadedFile $commonBackground = null;
 
-    /** @var list<CustomTemplateVariantFormData> */
+    /** @var list<TemplateVariantFormData> */
     public array $customDimensions = [];
 
     // "Create from existing template" design source (hidden fields, set by the
@@ -67,12 +67,12 @@ final class TemplateGroupFormData
             && $this->sourceVariantId !== '';
     }
 
-    public function backgroundFor(TemplateDimension $dimension): null|UploadedFile
+    public function backgroundFor(DimensionPreset $dimension): null|UploadedFile
     {
         $own = match ($dimension) {
-            TemplateDimension::InstagramPost => $this->backgroundInstagramPost,
-            TemplateDimension::InstagramPortrait => $this->backgroundInstagramPortrait,
-            TemplateDimension::InstagramStory => $this->backgroundInstagramStory,
+            DimensionPreset::InstagramPost => $this->backgroundInstagramPost,
+            DimensionPreset::InstagramPortrait => $this->backgroundInstagramPortrait,
+            DimensionPreset::InstagramStory => $this->backgroundInstagramStory,
         };
 
         return $own ?? $this->commonBackground;

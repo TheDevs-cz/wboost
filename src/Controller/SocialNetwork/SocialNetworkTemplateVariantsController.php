@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVoter;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 final class SocialNetworkTemplateVariantsController extends AbstractController
 {
@@ -25,7 +25,7 @@ final class SocialNetworkTemplateVariantsController extends AbstractController
             'project' => $template->project,
             'template' => $template,
             'variants' => $template->variants(),
-            'dimensions' => TemplateDimension::cases(),
+            'dimensions' => DimensionPreset::cases(),
         ]);
     }
 }

@@ -6,11 +6,11 @@ namespace WBoost\Web\Query;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Entity\CustomTemplate;
-use WBoost\Web\Entity\CustomTemplateVariant;
+use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
-use WBoost\Web\Value\TemplateDimension;
+use WBoost\Web\Value\DimensionPreset;
 
 readonly final class GetTemplateGroupMembers
 {
@@ -39,7 +39,7 @@ readonly final class GetTemplateGroupMembers
         /** @var array<string, int> $dimensionOrder */
         $dimensionOrder = [];
 
-        foreach (TemplateDimension::cases() as $index => $case) {
+        foreach (DimensionPreset::cases() as $index => $case) {
             $dimensionOrder[$case->value] = $index;
         }
 
@@ -57,13 +57,13 @@ readonly final class GetTemplateGroupMembers
     }
 
     /**
-     * @return list<CustomTemplateVariant>
+     * @return list<TemplateVariant>
      */
     public function customVariants(UuidInterface $groupId): array
     {
-        /** @var list<CustomTemplateVariant> $variants */
+        /** @var list<TemplateVariant> $variants */
         $variants = $this->entityManager->createQueryBuilder()
-            ->from(CustomTemplateVariant::class, 'variant')
+            ->from(TemplateVariant::class, 'variant')
             ->select('variant')
             ->where('variant.group = :groupId')
             ->setParameter('groupId', $groupId->toString())
@@ -87,11 +87,11 @@ readonly final class GetTemplateGroupMembers
             ->getOneOrNullResult();
     }
 
-    public function customTemplate(UuidInterface $groupId): null|CustomTemplate
+    public function template(UuidInterface $groupId): null|Template
     {
-        /** @var null|CustomTemplate */
+        /** @var null|Template */
         return $this->entityManager->createQueryBuilder()
-            ->from(CustomTemplate::class, 'template')
+            ->from(Template::class, 'template')
             ->select('template')
             ->where('template.group = :groupId')
             ->setParameter('groupId', $groupId->toString())
