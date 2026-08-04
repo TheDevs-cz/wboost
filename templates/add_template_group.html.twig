@@ -14,7 +14,7 @@
 {% endblock %}
 
 {% block content %}
-    {{ form_start(form) }}
+    {{ form_start(form, {attr: {'data-controller': 'form-validation'}}) }}
 
     {% if source_variant %}
         <div class="card border border-primary">
@@ -41,10 +41,13 @@
             <h4 class="header-title mb-1">1. Základní údaje</h4>
             <p class="text-muted">Skupina vytvoří jednu šablonu pro sociální sítě a/nebo jednu šablonu ve vlastních rozměrech — se stejným designem ve všech vybraných rozměrech.</p>
 
-            <div class="row">
-                <div class="col-md-4">{{ form_row(form.name) }}</div>
-                <div class="col-md-4">{{ form_row(form.socialCategory) }}</div>
-                <div class="col-md-4">{{ form_row(form.customCategory) }}</div>
+            {# g-* gutters space fields BETWEEN each other (mobile stacking
+               included) with no trailing margin — the theme's default mb-3 row
+               wrapper wasted a full spacer under every single-row section. #}
+            <div class="row g-3">
+                <div class="col-md-4">{{ form_row(form.name, {row_attr: {class: 'mb-0'}}) }}</div>
+                <div class="col-md-4">{{ form_row(form.socialCategory, {row_attr: {class: 'mb-0'}}) }}</div>
+                <div class="col-md-4">{{ form_row(form.customCategory, {row_attr: {class: 'mb-0'}}) }}</div>
             </div>
         </div>
     </div>
@@ -60,10 +63,10 @@
 
             {{ form_errors(form.socialDimensions) }}
 
-            <div class="row">
+            <div class="row g-2 mb-3">
                 {% for checkbox in form.socialDimensions %}
                     <div class="col-md-4">
-                        <div class="border rounded p-3 mb-2">
+                        <div class="border rounded p-3">
                             <div class="form-check form-switch">
                                 {{ form_widget(checkbox, {'attr': {'class': 'form-check-input'}}) }}
                                 {{ form_label(checkbox, null, {'label_attr': {'class': 'form-check-label'}}) }}
@@ -73,10 +76,10 @@
                 {% endfor %}
             </div>
 
-            <div class="row">
-                <div class="col-md-4">{{ form_row(form.backgroundInstagramPost) }}</div>
-                <div class="col-md-4">{{ form_row(form.backgroundInstagramPortrait) }}</div>
-                <div class="col-md-4">{{ form_row(form.backgroundInstagramStory) }}</div>
+            <div class="row g-3">
+                <div class="col-md-4">{{ form_row(form.backgroundInstagramPost, {row_attr: {class: 'mb-0'}}) }}</div>
+                <div class="col-md-4">{{ form_row(form.backgroundInstagramPortrait, {row_attr: {class: 'mb-0'}}) }}</div>
+                <div class="col-md-4">{{ form_row(form.backgroundInstagramStory, {row_attr: {class: 'mb-0'}}) }}</div>
             </div>
         </div>
     </div>
@@ -94,11 +97,11 @@
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill me-1" data-action="custom-template-dimension#applyPreset" data-custom-template-dimension-unit-param="mm" data-custom-template-dimension-width-param="210" data-custom-template-dimension-height-param="297">A4 (210×297 mm)</button>
                             <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill me-1" data-action="custom-template-dimension#applyPreset" data-custom-template-dimension-unit-param="mm" data-custom-template-dimension-width-param="297" data-custom-template-dimension-height-param="420">A3 (297×420 mm)</button>
                         </div>
-                        <div class="row">
-                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.unit, { attr: { 'data-custom-template-dimension-target': 'unit' } }) ~ '</div>
-                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.width, { attr: { 'data-custom-template-dimension-target': 'width' } }) ~ '</div>
-                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.height, { attr: { 'data-custom-template-dimension-target': 'height' } }) ~ '</div>
-                            <div class="col-md-4">' ~ form_row(form.customDimensions.vars.prototype.backgroundImage) ~ '</div>
+                        <div class="row g-2">
+                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.unit, { attr: { 'data-custom-template-dimension-target': 'unit' }, row_attr: { class: 'mb-0' } }) ~ '</div>
+                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.width, { attr: { 'data-custom-template-dimension-target': 'width' }, row_attr: { class: 'mb-0' } }) ~ '</div>
+                            <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.height, { attr: { 'data-custom-template-dimension-target': 'height' }, row_attr: { class: 'mb-0' } }) ~ '</div>
+                            <div class="col-md-4">' ~ form_row(form.customDimensions.vars.prototype.backgroundImage, { row_attr: { class: 'mb-0' } }) ~ '</div>
                             <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
                         </div>
                     </div>
@@ -122,11 +125,11 @@
                                 >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
                             {% endfor %}
                         </div>
-                        <div class="row">
-                            <div class="col-md-2">{{ form_row(dimensionForm.unit, { attr: { 'data-custom-template-dimension-target': 'unit' } }) }}</div>
-                            <div class="col-md-2">{{ form_row(dimensionForm.width, { attr: { 'data-custom-template-dimension-target': 'width' } }) }}</div>
-                            <div class="col-md-2">{{ form_row(dimensionForm.height, { attr: { 'data-custom-template-dimension-target': 'height' } }) }}</div>
-                            <div class="col-md-4">{{ form_row(dimensionForm.backgroundImage) }}</div>
+                        <div class="row g-2">
+                            <div class="col-md-2">{{ form_row(dimensionForm.unit, { attr: { 'data-custom-template-dimension-target': 'unit' }, row_attr: { class: 'mb-0' } }) }}</div>
+                            <div class="col-md-2">{{ form_row(dimensionForm.width, { attr: { 'data-custom-template-dimension-target': 'width' }, row_attr: { class: 'mb-0' } }) }}</div>
+                            <div class="col-md-2">{{ form_row(dimensionForm.height, { attr: { 'data-custom-template-dimension-target': 'height' }, row_attr: { class: 'mb-0' } }) }}</div>
+                            <div class="col-md-4">{{ form_row(dimensionForm.backgroundImage, { row_attr: { class: 'mb-0' } }) }}</div>
                             <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
                         </div>
                     </div>
@@ -150,7 +153,7 @@
                 <p class="text-muted">Použije se pro každý vybraný rozměr, který nemá nahrané vlastní pozadí (ořízne se na střed).</p>
             {% endif %}
 
-            {{ form_row(form.commonBackground) }}
+            {{ form_row(form.commonBackground, {row_attr: {class: 'mb-0'}}) }}
         </div>
     </div>
 
