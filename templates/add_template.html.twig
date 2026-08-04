@@ -13,14 +13,85 @@
 {% endblock %}
 
 {% block content %}
+    {{ form_start(form) }}
+
     <div class="card">
         <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_widget(form) }}
+            <h4 class="header-title mb-3">Šablona</h4>
 
-            <button class="btn btn-primary" type="submit">Vytvořit</button>
-
-            {{ form_end(form) }}
+            {{ form_row(form.template.name) }}
+            {{ form_row(form.template.category) }}
+            {{ form_row(form.template.image) }}
         </div>
     </div>
+
+    <div class="card">
+        <div class="card-body" data-controller="template-dimension">
+            <h4 class="header-title mb-3">První varianta — rozměr</h4>
+
+            <label class="form-label">Sociální sítě:</label>
+            <div class="mb-2">
+                {% for preset in enum('WBoost\\Web\\Value\\DimensionPreset').cases() %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="px"
+                        data-template-dimension-width-param="{{ preset.width }}"
+                        data-template-dimension-height-param="{{ preset.height }}"
+                        data-template-dimension-preset-param="{{ preset.value }}"
+                    >{{ preset.label }}</button>
+                {% endfor %}
+            </div>
+
+            <label class="form-label">Tiskové formáty:</label>
+            <div class="mb-3">
+                {% for preset in [
+                    {label: 'A5', width: 148, height: 210},
+                    {label: 'A4', width: 210, height: 297},
+                    {label: 'A3', width: 297, height: 420},
+                ] %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="mm"
+                        data-template-dimension-width-param="{{ preset.width }}"
+                        data-template-dimension-height-param="{{ preset.height }}"
+                    >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
+                {% endfor %}
+            </div>
+
+            {{ form_widget(form.variant.preset, { attr: { 'data-template-dimension-target': 'preset' } }) }}
+
+            <div class="row">
+                <div class="col-md-2">
+                    {{ form_row(form.variant.unit, { attr: {
+                        'data-template-dimension-target': 'unit',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.variant.width, { attr: {
+                        'data-template-dimension-target': 'width',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.variant.height, { attr: {
+                        'data-template-dimension-target': 'height',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+            </div>
+
+            <p class="text-muted small">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480×3508 px. Další rozměry přidáte šabloně kdykoli později.</p>
+
+            {{ form_row(form.variant.backgroundImage) }}
+        </div>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Vytvořit</button>
+
+    {{ form_end(form) }}
 {% endblock %}

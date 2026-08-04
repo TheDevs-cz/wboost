@@ -14,9 +14,10 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
-use WBoost\Web\FormData\TemplateFormData;
-use WBoost\Web\FormType\TemplateFormType;
+use WBoost\Web\FormData\AddTemplateFormData;
+use WBoost\Web\FormType\AddTemplateFormType;
 use WBoost\Web\Message\Template\AddTemplate;
+use WBoost\Web\Message\Template\AddTemplateVariant;
 use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
@@ -38,8 +39,8 @@ final class AddTemplateController extends AbstractController
         Project $project,
     ): Response {
         $categories = $this->getTemplateCategories->allForProject($project->id);
-        $data = new TemplateFormData();
-        $form = $this->createForm(TemplateFormType::class, $data, [
+        $data = new AddTemplateFormData();
+        $form = $this->createForm(AddTemplateFormType::class, $data, [
             'categories' => $categories,
         ]);
 
@@ -47,20 +48,32 @@ final class AddTemplateController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $templateId = $this->provideIdentity->next();
-            $categoryId = $data->category !== null ? Uuid::fromString($data->category) : null;
+            $variantId = $this->provideIdentity->next();
+            $categoryId = $data->template->category !== null ? Uuid::fromString($data->template->category) : null;
 
             $this->bus->dispatch(
                 new AddTemplate(
                     $project->id,
                     $templateId,
                     $categoryId,
-                    $data->name,
-                    $data->image,
+                    $data->template->name,
+                    $data->template->image,
                 ),
             );
 
-            return $this->redirectToRoute('template_variants', [
-                'templateId' => $templateId,
+            // The first variant is created in the same step — straight into
+            // the editor, same as adding any further variant.
+            $this->bus->dispatch(
+                new AddTemplateVariant(
+                    $templateId,
+                    $variantId,
+                    $data->variant->dimension(),
+                    $data->variant->backgroundImage,
+                ),
+            );
+
+            return $this->redirectToRoute('template_variant_editor', [
+                'variantId' => $variantId,
             ]);
         }
 
