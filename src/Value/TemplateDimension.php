@@ -8,12 +8,13 @@ use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Embeddable;
 
 /**
- * Free-form custom-template dimension chosen by the designer in px / mm / cm.
+ * A template variant's dimension: either free-form px / mm / cm chosen by the
+ * designer, or one of the social-network {@see DimensionPreset}s (which is
+ * just a px size plus the preset marker — the marker drives labels and the
+ * social publish flow, nothing else).
  *
- * Exposes the same `width()` / `height()` pixel accessors as
- * {@see DimensionPreset}, so the canvas editor and the render pipeline
- * consume both interchangeably. Physical units are rasterized at
- * {@see DimensionUnit::PRINT_DPI} (print quality).
+ * Physical units are rasterized at {@see DimensionUnit::PRINT_DPI}
+ * (print quality).
  */
 #[Embeddable]
 final class TemplateDimension
@@ -22,7 +23,7 @@ final class TemplateDimension
      * The size properties are deliberately NOT named `width`/`height`: Twig
      * resolves `dimension.width` to a public property before the `width()`
      * method, and the shared editor/render templates rely on `dimension.width`
-     * meaning PIXELS for both this VO and the DimensionPreset enum.
+     * meaning PIXELS.
      */
     public function __construct(
         #[Column]
@@ -33,7 +34,15 @@ final class TemplateDimension
 
         #[Column]
         readonly public float $unitHeight,
+
+        #[Column(nullable: true)]
+        readonly public null|DimensionPreset $preset = null,
     ) {
+    }
+
+    public static function fromPreset(DimensionPreset $preset): self
+    {
+        return new self(DimensionUnit::Px, $preset->width(), $preset->height(), $preset);
     }
 
     /**
@@ -54,6 +63,10 @@ final class TemplateDimension
 
     public function label(): string
     {
+        if ($this->preset !== null) {
+            return $this->preset->value;
+        }
+
         return sprintf(
             '%s × %s %s',
             self::formatNumber($this->unitWidth),

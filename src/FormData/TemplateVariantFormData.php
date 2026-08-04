@@ -9,6 +9,7 @@ use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Positive;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\TemplateDimension;
 
@@ -21,6 +22,14 @@ final class TemplateVariantFormData
      */
     private const int MAX_CANVAS_PIXELS = 10000;
     private const int MIN_CANVAS_PIXELS = 16;
+
+    /**
+     * Set by the preset buttons (Instagram formats). When present it WINS
+     * over unit/width/height — the JS clears it again on any manual edit, and
+     * trusting the marker server-side keeps the outcome deterministic even if
+     * the hidden field and the visible inputs somehow disagree.
+     */
+    public null|DimensionPreset $preset = null;
 
     #[NotNull]
     public null|DimensionUnit $unit = DimensionUnit::Mm;
@@ -64,6 +73,10 @@ final class TemplateVariantFormData
 
     public function dimension(): TemplateDimension
     {
+        if ($this->preset !== null) {
+            return TemplateDimension::fromPreset($this->preset);
+        }
+
         assert($this->unit !== null && $this->width !== null && $this->height !== null);
 
         return new TemplateDimension($this->unit, $this->width, $this->height);

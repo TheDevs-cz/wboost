@@ -18,7 +18,22 @@
         <div class="card-body" data-controller="template-dimension">
             {{ form_start(form) }}
 
-            <label class="form-label">Předvolby formátu:</label>
+            <label class="form-label">Sociální sítě:</label>
+            <div class="mb-2">
+                {% for preset in enum('WBoost\\Web\\Value\\DimensionPreset').cases() %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="px"
+                        data-template-dimension-width-param="{{ preset.width }}"
+                        data-template-dimension-height-param="{{ preset.height }}"
+                        data-template-dimension-preset-param="{{ preset.value }}"
+                    >{{ preset.label }}</button>
+                {% endfor %}
+            </div>
+
+            <label class="form-label">Tiskové formáty:</label>
             <div class="mb-3">
                 {% for preset in [
                     {label: 'A5', width: 148, height: 210},
@@ -36,15 +51,26 @@
                 {% endfor %}
             </div>
 
+            {{ form_widget(form.preset, { attr: { 'data-template-dimension-target': 'preset' } }) }}
+
             <div class="row">
                 <div class="col-md-2">
-                    {{ form_row(form.unit, { attr: { 'data-template-dimension-target': 'unit' } }) }}
+                    {{ form_row(form.unit, { attr: {
+                        'data-template-dimension-target': 'unit',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
                 </div>
                 <div class="col-md-2">
-                    {{ form_row(form.width, { attr: { 'data-template-dimension-target': 'width' } }) }}
+                    {{ form_row(form.width, { attr: {
+                        'data-template-dimension-target': 'width',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
                 </div>
                 <div class="col-md-2">
-                    {{ form_row(form.height, { attr: { 'data-template-dimension-target': 'height' } }) }}
+                    {{ form_row(form.height, { attr: {
+                        'data-template-dimension-target': 'height',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
                 </div>
             </div>
 

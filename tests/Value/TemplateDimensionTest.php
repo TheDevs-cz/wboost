@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Value;
 
 use PHPUnit\Framework\TestCase;
+use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\TemplateDimension;
 
@@ -49,5 +50,25 @@ final class TemplateDimensionTest extends TestCase
 
         self::assertSame(100, $dimension->width());
         self::assertSame(101, $dimension->height());
+    }
+
+    public function testPresetDimensionCarriesFixedPixelSizeAndRatioLabel(): void
+    {
+        $dimension = TemplateDimension::fromPreset(DimensionPreset::InstagramStory);
+
+        self::assertSame(1080, $dimension->width());
+        self::assertSame(1920, $dimension->height());
+        self::assertSame(DimensionUnit::Px, $dimension->unit);
+        self::assertSame(DimensionPreset::InstagramStory, $dimension->preset);
+        // Compact ratio label — what the social module always displayed.
+        self::assertSame('9:16', $dimension->label());
+    }
+
+    public function testFreeFormDimensionHasNoPreset(): void
+    {
+        $dimension = new TemplateDimension(DimensionUnit::Px, 1080, 1920);
+
+        self::assertNull($dimension->preset);
+        self::assertSame('1080 × 1920 px', $dimension->label());
     }
 }
