@@ -2507,6 +2507,8 @@ button.fill-layer-row__main:focus-visible {
     display: none;
     align-items: center;
     justify-content: center;
+    /* Dim the stale preview underneath so "loading" is unmissable. */
+    background: rgba(255, 255, 255, 0.55);
 }
 
 .group-fill-preview-frame.is-loading .group-fill-preview-spinner {

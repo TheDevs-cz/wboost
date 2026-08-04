@@ -209,8 +209,13 @@
                                         <div class="group-fill-placement-layer"
                                              data-group-fill-target="placementLayer"
                                              data-variant-id="{{ variantId }}"></div>
+                                        {# Same loading treatment as the single-variant fill page: dimmed
+                                           overlay + the white badge with a big ring — a bare small
+                                           spinner-border was easy to miss over a busy preview. #}
                                         <div class="group-fill-preview-spinner">
-                                            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                            <div class="fill-spinner__badge">
+                                                <span class="fill-spinner__icon" role="status" aria-label="Generuji náhled…"></span>
+                                            </div>
                                         </div>
                                         <div class="group-fill-preview-error">Náhled se nepodařilo načíst</div>
                                     </div>
