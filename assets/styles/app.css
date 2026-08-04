@@ -1061,6 +1061,11 @@ button.fill-layer-row__main:focus-visible {
     box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.35);
 }
 
+/* Selected chip (admin editor: the textbox's current fill). */
+.fill-richtext-swatch.is-active {
+    box-shadow: 0 0 0 2px #727cf5;
+}
+
 /* "Default color" chip: white with a diagonal strike = inherit designed color. */
 .fill-richtext-swatch--auto {
     background:

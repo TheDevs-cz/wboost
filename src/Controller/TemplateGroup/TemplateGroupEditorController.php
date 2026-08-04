@@ -19,6 +19,8 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Message\CustomTemplate\EditCustomTemplateVariantCanvasEditor;
 use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
@@ -30,6 +32,7 @@ final class TemplateGroupEditorController extends AbstractController
 {
     public function __construct(
         readonly private GetFonts $getFonts,
+        readonly private GetManuals $getManuals,
         readonly private GetTemplateGroupMembers $members,
         readonly private MessageBusInterface $bus,
         readonly private ClockInterface $clock,
@@ -97,6 +100,7 @@ final class TemplateGroupEditorController extends AbstractController
             'fonts' => $fonts,
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
+            'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($group->project->id)),
             'menu_item' => 'template_groups',
             'variants' => $variants,
             'save_url' => $this->generateUrl('template_group_editor', ['groupId' => $group->id]),

@@ -18,6 +18,8 @@ use WBoost\Web\FormData\CustomTemplateVariantEditorFormData;
 use WBoost\Web\FormType\CustomTemplateVariantEditorFormType;
 use WBoost\Web\Message\CustomTemplate\EditCustomTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Services\Security\CustomTemplateVariantVoter;
 use WBoost\Web\Value\EditorImageInput;
@@ -28,6 +30,7 @@ final class CustomTemplateVariantEditorController extends AbstractController
 {
     public function __construct(
         readonly private GetFonts $getFonts,
+        readonly private GetManuals $getManuals,
         readonly private MessageBusInterface $bus,
         readonly private ClockInterface $clock,
         readonly private FileDirectoryRepository $fileDirectoryRepository,
@@ -104,6 +107,7 @@ final class CustomTemplateVariantEditorController extends AbstractController
             'editor_form' => $editorForm,
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
+            'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($template->project->id)),
             'menu_item' => 'custom_templates',
             'module_label' => 'Šablony',
             'module_templates_url' => $this->generateUrl('custom_templates', ['projectId' => $template->project->id]),

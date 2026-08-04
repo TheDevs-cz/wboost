@@ -90,10 +90,29 @@
                     <input type="number" id="line-height-control" class="form-control form-control-sm" step="0.1" min="0.5" data-canvas-text-toolbar-target="lineHeight" data-action="input->canvas-text-toolbar#updateLineHeight">
                 </div>
 
-                <!-- Font Color Control -->
-                <div class="col-6">
-                    <label for="font-color-control" class="form-label small mb-1">Barva (hex)</label>
-                    <input type="text" id="font-color-control" class="form-control form-control-sm" data-canvas-text-toolbar-target="fontColor" data-action="input->canvas-text-toolbar#updateFontColor">
+                <!-- Font Color Control: brand-manual swatches (suggestions, same
+                     source as the WYSIWYG palette) + free picker + hex input. -->
+                <div class="col-12">
+                    <label for="font-color-control" class="form-label small mb-1">Barva</label>
+                    {% if brand_colors is defined and brand_colors is not empty %}
+                        <div class="d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barvy z manuálu">
+                            {% for color in brand_colors %}
+                                <button
+                                    type="button"
+                                    class="fill-richtext-swatch"
+                                    style="background-color: {{ color }}"
+                                    title="{{ color }}"
+                                    data-canvas-text-toolbar-target="swatch"
+                                    data-canvas-text-toolbar-color-param="{{ color }}"
+                                    data-action="canvas-text-toolbar#pickColor"
+                                ></button>
+                            {% endfor %}
+                            <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Vlastní barva">
+                                <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-canvas-text-toolbar-target="colorPicker" data-action="input->canvas-text-toolbar#pickCustomColor">
+                            </label>
+                        </div>
+                    {% endif %}
+                    <input type="text" id="font-color-control" class="form-control form-control-sm" placeholder="#000000" data-canvas-text-toolbar-target="fontColor" data-action="input->canvas-text-toolbar#updateFontColor">
                 </div>
 
                 <!-- Text Align Control -->

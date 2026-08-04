@@ -18,6 +18,8 @@ use WBoost\Web\FormType\SocialNetworkTemplateVariantEditorFormType;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Services\Security\SocialNetworkTemplateVariantVoter;
 use WBoost\Web\Value\EditorImageInput;
@@ -28,6 +30,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
 {
     public function __construct(
         readonly private GetFonts $getFonts,
+        readonly private GetManuals $getManuals,
         readonly private MessageBusInterface $bus,
         readonly private ClockInterface $clock,
         readonly private FileDirectoryRepository $fileDirectoryRepository,
@@ -111,6 +114,7 @@ final class SocialNetworkTemplateVariantEditorController extends AbstractControl
             'editor_form' => $editorForm,
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
+            'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($template->project->id)),
             'menu_item' => 'social_networks',
             'module_label' => 'Sociální sítě',
             'module_templates_url' => $this->generateUrl('social_network_templates', ['projectId' => $template->project->id]),

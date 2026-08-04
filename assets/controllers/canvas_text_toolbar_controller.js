@@ -14,7 +14,7 @@ export const DEFAULT_LINE_HEIGHT = 1.16;
 export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
-        "fontFamily", "fontSize", "fontColor",
+        "fontFamily", "fontSize", "fontColor", "swatch", "colorPicker",
         "textAlign", "textDecoration", "maxLength", "maxLengthHint", "lineHeight",
     ];
 
@@ -61,6 +61,7 @@ export default class extends Controller {
         if (this.hasFontColorTarget) {
             this.fontColorTarget.value = activeObject.fill || '#000000';
         }
+        this._syncColorUi(activeObject.fill || '#000000');
         if (this.hasTextAlignTarget) {
             this.textAlignTarget.value = activeObject.textAlign;
         }
@@ -113,11 +114,47 @@ export default class extends Controller {
         const isValidHex = /^#([0-9A-F]{3,6})$/i.test(color);
         if (!isValidHex) return;
 
+        this._applyFill(color, { syncHexInput: false });
+    }
+
+    /** Brand-manual swatch click (color rides as a Stimulus action param). */
+    pickColor(event) {
+        const color = event.params ? event.params.color : null;
+        if (!color) return;
+        this._applyFill(color);
+    }
+
+    /** The free `<input type="color">` picker — `input` fires while dragging,
+     *  so the canvas previews the color live. */
+    pickCustomColor(event) {
+        this._applyFill(event.target.value);
+    }
+
+    _applyFill(color, { syncHexInput = true } = {}) {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.set({ fill: color });
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
+
+        if (syncHexInput && this.hasFontColorTarget) {
+            this.fontColorTarget.value = color;
+        }
+        this._syncColorUi(color);
+    }
+
+    /** Mirror the current fill into the swatch ring + native picker so all
+     *  three color affordances agree. */
+    _syncColorUi(color) {
+        const normalized = (color || '').toLowerCase();
+        this.swatchTargets.forEach((swatch) => {
+            const swatchColor = (swatch.dataset.canvasTextToolbarColorParam || '').toLowerCase();
+            swatch.classList.toggle('is-active', swatchColor !== '' && swatchColor === normalized);
+        });
+        // The native picker only accepts #rrggbb — skip rgb()/named/short-hex.
+        if (this.hasColorPickerTarget && /^#[0-9a-f]{6}$/i.test(normalized)) {
+            this.colorPickerTarget.value = normalized;
+        }
     }
 
     updateLineHeight(event) {
