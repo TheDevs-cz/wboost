@@ -10,14 +10,14 @@
     </ol>
 {% endblock %}
 
-{% macro module_card(url, icon, color, title, description, count, badge = null) %}
+{% macro module_card(url, icon, title, description, count, badge = null) %}
     <div class="col-sm-6 col-xl-3 d-flex">
         <a href="{{ url }}" class="text-body d-block w-100">
             <div class="card module-card h-100 mb-0">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <div class="avatar-sm flex-shrink-0">
-                            <span class="avatar-title bg-{{ color }}-lighten text-{{ color }} rounded">
+                            <span class="avatar-title bg-primary-lighten text-primary rounded">
                                 <i class="{{ icon }} font-20"></i>
                             </span>
                         </div>
@@ -84,21 +84,21 @@
     <div class="row g-3">
         {{ _self.module_card(
             path('manuals_list', {'id': project.id}),
-            'uil-copy-alt', 'primary', 'Manuály',
+            'uil-copy-alt', 'Manuály',
             'Brand a logo manuály projektu',
             manuals|length
         ) }}
 
         {{ _self.module_card(
             path('social_network_templates', {'projectId': project.id}),
-            'uil-facebook', 'info', 'Sociální sítě',
+            'uil-facebook', 'Sociální sítě',
             'Šablony příspěvků na sociální sítě',
             social_templates|length
         ) }}
 
         {{ _self.module_card(
             path('custom_templates', {'projectId': project.id}),
-            'uil-postcard', 'success', 'Šablony',
+            'uil-postcard', 'Šablony',
             'Tiskoviny a grafiky ve vlastních rozměrech',
             custom_templates|length
         ) }}
@@ -106,7 +106,7 @@
         {% if is_granted('ROLE_DESIGNER') %}
             {{ _self.module_card(
                 path('template_groups', {'projectId': project.id}),
-                'uil-layer-group', 'info', 'Skupiny šablon',
+                'uil-layer-group', 'Skupiny šablon',
                 'Jeden design ve více rozměrech najednou',
                 template_groups_count
             ) }}
@@ -115,7 +115,7 @@
         {% if is_granted('project_edit', project) %}
             {{ _self.module_card(
                 path('project_gallery', {'projectId': project.id}),
-                'uil-images', 'warning', 'Galerie',
+                'uil-images', 'Galerie',
                 'Sdílená knihovna obrázků projektu',
                 gallery_images_count
             ) }}
@@ -123,7 +123,7 @@
 
         {{ _self.module_card(
             path('calendars', {'projectId': project.id}),
-            'uil-calendar-alt', 'secondary', 'Kalendáře',
+            'uil-calendar-alt', 'Kalendáře',
             'Firemní kalendáře připravené k tisku',
             null,
             'Připravujeme'
@@ -131,21 +131,21 @@
 
         {{ _self.module_card(
             path('fonts_list', {'id': project.id}),
-            'ri-font-family', 'primary', 'Fonty',
+            'ri-font-family', 'Fonty',
             'Písma používaná napříč projektem',
             fonts|length
         ) }}
 
         {{ _self.module_card(
             path('email_signature_templates', {'id': project.id}),
-            'ri-mail-line', 'danger', 'E-maily',
+            'ri-mail-line', 'E-maily',
             'Šablony e-mailových podpisů',
             emails|length
         ) }}
 
         {{ _self.module_card(
             path('weekly_menus', {'projectId': project.id}),
-            'uil-restaurant', 'success', 'Jídelníčky',
+            'uil-restaurant', 'Jídelníčky',
             'Týdenní jídelníčky a správa jídel',
             weekly_menus|length
         ) }}
