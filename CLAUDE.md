@@ -35,15 +35,18 @@ This is a **Symfony 7** application for brand manual management, using:
 - **Event-Driven Architecture**: Domain events via `EntityWithEvents` trait
 - **Dockerized Environment**: Full stack with PostgreSQL, Redis, Minio S3, and MailCatcher
 
-### Social Network Template Editor
+### Template editor ("Šablony" — the unified templates module)
 
-The largest feature in the codebase. A `SocialNetworkTemplate` is a Fabric.js
-canvas that an admin authors once and end-users / API consumers fill with their
-own copy. This section is the post-migration shape (Stages 1–7) — older patterns
-(text canvas column, positional input binding, monolithic Stimulus controller,
-Fabric v5) have been retired.
+The largest feature in the codebase. A `Template` is a Fabric.js canvas that an
+admin authors once and end-users / API consumers fill with their own copy.
+Entities: `Template` / `TemplateVariant` / `TemplateCategory` (+ `TemplateGroup`;
+tables `template`, `template_variant`, `template_category`, `template_group`) —
+the 2026-08 merge of the former social-network and custom-template modules (see
+the merge-history section below). This section is the post-migration shape
+(Stages 1–7) — older patterns (text canvas column, positional input binding,
+monolithic Stimulus controller, Fabric v5) have been retired.
 
-**Data model — `social_network_template_variant`**
+**Data model — `template_variant`**
 
 - `canvas`: **JSONB** (Stage 1). The serialized Fabric document. Empty rows
   are stored as `'{}'` (never `''`) and the renderer synthesizes a minimal
@@ -66,7 +69,7 @@ Fabric v5) have been retired.
 **Backgrounds — canvas mode vs LAYER mode (`background_mode` column)**
 
 Two styles, discriminated by the `background_mode` column (`BackgroundMode`
-enum, on both variant tables). **Canvas mode** ('canvas', every pre-rework
+enum on `template_variant`). **Canvas mode** ('canvas', every pre-rework
 row): the background is Fabric's canvas-level `backgroundImage`, mirrored from
 the NOT-NULL-in-practice `background_image` column, center-cover re-applied on
 every load (editor connect + render template), set via the editor's "Pozadí"
@@ -81,16 +84,19 @@ styled distinctly in the layers panel ("Pozadí" row). Key facts:
   layer-mode variant without one renders a TRANSPARENT PNG (renderer calls
   Gotenberg `omitBackground()`; editor/fill show a checkerboard). The
   `background_image` column is now NULLABLE and in layer mode is a
-  denormalized pointer to the layer's `assetPath` (synced in the two
-  EditCanvas handlers; feeds thumbnails + nullable API `backgroundImageUrl`).
+  denormalized pointer to the layer's `assetPath` (synced in
+  `EditTemplateVariantCanvasHandler` — the single canvas-save chokepoint, both
+  the single-variant editor and the group editor dispatch
+  `EditTemplateVariantCanvasEditor`; feeds thumbnails + nullable API
+  `backgroundImageUrl`).
 - **Server-side authoring** via `Services/Editor/BackgroundLayer` (build /
-  replace-in-place / extractAssetPath): Add handlers seed the layer, Edit
-  handlers swap it in place (empty input NEVER removes; a new upload replaces
-  the picture but preserves stack index + slot metadata), Copy inherits the
-  source's mode, `CanvasDesignProjector` re-covers (never rx-scales) the layer
-  per dimension and stamps NO canvas-level block for layer-mode sources.
-  Editor-side the "Pozadí" pick calls `setBackgroundLayer` (ordinary dirty
-  canvas edit, NO side-channel POST).
+  replace-in-place / extractAssetPath): Add handlers seed the layer, the
+  canvas-save handler swaps it in place (empty input NEVER removes; a new
+  upload replaces the picture but preserves stack index + slot metadata), Copy
+  inherits the source's mode, `CanvasDesignProjector` re-covers (never
+  rx-scales) the layer per dimension and stamps NO canvas-level block for
+  layer-mode sources. Editor-side the "Pozadí" pick calls `setBackgroundLayer`
+  (ordinary dirty canvas edit, NO side-channel POST).
 - **Group editor**: backgrounds are strictly per-dimension. `isBackground`
   objects are excluded from the whole group_sync engine (baseline/diff,
   projectNewObject, removeObject, resync, z-order — `isSyncable()`), the
@@ -111,11 +117,12 @@ styled distinctly in the layers panel ("Pozadí" row). Key facts:
 
 **Admin editor — Stimulus controllers (Stage 4)**
 
-The legacy monolithic `social_network_canvas_controller` was split along
-responsibility boundaries. All siblings reach the orchestrator via Stimulus 3
-**outlets** (`static outlets = ["canvas-editor"]`) to read its `this.canvas`
-Fabric instance, and listen to a `canvas-editor:selection:changed` window
-event the orchestrator dispatches on Fabric's selection lifecycle:
+The legacy monolithic canvas controller (`social_network_canvas_controller`,
+pre-merge naming) was split along responsibility boundaries. All siblings reach
+the orchestrator via Stimulus 3 **outlets**
+(`static outlets = ["canvas-editor"]`) to read its `this.canvas` Fabric
+instance, and listen to a `canvas-editor:selection:changed` window event the
+orchestrator dispatches on Fabric's selection lifecycle:
 
 | Controller | Responsibility |
 |---|---|
@@ -160,7 +167,7 @@ an ordinary independent input.
   (failOnConsoleExceptions) fails with the exception text in its 409 body
   (reachable only via the wrapped HttpClient exception's response — the bundle
   swallows it otherwise), `TemplateVariantImageRenderer` parses it into
-  `ContainerOverflow`, and both ExportProcessors answer **400**
+  `ContainerOverflow`, and the API `ExportProcessor` answers **400**
   `{error, code: "container_overflow", containerId, overflowPx}` (a documented
   public contract — OpenAPI + consumer-prompt.md). Web fill preview/download
   render LENIENT (overflow shown, fill page blocks the Export button instead).
@@ -221,9 +228,9 @@ just swap `fontFamily`), brand-color swatches + free picker, underline.
   to ALL their faces (fallback: all project fonts when nothing matches), colors
   = manual brand colors across `GetManuals::allForProject` (primary →
   secondary → untyped, deduped lowercase `#rrggbb`; swatches are SUGGESTIONS —
-  export accepts any hex). Consumed by the fill component, both API listing
-  providers (`variants[].richTextOptions`, emitted only when a rich input
-  exists), both ExportProcessors (font whitelist) and download controllers.
+  export accepts any hex). Consumed by the fill component, the API listing
+  provider (`variants[].richTextOptions`, emitted only when a rich input
+  exists), the `ExportProcessor` (font whitelist) and the download controller.
 - **Fill page**: `rich_text_editor_controller.js` (per-popover contenteditable;
   collapsed caret = apply to whole text; IME composition guard; paste as plain
   text; runs-snapshot undo; envelope→mirror sync + `rich-text-editor:changed`);
@@ -263,7 +270,8 @@ the property controllers above only populate/mutate their (relocated) fields.
 
 **User-fill flow — Live Component (Stage 5)**
 
-`SocialNetwork:VariantFiller` (`src/Twig/Components/SocialNetwork/VariantFiller.php`)
+`Template:VariantFiller` (`src/Twig/Components/Template/VariantFiller.php`, the
+only subclass of `AbstractVariantFiller` — see the merge-history section)
 replaces the old client-side Fabric runtime on the user-fill page. The preview
 image is rendered by the same Gotenberg path the API uses; the server resolves
 overrides via `ResolveTextOverrides`; download is a regular controller action.
@@ -365,22 +373,23 @@ second literal `data-controller` next to `{{ attributes }}` silently loses it
 
 The same component is also rendered **standalone** on a management page
 (`ProjectGalleryController` → `/project/{projectId}/gallery`, linked from the
-left navigation as "Galerie" and from both module pages). A `bool $modal`
-LiveProp (default `true`) toggles the modal header/close chrome and the
-click-to-select image buttons; pass `:modal="false"` to render plain thumbnails
-where folders + upload + move are the management surface.
+left navigation as "Galerie" and from the templates module pages). A
+`bool $modal` LiveProp (default `true`) toggles the modal header/close chrome
+and the click-to-select image buttons; pass `:modal="false"` to render plain
+thumbnails where folders + upload + move are the management surface.
 
-The gallery is **project-wide** (shared by the social-network and custom-template
-editors): the `FileSource` enum case is `ProjectImage = 'project_image'`
-(renamed from the original `social_network_image`; the rename migration updated
-`file_upload.source` + `file_directory.source` in place).
+The gallery is **project-wide** (one library shared by the variant editor, the
+group editor and every fill surface): the `FileSource` enum case is
+`ProjectImage = 'project_image'` (renamed from the original
+`social_network_image`; the rename migration updated `file_upload.source` +
+`file_directory.source` in place).
 
 **Render path — Gotenberg + identical Fabric runtime**
 
-PNG export (admin preview, user download, API export) all flow through
-`Services/Editor/TemplateVariantImageRenderer` (shared by the social-network
-AND custom-template modules — its signatures take
-`SocialNetworkTemplateVariant|CustomTemplateVariant`). It builds the canvas JSON
+PNG export (admin preview, user download, API export, group fill/export) all
+flow through `Services/Editor/TemplateVariantImageRenderer` (its signatures
+take a `TemplateVariant`; the group fill surfaces wrap it via
+`Services/TemplateGroup/GroupFillRenderer`). It builds the canvas JSON
 (inlining the background image as a base64 data URI so headless Chromium
 needs no Minio access), renders `templates/api/template_variant_render.html.twig`
 through Gotenberg, and waits for `window.canvasRendered === true`. The Twig
@@ -389,46 +398,114 @@ export pixels match. Post-Stage 6 the Fabric UMD bundle is committed at
 `assets/fabric/fabric-7.3.1.min.js` and inlined as a `<script>` tag — the
 renderer no longer fetches Fabric from jsDelivr at render time.
 
-### Šablony (custom templates module) — free-form-dimension clone of the social module
+### One "Šablony" module — merge history + dimension model
 
-UI label: **"Šablony"** (left nav, breadcrumbs); code identifiers, routes and
-tables use the `custom_template` / `CustomTemplate*` naming.
+Until 2026-08 the app had three sibling sections: "Sociální sítě" (fixed-format
+social templates), "Šablony" (free-form custom templates) and "Skupiny šablon"
+(cross-module sync groups). They are now ONE "Šablony" module: entities
+`Template` / `TemplateVariant` / `TemplateCategory` / `TemplateGroup`, CQRS
+under `Message/Template/` + `Message/TemplateGroup/`, web controllers under
+`Controller/Template/` + `Controller/TemplateGroup/`. Every
+`SocialNetworkTemplate*` entity/controller/message/API class is DELETED; the
+**frozen `social_network_*` tables still exist** until a drop migration ships,
+and nothing reads or writes them.
 
-`CustomTemplate` / `CustomTemplateVariant` / `CustomTemplateCategory` mirror the social
-network entities 1:1 (same JSONB canvas/inputs/image_inputs columns, same CQRS
-message/handler/voter/controller shapes under `*/CustomTemplate/`), with ONE difference:
-instead of the fixed `TemplateDimension` enum, a variant carries an embedded
-**`CustomTemplateDimension`** value object (`src/Value/CustomTemplateDimension.php`) — designer
-picks a `DimensionUnit` (px / mm / cm) + width × height in the add-variant form
-(A5/A4/A3 one-click mm presets via `custom_template_dimension_controller.js`). Physical
-units rasterize at **300 DPI** (`DimensionUnit::PRINT_DPI`); `width()`/`height()`
-return canvas pixels, the same accessors `TemplateDimension` exposes, so the
-shared editor/render code treats both interchangeably. NOTE: the VO's stored
-properties are `unitWidth`/`unitHeight` on purpose — a public `width` property
-would shadow the `width()` px method in Twig attribute lookup.
+**Migration chain** (`Version20260804080000` / `081500` / `090000`):
 
-**Shared surfaces (changes here hit both modules):**
+1. Renamed the `custom_template*` tables → `template*` (hand-named group
+   indexes/constraints follow) and folded stored `'custom_template'`
+   discriminator values into `'template'` (`export_event.template_type`,
+   `storage_object.category`). Historical `'social_network'` rows keep their
+   value.
+2. Added nullable `template_variant.dimension_preset`.
+3. THE data merge: copied the whole social-network stack into the unified
+   tables — same UUIDs, JSONB canvas columns copied verbatim; categories
+   merged **by exact name per project**; each group's social+custom member
+   template pair consolidated into ONE template (the custom-side row wins and
+   absorbs the social side's variants), so a group maps 1:1 to one template
+   with mixed-dimension variants. Down migration restores the renames but the
+   copy/consolidation is NOT reversed.
 
-- `templates/template_variant_editor.html.twig` — the admin canvas editor page,
-  rendered by both `SocialNetworkTemplateVariantEditorController` and
-  `CustomTemplateVariantEditorController`; module-specific bits (routes, labels,
-  `menu_item`, `dimension_label`) come in as template vars. All canvas Stimulus
-  controllers are module-agnostic.
-- `src/Twig/Components/AbstractVariantFiller.php` + the single template
-  `templates/components/VariantFiller.html.twig` — the user-fill page engine.
-  `SocialNetwork:VariantFiller` and `CustomTemplate:VariantFiller` are thin subclasses
-  binding the entity-typed `$variant` LiveProp, voter attribute, and the
-  module's download/upload routes (`downloadPath()` / `uploadPath()`).
-- `Services/Editor/TemplateVariantImageRenderer` + `PlaceholderImageUploader`
-  (union-typed) and the rest of the placeholder services, which were already
-  value-object based.
+**Dimensions — `WBoost\Web\Value\TemplateDimension`** (Doctrine embeddable,
+column prefix `dimension_`): a `DimensionUnit` (px / mm / cm; physical units
+rasterize at **300 DPI** = `DimensionUnit::PRINT_DPI`) + `unitWidth` /
+`unitHeight` + a NULLABLE `preset` — the `DimensionPreset` enum `'1:1'` /
+`'4:5'` / `'9:16'`, i.e. the fixed 1080×1080 / 1080×1350 / 1080×1920 Instagram
+formats (`TemplateDimension::fromPreset()`). `width()`/`height()` return canvas
+pixels everywhere; `label()` returns the ratio for preset variants and
+"210 × 297 mm"-style for free-form ones. NOTE: the stored properties are
+`unitWidth`/`unitHeight` on purpose — a public `width` property would shadow
+the `width()` px method in Twig attribute lookup. The add-variant form offers
+A5/A4/A3 one-click mm presets AND Instagram preset buttons; the latter stamp a
+hidden `preset` field which ANY manual unit/size edit clears
+(`template_dimension_controller.js`; the group add-dimension form mirrors this
+via `template_group_dimension_controller.js` + `TemplateGroupDimensionFormData`).
+A "social format" is nothing more than a preset dimension now.
 
-**CustomTemplate API** (`src/Api/CustomTemplates/`) mirrors the social one:
-`GET /api/projects/{projectId}/custom-templates` (variants expose `unit`,
-`unitWidth`, `unitHeight` plus px `width`/`height`),
-`POST /api/custom-template-variants/{id}/export`,
-`GET|POST /api/custom-template-variants/{variantId}/placeholders/{inputId}/images`,
-`GET /api/custom-template-variants/{variantId}/thumbnail`.
+**Publish to FB/IG is preset-gated.** `TemplateVariantPublishController`
+(`POST /template-variant/{variantId}/publish`, route `template_variant_publish`)
+answers 400 when `dimension->preset === null`; the fill page renders its
+publish chrome via `AbstractVariantFiller::canPublish()` (the same check).
+
+**Template groups — "synchronized templates".** A `TemplateGroup` maps 1:1 to
+ONE `Template` whose variants span multiple dimensions; membership is a
+nullable `group` FK on `template` AND `template_variant` (`ON DELETE SET NULL`
+— deleting the group row only un-groups), and only GROUP-CREATED variants
+carry the FK: manually added variants on a grouped template keep
+`group = null`. The standalone group listing is GONE — grouped templates
+appear on the unified listing (`templates.html.twig` / `_template.html.twig`)
+as **"Synchronizováno"** cards: the card body/menu leads to the group editor
+(`template_group_editor`) for designers and to the group fill page
+(`template_group_fill`) for everyone else, and delete opens a **two-mode
+modal** (`deleteTemplates=0` "Zrušit pouze synchronizaci" un-groups only,
+`=1` "Smazat včetně šablony" → `DeleteTemplateGroup`). Individual variant
+editing is BLOCKED for group-created variants —
+`TemplateVariantEditorController` redirects to the group editor when
+`variant->group !== null` (a single-variant edit would be clobbered by the
+next group save). Authorisation: `TemplateGroupVoter` — **`VIEW`** (fill,
+fill-preview, export, placeholder upload) delegates to `ProjectVoter::VIEW`
+(admin, owner, any shared user); **`EDIT`** (group editor, add-dimension)
+stays a designer/owner/admin tool.
+
+**Web routes** live under `/project/{projectId}/templates` (name `templates`),
+`/template/{templateId}/…`, `/template-variant/{variantId}/…` and
+`/template-group/{groupId}/…`. The old social/custom URL families are GONE
+with **no redirects** — a deliberate decision.
+
+**Namespaces that deliberately did NOT move**: the shared fill-engine services
+still live under `Services/SocialNetwork/*` (`ResolveTextOverrides`,
+`ResolveImageOverrides`, `ImagePlacement`, `PlaceholderImageUploader`,
+`PlaceholderAllowedDirectories`, `TextInputObjectBinder`, `AssetInliner`,
+`ResolveRichTextOptions`, `CanvasPlaceholderGeometry`, `FillFormRequestParser`)
+— only their variant unions were narrowed to `TemplateVariant`. Group-only
+services live under `Services/TemplateGroup/` (`CanvasDesignProjector`,
+`GroupFillRenderer`, `GroupFillPlaceholders`). Storage key prefixes are
+likewise unmoved — see the storage section.
+
+**Single-module surfaces** (formerly "shared" between two modules):
+`templates/template_variant_editor.html.twig` is rendered by
+`TemplateVariantEditorController` (labels/routes still arrive as template vars
+— `menu_item`, `module_label`, `dimension_label`); the group editor renders its
+own `template_group_editor.html.twig` but saves through the same
+`EditTemplateVariantCanvasEditor` message per variant. The user-fill engine is
+`src/Twig/Components/AbstractVariantFiller.php` + the single template
+`templates/components/VariantFiller.html.twig`; **`Template:VariantFiller`**
+is its only subclass, binding the entity-typed `$variant` LiveProp,
+`TemplateVariantVoter::VIEW`, and the `template_variant_download` /
+`template_variant_placeholder_upload` / `template_variant_publish` routes.
+
+**Template API** (`src/Api/Templates/`): canonical
+`GET /api/projects/{projectId}/templates` (variants expose the `dimension`
+label — the ratio for presets — plus nullable `preset`, `unit`, `unitWidth`,
+`unitHeight` and px `width`/`height`),
+`POST /api/template-variants/{id}/export`,
+`GET|POST /api/template-variants/{variantId}/placeholders/{inputId}/images`,
+`GET /api/template-variants/{variantId}/thumbnail`. The old
+`…custom-template…` AND `…social-network-template…` path families keep working
+as **deprecated aliases** over the very same providers/processors/controllers
+(`deprecationReason` on the API Platform operations; `*_legacy_custom` /
+`*_legacy_social` route names on the thumbnail + upload controllers). mfkfm is
+already ported to the canonical paths.
 
 ### Manual mockup pages — canonical grid geometry
 
@@ -461,9 +538,9 @@ reconnect — slot state is reset in `connect()`, not `initialize()`.
 ### Upload size limit — 10 MB, decimal
 
 Every image upload is capped at **10 MB**, expressed server-side as
-`maxSize: '10m'` on the `Image`/`File` constraint in the form types (16
-occurrences across 13 `src/FormType/*` classes — logos, intro image, mockup
-pages, every template + variant background, template groups, email signatures,
+`maxSize: '10m'` on the `Image`/`File` constraint in the form types (14
+occurrences across 9 `src/FormType/*` classes — manual images/logos, mockup
+pages, template + variant backgrounds, template groups, email signatures,
 the project gallery).
 
 **Symfony reads the `m` suffix as DECIMAL megabytes — 10 000 000 bytes, not
@@ -474,10 +551,13 @@ gap is accepted by one layer and rejected by the next:
 `_mockup_page_form_editor.html.twig`), and
 `PlaceholderImageUploader::MAX_FILE_SIZE_BYTES`.
 
-The placeholder upload endpoints (web + API, social + custom, 5 controllers)
-take the raw `UploadedFile` off the request with no form behind them, so the cap
-lives in `PlaceholderImageUploader::upload()` — the single chokepoint they all
-share — and surfaces as a `400`. Documented in `docs/api/consumer-prompt.md`.
+The placeholder upload endpoints (web + API + group fill, 3 controllers —
+`TemplateVariantPlaceholderUploadController` (API),
+`TemplateVariantPlaceholderUploadWebController`,
+`TemplateGroupPlaceholderUploadController`) take the raw `UploadedFile` off
+the request with no form behind them, so the cap lives in
+`PlaceholderImageUploader::upload()` — the single chokepoint they all share —
+and surfaces as a `400`. Documented in `docs/api/consumer-prompt.md`.
 
 PHP/Caddy allow 50 MB (`upload_max_filesize`/`post_max_size` come from the
 `ghcr.io/thedevs-cz/php` base image, not this repo), so the app-level limit is
@@ -505,6 +585,16 @@ it wrote could not surface the objects it forgot about, and those dominate
 (deleting a project/manual/template has never removed its files, and every
 `Edit*` handler that re-uploads writes a new timestamped key and abandons the
 old one — on the dev mirror that is ~70 % of all bytes).
+
+**Storage keys survived the templates merge UNMOVED.** Former-social files stay
+under `social-networks/…` forever (merged canvases still embed those URLs);
+the unified template handlers write `custom-templates/…`. Consequences:
+`BuildStorageReferenceIndex` keeps BOTH prefixes in its `PATH_PREFIXES` regex,
+`CollectProjectStoragePaths` emits both key families per template/variant, and
+`StorageCategory` maps `custom-templates/` → `Template` (`'template'`, the
+folded discriminator — same fold as `export_event.template_type` /
+`ExportedTemplateType`) while the `SocialNetwork` (`'social_network'`) case
+survives purely for the untouched `social-networks/…` keys and historical rows.
 
 - `ScanStorage` (`src/Services/Storage/`) lists the bucket and cross-references
   `BuildStorageReferenceIndex`, which enumerates **every** column that stores a
@@ -539,12 +629,13 @@ old one — on the dev mirror that is ~70 % of all bytes).
 project's key namespaces via `CollectProjectStoragePaths` **before** removing
 the row, flushes so the DELETE + cascades actually execute, and only then calls
 `DeleteProjectStorage`. Order is load-bearing: most namespaces are keyed by a
-CHILD entity id (`manuals/{manualId}`, `social-networks/{variantId}`, …), not by
-the project id, so the cascade destroys the only record of what belonged where —
-and an image can never be referenced from another project, so there is no later
-chance to reattach it. Two details that must not be "simplified":
-per-variant previews are deleted as individual FILES because
-`social-networks/preview/` is shared by every project, and an email-signature
+CHILD entity id (`manuals/{manualId}`, `custom-templates/{variantId}` +
+`social-networks/{variantId}`, …), not by the project id, so the cascade
+destroys the only record of what belonged where — and an image can never be
+referenced from another project, so there is no later chance to reattach it.
+Two details that must not be "simplified": per-variant previews are deleted as
+individual FILES because `custom-templates/preview/` and
+`social-networks/preview/` are shared by every project, and an email-signature
 template clears BOTH `emails/{id}/` and `manuals/{id}/` (the ADD and EDIT
 handlers disagree on the prefix). Storage failures are logged and swallowed —
 the row is already gone, so throwing would only turn a leaked file into a failed
@@ -554,8 +645,10 @@ request.
 
 - **Manual**: Brand manuals with colors, fonts, logos, and mockup pages
 - **Project**: Container for brand manuals with sharing capabilities
-- **SocialNetworkTemplate**: Templates for social media content with variants
-- **CustomTemplate**: CustomTemplate templates with free-form-dimension variants (see above)
+- **Template**: Fabric-canvas templates (the unified module — social preset
+  and free-form print dimensions alike) with variants, categories and
+  synchronization groups (`TemplateVariant`, `TemplateCategory`,
+  `TemplateGroup`)
 - **EmailSignatureTemplate**: Email signature templates with variants
 - **User**: User management with authentication and profiles
 
@@ -662,13 +755,15 @@ docker compose exec web bin/console app:oauth-client:revoke <client-id>
 
 API tests extend `WBoost\Web\Tests\Api\ApiTestCase` (default `Accept: application/json` header; JSON-LD/Hydra is disabled, so collections come back as flat JSON arrays). To obtain a real access token in a test, use `WBoost\Web\Tests\TestingApiAuthentication::getAccessToken($client, $clientId, $clientSecret)` — it goes through the live `/api/token` endpoint, which is the contract being exercised. Fixture credentials live as constants on `tests/DataFixtures/TestDataFixture.php` (`OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET`).
 
-### Social-network template variant export endpoint
+### Template variant export endpoint
 
-`POST /api/social-network-template-variants/{id}/export` returns a PNG. The
-request body is `ExportRequest` and its `inputs` map is **keyed by inputId
-UUID** (Stage 2): `{ "inputs": { "<uuid>": "Hello", "<uuid>": { "value": "World", "hide": false } } }`.
+`POST /api/template-variants/{id}/export` returns a PNG (deprecated aliases:
+`POST /api/custom-template-variants/{id}/export` and
+`POST /api/social-network-template-variants/{id}/export` — same processor,
+same contract). The request body is `ExportRequest` and its `inputs` map is
+**keyed by inputId UUID** (Stage 2): `{ "inputs": { "<uuid>": "Hello", "<uuid>": { "value": "World", "hide": false } } }`.
 Discover the available input ids via
-`GET /api/projects/{projectId}/social-network-templates` — each
+`GET /api/projects/{projectId}/templates` — each
 `variants[].inputs[].id` is the same UUID accepted here. Unknown ids
 are silently ignored; locked inputs cannot be overridden; `hide` only
 applies to inputs with `hidable: true`.
@@ -691,7 +786,7 @@ marks a canvas image as a fillable **placeholder** (custom prop
 `imagePlaceholder`), sets per-slot limits (`allowMove`/`allowResize`/`allowRotate`,
 `hidable`) and toggles which gallery folders feed it (`allowedDirectoryIds`); these
 persist as an `EditorImageInput[]` JSONB column `image_inputs` on
-`social_network_template_variant` (via `EditorImageInputsDoctrineType`), alongside
+`template_variant` (via `EditorImageInputsDoctrineType`), alongside
 the textbox `inputs`.
 
 **`allowedDirectoryIds` semantics — empty = UNRESTRICTED (the WHOLE gallery:
@@ -726,14 +821,16 @@ response's `directoryId` is null for root uploads.
   bakes this into the canvas JSON in `buildCanvasJson` — and now inlines **all**
   canvas image srcs (decorative + stand-ins), not just the background, so headless
   Chromium never reaches Minio. The headless Twig template needs no image-specific JS.
-- **API**: `POST …/export` accepts an `images` map keyed by `imageInputId` — either
-  `"<fileId>"` (centered object-contain) or `{ imageId, scale, offsetX, offsetY,
-  rotation }` / `{ hide: true }`. The templates listing exposes
-  `variants[].imageInputs[]` (`id`, limits, `allowedDirectoryIds`, `frame`,
-  `defaultImageUrl`). `GET …/placeholders/{inputId}/images` lists a slot's pickable
-  images; `POST` (multipart) to the same path uploads one into an allowed folder.
-  Both upload paths (OAuth API + web session) share `PlaceholderImageUploader`.
-- **Web fill (hybrid, z-order preserving)**: `SocialNetwork:VariantFiller` renders
+- **API**: `POST /api/template-variants/{id}/export` accepts an `images` map keyed
+  by `imageInputId` — either `"<fileId>"` (centered object-contain) or
+  `{ imageId, scale, offsetX, offsetY, rotation }` / `{ hide: true }`. The
+  templates listing exposes `variants[].imageInputs[]` (`id`, limits,
+  `allowedDirectoryIds`, `frame`, `defaultImageUrl`).
+  `GET /api/template-variants/{variantId}/placeholders/{inputId}/images` lists a
+  slot's pickable images; `POST` (multipart) to the same path uploads one into an
+  allowed folder (both with the deprecated custom/social path aliases). Both
+  upload paths (OAuth API + web session) share `PlaceholderImageUploader`.
+- **Web fill (hybrid, z-order preserving)**: `Template:VariantFiller` renders
   the design BELOW the lowest image placeholder as the server **backdrop**
   (placeholders hidden, background included) and floats the chosen pictures as
   live Fabric objects (`variant_image_fill_controller.js`) the user moves/resizes/
