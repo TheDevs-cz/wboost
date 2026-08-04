@@ -66,7 +66,7 @@
         action="{{ this.downloadPath() }}"
         data-turbo="false"
         class="fill-form fill-highlight-on"
-        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if this.publishPath() and this.facebookConnected %} variant-publish{% endif %}"
+        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
@@ -78,7 +78,7 @@
             data-variant-image-fill-backdrop-id-value="variant-backdrop-source"
             data-variant-image-fill-overlays-id-value="variant-overlay-sources"
         {% endif %}
-        {% if this.publishPath() and this.facebookConnected %}
+        {% if this.canPublish() and this.facebookConnected %}
             data-variant-publish-publish-url-value="{{ this.publishPath() }}"
             data-variant-publish-destinations-url-value="{{ path('social_facebook_destinations') }}"
             data-variant-publish-profile-url-value="{{ path('user_profile') }}"
@@ -112,7 +112,7 @@
                 </button>
             </div>
 
-            {% if this.publishPath() %}
+            {% if this.canPublish() %}
                 {% if this.facebookConnected %}
                     <button type="button" class="btn btn-outline-primary btn-sm" data-action="variant-publish#open" data-variant-publish-platform-param="facebook" title="Publikovat na facebookovou stránku">
                         <i class="mdi mdi-facebook me-1" aria-hidden="true"></i>Facebook
@@ -488,7 +488,7 @@
            typed caption must survive Live re-renders. All inputs inside are
            deliberately UNNAMED so they never leak into the form's FormData —
            the controller appends platform/targetId/caption explicitly. #}
-        {% if this.publishPath() and this.facebookConnected %}
+        {% if this.canPublish() and this.facebookConnected %}
             <div data-live-ignore>
                 <div class="fill-modal" data-variant-publish-target="modal" data-action="click->variant-publish#closeBackdrop">
                     <div class="fill-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="publish-modal-title" tabindex="-1">

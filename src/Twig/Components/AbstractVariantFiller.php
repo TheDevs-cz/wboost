@@ -133,6 +133,19 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
+     * Whether THIS variant may be published to a social network — the single
+     * gate every piece of publish chrome in the shared template checks (along
+     * with `facebookConnected` where a connection is required). The default
+     * mirrors the module capability (`publishPath()`); subclasses narrow it
+     * per variant (a unified Template variant publishes only in a
+     * social-format dimension preset).
+     */
+    public function canPublish(): bool
+    {
+        return $this->publishPath() !== null;
+    }
+
+    /**
      * The session-authed placeholder upload endpoint for one image slot.
      */
     abstract public function uploadPath(string $inputId): string;

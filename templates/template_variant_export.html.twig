@@ -24,5 +24,5 @@
 {% block content %}
     {# The fill UI is driven by a Live Component; it renders its own preview
        server-side (Gotenberg PNG → base64 data URI). #}
-    <twig:Template:VariantFiller :variant="variant" />
+    <twig:Template:VariantFiller :variant="variant" :facebookConnected="facebookConnected" />
 {% endblock %}

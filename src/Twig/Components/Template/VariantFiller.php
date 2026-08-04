@@ -48,6 +48,26 @@ final class VariantFiller extends AbstractVariantFiller
         ]);
     }
 
+    public function publishPath(): string
+    {
+        return $this->generateUrl('template_variant_publish', [
+            'variantId' => $this->variantEntity()->id,
+        ]);
+    }
+
+    /**
+     * Only variants in a social-network format (dimension preset set) can be
+     * published — a free-form print/px variant has no social destination, so
+     * none of the publish chrome renders for it.
+     */
+    public function canPublish(): bool
+    {
+        $variant = $this->variant;
+        assert($variant !== null);
+
+        return $variant->dimension->preset !== null;
+    }
+
     public function uploadPath(string $inputId): string
     {
         return $this->generateUrl('template_variant_placeholder_upload', [
