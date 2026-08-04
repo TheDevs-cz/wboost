@@ -1934,32 +1934,6 @@ button.fill-layer-row__main:focus-visible {
     pointer-events: none;
 }
 
-/* Compact strip variant: always visible above the folder grid, so it states
-   the upload target ("Nahraje se do: …") without eating vertical space. */
-.gallery-dropzone--compact {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 0.9rem;
-    text-align: left;
-}
-
-.gallery-dropzone--compact .gallery-dropzone__icon {
-    display: block;
-    margin-bottom: 0;
-    font-size: 1.6rem;
-    line-height: 1;
-}
-
-.gallery-dropzone--compact .gallery-dropzone__title {
-    font-size: 0.875rem;
-    margin-bottom: 0;
-}
-
-.gallery-dropzone--compact .gallery-dropzone__text {
-    min-width: 0;
-}
-
 /* Koš (trash bin): the read-only special directory at the gallery root. */
 .gallery-trash-card {
     background: var(--bs-tertiary-bg, #f8f9fa);

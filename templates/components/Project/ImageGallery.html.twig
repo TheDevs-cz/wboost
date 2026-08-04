@@ -142,7 +142,7 @@
             <input type="hidden" name="directoryId" value="{{ this.currentDirectoryId }}">
 
             <div
-                class="gallery-dropzone gallery-dropzone--compact"
+                class="gallery-dropzone"
                 data-gallery-uploader-target="dropzone"
                 data-action="
                     click->gallery-uploader#browse
@@ -156,14 +156,11 @@
                 aria-label="Nahrát obrázky do složky {{ current_folder_label }}"
             >
                 <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
-                <div class="gallery-dropzone__text">
-                    <div class="gallery-dropzone__title">
-                        Přetáhněte obrázky sem <span class="fw-normal text-muted">nebo klikněte pro výběr</span>
-                    </div>
-                    <div class="small text-muted">
-                        Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> {{ current_folder_label }}</strong>
-                        &middot; více souborů najednou, max. 10&nbsp;MB / soubor
-                    </div>
+                <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
+                <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
+                <div class="text-muted small mt-1">
+                    Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> {{ current_folder_label }}</strong>
+                    &middot; více obrázků najednou, max. 10&nbsp;MB / soubor
                 </div>
             </div>
 
