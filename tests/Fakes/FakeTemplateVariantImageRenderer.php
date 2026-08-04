@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
@@ -35,6 +36,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
+        null|CanvasSlice $slice = null,
     ): Response {
         $this->record($variant, $overrides, $imageOverrides, 'render', $strictContainerOverflow);
 
@@ -46,6 +48,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
+        null|CanvasSlice $slice = null,
     ): string {
         $this->record($variant, $overrides, $imageOverrides, 'renderToBytes', $strictContainerOverflow);
 

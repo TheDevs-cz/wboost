@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\Editor;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\CustomTemplateVariant;
 use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
@@ -48,6 +49,9 @@ interface TemplateVariantImageRendererInterface
      * download) renders the overflowing state as-is so the user can see it —
      * the fill page blocks export client-side.
      *
+     * `$slice` restricts the render to a z-range of the object stack (the fill
+     * page's layered preview, {@see CanvasSlice}); null renders everything.
+     *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      */
     public function render(
@@ -55,6 +59,7 @@ interface TemplateVariantImageRendererInterface
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
+        null|CanvasSlice $slice = null,
     ): Response;
 
     /**
@@ -69,5 +74,6 @@ interface TemplateVariantImageRendererInterface
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
+        null|CanvasSlice $slice = null,
     ): string;
 }

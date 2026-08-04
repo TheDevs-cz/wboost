@@ -24,6 +24,7 @@ use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\PlaceholderFrame;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverride;
@@ -78,6 +79,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
+        null|CanvasSlice $slice = null,
     ): Response {
         // Return a BUFFERED Response, NOT Gotenberg's StreamedResponse. The
         // streamed response echoes + flush()es each chunk to the SAPI. Under
@@ -89,7 +91,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // images are small, so buffering the bytes in memory is cheap and the
         // controllers (download / API export) layer their own headers on top.
         return new Response(
-            $this->renderToBytes($variant, $overrides, $imageOverrides, $strictContainerOverflow),
+            $this->renderToBytes($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice),
             Response::HTTP_OK,
             ['Content-Type' => 'image/png'],
         );
@@ -100,13 +102,14 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
+        null|CanvasSlice $slice = null,
     ): string {
         // The bundle's InMemoryProcessor drains the chunked HTTP response from
         // Gotenberg into a string. Unlike `stream()`, it never calls echo /
         // flush(), so it does not interfere with the outer HTTP response that
         // is still being assembled (headers, cookies, content-type).
         try {
-            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow)
+            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice)
                 ->generate()
                 ->processor(new InMemoryProcessor())
                 ->process();
@@ -137,6 +140,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
         bool $strictContainerOverflow,
+        null|CanvasSlice $slice,
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
@@ -184,7 +188,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             }
         }
 
-        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides);
+        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice);
 
         // Disjoint override maps for the template: a rich input's plain
         // concatenation lives in overrides->texts too (for every plain-text
@@ -229,6 +233,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             $builder->omitBackground();
         }
 
+        if ($slice !== null && !$slice->withBackground) {
+            // A background-less slice is an overlay layer: only its objects
+            // paint, everything around them must come out with real alpha.
+            $builder->omitBackground();
+        }
+
         if ($strictContainerOverflow) {
             // Container overflow is signalled from inside headless Chromium as
             // an uncaught exception (the only data channel a screenshot call
@@ -267,12 +277,16 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * layer-mode variant without a background legitimately renders nothing
      * behind its objects (transparent export).
      */
-    private function buildCanvasJson(SocialNetworkTemplateVariant|CustomTemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides): string
+    private function buildCanvasJson(SocialNetworkTemplateVariant|CustomTemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null): string
     {
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
 
-        if ($variant->backgroundMode === BackgroundMode::Canvas) {
+        // A background-less slice drops the canvas-level background anyway
+        // (sliceCanvas), so skip the inlining work up front.
+        $stripBackground = $slice !== null && !$slice->withBackground;
+
+        if ($variant->backgroundMode === BackgroundMode::Canvas && !$stripBackground) {
             $backgroundDataUri = $variant->backgroundImage !== null
                 ? $this->assetInliner->inlineImage($variant->backgroundImage)
                 : null;
@@ -306,6 +320,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         }
 
         $canvas = $this->alignTextboxInputIds($canvas, $variant->inputs);
+        // Slice BEFORE placeholder processing: sliced-out image objects get a
+        // stub src (and lose their assetPath), so applyImagePlaceholders never
+        // wastes a Minio read inlining a picture that renders at opacity 0.
+        if ($slice !== null) {
+            $canvas = self::sliceCanvas($canvas, $slice);
+        }
         $canvas = $this->applyImagePlaceholders(
             $canvas,
             $imageOverrides ?? ResolvedImageOverrides::none(),
@@ -512,6 +532,68 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         }
 
         return $this->inlinedFonts[$path];
+    }
+
+    /**
+     * 1×1 transparent PNG stubbed into sliced-out image objects' src. Two
+     * jobs: headless Chromium cannot reach Minio, so a remaining public URL
+     * would make Fabric's loadFromJSON reject and the render hang — and an
+     * invisible picture must not cost a Minio read + base64 per render.
+     */
+    private const string TRANSPARENT_PIXEL =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+    /**
+     * Apply a {@see CanvasSlice} to a decoded canvas document: objects outside
+     * [fromIndex, toIndex) are forced to `opacity: 0` — NOT `visible: false`,
+     * because invisible objects fall out of the positional textbox↔input
+     * binding and of container membership, which would reflow the surviving
+     * texts differently per slice. Opacity keeps every object's exact layout
+     * influence, so each slice paints its objects pixel-identically to the
+     * full render. Sliced-out images get a transparent-pixel src stub (see
+     * TRANSPARENT_PIXEL). A background-less slice also drops the canvas-level
+     * background so the PNG comes out with real alpha.
+     *
+     * Pure + static so the slicing decision is unit-testable in isolation.
+     *
+     * @param array<string, mixed> $canvas
+     * @return array<string, mixed>
+     */
+    public static function sliceCanvas(array $canvas, CanvasSlice $slice): array
+    {
+        if (!$slice->withBackground) {
+            unset($canvas['backgroundImage'], $canvas['background']);
+        }
+
+        $objects = $canvas['objects'] ?? null;
+        if (!is_array($objects)) {
+            return $canvas;
+        }
+
+        foreach ($objects as $index => $object) {
+            if (!is_int($index) || !is_array($object)) {
+                continue;
+            }
+
+            if ($index >= $slice->fromIndex && ($slice->toIndex === null || $index < $slice->toIndex)) {
+                continue;
+            }
+
+            $object['opacity'] = 0;
+
+            $type = $object['type'] ?? null;
+            if (is_string($type) && strtolower($type) === 'image') {
+                $object['src'] = self::TRANSPARENT_PIXEL;
+                $object['crossOrigin'] = null;
+                unset($object['assetPath']);
+            }
+
+            $objects[$index] = $object;
+        }
+
+        $canvas['objects'] = $objects;
+
+        return $canvas;
     }
 
     /**

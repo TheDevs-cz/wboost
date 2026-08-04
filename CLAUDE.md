@@ -733,12 +733,23 @@ response's `directoryId` is null for root uploads.
   `defaultImageUrl`). `GET …/placeholders/{inputId}/images` lists a slot's pickable
   images; `POST` (multipart) to the same path uploads one into an allowed folder.
   Both upload paths (OAuth API + web session) share `PlaceholderImageUploader`.
-- **Web fill (hybrid)**: `SocialNetwork:VariantFiller` renders the text + background
-  as a server **backdrop** (placeholders hidden) and floats the chosen pictures as
+- **Web fill (hybrid, z-order preserving)**: `SocialNetwork:VariantFiller` renders
+  the design BELOW the lowest image placeholder as the server **backdrop**
+  (placeholders hidden, background included) and floats the chosen pictures as
   live Fabric objects (`variant_image_fill_controller.js`) the user moves/resizes/
-  rotates within the limits, clipped to the frame; the placements mirror into hidden
-  `images[<uuid>][...]` form fields so the plain download POST drives the same server
-  render. The canvas + placement fields live in a `data-live-ignore` subtree; the
-  backdrop is re-read from a Live-updated element via `MutationObserver`. The export
-  is **always** the full server render, so the PNG is authoritative regardless of the
-  live preview.
+  rotates within the limits, clipped to the frame. Design content the admin stacked
+  ABOVE a placeholder (locked image, title over a photo) renders as transparent
+  **overlay slices** — one per placeholder gap that actually holds content
+  (`AbstractVariantFiller::overlaySlices()` → `CanvasSlice` → the renderer's
+  `sliceCanvas`) — that the controller paints directly over that placeholder's live
+  object; `_restack()` keeps placeholders + overlays in designed stack order
+  (`layerIndex` in the placeholder payload). Slicing suppresses out-of-range objects
+  via `opacity: 0`, NEVER `visible: false` (invisible objects fall out of the
+  positional textbox binding and container membership → per-slice reflow drift), and
+  stubs sliced-out image srcs (headless Chromium can't reach Minio). Placements
+  mirror into hidden `images[<uuid>][...]` form fields so the plain download POST
+  drives the same server render. The canvas + placement fields live in a
+  `data-live-ignore` subtree; the backdrop + overlay sources are re-read from
+  Live-updated elements via `MutationObserver`. The export is **always** the full
+  (un-sliced) server render, so the PNG is authoritative regardless of the live
+  preview.

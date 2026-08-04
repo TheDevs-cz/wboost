@@ -4,13 +4,19 @@ import { Canvas, FabricImage, Rect } from "fabric";
 /**
  * Interactive image-fill canvas for the user-fill page (Stage 5 hybrid).
  *
- * The background is the SERVER backdrop (text + variant background, placeholders
- * hidden), exposed by the Live Component in an element this controller reads by
- * id and re-reads on change (text edits). On top, each fillable image slot is a
- * live Fabric object the user can move / resize / rotate within the designer's
- * limits, clipped to the designer's frame. Every change is mirrored into the
- * hidden `images[<uuid>][...]` fields so the plain form POST drives the same
- * server render the API uses — the produced PNG is always authoritative.
+ * The background is the SERVER backdrop (the design BELOW the lowest image
+ * placeholder, placeholders hidden), exposed by the Live Component in an
+ * element this controller reads by id and re-reads on change (text edits). On
+ * top, each fillable image slot is a live Fabric object the user can move /
+ * resize / rotate within the designer's limits, clipped to the designer's
+ * frame. Design content the admin stacked ABOVE a placeholder (a locked frame
+ * image, a title over a photo) arrives as transparent overlay slices
+ * (`variant-overlay-sources`) painted directly over that placeholder's live
+ * object — _restack() keeps everything in the designed z-order (layerIndex),
+ * so a picked picture can never cover design that belongs above it. Every
+ * change is mirrored into the hidden `images[<uuid>][...]` fields so the plain
+ * form POST drives the same server render the API uses — the produced PNG is
+ * always authoritative.
  *
  * The placement math is a 1:1 port of the server-side ImagePlacement so the live
  * preview and the export agree pixel-for-pixel: an image is fitted object-contain
@@ -31,10 +37,12 @@ export default class extends Controller {
         width: Number,
         height: Number,
         backdropId: String,
+        overlaysId: String,
     };
 
     connect() {
         this.objects = {};
+        this.overlayObjects = {};
         this.placeholdersById = {};
         (this.placeholdersValue || []).forEach((ph) => { this.placeholdersById[ph.inputId] = ph; });
 
@@ -51,6 +59,8 @@ export default class extends Controller {
 
         this._applyBackdrop();
         this._observeBackdrop();
+        this._applyOverlays();
+        this._observeOverlays();
 
         (this.placeholdersValue || []).forEach((ph) => this._addStandIn(ph));
 
@@ -67,6 +77,7 @@ export default class extends Controller {
     disconnect() {
         if (this._boundFit) window.removeEventListener('resize', this._boundFit);
         if (this._backdropObserver) this._backdropObserver.disconnect();
+        if (this._overlaysObserver) this._overlaysObserver.disconnect();
         if (this.canvas) this.canvas.dispose();
     }
 
@@ -109,6 +120,75 @@ export default class extends Controller {
         this._backdropObserver.observe(element, { attributes: true, attributeFilter: ['data-src'] });
     }
 
+    // --- Overlay slices (design content ABOVE a placeholder) -----------------
+
+    _overlaysElement() {
+        return this.hasOverlaysIdValue ? document.getElementById(this.overlaysIdValue) : null;
+    }
+
+    /** (Re)load each overlay slice — a transparent full-canvas PNG of the
+     *  design content directly above one placeholder. Slices carrying text are
+     *  re-rendered by Live on text edits (new data-src), so loads are keyed by
+     *  src and stale in-flight loads are dropped. */
+    _applyOverlays() {
+        const wrapper = this._overlaysElement();
+        if (!wrapper) return;
+        wrapper.querySelectorAll('[data-overlay-above]').forEach((span) => {
+            const aboveId = span.getAttribute('data-overlay-above');
+            const src = span.getAttribute('data-src') || '';
+            if (!aboveId || !src) return;
+            const existing = this.overlayObjects[aboveId];
+            if (existing && existing.src === src) return;
+            this.overlayObjects[aboveId] = { src, object: existing ? existing.object : null };
+
+            FabricImage.fromURL(src, { crossOrigin: 'anonymous' }).then((img) => {
+                const entry = this.overlayObjects[aboveId];
+                if (!entry || entry.src !== src) return;
+                img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+                if (entry.object) this.canvas.remove(entry.object);
+                entry.object = img;
+                this.canvas.add(img);
+                this._restack();
+            }).catch(() => {});
+        });
+    }
+
+    _observeOverlays() {
+        const wrapper = this._overlaysElement();
+        if (!wrapper) return;
+        this._overlaysObserver = new MutationObserver(() => this._applyOverlays());
+        // childList too: a Live morph may swap the source spans instead of
+        // mutating data-src in place.
+        this._overlaysObserver.observe(wrapper, {
+            attributes: true,
+            attributeFilter: ['data-src'],
+            childList: true,
+            subtree: true,
+        });
+    }
+
+    /**
+     * Repaint everything in the designed z-order: placeholders ascending by
+     * their canvas stack index (layerIndex), each immediately followed by the
+     * overlay slice of design content sitting above it. The backdrop (design
+     * below the lowest placeholder) is the canvas backgroundImage, underneath
+     * by construction. Overlays stay in place even while their placeholder's
+     * object is absent (hidden slot).
+     */
+    _restack() {
+        const ranked = (this.placeholdersValue || [])
+            .slice()
+            .sort((a, b) => (a.layerIndex || 0) - (b.layerIndex || 0));
+        let index = 0;
+        ranked.forEach((ph) => {
+            const slot = this.objects[ph.inputId];
+            if (slot && slot.object) this.canvas.moveObjectTo(slot.object, index++);
+            const overlay = this.overlayObjects[ph.inputId];
+            if (overlay && overlay.object) this.canvas.moveObjectTo(overlay.object, index++);
+        });
+        this.canvas.requestRenderAll();
+    }
+
     // --- Placeholder objects ------------------------------------------------
 
     async _addStandIn(placeholder) {
@@ -141,12 +221,12 @@ export default class extends Controller {
                 });
             }
             img._placeholderId = placeholder.inputId;
-            this._replaceObject(placeholder.inputId, img, placeholder.isBackground === true);
+            this._replaceObject(placeholder.inputId, img);
             this._broadcastFrame(placeholder.inputId, img, frame);
         } catch (error) { /* a missing stand-in just leaves the slot empty */ }
     }
 
-    _replaceObject(inputId, fabricObject, sendToBack = false) {
+    _replaceObject(inputId, fabricObject) {
         const existing = this.objects[inputId];
         if (existing && existing.object) {
             this.canvas.remove(existing.object);
@@ -154,14 +234,10 @@ export default class extends Controller {
         this.objects[inputId] = { object: fabricObject };
         if (fabricObject) {
             this.canvas.add(fabricObject);
-            if (sendToBack) {
-                // Background slots render UNDER every other placeholder object
-                // (the server render keeps the layer's designed stack position;
-                // on the fill canvas bottom-of-placeholders is the analogue).
-                this.canvas.moveObjectTo(fabricObject, 0);
-            }
         }
-        this.canvas.requestRenderAll();
+        // Every slot change repaints in the designed z-order (this also puts
+        // background slots at the bottom — their layerIndex is the lowest).
+        this._restack();
     }
 
     async pickImage(event) {
@@ -197,8 +273,7 @@ export default class extends Controller {
                 clipPath: this._frameClip(frame),
             });
             img._placeholderId = inputId;
-            this._replaceObject(inputId, img, true);
-            this.canvas.requestRenderAll();
+            this._replaceObject(inputId, img);
             this._broadcastFrame(inputId, img, frame);
 
             this._setField(inputId, 'hide', '');

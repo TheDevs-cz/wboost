@@ -16,6 +16,7 @@ use WBoost\Web\Services\SocialNetwork\ImagePlacement;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\EditorTextInput;
 
 /**
@@ -187,5 +188,68 @@ final class TemplateVariantImageRendererTest extends TestCase
             json_encode(['objects' => [['type' => 'Image', 'src' => 'x']]]) ?: '{}',
             [],
         ));
+    }
+
+    public function testSliceCanvasSuppressesOutOfRangeObjectsWithOpacityNotVisibility(): void
+    {
+        $canvas = [
+            'backgroundImage' => ['type' => 'image', 'src' => 'http://assets.test/bucket/bg.png'],
+            'objects' => [
+                ['type' => 'Textbox', 'text' => 'below'],
+                ['type' => 'image', 'src' => 'http://assets.test/bucket/deco.png', 'assetPath' => 'deco.png'],
+                ['type' => 'Textbox', 'text' => 'above'],
+            ],
+        ];
+
+        $result = TemplateVariantImageRenderer::sliceCanvas($canvas, new CanvasSlice(2, null, withBackground: false));
+
+        // Transparent slice: the canvas-level background must not paint.
+        self::assertArrayNotHasKey('backgroundImage', $result);
+
+        $objects = $result['objects'];
+        self::assertIsArray($objects);
+
+        // Out-of-range objects: opacity 0 — NOT visible:false, which would
+        // change the positional textbox binding and the container reflow.
+        self::assertIsArray($objects[0]);
+        self::assertSame(0, $objects[0]['opacity']);
+        self::assertArrayNotHasKey('visible', $objects[0]);
+
+        // Out-of-range image: src stubbed (no Minio fetch from headless
+        // Chromium) and assetPath dropped (no re-inlining downstream).
+        self::assertIsArray($objects[1]);
+        self::assertSame(0, $objects[1]['opacity']);
+        self::assertIsString($objects[1]['src']);
+        self::assertStringStartsWith('data:image/png;base64,', $objects[1]['src']);
+        self::assertArrayNotHasKey('assetPath', $objects[1]);
+
+        // In-range object: untouched.
+        self::assertIsArray($objects[2]);
+        self::assertSame(['type' => 'Textbox', 'text' => 'above'], $objects[2]);
+    }
+
+    public function testSliceCanvasKeepsBackgroundAndBoundsTheRangeForTheBackdrop(): void
+    {
+        $canvas = [
+            'backgroundImage' => ['type' => 'image', 'src' => 'bg.png'],
+            'objects' => [
+                ['type' => 'image', 'src' => 'below.png'],
+                ['type' => 'image', 'src' => 'slot.png', 'imagePlaceholder' => true],
+                ['type' => 'Textbox', 'text' => 'above'],
+            ],
+        ];
+
+        $result = TemplateVariantImageRenderer::sliceCanvas($canvas, new CanvasSlice(0, 1, withBackground: true));
+
+        self::assertArrayHasKey('backgroundImage', $result);
+
+        $objects = $result['objects'];
+        self::assertIsArray($objects);
+        self::assertIsArray($objects[0]);
+        self::assertArrayNotHasKey('opacity', $objects[0]);
+        self::assertIsArray($objects[1]);
+        self::assertSame(0, $objects[1]['opacity']);
+        self::assertIsArray($objects[2]);
+        self::assertSame(0, $objects[2]['opacity']);
     }
 }

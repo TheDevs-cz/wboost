@@ -76,6 +76,7 @@
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
             data-variant-image-fill-height-value="{{ variant.dimension.height }}"
             data-variant-image-fill-backdrop-id-value="variant-backdrop-source"
+            data-variant-image-fill-overlays-id-value="variant-overlay-sources"
         {% endif %}
         {% if this.publishPath() and this.facebookConnected %}
             data-variant-publish-publish-url-value="{{ this.publishPath() }}"
@@ -172,6 +173,14 @@
         {% if hasImages %}
             {# Live-updated backdrop source — read by variant-image-fill by id. #}
             <span id="variant-backdrop-source" data-src="{{ this.backdropDataUri() }}" hidden></span>
+            {# Overlay slices: design content stacked ABOVE an image placeholder
+               (transparent PNGs). The fill controller paints each directly over
+               its placeholder's live object so the designed z-order holds. #}
+            <span id="variant-overlay-sources" hidden>
+                {% for slice in this.overlaySlices() %}
+                    <span data-overlay-above="{{ slice.aboveInputId }}" data-src="{{ slice.dataUri }}"></span>
+                {% endfor %}
+            </span>
         {% else %}
             {# Live-updated preview source — read by variant-fill-overlay to keep
                the (ignored) preview <img> in sync without re-creating it. #}

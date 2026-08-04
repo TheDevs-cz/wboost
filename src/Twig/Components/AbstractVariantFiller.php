@@ -23,6 +23,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -189,21 +190,79 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
-     * The interactive canvas backdrop: the server render with every image
-     * placeholder HIDDEN, so the live Fabric image objects the user positions
-     * are the only pictures shown in those slots. Re-rendered on each text edit
-     * (Live re-render) and picked up by the fill controller.
+     * The interactive canvas backdrop: the server render of everything BELOW
+     * the lowest image placeholder (background included, placeholders hidden).
+     * Content designed above a placeholder is deliberately NOT here — it comes
+     * as {@see overlaySlices()} the fill controller stacks OVER the live
+     * Fabric objects, so the designed z-order holds on the interactive
+     * preview too. Re-rendered on each text edit (Live re-render) and picked
+     * up by the fill controller.
      */
     public function backdropDataUri(): string
     {
-        $variant = $this->variantEntity();
+        $indexes = $this->placeholderStackIndexes();
+        $slice = $indexes === []
+            ? null
+            : new CanvasSlice(0, min($indexes), withBackground: true);
 
+        return $this->renderToDataUri($this->allPlaceholdersHidden(), $slice);
+    }
+
+    /**
+     * Transparent overlay renders for every placeholder gap that actually
+     * holds design content (a locked image over a photo slot, a title text
+     * over a hero picture, …). The fill controller paints each one directly
+     * above its placeholder's live object. Ordered bottom-up. Empty for the
+     * typical "placeholders on top of the design" case — costs no extra
+     * renders then.
+     *
+     * @return list<array{aboveInputId: string, dataUri: string}>
+     */
+    public function overlaySlices(): array
+    {
+        $decoded = json_decode($this->variantEntity()->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $objects = $canvas['objects'] ?? [];
+
+        $gaps = CanvasSlice::overlayGapsAbovePlaceholders(
+            is_array($objects) ? $objects : [],
+            $this->placeholderStackIndexes(),
+        );
+
+        $result = [];
+        foreach ($gaps as $gap) {
+            $dataUri = $this->renderToDataUri($this->allPlaceholdersHidden(), $gap['slice']);
+            if ($dataUri === '') {
+                continue;
+            }
+            $result[] = ['aboveInputId' => $gap['aboveInputId'], 'dataUri' => $dataUri];
+        }
+
+        return $result;
+    }
+
+    private function allPlaceholdersHidden(): ResolvedImageOverrides
+    {
         $hidden = [];
-        foreach ($variant->imageInputs as $input) {
+        foreach ($this->variantEntity()->imageInputs as $input) {
             $hidden[$input->inputId] = true;
         }
 
-        return $this->renderToDataUri(new ResolvedImageOverrides([], $hidden));
+        return new ResolvedImageOverrides([], $hidden);
+    }
+
+    /**
+     * Stack index of every locatable image placeholder object, keyed by
+     * inputId — the z-positions the backdrop/overlay slices cut around.
+     *
+     * @return array<string, int>
+     */
+    private function placeholderStackIndexes(): array
+    {
+        $decoded = json_decode($this->variantEntity()->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+
+        return $this->placeholderGeometry->placeholderObjectIndexesByInputId($canvas);
     }
 
     /**
@@ -225,7 +284,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     directories: list<array{id: string, name: string}>,
      *     includesRoot: bool,
      *     canUpload: bool,
-     *     isBackground: bool
+     *     isBackground: bool,
+     *     layerIndex: int
      * }>
      */
     public function imagePlaceholders(): array
@@ -236,6 +296,7 @@ abstract class AbstractVariantFiller extends AbstractController
         $decoded = json_decode($variant->canvas, true);
         $canvas = is_array($decoded) ? $decoded : [];
         $objects = $this->placeholderGeometry->placeholderObjectsByInputId($canvas);
+        $stackIndexes = $this->placeholderGeometry->placeholderObjectIndexesByInputId($canvas);
         $project = $variant->template->project;
 
         $result = [];
@@ -303,6 +364,9 @@ abstract class AbstractVariantFiller extends AbstractController
                 // whole canvas, no user transform (the limits above are forced
                 // false for background slots).
                 'isBackground' => $input->isBackground,
+                // Designed z-position — the fill controller restacks the live
+                // objects (and the overlay slices above them) by this.
+                'layerIndex' => $stackIndexes[$input->inputId] ?? 0,
             ];
         }
 
@@ -620,7 +684,7 @@ abstract class AbstractVariantFiller extends AbstractController
         ];
     }
 
-    private function renderToDataUri(ResolvedImageOverrides $imageOverrides): string
+    private function renderToDataUri(ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null): string
     {
         $variant = $this->variantEntity();
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
@@ -631,7 +695,7 @@ abstract class AbstractVariantFiller extends AbstractController
             truncateOverflow: true,
             richTextOptions: $this->richTextOptions(),
         );
-        $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides);
+        $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, slice: $slice);
 
         if ($bytes === '') {
             return '';
