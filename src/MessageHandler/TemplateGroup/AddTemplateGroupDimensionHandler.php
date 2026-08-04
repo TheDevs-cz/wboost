@@ -7,13 +7,13 @@ namespace WBoost\Web\MessageHandler\TemplateGroup;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use WBoost\Web\Entity\SocialNetworkTemplate;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\TemplateGroupNotFound;
-use WBoost\Web\Message\TemplateGroup\AddTemplateGroupSocialDimension;
+use WBoost\Web\Message\TemplateGroup\AddTemplateGroupDimension;
 use WBoost\Web\Query\GetTemplateGroupMembers;
-use WBoost\Web\Repository\SocialNetworkTemplateRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
+use WBoost\Web\Repository\TemplateRepository;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Services\ProvideIdentity;
@@ -21,13 +21,13 @@ use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\BackgroundMode;
 
 #[AsMessageHandler]
-readonly final class AddTemplateGroupSocialDimensionHandler
+readonly final class AddTemplateGroupDimensionHandler
 {
     public function __construct(
         private TemplateGroupRepository $templateGroupRepository,
         private GetTemplateGroupMembers $members,
-        private SocialNetworkTemplateRepository $templateRepository,
-        private SocialNetworkTemplateVariantRepository $variantRepository,
+        private TemplateRepository $templateRepository,
+        private TemplateVariantRepository $variantRepository,
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private Filesystem $filesystem,
@@ -39,14 +39,14 @@ readonly final class AddTemplateGroupSocialDimensionHandler
     /**
      * @throws TemplateGroupNotFound
      */
-    public function __invoke(AddTemplateGroupSocialDimension $message): void
+    public function __invoke(AddTemplateGroupDimension $message): void
     {
         $group = $this->templateGroupRepository->get($message->groupId);
-        $template = $this->members->socialTemplate($group->id);
+        $template = $this->members->template($group->id);
 
-        // A group created without this module gets its module template lazily.
+        // A group without a template (its template was deleted) gets one lazily.
         if ($template === null) {
-            $template = new SocialNetworkTemplate(
+            $template = new Template(
                 $this->provideIdentity->next(),
                 $group->project,
                 null,
@@ -71,7 +71,7 @@ readonly final class AddTemplateGroupSocialDimensionHandler
             $timestamp = $this->clock->now()->getTimestamp();
             $extension = $message->backgroundImage->guessExtension();
 
-            $backgroundImagePath = "social-networks/$variantId/background-$timestamp.$extension";
+            $backgroundImagePath = "custom-templates/$variantId/background-$timestamp.$extension";
             $bytes = $message->backgroundImage->getContent();
             $this->filesystem->write($backgroundImagePath, $bytes);
 
@@ -87,7 +87,7 @@ readonly final class AddTemplateGroupSocialDimensionHandler
             ));
         }
 
-        $variant = new SocialNetworkTemplateVariant(
+        $variant = new TemplateVariant(
             $variantId,
             $template,
             $message->dimension,

@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% set active_menu_item = 'template_groups' %}
+{% set active_menu_item = 'templates' %}
 
 {% block title %}Přidat rozměr do skupiny{% endblock %}
 
@@ -8,7 +8,7 @@
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('template_groups', {'projectId': project.id}) }}">Skupiny šablon</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item"><a href="{{ path('template_group_editor', {'groupId': group.id}) }}">{{ group.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
@@ -16,48 +16,66 @@
 
 {% block content %}
     <div class="card">
-        <div class="card-body" data-controller="template-dimension template-group-dimension">
+        <div class="card-body" data-controller="template-dimension">
             {{ form_start(form) }}
 
-            {{ form_row(form.module, {'attr': {'data-action': 'change->template-group-dimension#toggleModule'}}) }}
-
-            <div data-template-group-dimension-target="socialSection">
-                {{ form_row(form.socialDimension) }}
+            <label class="form-label">Sociální sítě:</label>
+            <div class="mb-2">
+                {% for preset in enum('WBoost\\Web\\Value\\DimensionPreset').cases() %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="px"
+                        data-template-dimension-width-param="{{ preset.width }}"
+                        data-template-dimension-height-param="{{ preset.height }}"
+                        data-template-dimension-preset-param="{{ preset.value }}"
+                    >{{ preset.label }}</button>
+                {% endfor %}
             </div>
 
-            <div data-template-group-dimension-target="customSection">
-                <label class="form-label">Předvolby formátu:</label>
-                <div class="mb-3">
-                    {% for preset in [
-                        {label: 'A5', width: 148, height: 210},
-                        {label: 'A4', width: 210, height: 297},
-                        {label: 'A3', width: 297, height: 420},
-                    ] %}
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-outline-secondary rounded-pill me-1"
-                            data-action="template-dimension#applyPreset"
-                            data-template-dimension-unit-param="mm"
-                            data-template-dimension-width-param="{{ preset.width }}"
-                            data-template-dimension-height-param="{{ preset.height }}"
-                        >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
-                    {% endfor %}
-                </div>
-
-                <div class="row">
-                    <div class="col-md-2">
-                        {{ form_row(form.unit, { attr: { 'data-template-dimension-target': 'unit' } }) }}
-                    </div>
-                    <div class="col-md-2">
-                        {{ form_row(form.width, { attr: { 'data-template-dimension-target': 'width' } }) }}
-                    </div>
-                    <div class="col-md-2">
-                        {{ form_row(form.height, { attr: { 'data-template-dimension-target': 'height' } }) }}
-                    </div>
-                </div>
-
-                <p class="text-muted small">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480×3508 px.</p>
+            <label class="form-label">Tiskové formáty:</label>
+            <div class="mb-3">
+                {% for preset in [
+                    {label: 'A5', width: 148, height: 210},
+                    {label: 'A4', width: 210, height: 297},
+                    {label: 'A3', width: 297, height: 420},
+                ] %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="mm"
+                        data-template-dimension-width-param="{{ preset.width }}"
+                        data-template-dimension-height-param="{{ preset.height }}"
+                    >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
+                {% endfor %}
             </div>
+
+            {{ form_widget(form.preset, { attr: { 'data-template-dimension-target': 'preset' } }) }}
+
+            <div class="row">
+                <div class="col-md-2">
+                    {{ form_row(form.unit, { attr: {
+                        'data-template-dimension-target': 'unit',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.width, { attr: {
+                        'data-template-dimension-target': 'width',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.height, { attr: {
+                        'data-template-dimension-target': 'height',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+            </div>
+
+            <p class="text-muted small">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480×3508 px.</p>
 
             {{ form_row(form.backgroundImage) }}
 

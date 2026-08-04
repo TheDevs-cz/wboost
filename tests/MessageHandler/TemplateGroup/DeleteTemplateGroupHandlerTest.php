@@ -8,13 +8,11 @@ use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use WBoost\Web\Exceptions\TemplateNotFound;
-use WBoost\Web\Exceptions\SocialNetworkTemplateNotFound;
 use WBoost\Web\Exceptions\TemplateGroupNotFound;
 use WBoost\Web\Message\TemplateGroup\DeleteTemplateGroup;
 use WBoost\Web\MessageHandler\TemplateGroup\DeleteTemplateGroupHandler;
 use WBoost\Web\Repository\TemplateRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 
@@ -23,7 +21,7 @@ use WBoost\Web\Tests\DataFixtures\TestDataFixture;
  */
 final class DeleteTemplateGroupHandlerTest extends KernelTestCase
 {
-    public function testUngroupOnlyKeepsTemplatesAndVariants(): void
+    public function testUngroupOnlyKeepsTemplateAndVariants(): void
     {
         $groupId = Uuid::fromString(TestDataFixture::TEMPLATE_GROUP_1_ID);
 
@@ -40,17 +38,17 @@ final class DeleteTemplateGroupHandlerTest extends KernelTestCase
         }
 
         // …but every member survives, un-grouped (ON DELETE SET NULL).
-        $socialTemplate = self::getContainer()->get(SocialNetworkTemplateRepository::class)
-            ->get(Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_TEMPLATE_ID));
-        self::assertNull($socialTemplate->group);
-
-        $socialVariant = self::getContainer()->get(SocialNetworkTemplateVariantRepository::class)
-            ->get(Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID));
-        self::assertNull($socialVariant->group);
-
         $template = self::getContainer()->get(TemplateRepository::class)
-            ->get(Uuid::fromString(TestDataFixture::GROUPED_CUSTOM_TEMPLATE_ID));
+            ->get(Uuid::fromString(TestDataFixture::GROUPED_TEMPLATE_ID));
         self::assertNull($template->group);
+
+        $presetVariant = self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::GROUPED_PRESET_VARIANT_ID));
+        self::assertNull($presetVariant->group);
+
+        $freeformVariant = self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::GROUPED_FREEFORM_VARIANT_ID));
+        self::assertNull($freeformVariant->group);
     }
 
     public function testDeleteIncludingTemplatesRemovesEverything(): void
@@ -63,24 +61,17 @@ final class DeleteTemplateGroupHandlerTest extends KernelTestCase
         $this->em()->clear();
 
         try {
-            self::getContainer()->get(SocialNetworkTemplateRepository::class)
-                ->get(Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_TEMPLATE_ID));
-            self::fail('Grouped social template must be deleted.');
-        } catch (SocialNetworkTemplateNotFound) {
-        }
-
-        try {
             self::getContainer()->get(TemplateRepository::class)
-                ->get(Uuid::fromString(TestDataFixture::GROUPED_CUSTOM_TEMPLATE_ID));
-            self::fail('Grouped custom template must be deleted.');
+                ->get(Uuid::fromString(TestDataFixture::GROUPED_TEMPLATE_ID));
+            self::fail('Grouped template must be deleted.');
         } catch (TemplateNotFound) {
         }
 
         // Variant rows cascade with their template — INCLUDING the variant a
         // user added to the grouped template manually.
         $variantRows = $this->em()->getConnection()->fetchAllAssociative(
-            'SELECT id FROM social_network_template_variant WHERE template_id = :templateId',
-            ['templateId' => TestDataFixture::GROUPED_SOCIAL_TEMPLATE_ID],
+            'SELECT id FROM template_variant WHERE template_id = :templateId',
+            ['templateId' => TestDataFixture::GROUPED_TEMPLATE_ID],
         );
         self::assertSame([], $variantRows);
     }

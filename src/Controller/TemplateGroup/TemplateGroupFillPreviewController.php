@@ -11,7 +11,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
@@ -62,15 +61,9 @@ final class TemplateGroupFillPreviewController extends AbstractController
      * Only variants actually belonging to the group are renderable here —
      * the same membership rule the group editor save enforces.
      */
-    private function resolveMemberVariant(TemplateGroup $group, string $variantId): null|SocialNetworkTemplateVariant|TemplateVariant
+    private function resolveMemberVariant(TemplateGroup $group, string $variantId): null|TemplateVariant
     {
-        foreach ($this->members->socialVariants($group->id) as $variant) {
-            if ($variant->id->toString() === $variantId) {
-                return $variant;
-            }
-        }
-
-        foreach ($this->members->customVariants($group->id) as $variant) {
+        foreach ($this->members->variants($group->id) as $variant) {
             if ($variant->id->toString() === $variantId) {
                 return $variant;
             }

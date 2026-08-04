@@ -138,16 +138,16 @@ final class TestDataFixture extends Fixture
     public const string CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000096';
     public const string CUSTOM_TEMPLATE_VARIANT_2_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000097';
 
-    // Template group fixtures — one group (PROJECT_1) spanning BOTH modules.
-    // The two member variants share the same logical input id (the join key
-    // group edits propagate by). The grouped social template ALSO carries a
+    // Template group fixtures — one group (PROJECT_1) holding exactly ONE
+    // template whose variants span a preset (1:1) and a free-form (A4 mm)
+    // dimension. The two member variants share the same logical input id (the
+    // join key group edits propagate by). The grouped template ALSO carries a
     // manually-added variant WITHOUT the group FK — it must never be
     // group-editable.
     public const string TEMPLATE_GROUP_1_ID = '00000000-0000-0000-0000-0000000000c0';
-    public const string GROUPED_SOCIAL_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c1';
-    public const string GROUPED_SOCIAL_VARIANT_ID = '00000000-0000-0000-0000-0000000000c2';
-    public const string GROUPED_CUSTOM_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c3';
-    public const string GROUPED_CUSTOM_VARIANT_ID = '00000000-0000-0000-0000-0000000000c4';
+    public const string GROUPED_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c1';
+    public const string GROUPED_PRESET_VARIANT_ID = '00000000-0000-0000-0000-0000000000c2';
+    public const string GROUPED_FREEFORM_VARIANT_ID = '00000000-0000-0000-0000-0000000000c4';
     public const string UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID = '00000000-0000-0000-0000-0000000000c5';
     public const string GROUP_SHARED_INPUT_ID = '00000000-0000-0000-0000-0000000000c6';
     /** Image placeholder shared by both member variants — unrestricted slot (whole gallery + root). */
@@ -605,8 +605,9 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($templateVariant2);
 
-        // Template group spanning both modules (PROJECT_1). Both member
-        // variants carry the SAME textbox inputId — group edits join on it.
+        // Template group (PROJECT_1): ONE template, variants spanning a preset
+        // and a free-form dimension. Both member variants carry the SAME
+        // textbox inputId — group edits join on it.
         $templateGroup1 = new TemplateGroup(
             Uuid::fromString(self::TEMPLATE_GROUP_1_ID),
             $project1,
@@ -648,46 +649,8 @@ final class TestDataFixture extends Fixture
             allowedDirectoryIds: [],
         );
 
-        $groupedSocialTemplate = new SocialNetworkTemplate(
-            Uuid::fromString(self::GROUPED_SOCIAL_TEMPLATE_ID),
-            $project1,
-            null,
-            $date,
-            'Group Campaign',
-            null,
-            1,
-        );
-        $groupedSocialTemplate->assignToGroup($templateGroup1);
-        $manager->persist($groupedSocialTemplate);
-
-        $groupedSocialVariant = new SocialNetworkTemplateVariant(
-            Uuid::fromString(self::GROUPED_SOCIAL_VARIANT_ID),
-            $groupedSocialTemplate,
-            DimensionPreset::InstagramPost,
-            'fixtures/bg-1.png',
-            $date,
-        );
-        $groupedSocialVariant->editCanvas(
-            $groupSharedCanvas,
-            [new EditorTextInput(self::GROUP_SHARED_INPUT_ID, 'headline', null, false, false, null, false)],
-            null,
-            [$groupSharedImageInput],
-        );
-        $groupedSocialVariant->assignToGroup($templateGroup1);
-        $manager->persist($groupedSocialVariant);
-
-        // Manually-added variant on the grouped template — NO group FK.
-        $ungroupedVariantOnGroupedTemplate = new SocialNetworkTemplateVariant(
-            Uuid::fromString(self::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID),
-            $groupedSocialTemplate,
-            DimensionPreset::InstagramStory,
-            'fixtures/bg-1.png',
-            $date,
-        );
-        $manager->persist($ungroupedVariantOnGroupedTemplate);
-
         $groupedTemplate = new Template(
-            Uuid::fromString(self::GROUPED_CUSTOM_TEMPLATE_ID),
+            Uuid::fromString(self::GROUPED_TEMPLATE_ID),
             $project1,
             null,
             $date,
@@ -698,21 +661,47 @@ final class TestDataFixture extends Fixture
         $groupedTemplate->assignToGroup($templateGroup1);
         $manager->persist($groupedTemplate);
 
-        $groupedCustomVariant = new TemplateVariant(
-            Uuid::fromString(self::GROUPED_CUSTOM_VARIANT_ID),
+        $groupedPresetVariant = new TemplateVariant(
+            Uuid::fromString(self::GROUPED_PRESET_VARIANT_ID),
             $groupedTemplate,
-            new TemplateDimension(DimensionUnit::Mm, 210, 297),
-            'fixtures/custom-template-bg-1.png',
+            TemplateDimension::fromPreset(DimensionPreset::InstagramPost),
+            'fixtures/bg-1.png',
             $date,
         );
-        $groupedCustomVariant->editCanvas(
+        $groupedPresetVariant->editCanvas(
             $groupSharedCanvas,
             [new EditorTextInput(self::GROUP_SHARED_INPUT_ID, 'headline', null, false, false, null, false)],
             null,
             [$groupSharedImageInput],
         );
-        $groupedCustomVariant->assignToGroup($templateGroup1);
-        $manager->persist($groupedCustomVariant);
+        $groupedPresetVariant->assignToGroup($templateGroup1);
+        $manager->persist($groupedPresetVariant);
+
+        // Manually-added variant on the grouped template — NO group FK.
+        $ungroupedVariantOnGroupedTemplate = new TemplateVariant(
+            Uuid::fromString(self::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID),
+            $groupedTemplate,
+            TemplateDimension::fromPreset(DimensionPreset::InstagramStory),
+            'fixtures/bg-1.png',
+            $date,
+        );
+        $manager->persist($ungroupedVariantOnGroupedTemplate);
+
+        $groupedFreeformVariant = new TemplateVariant(
+            Uuid::fromString(self::GROUPED_FREEFORM_VARIANT_ID),
+            $groupedTemplate,
+            new TemplateDimension(DimensionUnit::Mm, 210, 297),
+            'fixtures/custom-template-bg-1.png',
+            $date,
+        );
+        $groupedFreeformVariant->editCanvas(
+            $groupSharedCanvas,
+            [new EditorTextInput(self::GROUP_SHARED_INPUT_ID, 'headline', null, false, false, null, false)],
+            null,
+            [$groupSharedImageInput],
+        );
+        $groupedFreeformVariant->assignToGroup($templateGroup1);
+        $manager->persist($groupedFreeformVariant);
 
         // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
         $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, self::OAUTH2_CLIENT_SECRET);

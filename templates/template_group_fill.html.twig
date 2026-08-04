@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% set active_menu_item = 'template_groups' %}
+{% set active_menu_item = 'templates' %}
 
 {% block title %}Vyplnit a exportovat{% endblock %}
 
@@ -8,7 +8,7 @@
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('template_groups', {'projectId': project.id}) }}">Skupiny šablon</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item active">{{ group.name }}</li>
     </ol>
 {% endblock %}
@@ -219,8 +219,7 @@
                                         </div>
                                         <div class="group-fill-preview-error">Náhled se nepodařilo načíst</div>
                                     </div>
-                                    <div class="card-body py-2 d-flex align-items-center justify-content-between gap-1">
-                                        <span class="badge bg-secondary-lighten text-secondary">{{ v.module_label }}</span>
+                                    <div class="card-body py-2 d-flex align-items-center justify-content-end gap-1">
                                         <span class="text-muted font-12 text-end">{{ v.dimension_label }}</span>
                                     </div>
                                     {% if adjustable_image_inputs|length > 0 %}

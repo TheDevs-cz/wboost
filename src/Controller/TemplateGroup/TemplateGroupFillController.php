@@ -34,32 +34,13 @@ final class TemplateGroupFillController extends AbstractController
         #[MapEntity(id: 'groupId')]
         TemplateGroup $group,
     ): Response {
-        $socialVariants = $this->members->socialVariants($group->id);
-        $customVariants = $this->members->customVariants($group->id);
+        $memberVariants = $this->members->variants($group->id);
 
         $variants = [];
 
-        foreach ($socialVariants as $variant) {
+        foreach ($memberVariants as $variant) {
             $variants[] = [
                 'variant' => $variant,
-                'module_label' => 'Sociální sítě',
-                'dimension_label' => sprintf('%s (%d×%d px)', $variant->dimension->value, $variant->dimension->width(), $variant->dimension->height()),
-                'width' => $variant->dimension->width(),
-                'height' => $variant->dimension->height(),
-                'preview_endpoint' => $this->generateUrl('template_group_fill_preview', [
-                    'groupId' => $group->id,
-                    'variantId' => $variant->id,
-                ]),
-                // Per-dimension placeholder geometry: the client resolves the
-                // shared relative placement into THIS dimension's pixels.
-                'image_frames' => $this->placeholders->imageFrames($variant),
-            ];
-        }
-
-        foreach ($customVariants as $variant) {
-            $variants[] = [
-                'variant' => $variant,
-                'module_label' => 'Šablony',
                 'dimension_label' => sprintf('%s (%d×%d px)', $variant->dimension->label(), $variant->dimension->width(), $variant->dimension->height()),
                 'width' => $variant->dimension->width(),
                 'height' => $variant->dimension->height(),
@@ -73,8 +54,7 @@ final class TemplateGroupFillController extends AbstractController
             ];
         }
 
-        $allVariants = [...$socialVariants, ...$customVariants];
-        $imageInputs = $this->placeholders->imageInputs($allVariants, $group->project->id);
+        $imageInputs = $this->placeholders->imageInputs($memberVariants, $group->project->id);
 
         // Slots the designer left adjustable are the only ones that get the
         // placement UI (and the only ones allowed to post a transform at all).
@@ -86,9 +66,9 @@ final class TemplateGroupFillController extends AbstractController
         return $this->render('template_group_fill.html.twig', [
             'project' => $group->project,
             'group' => $group,
-            'menu_item' => 'template_groups',
+            'menu_item' => 'templates',
             'variants' => $variants,
-            'text_inputs' => $this->placeholders->textInputs($allVariants),
+            'text_inputs' => $this->placeholders->textInputs($memberVariants),
             'image_inputs' => $imageInputs,
             'adjustable_image_inputs' => $adjustableImageInputs,
             'placement_slots' => array_map(

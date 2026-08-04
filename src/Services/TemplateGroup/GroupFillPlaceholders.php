@@ -8,7 +8,6 @@ use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
@@ -43,7 +42,7 @@ readonly final class GroupFillPlaceholders
     /**
      * Locked inputs are excluded — they cannot be overridden anywhere.
      *
-     * @param list<SocialNetworkTemplateVariant|TemplateVariant> $variants
+     * @param list<TemplateVariant> $variants
      * @return list<EditorTextInput>
      */
     public function textInputs(array $variants): array
@@ -70,7 +69,7 @@ readonly final class GroupFillPlaceholders
      * the folders a user may upload their OWN picture into, and the designer's
      * stand-in as the "keep default" preview.
      *
-     * @param list<SocialNetworkTemplateVariant|TemplateVariant> $variants
+     * @param list<TemplateVariant> $variants
      * @return list<array{
      *     input: EditorImageInput,
      *     defaultImageUrl: null|string,
@@ -146,7 +145,7 @@ readonly final class GroupFillPlaceholders
      *
      * @return array<string, array{x: float, y: float, width: float, height: float}>
      */
-    public function imageFrames(SocialNetworkTemplateVariant|TemplateVariant $variant): array
+    public function imageFrames(TemplateVariant $variant): array
     {
         $decoded = json_decode($variant->canvas, true);
         $canvas = is_array($decoded) ? $decoded : [];

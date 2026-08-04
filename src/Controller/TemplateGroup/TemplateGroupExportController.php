@@ -11,7 +11,6 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
@@ -45,8 +44,7 @@ final class TemplateGroupExportController extends AbstractController
         TemplateGroup $group,
         Request $request,
     ): Response {
-        /** @var list<SocialNetworkTemplateVariant|TemplateVariant> $variants */
-        $variants = [...$this->members->socialVariants($group->id), ...$this->members->customVariants($group->id)];
+        $variants = $this->members->variants($group->id);
 
         if ($variants === []) {
             throw $this->createNotFoundException('The group has no variants to export.');
@@ -126,15 +124,8 @@ final class TemplateGroupExportController extends AbstractController
         }
     }
 
-    private function dimensionSlug(SocialNetworkTemplateVariant|TemplateVariant $variant): string
+    private function dimensionSlug(TemplateVariant $variant): string
     {
-        if ($variant instanceof SocialNetworkTemplateVariant) {
-            return $this->nonEmptySlug(
-                sprintf('%s %dx%d', $variant->dimension->value, $variant->dimension->width(), $variant->dimension->height()),
-                'varianta',
-            );
-        }
-
         return $this->nonEmptySlug($variant->dimension->label(), 'varianta');
     }
 

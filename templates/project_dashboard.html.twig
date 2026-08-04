@@ -103,9 +103,11 @@
             templates|length
         ) }}
 
+        {# The standalone group listing died with the module merge — grouped
+           templates live on the unified Šablony listing. #}
         {% if is_granted('ROLE_DESIGNER') %}
             {{ _self.module_card(
-                path('template_groups', {'projectId': project.id}),
+                path('templates', {'projectId': project.id}),
                 'uil-layer-group', 'Skupiny šablon',
                 'Jeden design ve více rozměrech najednou',
                 template_groups_count

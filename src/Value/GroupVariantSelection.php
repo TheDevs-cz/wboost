@@ -6,7 +6,7 @@ namespace WBoost\Web\Value;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
-readonly final class GroupCustomVariantSelection
+readonly final class GroupVariantSelection
 {
     public function __construct(
         public TemplateDimension $dimension,

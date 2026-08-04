@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace WBoost\Web\FormType;
 
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\CallbackTransformer;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -26,26 +27,18 @@ final class TemplateGroupDimensionFormType extends AbstractType
      */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $builder->add('module', ChoiceType::class, [
-            'label' => 'Modul',
-            'expanded' => true,
-            'choices' => [
-                'Sociální sítě' => TemplateGroupDimensionFormData::MODULE_SOCIAL,
-                'Vlastní rozměr (Šablony)' => TemplateGroupDimensionFormData::MODULE_CUSTOM,
-            ],
-        ]);
-
-        $builder->add('socialDimension', EnumType::class, [
-            'label' => 'Rozměr',
-            'class' => DimensionPreset::class,
+        // Filled by the Instagram preset buttons, cleared by any manual edit
+        // (template-dimension Stimulus controller). Invalid values silently
+        // fall back to a free-form dimension.
+        $builder->add('preset', HiddenType::class, [
             'required' => false,
-            'choice_label' => static fn (DimensionPreset $dimension): string => sprintf(
-                '%s (%dx%d px)',
-                $dimension->value,
-                $dimension->width(),
-                $dimension->height(),
-            ),
         ]);
+        $builder->get('preset')->addModelTransformer(new CallbackTransformer(
+            static fn (null|DimensionPreset $preset): string => $preset->value ?? '',
+            static fn (null|string $value): null|DimensionPreset => $value === null || $value === ''
+                ? null
+                : DimensionPreset::tryFrom($value),
+        ));
 
         $builder->add('unit', EnumType::class, [
             'label' => 'Jednotka',

@@ -9,18 +9,18 @@ use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use WBoost\Web\Value\DimensionPreset;
+use WBoost\Web\Value\GroupVariantSelection;
+use WBoost\Web\Value\TemplateDimension;
 
 final class TemplateGroupFormData
 {
     #[NotBlank]
     public null|string $name = null;
 
-    public null|string $socialCategory = null;
-
-    public null|string $customCategory = null;
+    public null|string $category = null;
 
     /** @var list<DimensionPreset> */
-    public array $socialDimensions = [];
+    public array $presetDimensions = [];
 
     // One optional upload per enum case. Field names use the case NAMES
     // because enum values like "1:1" are not valid form field names.
@@ -31,27 +31,25 @@ final class TemplateGroupFormData
     public null|UploadedFile $backgroundInstagramStory = null;
 
     /**
-     * Convenience fallback: fills every selected dimension (both modules)
-     * that has no upload of its own.
+     * Convenience fallback: fills every selected dimension that has no
+     * upload of its own.
      */
     public null|UploadedFile $commonBackground = null;
 
     /** @var list<TemplateVariantFormData> */
     public array $customDimensions = [];
 
-    // "Create from existing template" design source (hidden fields, set by the
+    // "Create from existing template" design source (hidden field, set by the
     // picker page). When present, dimensions without an upload reuse a copy of
     // the source variant's background.
-    public null|string $sourceModule = null;
-
     public null|string $sourceVariantId = null;
 
     #[Callback]
     public function validate(ExecutionContextInterface $context): void
     {
-        if ($this->socialDimensions === [] && $this->customDimensions === []) {
+        if ($this->presetDimensions === [] && $this->customDimensions === []) {
             $context->buildViolation('Vyberte alespoň jeden rozměr.')
-                ->atPath('socialDimensions')
+                ->atPath('presetDimensions')
                 ->addViolation();
         }
 
@@ -62,9 +60,7 @@ final class TemplateGroupFormData
 
     public function hasDesignSource(): bool
     {
-        return in_array($this->sourceModule, ['social', 'custom'], true)
-            && $this->sourceVariantId !== null
-            && $this->sourceVariantId !== '';
+        return $this->sourceVariantId !== null && $this->sourceVariantId !== '';
     }
 
     public function backgroundFor(DimensionPreset $dimension): null|UploadedFile
@@ -76,5 +72,23 @@ final class TemplateGroupFormData
         };
 
         return $own ?? $this->commonBackground;
+    }
+
+    /**
+     * @return list<GroupVariantSelection>
+     */
+    public function variantSelections(): array
+    {
+        $selections = [];
+
+        foreach ($this->presetDimensions as $preset) {
+            $selections[] = new GroupVariantSelection(TemplateDimension::fromPreset($preset), $this->backgroundFor($preset));
+        }
+
+        foreach ($this->customDimensions as $row) {
+            $selections[] = new GroupVariantSelection($row->dimension(), $row->backgroundImage ?? $this->commonBackground);
+        }
+
+        return $selections;
     }
 }

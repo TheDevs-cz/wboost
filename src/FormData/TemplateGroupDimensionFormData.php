@@ -6,7 +6,6 @@ namespace WBoost\Web\FormData;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints\Callback;
-use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use WBoost\Web\Value\TemplateDimension;
@@ -15,16 +14,16 @@ use WBoost\Web\Value\DimensionPreset;
 
 final class TemplateGroupDimensionFormData
 {
-    public const string MODULE_SOCIAL = 'social';
-    public const string MODULE_CUSTOM = 'custom';
-
     private const int MAX_CANVAS_PIXELS = 10000;
     private const int MIN_CANVAS_PIXELS = 16;
 
-    #[NotBlank]
-    public null|string $module = self::MODULE_SOCIAL;
-
-    public null|DimensionPreset $socialDimension = DimensionPreset::InstagramPost;
+    /**
+     * Set by the preset buttons (Instagram formats). When present it WINS
+     * over unit/width/height — the JS clears it again on any manual edit, and
+     * trusting the marker server-side keeps the outcome deterministic even if
+     * the hidden field and the visible inputs somehow disagree.
+     */
+    public null|DimensionPreset $preset = null;
 
     public null|DimensionUnit $unit = DimensionUnit::Mm;
 
@@ -39,13 +38,8 @@ final class TemplateGroupDimensionFormData
     #[Callback]
     public function validate(ExecutionContextInterface $context): void
     {
-        if ($this->module === self::MODULE_SOCIAL) {
-            if ($this->socialDimension === null) {
-                $context->buildViolation('Vyberte rozměr.')
-                    ->atPath('socialDimension')
-                    ->addViolation();
-            }
-
+        // A preset is a fixed pixel size — nothing free-form to validate.
+        if ($this->preset !== null) {
             return;
         }
 
@@ -59,7 +53,7 @@ final class TemplateGroupDimensionFormData
             return;
         }
 
-        $dimension = $this->customDimension();
+        $dimension = $this->dimension();
 
         foreach (['width' => $dimension->width(), 'height' => $dimension->height()] as $field => $pixels) {
             if ($pixels > self::MAX_CANVAS_PIXELS) {
@@ -76,8 +70,12 @@ final class TemplateGroupDimensionFormData
         }
     }
 
-    public function customDimension(): TemplateDimension
+    public function dimension(): TemplateDimension
     {
+        if ($this->preset !== null) {
+            return TemplateDimension::fromPreset($this->preset);
+        }
+
         assert($this->unit !== null && $this->width !== null && $this->height !== null);
 
         return new TemplateDimension($this->unit, $this->width, $this->height);

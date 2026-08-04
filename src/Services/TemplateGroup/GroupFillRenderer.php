@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\TemplateGroup;
 
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
@@ -47,7 +46,7 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawPlacements `imagePlacements[<variantId>][<inputId>]` per-dimension placement overrides
      */
     public function renderPng(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         array $rawTextValues,
         array $rawHiddenValues,
         array $rawImages,

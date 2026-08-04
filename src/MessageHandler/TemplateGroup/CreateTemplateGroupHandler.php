@@ -10,8 +10,6 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplate;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Message\TemplateGroup\CreateTemplateGroup;
@@ -19,9 +17,6 @@ use WBoost\Web\Repository\TemplateCategoryRepository;
 use WBoost\Web\Repository\TemplateRepository;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\ProjectRepository;
-use WBoost\Web\Repository\SocialNetworkCategoryRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Services\ProvideIdentity;
@@ -36,12 +31,9 @@ readonly final class CreateTemplateGroupHandler
     public function __construct(
         private ProjectRepository $projectRepository,
         private TemplateGroupRepository $templateGroupRepository,
-        private SocialNetworkTemplateRepository $socialTemplateRepository,
-        private SocialNetworkTemplateVariantRepository $socialVariantRepository,
-        private SocialNetworkCategoryRepository $socialCategoryRepository,
         private TemplateRepository $templateRepository,
-        private TemplateVariantRepository $customVariantRepository,
-        private TemplateCategoryRepository $customCategoryRepository,
+        private TemplateVariantRepository $variantRepository,
+        private TemplateCategoryRepository $categoryRepository,
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private Filesystem $filesystem,
@@ -59,13 +51,9 @@ readonly final class CreateTemplateGroupHandler
         $project = $this->projectRepository->get($message->projectId);
         $now = $this->clock->now();
 
-        $sourceVariant = null;
-
-        if ($message->sourceSocialVariantId !== null) {
-            $sourceVariant = $this->socialVariantRepository->get($message->sourceSocialVariantId);
-        } elseif ($message->sourceCustomVariantId !== null) {
-            $sourceVariant = $this->customVariantRepository->get($message->sourceCustomVariantId);
-        }
+        $sourceVariant = $message->sourceVariantId !== null
+            ? $this->variantRepository->get($message->sourceVariantId)
+            : null;
 
         // Seeded variants inherit the source design's background style verbatim
         // (zero conversion risk for old designs); fresh groups are layer-mode.
@@ -74,80 +62,44 @@ readonly final class CreateTemplateGroupHandler
         $group = new TemplateGroup($message->groupId, $project, $now, $message->name);
         $this->templateGroupRepository->add($group);
 
-        if ($message->socialVariants !== []) {
-            $category = $message->socialCategoryId !== null
-                ? $this->socialCategoryRepository->get($message->socialCategoryId)
-                : null;
-
-            $template = new SocialNetworkTemplate(
-                $this->provideIdentity->next(),
-                $project,
-                $category,
-                $now,
-                $message->name,
-                null,
-                $this->socialTemplateRepository->count($project->id),
-            );
-
-            $template->assignToGroup($group);
-            $this->socialTemplateRepository->add($template);
-
-            foreach ($message->socialVariants as $selection) {
-                $variantId = $this->provideIdentity->next();
-
-                $background = $this->resolveBackground("social-networks/$variantId", $selection->backgroundImage, $sourceVariant);
-
-                $variant = new SocialNetworkTemplateVariant(
-                    $variantId,
-                    $template,
-                    $selection->dimension,
-                    $background?->path,
-                    $now,
-                    $mode,
-                );
-
-                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background, $mode);
-                $variant->assignToGroup($group);
-                $this->socialVariantRepository->add($variant);
-            }
+        if ($message->variants === []) {
+            return;
         }
 
-        if ($message->customVariants !== []) {
-            $category = $message->customCategoryId !== null
-                ? $this->customCategoryRepository->get($message->customCategoryId)
-                : null;
+        $category = $message->categoryId !== null
+            ? $this->categoryRepository->get($message->categoryId)
+            : null;
 
-            $template = new Template(
-                $this->provideIdentity->next(),
-                $project,
-                $category,
+        $template = new Template(
+            $this->provideIdentity->next(),
+            $project,
+            $category,
+            $now,
+            $message->name,
+            null,
+            $this->templateRepository->count($project->id),
+        );
+
+        $template->assignToGroup($group);
+        $this->templateRepository->add($template);
+
+        foreach ($message->variants as $selection) {
+            $variantId = $this->provideIdentity->next();
+
+            $background = $this->resolveBackground("custom-templates/$variantId", $selection->backgroundImage, $sourceVariant);
+
+            $variant = new TemplateVariant(
+                $variantId,
+                $template,
+                $selection->dimension,
+                $background?->path,
                 $now,
-                $message->name,
-                null,
-                $this->templateRepository->count($project->id),
+                $mode,
             );
 
-            $template->assignToGroup($group);
-            $this->templateRepository->add($template);
-
-            foreach ($message->customVariants as $selection) {
-                $variantId = $this->provideIdentity->next();
-
-                $background = $this->resolveBackground("custom-templates/$variantId", $selection->backgroundImage, $sourceVariant);
-
-                $variant = new TemplateVariant(
-                    $variantId,
-                    $template,
-                    $selection->dimension,
-                    $background?->path,
-                    $now,
-                    $mode,
-                );
-
-                $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background, $mode);
-                $variant->assignToGroup($group);
-                $this->customVariantRepository->add($variant);
-            }
+            $this->seedDesign($variant, $sourceVariant, $selection->dimension->width(), $selection->dimension->height(), $background, $mode);
+            $variant->assignToGroup($group);
+            $this->variantRepository->add($variant);
         }
     }
 
@@ -161,7 +113,7 @@ readonly final class CreateTemplateGroupHandler
     private function resolveBackground(
         string $pathPrefix,
         null|UploadedFile $backgroundImage,
-        null|SocialNetworkTemplateVariant|TemplateVariant $sourceVariant,
+        null|TemplateVariant $sourceVariant,
     ): null|StoredBackgroundImage {
         if ($backgroundImage !== null) {
             $bytes = $backgroundImage->getContent();
@@ -197,8 +149,8 @@ readonly final class CreateTemplateGroupHandler
      * (readonly value objects, shared inputIds = the group join key).
      */
     private function seedDesign(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
-        null|SocialNetworkTemplateVariant|TemplateVariant $sourceVariant,
+        TemplateVariant $variant,
+        null|TemplateVariant $sourceVariant,
         int $targetWidth,
         int $targetHeight,
         null|StoredBackgroundImage $background,

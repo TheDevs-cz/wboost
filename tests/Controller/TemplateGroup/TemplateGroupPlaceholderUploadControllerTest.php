@@ -8,7 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Value\EditorImageInput;
@@ -119,8 +119,8 @@ final class TemplateGroupPlaceholderUploadControllerTest extends WebTestCase
     {
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
 
-        $variant = $entityManager->find(SocialNetworkTemplateVariant::class, TestDataFixture::GROUPED_SOCIAL_VARIANT_ID);
-        self::assertInstanceOf(SocialNetworkTemplateVariant::class, $variant);
+        $variant = $entityManager->find(TemplateVariant::class, TestDataFixture::GROUPED_PRESET_VARIANT_ID);
+        self::assertInstanceOf(TemplateVariant::class, $variant);
 
         $variant->imageInputs = [
             new EditorImageInput(TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID, 'photo', null, true, true, false, true, $allowedDirectoryIds),

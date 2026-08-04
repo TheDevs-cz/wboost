@@ -14,10 +14,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\FileDirectory;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
-use WBoost\Web\Message\SocialNetwork\EditSocialNetworkTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
@@ -47,11 +45,10 @@ final class TemplateGroupEditorController extends AbstractController
         TemplateGroup $group,
         Request $request,
     ): Response {
-        $socialVariants = $this->members->socialVariants($group->id);
-        $customVariants = $this->members->customVariants($group->id);
+        $memberVariants = $this->members->variants($group->id);
 
         if ($request->isMethod('POST')) {
-            return $this->save($request, $socialVariants, $customVariants);
+            return $this->save($request, $memberVariants);
         }
 
         $fonts = $this->getFonts->allForProject($group->project->id);
@@ -72,22 +69,9 @@ final class TemplateGroupEditorController extends AbstractController
 
         $variants = [];
 
-        foreach ($socialVariants as $variant) {
+        foreach ($memberVariants as $variant) {
             $variants[] = [
                 'variant' => $variant,
-                'module' => 'social',
-                'module_label' => 'Sociální sítě',
-                'dimension_label' => sprintf('%s (%dx%dpx)', $variant->dimension->value, $variant->dimension->width(), $variant->dimension->height()),
-                'edit_variant_url' => $this->generateUrl('edit_social_network_template_variant', ['variantId' => $variant->id]),
-                'export_url' => $this->generateUrl('social_network_template_variant_export', ['variantId' => $variant->id]),
-            ];
-        }
-
-        foreach ($customVariants as $variant) {
-            $variants[] = [
-                'variant' => $variant,
-                'module' => 'custom',
-                'module_label' => 'Šablony',
                 'dimension_label' => sprintf('%s (%dx%dpx)', $variant->dimension->label(), $variant->dimension->width(), $variant->dimension->height()),
                 'edit_variant_url' => $this->generateUrl('edit_template_variant', ['variantId' => $variant->id]),
                 'export_url' => $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
@@ -101,7 +85,7 @@ final class TemplateGroupEditorController extends AbstractController
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
             'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($group->project->id)),
-            'menu_item' => 'template_groups',
+            'menu_item' => 'templates',
             'variants' => $variants,
             'save_url' => $this->generateUrl('template_group_editor', ['groupId' => $group->id]),
         ]);
@@ -112,10 +96,9 @@ final class TemplateGroupEditorController extends AbstractController
      * one entry per included variant, same field semantics as the single-variant
      * editor form. Validates ALL entries before dispatching anything.
      *
-     * @param list<SocialNetworkTemplateVariant> $socialVariants
-     * @param list<TemplateVariant> $customVariants
+     * @param list<TemplateVariant> $memberVariants
      */
-    private function save(Request $request, array $socialVariants, array $customVariants): Response
+    private function save(Request $request, array $memberVariants): Response
     {
         $token = $request->request->getString('_token');
 
@@ -136,14 +119,9 @@ final class TemplateGroupEditorController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $socialById = [];
-        foreach ($socialVariants as $variant) {
-            $socialById[$variant->id->toString()] = $variant;
-        }
-
-        $customById = [];
-        foreach ($customVariants as $variant) {
-            $customById[$variant->id->toString()] = $variant;
+        $variantsById = [];
+        foreach ($memberVariants as $variant) {
+            $variantsById[$variant->id->toString()] = $variant;
         }
 
         $validated = [];
@@ -154,7 +132,7 @@ final class TemplateGroupEditorController extends AbstractController
             // Only variants CREATED via the group are group-editable — a variant
             // added to a grouped template manually carries no group FK and is
             // rejected here.
-            if (!isset($socialById[$variantId]) && !isset($customById[$variantId])) {
+            if (!isset($variantsById[$variantId])) {
                 return $this->json([
                     'status' => 'error',
                     'message' => sprintf('Variant %s does not belong to this group.', $variantId),
@@ -172,8 +150,7 @@ final class TemplateGroupEditorController extends AbstractController
             $imagePreview = $payload['imagePreview'] ?? '';
 
             $validated[] = [
-                'module' => isset($socialById[$variantId]) ? 'social' : 'custom',
-                'variant' => $socialById[$variantId] ?? $customById[$variantId],
+                'variant' => $variantsById[$variantId],
                 'canvas' => $payload['canvas'],
                 'textInputs' => $payload['textInputs'],
                 'imageInputs' => is_string($imageInputs) ? $imageInputs : '[]',
@@ -182,23 +159,13 @@ final class TemplateGroupEditorController extends AbstractController
         }
 
         foreach ($validated as $entry) {
-            $message = $entry['module'] === 'social'
-                ? new EditSocialNetworkTemplateVariantCanvasEditor(
-                    $entry['variant']->id,
-                    $entry['canvas'],
-                    EditorTextInput::createCollectionFromJson($entry['textInputs']),
-                    EditorImageInput::createCollectionFromJson($entry['imageInputs']),
-                    previewImageDataUri: $entry['imagePreview'],
-                )
-                : new EditTemplateVariantCanvasEditor(
-                    $entry['variant']->id,
-                    $entry['canvas'],
-                    EditorTextInput::createCollectionFromJson($entry['textInputs']),
-                    EditorImageInput::createCollectionFromJson($entry['imageInputs']),
-                    previewImageDataUri: $entry['imagePreview'],
-                );
-
-            $this->bus->dispatch($message);
+            $this->bus->dispatch(new EditTemplateVariantCanvasEditor(
+                $entry['variant']->id,
+                $entry['canvas'],
+                EditorTextInput::createCollectionFromJson($entry['textInputs']),
+                EditorImageInput::createCollectionFromJson($entry['imageInputs']),
+                previewImageDataUri: $entry['imagePreview'],
+            ));
         }
 
         return $this->json([

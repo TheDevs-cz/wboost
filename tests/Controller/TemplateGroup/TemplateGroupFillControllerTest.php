@@ -39,8 +39,8 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         // endpoint; the manually-added ungrouped variant gets none.
         $previews = $crawler->filter('[data-group-fill-target="preview"]');
         self::assertCount(2, $previews);
-        self::assertSelectorExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::GROUPED_SOCIAL_VARIANT_ID . '"]');
-        self::assertSelectorExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::GROUPED_CUSTOM_VARIANT_ID . '"]');
+        self::assertSelectorExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::GROUPED_PRESET_VARIANT_ID . '"]');
+        self::assertSelectorExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::GROUPED_FREEFORM_VARIANT_ID . '"]');
         self::assertSelectorNotExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID . '"]');
 
         // The form POSTs to the group ZIP export.

@@ -13,7 +13,6 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
@@ -71,12 +70,9 @@ final class TemplateGroupPlaceholderUploadController extends AbstractController
         ));
     }
 
-    private function resolveSlotVariant(TemplateGroup $group, string $inputId): null|SocialNetworkTemplateVariant|TemplateVariant
+    private function resolveSlotVariant(TemplateGroup $group, string $inputId): null|TemplateVariant
     {
-        /** @var list<SocialNetworkTemplateVariant|TemplateVariant> $variants */
-        $variants = [...$this->members->socialVariants($group->id), ...$this->members->customVariants($group->id)];
-
-        foreach ($variants as $variant) {
+        foreach ($this->members->variants($group->id) as $variant) {
             foreach ($variant->imageInputs as $input) {
                 if ($input->inputId === $inputId) {
                     return $variant;

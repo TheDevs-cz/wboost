@@ -48,7 +48,7 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         // One PNG per member variant, named by group + dimension.
         $entries = $this->readZipEntries((string) $response->getContent());
         self::assertSame(
-            ['group-campaign-1-1-1080x1080.png', 'group-campaign-210-297-mm.png'],
+            ['group-campaign-1-1.png', 'group-campaign-210-297-mm.png'],
             array_keys($entries),
         );
 
@@ -59,8 +59,8 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         // The unified value fanned out to BOTH variants, joined by inputId.
         $calls = $this->getRendererFake()->calls;
         self::assertCount(2, $calls);
-        self::assertSame(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID, $calls[0]['variantId']);
-        self::assertSame(TestDataFixture::GROUPED_CUSTOM_VARIANT_ID, $calls[1]['variantId']);
+        self::assertSame(TestDataFixture::GROUPED_PRESET_VARIANT_ID, $calls[0]['variantId']);
+        self::assertSame(TestDataFixture::GROUPED_FREEFORM_VARIANT_ID, $calls[1]['variantId']);
 
         foreach ($calls as $call) {
             self::assertSame([TestDataFixture::GROUP_SHARED_INPUT_ID => 'Letní kampaň'], $call['texts']);
@@ -133,8 +133,8 @@ final class TemplateGroupExportControllerTest extends WebTestCase
                 ],
             ],
             'imagePlacements' => [
-                // Only the custom-template dimension was unlinked.
-                TestDataFixture::GROUPED_CUSTOM_VARIANT_ID => [
+                // Only the free-form dimension was unlinked.
+                TestDataFixture::GROUPED_FREEFORM_VARIANT_ID => [
                     TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
                         'scale' => '2',
                         'offsetXRatio' => '0.3',
@@ -142,7 +142,7 @@ final class TemplateGroupExportControllerTest extends WebTestCase
                 ],
                 // An empty entry is what a dimension that still follows the
                 // shared placement posts — it must NOT count as an override.
-                TestDataFixture::GROUPED_SOCIAL_VARIANT_ID => [
+                TestDataFixture::GROUPED_PRESET_VARIANT_ID => [
                     TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
                         'scale' => '',
                         'offsetXRatio' => '',
@@ -158,12 +158,12 @@ final class TemplateGroupExportControllerTest extends WebTestCase
             $byVariant[$call['variantId']] = $call['images'][TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID] ?? null;
         }
 
-        $shared = $byVariant[TestDataFixture::GROUPED_SOCIAL_VARIANT_ID];
+        $shared = $byVariant[TestDataFixture::GROUPED_PRESET_VARIANT_ID];
         self::assertIsArray($shared);
         self::assertSame(1.4, $shared['scale']);
         self::assertSame(-0.12, $shared['offsetXRatio']);
 
-        $own = $byVariant[TestDataFixture::GROUPED_CUSTOM_VARIANT_ID];
+        $own = $byVariant[TestDataFixture::GROUPED_FREEFORM_VARIANT_ID];
         self::assertIsArray($own);
         self::assertSame(2.0, $own['scale']);
         self::assertSame(0.3, $own['offsetXRatio']);
@@ -209,7 +209,7 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
-        $client->request('POST', $this->previewUrl(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID), [
+        $client->request('POST', $this->previewUrl(TestDataFixture::GROUPED_PRESET_VARIANT_ID), [
             'textValues' => [
                 TestDataFixture::GROUP_SHARED_INPUT_ID => 'Náhled',
             ],
@@ -222,7 +222,7 @@ final class TemplateGroupExportControllerTest extends WebTestCase
 
         $calls = $this->getRendererFake()->calls;
         self::assertCount(1, $calls);
-        self::assertSame(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID, $calls[0]['variantId']);
+        self::assertSame(TestDataFixture::GROUPED_PRESET_VARIANT_ID, $calls[0]['variantId']);
         self::assertSame([TestDataFixture::GROUP_SHARED_INPUT_ID => 'Náhled'], $calls[0]['texts']);
     }
 

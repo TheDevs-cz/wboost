@@ -9,7 +9,6 @@ use WBoost\Web\Exceptions\TemplateGroupNotFound;
 use WBoost\Web\Message\TemplateGroup\DeleteTemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Repository\TemplateRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 
 #[AsMessageHandler]
@@ -18,7 +17,6 @@ readonly final class DeleteTemplateGroupHandler
     public function __construct(
         private TemplateGroupRepository $templateGroupRepository,
         private GetTemplateGroupMembers $members,
-        private SocialNetworkTemplateRepository $socialTemplateRepository,
         private TemplateRepository $templateRepository,
     ) {
     }
@@ -33,12 +31,6 @@ readonly final class DeleteTemplateGroupHandler
         if ($message->deleteTemplates) {
             // Template removal cascades to ALL its variants at the DB level,
             // including variants a user added to the grouped template manually.
-            $socialTemplate = $this->members->socialTemplate($group->id);
-
-            if ($socialTemplate !== null) {
-                $this->socialTemplateRepository->remove($socialTemplate);
-            }
-
             $template = $this->members->template($group->id);
 
             if ($template !== null) {

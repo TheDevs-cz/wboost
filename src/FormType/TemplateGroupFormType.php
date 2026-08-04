@@ -15,7 +15,6 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Image;
 use WBoost\Web\Entity\TemplateCategory;
-use WBoost\Web\Entity\SocialNetworkCategory;
 use WBoost\Web\FormData\TemplateGroupFormData;
 use WBoost\Web\Value\DimensionPreset;
 
@@ -35,37 +34,22 @@ final class TemplateGroupFormType extends AbstractType
             'empty_data' => '',
         ]);
 
-        /** @var array<SocialNetworkCategory> $socialCategories */
-        $socialCategories = $options['social_categories'];
-        $socialChoices = [];
+        /** @var array<TemplateCategory> $categories */
+        $categories = $options['categories'];
+        $categoryChoices = [];
 
-        foreach ($socialCategories as $category) {
-            $socialChoices[$category->name] = $category->id->toString();
+        foreach ($categories as $category) {
+            $categoryChoices[$category->name] = $category->id->toString();
         }
 
-        $builder->add('socialCategory', ChoiceType::class, [
-            'label' => 'Kategorie (sociální sítě)',
+        $builder->add('category', ChoiceType::class, [
+            'label' => 'Kategorie',
             'required' => false,
             'placeholder' => '- Bez kategorie -',
-            'choices' => $socialChoices,
+            'choices' => $categoryChoices,
         ]);
 
-        /** @var array<TemplateCategory> $customCategories */
-        $customCategories = $options['custom_categories'];
-        $customChoices = [];
-
-        foreach ($customCategories as $category) {
-            $customChoices[$category->name] = $category->id->toString();
-        }
-
-        $builder->add('customCategory', ChoiceType::class, [
-            'label' => 'Kategorie (šablony)',
-            'required' => false,
-            'placeholder' => '- Bez kategorie -',
-            'choices' => $customChoices,
-        ]);
-
-        $builder->add('socialDimensions', EnumType::class, [
+        $builder->add('presetDimensions', EnumType::class, [
             'label' => 'Rozměry pro sociální sítě',
             'class' => DimensionPreset::class,
             'multiple' => true,
@@ -102,17 +86,13 @@ final class TemplateGroupFormType extends AbstractType
         ]);
 
         // "Create from existing template" source, carried through submits as
-        // hidden fields (the picker page fills them via query parameters).
-        $builder->add('sourceModule', HiddenType::class, [
-            'required' => false,
-        ]);
-
+        // a hidden field (the picker page fills it via a query parameter).
         $builder->add('sourceVariantId', HiddenType::class, [
             'required' => false,
         ]);
 
         $builder->add('customDimensions', CollectionType::class, [
-            'label' => 'Vlastní rozměry',
+            'label' => 'Tiskové a vlastní rozměry',
             'entry_type' => TemplateVariantFormType::class,
             'entry_options' => ['label' => false],
             'allow_add' => true,
@@ -126,8 +106,7 @@ final class TemplateGroupFormType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class' => TemplateGroupFormData::class,
-            'social_categories' => [],
-            'custom_categories' => [],
+            'categories' => [],
         ]);
     }
 }

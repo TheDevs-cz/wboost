@@ -50,7 +50,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client->request('POST', $this->wizardUrl(), [
             'template_group_form' => [
                 'name' => 'Wizard Group',
-                'socialDimensions' => ['1:1', '9:16'],
+                'presetDimensions' => ['1:1', '9:16'],
                 '_token' => $token,
             ],
         ], [
@@ -63,7 +63,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $location = (string) $client->getResponse()->headers->get('Location');
         self::assertMatchesRegularExpression('#^/template-group/[0-9a-f-]{36}/editor$#', $location);
 
-        // The freshly created group editor renders with two social tabs.
+        // The freshly created group editor renders with two preset tabs.
         $client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Wizard Group');
@@ -86,7 +86,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client->request('POST', $this->wizardUrl(), [
             'template_group_form' => [
                 'name' => 'No Background Group',
-                'socialDimensions' => ['1:1'],
+                'presetDimensions' => ['1:1'],
                 '_token' => $token,
             ],
         ]);
@@ -95,7 +95,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
 
         $group = $this->groupByName('No Background Group');
         $members = self::getContainer()->get(GetTemplateGroupMembers::class);
-        $variants = $members->socialVariants($group->id);
+        $variants = $members->variants($group->id);
 
         self::assertCount(1, $variants);
         self::assertSame(BackgroundMode::Layer, $variants[0]->backgroundMode);
@@ -118,18 +118,17 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
-        $client->request('GET', $this->wizardUrl() . '?sourceModule=social&sourceVariantId=' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
+        $client->request('GET', $this->wizardUrl() . '?sourceVariantId=' . TestDataFixture::GROUPED_PRESET_VARIANT_ID);
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Výchozí design');
-        self::assertSelectorExists('input[name="template_group_form[name]"][value="Insta Template 1"]');
-        // The source variant's dimension comes pre-checked.
-        self::assertSelectorExists('input[name="template_group_form[socialDimensions][]"][value="1:1"][checked]');
-        // The source travels through the submit as hidden fields.
-        self::assertSelectorExists('input[name="template_group_form[sourceModule]"][value="social"]');
+        self::assertSelectorExists('input[name="template_group_form[name]"][value="Group Campaign"]');
+        // The source variant's preset dimension comes pre-checked.
+        self::assertSelectorExists('input[name="template_group_form[presetDimensions][]"][value="1:1"][checked]');
+        // The source travels through the submit as a hidden field.
         self::assertSelectorExists(sprintf(
             'input[name="template_group_form[sourceVariantId]"][value="%s"]',
-            TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
+            TestDataFixture::GROUPED_PRESET_VARIANT_ID,
         ));
     }
 
@@ -143,7 +142,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
 
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
-        $sourceUrl = $this->wizardUrl() . '?sourceModule=social&sourceVariantId=' . TestDataFixture::GROUPED_SOCIAL_VARIANT_ID;
+        $sourceUrl = $this->wizardUrl() . '?sourceVariantId=' . TestDataFixture::GROUPED_PRESET_VARIANT_ID;
         $crawler = $client->request('GET', $sourceUrl);
         self::assertResponseIsSuccessful();
 
@@ -153,9 +152,8 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client->request('POST', $this->wizardUrl(), [
             'template_group_form' => [
                 'name' => 'Seeded From Existing',
-                'socialDimensions' => ['9:16'],
-                'sourceModule' => 'social',
-                'sourceVariantId' => TestDataFixture::GROUPED_SOCIAL_VARIANT_ID,
+                'presetDimensions' => ['9:16'],
+                'sourceVariantId' => TestDataFixture::GROUPED_PRESET_VARIANT_ID,
                 '_token' => $token,
             ],
         ]);
@@ -175,10 +173,10 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
         // Picker link tampered to a variant of another project.
-        $client->request('GET', $this->wizardUrl() . '?sourceModule=social&sourceVariantId=' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID);
+        $client->request('GET', $this->wizardUrl() . '?sourceVariantId=' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_2_ID);
         self::assertResponseStatusCodeSame(404);
 
-        // Same tamper via the hidden fields on submit: 404 before dispatch.
+        // Same tamper via the hidden field on submit: 404 before dispatch.
         $crawler = $client->request('GET', $this->wizardUrl());
         $token = $crawler->filter('input[name="template_group_form[_token]"]')->attr('value');
         self::assertIsString($token);
@@ -186,9 +184,8 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client->request('POST', $this->wizardUrl(), [
             'template_group_form' => [
                 'name' => 'Tampered',
-                'socialDimensions' => ['1:1'],
-                'sourceModule' => 'social',
-                'sourceVariantId' => TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID,
+                'presetDimensions' => ['1:1'],
+                'sourceVariantId' => TestDataFixture::CUSTOM_TEMPLATE_VARIANT_2_ID,
                 '_token' => $token,
             ],
         ]);

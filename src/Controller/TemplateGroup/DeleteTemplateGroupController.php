@@ -43,7 +43,7 @@ final class DeleteTemplateGroupController extends AbstractController
             ? 'Skupina smazána včetně šablon!'
             : 'Seskupení zrušeno, šablony zůstaly zachovány.');
 
-        return $this->redirectToRoute('template_groups', [
+        return $this->redirectToRoute('templates', [
             'projectId' => $project->id,
         ]);
     }

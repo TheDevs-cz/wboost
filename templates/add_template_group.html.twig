@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% set active_menu_item = 'template_groups' %}
+{% set active_menu_item = 'templates' %}
 
 {% block title %}Nová skupina šablon{% endblock %}
 
@@ -8,7 +8,7 @@
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('template_groups', {'projectId': project.id}) }}">Skupiny šablon</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
@@ -24,7 +24,7 @@
                 <div class="me-auto">
                     <h4 class="mt-0 mb-1">
                         Výchozí design: {{ source_variant.template.name }}
-                        <span class="badge bg-primary-lighten text-primary ms-1">{{ source_module == 'social' ? source_variant.dimension.value : source_variant.dimension.label }}</span>
+                        <span class="badge bg-primary-lighten text-primary ms-1">{{ source_variant.dimension.label }}</span>
                     </h4>
                     <p class="text-muted mb-0">Každý vybraný rozměr vznikne jako kopie tohoto designu, poměrově přepočítaná. Pozadí jsou proto nepovinná — rozměry bez vlastního pozadí převezmou pozadí výchozí šablony. Původní šablona zůstane beze změny.</p>
                 </div>
@@ -39,32 +39,31 @@
     <div class="card">
         <div class="card-body">
             <h4 class="header-title mb-1">1. Základní údaje</h4>
-            <p class="text-muted">Skupina vytvoří jednu šablonu pro sociální sítě a/nebo jednu šablonu ve vlastních rozměrech — se stejným designem ve všech vybraných rozměrech.</p>
+            <p class="text-muted">Skupina vytvoří jednu šablonu se stejným designem ve všech vybraných rozměrech — pro sociální sítě i tiskoviny.</p>
 
             {# g-* gutters space fields BETWEEN each other (mobile stacking
                included) with no trailing margin — the theme's default mb-3 row
                wrapper wasted a full spacer under every single-row section. #}
             <div class="row g-3">
-                <div class="col-md-4">{{ form_row(form.name, {row_attr: {class: 'mb-0'}}) }}</div>
-                <div class="col-md-4">{{ form_row(form.socialCategory, {row_attr: {class: 'mb-0'}}) }}</div>
-                <div class="col-md-4">{{ form_row(form.customCategory, {row_attr: {class: 'mb-0'}}) }}</div>
+                <div class="col-md-6">{{ form_row(form.name, {row_attr: {class: 'mb-0'}}) }}</div>
+                <div class="col-md-6">{{ form_row(form.category, {row_attr: {class: 'mb-0'}}) }}</div>
             </div>
         </div>
     </div>
 
     <div class="card">
         <div class="card-body">
-            <h4 class="header-title mb-1">2. Rozměry pro sociální sítě</h4>
+            <h4 class="header-title mb-1">2. Sociální sítě</h4>
             {% if source_variant %}
                 <p class="text-muted">Zaškrtněte rozměry, které chcete vytvořit. Pozadí je nepovinné — rozměry bez vlastního pozadí převezmou pozadí výchozí šablony.</p>
             {% else %}
                 <p class="text-muted">Zaškrtněte rozměry, které chcete vytvořit. Každá varianta potřebuje pozadí — vlastní, nebo společné (níže).</p>
             {% endif %}
 
-            {{ form_errors(form.socialDimensions) }}
+            {{ form_errors(form.presetDimensions) }}
 
             <div class="row g-2 mb-3">
-                {% for checkbox in form.socialDimensions %}
+                {% for checkbox in form.presetDimensions %}
                     <div class="col-md-4">
                         <div class="border rounded p-3">
                             <div class="form-check form-switch">
@@ -86,7 +85,7 @@
 
     <div class="card">
         <div class="card-body" data-controller="form-collection">
-            <h4 class="header-title mb-1">3. Vlastní rozměry (tiskoviny)</h4>
+            <h4 class="header-title mb-1">3. Tiskové a vlastní rozměry</h4>
             <p class="text-muted">Přidejte libovolný počet vlastních rozměrů — pro každý vznikne varianta šablony. Fyzické jednotky (mm/cm) se převádí v tiskové kvalitě 300 DPI.</p>
 
             <div data-form-collection-target="collection"

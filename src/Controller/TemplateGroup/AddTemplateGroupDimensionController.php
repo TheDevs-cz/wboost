@@ -14,8 +14,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\FormData\TemplateGroupDimensionFormData;
 use WBoost\Web\FormType\TemplateGroupDimensionFormType;
-use WBoost\Web\Message\TemplateGroup\AddTemplateGroupCustomDimension;
-use WBoost\Web\Message\TemplateGroup\AddTemplateGroupSocialDimension;
+use WBoost\Web\Message\TemplateGroup\AddTemplateGroupDimension;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 
@@ -40,31 +39,14 @@ final class AddTemplateGroupDimensionController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $variantId = $this->provideIdentity->next();
-            $backgroundImage = $data->backgroundImage;
-
-            if ($data->module === TemplateGroupDimensionFormData::MODULE_SOCIAL) {
-                $dimension = $data->socialDimension;
-                assert($dimension !== null);
-
-                $this->bus->dispatch(
-                    new AddTemplateGroupSocialDimension(
-                        $group->id,
-                        $variantId,
-                        $dimension,
-                        $backgroundImage,
-                    ),
-                );
-            } else {
-                $this->bus->dispatch(
-                    new AddTemplateGroupCustomDimension(
-                        $group->id,
-                        $variantId,
-                        $data->customDimension(),
-                        $backgroundImage,
-                    ),
-                );
-            }
+            $this->bus->dispatch(
+                new AddTemplateGroupDimension(
+                    $group->id,
+                    $this->provideIdentity->next(),
+                    $data->dimension(),
+                    $data->backgroundImage,
+                ),
+            );
 
             $this->addFlash('success', 'Rozměr přidán do skupiny!');
 

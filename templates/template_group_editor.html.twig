@@ -7,11 +7,11 @@
 
     Controller vars: project, group, fonts, font_faces, gallery_directories,
     menu_item, save_url, and `variants` — ordered list of
-    {variant, module, module_label, dimension_label, edit_variant_url, export_url}.
+    {variant, dimension_label, edit_variant_url, export_url}.
 #}
 {% extends 'base.html.twig' %}
 
-{% set active_menu_item = 'template_groups' %}
+{% set active_menu_item = 'templates' %}
 
 {% block title %}Skupinový editor — {{ group.name }}{% endblock %}
 
@@ -19,7 +19,7 @@
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('template_groups', {'projectId': project.id}) }}">Skupiny šablon</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item active">{{ group.name }}</li>
     </ol>
 {% endblock %}
@@ -96,8 +96,6 @@
             {%- for v in variants -%}
                 {
                     "id": {{ v.variant.id.toString|json_encode|raw }},
-                    "module": {{ v.module|json_encode|raw }},
-                    "moduleLabel": {{ v.module_label|json_encode|raw }},
                     "label": {{ v.dimension_label|json_encode|raw }},
                     "width": {{ v.variant.dimension.width }},
                     "height": {{ v.variant.dimension.height }},
@@ -158,7 +156,6 @@
                             </div>
                             <div class="small text-center mt-1">
                                 {{ v.dimension_label }}
-                                <span class="badge bg-secondary-lighten text-secondary">{{ v.module_label }}</span>
                             </div>
                             <div class="d-flex align-items-center justify-content-center gap-2 mt-1">
                                 <div class="form-check form-switch mb-0" title="Zahrnout do skupinových úprav (neuložené změny se ukládají vždy)">

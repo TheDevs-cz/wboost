@@ -6,14 +6,14 @@ namespace WBoost\Web\Message\TemplateGroup;
 
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use WBoost\Web\Value\DimensionPreset;
+use WBoost\Web\Value\TemplateDimension;
 
-readonly final class AddTemplateGroupSocialDimension
+readonly final class AddTemplateGroupDimension
 {
     public function __construct(
         public UuidInterface $groupId,
         public UuidInterface $variantId,
-        public DimensionPreset $dimension,
+        public TemplateDimension $dimension,
         public null|UploadedFile $backgroundImage,
     ) {
     }

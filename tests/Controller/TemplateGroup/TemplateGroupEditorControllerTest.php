@@ -9,7 +9,6 @@ use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use WBoost\Web\Repository\TemplateVariantRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
 
@@ -23,7 +22,7 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
         return '/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/editor';
     }
 
-    public function testEditorRendersTabsForBothModulesAsAdmin(): void
+    public function testEditorRendersTabsForEveryMemberVariantAsAdmin(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
@@ -35,30 +34,30 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
         self::assertSelectorExists('[data-controller~="canvas-editor"]');
         // One rail card per GROUP member — the manually-added ungrouped
         // variant on the grouped template gets NO tab.
-        self::assertSelectorExists('[data-group-editor-target="card"][data-variant-id="' . TestDataFixture::GROUPED_SOCIAL_VARIANT_ID . '"]');
-        self::assertSelectorExists('[data-group-editor-target="card"][data-variant-id="' . TestDataFixture::GROUPED_CUSTOM_VARIANT_ID . '"]');
+        self::assertSelectorExists('[data-group-editor-target="card"][data-variant-id="' . TestDataFixture::GROUPED_PRESET_VARIANT_ID . '"]');
+        self::assertSelectorExists('[data-group-editor-target="card"][data-variant-id="' . TestDataFixture::GROUPED_FREEFORM_VARIANT_ID . '"]');
         self::assertSelectorNotExists('[data-group-editor-target="card"][data-variant-id="' . TestDataFixture::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID . '"]');
     }
 
-    public function testSavePersistsCanvasOfBothModules(): void
+    public function testSavePersistsCanvasOfEveryMemberVariant(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
-        $socialCanvas = '{"version":"5.2.4","objects":[],"note":"social-updated"}';
-        $customCanvas = '{"version":"5.2.4","objects":[],"note":"custom-updated"}';
+        $presetCanvas = '{"version":"5.2.4","objects":[],"note":"preset-updated"}';
+        $freeformCanvas = '{"version":"5.2.4","objects":[],"note":"freeform-updated"}';
 
         $client->request('POST', $this->editorUrl(), [
             '_token' => $this->csrfToken($client),
             'variants' => [
-                TestDataFixture::GROUPED_SOCIAL_VARIANT_ID => [
-                    'canvas' => $socialCanvas,
+                TestDataFixture::GROUPED_PRESET_VARIANT_ID => [
+                    'canvas' => $presetCanvas,
                     'textInputs' => '[]',
                     'imageInputs' => '[]',
                     'imagePreview' => '',
                 ],
-                TestDataFixture::GROUPED_CUSTOM_VARIANT_ID => [
-                    'canvas' => $customCanvas,
+                TestDataFixture::GROUPED_FREEFORM_VARIANT_ID => [
+                    'canvas' => $freeformCanvas,
                     'textInputs' => '[]',
                     'imageInputs' => '[]',
                     'imagePreview' => '',
@@ -73,13 +72,13 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
 
         self::getContainer()->get(EntityManagerInterface::class)->clear();
 
-        $socialVariant = self::getContainer()->get(SocialNetworkTemplateVariantRepository::class)
-            ->get(Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID));
-        self::assertStringContainsString('social-updated', $socialVariant->canvas);
+        $presetVariant = self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::GROUPED_PRESET_VARIANT_ID));
+        self::assertStringContainsString('preset-updated', $presetVariant->canvas);
 
-        $customVariant = self::getContainer()->get(TemplateVariantRepository::class)
-            ->get(Uuid::fromString(TestDataFixture::GROUPED_CUSTOM_VARIANT_ID));
-        self::assertStringContainsString('custom-updated', $customVariant->canvas);
+        $freeformVariant = self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::GROUPED_FREEFORM_VARIANT_ID));
+        self::assertStringContainsString('freeform-updated', $freeformVariant->canvas);
     }
 
     public function testSaveRejectsVariantNotCreatedViaGroup(): void
@@ -102,7 +101,7 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
 
         self::getContainer()->get(EntityManagerInterface::class)->clear();
-        $variant = self::getContainer()->get(SocialNetworkTemplateVariantRepository::class)
+        $variant = self::getContainer()->get(TemplateVariantRepository::class)
             ->get(Uuid::fromString(TestDataFixture::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID));
         self::assertStringNotContainsString('must-not-persist', $variant->canvas);
     }
@@ -115,11 +114,11 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
         $client->request('POST', $this->editorUrl(), [
             '_token' => $this->csrfToken($client),
             'variants' => [
-                TestDataFixture::GROUPED_SOCIAL_VARIANT_ID => [
+                TestDataFixture::GROUPED_PRESET_VARIANT_ID => [
                     'canvas' => '{"version":"5.2.4","objects":[],"note":"rolled-back"}',
                     'textInputs' => '[]',
                 ],
-                TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID => [
+                TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID => [
                     'canvas' => '{}',
                     'textInputs' => '[]',
                 ],
@@ -131,8 +130,8 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
         // Validation happens BEFORE any dispatch — the valid entry must not
         // have been persisted either.
         self::getContainer()->get(EntityManagerInterface::class)->clear();
-        $variant = self::getContainer()->get(SocialNetworkTemplateVariantRepository::class)
-            ->get(Uuid::fromString(TestDataFixture::GROUPED_SOCIAL_VARIANT_ID));
+        $variant = self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::GROUPED_PRESET_VARIANT_ID));
         self::assertStringNotContainsString('rolled-back', $variant->canvas);
     }
 

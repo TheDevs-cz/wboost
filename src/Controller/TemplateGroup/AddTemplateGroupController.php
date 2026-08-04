@@ -14,32 +14,24 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Project;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\TemplateVariantNotFound;
-use WBoost\Web\Exceptions\SocialNetworkTemplateVariantNotFound;
 use WBoost\Web\FormData\TemplateVariantFormData;
 use WBoost\Web\FormData\TemplateGroupFormData;
 use WBoost\Web\FormType\TemplateGroupFormType;
 use WBoost\Web\Message\TemplateGroup\CreateTemplateGroup;
 use WBoost\Web\Query\GetTemplateCategories;
-use WBoost\Web\Query\GetSocialNetworkCategories;
 use WBoost\Web\Repository\TemplateVariantRepository;
-use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
-use WBoost\Web\Value\GroupCustomVariantSelection;
-use WBoost\Web\Value\GroupSocialVariantSelection;
 
 final class AddTemplateGroupController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private ProvideIdentity $provideIdentity,
-        readonly private GetSocialNetworkCategories $getSocialNetworkCategories,
         readonly private GetTemplateCategories $getTemplateCategories,
-        readonly private SocialNetworkTemplateVariantRepository $socialVariantRepository,
-        readonly private TemplateVariantRepository $customVariantRepository,
+        readonly private TemplateVariantRepository $variantRepository,
     ) {
     }
 
@@ -57,18 +49,16 @@ final class AddTemplateGroupController extends AbstractController
         // "Create from existing template": the picker page links here with the
         // design source in the query string — prefill the wizard from it.
         if (!$request->isMethod('POST')) {
-            $sourceModule = $request->query->getString('sourceModule');
             $sourceVariantId = $request->query->getString('sourceVariantId');
 
-            if ($sourceModule !== '' && $sourceVariantId !== '') {
-                $sourceVariant = $this->resolveSourceVariant($project, $sourceModule, $sourceVariantId);
+            if ($sourceVariantId !== '') {
+                $sourceVariant = $this->resolveSourceVariant($project, $sourceVariantId);
 
-                $data->sourceModule = $sourceModule;
                 $data->sourceVariantId = $sourceVariantId;
                 $data->name = $sourceVariant->template->name;
 
-                if ($sourceVariant instanceof SocialNetworkTemplateVariant) {
-                    $data->socialDimensions = [$sourceVariant->dimension];
+                if ($sourceVariant->dimension->preset !== null) {
+                    $data->presetDimensions = [$sourceVariant->dimension->preset];
                 } else {
                     $row = new TemplateVariantFormData();
                     $row->unit = $sourceVariant->dimension->unit;
@@ -81,37 +71,20 @@ final class AddTemplateGroupController extends AbstractController
         }
 
         $form = $this->createForm(TemplateGroupFormType::class, $data, [
-            'social_categories' => $this->getSocialNetworkCategories->allForProject($project->id),
-            'custom_categories' => $this->getTemplateCategories->allForProject($project->id),
+            'categories' => $this->getTemplateCategories->allForProject($project->id),
         ]);
 
         $form->handleRequest($request);
 
-        // On submit the source travels in hidden fields — re-resolve it so a
-        // tampered id (foreign project, wrong module) 404s before dispatch,
-        // and the banner survives a validation re-render.
+        // On submit the source travels in a hidden field — re-resolve it so a
+        // tampered id (foreign project) 404s before dispatch, and the banner
+        // survives a validation re-render.
         if ($form->isSubmitted() && $data->hasDesignSource()) {
-            $sourceVariant = $this->resolveSourceVariant(
-                $project,
-                (string) $data->sourceModule,
-                (string) $data->sourceVariantId,
-            );
+            $sourceVariant = $this->resolveSourceVariant($project, (string) $data->sourceVariantId);
         }
 
         if ($form->isSubmitted() && $form->isValid()) {
             $groupId = $this->provideIdentity->next();
-
-            $socialVariants = [];
-
-            foreach ($data->socialDimensions as $dimension) {
-                $socialVariants[] = new GroupSocialVariantSelection($dimension, $data->backgroundFor($dimension));
-            }
-
-            $customVariants = [];
-
-            foreach ($data->customDimensions as $row) {
-                $customVariants[] = new GroupCustomVariantSelection($row->dimension(), $row->backgroundImage ?? $data->commonBackground);
-            }
 
             assert(is_string($data->name));
 
@@ -120,12 +93,9 @@ final class AddTemplateGroupController extends AbstractController
                     $project->id,
                     $groupId,
                     $data->name,
-                    $data->socialCategory !== null ? Uuid::fromString($data->socialCategory) : null,
-                    $data->customCategory !== null ? Uuid::fromString($data->customCategory) : null,
-                    $socialVariants,
-                    $customVariants,
-                    $sourceVariant instanceof SocialNetworkTemplateVariant ? $sourceVariant->id : null,
-                    $sourceVariant instanceof TemplateVariant ? $sourceVariant->id : null,
+                    $data->category !== null ? Uuid::fromString($data->category) : null,
+                    $data->variantSelections(),
+                    $sourceVariant?->id,
                 ),
             );
 
@@ -140,28 +110,20 @@ final class AddTemplateGroupController extends AbstractController
             'form' => $form,
             'project' => $project,
             'source_variant' => $sourceVariant,
-            'source_module' => match (true) {
-                $sourceVariant instanceof SocialNetworkTemplateVariant => 'social',
-                $sourceVariant instanceof TemplateVariant => 'custom',
-                default => null,
-            },
         ]);
     }
 
     private function resolveSourceVariant(
         Project $project,
-        string $module,
         string $variantId,
-    ): SocialNetworkTemplateVariant|TemplateVariant {
-        if (!in_array($module, ['social', 'custom'], true) || !Uuid::isValid($variantId)) {
+    ): TemplateVariant {
+        if (!Uuid::isValid($variantId)) {
             throw $this->createNotFoundException();
         }
 
         try {
-            $variant = $module === 'social'
-                ? $this->socialVariantRepository->get(Uuid::fromString($variantId))
-                : $this->customVariantRepository->get(Uuid::fromString($variantId));
-        } catch (SocialNetworkTemplateVariantNotFound | TemplateVariantNotFound) {
+            $variant = $this->variantRepository->get(Uuid::fromString($variantId));
+        } catch (TemplateVariantNotFound) {
             throw $this->createNotFoundException();
         }
 
