@@ -27,7 +27,7 @@ export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
         "layer", "miniToolbar", "multiBar",
-        "lockButton", "placeholderButton", "editorLockButton",
+        "lockButton", "placeholderButton", "editorLockButton", "replaceImageButton",
         "textPopover", "imagePopover",
     ];
 
@@ -157,6 +157,7 @@ export default class extends Controller {
             if (this.hasLockButtonTarget) this.lockButtonTarget.classList.toggle('d-none', !isText);
             if (this.hasPlaceholderButtonTarget) this.placeholderButtonTarget.classList.toggle('d-none', !isImage);
             if (this.hasEditorLockButtonTarget) this.editorLockButtonTarget.classList.toggle('d-none', !isImage);
+            if (this.hasReplaceImageButtonTarget) this.replaceImageButtonTarget.classList.toggle('d-none', !isImage);
             this.refreshContextToggle();
         }
 

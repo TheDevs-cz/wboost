@@ -531,6 +531,63 @@ export default class extends Controller {
     }
 
     /**
+     * Same modal in "replaceImage" mode: the picked asset swaps ONLY the
+     * selected image object's picture (mini-toolbar image button).
+     */
+    showReplaceImageModal() {
+        const active = this.canvas.getActiveObject();
+        if (!active || (active.type || '').toLowerCase() !== 'image') {
+            return;
+        }
+        this.galleryMode = 'replaceImage';
+        const modal = new bootstrap.Modal('#imageGalleryModal');
+        modal.show();
+    }
+
+    /**
+     * Swap the selected image object's PICTURE, nothing else: position, angle,
+     * stack index and every custom prop (inputId, placeholder metadata, …)
+     * stay — the scale is re-fitted so the DISPLAYED bounding box is preserved
+     * across differing natural sizes. Background layers get the deterministic
+     * top-left cover swap instead (the same edit the "Pozadí" pick makes).
+     *
+     * Deliberately NOT group-propagated: like backgrounds, the picture itself
+     * is per-variant — group sync diffs props by inputId and an assetPath
+     * copy without the pixels would make sibling saves lie.
+     */
+    async replaceSelectedImage(imageUrl, assetPath = null, assetId = null) {
+        const active = this.canvas.getActiveObject();
+        if (!active || (active.type || '').toLowerCase() !== 'image') {
+            return;
+        }
+
+        if (active.isBackground === true) {
+            await this.setBackgroundLayer(imageUrl, assetPath, assetId);
+            this.dispatch('background:changed', { detail: { url: imageUrl, path: assetPath, layerMode: true } });
+            return;
+        }
+
+        const displayedWidth = active.width * (active.scaleX || 1);
+        const displayedHeight = active.height * (active.scaleY || 1);
+
+        await active.setSrc(imageUrl, { crossOrigin: 'anonymous' });
+
+        // setSrc updated width/height to the new picture's natural size.
+        active.set({
+            scaleX: displayedWidth / (active.width || 1),
+            scaleY: displayedHeight / (active.height || 1),
+        });
+        active.assetPath = assetPath || undefined;
+        active.assetId = assetId || undefined;
+        active.setCoords();
+
+        this.canvas.requestRenderAll();
+        // set()/setSrc() fire no Fabric events — announce (dirty + history).
+        this.canvas.fire('object:modified', { target: active });
+        this.markUnsaved();
+    }
+
+    /**
      * Stage 7: handler for the gallery modal's `asset-selected` window event.
      * Routes the picked asset's URL to the right canvas operation based on
      * the mode set when the modal was opened. For backgrounds we ALSO POST
@@ -562,6 +619,8 @@ export default class extends Controller {
             // The group editor tracks per-variant backgrounds — tell it the
             // active variant's background just changed.
             this.dispatch('background:changed', { detail: { url, path, layerMode: this.backgroundModeValue === 'layer' } });
+        } else if (mode === 'replaceImage') {
+            this.replaceSelectedImage(url, path, id);
         } else {
             this.addImageToCanvas(url, path, id);
         }

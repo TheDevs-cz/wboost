@@ -21,6 +21,7 @@
        options popover below. #}
     <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="miniToolbar">
         <button type="button" class="btn btn-sm btn-light" title="Upravit" data-action="canvas-floating-toolbar#openPopover"><i class="mdi mdi-pencil"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Nahradit obrázek z galerie" data-canvas-floating-toolbar-target="replaceImageButton" data-action="canvas-editor#showReplaceImageModal"><i class="mdi mdi-image-search-outline"></i></button>
         <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="mdi mdi-content-copy"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-image-edit-outline"></i></button>
