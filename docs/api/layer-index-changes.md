@@ -4,11 +4,12 @@
 > additive, backward-compatible** change: one new nullable field on entries you
 > already receive. Nothing about the export request/response changed.
 
-Both templates listings —
-`GET /api/projects/{projectId}/social-network-templates` and
-`GET /api/projects/{projectId}/custom-templates` — now expose the **stacking
-order** of every placeholder, so a consumer can rebuild the design's layer
-stack (e.g. for a Photoshop-style "Layers" panel next to the preview).
+The templates listing —
+`GET /api/projects/{projectId}/templates` (and its deprecated legacy aliases
+`…/social-network-templates` / `…/custom-templates`, which were still the
+canonical paths when this delta shipped) — now exposes the **stacking order**
+of every placeholder, so a consumer can rebuild the design's layer stack
+(e.g. for a Photoshop-style "Layers" panel next to the preview).
 
 ## The field
 

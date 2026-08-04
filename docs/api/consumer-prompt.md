@@ -1,4 +1,4 @@
-# Build a "Export social templates" feature against the WBoost Brand-Manuals API
+# Build an "Export templates" feature against the WBoost Brand-Manuals API
 
 > Paste this whole file as the brief for the consuming application. It describes the
 > API contract **and** the user-facing feature to build. Credentials below are a
@@ -10,10 +10,12 @@ A self-contained **"Export" feature** in our app. The project is fixed/pre-provi
 (one project id, see Constants). Flow:
 
 1. User clicks an **"Export"** button → opens a dedicated page/route.
-2. The page lists the project's **social-network templates** (cards: name, category,
+2. The page lists the project's **templates** — ONE merged list covering social
+   formats, print formats and free-form dimensions (cards: name, category,
    thumbnail). User **picks a template**.
-3. The template has one or more **variants** (different dimensions, e.g. `1:1`
-   1080×1080, `9:16` 1080×1920). User **picks a variant**.
+3. The template has one or more **variants** (different dimensions, e.g. the
+   social preset `1:1` 1080×1080 or a print size `210 × 297 mm`). User **picks
+   a variant**.
 4. For the chosen variant the page renders a **form of inputs**, one field per
    placeholder, **respecting the rules the API returns** (label, help text, max
    length, uppercase, locked, hidable — see "Rendering the input form").
@@ -64,6 +66,9 @@ host by where your Node process runs:
 >   fetches them, rewrite the host to your `API_BASE` host on port **19000** (e.g.
 >   `http://host.docker.internal:19000/...`). If you instead pass these URLs to a
 >   browser running on the host, `localhost:19000` works there as-is.
+> - **`thumbnailUrl`** is served by the **API itself** (not the store): rebuild it
+>   as `{API_BASE}/api/template-variants/{variantId}/thumbnail` and send the
+>   bearer token like any other API call.
 
 ---
 
@@ -116,10 +121,26 @@ Response:
 ## Step 2 — List templates (endpoint 1)
 
 ```
-GET {API_BASE}/api/projects/{PROJECT_ID}/social-network-templates
+GET {API_BASE}/api/projects/{PROJECT_ID}/templates
 Authorization: Bearer <token>
 Accept: application/json
 ```
+
+Returns **ALL of the project's templates in one merged list** — social formats,
+print formats and free-form dimensions alike. A variant is a **social format**
+exactly when its `preset` is non-null (`"1:1" | "4:5" | "9:16"`); print and
+free-form variants carry `preset: null` and their designed size in
+`unit`/`unitWidth`/`unitHeight`.
+
+> **Legacy aliases (deprecated).** This API used to be split into two modules
+> ("social network templates" + "custom templates"). The old paths keep working
+> as **deprecated aliases** with the exact same payloads and behavior:
+> `GET …/projects/{id}/social-network-templates` and `…/custom-templates`
+> (each returns this same FULL merged list), plus the
+> `…/social-network-template-variants/…` and `…/custom-template-variants/…`
+> prefixes for the export, placeholder-images (GET+POST) and thumbnail
+> endpoints. New code should use only the canonical `/templates` +
+> `/template-variants/…` paths used throughout this document.
 
 Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
 
@@ -135,12 +156,17 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
     "variants": [
       {
         "id": "0191f2be-74be-72e3-95a2-5e5df08897da", // variant id → used for preview/export
-        "dimension": "1:1",                            // label for the variant chooser
-        "width": 1080,
+        "dimension": "1:1",                            // display label for the variant chooser — the ratio ("1:1") for social presets, "210 × 297 mm" style otherwise
+        "preset": "1:1",                               // nullable — "1:1" | "4:5" | "9:16" when this variant is a SOCIAL format; null for print/free-form dimensions
+        "unit": "px",                                  // px | mm | cm — the unit the designer chose
+        "unitWidth": 1080,                             // designed size in `unit` (float — e.g. 210.0 for A4 mm)
+        "unitHeight": 1080,
+        "width": 1080,                                 // canvas PIXELS (mm/cm rasterize at 300 DPI) — the coordinate space of frames/offsets
         "height": 1080,                                // use width/height for the preview box aspect ratio
-        "previewImageUrl": null,                        // nullable — cached DEFAULT render (zero user input)
-        "backgroundImageUrl": "http://localhost:19000/.../background-....png",  // thumbnail, nullable (layer-mode variants may have none)
-        "exportUrl": "http://localhost:8099/api/social-network-template-variants/0191f2be-.../export",
+        "previewImageUrl": null,                        // nullable — cached DEFAULT render (zero user input), store URL
+        "backgroundImageUrl": "http://localhost:19000/.../background-....png",  // store URL, nullable (layer-mode variants may have none)
+        "thumbnailUrl": "http://localhost:8099/api/template-variants/0191f2be-.../thumbnail",  // ALWAYS present — API-served thumbnail (bearer token required; 404s when the variant has neither preview nor background)
+        "exportUrl": "http://localhost:8099/api/template-variants/0191f2be-.../export",
         "inputs": [
           {
             "id": "95b025f2-9ea9-40ed-a1e9-737e23a4a953", // inputId UUID → the KEY you send to export
@@ -210,9 +236,14 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
 
 UI use:
 - Group templates by `categoryName`; order by `position`.
-- Variant chooser: show `dimension` + `width`×`height`; use `backgroundImageUrl` or
-  `previewImageUrl` as a thumbnail. **Both are nullable** — newer (layer-mode)
-  variants may have no background at all; fall back to your own placeholder.
+- Variant chooser: show `dimension` (add `width`×`height` px if useful); badge a
+  variant as a social format when `preset !== null`.
+- Thumbnails: prefer `thumbnailUrl` — always present and served by the API host
+  with the bearer token (rebuild from `API_BASE`, see Networking). It can
+  **404** when the variant has neither a preview nor a background, so keep your
+  own placeholder as a fallback. `backgroundImageUrl` / `previewImageUrl` are
+  the raw store URLs and **both nullable** — newer (layer-mode) variants may
+  have no background at all.
 - **Bind inputs by `id` (UUID), never by `name`** — names are not unique.
 
 ---
@@ -220,7 +251,7 @@ UI use:
 ## Step 3 — Render (endpoint 2) — used for BOTH preview and download
 
 ```
-POST {API_BASE}/api/social-network-template-variants/{variantId}/export
+POST {API_BASE}/api/template-variants/{variantId}/export
 Authorization: Bearer <token>
 Content-Type: application/json
 ```
@@ -477,14 +508,14 @@ For each image slot, let the user pick a picture (and, if allowed, position it):
    unrestricted slot — `includesRoot: true` — the whole gallery, where root
    images carry a null/absent `directoryId`/`directoryName`):
    ```
-   GET {API_BASE}/api/social-network-template-variants/{variantId}/placeholders/{imageInputId}/images
+   GET {API_BASE}/api/template-variants/{variantId}/placeholders/{imageInputId}/images
    ```
    → `[{ "id", "url", "directoryId", "directoryName", "uploadedAt" }]`. Show a
    thumbnail picker; the chosen `id` is the `imageId` you send in `images`.
 
 2. **(Optional) upload a new one** — the target folder is the USER'S choice:
    ```
-   POST {API_BASE}/api/social-network-template-variants/{variantId}/placeholders/{imageInputId}/images
+   POST {API_BASE}/api/template-variants/{variantId}/placeholders/{imageInputId}/images
    Content-Type: multipart/form-data    (field `file`; field `directoryId` — see below)
    ```
    → `{ "id", "url", "directoryId" }` (null `directoryId` = gallery root). Use
@@ -566,7 +597,7 @@ not JSON. Node 18+ has global `fetch`:
 async function renderVariant(variantId, inputs) {
   const token = await tokenManager.getToken();
   const res = await fetch(
-    `${API_BASE}/api/social-network-template-variants/${variantId}/export`,
+    `${API_BASE}/api/template-variants/${variantId}/export`,
     {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -608,11 +639,11 @@ TOKEN=$(curl -sX POST $API_BASE/api/token \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
 
 # 1. list templates → discover variant ids + input ids
-curl -s $API_BASE/api/projects/$PROJECT_ID/social-network-templates \
+curl -s $API_BASE/api/projects/$PROJECT_ID/templates \
   -H "Authorization: Bearer $TOKEN" -H 'Accept: application/json' | python3 -m json.tool | head -60
 
 # 2. render a variant to PNG (preview == download)
-curl -s -X POST $API_BASE/api/social-network-template-variants/0191f2be-74be-72e3-95a2-5e5df08897da/export \
+curl -s -X POST $API_BASE/api/template-variants/0191f2be-74be-72e3-95a2-5e5df08897da/export \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"inputs":{"95b025f2-9ea9-40ed-a1e9-737e23a4a953":"Hello world"}}' \
   --output out.png

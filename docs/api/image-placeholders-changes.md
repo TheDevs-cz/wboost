@@ -15,6 +15,16 @@ everything renders **server-side** — preview and download are the same render.
 There are **two API changes** to endpoints you already call, plus **two new
 endpoints**.
 
+> **Update (August 2026) — unified template module.** The social-network and
+> custom-template modules have since merged into ONE template module. The
+> canonical paths are now `GET /api/projects/{projectId}/templates`,
+> `POST /api/template-variants/{id}/export` and
+> `GET|POST /api/template-variants/{variantId}/placeholders/{imageInputId}/images`.
+> Every `…/social-network-template…` path below still works as a **deprecated
+> alias** with identical payloads — this document predates the merge and is
+> kept as the historical delta. See [`consumer-prompt.md`](consumer-prompt.md)
+> for the current contract.
+
 > **Update (June 2026) — upload folder choice.** The upload endpoint (§4) no
 > longer silently drops files into the slot's *first* allowed folder. The
 > **uploader chooses** the target folder via `directoryId`:
