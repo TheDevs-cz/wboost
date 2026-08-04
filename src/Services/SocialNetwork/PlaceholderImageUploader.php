@@ -12,7 +12,6 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Project;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Message\Image\UploadFile;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\ProvideIdentity;
@@ -32,7 +31,7 @@ readonly final class PlaceholderImageUploader
      * Mirrors the `maxSize: '10m'` constraint the Symfony form types apply to
      * every other upload. These endpoints take the raw `UploadedFile` off the
      * request with no form behind them, so the cap has to live here — the one
-     * chokepoint all four callers (web + API, social + custom) share.
+     * chokepoint both callers (web + API) share.
      *
      * Symfony reads the `m` suffix as DECIMAL megabytes, so this is 10 * 1000 *
      * 1000 and not 10 MiB — the two limits have to agree or the same file would
@@ -53,7 +52,7 @@ readonly final class PlaceholderImageUploader
      * @return array{id: string, url: string, directoryId: null|string}
      */
     public function upload(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         string $inputId,
         UploadedFile $file,
         null|string $requestedDirectoryId,
@@ -92,7 +91,7 @@ readonly final class PlaceholderImageUploader
         ];
     }
 
-    private function findImageInput(SocialNetworkTemplateVariant|TemplateVariant $variant, string $inputId): null|EditorImageInput
+    private function findImageInput(TemplateVariant $variant, string $inputId): null|EditorImageInput
     {
         foreach ($variant->imageInputs as $input) {
             if ($input->inputId === $inputId) {

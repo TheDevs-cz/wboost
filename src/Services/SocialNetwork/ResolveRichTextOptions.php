@@ -7,7 +7,6 @@ namespace WBoost\Web\Services\SocialNetwork;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\Manual;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
 use WBoost\Web\Services\UploaderHelper;
@@ -41,7 +40,7 @@ readonly final class ResolveRichTextOptions
     ) {
     }
 
-    public function forVariant(SocialNetworkTemplateVariant|TemplateVariant $variant): RichTextOptions
+    public function forVariant(TemplateVariant $variant): RichTextOptions
     {
         $project = $variant->template->project;
 

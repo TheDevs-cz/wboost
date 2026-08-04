@@ -6,7 +6,6 @@ namespace WBoost\Web\Tests\Fakes;
 
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -32,7 +31,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     public null|\WBoost\Web\Exceptions\ContainerOverflow $throwContainerOverflow = null;
 
     public function render(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
@@ -44,7 +43,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     }
 
     public function renderToBytes(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
@@ -56,7 +55,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     }
 
     private function record(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
         string $mode,

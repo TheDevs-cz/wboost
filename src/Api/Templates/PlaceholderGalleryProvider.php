@@ -25,7 +25,7 @@ use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\FileSource;
 
 /**
- * Lists the gallery images a consumer may drop into one custom-template image
+ * Lists the gallery images a consumer may drop into one template image
  * placeholder: scoped to the variant + placeholder, restricted to the folders
  * the designer allowed for that slot. Access mirrors the export endpoint
  * (variant VIEW).

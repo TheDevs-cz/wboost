@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Api;
 
 use Doctrine\ORM\EntityManagerInterface;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingApiAuthentication;
 use WBoost\Web\Value\EditorImageInput;
 
 /**
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\PlaceholderGalleryProvider
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\PlaceholderGalleryImageResponse
+ * LEGACY-ALIAS contract test: the social-network placeholder-gallery path is a
+ * deprecated alias of the canonical
+ * `GET /api/template-variants/{variantId}/placeholders/{inputId}/images`.
+ *
+ * @covers \WBoost\Web\Api\Templates\PlaceholderGalleryProvider
+ * @covers \WBoost\Web\Api\Templates\PlaceholderGalleryImageResponse
  */
 final class SocialNetworkPlaceholderGalleryTest extends ApiTestCase
 {
@@ -150,10 +154,10 @@ final class SocialNetworkPlaceholderGalleryTest extends ApiTestCase
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
 
         $variant = $entityManager->find(
-            SocialNetworkTemplateVariant::class,
+            TemplateVariant::class,
             TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
         );
-        self::assertInstanceOf(SocialNetworkTemplateVariant::class, $variant);
+        self::assertInstanceOf(TemplateVariant::class, $variant);
 
         $variant->imageInputs = [
             new EditorImageInput(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, []),

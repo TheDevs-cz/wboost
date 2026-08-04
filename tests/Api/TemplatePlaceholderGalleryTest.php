@@ -15,7 +15,7 @@ final class TemplatePlaceholderGalleryTest extends ApiTestCase
 {
     private function galleryUrl(string $variantId, string $inputId): string
     {
-        return '/api/custom-template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
+        return '/api/template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
     }
 
     public function testRequiresAuthentication(): void

@@ -15,7 +15,7 @@ use ArrayObject;
     shortName: 'TemplateVariant',
     operations: [
         new Post(
-            uriTemplate: '/custom-template-variants/{id}/export',
+            uriTemplate: '/template-variants/{id}/export',
             input: ExportRequest::class,
             output: false,
             read: false,
@@ -23,16 +23,21 @@ use ArrayObject;
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             name: 'api_template_variant_export',
             openapi: new OpenApiOperation(
-                summary: 'Render a custom template variant to PNG',
+                summary: 'Render a template variant to PNG',
                 description: <<<MD
 Renders the variant's canvas to a PNG with the supplied input values applied.
-The PNG size is the variant's free-form dimension rasterized to pixels
-(physical units at 300 DPI) — see `variants[].width`/`height` in
-`GET /api/projects/{projectId}/custom-templates`.
+The PNG size is the variant's dimension rasterized to pixels (physical units
+at 300 DPI; social presets are fixed px sizes) — see `variants[].width`/`height`
+in `GET /api/projects/{projectId}/templates`.
+
+This is the CANONICAL export path. The legacy paths
+`POST /api/custom-template-variants/{id}/export` and
+`POST /api/social-network-template-variants/{id}/export` are deprecated
+aliases of this operation and keep working over the same unified data.
 
 The shape of `inputs` is **dynamic per variant** — keys are the input UUIDs
 defined on the variant (discover them via
-`GET /api/projects/{projectId}/custom-templates`, then look at
+`GET /api/projects/{projectId}/templates`, then look at
 `variants[].inputs[].id`). Each variant's inputs may legitimately share a
 `name`, so the binding is by stable UUID — never by name.
 
@@ -82,7 +87,7 @@ the frame centre; `rotation` is degrees), or `{ "hide": true }` to blank a
 
 - Discover the ids, frames and allowed folders in `variants[].imageInputs[]`.
 - List a slot's pickable images via
-  `GET /api/custom-template-variants/{variantId}/placeholders/{inputId}/images`;
+  `GET /api/template-variants/{variantId}/placeholders/{inputId}/images`;
   upload a new one via `POST` to the same path (multipart `file`).
 - An adjustment the slot does not permit (move / resize / rotate) → 400.
 - An `imageId` outside the slot's allowed folders, or not in this project → 400.
@@ -252,6 +257,39 @@ MD,
                     '403' => new OpenApiResponse(description: 'Variant is not accessible to the authenticated user.'),
                     '404' => new OpenApiResponse(description: 'Variant not found.'),
                 ],
+            ),
+        ),
+        // Legacy aliases of the canonical export — the former custom-template
+        // and social-network module paths. Same processor, same contract, same
+        // unified data; kept so existing service consumers keep working.
+        new Post(
+            uriTemplate: '/custom-template-variants/{id}/export',
+            input: ExportRequest::class,
+            output: false,
+            read: false,
+            processor: ExportProcessor::class,
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            deprecationReason: 'Deprecated alias — use POST /api/template-variants/{id}/export.',
+            name: 'api_template_variant_export_legacy_custom',
+            openapi: new OpenApiOperation(
+                summary: 'Render a template variant to PNG (deprecated alias)',
+                description: 'Deprecated alias of `POST /api/template-variants/{id}/export` — same request/response contract.',
+                deprecated: true,
+            ),
+        ),
+        new Post(
+            uriTemplate: '/social-network-template-variants/{id}/export',
+            input: ExportRequest::class,
+            output: false,
+            read: false,
+            processor: ExportProcessor::class,
+            security: "is_granted('IS_AUTHENTICATED_FULLY')",
+            deprecationReason: 'Deprecated alias — use POST /api/template-variants/{id}/export.',
+            name: 'api_template_variant_export_legacy_social',
+            openapi: new OpenApiOperation(
+                summary: 'Render a template variant to PNG (deprecated alias)',
+                description: 'Deprecated alias of `POST /api/template-variants/{id}/export` — same request/response contract.',
+                deprecated: true,
             ),
         ),
     ],

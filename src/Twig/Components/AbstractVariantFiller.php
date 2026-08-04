@@ -12,7 +12,6 @@ use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
@@ -31,9 +30,7 @@ use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\RichTextOptions;
 
 /**
- * Shared engine of the user-fill / export page, used by both canvas template
- * modules (SocialNetwork:VariantFiller and Template:VariantFiller) so fill-page
- * behaviour evolves in one place.
+ * Shared engine of the user-fill / export page behind Template:VariantFiller.
  *
  * The text preview is server-rendered via the same Gotenberg pipeline the API
  * uses. The image-placeholder feature layers a HYBRID on top: when the variant
@@ -111,7 +108,7 @@ abstract class AbstractVariantFiller extends AbstractController
      * The hydrated variant, or null before hydration (see the subclass
      * LiveProp docblocks).
      */
-    abstract protected function nullableVariant(): null|SocialNetworkTemplateVariant|TemplateVariant;
+    abstract protected function nullableVariant(): null|TemplateVariant;
 
     /**
      * The module's VIEW voter attribute for the variant entity.
@@ -150,7 +147,7 @@ abstract class AbstractVariantFiller extends AbstractController
      */
     abstract public function uploadPath(string $inputId): string;
 
-    protected function variantEntity(): SocialNetworkTemplateVariant|TemplateVariant
+    protected function variantEntity(): TemplateVariant
     {
         $variant = $this->nullableVariant();
         assert($variant !== null);

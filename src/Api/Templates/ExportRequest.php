@@ -14,7 +14,7 @@ final class ExportRequest
      * must come from the variant's `richTextOptions.fonts[].family`).
      * Inputs whose ids are missing keep the variant's default canvas text.
      * Locked inputs cannot be addressed and are always served from the canvas
-     * defaults. Discover ids via `GET /api/projects/{projectId}/custom-templates`
+     * defaults. Discover ids via `GET /api/projects/{projectId}/templates`
      * (`variants[].inputs[].id`). Unknown ids are silently ignored.
      *
      * @var array<string, mixed>
@@ -38,9 +38,9 @@ final class ExportRequest
      * same axis is a 400.
      *
      * Discover the ids, frames and allowed folders via
-     * `GET /api/projects/{projectId}/custom-templates`
+     * `GET /api/projects/{projectId}/templates`
      * (`variants[].imageInputs[]`); list a slot's pickable images via
-     * `GET /api/custom-template-variants/{variantId}/placeholders/{inputId}/images`.
+     * `GET /api/template-variants/{variantId}/placeholders/{inputId}/images`.
      * Unfilled slots keep the designer's stand-in image. An adjustment a slot
      * does not permit (move / resize / rotate) is rejected with 400.
      *

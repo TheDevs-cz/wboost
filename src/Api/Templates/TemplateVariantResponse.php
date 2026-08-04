@@ -7,10 +7,12 @@ namespace WBoost\Web\Api\Templates;
 final readonly class TemplateVariantResponse
 {
     /**
-     * Template dimensions are free-form (the designer chose a unit + size, with
-     * physical units rasterized at 300 DPI): `dimension` is the human label
-     * ("210 × 297 mm"), `unit`/`unitWidth`/`unitHeight` carry the designer's
-     * exact choice, and `width`/`height` are the resulting canvas pixels —
+     * Template dimensions are either free-form (the designer chose a unit +
+     * size, with physical units rasterized at 300 DPI) or a social-network
+     * preset: `dimension` is the human label ("210 × 297 mm", or the ratio
+     * "1:1" / "4:5" / "9:16" for preset variants), `preset` carries the preset
+     * marker (null for free-form), `unit`/`unitWidth`/`unitHeight` carry the
+     * exact size, and `width`/`height` are the resulting canvas pixels —
      * the coordinate space of image-input frames and export offsets.
      *
      * @param list<TemplateVariantInputResponse> $inputs
@@ -20,6 +22,7 @@ final readonly class TemplateVariantResponse
     public function __construct(
         public string $id,
         public string $dimension,
+        public null|string $preset,
         public string $unit,
         public float $unitWidth,
         public float $unitHeight,

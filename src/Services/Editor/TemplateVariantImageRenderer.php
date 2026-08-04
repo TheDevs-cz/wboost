@@ -14,7 +14,6 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
@@ -75,7 +74,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     }
 
     public function render(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
@@ -98,7 +97,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     }
 
     public function renderToBytes(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
@@ -136,7 +135,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     }
 
     private function buildScreenshot(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
         bool $strictContainerOverflow,
@@ -256,7 +255,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     /**
      * @return list<CanvasContainer>
      */
-    private function extractContainers(SocialNetworkTemplateVariant|TemplateVariant $variant): array
+    private function extractContainers(TemplateVariant $variant): array
     {
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
@@ -277,7 +276,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * layer-mode variant without a background legitimately renders nothing
      * behind its objects (transparent export).
      */
-    private function buildCanvasJson(SocialNetworkTemplateVariant|TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null): string
+    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null): string
     {
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);

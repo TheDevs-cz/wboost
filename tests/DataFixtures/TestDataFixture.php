@@ -21,9 +21,7 @@ use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\RegistrationRequest;
 use WBoost\Web\Entity\SocialAccount;
-use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Services\Security\TokenCrypto;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
@@ -93,7 +91,9 @@ final class TestDataFixture extends Fixture
     public const string WEEKLY_MENU_2_ID = '00000000-0000-0000-0000-000000000020';
     public const string WEEKLY_MENU_2_APPROVAL_HASH = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
 
-    // Social network template fixtures
+    // Former social-network template fixtures — now UNIFIED Template rows
+    // with a preset (1:1) dimension. The constant names survive to minimize
+    // churn in the legacy-alias API contract tests.
     public const string SOCIAL_NETWORK_TEMPLATE_1_ID = '00000000-0000-0000-0000-000000000030';
     public const string SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID = '00000000-0000-0000-0000-000000000031';
     public const string SOCIAL_NETWORK_TEMPLATE_2_ID = '00000000-0000-0000-0000-000000000032';
@@ -379,8 +379,12 @@ final class TestDataFixture extends Fixture
             null,
         ));
 
-        // Social network template (USER_1 / PROJECT_1) — exercises non-locked named, uppercase, and locked-unnamed inputs.
-        $socialTemplate1 = new SocialNetworkTemplate(
+        // Former social template (USER_1 / PROJECT_1), now a unified Template —
+        // exercises non-locked named, uppercase, and locked-unnamed inputs plus
+        // containers + rich text over a PRESET (1:1) dimension. Constructed
+        // WITHOUT an explicit background mode → legacy canvas mode, mirroring
+        // every pre-rework/merged row.
+        $socialTemplate1 = new Template(
             Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_1_ID),
             $project1,
             null,
@@ -391,10 +395,10 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($socialTemplate1);
 
-        $socialVariant1 = new SocialNetworkTemplateVariant(
+        $socialVariant1 = new TemplateVariant(
             Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
             $socialTemplate1,
-            DimensionPreset::InstagramPost,
+            TemplateDimension::fromPreset(DimensionPreset::InstagramPost),
             'fixtures/bg-1.png',
             $date,
         );
@@ -473,8 +477,9 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($socialVariant1);
 
-        // Social network template owned by USER_2 — used to verify cross-user scoping isolation.
-        $socialTemplate2 = new SocialNetworkTemplate(
+        // Former social template owned by USER_2 (now unified) — used to verify
+        // cross-user scoping isolation.
+        $socialTemplate2 = new Template(
             Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_2_ID),
             $project2,
             null,
@@ -485,10 +490,10 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($socialTemplate2);
 
-        $socialVariant2 = new SocialNetworkTemplateVariant(
+        $socialVariant2 = new TemplateVariant(
             Uuid::fromString(self::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID),
             $socialTemplate2,
-            DimensionPreset::InstagramPost,
+            TemplateDimension::fromPreset(DimensionPreset::InstagramPost),
             'fixtures/bg-2.png',
             $date,
         );
@@ -499,8 +504,9 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($socialVariant2);
 
-        // Custom template (USER_1 / PROJECT_1) — same input mix as the social
-        // variant, with a free-form A4 (210×297 mm @ 300 DPI) dimension.
+        // Free-form template (USER_1 / PROJECT_1) — same input mix as the
+        // preset variant above, with a free-form A4 (210×297 mm @ 300 DPI)
+        // dimension.
         $template1 = new Template(
             Uuid::fromString(self::CUSTOM_TEMPLATE_1_ID),
             $project1,

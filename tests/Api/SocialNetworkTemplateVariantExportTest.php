@@ -11,9 +11,14 @@ use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingApiAuthentication;
 
 /**
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\ExportProcessor
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\ExportRequest
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantResource
+ * LEGACY-ALIAS contract test: `POST /api/social-network-template-variants/{id}/export`
+ * is a deprecated alias of the canonical `POST /api/template-variants/{id}/export`
+ * (one processor, unified data). The request paths in here are the consumer
+ * contract (mfkfm) and must keep working unchanged.
+ *
+ * @covers \WBoost\Web\Api\Templates\ExportProcessor
+ * @covers \WBoost\Web\Api\Templates\ExportRequest
+ * @covers \WBoost\Web\Api\Templates\TemplateVariantResource
  * @covers \WBoost\Web\Services\SocialNetwork\ResolveTextOverrides
  * @covers \WBoost\Web\Value\ResolvedInputOverrides
  */

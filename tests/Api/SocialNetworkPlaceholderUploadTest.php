@@ -6,14 +6,18 @@ namespace WBoost\Web\Tests\Api;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\SocialNetwork\PlaceholderImageUploader;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingApiAuthentication;
 use WBoost\Web\Value\EditorImageInput;
 
 /**
- * @covers \WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantPlaceholderUploadController
+ * LEGACY-ALIAS contract test: the social-network placeholder-upload path is a
+ * deprecated alias of the canonical
+ * `POST /api/template-variants/{variantId}/placeholders/{inputId}/images`.
+ *
+ * @covers \WBoost\Web\Controller\Template\TemplateVariantPlaceholderUploadController
  */
 final class SocialNetworkPlaceholderUploadTest extends ApiTestCase
 {
@@ -192,10 +196,10 @@ final class SocialNetworkPlaceholderUploadTest extends ApiTestCase
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
 
         $variant = $entityManager->find(
-            SocialNetworkTemplateVariant::class,
+            TemplateVariant::class,
             TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
         );
-        self::assertInstanceOf(SocialNetworkTemplateVariant::class, $variant);
+        self::assertInstanceOf(TemplateVariant::class, $variant);
 
         $variant->imageInputs = [
             new EditorImageInput(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, $allowedDirectoryIds),

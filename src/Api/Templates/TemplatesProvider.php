@@ -124,6 +124,7 @@ final readonly class TemplatesProvider implements ProviderInterface
         return new TemplateVariantResponse(
             id: $variant->id->toString(),
             dimension: $variant->dimension->label(),
+            preset: $variant->dimension->preset?->value,
             unit: $variant->dimension->unit->value,
             unitWidth: $variant->dimension->unitWidth,
             unitHeight: $variant->dimension->unitHeight,

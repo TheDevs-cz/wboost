@@ -9,7 +9,6 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Message\Usage\RecordTemplateExport;
 use WBoost\Web\Value\ExportChannel;
@@ -35,13 +34,13 @@ final readonly class RecordExportUsage
     }
 
     public function record(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ExportChannel $channel,
     ): void {
         try {
-            $templateType = $variant instanceof SocialNetworkTemplateVariant
-                ? ExportedTemplateType::SocialNetwork
-                : ExportedTemplateType::Template;
+            // Every export now comes from the unified template stack; the
+            // SocialNetwork enum case survives purely for historical rows.
+            $templateType = ExportedTemplateType::Template;
 
             $template = $variant->template;
             $project = $template->project;

@@ -20,7 +20,7 @@ final class TemplatesTest extends ApiTestCase
     public function testRequiresAuthentication(): void
     {
         $client = self::createClient();
-        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/custom-templates');
+        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates');
         $this->assertResponseStatusCodeSame(401);
     }
 
@@ -33,7 +33,7 @@ final class TemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/custom-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -69,7 +69,7 @@ final class TemplatesTest extends ApiTestCase
 
         // PROJECT_2 belongs to USER_2 — querying it with USER_1's token must 404,
         // not leak the project's existence or its templates.
-        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/custom-templates', [
+        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -85,7 +85,7 @@ final class TemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/custom-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -109,15 +109,18 @@ final class TemplatesTest extends ApiTestCase
         self::assertSame(2480, $variant['width'] ?? null);
         self::assertSame(3508, $variant['height'] ?? null);
         self::assertSame('210 × 297 mm', $variant['dimension'] ?? null);
+        // Free-form variant → no preset marker.
+        self::assertArrayHasKey('preset', $variant);
+        self::assertNull($variant['preset']);
 
         self::assertIsString($variant['exportUrl'] ?? null);
         self::assertStringContainsString(
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             $variant['exportUrl'],
         );
         self::assertIsString($variant['thumbnailUrl'] ?? null);
         self::assertStringContainsString(
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/thumbnail',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/thumbnail',
             $variant['thumbnailUrl'],
         );
 
@@ -175,6 +178,48 @@ final class TemplatesTest extends ApiTestCase
         }
         self::assertSame(['Rubik (Rubik Regular)', 'Rubik (Rubik Bold)'], $families);
         self::assertSame(['#c8102e', '#004e7c'], $options['colors'] ?? null);
+    }
+
+    /**
+     * The two legacy module listing paths are deprecated ALIASES of the
+     * canonical /templates collection: same provider, same merged list — a
+     * consumer still calling the old paths sees every template either way.
+     */
+    public function testLegacyListingAliasesReturnTheSameMergedList(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $ids = [];
+        foreach (['templates', 'custom-templates', 'social-network-templates'] as $segment) {
+            $response = $client->request(
+                'GET',
+                '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/' . $segment,
+                ['headers' => ['Authorization' => 'Bearer ' . $token]],
+            );
+
+            $this->assertResponseIsSuccessful();
+
+            $rows = [];
+            foreach ($response->toArray() as $row) {
+                self::assertIsArray($row);
+                self::assertIsString($row['id'] ?? null);
+                $rows[] = $row['id'];
+            }
+            sort($rows);
+            $ids[$segment] = $rows;
+        }
+
+        // The merged list carries BOTH the former-social and the free-form
+        // templates, on every path.
+        self::assertContains(TestDataFixture::CUSTOM_TEMPLATE_1_ID, $ids['templates']);
+        self::assertContains(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID, $ids['templates']);
+        self::assertSame($ids['templates'], $ids['custom-templates']);
+        self::assertSame($ids['templates'], $ids['social-network-templates']);
     }
 
     /**

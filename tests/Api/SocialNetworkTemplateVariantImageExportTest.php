@@ -6,7 +6,7 @@ namespace WBoost\Web\Tests\Api;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -18,8 +18,10 @@ use WBoost\Web\Value\EditorImageInput;
  * need only DB rows (they fail before inlining); the happy paths write a real
  * 1×1 PNG to the test object store so the resolver can inline it + read its size.
  *
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\ExportProcessor
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\ExportRequest
+ * Runs through the LEGACY-ALIAS export path (see SocialNetworkTemplateVariantExportTest).
+ *
+ * @covers \WBoost\Web\Api\Templates\ExportProcessor
+ * @covers \WBoost\Web\Api\Templates\ExportRequest
  * @covers \WBoost\Web\Services\SocialNetwork\ResolveImageOverrides
  * @covers \WBoost\Web\Value\ResolvedImageOverrides
  * @covers \WBoost\Web\Value\ResolvedImageOverride
@@ -280,10 +282,10 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
 
         $variant = $entityManager->find(
-            SocialNetworkTemplateVariant::class,
+            TemplateVariant::class,
             TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
         );
-        self::assertInstanceOf(SocialNetworkTemplateVariant::class, $variant);
+        self::assertInstanceOf(TemplateVariant::class, $variant);
 
         $variant->imageInputs = [
             new EditorImageInput(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID, 'photo', 'Your photo', true, true, true, true, []),

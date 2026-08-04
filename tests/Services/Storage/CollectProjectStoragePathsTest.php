@@ -23,8 +23,18 @@ final class CollectProjectStoragePathsTest extends KernelTestCase
         // Keyed by CHILD entity ids — the reason this has to run before the
         // cascade delete removes those rows.
         self::assertContains('manuals/' . TestDataFixture::MANUAL_1_ID, $paths->directories);
+
+        // Module origin is no longer distinguishable after the merge, so BOTH
+        // prefix families are emitted for EVERY template/variant: a
+        // former-social row keeps its files under social-networks/…, a
+        // free-form one under custom-templates/… — and the never-written twin
+        // prefix is an empty, harmless delete.
         self::assertContains(
             'social-networks/templates/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID,
+            $paths->directories,
+        );
+        self::assertContains(
+            'custom-templates/templates/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID,
             $paths->directories,
         );
         self::assertContains(
@@ -32,11 +42,23 @@ final class CollectProjectStoragePathsTest extends KernelTestCase
             $paths->directories,
         );
         self::assertContains(
+            'custom-templates/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
+            $paths->directories,
+        );
+        self::assertContains(
             'custom-templates/templates/' . TestDataFixture::CUSTOM_TEMPLATE_1_ID,
             $paths->directories,
         );
         self::assertContains(
+            'social-networks/templates/' . TestDataFixture::CUSTOM_TEMPLATE_1_ID,
+            $paths->directories,
+        );
+        self::assertContains(
             'custom-templates/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID,
+            $paths->directories,
+        );
+        self::assertContains(
+            'social-networks/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID,
             $paths->directories,
         );
     }
@@ -46,12 +68,21 @@ final class CollectProjectStoragePathsTest extends KernelTestCase
         $paths = self::getContainer()->get(CollectProjectStoragePaths::class)
             ->collect(Uuid::fromString(TestDataFixture::PROJECT_1_ID));
 
+        // Both preview families per variant — module origin is unknown.
         self::assertContains(
             'social-networks/preview/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '.png',
             $paths->files,
         );
         self::assertContains(
+            'custom-templates/preview/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '.png',
+            $paths->files,
+        );
+        self::assertContains(
             'custom-templates/preview/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '.png',
+            $paths->files,
+        );
+        self::assertContains(
+            'social-networks/preview/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '.png',
             $paths->files,
         );
 

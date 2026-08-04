@@ -2,28 +2,33 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Tests\Controller\SocialNetwork;
+namespace WBoost\Web\Tests\Controller\Template;
 
+use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
-use WBoost\Web\Repository\SocialNetworkTemplateVariantRepository;
+use WBoost\Web\Entity\TemplateVariant;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\UserRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingLogin;
-use WBoost\Web\Twig\Components\SocialNetwork\VariantFiller;
+use WBoost\Web\Twig\Components\Template\VariantFiller;
 
 /**
- * Covers the user-fill page flow end-to-end:
+ * Covers the user-fill page flow end-to-end (ported from the retired social
+ * module suite — the behaviours now live in the unified Template module, and
+ * the former-social fixture variant is the richest one: containers, rich
+ * text, image placeholders):
  *
- * - The export page renders the SocialNetwork:VariantFiller Live Component
- *   (regression for the Stage 5 IsGranted-at-class-level bug, where the
- *   Symfony Security listener could not resolve the LiveProp `$variant` as
- *   a method argument and the entire component blew up at first render).
+ * - The export page renders the Template:VariantFiller Live Component
+ *   (regression for the IsGranted-at-class-level bug, where the Symfony
+ *   Security listener could not resolve the LiveProp `$variant` as a method
+ *   argument and the entire component blew up at first render).
  * - The component's PostMount pre-populates `textValues` / `hiddenValues`
  *   for every non-locked input so the front-end value-store has every
- *   inputId key when the user starts typing (regression for the Stage 5
+ *   inputId key when the user starts typing (regression for the
  *   "Invalid model name" error in live_controller.js valueStore.has()).
  * - The rendered template uses `textValues[<uuid>]` bracket notation in
  *   data-model attrs (dot notation breaks valueStore lookups for keys
@@ -31,12 +36,14 @@ use WBoost\Web\Twig\Components\SocialNetwork\VariantFiller;
  * - The download controller reads form-POST input data and streams a PNG
  *   with Content-Disposition: attachment. Plain form POST avoids the Live
  *   Component / Turbo binary-response confusion that surfaced in prod.
+ * - The Gotenberg render template keeps its Fabric v7 pins (custom-property
+ *   restore, obj.set() overrides, font force-load, container reflow hooks).
  *
- * @covers \WBoost\Web\Twig\Components\SocialNetwork\VariantFiller
- * @covers \WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantDownloadController
- * @covers \WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantExportController
+ * @covers \WBoost\Web\Twig\Components\Template\VariantFiller
+ * @covers \WBoost\Web\Controller\Template\TemplateVariantDownloadController
+ * @covers \WBoost\Web\Controller\Template\TemplateVariantExportController
  */
-final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
+final class TemplateVariantExportControllerTest extends WebTestCase
 {
     use InteractsWithLiveComponents;
 
@@ -49,7 +56,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             'GET',
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
         );
 
         // 302 to /login or similar — we just want to confirm it does NOT 500
@@ -64,7 +71,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             'GET',
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
         );
 
         self::assertResponseIsSuccessful();
@@ -78,7 +85,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             'GET',
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
         );
 
         self::assertResponseStatusCodeSame(403);
@@ -92,7 +99,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
 
         $testComponent = $this->createLiveComponent(
-            name: 'SocialNetwork:VariantFiller',
+            name: 'Template:VariantFiller',
             data: ['variant' => $variant],
             client: $client,
         );
@@ -123,7 +130,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
 
         $testComponent = $this->createLiveComponent(
-            name: 'SocialNetwork:VariantFiller',
+            name: 'Template:VariantFiller',
             data: ['variant' => $variant],
             client: $client,
         );
@@ -158,7 +165,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             'GET',
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
         );
 
         self::assertResponseIsSuccessful();
@@ -180,7 +187,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
 
         $testComponent = $this->createLiveComponent(
-            name: 'SocialNetwork:VariantFiller',
+            name: 'Template:VariantFiller',
             data: ['variant' => $variant],
             client: $client,
         );
@@ -192,7 +199,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         // binary-response trap that sent the user a broken file in prod.
         self::assertStringContainsString('method="POST"', $rendered);
         self::assertStringContainsString(
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
             $rendered,
         );
         self::assertStringContainsString('data-turbo="false"', $rendered);
@@ -223,7 +230,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
 
         $testComponent = $this->createLiveComponent(
-            name: 'SocialNetwork:VariantFiller',
+            name: 'Template:VariantFiller',
             data: ['variant' => $variant],
             client: $client,
         )->actingAs($user);
@@ -265,13 +272,6 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         );
     }
 
-    /**
-     * The form POST a user submits drives the renderer with the typed inputs.
-     * This is the regression for "the placeholder text is not replaced with
-     * the input value" — if the controller fails to wire the form's
-     * textValues array into the override resolver, the renderer never sees
-     * what the user typed.
-     */
     /**
      * The Gotenberg render template MUST manually restore custom properties
      * (inputId, name, locked, etc.) from the source JSON onto each Fabric
@@ -323,11 +323,6 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
      * Textbox renders stale glyphs because its layout cache (_styleMap,
      * _textLines, dimensions) is only invalidated through the property-setter
      * chain that `set()` runs.
-     *
-     * Verified empirically against the prod canvas JSON via
-     * /debug/fabric-render-test.html and against a real Gotenberg pipeline
-     * render in dev (app:debug:render-variant) — direct assign rendered the
-     * placeholder, `set()` rendered the override.
      */
     public function testRenderTemplateUsesObjSetForOverridesNotDirectAssignment(): void
     {
@@ -358,20 +353,6 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         self::assertStringNotContainsString('obj.visible = !hiddenOverrides', $rendered);
     }
 
-    /**
-     * Regression for "the export uses the wrong font". The headless Chromium
-     * render came out in a serif fallback even though the editor showed the
-     * correct webfont. Root cause: a Canvas 2D context does NOT trigger lazy
-     * @font-face loading, and `document.fonts.ready` only awaits faces that
-     * are ALREADY loading — so a purely declarative @font-face is never
-     * fetched for canvas-only text and Fabric measures/paints with the
-     * fallback. The template MUST construct FontFace objects from the inlined
-     * data URIs and await load() before touching the canvas (the editor does
-     * the equivalent via FontFaceObserver).
-     *
-     * This pins the force-load so a future edit cannot regress back to a
-     * declaration-only approach.
-     */
     /**
      * Pins the container-reflow hook in the render template: the designed
      * geometry snapshot (prepareFabricContainers) must run BEFORE the override
@@ -421,6 +402,14 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         self::assertStringContainsString('setTimeout(() => {', $rendered);
     }
 
+    /**
+     * Regression for "the export uses the wrong font". The headless Chromium
+     * render came out in a serif fallback even though the editor showed the
+     * correct webfont. Root cause: a Canvas 2D context does NOT trigger lazy
+     * @font-face loading, and `document.fonts.ready` only awaits faces that
+     * are ALREADY loading — the template MUST construct FontFace objects from
+     * the inlined data URIs and await load() before touching the canvas.
+     */
     public function testRenderTemplateForceLoadsFontsBeforeRendering(): void
     {
         $twig = self::getContainer()->get('twig');
@@ -466,7 +455,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             method: 'POST',
-            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            uri: '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
             parameters: [
                 'textValues' => [
                     TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => 'xx',
@@ -493,7 +482,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             method: 'POST',
-            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            uri: '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
             parameters: [
                 'textValues' => [
                     TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => 'Hello',
@@ -532,7 +521,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             'POST',
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
         );
 
         self::assertResponseStatusCodeSame(403);
@@ -553,7 +542,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             'GET',
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
         );
 
         self::assertResponseIsSuccessful();
@@ -601,7 +590,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
 
         $client->request(
             method: 'POST',
-            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            uri: '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
             parameters: [
                 'images' => [
                     TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => [
@@ -636,7 +625,7 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         // FILE_IN_OTHER is in a folder the photo slot does not allow → 400.
         $client->request(
             method: 'POST',
-            uri: '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            uri: '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
             parameters: [
                 'images' => [
                     TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID => [
@@ -649,11 +638,11 @@ final class SocialNetworkTemplateVariantExportControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    private function loadVariant(string $id): \WBoost\Web\Entity\SocialNetworkTemplateVariant
+    private function loadVariant(string $id): TemplateVariant
     {
-        $repository = self::getContainer()->get(SocialNetworkTemplateVariantRepository::class);
+        $repository = self::getContainer()->get(TemplateVariantRepository::class);
 
-        return $repository->get(\Ramsey\Uuid\Uuid::fromString($id));
+        return $repository->get(Uuid::fromString($id));
     }
 
     private function getRendererFake(): FakeTemplateVariantImageRenderer

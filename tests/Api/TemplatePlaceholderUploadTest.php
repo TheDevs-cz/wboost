@@ -20,7 +20,7 @@ final class TemplatePlaceholderUploadTest extends ApiTestCase
 
     private function uploadUrl(string $variantId, string $inputId): string
     {
-        return '/api/custom-template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
+        return '/api/template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
     }
 
     public function testRequiresAuthentication(): void

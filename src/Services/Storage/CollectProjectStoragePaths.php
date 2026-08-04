@@ -46,25 +46,16 @@ readonly final class CollectProjectStoragePaths
             $directories[] = sprintf('manuals/%s', $manualId);
         }
 
-        foreach ($this->ids('SELECT id FROM social_network_template WHERE project_id = ?', $id) as $templateId) {
-            $directories[] = sprintf('social-networks/templates/%s', $templateId);
-        }
-
-        foreach ($this->ids(
-            'SELECT v.id FROM social_network_template_variant v
-             JOIN social_network_template t ON t.id = v.template_id
-             WHERE t.project_id = ?',
-            $id,
-        ) as $variantId) {
-            $directories[] = sprintf('social-networks/%s', $variantId);
-            // Previews are one deterministic FILE inside a shared folder — the
-            // folder itself holds every project's previews and must never be
-            // deleted as a directory.
-            $files[] = sprintf('social-networks/preview/%s.png', $variantId);
-        }
-
+        // The social module merged into the unified template stack with the
+        // SAME row UUIDs, but the merged rows' files stayed where they were
+        // written — a former-social variant keeps `social-networks/{id}/…` and
+        // `social-networks/preview/{id}.png`. Module origin is no longer
+        // recorded anywhere, so BOTH prefix families are emitted for EVERY
+        // template/variant; ids are UUIDs, so the never-written twin prefix is
+        // an empty (harmless) delete.
         foreach ($this->ids('SELECT id FROM template WHERE project_id = ?', $id) as $templateId) {
             $directories[] = sprintf('custom-templates/templates/%s', $templateId);
+            $directories[] = sprintf('social-networks/templates/%s', $templateId);
         }
 
         foreach ($this->ids(
@@ -74,7 +65,12 @@ readonly final class CollectProjectStoragePaths
             $id,
         ) as $variantId) {
             $directories[] = sprintf('custom-templates/%s', $variantId);
+            $directories[] = sprintf('social-networks/%s', $variantId);
+            // Previews are one deterministic FILE inside a shared folder — the
+            // folder itself holds every project's previews and must never be
+            // deleted as a directory.
             $files[] = sprintf('custom-templates/preview/%s.png', $variantId);
+            $files[] = sprintf('social-networks/preview/%s.png', $variantId);
         }
 
         foreach ($this->ids('SELECT id FROM email_signature_template WHERE project_id = ?', $id) as $templateId) {

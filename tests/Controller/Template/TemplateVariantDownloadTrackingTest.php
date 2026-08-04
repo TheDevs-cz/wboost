@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace WBoost\Web\Tests\Controller\SocialNetwork;
+namespace WBoost\Web\Tests\Controller\Template;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
@@ -17,10 +17,13 @@ use WBoost\Web\Value\ExportedTemplateType;
  * Pins the usage-tracking wiring: a successful web download must record exactly
  * one {@see ExportEvent} with the correct denormalised labels and channel.
  *
- * @covers \WBoost\Web\Controller\SocialNetwork\SocialNetworkTemplateVariantDownloadController
+ * Post-merge, EVERY new export records `template_type = 'template'` — the
+ * 'social_network' enum case survives only for historical rows.
+ *
+ * @covers \WBoost\Web\Controller\Template\TemplateVariantDownloadController
  * @covers \WBoost\Web\Services\Usage\RecordExportUsage
  */
-final class SocialNetworkTemplateVariantDownloadTrackingTest extends WebTestCase
+final class TemplateVariantDownloadTrackingTest extends WebTestCase
 {
     public function testWebDownloadRecordsExportEvent(): void
     {
@@ -29,7 +32,7 @@ final class SocialNetworkTemplateVariantDownloadTrackingTest extends WebTestCase
 
         $client->request(
             'POST',
-            '/social-network-template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
+            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download',
         );
 
         self::assertResponseIsSuccessful();
@@ -40,7 +43,7 @@ final class SocialNetworkTemplateVariantDownloadTrackingTest extends WebTestCase
         ]);
 
         self::assertInstanceOf(ExportEvent::class, $event);
-        self::assertSame(ExportedTemplateType::SocialNetwork, $event->templateType);
+        self::assertSame(ExportedTemplateType::Template, $event->templateType);
         self::assertSame(ExportChannel::Web, $event->channel);
         self::assertSame(TestDataFixture::USER_1_EMAIL, $event->ownerEmail);
         self::assertSame(TestDataFixture::PROJECT_1_ID, $event->projectId->toString());

@@ -6,14 +6,12 @@ namespace WBoost\Web\Services\Editor;
 
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Entity\SocialNetworkTemplateVariant;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
 /**
- * Renders a canvas template variant (social network or custom template — both carry the
- * same canvas / inputs / imageInputs / dimension shape) to a PNG.
+ * Renders a canvas template variant to a PNG.
  *
  * Two entry points for the same Gotenberg pipeline:
  *
@@ -55,7 +53,7 @@ interface TemplateVariantImageRendererInterface
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      */
     public function render(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
@@ -70,7 +68,7 @@ interface TemplateVariantImageRendererInterface
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      */
     public function renderToBytes(
-        SocialNetworkTemplateVariant|TemplateVariant $variant,
+        TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,

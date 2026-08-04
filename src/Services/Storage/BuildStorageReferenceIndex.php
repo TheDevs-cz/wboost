@@ -25,7 +25,12 @@ use WBoost\Web\Value\StorageReferenceIndex;
  */
 readonly final class BuildStorageReferenceIndex
 {
-    /** Storage-key namespaces the app writes. */
+    /**
+     * Storage-key namespaces the app writes. `social-networks` stays even
+     * though the social module is gone: canvases merged into the unified
+     * template tables still embed `social-networks/…` URLs, and those files
+     * live on under their original keys.
+     */
     private const string PATH_PREFIXES = '(?:file-upload|manuals|social-networks|custom-templates|emails)';
 
     public function __construct(
@@ -164,43 +169,6 @@ readonly final class BuildStorageReferenceIndex
                 "SELECT DISTINCT m[1] AS path, %s
                  FROM template_variant v
                  JOIN template t ON t.id = v.template_id
-                 %s
-                 CROSS JOIN LATERAL regexp_matches(v.canvas::text || v.image_inputs::text, '%s', 'g') AS m",
-                $ownerColumns,
-                sprintf($ownerJoin, 't.project_id'),
-                $this->embeddedPathPattern(),
-            ),
-
-            'social_network_template.image' => sprintf(
-                "SELECT t.image AS path, %s FROM social_network_template t %s WHERE t.image IS NOT NULL AND t.image <> ''",
-                $ownerColumns,
-                sprintf($ownerJoin, 't.project_id'),
-            ),
-
-            'social_network_template_variant.background_image' => sprintf(
-                "SELECT v.background_image AS path, %s
-                 FROM social_network_template_variant v
-                 JOIN social_network_template t ON t.id = v.template_id
-                 %s
-                 WHERE v.background_image <> ''",
-                $ownerColumns,
-                sprintf($ownerJoin, 't.project_id'),
-            ),
-
-            'social_network_template_variant.preview_image_path' => sprintf(
-                "SELECT v.preview_image_path AS path, %s
-                 FROM social_network_template_variant v
-                 JOIN social_network_template t ON t.id = v.template_id
-                 %s
-                 WHERE v.preview_image_path IS NOT NULL AND v.preview_image_path <> ''",
-                $ownerColumns,
-                sprintf($ownerJoin, 't.project_id'),
-            ),
-
-            'social_network_template_variant.canvas' => sprintf(
-                "SELECT DISTINCT m[1] AS path, %s
-                 FROM social_network_template_variant v
-                 JOIN social_network_template t ON t.id = v.template_id
                  %s
                  CROSS JOIN LATERAL regexp_matches(v.canvas::text || v.image_inputs::text, '%s', 'g') AS m",
                 $ownerColumns,

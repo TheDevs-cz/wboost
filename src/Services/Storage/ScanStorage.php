@@ -28,7 +28,7 @@ use WBoost\Web\Value\StorageScanResult;
  *
  * The scan only ever READS from storage. Cleaning up orphans is deliberately
  * not automated: a copied template variant shares its source's background key
- * (see {@see \WBoost\Web\MessageHandler\SocialNetwork\CopySocialNetworkTemplateVariantHandler}),
+ * (see {@see \WBoost\Web\MessageHandler\Template\CopyTemplateVariantHandler}),
  * so "delete what looks unused" is a footgun that belongs in a human's hands.
  */
 readonly final class ScanStorage

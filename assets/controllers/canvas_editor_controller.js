@@ -591,7 +591,7 @@ export default class extends Controller {
      * Stage 7: handler for the gallery modal's `asset-selected` window event.
      * Routes the picked asset's URL to the right canvas operation based on
      * the mode set when the modal was opened. For backgrounds we ALSO POST
-     * the path to `edit_social_network_template_variant` so the variant
+     * the path to the module's edit-variant endpoint so the variant
      * entity stays in sync with the visible canvas — without this, the
      * picked background would only be set visually and would revert on
      * reload.

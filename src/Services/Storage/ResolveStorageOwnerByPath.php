@@ -45,12 +45,8 @@ readonly final class ResolveStorageOwnerByPath
         $sql = implode("\nUNION ALL\n", [
             sprintf('SELECT p.id AS entity_id, %s FROM project p JOIN "user" u ON u.id = p.owner_id', $ownerColumns),
             sprintf('SELECT m.id AS entity_id, %s FROM manual m %s', $ownerColumns, sprintf($ownerJoin, 'm.project_id')),
-            sprintf('SELECT t.id AS entity_id, %s FROM social_network_template t %s', $ownerColumns, sprintf($ownerJoin, 't.project_id')),
-            sprintf(
-                'SELECT v.id AS entity_id, %s FROM social_network_template_variant v JOIN social_network_template t ON t.id = v.template_id %s',
-                $ownerColumns,
-                sprintf($ownerJoin, 't.project_id'),
-            ),
+            // Former-social keys (`social-networks/{id}/…`) resolve through the
+            // unified template tables — the merge kept the row UUIDs.
             sprintf('SELECT t.id AS entity_id, %s FROM template t %s', $ownerColumns, sprintf($ownerJoin, 't.project_id')),
             sprintf(
                 'SELECT v.id AS entity_id, %s FROM template_variant v JOIN template t ON t.id = v.template_id %s',

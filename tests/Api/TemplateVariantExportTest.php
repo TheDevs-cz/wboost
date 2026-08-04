@@ -24,7 +24,7 @@ final class TemplateVariantExportTest extends ApiTestCase
         $client = self::createClient();
         $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             ['headers' => ['Content-Type' => 'application/json'], 'body' => '{"inputs":{}}'],
         );
         $this->assertResponseStatusCodeSame(401);
@@ -41,7 +41,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_2_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_2_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -65,7 +65,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -93,7 +93,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -124,6 +124,45 @@ final class TemplateVariantExportTest extends ApiTestCase
         self::assertSame([], $lastCall['hidden']);
     }
 
+    /**
+     * The former custom-template export path is a deprecated ALIAS of the
+     * canonical `/api/template-variants/{id}/export` — one processor, so the
+     * whole contract (renderer call included) is identical.
+     */
+    public function testLegacyCustomAliasPathStillExports(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request(
+            'POST',
+            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => 'Alias',
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseHeaderSame('content-type', 'image/png');
+        self::assertStringStartsWith(self::PNG_MAGIC, $response->getContent());
+
+        $lastCall = $this->getRendererFake()->calls[count($this->getRendererFake()->calls) - 1];
+        self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, $lastCall['variantId']);
+        self::assertSame('Alias', $lastCall['texts'][TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
+    }
+
     public function testExtendedShapeAppliesValueAndHide(): void
     {
         $client = self::createClient();
@@ -135,7 +174,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -176,7 +215,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -208,7 +247,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -246,7 +285,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -274,7 +313,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -319,7 +358,7 @@ final class TemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,

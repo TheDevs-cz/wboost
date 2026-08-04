@@ -12,12 +12,18 @@ use WBoost\Web\Tests\TestingApiAuthentication;
 use WBoost\Web\Value\SharingLevel;
 
 /**
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateResponse
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantResponse
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantInputResponse
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantImageInputResponse
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplateVariantImageInputFrameResponse
- * @covers \WBoost\Web\Api\SocialNetworkTemplates\SocialNetworkTemplatesProvider
+ * LEGACY-ALIAS contract test: `GET /api/projects/{id}/social-network-templates`
+ * is a deprecated alias of the canonical `GET /api/projects/{id}/templates`
+ * (same provider, same unified data, full merged list). The request paths in
+ * here are the consumer contract (mfkfm) and must keep working; for preset
+ * variants `dimension` must STILL be the '1:1'-style ratio label.
+ *
+ * @covers \WBoost\Web\Api\Templates\TemplateResponse
+ * @covers \WBoost\Web\Api\Templates\TemplateVariantResponse
+ * @covers \WBoost\Web\Api\Templates\TemplateVariantInputResponse
+ * @covers \WBoost\Web\Api\Templates\TemplateVariantImageInputResponse
+ * @covers \WBoost\Web\Api\Templates\TemplateVariantImageInputFrameResponse
+ * @covers \WBoost\Web\Api\Templates\TemplatesProvider
  */
 final class SocialNetworkTemplatesTest extends ApiTestCase
 {
@@ -163,13 +169,23 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         $variant = $template['variants'][0];
         self::assertIsArray($variant);
         self::assertSame(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID, $variant['id'] ?? null);
+        // LOAD-BEARING consumer contract: a preset variant's `dimension` is
+        // STILL the compact ratio label, not a "1080 × 1080 px" string.
         self::assertSame('1:1', $variant['dimension'] ?? null);
         self::assertSame(1080, $variant['width'] ?? null);
         self::assertSame(1080, $variant['height'] ?? null);
 
+        // Unified-payload additions: preset marker + the designer's exact size.
+        self::assertSame('1:1', $variant['preset'] ?? null);
+        self::assertSame('px', $variant['unit'] ?? null);
+        self::assertEqualsWithDelta(1080.0, $variant['unitWidth'] ?? null, 0.001);
+        self::assertEqualsWithDelta(1080.0, $variant['unitHeight'] ?? null, 0.001);
+
+        // exportUrl now points at the CANONICAL export path (the legacy export
+        // paths stay live as aliases for requests a consumer builds itself).
         self::assertIsString($variant['exportUrl'] ?? null);
         self::assertStringContainsString(
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             $variant['exportUrl'],
         );
 
