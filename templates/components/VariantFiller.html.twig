@@ -70,7 +70,7 @@
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
-        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged"
+        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged"
         {% if hasImages %}
             data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"

@@ -16,6 +16,13 @@ import { Canvas, FabricImage, Rect } from "fabric";
  * preview and the export agree pixel-for-pixel: an image is fitted object-contain
  * into the frame (base scale s0 = min(fw/iw, fh/ih)); the user's `scale` multiplies
  * s0, `offsetX/Y` pan from the frame centre (canvas px), `rotation` is degrees.
+ *
+ * Every placement change also broadcasts `variant-image-fill:frame-changed`
+ * (bubbling Stimulus event from the shared form root) carrying the slot's
+ * VISIBLE bbox — object bounds ∩ designer frame, canvas px — so the overlay
+ * controller anchors its dashed box + pencil/eye cluster to the artwork
+ * instead of the designed frame (a contain-fitted or user-moved image can sit
+ * far from the frame's corner).
  */
 export default class extends Controller {
     static targets = ["canvas", "wrapper"];
@@ -48,6 +55,13 @@ export default class extends Controller {
         (this.placeholdersValue || []).forEach((ph) => this._addStandIn(ph));
 
         this.canvas.on('object:modified', (event) => this._onObjectModified(event));
+
+        // The overlay's box must FOLLOW the artwork while it is being dragged /
+        // scaled / rotated — not jump only on mouse-up (object:modified).
+        const track = (event) => this._broadcastObjectFrame(event.target);
+        this.canvas.on('object:moving', track);
+        this.canvas.on('object:scaling', track);
+        this.canvas.on('object:rotating', track);
     }
 
     disconnect() {
@@ -128,6 +142,7 @@ export default class extends Controller {
             }
             img._placeholderId = placeholder.inputId;
             this._replaceObject(placeholder.inputId, img, placeholder.isBackground === true);
+            this._broadcastFrame(placeholder.inputId, img, frame);
         } catch (error) { /* a missing stand-in just leaves the slot empty */ }
     }
 
@@ -184,6 +199,7 @@ export default class extends Controller {
             img._placeholderId = inputId;
             this._replaceObject(inputId, img, true);
             this.canvas.requestRenderAll();
+            this._broadcastFrame(inputId, img, frame);
 
             this._setField(inputId, 'hide', '');
             this._setField(inputId, 'imageId', imageId);
@@ -224,6 +240,7 @@ export default class extends Controller {
             this.canvas.setActiveObject(img);
         }
         this.canvas.requestRenderAll();
+        this._broadcastFrame(inputId, img, frame);
 
         this._setField(inputId, 'hide', '');
         this._setField(inputId, 'imageId', imageId);
@@ -249,6 +266,7 @@ export default class extends Controller {
         const inputId = event.params.inputid;
         if (event.target.checked) {
             this._replaceObject(inputId, null);
+            this._broadcastFrame(inputId, null, null);
             this._setField(inputId, 'hide', '1');
             this._setField(inputId, 'imageId', '');
         } else {
@@ -268,6 +286,45 @@ export default class extends Controller {
         const placeholder = this.placeholdersById[object._placeholderId];
         if (!placeholder || !placeholder.frame) return;
         this._writeTransform(object._placeholderId, object, placeholder.frame);
+        this._broadcastFrame(object._placeholderId, object, placeholder.frame);
+    }
+
+    // --- Overlay frame broadcast ---------------------------------------------
+
+    _broadcastObjectFrame(object) {
+        if (!object || !object._placeholderId) return;
+        const placeholder = this.placeholdersById[object._placeholderId];
+        if (!placeholder || !placeholder.frame) return;
+        this._broadcastFrame(object._placeholderId, object, placeholder.frame);
+    }
+
+    /**
+     * Tell the overlay where the slot's image actually IS: the axis-aligned
+     * bbox of the live object intersected with the designer frame (the render
+     * clips there, so that intersection is the visible artwork). A null frame
+     * (no object / image dragged fully outside its frame) makes the overlay
+     * fall back to the designed frame, keeping the icons findable at the slot.
+     */
+    _broadcastFrame(inputId, object, frame) {
+        let visible = null;
+        if (object && frame) {
+            // AABB of the (possibly rotated) rectangle, computed from first
+            // principles — no dependence on Fabric's viewport-transform rules.
+            const w = object.getScaledWidth();
+            const h = object.getScaledHeight();
+            const center = object.getCenterPoint();
+            const rad = ((object.angle || 0) * Math.PI) / 180;
+            const halfW = (Math.abs(w * Math.cos(rad)) + Math.abs(h * Math.sin(rad))) / 2;
+            const halfH = (Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad))) / 2;
+            const x1 = Math.max(center.x - halfW, frame.x);
+            const y1 = Math.max(center.y - halfH, frame.y);
+            const x2 = Math.min(center.x + halfW, frame.x + frame.width);
+            const y2 = Math.min(center.y + halfH, frame.y + frame.height);
+            if (x2 > x1 && y2 > y1) {
+                visible = { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+            }
+        }
+        this.dispatch('frame-changed', { detail: { inputId, frame: visible } });
     }
 
     _writeTransform(inputId, object, frame) {

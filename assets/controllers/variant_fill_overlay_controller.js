@@ -7,7 +7,10 @@ import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
  *
  * Every text + image placeholder is drawn at its designer frame (canvas px,
  * scaled to the displayed preview: `scale = previewWidth / canvasWidth`) with an
- * always-visible icon cluster:
+ * always-visible icon cluster. Image boxes then TRACK the picked image's visible
+ * bbox as the image-fill controller reports it (`variant-image-fill:frame-changed`
+ * → imageFrameChanged) — a contain-fitted or user-moved image can sit far from
+ * its frame's corner, and the icons must stay on the artwork. Icon cluster:
  *  - pencil → text: opens the floating text popover; image: opens the gallery modal;
  *  - eye    → toggles "hide this element" (only when the slot is hidable).
  * The "Zobrazit oblasti k vyplnění" toggle shows/hides the dashed borders AND
@@ -70,6 +73,7 @@ export default class extends Controller {
             window.WBoostFabricBreakWord.enable(Textbox);
         }
         this._computedFrames = {};
+        this._imageFrames = {};
         this._measureBoxes = new Map();
         this._loadFontsThenLayout();
 
@@ -439,6 +443,25 @@ export default class extends Controller {
             const icon = btn.querySelector("i");
             if (icon) icon.className = hidden ? "mdi mdi-eye-off-outline" : "mdi mdi-eye-outline";
         });
+    }
+
+    // --- Image frame tracking (live artwork position) -------------------------
+
+    /** The image-fill controller reports where a slot's image actually sits
+     *  (visible bbox = object bounds ∩ designer frame, canvas px) on every
+     *  pick, drag, resize and rotation — anchor that slot's box + icons to
+     *  the artwork instead of the designed frame. A null frame (hidden slot,
+     *  or the image dragged fully outside its frame) reverts to the designed
+     *  frame so the icons stay findable at the slot. */
+    imageFrameChanged(event) {
+        const { inputId, frame } = event.detail || {};
+        if (!inputId) return;
+        if (frame) {
+            this._imageFrames[inputId] = frame;
+        } else {
+            delete this._imageFrames[inputId];
+        }
+        this.reposition();
     }
 
     // --- Layers panel (Vrstvy) ------------------------------------------------
@@ -870,8 +893,11 @@ export default class extends Controller {
     // --- helpers -------------------------------------------------------------
 
     _frameOf(box) {
-        // Live-computed frame (container reflow / measured height) wins over
-        // the static designer frame baked into the data attributes.
+        // Live frames win over the static designer frame baked into the data
+        // attributes: image slots track their picked image's visible bbox,
+        // text slots their container-reflowed / measured position.
+        const image = this._imageFrames ? this._imageFrames[box.dataset.inputid] : null;
+        if (image) return image;
         const computed = this._computedFrames ? this._computedFrames[box.dataset.inputid] : null;
         if (computed) return computed;
 
