@@ -48,7 +48,8 @@ export default class extends Controller {
     static values = {
         canvasWidth: Number,
         // { inputs: { <inputId>: {frame, style, locked, uppercase, maxLength, hidable} },
-        //   containers: [ {id, maxHeight, memberInputIds} ] }
+        //   decorations: { <inputId>: {frame} },   ← decorative image members
+        //   containers: [ {id, maxHeight, memberInputIds, memberContainerIds, gap} ] }
         textLayout: Object,
         fonts: Array,
     };
@@ -716,9 +717,12 @@ export default class extends Controller {
      * Mirror of the export render's text pipeline: transform each input's
      * current value the way ResolveTextOverrides does (truncate to maxLength,
      * uppercase), measure the wrapped height with an offscreen Fabric Textbox,
-     * then run the shared container layout over the designed frames. Results
-     * land in _computedFrames (consumed by _frameOf → reposition) and in the
-     * overflow UI state.
+     * then run the SAME two-phase shared container layout the server render
+     * runs — over geometry POJOs built from the designed frames (fillable
+     * texts) and the decorative-member frames (icons/separators the server
+     * ships in `decorations`), so nesting, uniform gaps and attachments all
+     * mirror the render exactly. Results land in _computedFrames (consumed by
+     * _frameOf → reposition) and in the overflow UI state.
      */
     _recomputeLayout() {
         const layoutModule = window.WBoostContainerLayout;
@@ -738,40 +742,79 @@ export default class extends Controller {
             computed[inputId] = { x: def.frame.x, y: def.frame.y, width: def.frame.width, height };
         });
 
+        // Phase A over DESIGNED geometry (the anchor snapshot), phase B over
+        // the measured heights + fill-time hides — the render's exact split.
+        const textPojos = {};
+        const pojos = [];
+        Object.keys(inputs).forEach((inputId) => {
+            const def = inputs[inputId];
+            if (!def.frame) return;
+            const pojo = {
+                type: 'textbox',
+                inputId,
+                top: def.frame.y,
+                left: def.frame.x,
+                width: def.frame.width,
+                height: def.frame.height,
+                scaleX: 1,
+                scaleY: 1,
+                visible: true,
+            };
+            textPojos[inputId] = pojo;
+            pojos.push(pojo);
+        });
+        Object.keys(data.decorations || {}).forEach((inputId) => {
+            const decoration = data.decorations[inputId];
+            if (!decoration || !decoration.frame) return;
+            pojos.push({
+                type: 'image',
+                inputId,
+                top: decoration.frame.y,
+                left: decoration.frame.x,
+                width: decoration.frame.width,
+                height: decoration.frame.height,
+                scaleX: 1,
+                scaleY: 1,
+                visible: true,
+            });
+        });
+
+        const prepared = layoutModule.prepareFabricContainers(pojos, data.containers || []);
+
+        Object.keys(textPojos).forEach((inputId) => {
+            const pojo = textPojos[inputId];
+            if (computed[inputId]) {
+                pojo.height = computed[inputId].height;
+            }
+            if (this._isHidden(inputId)) {
+                pojo.visible = false;
+            }
+        });
+
+        const results = layoutModule.applyFabricLayout(prepared);
+
         let worstOverflow = null;
         const overflowIds = new Set();
 
-        (data.containers || []).forEach((container) => {
-            const memberIds = (container.memberInputIds || []).filter((id) => inputs[id] && inputs[id].frame);
-            if (memberIds.length < 2) return;
-
-            const designed = memberIds.map((id) => ({
-                designedTop: inputs[id].frame.y,
-                designedHeight: inputs[id].frame.height,
-            }));
-            const gaps = layoutModule.computeGaps(designed);
-            const members = memberIds.map((id, i) => ({
-                designedTop: designed[i].designedTop,
-                actualHeight: computed[id] ? computed[id].height : designed[i].designedHeight,
-                hidden: this._isHidden(id),
-            }));
-            const result = layoutModule.computeLayout(members, container.maxHeight, gaps);
-
-            memberIds.forEach((id, i) => {
-                if (!computed[id]) return;
-                if (result.tops[i] !== null) {
-                    computed[id].y = result.tops[i];
+        results.filter((result) => !result.nested).forEach((result) => {
+            const flow = result.textFlow || [];
+            flow.forEach((entry, i) => {
+                if (!computed[entry.inputId]) return;
+                if (entry.top !== null) {
+                    computed[entry.inputId].y = entry.top;
                 } else {
                     // Hidden member: collapse the box to a zero-height line at
                     // its would-be flow position so the eye stays reachable.
-                    const nextVisibleTop = result.tops.slice(i + 1).find((t) => t !== null);
-                    computed[id].y = nextVisibleTop !== undefined ? nextVisibleTop : result.contentBottom;
-                    computed[id].height = 0;
+                    const nextVisible = flow.slice(i + 1).find((e) => e.top !== null);
+                    computed[entry.inputId].y = nextVisible ? nextVisible.top : result.contentBottom;
+                    computed[entry.inputId].height = 0;
                 }
             });
 
             if (result.overflowPx > 0.5) {
-                memberIds.forEach((id) => overflowIds.add(id));
+                flow.forEach((entry) => {
+                    if (computed[entry.inputId]) overflowIds.add(entry.inputId);
+                });
                 if (worstOverflow === null || result.overflowPx > worstOverflow) {
                     worstOverflow = result.overflowPx;
                 }

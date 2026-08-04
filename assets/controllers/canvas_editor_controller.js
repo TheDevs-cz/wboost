@@ -233,7 +233,11 @@ export default class extends Controller {
             // `containers` key) — restore them onto the canvas instance, the
             // shared state the container controller and submitForm read.
             this.canvas.wboostContainers = Array.isArray(sourceCanvas.containers)
-                ? sourceCanvas.containers.map((c) => ({ ...c }))
+                ? sourceCanvas.containers.map((c) => ({
+                    ...c,
+                    memberInputIds: Array.isArray(c.memberInputIds) ? c.memberInputIds.slice() : [],
+                    memberContainerIds: Array.isArray(c.memberContainerIds) ? c.memberContainerIds.slice() : [],
+                }))
                 : [];
 
             // Ruler guides too (top-level `guides` key) — but ONLY when the

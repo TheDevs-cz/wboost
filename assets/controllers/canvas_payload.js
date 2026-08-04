@@ -194,6 +194,14 @@ export function sanitizedGuides(canvas) {
 }
 
 /**
+ * Container sanitization: stale members pruned (texts + decorative images —
+ * fillable placeholders and the background layer are never members), flow
+ * order re-derived from tops, child references validated (existing ids only,
+ * no self-refs, no cycles, one parent per child — first wins in list order),
+ * `gap` normalized (finite ≥ 0 or absent), and inert containers dropped —
+ * iterated to a fixpoint because dropping a degenerate child can strip its
+ * parent below the 2-member minimum.
+ *
  * @param {Object} canvas Fabric canvas carrying `wboostContainers`
  * @param {Array} objects live canvas objects (flat, canvas order)
  * @returns {Array} persistable container definitions
@@ -201,23 +209,76 @@ export function sanitizedGuides(canvas) {
 export function sanitizedContainers(canvas, objects) {
     const containers = Array.isArray(canvas.wboostContainers) ? canvas.wboostContainers : [];
     const layout = window.WBoostContainerLayout;
-    const textboxIds = new Set(
+    const memberIds = new Set(
         objects
-            .filter((o) => (o.type || '').toLowerCase() === 'textbox' && o.inputId)
+            .filter((o) => o.inputId && (layout
+                ? layout.isMemberCandidate(o)
+                : (o.type || '').toLowerCase() === 'textbox'))
             .map((o) => o.inputId),
     );
 
-    return containers
+    let result = containers
         .map((container) => {
-            let memberInputIds = (container.memberInputIds || []).filter((id) => textboxIds.has(id));
+            let memberInputIds = (container.memberInputIds || []).filter((id) => memberIds.has(id));
             if (layout) {
                 memberInputIds = layout.sortMemberIdsByTop(objects, memberInputIds);
             }
-            return {
+            const entry = {
                 id: container.id,
                 maxHeight: container.maxHeight,
                 memberInputIds,
+                memberContainerIds: Array.isArray(container.memberContainerIds)
+                    ? container.memberContainerIds.slice()
+                    : [],
             };
+            if (typeof container.gap === 'number' && Number.isFinite(container.gap) && container.gap >= 0) {
+                entry.gap = Math.round(container.gap * 10) / 10;
+            }
+            return entry;
         })
-        .filter((container) => container.memberInputIds.length >= 2 && container.maxHeight > 0);
+        .filter((container) => container.id && container.maxHeight > 0);
+
+    // Child references: only surviving ids, no self-refs, one parent per child.
+    const claimed = new Set();
+    const knownIds = new Set(result.map((c) => c.id));
+    result.forEach((container) => {
+        container.memberContainerIds = container.memberContainerIds.filter((childId) => {
+            if (childId === container.id || !knownIds.has(childId) || claimed.has(childId)) {
+                return false;
+            }
+            claimed.add(childId);
+            return true;
+        });
+    });
+
+    // Cycles: drop child references that reach back to an ancestor.
+    const byId = new Map(result.map((c) => [c.id, c]));
+    const reaches = (fromId, targetId, seen) => {
+        if (fromId === targetId) return true;
+        if (seen.has(fromId)) return false;
+        seen.add(fromId);
+        const node = byId.get(fromId);
+        return Boolean(node) && node.memberContainerIds.some((id) => reaches(id, targetId, seen));
+    };
+    result.forEach((container) => {
+        container.memberContainerIds = container.memberContainerIds.filter(
+            (childId) => !reaches(childId, container.id, new Set()),
+        );
+    });
+
+    // Degenerate drop to fixpoint: a container needs 2+ members in total, and
+    // dropping one can invalidate a parent that counted it.
+    for (;;) {
+        const valid = new Set(result
+            .filter((c) => c.memberInputIds.length + c.memberContainerIds.length >= 2)
+            .map((c) => c.id));
+        if (valid.size === result.length) {
+            break;
+        }
+        result = result
+            .filter((c) => valid.has(c.id))
+            .map((c) => ({ ...c, memberContainerIds: c.memberContainerIds.filter((id) => valid.has(id)) }));
+    }
+
+    return result;
 }

@@ -651,7 +651,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *         hidable: bool,
      *         richText: bool
      *     }>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>}>
+     *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float}>
      * }
      */
     public function textLayoutData(): array
@@ -663,6 +664,7 @@ abstract class AbstractVariantFiller extends AbstractController
         $canvas = is_array($decoded) ? $decoded : [];
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
         $styles = $this->textInputObjectBinder->textStylesByInputId($canvas, $variant->inputs);
+        $containers = CanvasContainer::collectionFromCanvas($canvas);
 
         $inputs = [];
         foreach ($variant->inputs as $input) {
@@ -687,11 +689,84 @@ abstract class AbstractVariantFiller extends AbstractController
 
         return [
             'inputs' => $inputs,
+            'decorations' => $this->decorativeMemberFrames($canvas, $containers),
             'containers' => array_map(
                 static fn (CanvasContainer $container): array => $container->toArray(),
-                CanvasContainer::collectionFromCanvas($canvas),
+                $containers,
             ),
         ];
+    }
+
+    /**
+     * Designed frames of DECORATIVE image members (checklist icons,
+     * separators) — the overlay feeds them to the shared layout engine as
+     * geometry POJOs so its client-side reflow sees exactly the members the
+     * server render does. Fillable placeholders and the background layer are
+     * never container members; design-hidden objects are skipped like the
+     * engine skips them.
+     *
+     * @param array<array-key, mixed> $canvas
+     * @param list<CanvasContainer> $containers
+     * @return array<string, array{frame: array{x: float, y: float, width: float, height: float}}>
+     */
+    private function decorativeMemberFrames(array $canvas, array $containers): array
+    {
+        $memberIds = [];
+        foreach ($containers as $container) {
+            foreach ($container->memberInputIds as $memberId) {
+                $memberIds[$memberId] = true;
+            }
+        }
+        if ($memberIds === []) {
+            return [];
+        }
+
+        $objects = $canvas['objects'] ?? null;
+        if (!is_array($objects)) {
+            return [];
+        }
+
+        $decorations = [];
+        foreach ($objects as $object) {
+            if (!is_array($object)) {
+                continue;
+            }
+            $inputId = $object['inputId'] ?? null;
+            $type = $object['type'] ?? null;
+            if (!is_string($inputId) || !isset($memberIds[$inputId]) || !is_string($type)) {
+                continue;
+            }
+            if (strtolower($type) !== 'image') {
+                continue;
+            }
+            if (($object['imagePlaceholder'] ?? false) === true || ($object['isBackground'] ?? false) === true) {
+                continue;
+            }
+            if (($object['visible'] ?? true) === false) {
+                continue;
+            }
+
+            $left = $object['left'] ?? null;
+            $top = $object['top'] ?? null;
+            $width = $object['width'] ?? null;
+            $height = $object['height'] ?? null;
+            if (!is_numeric($left) || !is_numeric($top) || !is_numeric($width) || !is_numeric($height)) {
+                continue;
+            }
+            $scaleX = is_numeric($object['scaleX'] ?? null) ? (float) $object['scaleX'] : 1.0;
+            $scaleY = is_numeric($object['scaleY'] ?? null) ? (float) $object['scaleY'] : 1.0;
+
+            $decorations[$inputId] = [
+                'frame' => [
+                    'x' => (float) $left,
+                    'y' => (float) $top,
+                    'width' => (float) $width * $scaleX,
+                    'height' => (float) $height * $scaleY,
+                ],
+            ];
+        }
+
+        return $decorations;
     }
 
     private function renderToDataUri(ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null): string

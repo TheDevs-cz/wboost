@@ -203,9 +203,12 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
         "containers": [                                  // "smart text areas" (may be empty)
           {
             "id": "0192f...",                            // referenced by inputs[].containerId
-            "maxHeight": 420,                            // px budget for the whole flow, from y downward
-            "y": 60,                                     // container top (canvas px) = designed top of the first member
-            "memberInputIds": ["95b0...", "a1c3..."]     // member inputs in flow order (top → bottom)
+            "maxHeight": 420,                            // px budget for the whole flow, from y downward (TOP-LEVEL containers only)
+            "y": 60,                                     // container top (canvas px) = highest designed member in its tree
+            "memberInputIds": ["95b0...", "a1c3..."],    // fillable member inputs in flow order (top → bottom)
+            "memberContainerIds": ["0193a..."],          // NESTED child containers flowing inside this one (usually [])
+            "gap": null,                                 // non-null → uniform px spacing between flow items (designed gaps otherwise)
+            "nested": false                              // true → this container flows inside a parent; its own maxHeight is NOT enforced
           }
         ],
         "imageInputs": [                                 // fillable IMAGE slots (may be empty)
@@ -423,12 +426,28 @@ Contract details:
 
 ### Containers (`variant.containers`) — smart text areas
 
-A container groups 2+ text inputs into a vertical flow. At render time the
-server reflows them: a filled text that wraps to more lines pushes the members
-below it down, a hidden (`hide: true`) member collapses (takes no space), and
-the whole flow must fit within `maxHeight` px measured from the container's
-`y` downward — otherwise the export fails with the structured
-`container_overflow` 400 above.
+A container groups members into a document-like vertical flow. At render time
+the server reflows them: a filled text that wraps to more lines pushes the
+flow items below it down, a hidden (`hide: true`) member collapses (takes no
+space), and the whole flow of a TOP-LEVEL container must fit within
+`maxHeight` px measured from the container's `y` downward — otherwise the
+export fails with the structured `container_overflow` 400 above
+(`containerId` is always the top-level container).
+
+Containers NEST: `memberContainerIds` lists child containers that flow inside
+this one — a child is laid out first and shifted as one block, and a
+`nested: true` container grows freely (its own `maxHeight` is NOT enforced;
+only the outermost bound is). A non-null `gap` replaces the designed spacing
+between consecutive flow items of that container with a uniform value
+(each container has its own gap — a section can be tight while the page flow
+between sections is loose).
+
+Containers may also hold DECORATIVE images (checklist icons, separators) the
+designer added: an icon overlapping a text rides along with it and disappears
+when that text is hidden; an image between items flows as its own item. These
+images are not fillable and are NOT listed in `memberInputIds`, so a
+client-side mirror cannot account for them exactly — the rendered PNG is the
+authoritative preview (it is the server render).
 
 Note: a layer the DESIGNER hid in the admin editor (per-layer eye toggle) is
 not part of the template's fillable surface at all — it never appears in
@@ -437,10 +456,12 @@ treats it exactly like a deleted element (it does not anchor a container and
 contributes no gap). You will simply never see such elements in the listing.
 
 Minimal consumer support (recommended): draw the container zone
-(`y` → `y + maxHeight`, spanning its members' frames) as a visual hint that
-these fields move together, keep anchoring the per-input affordances at their
-designed `frame`s (the rendered PNG is always correct — it IS the server
-render), and handle the 400 by highlighting the container's fields.
+(`y` → `y + maxHeight` for top-level containers, spanning its members'
+frames) as a visual hint that these fields move together, keep anchoring the
+per-input affordances at their designed `frame`s (the rendered PNG is always
+correct — it IS the server render), and handle the 400 by highlighting the
+fields of the whole container TREE (the reported id's `memberInputIds` plus
+those of every container reachable through `memberContainerIds`).
 
 Full mirror (optional, recommended for a first-class UX): live placeholder
 boxes that grow/reflow while the user types, plus an overflow pre-check that
@@ -475,13 +496,23 @@ an API contract change):
    wraps wider). Vendor the file into your app.
 
 3. **Reflow** — `assets/editor/container_layout.js`
-   (`WBoostContainerLayout.computeGaps` + `computeLayout`): designed gaps
+   (`WBoostContainerLayout`): vendor the file into your app. For a FLAT,
+   texts-only container the algorithm is: designed gaps
    `gap[i] = frame[i].y − (frame[i−1].y + frame[i−1].height)` (members in
-   `memberInputIds` order); the first visible member anchors at `y`; each
-   next visible member sits at `previousBottom + its own gap`; hidden members
-   are skipped; overflow = `lastVisibleBottom − (y + maxHeight)` when
-   positive — the same number the render's `container_overflow` 400 reports.
-   Vendor the file into your app.
+   `memberInputIds` order) — or the container's uniform `gap` for every slot
+   when it is non-null; the first visible member anchors at `y`; each next
+   visible member sits at `previousBottom + its own gap`; hidden members are
+   skipped; overflow = `lastVisibleBottom − (y + maxHeight)` when positive —
+   the same number the render's `container_overflow` 400 reports
+   (`computeGaps` + `computeLayout` implement exactly this). For NESTED
+   containers use the module's two-phase API (`prepareFabricContainers` +
+   `applyFabricLayout`) over geometry POJOs `{type, inputId, top, left,
+   width, height, visible}` — it lays children out bottom-up, flows each
+   child as one item in its parent and reports overflow only on top-level
+   containers (root results carry `textFlow`: deep member tops in flow
+   order, null = hidden). Remember decorative image members are absent from
+   the listing, so a mirror of a container that uses them will drift — rely
+   on the server preview there.
 
 **Drawing placeholder boxes over the preview.** Both `inputs[].frame` and
 `imageInputs[].frame` are in the variant's canvas pixel space, and the export PNG is

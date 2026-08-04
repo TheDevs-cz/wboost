@@ -125,6 +125,10 @@
                 const CANVAS_CUSTOM_PROPERTIES = [
                     'inputId', 'name', 'maxLength',
                     'locked', 'uppercase', 'description', 'hidable', 'richText',
+                    // Container membership resolution needs these: decorative
+                    // images can be members, fillable placeholders and the
+                    // background layer never are (the engine filters on them).
+                    'imagePlaceholder', 'isBackground',
                 ];
                 const sourceObjects = Array.isArray(canvasJson.objects) ? canvasJson.objects : [];
                 const liveObjects = canvas.getObjects();

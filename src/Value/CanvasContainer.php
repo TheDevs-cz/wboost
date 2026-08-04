@@ -5,11 +5,18 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 /**
- * A "smart text area": a designer-authored group of 2+ text placeholders that
- * reflow vertically at render time — filled text that wraps to more lines
- * pushes the members below it down (hidden members collapse), bounded by
+ * A "smart text area": a designer-authored group of members that reflow
+ * vertically at render time — filled text that wraps to more lines pushes the
+ * flow items below it down (hidden items collapse), bounded by
  * {@see self::$maxHeight}. Exceeding the bound is a validation error on the
  * strict render paths (API export → 400).
+ *
+ * Members are text placeholders and decorative images ({@see $memberInputIds})
+ * plus, since the nesting rework, other containers ({@see $memberContainerIds}):
+ * a child container is laid out first and flows in its parent as ONE item —
+ * only the outermost (root) container's maxHeight bounds the flow, a nested
+ * container grows freely with its content. {@see $gap} optionally replaces the
+ * designed inter-item gaps with a uniform spacing.
  *
  * Containers are persisted as a top-level `containers` key INSIDE the canvas
  * JSONB document (not a separate column): the canvas string already travels
@@ -26,22 +33,34 @@ readonly final class CanvasContainer
         public string $id,
         /**
          * Maximum content height in canvas px, measured from the container's
-         * top (= designed top of the first member) downward.
+         * top (= designed top of the first flow item) downward. Only binding
+         * for a container that is NOT nested inside another one.
          */
         public float $maxHeight,
         /**
-         * Member text-input UUIDs in flow order (top to bottom). The editor
-         * re-derives the order from the members' vertical positions on every
-         * save.
+         * Member input UUIDs (texts + decorative images) in flow order (top
+         * to bottom). The editor re-derives the order from the members'
+         * vertical positions on every save.
          *
          * @var list<string>
          */
         public array $memberInputIds,
+        /**
+         * Child container ids nested inside this one (each flows as one item).
+         *
+         * @var list<string>
+         */
+        public array $memberContainerIds = [],
+        /**
+         * Uniform inter-item spacing in canvas px; null = the designed gaps
+         * between the members are preserved (pre-nesting behavior).
+         */
+        public null|float $gap = null,
     ) {
     }
 
     /**
-     * @return array{id: string, maxHeight: float, memberInputIds: list<string>}
+     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float}
      */
     public function toArray(): array
     {
@@ -49,14 +68,19 @@ readonly final class CanvasContainer
             'id' => $this->id,
             'maxHeight' => $this->maxHeight,
             'memberInputIds' => $this->memberInputIds,
+            'memberContainerIds' => $this->memberContainerIds,
+            'gap' => $this->gap,
         ];
     }
 
     /**
      * Defensive: entries that cannot reflow anything (missing id, non-positive
-     * max height, fewer than 2 members) yield null and are dropped by
-     * {@see self::collectionFromCanvas} — an inert container must never make a
-     * render misbehave.
+     * max height, fewer than 2 members counting nested containers) yield null
+     * and are dropped by {@see self::collectionFromCanvas} — an inert
+     * container must never make a render misbehave. Invalid `gap` values fall
+     * back to designed gaps; child references are sanity-filtered here only
+     * lightly (strings) — cycle/one-parent enforcement happens at save time in
+     * the editor and defensively in the shared layout engine.
      *
      * @param array<array-key, mixed> $data
      */
@@ -85,11 +109,32 @@ readonly final class CanvasContainer
                 }
             }
         }
-        if (count($memberInputIds) < 2) {
+
+        $memberContainerIds = [];
+        $rawChildren = $data['memberContainerIds'] ?? null;
+        if (is_array($rawChildren)) {
+            foreach ($rawChildren as $childId) {
+                if (is_string($childId) && $childId !== '' && $childId !== $id) {
+                    $memberContainerIds[] = $childId;
+                }
+            }
+        }
+
+        if (count($memberInputIds) + count($memberContainerIds) < 2) {
             return null;
         }
 
-        return new self($id, $maxHeight, $memberInputIds);
+        $gap = $data['gap'] ?? null;
+        if (!is_int($gap) && !is_float($gap)) {
+            $gap = null;
+        } else {
+            $gap = (float) $gap;
+            if ($gap < 0.0 || !is_finite($gap)) {
+                $gap = null;
+            }
+        }
+
+        return new self($id, $maxHeight, $memberInputIds, $memberContainerIds, $gap);
     }
 
     /**
@@ -117,5 +162,22 @@ readonly final class CanvasContainer
         }
 
         return $collection;
+    }
+
+    /**
+     * Is this container nested inside another one of the given collection?
+     * (Nested containers grow freely — only roots bound the flow.)
+     *
+     * @param list<self> $containers
+     */
+    public function isNestedIn(array $containers): bool
+    {
+        foreach ($containers as $candidate) {
+            if ($candidate->id !== $this->id && in_array($this->id, $candidate->memberContainerIds, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

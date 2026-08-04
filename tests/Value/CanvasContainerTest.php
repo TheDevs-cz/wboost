@@ -28,11 +28,92 @@ final class CanvasContainerTest extends TestCase
 
     public function testToArrayRoundTrips(): void
     {
-        $data = ['id' => 'c-1', 'maxHeight' => 120.5, 'memberInputIds' => ['a', 'b']];
+        $data = [
+            'id' => 'c-1',
+            'maxHeight' => 120.5,
+            'memberInputIds' => ['a', 'b'],
+            'memberContainerIds' => ['child-1'],
+            'gap' => 12.0,
+        ];
         $container = CanvasContainer::fromArray($data);
 
         self::assertNotNull($container);
         self::assertSame($data, $container->toArray());
+    }
+
+    public function testLegacyEntryGetsNullGapAndNoChildren(): void
+    {
+        $container = CanvasContainer::fromArray([
+            'id' => 'c-1',
+            'maxHeight' => 100,
+            'memberInputIds' => ['a', 'b'],
+        ]);
+
+        self::assertNotNull($container);
+        self::assertSame([], $container->memberContainerIds);
+        self::assertNull($container->gap);
+    }
+
+    public function testNestingRules(): void
+    {
+        // One input + one child = 2 members → valid.
+        $parent = CanvasContainer::fromArray([
+            'id' => 'parent',
+            'maxHeight' => 300,
+            'memberInputIds' => ['a'],
+            'memberContainerIds' => ['child'],
+        ]);
+        self::assertNotNull($parent);
+        self::assertSame(['child'], $parent->memberContainerIds);
+
+        // Children alone can carry a container too.
+        $grouping = CanvasContainer::fromArray([
+            'id' => 'grouping',
+            'maxHeight' => 300,
+            'memberContainerIds' => ['s1', 's2'],
+        ]);
+        self::assertNotNull($grouping);
+        self::assertSame([], $grouping->memberInputIds);
+
+        // Self-references are stripped (and can invalidate the entry).
+        self::assertNull(CanvasContainer::fromArray([
+            'id' => 'self',
+            'maxHeight' => 100,
+            'memberInputIds' => ['a'],
+            'memberContainerIds' => ['self'],
+        ]));
+
+        $nested = CanvasContainer::fromArray([
+            'id' => 'child',
+            'maxHeight' => 100,
+            'memberInputIds' => ['a', 'b'],
+        ]);
+        self::assertNotNull($nested);
+        self::assertTrue($nested->isNestedIn([$nested, $parent]));
+        self::assertFalse($parent->isNestedIn([$nested, $parent]));
+    }
+
+    public function testInvalidGapFallsBackToDesignedGaps(): void
+    {
+        foreach (['wide', -3, NAN] as $invalid) {
+            $container = CanvasContainer::fromArray([
+                'id' => 'c',
+                'maxHeight' => 100,
+                'memberInputIds' => ['a', 'b'],
+                'gap' => $invalid,
+            ]);
+            self::assertNotNull($container);
+            self::assertNull($container->gap);
+        }
+
+        $zeroGap = CanvasContainer::fromArray([
+            'id' => 'c',
+            'maxHeight' => 100,
+            'memberInputIds' => ['a', 'b'],
+            'gap' => 0,
+        ]);
+        self::assertNotNull($zeroGap);
+        self::assertSame(0.0, $zeroGap->gap);
     }
 
     /**

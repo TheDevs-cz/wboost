@@ -303,7 +303,11 @@ export default class extends Controller {
         restoreCustomProperties(shadow, source);
 
         shadow.wboostContainers = Array.isArray(source.containers)
-            ? source.containers.map((c) => ({ ...c }))
+            ? source.containers.map((c) => ({
+                ...c,
+                memberInputIds: Array.isArray(c.memberInputIds) ? c.memberInputIds.slice() : [],
+                memberContainerIds: Array.isArray(c.memberContainerIds) ? c.memberContainerIds.slice() : [],
+            }))
             : [];
 
         // Ruler guides ride the document too — restore them onto the shadow so

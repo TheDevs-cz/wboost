@@ -1,11 +1,36 @@
 /*
  * Container layout — the single source of truth for "smart text area" reflow.
  *
- * A container groups 2+ text placeholders into a vertical flow: when a filled
- * text wraps to more lines than designed, the members below it shift down
- * instead of being overlapped; hidden members collapse (take no space); the
- * flow is bounded by the container's maxHeight (content past it = overflow,
- * reported to the caller — enforcement policy is the caller's business).
+ * A container groups members into a vertical document-like flow: when a filled
+ * text wraps to more lines than designed, the flow items below it shift down
+ * instead of being overlapped; hidden items collapse (take no space); the flow
+ * of a TOP-LEVEL container is bounded by its maxHeight (content past it =
+ * overflow, reported to the caller — enforcement policy is the caller's
+ * business).
+ *
+ * Member model (v2 — nested containers):
+ *  - TEXT placeholders are flow items, exactly as before: each text is its own
+ *    item, designed gaps between consecutive items are preserved (negative
+ *    gaps included), growth pushes the items below down, a hidden text
+ *    collapses.
+ *  - CONTAINERS can be members of another container (`memberContainerIds`).
+ *    A child container is one flow item in its parent: it is laid out first
+ *    (bottom-up), its resulting content height is its item height, and the
+ *    parent shifts it as a whole. A nested container's own maxHeight is NOT a
+ *    bound — it grows freely with content; only the outermost (root)
+ *    container's maxHeight gates overflow.
+ *  - DECORATIVE IMAGES (non-placeholder, non-background) can be members too.
+ *    An image whose designed vertical interval overlaps a text/child item
+ *    becomes that item's ATTACHMENT: it rides along with the item (fixed
+ *    offset from the item's designed geometry) and is hidden when the item
+ *    collapses — the "checkbox icon next to the checklist line" case. An
+ *    image overlapping no item is a STANDALONE flow item (a divider between
+ *    sections): it flows like a text but never changes height and never
+ *    hides.
+ *  - `gap` (nullable, canvas px): when set on a container, it replaces every
+ *    designed inter-item gap of THAT container with a uniform spacing —
+ *    vertical member positions then only determine flow ORDER. When null,
+ *    designed gaps are preserved (the pre-v2 behavior, and the default).
  *
  * This file is deliberately a dependency-free classic script (attaches to
  * window/globalThis, no ES module syntax) because it has three consumers that
@@ -21,7 +46,10 @@
  *
  * Geometry contract: canvas px, top-left origin, textboxes are originX/originY
  * left/top with rotation and scaling locked (the editor enforces this at
- * creation), so "height" is the only dimension that varies with content.
+ * creation), so "height" is the only dimension that varies with content. The
+ * "objects" the two-phase API operates on can be live Fabric objects OR plain
+ * geometry POJOs ({type, inputId, top, left, width, height, scaleX, scaleY,
+ * visible}) — the fill overlay feeds POJOs built from designer frames.
  */
 (function (global) {
     'use strict';
@@ -30,6 +58,9 @@
      * Designed vertical gaps between consecutive members, in flow order.
      * members: [{ designedTop, designedHeight }]
      * Returns n-1 gaps; gaps[i] sits between member i and member i+1.
+     * (Legacy helper — the tree pipeline computes extent-based gaps itself,
+     * but the flat helpers stay exported: they ARE the documented consumer
+     * contract for mirroring a texts-only container.)
      */
     function computeGaps(members) {
         const gaps = [];
@@ -41,7 +72,7 @@
     }
 
     /**
-     * Pure reflow.
+     * Pure flat reflow (legacy helper, texts-only semantics).
      * members: [{ designedTop, actualHeight, hidden }] in flow order.
      * gaps: output of computeGaps for the same members (designed geometry).
      *
@@ -50,10 +81,6 @@
      * at previousVisibleBottom + its own designed gap (the gap to its designed
      * predecessor, even when that predecessor is hidden). Hidden members get a
      * null top and occupy no space.
-     *
-     * Returns { tops, containerTop, contentBottom, overflowPx } where tops[i]
-     * is the new top for member i (null = hidden) and overflowPx > 0 means the
-     * content does not fit within maxHeight.
      */
     function computeLayout(members, maxHeight, gaps) {
         const tops = new Array(members.length).fill(null);
@@ -88,10 +115,45 @@
     }
 
     /**
-     * Resolve a container's member objects (by inputId, textboxes only) from a
-     * flat object list, preserving the persisted flow order. Members that no
-     * longer exist are skipped — a container that resolves to fewer than 2
-     * members is inert.
+     * Decorative canvas image: a member candidate that rides the flow.
+     * Fillable image placeholders and the background layer are deliberately
+     * NOT container material — their frames are load-bearing elsewhere
+     * (fill-page live objects, clipPath rects, API contracts).
+     */
+    function isImageObject(candidate) {
+        return Boolean(candidate)
+            && String(candidate.type || '').toLowerCase() === 'image'
+            && candidate.imagePlaceholder !== true
+            && candidate.isBackground !== true;
+    }
+
+    function isMemberCandidate(candidate) {
+        return isTextboxObject(candidate) || isImageObject(candidate);
+    }
+
+    function displayedHeight(object) {
+        return object.height * (object.scaleY || 1);
+    }
+
+    function normalizeGap(gap) {
+        return (typeof gap === 'number' && isFinite(gap) && gap >= 0) ? gap : null;
+    }
+
+    function setObjectProps(object, props) {
+        if (typeof object.set === 'function') {
+            object.set(props);
+        } else {
+            Object.keys(props).forEach(function (key) { object[key] = props[key]; });
+        }
+        if (typeof object.setCoords === 'function') {
+            object.setCoords();
+        }
+    }
+
+    /**
+     * Resolve a container's DIRECT input members (texts + decorative images,
+     * by inputId) from a flat object list, preserving the persisted order.
+     * Members that no longer exist are skipped.
      *
      * DESIGN-hidden members (the editor's per-layer eye toggle → the object is
      * visible:false already at membership-resolution time, i.e. phase A) are
@@ -105,7 +167,7 @@
         const members = [];
         const ids = Array.isArray(container.memberInputIds) ? container.memberInputIds : [];
         for (const inputId of ids) {
-            const found = objects.find((o) => isTextboxObject(o) && o.inputId === inputId && o.visible !== false);
+            const found = objects.find((o) => isMemberCandidate(o) && o.inputId === inputId && o.visible !== false);
             if (found) {
                 members.push(found);
             }
@@ -113,76 +175,379 @@
         return members;
     }
 
-    function displayedHeight(object) {
-        return object.height * (object.scaleY || 1);
+    /** Child container definitions of a container, resolved against the full list. */
+    function childContainersOf(containers, container) {
+        const byId = new Map((containers || []).filter((c) => c && c.id).map((c) => [c.id, c]));
+        const ids = Array.isArray(container.memberContainerIds) ? container.memberContainerIds : [];
+        const children = [];
+        for (const id of ids) {
+            if (id !== container.id && byId.has(id)) {
+                children.push(byId.get(id));
+            }
+        }
+        return children;
+    }
+
+    /** The container (if any) that lists `containerId` among its children. */
+    function parentOf(containers, containerId) {
+        return (containers || []).find(
+            (c) => c && Array.isArray(c.memberContainerIds) && c.id !== containerId
+                && c.memberContainerIds.includes(containerId),
+        ) || null;
+    }
+
+    /** Containers not claimed as a child by any other container. */
+    function rootContainers(containers) {
+        const defs = (containers || []).filter((c) => c && c.id);
+        const byId = new Map(defs.map((c) => [c.id, c]));
+        const claimed = new Set();
+        defs.forEach((def) => {
+            (def.memberContainerIds || []).forEach((id) => {
+                if (id !== def.id && byId.has(id)) {
+                    claimed.add(id);
+                }
+            });
+        });
+        return defs.filter((def) => !claimed.has(def.id));
+    }
+
+    /** The root container of the tree `containerId` belongs to. */
+    function rootOf(containers, containerId) {
+        let current = (containers || []).find((c) => c && c.id === containerId) || null;
+        const seen = new Set();
+        while (current && !seen.has(current.id)) {
+            seen.add(current.id);
+            const parent = parentOf(containers, current.id);
+            if (!parent) {
+                return current;
+            }
+            current = parent;
+        }
+        return current;
     }
 
     /**
-     * Phase A — run BEFORE text overrides are applied, while every member
-     * still holds its designed text: snapshot the designed geometry (tops +
-     * gaps) each container's reflow is anchored to.
+     * Direct + descendant member objects of a container — what the editor
+     * moves as a unit (zone label drag) and draws the zone around.
      */
-    function prepareFabricContainers(objects, containers) {
-        const prepared = [];
-        for (const container of containers || []) {
-            if (!container || !(container.maxHeight > 0)) {
-                continue;
-            }
-            const memberObjects = collectMembers(objects, container);
-            if (memberObjects.length < 2) {
-                continue;
-            }
-            const designed = memberObjects.map((o) => ({
-                designedTop: o.top,
-                designedHeight: displayedHeight(o),
-            }));
-            prepared.push({
-                id: container.id,
-                maxHeight: container.maxHeight,
-                memberObjects,
-                designedTops: designed.map((d) => d.designedTop),
-                gaps: computeGaps(designed),
-            });
+    function collectDeepMemberObjects(objects, containers, container, visiting) {
+        const seen = visiting || new Set();
+        if (!container || seen.has(container.id)) {
+            return [];
         }
+        seen.add(container.id);
+        const result = collectMembers(objects, container);
+        childContainersOf(containers, container).forEach((child) => {
+            collectDeepMemberObjects(objects, containers, child, seen).forEach((o) => result.push(o));
+        });
+        return result;
+    }
+
+    // --- two-phase tree pipeline ---------------------------------------------
+
+    /**
+     * Phase A — run BEFORE text overrides are applied, while every member
+     * still holds its designed text: build the container forest and snapshot
+     * the designed geometry (item extents + gaps) the reflow is anchored to.
+     *
+     * opts.getTop(o): absolute-top accessor override (the editor needs this
+     * while a Fabric ActiveSelection holds members with relative coords).
+     */
+    function prepareFabricContainers(objects, containers, opts) {
+        const getTop = (opts && opts.getTop) || function (o) { return o.top; };
+        const defs = (containers || []).filter((c) => c && c.id);
+        const byId = new Map(defs.map((c) => [c.id, c]));
+        const consumed = new Set();
+
+        function buildNode(def, visiting) {
+            if (visiting.has(def.id) || consumed.has(def.id)) {
+                return null; // cycle guard / second parent claiming the same child
+            }
+            visiting.add(def.id);
+
+            const childNodes = [];
+            (Array.isArray(def.memberContainerIds) ? def.memberContainerIds : []).forEach((childId) => {
+                if (childId === def.id) return;
+                const childDef = byId.get(childId);
+                if (!childDef) return;
+                const child = buildNode(childDef, visiting);
+                if (child) childNodes.push(child);
+            });
+            visiting.delete(def.id);
+
+            const direct = collectMembers(objects, def);
+            const textObjects = direct.filter(isTextboxObject);
+            const imageObjects = direct.filter(isImageObject);
+
+            // Flow item candidates: every text + every child container.
+            const items = [];
+            textObjects.forEach((obj) => {
+                const top = getTop(obj);
+                items.push({
+                    kind: 'text',
+                    obj,
+                    baseTop: top,
+                    baseHeight: displayedHeight(obj),
+                    attachments: [],
+                });
+            });
+            childNodes.forEach((node) => {
+                items.push({
+                    kind: 'container',
+                    node,
+                    baseTop: node.designedExtTop,
+                    baseHeight: node.designedExtBottom - node.designedExtTop,
+                    attachments: [],
+                });
+            });
+
+            // Images: attach to the item whose designed interval they overlap
+            // the most; no overlap → standalone flow item.
+            imageObjects.forEach((obj) => {
+                const top = getTop(obj);
+                const height = displayedHeight(obj);
+                let best = null;
+                let bestOverlap = 0;
+                items.forEach((item) => {
+                    const overlap = Math.min(top + height, item.baseTop + item.baseHeight)
+                        - Math.max(top, item.baseTop);
+                    if (overlap > 0 && overlap > bestOverlap) {
+                        best = item;
+                        bestOverlap = overlap;
+                    }
+                });
+                if (best) {
+                    best.attachments.push({ obj, offset: top - best.baseTop, height });
+                } else {
+                    items.push({
+                        kind: 'image',
+                        obj,
+                        baseTop: top,
+                        baseHeight: height,
+                        attachments: [],
+                    });
+                }
+            });
+
+            if (items.length === 0) {
+                return null;
+            }
+
+            // Designed extents (base geometry ∪ attachments; offsets are fixed
+            // relative to the base top, only the base HEIGHT varies later).
+            items.forEach((item) => {
+                let minOffset = 0;
+                let attachedBottom = -Infinity;
+                item.attachments.forEach((att) => {
+                    if (att.offset < minOffset) minOffset = att.offset;
+                    const bottom = att.offset + att.height;
+                    if (bottom > attachedBottom) attachedBottom = bottom;
+                });
+                // Offset of the base object below the item's extent top (≥ 0).
+                item.baseTopOffset = -minOffset;
+                // Bottom of the attachment stack relative to the extent top
+                // (the base bottom is computed live in the measure pass).
+                item.attachedBottom = attachedBottom === -Infinity
+                    ? null
+                    : item.baseTopOffset + attachedBottom;
+                item.designedExtTop = item.baseTop - item.baseTopOffset;
+                item.designedExtBottom = Math.max(
+                    item.baseTop + item.baseHeight,
+                    item.attachedBottom === null ? -Infinity : item.designedExtTop + item.attachedBottom,
+                );
+            });
+
+            items.sort((a, b) => a.designedExtTop - b.designedExtTop);
+
+            const gaps = [];
+            for (let i = 1; i < items.length; i += 1) {
+                gaps.push(items[i].designedExtTop - items[i - 1].designedExtBottom);
+            }
+
+            consumed.add(def.id);
+
+            return {
+                id: def.id,
+                maxHeight: def.maxHeight,
+                gap: normalizeGap(def.gap),
+                items,
+                gaps,
+                anchorTop: items[0].designedExtTop,
+                designedExtTop: items[0].designedExtTop,
+                designedExtBottom: Math.max.apply(null, items.map((i) => i.designedExtBottom)),
+            };
+        }
+
+        const prepared = [];
+        rootContainers(defs).forEach((def) => {
+            if (!(def.maxHeight > 0)) {
+                return;
+            }
+            const node = buildNode(def, new Set());
+            if (node) {
+                prepared.push(node);
+            }
+        });
         return prepared;
     }
 
     /**
-     * Phase B — run AFTER overrides (texts substituted, hides applied, heights
-     * re-wrapped): reflow every prepared container by mutating member tops.
-     * Uses obj.set() when available so Fabric invalidates its caches, plain
-     * assignment otherwise. Returns per-container results incl. overflowPx.
+     * Measure pass (design space): bottom-up, computes every item's actual
+     * height + hidden flag and flows the items of each node from its own
+     * designed anchor. Child containers are measured first — their flowed
+     * content height IS their item height in the parent.
+     *
+     * Hidden rules: a text item is hidden when its object is (fill-time hide);
+     * a container item is hidden when ALL of its own items are hidden; a
+     * standalone image item is only hidden when its object is. Attachments
+     * never keep an item alive — they collapse with their host.
      */
-    function applyFabricLayout(prepared) {
-        return prepared.map((p) => {
-            const members = p.memberObjects.map((o, i) => ({
-                designedTop: p.designedTops[i],
-                actualHeight: displayedHeight(o),
-                hidden: o.visible === false,
-            }));
-            const layout = computeLayout(members, p.maxHeight, p.gaps);
-            p.memberObjects.forEach((o, i) => {
-                const top = layout.tops[i];
-                if (top === null || o.top === top) {
-                    return;
+    function measureNode(node) {
+        let previousBottom = null;
+
+        node.items.forEach((item, i) => {
+            let hidden;
+            let baseHeightNow;
+            if (item.kind === 'container') {
+                measureNode(item.node);
+                hidden = item.node._hidden;
+                baseHeightNow = item.node._height;
+            } else {
+                hidden = item.obj.visible === false;
+                baseHeightNow = displayedHeight(item.obj);
+            }
+
+            item._hidden = hidden;
+            item._height = Math.max(
+                item.baseTopOffset + baseHeightNow,
+                item.attachedBottom === null ? -Infinity : item.attachedBottom,
+            );
+
+            if (hidden) {
+                item._extTop = null;
+                return;
+            }
+
+            const gapBefore = node.gap !== null ? node.gap : (node.gaps[i - 1] !== undefined ? node.gaps[i - 1] : 0);
+            item._extTop = previousBottom === null ? node.anchorTop : previousBottom + gapBefore;
+            previousBottom = item._extTop + item._height;
+        });
+
+        node._contentBottom = previousBottom === null ? node.anchorTop : previousBottom;
+        node._height = node._contentBottom - node.anchorTop;
+        node._hidden = node.items.every((item) => item._hidden);
+    }
+
+    /**
+     * Commit pass: translate the design-space layout by the accumulated parent
+     * delta and mutate the member objects. Attachments of a collapsed item are
+     * force-hidden (their texts already are — that is what collapsed them).
+     */
+    function commitNode(node, delta, textFlow) {
+        node.items.forEach((item) => {
+            if (item._hidden || item._extTop === null) {
+                item.attachments.forEach((att) => {
+                    if (att.obj.visible !== false) {
+                        setObjectProps(att.obj, { visible: false });
+                    }
+                });
+                if (item.kind === 'container') {
+                    commitHidden(item.node, textFlow);
+                } else if (item.kind === 'text') {
+                    textFlow.push({ inputId: item.obj.inputId, top: null });
                 }
-                if (typeof o.set === 'function') {
-                    o.set({ top });
-                } else {
-                    o.top = top;
+                return;
+            }
+
+            const finalExtTop = item._extTop + delta;
+            const finalBaseTop = finalExtTop + item.baseTopOffset;
+
+            if (item.kind === 'container') {
+                commitNode(item.node, finalBaseTop - item.node.anchorTop, textFlow);
+            } else {
+                if (item.obj.top !== finalBaseTop) {
+                    setObjectProps(item.obj, { top: finalBaseTop });
                 }
-                if (typeof o.setCoords === 'function') {
-                    o.setCoords();
+                if (item.kind === 'text') {
+                    textFlow.push({ inputId: item.obj.inputId, top: finalBaseTop });
+                }
+            }
+
+            item.attachments.forEach((att) => {
+                const attTop = finalBaseTop + att.offset;
+                if (att.obj.top !== attTop) {
+                    setObjectProps(att.obj, { top: attTop });
                 }
             });
-            return {
-                id: p.id,
-                maxHeight: p.maxHeight,
-                containerTop: layout.containerTop,
-                contentBottom: layout.contentBottom,
-                overflowPx: layout.overflowPx,
-            };
         });
+        node._finalTop = node.anchorTop + delta;
+        node._finalBottom = node._contentBottom + delta;
+    }
+
+    /** A fully collapsed subtree still reports its texts (all hidden). */
+    function commitHidden(node, textFlow) {
+        node.items.forEach((item) => {
+            item.attachments.forEach((att) => {
+                if (att.obj.visible !== false) {
+                    setObjectProps(att.obj, { visible: false });
+                }
+            });
+            if (item.kind === 'container') {
+                commitHidden(item.node, textFlow);
+            } else if (item.kind === 'text') {
+                textFlow.push({ inputId: item.obj.inputId, top: null });
+            }
+        });
+        node._finalTop = null;
+        node._finalBottom = null;
+    }
+
+    /**
+     * Phase B — run AFTER overrides (texts substituted, hides applied, heights
+     * re-wrapped): reflow every prepared tree by mutating member tops.
+     *
+     * Returns one result per container — roots AND descendants:
+     *   { id, maxHeight, containerTop, contentBottom, overflowPx, nested,
+     *     textFlow? }
+     * Only ROOT containers can report overflowPx > 0 (a nested container grows
+     * freely — the outer bound is the contract); roots also carry `textFlow`:
+     * the DEEP text members in flow order with their final tops (null =
+     * hidden), which is what the fill overlay positions its boxes from.
+     */
+    function applyFabricLayout(prepared) {
+        const results = [];
+        (prepared || []).forEach((root) => {
+            measureNode(root);
+            const textFlow = [];
+            commitNode(root, 0, textFlow);
+
+            results.push({
+                id: root.id,
+                maxHeight: root.maxHeight,
+                containerTop: root.anchorTop,
+                contentBottom: root._contentBottom,
+                overflowPx: Math.max(0, root._contentBottom - (root.anchorTop + root.maxHeight)),
+                nested: false,
+                textFlow,
+            });
+
+            const walkChildren = (node) => {
+                node.items.forEach((item) => {
+                    if (item.kind !== 'container') return;
+                    results.push({
+                        id: item.node.id,
+                        maxHeight: item.node.maxHeight,
+                        containerTop: item.node._finalTop === null ? item.node.anchorTop : item.node._finalTop,
+                        contentBottom: item.node._finalBottom === null ? item.node.anchorTop : item.node._finalBottom,
+                        overflowPx: 0,
+                        nested: true,
+                    });
+                    walkChildren(item.node);
+                });
+            };
+            walkChildren(root);
+        });
+        return results;
     }
 
     /**
@@ -192,7 +557,7 @@
     function sortMemberIdsByTop(objects, memberInputIds) {
         const withTops = [];
         for (const inputId of memberInputIds || []) {
-            const found = objects.find((o) => isTextboxObject(o) && o.inputId === inputId);
+            const found = objects.find((o) => isMemberCandidate(o) && o.inputId === inputId);
             if (found) {
                 withTops.push({ inputId, top: found.top });
             }
@@ -205,6 +570,14 @@
         computeGaps,
         computeLayout,
         collectMembers,
+        collectDeepMemberObjects,
+        childContainersOf,
+        parentOf,
+        rootOf,
+        rootContainers,
+        isMemberCandidate,
+        isTextboxObject,
+        isImageObject,
         prepareFabricContainers,
         applyFabricLayout,
         sortMemberIdsByTop,

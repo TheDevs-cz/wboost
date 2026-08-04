@@ -353,6 +353,12 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             ],
             $container['memberInputIds'] ?? null,
         );
+        // Nesting-rework fields: a flat legacy container has no children, no
+        // uniform gap (designed gaps preserved) and is top-level.
+        self::assertSame([], $container['memberContainerIds'] ?? null);
+        self::assertArrayHasKey('gap', $container);
+        self::assertNull($container['gap']);
+        self::assertFalse($container['nested'] ?? null);
 
         // --- inputs[].containerId + textStyle --------------------------------
         $inputs = $variant['inputs'] ?? null;

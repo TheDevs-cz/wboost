@@ -578,6 +578,88 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background: #fa5c7c;
 }
 
+/* Nested container zone: hugs its content (no maxHeight box of its own — the
+   outer container's bound is the contract), visually quieter than its parent
+   so the hierarchy reads at a glance. */
+.container-zone--nested {
+    z-index: 900;
+    border-style: dotted;
+    border-color: rgba(57, 175, 209, 0.75);
+    background: rgba(57, 175, 209, 0.02);
+}
+
+.container-zone--nested .container-zone__label {
+    background: rgba(57, 175, 209, 0.75);
+}
+
+.container-zone--nested .container-zone__delete {
+    background: rgba(57, 175, 209, 0.75);
+}
+
+/* Per-zone settings (⚙ → gap / max height popover). Sits left of the ×. */
+.container-zone__settings {
+    position: absolute;
+    top: -20px;
+    right: 22px;
+    padding: 1px 6px;
+    border: none;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #fff;
+    background: #39afd1;
+    border-radius: 3px 3px 0 0;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.container-zone__settings:hover {
+    background: #2c8caa;
+}
+
+.container-zone--overflow .container-zone__settings {
+    background: #fa5c7c;
+}
+
+.container-zone--nested .container-zone__settings {
+    background: rgba(57, 175, 209, 0.75);
+}
+
+.container-zone-popover {
+    position: absolute;
+    z-index: 1001;
+    width: 230px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    pointer-events: auto;
+}
+
+.container-zone-popover__title {
+    margin-bottom: 8px;
+    padding-right: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.container-zone-popover__close {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 16px;
+    line-height: 1;
+    color: #98a6ad;
+    cursor: pointer;
+}
+
+.container-zone-popover__close:hover {
+    color: #343a40;
+}
+
 /* ---- User-fill placeholder overlay (variant_fill_overlay_controller) ----
    Click-into-preview editing: each placeholder shows an always-visible icon
    cluster (pencil = edit, eye = hide) over the preview. The highlight toggle

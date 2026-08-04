@@ -34,6 +34,26 @@ function isTextboxObject(obj) {
 }
 
 /**
+ * Objects that can be CONTAINER members: texts + decorative images (mirrors
+ * the shared layout engine's isMemberCandidate — fillable placeholders and
+ * background layers never join a flow).
+ */
+function isContainerMemberObject(obj) {
+    const layout = window.WBoostContainerLayout;
+    if (layout) {
+        return layout.isMemberCandidate(obj);
+    }
+    return isTextboxObject(obj);
+}
+
+/** Uniform-gap projection: scale when set, keep the key absent when not. */
+function projectedGap(container, ry) {
+    return typeof container.gap === 'number' && isFinite(container.gap)
+        ? container.gap * ry
+        : undefined;
+}
+
+/**
  * Objects the propagation engine is allowed to touch. Background layers are
  * NEVER syncable — backgrounds are strictly per-dimension: their cover fit is
  * an absolute function of (image, canvas size), so relative deltas would
@@ -349,7 +369,9 @@ export class GroupSync {
                 target.shadow.wboostContainers = containers.map((container) => ({
                     ...container,
                     maxHeight: container.maxHeight * ry,
+                    gap: projectedGap(container, ry),
                     memberInputIds: (container.memberInputIds || []).slice(),
+                    memberContainerIds: (container.memberContainerIds || []).slice(),
                 }));
                 touched.add(target.id);
             });
@@ -441,15 +463,17 @@ export class GroupSync {
 
         const baselineById = new Map(baseline.map((c) => [c.id, c]));
 
+        const currentIds = new Set(current.map((c) => c.id));
+
         targets.forEach((target) => {
             const { ry } = ratios(activeDims, target);
             const shadowContainers = Array.isArray(target.shadow.wboostContainers)
                 ? target.shadow.wboostContainers
                 : [];
             const shadowById = new Map(shadowContainers.map((c) => [c.id, c]));
-            const targetTextboxIds = new Set(
+            const targetMemberIds = new Set(
                 target.shadow.getObjects()
-                    .filter((o) => isTextboxObject(o) && o.inputId)
+                    .filter((o) => isContainerMemberObject(o) && o.inputId)
                     .map((o) => o.inputId),
             );
 
@@ -459,14 +483,21 @@ export class GroupSync {
                 const base = baselineById.get(container.id);
                 const existing = shadowById.get(container.id);
                 const memberIds = (container.memberInputIds || [])
-                    .filter((id) => targetTextboxIds.has(id));
+                    .filter((id) => targetMemberIds.has(id));
+                // Nesting structure follows the active canvas absolutely — it
+                // is topology, not geometry (child ids are shared across the
+                // group the same way member inputIds are).
+                const childIds = (container.memberContainerIds || [])
+                    .filter((id) => currentIds.has(id) && id !== container.id);
 
                 if (!existing) {
-                    // New container → absolute projection of maxHeight.
+                    // New container → absolute projection of maxHeight/gap.
                     next.push({
                         id: container.id,
                         maxHeight: container.maxHeight * ry,
+                        gap: projectedGap(container, ry),
                         memberInputIds: memberIds,
+                        memberContainerIds: childIds,
                     });
                     return;
                 }
@@ -478,10 +509,21 @@ export class GroupSync {
                     maxHeight = container.maxHeight * ry;
                 }
 
+                // Gap: keep the target's own value until the ACTIVE canvas
+                // changes it vs the baseline — then project absolutely.
+                let gap = typeof existing.gap === 'number' ? existing.gap : undefined;
+                const baseGap = base && typeof base.gap === 'number' ? base.gap : null;
+                const currentGap = typeof container.gap === 'number' ? container.gap : null;
+                if (!base || currentGap !== baseGap) {
+                    gap = projectedGap(container, ry);
+                }
+
                 next.push({
                     id: container.id,
                     maxHeight,
+                    gap,
                     memberInputIds: memberIds,
+                    memberContainerIds: childIds,
                 });
             });
 
