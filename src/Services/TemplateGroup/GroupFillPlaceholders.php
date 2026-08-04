@@ -74,7 +74,7 @@ readonly final class GroupFillPlaceholders
      * @return list<array{
      *     input: EditorImageInput,
      *     defaultImageUrl: null|string,
-     *     images: list<array{id: string, url: string}>,
+     *     images: list<array{id: string, url: string, directoryId: string}>,
      *     directories: list<array{id: string, name: string}>,
      *     includesRoot: bool,
      *     canUpload: bool
@@ -172,8 +172,11 @@ readonly final class GroupFillPlaceholders
     }
 
     /**
+     * `directoryId` ('' = gallery root) drives the picker modal's folder
+     * navigation — thumbs are filtered client-side by their folder.
+     *
      * @param list<FileDirectory> $directories
-     * @return list<array{id: string, url: string}>
+     * @return list<array{id: string, url: string, directoryId: string}>
      */
     private function allowedImages(UuidInterface $projectId, array $directories, bool $includeRoot): array
     {
@@ -183,6 +186,7 @@ readonly final class GroupFillPlaceholders
             fn (FileUpload $file): array => [
                 'id' => $file->id->toString(),
                 'url' => $this->uploaderHelper->getPublicPath($file->path),
+                'directoryId' => $file->directory?->id->toString() ?? '',
             ],
             $this->fileUploadRepository->listByProjectSourceAndDirectories($projectId, FileSource::ProjectImage, $directoryIds, $includeRoot),
         );

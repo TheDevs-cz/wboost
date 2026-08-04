@@ -240,49 +240,10 @@ export default class extends Controller {
         });
     }
 
-    uploadImage(event) {
-        const input = event.target;
-        const file = input.files && input.files[0];
-        if (!file) return;
-
-        const inputId = event.params.inputid;
-        const uploadUrl = event.params.uploadurl;
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // With several allowed folders the picker renders a select and the server
-        // requires an explicit choice; a single folder resolves server-side.
-        const directorySelect = this.element.querySelector(`select[data-upload-directory="${inputId}"]`);
-        if (directorySelect && directorySelect.value) {
-            formData.append('directoryId', directorySelect.value);
-        }
-
-        // Inline busy / success / error feedback (no blocking alert).
-        const setStatus = (text, kind) => {
-            const status = this.element.querySelector(`[data-upload-status="${inputId}"]`);
-            if (!status) return;
-            status.textContent = text;
-            status.className = 'small mt-1 ' + (kind === 'error' ? 'text-danger' : kind === 'ok' ? 'text-success' : 'text-muted');
-            status.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-        };
-
-        input.disabled = true;
-        setStatus('Nahrávám…', 'busy');
-
-        fetch(uploadUrl, { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } })
-            .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-            .then((data) => {
-                if (data && data.id && data.url) {
-                    this._fillPlaceholder(inputId, data.id, data.url);
-                    setStatus('Obrázek nahrán a vybrán.', 'ok');
-                } else {
-                    setStatus('Nahrání obrázku se nepovedlo.', 'error');
-                }
-            })
-            .catch(() => { setStatus('Nahrání obrázku se nepovedlo. Zkuste to znovu.', 'error'); })
-            .finally(() => { input.value = ''; input.disabled = false; });
-    }
+    // Uploading into a picker modal is owned by the shared fill-gallery
+    // controller (folder navigation + dropzone); its freshly inserted thumbs
+    // carry this controller's regular pickImage wiring, so a single-file
+    // upload auto-picks by clicking its own thumb.
 
     toggleHide(event) {
         const inputId = event.params.inputid;

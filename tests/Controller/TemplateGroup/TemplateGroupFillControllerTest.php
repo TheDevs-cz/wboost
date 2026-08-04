@@ -61,16 +61,18 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         $imageFields = $crawler->filter('input[name="images[' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '][imageId]"]');
         self::assertCount(1, $imageFields);
 
-        // The slot is unrestricted, so the user may upload their own picture;
-        // the file input must post to the group-scoped upload endpoint.
-        $uploadField = $crawler->filter('input[type="file"][data-group-fill-inputid-param="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
-        self::assertCount(1, $uploadField);
+        // The slot is unrestricted, so the user may upload their own picture:
+        // the picker mounts the shared fill-gallery controller pointing at the
+        // group-scoped upload endpoint, with its dropzone file input inside.
+        $picker = $crawler->filter('[data-controller="fill-gallery"]');
+        self::assertCount(1, $picker);
         self::assertStringEndsWith(
             '/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/placeholders/' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '/upload',
-            (string) $uploadField->attr('data-group-fill-uploadurl-param'),
+            (string) $picker->attr('data-fill-gallery-upload-url-value'),
         );
+        self::assertCount(1, $picker->filter('input[type="file"][data-fill-gallery-target="fileInput"]'));
 
-        // Freshly uploaded pictures are appended into the picker's option grid.
+        // Freshly uploaded pictures land in the picker's option grid.
         self::assertSelectorExists('[data-group-fill-target="imageOptions"][data-input-id="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
     }
 

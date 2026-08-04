@@ -136,94 +136,10 @@ export default class extends Controller {
         this.changed();
     }
 
-    /**
-     * "Upload your own image" inside a picker modal. The file goes to the
-     * group-scoped placeholder upload endpoint (which validates the slot and
-     * the target folder server-side), then lands in the project gallery — so
-     * it is appended to this picker as a regular option and auto-picked.
-     */
-    uploadImage(event) {
-        const input = event.target;
-        const file = input.files && input.files[0];
-        if (!file) {
-            return;
-        }
-
-        const inputId = event.params.inputid;
-        const uploadUrl = event.params.uploadurl;
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // With several allowed folders the picker renders a select and the
-        // server requires an explicit choice; a single target resolves
-        // server-side.
-        const directorySelect = this.element.querySelector(`select[data-upload-directory="${inputId}"]`);
-        if (directorySelect && directorySelect.value) {
-            formData.append('directoryId', directorySelect.value);
-        }
-
-        input.disabled = true;
-        this.setUploadStatus(inputId, 'Nahrávám…', 'busy');
-
-        fetch(uploadUrl, { method: 'POST', body: formData, headers: { Accept: 'application/json' } })
-            .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-            .then((data) => {
-                if (!data || !data.id || !data.url) {
-                    this.setUploadStatus(inputId, 'Nahrání obrázku se nepovedlo.', 'error');
-                    return;
-                }
-
-                const option = this.appendImageOption(inputId, data.id, data.url);
-                this.selectImage(inputId, data.id, data.url, option);
-                this.setUploadStatus(inputId, 'Obrázek nahrán a vybrán.', 'ok');
-            })
-            .catch(() => {
-                this.setUploadStatus(inputId, 'Nahrání obrázku se nepovedlo. Zkuste to znovu.', 'error');
-            })
-            .finally(() => {
-                input.value = '';
-                input.disabled = false;
-            });
-    }
-
-    appendImageOption(inputId, imageId, imageUrl) {
-        const options = this.imageOptionsTargets.find((element) => element.dataset.inputId === inputId);
-        if (!options) {
-            return null;
-        }
-
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'group-fill-image-option';
-        option.dataset.action = 'group-fill#pickImage';
-        option.dataset.inputId = inputId;
-        option.dataset.imageId = imageId;
-        option.dataset.imageUrl = imageUrl;
-        option.dataset.bsDismiss = 'modal';
-
-        const img = document.createElement('img');
-        img.src = imageUrl;
-        img.alt = '';
-        img.loading = 'lazy';
-        option.appendChild(img);
-
-        options.appendChild(option);
-
-        return option;
-    }
-
-    // Inline busy / success / error feedback (no blocking alert).
-    setUploadStatus(inputId, text, kind) {
-        const status = this.element.querySelector(`[data-upload-status="${inputId}"]`);
-        if (!status) {
-            return;
-        }
-
-        status.textContent = text;
-        status.className = `small mt-1 ${kind === 'error' ? 'text-danger' : kind === 'ok' ? 'text-success' : 'text-muted'}`;
-        status.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-    }
+    // Uploading into a picker modal is owned by the shared fill-gallery
+    // controller (folder navigation + dropzone); its freshly inserted thumbs
+    // carry this controller's regular pickImage wiring, so a single-file
+    // upload auto-picks by clicking its own thumb.
 
     // The download itself is handled natively by the browser (Content-
     // Disposition: attachment), which gives no completion event — show

@@ -279,12 +279,54 @@
                                     <h4 class="modal-title">{{ input.name ?: 'Vybrat obrázek' }}</h4>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
                                 </div>
-                                <div class="modal-body">
+                                <div class="modal-body"
+                                     {% if slot.canUpload %}
+                                     data-controller="fill-gallery"
+                                     data-fill-gallery-upload-url-value="{{ path('template_group_placeholder_upload', {'groupId': group.id, 'inputId': input.inputId}) }}"
+                                     data-fill-gallery-includes-root-value="{{ slot.includesRoot ? 'true' : 'false' }}"
+                                     {% endif %}>
+                                    {% if slot.canUpload %}
+                                        <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-link p-0 text-decoration-none fw-bold text-body"
+                                                data-fill-gallery-target="rootCrumb"
+                                                data-action="fill-gallery#openRoot"
+                                            ><i class="mdi mdi-folder-home"></i> Galerie</button>
+                                            <span class="text-muted d-none" data-fill-gallery-target="crumbSep">/</span>
+                                            <span class="fw-bold d-none" data-fill-gallery-target="crumbName"></span>
+                                        </nav>
+
+                                        {% if slot.directories is not empty %}
+                                            <div class="d-flex flex-wrap gap-2 mb-2" data-fill-gallery-target="folders">
+                                                {% for directory in slot.directories %}
+                                                    <button
+                                                        type="button"
+                                                        class="btn border rounded p-2 d-flex align-items-center gap-1 text-start"
+                                                        data-fill-gallery-target="folderCard"
+                                                        data-action="fill-gallery#openFolder"
+                                                        data-fill-gallery-id-param="{{ directory.id }}"
+                                                        data-fill-gallery-name-param="{{ directory.name }}"
+                                                        title="{{ directory.name }}"
+                                                    >
+                                                        <i class="mdi mdi-folder text-warning fs-4"></i>
+                                                        <span class="text-truncate">{{ directory.name }}</span>
+                                                    </button>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+
                                     <div class="d-flex flex-wrap gap-2"
                                          data-group-fill-target="imageOptions"
+                                         {% if slot.canUpload %}data-fill-gallery-target="grid"{% endif %}
                                          data-input-id="{{ input.inputId }}">
+                                        {# The keep-designed option belongs to no folder — visible in
+                                           every view (data-always-visible). #}
                                         <button type="button" class="group-fill-image-option selected"
                                                 data-action="group-fill#pickImage"
+                                                data-fill-gallery-target="thumb"
+                                                data-always-visible="true"
                                                 data-input-id="{{ input.inputId }}"
                                                 data-image-id=""
                                                 data-image-url="{{ slot.defaultImageUrl ?: '' }}"
@@ -298,6 +340,8 @@
                                         {% for image in slot.images %}
                                             <button type="button" class="group-fill-image-option"
                                                     data-action="group-fill#pickImage"
+                                                    data-fill-gallery-target="thumb"
+                                                    data-directory-id="{{ image.directoryId }}"
                                                     data-input-id="{{ input.inputId }}"
                                                     data-image-id="{{ image.id }}"
                                                     data-image-url="{{ image.url }}"
@@ -308,39 +352,53 @@
                                     </div>
 
                                     {% if slot.canUpload %}
-                                        {% if slot.images|length == 0 %}
-                                            <p class="text-muted small mt-2 mb-0">V povolených složkách galerie zatím nejsou žádné obrázky — nahrajte vlastní níže.</p>
-                                        {% endif %}
+                                        <p class="text-muted small mt-2 mb-0 d-none" data-fill-gallery-target="emptyNote">Zatím tu nejsou žádné obrázky — nahrajte vlastní níže.</p>
+
+                                        {# New-upload thumb markup (this page's pick wiring),
+                                           cloned by fill-gallery with __ID__/__URL__ filled in. #}
+                                        <template data-fill-gallery-target="thumbTemplate">
+                                            <button type="button" class="group-fill-image-option"
+                                                    data-action="group-fill#pickImage"
+                                                    data-fill-gallery-target="thumb"
+                                                    data-input-id="{{ input.inputId }}"
+                                                    data-image-id="__ID__"
+                                                    data-image-url="__URL__"
+                                                    data-bs-dismiss="modal">
+                                                <img src="__URL__" alt="">
+                                            </button>
+                                        </template>
 
                                         <hr class="my-3">
 
-                                        {# The file input is deliberately UNNAMED so it never lands in
-                                           the export FormData — the upload POSTs separately and the
-                                           form only ever carries the resulting imageId. #}
-                                        {% set uploadTargetCount = slot.directories|length + (slot.includesRoot ? 1 : 0) %}
-                                        {% if uploadTargetCount > 1 %}
-                                            <label class="form-label small text-muted mb-0" for="group-fill-upload-directory-{{ input.inputId }}">Nahrát do složky</label>
-                                            <select id="group-fill-upload-directory-{{ input.inputId }}"
-                                                    class="form-select form-select-sm mb-2"
-                                                    data-upload-directory="{{ input.inputId }}">
-                                                {% if slot.includesRoot %}
-                                                    <option value="">Galerie (bez složky)</option>
-                                                {% endif %}
-                                                {% for directory in slot.directories %}
-                                                    <option value="{{ directory.id }}">{{ directory.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        {% endif %}
-
-                                        <label class="form-label small text-muted mb-0" for="group-fill-upload-file-{{ input.inputId }}">Nahrát vlastní obrázek <span class="text-muted">(JPG, PNG…)</span></label>
-                                        <input type="file"
-                                               id="group-fill-upload-file-{{ input.inputId }}"
-                                               class="form-control form-control-sm"
-                                               accept="image/*"
-                                               data-action="change->group-fill#uploadImage"
-                                               data-group-fill-inputid-param="{{ input.inputId }}"
-                                               data-group-fill-uploadurl-param="{{ path('template_group_placeholder_upload', {'groupId': group.id, 'inputId': input.inputId}) }}">
-                                        <div class="small mt-1" data-upload-status="{{ input.inputId }}" aria-live="polite"></div>
+                                        <p class="text-muted small mb-0 d-none" data-fill-gallery-target="pickFolderHint">Pro nahrání vlastního obrázku otevřete složku.</p>
+                                        {# The dropzone's file input is deliberately UNNAMED so it
+                                           never lands in the export FormData — the upload POSTs
+                                           separately and the form only carries the resulting imageId. #}
+                                        <div data-fill-gallery-target="uploadWrap">
+                                            <div
+                                                class="gallery-dropzone"
+                                                data-fill-gallery-target="dropzone"
+                                                data-action="
+                                                    click->fill-gallery#browse
+                                                    keydown->fill-gallery#keydown
+                                                    dragover->fill-gallery#dragOver
+                                                    dragleave->fill-gallery#dragLeave
+                                                    drop->fill-gallery#drop
+                                                "
+                                                role="button"
+                                                tabindex="0"
+                                            >
+                                                <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
+                                                <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
+                                                <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
+                                                <div class="text-muted small mt-1">
+                                                    Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> <span data-fill-gallery-target="uploadTargetLabel"></span></strong>
+                                                    &middot; max. 10&nbsp;MB / soubor
+                                                </div>
+                                            </div>
+                                            <input type="file" class="d-none" accept="image/*" multiple data-fill-gallery-target="fileInput" data-action="change->fill-gallery#filesChosen">
+                                            <div class="mt-2 d-flex flex-column gap-2" data-fill-gallery-target="queue" aria-live="polite"></div>
+                                        </div>
                                     {% endif %}
                                 </div>
                             </div>

@@ -540,15 +540,54 @@
                             {% if not ph.canUpload %}
                                 <p class="text-warning small mb-1">Tento obrázek zatím nelze vyplnit — šablona nemá nastavenou složku galerie. Kontaktujte správce šablony.</p>
                             {% else %}
-                                {% if ph.images is empty %}
-                                    <p class="text-muted small mb-1">Žádné obrázky ve složkách — nahrajte vlastní níže.</p>
-                                {% else %}
-                                    <div class="d-flex flex-wrap gap-2 mb-2">
+                                {# Folder-navigable picker (fill-gallery): the admin gallery
+                                   modal's UX — folders, breadcrumb, dropzone with immediate
+                                   upload — over the slot's ALLOWED folders only. The server
+                                   renders nothing outside the admin-defined rules; uploads
+                                   re-validate the target server-side. #}
+                                <div
+                                    data-controller="fill-gallery"
+                                    data-fill-gallery-upload-url-value="{{ this.uploadPath(ph.inputId) }}"
+                                    data-fill-gallery-includes-root-value="{{ ph.includesRoot ? 'true' : 'false' }}"
+                                >
+                                    <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-link p-0 text-decoration-none fw-bold text-body"
+                                            data-fill-gallery-target="rootCrumb"
+                                            data-action="fill-gallery#openRoot"
+                                        ><i class="mdi mdi-folder-home"></i> Galerie</button>
+                                        <span class="text-muted d-none" data-fill-gallery-target="crumbSep">/</span>
+                                        <span class="fw-bold d-none" data-fill-gallery-target="crumbName"></span>
+                                    </nav>
+
+                                    {% if ph.directories is not empty %}
+                                        <div class="d-flex flex-wrap gap-2 mb-2" data-fill-gallery-target="folders">
+                                            {% for directory in ph.directories %}
+                                                <button
+                                                    type="button"
+                                                    class="btn border rounded p-2 d-flex align-items-center gap-1 text-start"
+                                                    data-fill-gallery-target="folderCard"
+                                                    data-action="fill-gallery#openFolder"
+                                                    data-fill-gallery-id-param="{{ directory.id }}"
+                                                    data-fill-gallery-name-param="{{ directory.name }}"
+                                                    title="{{ directory.name }}"
+                                                >
+                                                    <i class="mdi mdi-folder text-warning fs-4"></i>
+                                                    <span class="text-truncate">{{ directory.name }}</span>
+                                                </button>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+
+                                    <div class="d-flex flex-wrap gap-2 mb-2" data-fill-gallery-target="grid">
                                         {% for img in ph.images %}
                                             <button
                                                 type="button"
                                                 class="btn p-0 border rounded fill-modal__thumb"
                                                 title="Vybrat"
+                                                data-fill-gallery-target="thumb"
+                                                data-directory-id="{{ img.directoryId }}"
                                                 data-action="variant-image-fill#pickImage variant-fill-overlay#closeModal"
                                                 data-variant-image-fill-inputid-param="{{ ph.inputId }}"
                                                 data-variant-image-fill-imageid-param="{{ img.id }}"
@@ -558,35 +597,52 @@
                                             </button>
                                         {% endfor %}
                                     </div>
-                                {% endif %}
+                                    <p class="text-muted small mb-2 d-none" data-fill-gallery-target="emptyNote">Zatím tu nejsou žádné obrázky — nahrajte vlastní níže.</p>
 
-                                {% set uploadTargetCount = ph.directories|length + (ph.includesRoot ? 1 : 0) %}
-                                {% if uploadTargetCount > 1 %}
-                                    <label class="form-label small text-muted mb-0" for="upload-directory-{{ ph.inputId }}">Nahrát do složky</label>
-                                    <select
-                                        id="upload-directory-{{ ph.inputId }}"
-                                        class="form-select form-select-sm mb-2"
-                                        data-upload-directory="{{ ph.inputId }}"
-                                    >
-                                        {% if ph.includesRoot %}
-                                            <option value="">Galerie (bez složky)</option>
-                                        {% endif %}
-                                        {% for directory in ph.directories %}
-                                            <option value="{{ directory.id }}">{{ directory.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                {% endif %}
-                                <label class="form-label small text-muted mb-0" for="upload-file-{{ ph.inputId }}">Nahrát vlastní obrázek <span class="text-muted">(JPG, PNG…)</span></label>
-                                <input
-                                    type="file"
-                                    id="upload-file-{{ ph.inputId }}"
-                                    class="form-control form-control-sm"
-                                    accept="image/*"
-                                    data-action="change->variant-image-fill#uploadImage"
-                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}"
-                                    data-variant-image-fill-uploadurl-param="{{ this.uploadPath(ph.inputId) }}"
-                                >
-                                <div class="small mt-1" data-upload-status="{{ ph.inputId }}" aria-live="polite"></div>
+                                    {# New-upload thumb markup (this page's pick wiring),
+                                       cloned by fill-gallery with __ID__/__URL__ filled in. #}
+                                    <template data-fill-gallery-target="thumbTemplate">
+                                        <button
+                                            type="button"
+                                            class="btn p-0 border rounded fill-modal__thumb"
+                                            title="Vybrat"
+                                            data-fill-gallery-target="thumb"
+                                            data-action="variant-image-fill#pickImage variant-fill-overlay#closeModal"
+                                            data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                                            data-variant-image-fill-imageid-param="__ID__"
+                                            data-variant-image-fill-url-param="__URL__"
+                                        >
+                                            <img crossorigin="anonymous" src="__URL__" alt="">
+                                        </button>
+                                    </template>
+
+                                    <p class="text-muted small mb-0 d-none" data-fill-gallery-target="pickFolderHint">Pro nahrání vlastního obrázku otevřete složku.</p>
+                                    <div data-fill-gallery-target="uploadWrap">
+                                        <div
+                                            class="gallery-dropzone"
+                                            data-fill-gallery-target="dropzone"
+                                            data-action="
+                                                click->fill-gallery#browse
+                                                keydown->fill-gallery#keydown
+                                                dragover->fill-gallery#dragOver
+                                                dragleave->fill-gallery#dragLeave
+                                                drop->fill-gallery#drop
+                                            "
+                                            role="button"
+                                            tabindex="0"
+                                        >
+                                            <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
+                                            <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
+                                            <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
+                                            <div class="text-muted small mt-1">
+                                                Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> <span data-fill-gallery-target="uploadTargetLabel"></span></strong>
+                                                &middot; max. 10&nbsp;MB / soubor
+                                            </div>
+                                        </div>
+                                        <input type="file" class="d-none" accept="image/*" multiple data-fill-gallery-target="fileInput" data-action="change->fill-gallery#filesChosen">
+                                        <div class="mt-2 d-flex flex-column gap-2" data-fill-gallery-target="queue" aria-live="polite"></div>
+                                    </div>
+                                </div>
                             {% endif %}
                         </div>
                     </div>
