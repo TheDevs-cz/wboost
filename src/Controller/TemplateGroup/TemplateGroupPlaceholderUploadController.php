@@ -43,7 +43,7 @@ final class TemplateGroupPlaceholderUploadController extends AbstractController
         name: 'template_group_placeholder_upload',
         methods: ['POST'],
     )]
-    #[IsGranted(TemplateGroupVoter::EDIT, 'group')]
+    #[IsGranted(TemplateGroupVoter::VIEW, 'group')]
     public function __invoke(
         #[MapEntity(id: 'groupId')]
         TemplateGroup $group,

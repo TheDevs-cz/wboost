@@ -38,7 +38,7 @@ final class TemplateGroupExportController extends AbstractController
     }
 
     #[Route(path: '/template-group/{groupId}/export', name: 'template_group_export', methods: ['POST'])]
-    #[IsGranted(TemplateGroupVoter::EDIT, 'group')]
+    #[IsGranted(TemplateGroupVoter::VIEW, 'group')]
     public function __invoke(
         #[MapEntity(id: 'groupId')]
         TemplateGroup $group,

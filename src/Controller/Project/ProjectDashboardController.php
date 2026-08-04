@@ -6,7 +6,6 @@ namespace WBoost\Web\Controller\Project;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\Project;
-use WBoost\Web\Entity\SocialNetworkTemplate;
 use WBoost\Web\Query\GetTemplates;
 use WBoost\Web\Query\GetEmailSignatureTemplates;
 use WBoost\Web\Query\GetFonts;
@@ -15,9 +14,7 @@ use WBoost\Web\Query\GetWeeklyMenus;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use WBoost\Web\Query\GetSocialNetworkTemplates;
 use WBoost\Web\Repository\FileUploadRepository;
-use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Value\FileSource;
 
@@ -26,12 +23,10 @@ final class ProjectDashboardController extends AbstractController
     public function __construct(
         readonly private GetManuals $getManuals,
         readonly private GetFonts $getFonts,
-        readonly private GetSocialNetworkTemplates $getSocialNetworkTemplates,
         readonly private GetTemplates $getTemplates,
         readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
         readonly private GetWeeklyMenus $getWeeklyMenus,
         readonly private FileUploadRepository $fileUploadRepository,
-        readonly private TemplateGroupRepository $templateGroupRepository,
     ) {
     }
 
@@ -39,36 +34,23 @@ final class ProjectDashboardController extends AbstractController
     #[IsGranted(ProjectVoter::VIEW, 'project')]
     public function __invoke(Project $project): Response
     {
-        $socialTemplates = $this->getSocialNetworkTemplates->allForProject($project->id);
+        // Single source since the module merge: grouped and plain templates alike.
         $templates = $this->getTemplates->allForProject($project->id);
 
-        /** @var list<array{type: 'social'|'custom', template: SocialNetworkTemplate|Template}> $recentTemplates */
-        $recentTemplates = [
-            ...array_map(
-                static fn (SocialNetworkTemplate $template): array => ['type' => 'social', 'template' => $template],
-                $socialTemplates,
-            ),
-            ...array_map(
-                static fn (Template $template): array => ['type' => 'custom', 'template' => $template],
-                $templates,
-            ),
-        ];
-
+        $recentTemplates = $templates;
         usort(
             $recentTemplates,
-            static fn (array $a, array $b): int => $b['template']->createdAt <=> $a['template']->createdAt,
+            static fn (Template $a, Template $b): int => $b->createdAt <=> $a->createdAt,
         );
 
         return $this->render('project_dashboard.html.twig', [
             'project' => $project,
             'manuals' => $this->getManuals->allForProject($project->id),
             'fonts' => $this->getFonts->allForProject($project->id),
-            'social_templates' => $socialTemplates,
             'templates' => $templates,
             'emails' => $this->getEmailSignatureTemplates->allForProject($project->id),
             'weekly_menus' => $this->getWeeklyMenus->allForProject($project->id),
             'gallery_images_count' => $this->fileUploadRepository->countByProjectAndSource($project->id, FileSource::ProjectImage),
-            'template_groups_count' => $this->templateGroupRepository->count($project->id),
             'recent_templates' => array_slice($recentTemplates, 0, 6),
         ]);
     }

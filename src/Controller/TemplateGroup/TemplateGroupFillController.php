@@ -29,7 +29,7 @@ final class TemplateGroupFillController extends AbstractController
     }
 
     #[Route(path: '/template-group/{groupId}/fill', name: 'template_group_fill', methods: ['GET'])]
-    #[IsGranted(TemplateGroupVoter::EDIT, 'group')]
+    #[IsGranted(TemplateGroupVoter::VIEW, 'group')]
     public function __invoke(
         #[MapEntity(id: 'groupId')]
         TemplateGroup $group,

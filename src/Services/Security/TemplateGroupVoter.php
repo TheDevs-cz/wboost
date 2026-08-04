@@ -12,13 +12,16 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\User;
 
 /**
- * Template groups are a designer tool: admins pass outright, everyone else
- * must hold ROLE_DESIGNER *and* own the project.
+ * Designing a group (EDIT) is a designer tool: admins pass outright, everyone
+ * else must hold ROLE_DESIGNER *and* own the project. Filling & exporting a
+ * group (VIEW) is open to anyone who can view the group's project — the same
+ * semantics {@see ProjectVoter::VIEW} gives (admin, owner, any shared user).
  *
  * @extends Voter<string, TemplateGroup>
  */
 final class TemplateGroupVoter extends Voter
 {
+    public const string VIEW = 'template_group_view';
     public const string EDIT = 'template_group_edit';
 
     public function __construct(
@@ -28,7 +31,7 @@ final class TemplateGroupVoter extends Voter
 
     protected function supports(string $attribute, mixed $subject): bool
     {
-        if ($attribute !== self::EDIT) {
+        if (!in_array($attribute, [self::VIEW, self::EDIT], true)) {
             return false;
         }
 
@@ -45,6 +48,10 @@ final class TemplateGroupVoter extends Voter
 
         if ($this->security->isGranted(User::ROLE_ADMIN)) {
             return true;
+        }
+
+        if ($attribute === self::VIEW) {
+            return $this->security->isGranted(ProjectVoter::VIEW, $subject->project);
         }
 
         if (!$this->security->isGranted(User::ROLE_DESIGNER)) {

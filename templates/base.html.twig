@@ -206,28 +206,12 @@
                                 </a>
                             </li>
 
-                            <li class="side-nav-item {{ active_menu_item|default == 'social_networks' ? 'menuitem-active' }}">
-                                <a href="{{ path('social_network_templates', {'projectId': project.id}) }}" class="side-nav-link">
-                                    <i class="uil-facebook"></i>
-                                    <span> Sociální sítě </span>
-                                </a>
-                            </li>
-
                             <li class="side-nav-item {{ active_menu_item|default == 'templates' ? 'menuitem-active' }}">
                                 <a href="{{ path('templates', {'projectId': project.id}) }}" class="side-nav-link">
                                     <i class="uil-postcard"></i>
                                     <span> Šablony </span>
                                 </a>
                             </li>
-
-                            {% if is_granted('ROLE_DESIGNER') %}
-                                <li class="side-nav-item {{ active_menu_item|default == 'template_groups' ? 'menuitem-active' }}">
-                                    <a href="{{ path('template_groups', {'projectId': project.id}) }}" class="side-nav-link">
-                                        <i class="uil-layer-group"></i>
-                                        <span> Skupiny šablon </span>
-                                    </a>
-                                </li>
-                            {% endif %}
 
                             {% if is_granted('project_edit', project) %}
                                 <li class="side-nav-item {{ active_menu_item|default == 'gallery' ? 'menuitem-active' }}">

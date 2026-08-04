@@ -94,10 +94,12 @@ final class TemplateGroupPlaceholderUploadControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testIsForbiddenForNonDesigner(): void
+    public function testIsForbiddenForUnrelatedUser(): void
     {
+        // The upload follows the fill page's project-VIEW gate — only a user
+        // with no relation to the project is turned away.
         $client = self::createClient();
-        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
 
         $this->postFile($client, TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID);
 

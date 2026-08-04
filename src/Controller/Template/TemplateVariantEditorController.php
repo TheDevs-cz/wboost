@@ -44,6 +44,17 @@ final class TemplateVariantEditorController extends AbstractController
         TemplateVariant $variant,
         Request $request,
     ): Response {
+        // Group-created variants are designed ONLY in the group editor — a
+        // single-variant edit would be clobbered by the next group save.
+        // (Manually added variants on a grouped template keep group = null and
+        // are edited here; the group editor's click-to-switch only opens the
+        // single editor for those, so this can't loop.)
+        if ($variant->group !== null) {
+            return $this->redirectToRoute('template_group_editor', [
+                'groupId' => $variant->group->id,
+            ]);
+        }
+
         $template = $variant->template;
         $formData = new TemplateVariantEditorFormData();
         $editorForm = $this->createForm(TemplateVariantEditorFormType::class, $formData);

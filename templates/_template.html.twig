@@ -1,14 +1,33 @@
+{# Two flavors of the template card: a plain template is managed here
+   (duplicate/edit/delete, body → variants page), a GROUPED (synchronized)
+   template is managed in its group editor — the card only routes there
+   (designers) or to the group fill page (everyone else). #}
+{% set grouped = template.group is not null %}
+{% set can_group_edit = grouped and is_granted('template_edit', template) and is_granted('ROLE_DESIGNER') %}
+
 <div class="col-md-6 col-xxl-3">
     <div class="card" data-entity-id="{{ template.id }}">
-        {% if is_granted('template_edit', template) %}
+        {% if grouped %}
+            {% if can_group_edit %}
+                <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                    <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="ri-more-fill text-lighter"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
+                        <a href="{{ path('add_template_group_dimension', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-plus me-1"></i>Přidat rozměr</a>
+                        <a href="{{ path('template_group_fill', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-folder-zip-outline me-1"></i>Vyplnit a exportovat</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteGroupModal-{{ template.id }}"><i class="mdi mdi-delete me-1"></i>Smazat…</a>
+                    </div>
+                </div>
+            {% endif %}
+        {% elseif is_granted('template_edit', template) %}
             <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
                 <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="ri-more-fill text-lighter"></i>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
-                    {% if template.group and is_granted('ROLE_DESIGNER') %}
-                        <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
-                    {% endif %}
                     <a href="{{ path('copy_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
                     <a href="{{ path('edit_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
                     <a href="#"
@@ -24,7 +43,15 @@
             </div>
         {% endif %}
 
-        <a href="{{ path('template_variants', {'templateId': template.id}) }}" class="text-body">
+        {% if grouped %}
+            {% set card_url = can_group_edit
+                ? path('template_group_editor', {'groupId': template.group.id})
+                : path('template_group_fill', {'groupId': template.group.id}) %}
+        {% else %}
+            {% set card_url = path('template_variants', {'templateId': template.id}) %}
+        {% endif %}
+
+        <a href="{{ card_url }}" class="text-body">
             <div class="card-body pb-0">
                 <h4 class="m-0 ps-3">
                     {% if is_granted('template_edit', template) %}
@@ -33,8 +60,8 @@
 
                     {{ template.name }}
 
-                    {% if template.group and is_granted('ROLE_DESIGNER') %}
-                        <span class="badge bg-info-lighten text-info font-12" title="Vytvořeno ve skupině {{ template.group.name }}"><i class="uil-layer-group"></i> Skupina</span>
+                    {% if grouped %}
+                        <span class="badge bg-info-lighten text-info font-12" title="Synchronizovaná šablona — {{ template.group.name }}"><i class="uil-layer-group"></i> Synchronizováno</span>
                     {% endif %}
                 </h4>
             </div>
@@ -60,4 +87,27 @@
             {% endif %}
         </a>
     </div>
+
+    {% if can_group_edit %}
+        {# Delete dialog: both modes as explicit submit buttons of one POST form. #}
+        <div class="modal fade" id="deleteGroupModal-{{ template.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" action="{{ path('delete_template_group', {'groupId': template.group.id}) }}">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Smazat synchronizovanou šablonu „{{ template.name }}"?</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2"><strong>Zrušit pouze synchronizaci</strong> — šablona i všechny její varianty zůstanou zachovány a budou se chovat jako běžná šablona (rozměry jen nepůjde upravovat společně).</p>
+                        <p class="mb-0 text-danger"><strong>Smazat včetně šablony</strong> — nevratně smaže šablonu se všemi jejími variantami (včetně variant přidaných ručně).</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                        <button type="submit" name="deleteTemplates" value="0" class="btn btn-secondary">Zrušit pouze synchronizaci</button>
+                        <button type="submit" name="deleteTemplates" value="1" class="btn btn-danger">Smazat včetně šablony</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 </div>

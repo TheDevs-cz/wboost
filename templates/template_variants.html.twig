@@ -14,6 +14,15 @@
 {% endblock %}
 
 {% block content %}
+    {% if template.group %}
+        <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert">
+            <span><i class="uil-layer-group me-1"></i>Synchronizovaná šablona — design všech rozměrů se upravuje společně ve skupinovém editoru.</span>
+            {% if is_granted('template_edit', template) and is_granted('ROLE_DESIGNER') %}
+                <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="btn btn-sm btn-info rounded-pill"><i class="mdi mdi-pencil"></i> Otevřít skupinový editor</a>
+            {% endif %}
+        </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-body">
             <h2 class="h3 mt-0 mb-3">
@@ -54,7 +63,9 @@
                                     confirmationText="Opravdu chcete smazat tuto variantu šablony?" />
                             {% endif %}
 
-                            <a href="{{ is_granted('template_variant_edit', variant) ? path('template_variant_editor', {'variantId': variant.id}) : path('template_variant_export', {'variantId': variant.id}) }}" class="text-body">
+                            {# A grouped template's design is edited ONLY in the group editor —
+                               every tile goes to the export/fill page regardless of permissions. #}
+                            <a href="{{ (template.group or not is_granted('template_variant_edit', variant)) ? path('template_variant_export', {'variantId': variant.id}) : path('template_variant_editor', {'variantId': variant.id}) }}" class="text-body">
                                 <div class="card-body p-1 shadow-lg">
                                     <img src="{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}" style="max-width: 100%;">
                                 </div>

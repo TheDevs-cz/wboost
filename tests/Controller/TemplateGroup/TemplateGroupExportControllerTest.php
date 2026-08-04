@@ -194,10 +194,12 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         }
     }
 
-    public function testExportIsForbiddenForNonDesigner(): void
+    public function testExportIsForbiddenForUnrelatedUser(): void
     {
+        // Export follows the fill page's project-VIEW gate — the owner and
+        // shared users may export; a user with no relation to the project may not.
         $client = self::createClient();
-        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
 
         $client->request('POST', $this->exportUrl());
 

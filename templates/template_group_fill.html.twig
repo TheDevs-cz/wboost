@@ -19,7 +19,11 @@
             <div class="card-body text-center text-muted py-5">
                 <i class="uil-layer-group" style="font-size: 2rem;"></i>
                 <p class="mb-1 mt-2"><strong>Skupina zatím nemá žádné varianty.</strong></p>
-                <p class="mb-0">Nejdřív <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}">přidejte rozměr</a>, potom tu půjde vše najednou vyplnit a stáhnout.</p>
+                {% if is_granted('template_group_edit', group) %}
+                    <p class="mb-0">Nejdřív <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}">přidejte rozměr</a>, potom tu půjde vše najednou vyplnit a stáhnout.</p>
+                {% else %}
+                    <p class="mb-0">Jakmile správce šablony přidá rozměry, půjde tu vše najednou vyplnit a stáhnout.</p>
+                {% endif %}
             </div>
         </div>
     {% else %}
@@ -36,7 +40,9 @@
                     <p class="text-muted my-0">Vyplňte obsah jednou — propíše se do všech rozměrů najednou. Prázdné pole ponechá text ze šablony.</p>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit design</a>
+                    {% if is_granted('template_group_edit', group) %}
+                        <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit design</a>
+                    {% endif %}
                     <button type="submit" class="btn btn-primary rounded-pill" data-group-fill-target="exportButton">
                         <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
                     </button>

@@ -35,13 +35,20 @@ final class ProjectDashboardControllerTest extends WebTestCase
 
         $projectId = TestDataFixture::PROJECT_1_ID;
         self::assertSelectorExists(sprintf('a[href="/project/%s/manuals"]', $projectId));
-        self::assertSelectorExists(sprintf('a[href="/project/%s/social-networks"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/templates"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/gallery"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/calendars"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/fonts"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/emails"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/weekly-menus"]', $projectId));
+
+        // The social module died with the template merge — no tile, no nav item.
+        self::assertSelectorNotExists(sprintf('a[href="/project/%s/social-networks"]', $projectId));
+
+        // Recent templates: a grouped template opens its group fill page, a
+        // plain one its variants page.
+        self::assertSelectorExists(sprintf('a[href="/template-group/%s/fill"]', TestDataFixture::TEMPLATE_GROUP_1_ID));
+        self::assertSelectorExists(sprintf('a[href="/template/%s/variants"]', TestDataFixture::CUSTOM_TEMPLATE_1_ID));
 
         // Owner can edit, so the header offers the edit action.
         self::assertSelectorExists(sprintf('a[href="/edit-project/%s"]', $projectId));

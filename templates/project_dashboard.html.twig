@@ -90,29 +90,11 @@
         ) }}
 
         {{ _self.module_card(
-            path('social_network_templates', {'projectId': project.id}),
-            'uil-facebook', 'Sociální sítě',
-            'Šablony příspěvků na sociální sítě',
-            social_templates|length
-        ) }}
-
-        {{ _self.module_card(
             path('templates', {'projectId': project.id}),
             'uil-postcard', 'Šablony',
-            'Tiskoviny a grafiky ve vlastních rozměrech',
+            'Šablony příspěvků, tiskovin a grafik',
             templates|length
         ) }}
-
-        {# The standalone group listing died with the module merge — grouped
-           templates live on the unified Šablony listing. #}
-        {% if is_granted('ROLE_DESIGNER') %}
-            {{ _self.module_card(
-                path('templates', {'projectId': project.id}),
-                'uil-layer-group', 'Skupiny šablon',
-                'Jeden design ve více rozměrech najednou',
-                template_groups_count
-            ) }}
-        {% endif %}
 
         {% if is_granted('project_edit', project) %}
             {{ _self.module_card(
@@ -153,14 +135,16 @@
         ) }}
     </div>
 
-    {# Latest templates across both template modules #}
+    {# Latest templates #}
     {% if recent_templates|length %}
         <h4 class="mt-4 mb-2">Naposledy přidané šablony</h4>
         <div class="row g-3 mb-3">
-            {% for item in recent_templates %}
-                {% set template = item.template %}
-                {% set template_url = item.type == 'social'
-                    ? path('social_network_template_variants', {'templateId': template.id})
+            {% for template in recent_templates %}
+                {# A grouped template opens its fill page — safe for every viewer
+                   of the dashboard (designers reach the group editor from there
+                   or from the listing). #}
+                {% set template_url = template.group
+                    ? path('template_group_fill', {'groupId': template.group.id})
                     : path('template_variants', {'templateId': template.id}) %}
                 <div class="col-6 col-md-4 col-xl-2 d-flex">
                     <a href="{{ template_url }}" class="text-body d-block w-100">
@@ -168,7 +152,13 @@
                             <img class="card-img-top p-2" style="height: 140px; object-fit: contain;" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
                             <div class="card-body pt-0 pb-2 px-2 text-center">
                                 <h5 class="my-0 text-truncate">{{ template.name }}</h5>
-                                <span class="text-muted font-12">{{ item.type == 'social' ? 'Sociální sítě' : 'Šablony' }}</span>
+                                <span class="text-muted font-12 d-block text-truncate">
+                                    {%- if template.category -%}
+                                        {{ template.category.name }}
+                                    {%- else -%}
+                                        {{ template.variants|map(variant => variant.dimension.label)|join(' · ')|default('Šablona') }}
+                                    {%- endif -%}
+                                </span>
                             </div>
                         </div>
                     </a>

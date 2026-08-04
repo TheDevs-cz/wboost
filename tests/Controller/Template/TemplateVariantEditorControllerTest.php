@@ -41,6 +41,17 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         self::assertSelectorExists('[data-canvas-editor-target="imageInputs"]');
     }
 
+    public function testGroupedVariantRedirectsToGroupEditor(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request('GET', '/template-variant/' . TestDataFixture::GROUPED_PRESET_VARIANT_ID . '/editor');
+
+        // Group-created variants are designed only in the group editor.
+        self::assertResponseRedirects('/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/editor');
+    }
+
     public function testEditorPageForbiddenForOtherUser(): void
     {
         $client = self::createClient();

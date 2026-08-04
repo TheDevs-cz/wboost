@@ -30,7 +30,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
     }
 
     #[Route(path: '/template-group/{groupId}/fill-preview/{variantId}', name: 'template_group_fill_preview', methods: ['POST'])]
-    #[IsGranted(TemplateGroupVoter::EDIT, 'group')]
+    #[IsGranted(TemplateGroupVoter::VIEW, 'group')]
     public function __invoke(
         #[MapEntity(id: 'groupId')]
         TemplateGroup $group,

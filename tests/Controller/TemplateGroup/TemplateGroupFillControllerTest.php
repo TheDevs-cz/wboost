@@ -76,10 +76,25 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         self::assertSelectorExists('[data-group-fill-target="imageOptions"][data-input-id="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
     }
 
-    public function testFillPageIsForbiddenForNonDesigner(): void
+    public function testFillPageIsAccessibleToSharedUser(): void
+    {
+        // The fill surfaces are project-VIEW gated: a user the project is
+        // merely SHARED with (read-only, no designer role) can fill & export —
+        // but the designer chrome (group editor link) must not render.
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::INVITED_USER_EMAIL);
+
+        $client->request('GET', $this->fillUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('form[data-controller~="group-fill"]');
+        self::assertSelectorNotExists('a[href="/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/editor"]');
+    }
+
+    public function testFillPageIsForbiddenForUnrelatedUser(): void
     {
         $client = self::createClient();
-        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
 
         $client->request('GET', $this->fillUrl());
 
