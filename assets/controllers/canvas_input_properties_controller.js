@@ -21,6 +21,9 @@ export default class extends Controller {
         "name", "description", "locked", "hidable", "uppercase", "richText",
         "lists", "listConfig", "listBullet", "listBulletPreview", "listBulletPick",
         "listIndent", "listItemSpacing", "listBlockSpacing",
+        "listCheckboxes", "checkboxConfig",
+        "checkboxImagePreview", "checkboxImageClear",
+        "checkboxCheckedImagePreview", "checkboxCheckedImageClear",
         "sampleBadge", "sampleHost", "sampleTemplate", "samplePlain",
     ];
 
@@ -30,6 +33,8 @@ export default class extends Controller {
         // controllers live on #canvas-container) — no template wiring needed.
         this._onBulletImage = (event) => this.onBulletImageSelected(event);
         this.element.addEventListener('canvas-editor:bullet-image', this._onBulletImage);
+        this._onCheckboxImage = (event) => this.onCheckboxImageSelected(event);
+        this.element.addEventListener('canvas-editor:checkbox-image', this._onCheckboxImage);
 
         // Tear the per-open WYSIWYG instance down when the sample modal
         // closes — the next open clones a fresh one with fresh values.
@@ -44,6 +49,7 @@ export default class extends Controller {
 
     disconnect() {
         this.element.removeEventListener('canvas-editor:bullet-image', this._onBulletImage);
+        this.element.removeEventListener('canvas-editor:checkbox-image', this._onCheckboxImage);
         const sampleModal = document.getElementById('sampleTextModal');
         if (sampleModal && this._onSampleModalHidden) {
             sampleModal.removeEventListener('hidden.bs.modal', this._onSampleModalHidden);
@@ -118,6 +124,38 @@ export default class extends Controller {
         if (this.hasListIndentTarget) this.listIndentTarget.value = this._spacingDisplay(activeObject.listIndent);
         if (this.hasListItemSpacingTarget) this.listItemSpacingTarget.value = this._spacingDisplay(activeObject.listItemSpacing);
         if (this.hasListBlockSpacingTarget) this.listBlockSpacingTarget.value = this._spacingDisplay(activeObject.listBlockSpacing);
+        if (this.hasListCheckboxesTarget) {
+            this.listCheckboxesTarget.checked = activeObject.listCheckboxes || false;
+        }
+        if (this.hasCheckboxConfigTarget) {
+            this.checkboxConfigTarget.classList.toggle('d-none', !(activeObject.richText && activeObject.lists && activeObject.listCheckboxes));
+        }
+        this._syncCheckboxPreviews(activeObject);
+    }
+
+    /** Per-state checkbox image chips: the green check + clear button show
+     *  only while a custom image is picked (otherwise the default drawn
+     *  checkbox applies and there is nothing to clear). */
+    _syncCheckboxPreviews(activeObject) {
+        const sync = (path, previewTarget, clearTarget) => {
+            if (previewTarget) {
+                previewTarget.classList.toggle('d-none', !path);
+                previewTarget.title = path || '';
+            }
+            if (clearTarget) {
+                clearTarget.classList.toggle('d-none', !path);
+            }
+        };
+        sync(
+            activeObject.listCheckboxImage || null,
+            this.hasCheckboxImagePreviewTarget ? this.checkboxImagePreviewTarget : null,
+            this.hasCheckboxImageClearTarget ? this.checkboxImageClearTarget : null,
+        );
+        sync(
+            activeObject.listCheckboxCheckedImage || null,
+            this.hasCheckboxCheckedImagePreviewTarget ? this.checkboxCheckedImagePreviewTarget : null,
+            this.hasCheckboxCheckedImageClearTarget ? this.checkboxCheckedImageClearTarget : null,
+        );
     }
 
     _syncBulletPreview(activeObject) {
@@ -162,6 +200,46 @@ export default class extends Controller {
         const raw = event.target.value.trim();
         const parsed = raw === '' ? null : Number.parseFloat(raw.replace(',', '.'));
         activeObject[prop] = parsed !== null && isFinite(parsed) && parsed >= 0 ? parsed : null;
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    updateListCheckboxes(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        activeObject.listCheckboxes = event.target.checked;
+        this._syncListControls(activeObject);
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    /** Open the shared gallery modal to pick a checkbox STATE image; the
+     *  state param ('unchecked'|'checked') is remembered until the pick
+     *  comes back via canvas-editor:checkbox-image. */
+    pickCheckboxImage(event) {
+        if (!this.hasCanvasEditorOutlet) return;
+        this._checkboxPickState = event.params && event.params.state === 'checked' ? 'checked' : 'unchecked';
+        this.canvasEditorOutlet.galleryMode = 'checkboxImage';
+        const modal = new bootstrap.Modal('#imageGalleryModal');
+        modal.show();
+    }
+
+    onCheckboxImageSelected(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        const { path } = event.detail || {};
+        if (!path) return;
+        const prop = this._checkboxPickState === 'checked' ? 'listCheckboxCheckedImage' : 'listCheckboxImage';
+        activeObject[prop] = path;
+        this._syncCheckboxPreviews(activeObject);
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    /** Back to the default drawn checkbox for one state. */
+    clearCheckboxImage(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        const state = event.params && event.params.state === 'checked' ? 'checked' : 'unchecked';
+        activeObject[state === 'checked' ? 'listCheckboxCheckedImage' : 'listCheckboxImage'] = null;
+        this._syncCheckboxPreviews(activeObject);
         this.canvasEditorOutlet.markUnsaved();
     }
 
@@ -215,11 +293,14 @@ export default class extends Controller {
             clone.dataset.richTextEditorMaxLengthValue = String(activeObject.maxLength || 0);
             clone.dataset.richTextEditorUppercaseValue = activeObject.uppercase ? 'true' : 'false';
             clone.dataset.richTextEditorListsValue = activeObject.lists ? 'true' : 'false';
+            clone.dataset.richTextEditorCheckboxesValue = activeObject.lists && activeObject.listCheckboxes ? 'true' : 'false';
             clone.dataset.richTextEditorRunsValue = JSON.stringify(seed.runs);
             clone.dataset.richTextEditorLinesValue = JSON.stringify(seed.lines);
             clone.dataset.richTextEditorDesignFontValue = activeObject.fontFamily || '';
             const listButtons = clone.querySelector('[data-sample-lists]');
             if (listButtons) listButtons.classList.toggle('d-none', !activeObject.lists);
+            const checkboxButton = clone.querySelector('[data-sample-checkboxes]');
+            if (checkboxButton) checkboxButton.classList.toggle('d-none', !(activeObject.lists && activeObject.listCheckboxes));
             const mirror = clone.querySelector('[data-sample-mirror]');
             if (mirror) {
                 mirror.setAttribute('data-text-mirror', activeObject.inputId || '');

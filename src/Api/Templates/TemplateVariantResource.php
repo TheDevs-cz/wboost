@@ -87,6 +87,17 @@ start; `listStyle` values are RESOLVED px. List lines on a `lists: false`
 input → **400 `lists_not_allowed`**; malformed `lines` → **400
 `invalid_rich_text`**.
 
+### Checkbox lists (`inputs[].listCheckboxes: true`)
+
+An input that also allows checkbox lists accepts two more line types: `cb`
+(unchecked item) and `cbx` (checked item). Consecutive `cb`/`cbx` lines form
+ONE checklist — mix the states freely. Layout is identical to `ul` items; the
+line-start marker is `listStyle.checkboxImageUrl` (unchecked) /
+`checkboxCheckedImageUrl` (checked), and when a state's URL is null the
+export draws the default checkbox: a rounded square filled with the item's
+text color, the checked one with a white check mark. `cb`/`cbx` lines on an
+input with `listCheckboxes: false` → **400 `checkbox_lists_not_allowed`**.
+
 ## Image placeholders (`images`)
 
 `images` fills IMAGE placeholders, keyed by `variants[].imageInputs[].id`. Each

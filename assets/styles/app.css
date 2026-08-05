@@ -1,5 +1,11 @@
 .canvas-wrapper {
     display: inline-block;
+    /* Top-align the inline-block (the .fill-stage rule): baseline-aligned, the
+       stage's line box grows to the wrapper's INTERNAL baseline — Fabric's
+       lower-canvas is an in-flow inline element, so that baseline sits at the
+       UNSCALED canvas bottom (A4 = 3508px down) and the zoom controller's
+       negative-margin compensation only trims space BELOW the baseline. */
+    vertical-align: top;
     transform-origin: top left;
 }
 
@@ -2841,7 +2847,9 @@ button.fill-layer-row__main:focus-visible {
 .fill-richtext-editor .rt-line { min-height: 1em; }
 
 .fill-richtext-editor .rt-line[data-type="ul"],
-.fill-richtext-editor .rt-line[data-type="ol"] {
+.fill-richtext-editor .rt-line[data-type="ol"],
+.fill-richtext-editor .rt-line[data-type="cb"],
+.fill-richtext-editor .rt-line[data-type="cbx"] {
     position: relative;
     padding-left: 1.6em;
 }
@@ -2857,4 +2865,28 @@ button.fill-layer-row__main:focus-visible {
     position: absolute;
     left: 0;
     font-variant-numeric: tabular-nums;
+}
+
+/* Checkbox items ('cb' unchecked / 'cbx' checked): the marker mirrors the
+   export's default drawn checkbox — a rounded square in the line's text
+   color, the checked one with a white check. Clicking the marker toggles
+   the state (rich_text_editor_controller editorClick). */
+.fill-richtext-editor .rt-line[data-type="cb"]::before,
+.fill-richtext-editor .rt-line[data-type="cbx"]::before {
+    content: '';
+    position: absolute;
+    left: 0.1em;
+    top: 0.3em;
+    width: 0.85em;
+    height: 0.85em;
+    border-radius: 0.19em;
+    background-color: currentColor;
+    cursor: pointer;
+}
+
+.fill-richtext-editor .rt-line[data-type="cbx"]::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.2 8.6 6.6 12 12.8 4.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 80% 80%;
+    background-position: center;
+    background-repeat: no-repeat;
 }

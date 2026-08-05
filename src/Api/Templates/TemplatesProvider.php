@@ -228,6 +228,12 @@ final readonly class TemplatesProvider implements ProviderInterface
                         indent: $resolved->indent,
                         itemSpacing: $resolved->itemSpacing,
                         blockSpacing: $resolved->blockSpacing,
+                        checkboxImageUrl: $resolved->checkboxImage !== null
+                            ? $this->uploaderHelper->getPublicPath($resolved->checkboxImage)
+                            : null,
+                        checkboxCheckedImageUrl: $resolved->checkboxCheckedImage !== null
+                            ? $this->uploaderHelper->getPublicPath($resolved->checkboxCheckedImage)
+                            : null,
                     );
                 }
 
@@ -242,6 +248,7 @@ final readonly class TemplatesProvider implements ProviderInterface
                     richText: $input->richText,
                     lists: $input->richText && $input->lists,
                     listStyle: $listStyle,
+                    listCheckboxes: $input->richText && $input->lists && $input->listCheckboxes,
                     sampleValue: $input->sampleValue,
                     frame: $frame !== null
                         ? new TemplateVariantInputFrameResponse(

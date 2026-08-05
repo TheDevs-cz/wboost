@@ -1,14 +1,20 @@
 /*
  * Rich text BLOCKS — lists ("odrážky") layered on top of the flat runs model
  * (see rich_text_runs.js). A rich value's envelope may carry per-LINE types:
- * `{ runs: [...], lines: ["p","ul","ol",...] }`, one entry per line of the
- * plain-text projection (split on "\n"). Consecutive 'p' lines render as ONE
- * paragraph textbox (byte-identical to the pre-lists flat rendering, which is
- * what makes the model backward compatible); consecutive 'ul' / 'ol' lines
- * form a list whose items are individually wrapped textboxes indented by the
- * admin's `indent` (hanging indent: wrapped continuation lines align under
- * the text, not under the bullet) with a bullet object at the line start —
- * a character (•, –, ✓), an ordinal ("1."), or a custom image.
+ * `{ runs: [...], lines: ["p","ul","ol","cb","cbx",...] }`, one entry per
+ * line of the plain-text projection (split on "\n"). Consecutive 'p' lines
+ * render as ONE paragraph textbox (byte-identical to the pre-lists flat
+ * rendering, which is what makes the model backward compatible); consecutive
+ * 'ul' / 'ol' lines form a list whose items are individually wrapped
+ * textboxes indented by the admin's `indent` (hanging indent: wrapped
+ * continuation lines align under the text, not under the bullet) with a
+ * bullet object at the line start — a character (•, –, ✓), an ordinal
+ * ("1."), or a custom image. 'cb' (unchecked) and 'cbx' (checked) are
+ * CHECKBOX items: both belong to the SAME block (a checklist mixes states
+ * freely), laid out exactly like 'ul' items, with the bullet element
+ * carrying `checked` — the renderer draws a checkbox (admin-picked images
+ * per state, or the default rounded square in the item's text color, the
+ * checked one with a white check mark).
  *
  * The PHP mirror of the value semantics is src/Value/RichText.php (lineTypes)
  * and of the styling defaults src/Value/ResolvedListStyle.php — keep them in
@@ -26,8 +32,18 @@
 
     var BULLET_CHARS = { disc: '•', dash: '–', check: '✓' };
 
+    function isListType(t) {
+        return t === 'ul' || t === 'ol' || t === 'cb' || t === 'cbx';
+    }
+
+    /** 'cb' and 'cbx' lines share one BLOCK type ('cb') — a checklist mixes
+     *  checked and unchecked items inside the same list. */
+    function blockType(t) {
+        return t === 'cbx' ? 'cb' : t;
+    }
+
     function hasListLines(lines) {
-        return Array.isArray(lines) && lines.some(function (t) { return t === 'ul' || t === 'ol'; });
+        return Array.isArray(lines) && lines.some(isListType);
     }
 
     /** Line count of the runs' plain-text projection. */
@@ -45,7 +61,7 @@
         var result = [];
         for (var i = 0; i < count; i += 1) {
             var t = Array.isArray(lines) ? lines[i] : 'p';
-            result.push(t === 'ul' || t === 'ol' ? t : 'p');
+            result.push(isListType(t) ? t : 'p');
         }
         return hasListLines(result) ? result : null;
     }
@@ -78,8 +94,12 @@
      * Group lines into render blocks: consecutive 'p' lines merge back into
      * one paragraph (runs re-joined with "\n" separators so the paragraph
      * wraps and renders exactly like the flat pre-lists value); consecutive
-     * same-type list lines become one list block with per-item runs.
-     * Returns [{ type: 'p', runs } | { type: 'ul'|'ol', items: [runs] }].
+     * same-type list lines become one list block with per-item runs ('cb'
+     * and 'cbx' count as the same type — the block records per-item
+     * `checked` flags instead).
+     * Returns [{ type: 'p', runs }
+     *        | { type: 'ul'|'ol', items: [runs] }
+     *        | { type: 'cb', items: [runs], checked: [bool] }].
      */
     function groupBlocks(runs, lines) {
         var perLine = splitLines(runs);
@@ -90,7 +110,8 @@
 
         var blocks = [];
         perLine.forEach(function (lineRuns, index) {
-            var type = types[index] || 'p';
+            var lineType = types[index] || 'p';
+            var type = blockType(lineType);
             var last = blocks[blocks.length - 1];
             if (type === 'p') {
                 if (last && last.type === 'p') {
@@ -108,6 +129,11 @@
                 }
             } else if (last && last.type === type) {
                 last.items.push(lineRuns);
+                if (type === 'cb') {
+                    last.checked.push(lineType === 'cbx');
+                }
+            } else if (type === 'cb') {
+                blocks.push({ type: type, items: [lineRuns], checked: [lineType === 'cbx'] });
             } else {
                 blocks.push({ type: type, items: [lineRuns] });
             }
@@ -116,10 +142,15 @@
     }
 
     /** The bullet's text for character/ordinal bullets; null = image bullet
-     *  (only 'ul' items use the image — 'ol' is always the ordinal). */
+     *  (only 'ul' items use the image — 'ol' is always the ordinal) OR a
+     *  checkbox ('cb' items never render as text — the caller draws the
+     *  checkbox visuals from the element's `checked` flag). */
     function bulletText(config, listType, ordinal) {
         if (listType === 'ol') {
             return String(ordinal) + '.';
+        }
+        if (listType === 'cb') {
+            return null;
         }
         var bullet = (config && config.bullet) || 'disc';
         if (bullet === 'image') {
@@ -147,7 +178,8 @@
      *
      * Returns { height, elements } — elements in paint order:
      *   { kind: 'text', runs, left, top, width }
-     *   { kind: 'bullet', listType, ordinal, left: 0, top, item }
+     *   { kind: 'bullet', listType, ordinal, checked, left: 0, top, item }
+     * (`checked` is a boolean for listType 'cb' and undefined otherwise.)
      */
     function layoutStack(blocks, config, geom, measure) {
         var y = 0;
@@ -172,7 +204,11 @@
                     y += itemSpacing;
                 }
                 var itemHeight = measure(itemRuns, itemWidth);
-                elements.push({ kind: 'bullet', listType: block.type, ordinal: itemIndex + 1, left: 0, top: y, item: itemRuns });
+                var bullet = { kind: 'bullet', listType: block.type, ordinal: itemIndex + 1, left: 0, top: y, item: itemRuns };
+                if (block.type === 'cb') {
+                    bullet.checked = Boolean(block.checked && block.checked[itemIndex]);
+                }
+                elements.push(bullet);
                 elements.push({ kind: 'text', runs: itemRuns, left: indent, top: y, width: itemWidth });
                 y += itemHeight;
             });
@@ -182,6 +218,7 @@
     }
 
     global.WBoostRichTextBlocks = {
+        isListType: isListType,
         hasListLines: hasListLines,
         lineCount: lineCount,
         normalizeLines: normalizeLines,

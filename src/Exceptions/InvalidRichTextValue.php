@@ -47,6 +47,14 @@ final class InvalidRichTextValue extends \Exception
         );
     }
 
+    public static function checkboxListsNotAllowed(string $inputLabel): self
+    {
+        return new self(
+            'checkbox_lists_not_allowed',
+            sprintf('Input "%s" does not allow checkbox lists. Provide the value without "cb"/"cbx" line types.', $inputLabel),
+        );
+    }
+
     public static function invalidValue(string $inputLabel, string $reason): self
     {
         return new self(

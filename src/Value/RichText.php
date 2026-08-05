@@ -25,15 +25,22 @@ readonly final class RichText
     public const int MAX_RUNS = 200;
     public const int MAX_TOTAL_LENGTH = 10000;
 
-    /** Per-line type values ('p' plain, 'ul' bullet item, 'ol' numbered item). */
-    public const array LINE_TYPES = ['p', 'ul', 'ol'];
+    /** Per-line type values ('p' plain, 'ul' bullet item, 'ol' numbered item,
+     *  'cb' unchecked checkbox item, 'cbx' checked checkbox item). */
+    public const array LINE_TYPES = ['p', 'ul', 'ol', 'cb', 'cbx'];
+
+    /** The checkbox family — gated by the input's `listCheckboxes` flag on
+     *  top of `lists`; 'cb'/'cbx' lines of one run belong to the same list
+     *  block (a checklist mixes checked and unchecked items). */
+    public const array CHECKBOX_LINE_TYPES = ['cb', 'cbx'];
 
     /**
      * @param list<RichTextRun> $runs
      * @param list<string> $lineTypes One entry per LINE of the plain-text
-     *   projection (split on "\n"): 'p' | 'ul' | 'ol'. All-'p' for values
-     *   without lists — consecutive 'p' lines render exactly like the
-     *   pre-lists flat value, so the projection is fully backward compatible.
+     *   projection (split on "\n"): 'p' | 'ul' | 'ol' | 'cb' | 'cbx'.
+     *   All-'p' for values without lists — consecutive 'p' lines render
+     *   exactly like the pre-lists flat value, so the projection is fully
+     *   backward compatible.
      */
     private function __construct(
         public array $runs,
@@ -96,6 +103,10 @@ readonly final class RichText
      * @param bool $listsAllowed Whether the input's definition enables lists —
      *   a value carrying 'ul'/'ol' lines for a lists-disabled input is a
      *   structured 400 in strict mode and degrades to plain lines leniently.
+     * @param bool $checkboxesAllowed Whether the input additionally enables
+     *   CHECKBOX lists ('cb'/'cbx' lines) — without it those lines are a
+     *   structured 400 in strict mode and degrade to plain 'ul' bullets
+     *   leniently (the list structure survives, only the checkboxes don't).
      * @throws InvalidRichTextValue in strict mode only
      */
     public static function fromRaw(
@@ -105,6 +116,7 @@ readonly final class RichText
         null|array $allowedFontFamilies = null,
         null|array $rawLines = null,
         bool $listsAllowed = false,
+        bool $checkboxesAllowed = false,
     ): self {
         if (count($rawRuns) > self::MAX_RUNS) {
             if ($strict) {
@@ -124,7 +136,7 @@ readonly final class RichText
             }
         }
 
-        $lineTypes = self::parseLineTypes($rawLines, $strict, $inputLabel, $listsAllowed);
+        $lineTypes = self::parseLineTypes($rawLines, $strict, $inputLabel, $listsAllowed, $checkboxesAllowed);
         $richText = self::normalized($runs, $lineTypes);
 
         if ($strict && $rawLines !== null && count($rawLines) !== count($richText->lineTypes) && $richText->hasLists()) {
@@ -148,7 +160,7 @@ readonly final class RichText
      *   structure" (normalized() then fills all-'p' to the line count).
      * @throws InvalidRichTextValue in strict mode only
      */
-    private static function parseLineTypes(null|array $rawLines, bool $strict, string $inputLabel, bool $listsAllowed): null|array
+    private static function parseLineTypes(null|array $rawLines, bool $strict, string $inputLabel, bool $listsAllowed, bool $checkboxesAllowed): null|array
     {
         if ($rawLines === null) {
             return null;
@@ -156,11 +168,12 @@ readonly final class RichText
 
         $lineTypes = [];
         $hasList = false;
+        $hasCheckbox = false;
 
         foreach ($rawLines as $rawLine) {
             if (!is_string($rawLine) || !in_array($rawLine, self::LINE_TYPES, true)) {
                 if ($strict) {
-                    throw InvalidRichTextValue::invalidValue($inputLabel, 'every "lines" entry must be one of "p", "ul", "ol"');
+                    throw InvalidRichTextValue::invalidValue($inputLabel, 'every "lines" entry must be one of "p", "ul", "ol", "cb", "cbx"');
                 }
 
                 $rawLine = 'p';
@@ -168,6 +181,10 @@ readonly final class RichText
 
             if ($rawLine !== 'p') {
                 $hasList = true;
+            }
+
+            if (in_array($rawLine, self::CHECKBOX_LINE_TYPES, true)) {
+                $hasCheckbox = true;
             }
 
             $lineTypes[] = $rawLine;
@@ -179,6 +196,18 @@ readonly final class RichText
             }
 
             return null;
+        }
+
+        if ($hasCheckbox && !$checkboxesAllowed) {
+            if ($strict) {
+                throw InvalidRichTextValue::checkboxListsNotAllowed($inputLabel);
+            }
+
+            // Lenient: keep the list structure, drop only the checkboxes.
+            $lineTypes = array_map(
+                static fn (string $type): string => in_array($type, self::CHECKBOX_LINE_TYPES, true) ? 'ul' : $type,
+                $lineTypes,
+            );
         }
 
         return $hasList ? $lineTypes : null;

@@ -820,6 +820,10 @@ export default class extends Controller {
             // controllers share the editor root, so a plain Stimulus dispatch
             // reaches its element listener without template wiring.
             this.dispatch('bullet-image', { detail: { url, path, id } });
+        } else if (mode === 'checkboxImage') {
+            // Checkbox state image pick (which state is being set is
+            // remembered by canvas_input_properties itself).
+            this.dispatch('checkbox-image', { detail: { url, path, id } });
         } else {
             this.addImageToCanvas(url, path, id);
         }

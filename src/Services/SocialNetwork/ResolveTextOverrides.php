@@ -92,6 +92,7 @@ readonly final class ResolveTextOverrides
                     allowedFontFamilies: $richTextOptions?->allowedFamilies(),
                     rawLines: $rawLines,
                     listsAllowed: $input->lists,
+                    checkboxesAllowed: $input->lists && $input->listCheckboxes,
                 );
 
                 if ($input->maxLength !== null && mb_strlen($richText->toPlainText()) > $input->maxLength) {

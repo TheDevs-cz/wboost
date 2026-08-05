@@ -41,6 +41,15 @@ final readonly class TemplateVariantInputResponse
         /** Resolved list styling; non-null exactly when `lists` is true. */
         public null|TemplateVariantListStyleResponse $listStyle = null,
         /**
+         * When true (implies `lists`) the envelope's `lines` may also carry
+         * the CHECKBOX item types — 'cb' (unchecked) and 'cbx' (checked); a
+         * checklist mixes both freely inside one list. Sending them to an
+         * input with `listCheckboxes: false` is a structured 400
+         * (`checkbox_lists_not_allowed`). See `listStyle.checkboxImageUrl` /
+         * `checkboxCheckedImageUrl` for how the states render.
+         */
+        public bool $listCheckboxes = false,
+        /**
          * "Vzorový text" — the admin-authored default the render uses when
          * the export receives NO value for this input. Same wire format the
          * export accepts: a plain string, or the `{"runs":[...],"lines":...}`

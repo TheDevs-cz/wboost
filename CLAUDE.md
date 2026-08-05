@@ -346,6 +346,30 @@ item, ul/ol toolbar toggles. API: `inputs[].lists` + resolved `listStyle`
 rescale — keep them null on grouped templates so the font-derived defaults
 track each dimension).
 
+**Checkbox lists (`listCheckboxes` on `EditorTextInput`, 2026-08-05).** A
+second admin toggle INSIDE the lists config ("Povolit zaškrtávací seznam",
+implies `lists`) adds two line types: `'cb'` (unchecked) / `'cbx'` (checked)
+— ONE block family (`RichText::CHECKBOX_LINE_TYPES`; a checklist mixes
+states, `groupBlocks` groups them as `{type:'cb', items, checked[]}`).
+Layout = identical to 'ul' items; the marker is drawn per state: admin-picked
+gallery images (`listCheckboxImage` unchecked / `listCheckboxCheckedImage`
+checked, picked via gallery mode 'checkboxImage', clearable per state) or —
+when null — the DEFAULT drawn checkbox: `fabric.Rect` rounded square
+(0.9×fontSize, rx 22 %) filled with the item's LEAD TEXT COLOR, checked adds
+a white `fabric.Path` check centered in it (font-independent — a ✓ glyph is
+NOT used on purpose; real-Chromium verified via the Gotenberg DIAG recipe).
+Strictness: cb/cbx on a lists-disabled input → `lists_not_allowed`; on a
+lists-enabled but checkbox-disabled input → 400 `checkbox_lists_not_allowed`
+(lenient: degrade cb/cbx → 'ul', list structure survives — mirrored in the
+WYSIWYG's `_fitTypes`/`_parseDom`). WYSIWYG: `mdi-format-list-checks` toolbar
+toggle (`toggleCheckboxList` — non-family lines become fresh 'cb', existing
+'cbx' keep state), CLICKING the line's marker gutter toggles cb↔cbx in place
+(`editorClick`, no re-render), Enter after a checked item inherits 'cb'
+(never 'cbx'), CSS markers mirror the drawn default via currentColor +
+inline-SVG white check. API: `inputs[].listCheckboxes` + `listStyle.
+checkboxImageUrl`/`checkboxCheckedImageUrl` (null = drawn default). Overlay
+measurement needs nothing checkbox-specific (cb geometry ≡ ul geometry).
+
 **Vzorový text (`sampleValue` on `EditorTextInput`, 2026-08-05).** Per-input
 admin-authored DEFAULT FILL, stored in the exact wire format a fill value
 uses (plain string or the `{"runs","lines"}` envelope — full rich feature

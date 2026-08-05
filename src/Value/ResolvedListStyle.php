@@ -27,6 +27,9 @@ readonly final class ResolvedListStyle
         public float $indent,
         public float $itemSpacing,
         public float $blockSpacing,
+        public bool $checkboxes,
+        public null|string $checkboxImage,
+        public null|string $checkboxCheckedImage,
     ) {
     }
 
@@ -50,11 +53,17 @@ readonly final class ResolvedListStyle
             indent: $input->listIndent ?? round($fontSize * 1.5, 1),
             itemSpacing: $input->listItemSpacing ?? 0.0,
             blockSpacing: $input->listBlockSpacing ?? round($fontSize * $lineHeight * 0.5, 1),
+            // Checkbox styling only matters when the input allows checkbox
+            // lists; a null image = the DEFAULT drawn checkbox (rounded
+            // square in the item's text color, checked adds a white check).
+            checkboxes: $input->listCheckboxes,
+            checkboxImage: $input->listCheckboxes ? $input->listCheckboxImage : null,
+            checkboxCheckedImage: $input->listCheckboxes ? $input->listCheckboxCheckedImage : null,
         );
     }
 
     /**
-     * @return array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float}
+     * @return array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float, checkboxes: bool, checkboxImage: null|string, checkboxCheckedImage: null|string}
      */
     public function toArray(): array
     {
@@ -64,6 +73,9 @@ readonly final class ResolvedListStyle
             'indent' => $this->indent,
             'itemSpacing' => $this->itemSpacing,
             'blockSpacing' => $this->blockSpacing,
+            'checkboxes' => $this->checkboxes,
+            'checkboxImage' => $this->checkboxImage,
+            'checkboxCheckedImage' => $this->checkboxCheckedImage,
         ];
     }
 }

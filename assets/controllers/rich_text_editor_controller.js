@@ -33,16 +33,20 @@ import { Controller } from "@hotwired/stimulus";
  * PLAIN text length in code points (PHP mb_strlen parity).
  */
 export default class extends Controller {
-    static targets = ["editor", "counter", "fontSelect", "bold", "italic", "underline", "colorInput", "ulButton", "olButton"];
+    static targets = ["editor", "counter", "fontSelect", "bold", "italic", "underline", "colorInput", "ulButton", "olButton", "cbButton"];
     static values = {
         inputId: String,
         maxLength: { type: Number, default: 0 },
         uppercase: { type: Boolean, default: false },
         runs: { type: Array, default: [] },
-        // Per-line list types ('p'|'ul'|'ol') seeding + `lists` gate — only a
-        // lists-enabled input renders the list buttons and emits `lines`.
+        // Per-line list types ('p'|'ul'|'ol'|'cb'|'cbx') seeding + the
+        // `lists` gate — only a lists-enabled input renders the list buttons
+        // and emits `lines`; `checkboxes` additionally gates the checkbox
+        // family ('cb' unchecked / 'cbx' checked — toggled by clicking the
+        // line's checkbox marker).
         lines: { type: Array, default: [] },
         lists: { type: Boolean, default: false },
+        checkboxes: { type: Boolean, default: false },
         designFont: { type: String, default: "" },
         fonts: { type: Array, default: [] },
         colors: { type: Array, default: [] },
@@ -81,7 +85,7 @@ export default class extends Controller {
                 if (sel && sel.start === sel.end) {
                     const li = this._lineIndexAt(sel.start);
                     const type = this.lineTypes[li];
-                    if ((type === "ul" || type === "ol") && this._lineText(li) === "") {
+                    if (this._isListType(type) && this._lineText(li) === "") {
                         this._pushUndo();
                         this.lineTypes[li] = "p";
                         this._render();
@@ -199,7 +203,10 @@ export default class extends Controller {
         const liStart = this._lineIndexAt(Math.min(selection.start, selection.end), plain);
         const liEnd = this._lineIndexAt(Math.max(selection.start, selection.end), plain);
         const insertedLines = (text.match(/\n/g) || []).length;
-        const inherit = this.lineTypes[liStart] || "p";
+        // Enter on a CHECKED checkbox item creates a fresh UNCHECKED one —
+        // the state belongs to the item, not to the list.
+        const inheritSource = this.lineTypes[liStart] || "p";
+        const inherit = inheritSource === "cbx" ? "cb" : inheritSource;
         this.lineTypes = [
             ...this.lineTypes.slice(0, liStart + 1),
             ...Array(insertedLines).fill(inherit),
@@ -229,9 +236,20 @@ export default class extends Controller {
         this._toggleList("ol");
     }
 
+    toggleCheckboxList() {
+        if (!this.checkboxesValue) return;
+        this._toggleList("cb");
+    }
+
+    _isListType(type) {
+        return type === "ul" || type === "ol" || type === "cb" || type === "cbx";
+    }
+
     /** Flip the lines covered by the selection (whole text for a collapsed
      *  caret on empty value; the caret's line otherwise) to the list type —
-     *  or back to plain paragraphs when they all already are that type. */
+     *  or back to plain paragraphs when they all already are that type.
+     *  'cb' targets the checkbox FAMILY: existing 'cbx' lines keep their
+     *  checked state, only non-family lines become fresh unchecked items. */
     _toggleList(type) {
         if (!this.listsValue) return;
         const module = this._module();
@@ -241,18 +259,51 @@ export default class extends Controller {
         const end = offsets ? Math.max(offsets.start, offsets.end) : plain.length;
         const liStart = this._lineIndexAt(start, plain);
         const liEnd = this._lineIndexAt(end, plain);
+        const matches = (t) => (type === "cb" ? t === "cb" || t === "cbx" : t === type);
 
         this._pushUndo();
         let allAlready = true;
         for (let i = liStart; i <= liEnd; i += 1) {
-            if (this.lineTypes[i] !== type) allAlready = false;
+            if (!matches(this.lineTypes[i])) allAlready = false;
         }
         for (let i = liStart; i <= liEnd; i += 1) {
-            this.lineTypes[i] = allAlready ? "p" : type;
+            if (allAlready) {
+                this.lineTypes[i] = "p";
+            } else if (!matches(this.lineTypes[i])) {
+                this.lineTypes[i] = type;
+            }
         }
 
         this._render();
         this._restoreSelection(offsets || this._endOffsets());
+        this._sync();
+        this._updateToolbarState();
+    }
+
+    /** Click on a checkbox line's marker (the padding gutter left of the
+     *  text) toggles its checked state in place — no re-render, so the caret
+     *  and scroll position stay put. */
+    editorClick(event) {
+        if (!this.listsValue || !this.checkboxesValue) return;
+        let line = event.target;
+        while (line && line !== this.editorTarget && line.parentNode !== this.editorTarget) {
+            line = line.parentNode;
+        }
+        if (!line || line === this.editorTarget || line.nodeType !== Node.ELEMENT_NODE) return;
+        const type = line.dataset ? line.dataset.type : null;
+        if (type !== "cb" && type !== "cbx") return;
+
+        const rect = line.getBoundingClientRect();
+        const gutter = parseFloat(window.getComputedStyle(line).paddingLeft) || 0;
+        if (event.clientX > rect.left + gutter) return;
+
+        const index = this._lineElements().indexOf(line);
+        if (index === -1) return;
+        event.preventDefault();
+        this._pushUndo();
+        const next = type === "cb" ? "cbx" : "cb";
+        this.lineTypes[index] = next;
+        line.dataset.type = next;
         this._sync();
         this._updateToolbarState();
     }
@@ -268,13 +319,18 @@ export default class extends Controller {
     }
 
     /** Slice/pad line types to the current text's line count ('p' fill);
-     *  non-list values collapse to all-'p' when lists are disabled. */
+     *  non-list values collapse to all-'p' when lists are disabled, and
+     *  checkbox lines degrade to plain bullets when the checkbox family is
+     *  disabled (mirrors the server's lenient degrade). */
     _fitTypes(types) {
         const count = this._module().plainText(this.runs).split("\n").length;
         const result = [];
         for (let i = 0; i < count; i += 1) {
-            const t = Array.isArray(types) ? types[i] : "p";
-            result.push(this.listsValue && (t === "ul" || t === "ol") ? t : "p");
+            let t = Array.isArray(types) ? types[i] : "p";
+            if ((t === "cb" || t === "cbx") && !this.checkboxesValue) {
+                t = "ul";
+            }
+            result.push(this.listsValue && this._isListType(t) ? t : "p");
         }
         return result;
     }
@@ -526,8 +582,11 @@ export default class extends Controller {
             if (isBlock) {
                 if (started) pushSeparator();
                 started = true;
-                const type = node.dataset ? node.dataset.type : null;
-                lineTypes.push(this.listsValue && (type === "ul" || type === "ol") ? type : "p");
+                let type = node.dataset ? node.dataset.type : null;
+                if ((type === "cb" || type === "cbx") && !this.checkboxesValue) {
+                    type = "ul";
+                }
+                lineTypes.push(this.listsValue && this._isListType(type) ? type : "p");
                 walkInline(node, defaultStyle);
             } else {
                 // Stray top-level inline content — treat as (part of) the
@@ -841,7 +900,7 @@ export default class extends Controller {
             this.fontSelectTarget.value = families.size === 1 ? [...families][0] : "";
         }
 
-        if (this.listsValue && (this.hasUlButtonTarget || this.hasOlButtonTarget)) {
+        if (this.listsValue && (this.hasUlButtonTarget || this.hasOlButtonTarget || this.hasCbButtonTarget)) {
             const offsets = this._selectionOffsets();
             const plain = this._module().plainText(this.runs);
             const start = offsets ? Math.min(offsets.start, offsets.end) : plain.length;
@@ -854,6 +913,9 @@ export default class extends Controller {
             }
             if (this.hasOlButtonTarget) {
                 this.olButtonTarget.classList.toggle("active", covered.length > 0 && covered.every((t) => t === "ol"));
+            }
+            if (this.hasCbButtonTarget) {
+                this.cbButtonTarget.classList.toggle("active", covered.length > 0 && covered.every((t) => t === "cb" || t === "cbx"));
             }
         }
     }

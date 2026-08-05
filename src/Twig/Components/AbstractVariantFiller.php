@@ -405,6 +405,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     hidable: bool,
      *     richText: bool,
      *     lists: bool,
+     *     listCheckboxes: bool,
      *     frame: null|array{x: float, y: float, width: float, height: float},
      *     value: string,
      *     runs: null|list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>,
@@ -446,6 +447,7 @@ abstract class AbstractVariantFiller extends AbstractController
                 'hidable' => $input->hidable,
                 'richText' => $input->richText,
                 'lists' => $input->richText && $input->lists,
+                'listCheckboxes' => $input->richText && $input->lists && $input->listCheckboxes,
                 'frame' => $frame,
                 // Prefill: an input the user hasn't touched yet seeds from
                 // the admin's "Vzorový text" — the same value the render
@@ -574,6 +576,7 @@ abstract class AbstractVariantFiller extends AbstractController
                 inputLabel: $input->name ?? $input->inputId,
                 rawLines: $envelope['lines'],
                 listsAllowed: $input->lists,
+                checkboxesAllowed: $input->lists && $input->listCheckboxes,
             )->toEnvelopeArray();
         }
 
@@ -671,7 +674,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *         hidable: bool,
      *         richText: bool,
      *         lists: bool,
-     *         listStyle: null|array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float}
+     *         listStyle: null|array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float, checkboxes: bool, checkboxImage: null|string, checkboxCheckedImage: null|string}
      *     }>,
      *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}}>,
      *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,

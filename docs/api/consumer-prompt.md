@@ -365,7 +365,8 @@ structured `400` `{ "error": "...", "code": "..." }` with one of these codes:
 | `invalid_rich_text` | Malformed runs (non-object run, missing/non-string `text`, unknown run key, `runs` + `value` together, > 200 runs, > 10 000 chars total). |
 | `font_not_allowed` | A run's `fontFamily` is not in `richTextOptions.fonts[].family`. The body includes `allowedFonts` (the valid family list). |
 | `invalid_color` | A run's `color` isn't a hex color. Use `#rrggbb` (or `#rgb`); **no alpha**. Colors are otherwise free-form — `richTextOptions.colors` are suggested brand swatches, NOT a whitelist. |
-| `lists_not_allowed` | You sent `lines` list types (`ul`/`ol`) for an input whose `lists` is `false`. Drop the `lines` key or send only `"p"` entries. |
+| `lists_not_allowed` | You sent `lines` list types (`ul`/`ol`/`cb`/`cbx`) for an input whose `lists` is `false`. Drop the `lines` key or send only `"p"` entries. |
+| `checkbox_lists_not_allowed` | You sent checkbox line types (`cb`/`cbx`) for an input whose `listCheckboxes` is `false`. Use `ul`/`ol` items instead. |
 
 ---
 
@@ -386,6 +387,7 @@ For each entry in `variant.inputs`:
 | `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing, textAlign}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow, or to anchor a name tag by `textAlign` (`left`\|`center`\|`right`\|`justify`). |
 | `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
 | `lists` / `listStyle` | When `lists` is `true`, offer bullet/numbered-list buttons in the WYSIWYG and send per-line types via the envelope's `lines` key (see "Lists inside rich text"). `listStyle` carries the RESOLVED bullet + spacing geometry for local preview mirroring. |
+| `listCheckboxes` | When `true` (implies `lists`), additionally offer a CHECKBOX-list button and per-item check toggles — `lines` may then carry `"cb"` (unchecked) / `"cbx"` (checked) item types (see "Checkbox lists"). |
 | `sampleValue` | Nullable. The admin's default fill ("Vzorový text") the render uses when you OMIT the input entirely. Same wire format the export accepts: a plain string, or the `{"runs":[...],"lines":[...]}` envelope (a JSON string starting with `{"runs"`). Prefill your form with it so an untouched export matches the preview; sending an explicit `""` suppresses it (renders empty). |
 | `layerIndex` | Nullable int — the object's stacking position on the variant canvas (0 = backmost, higher = painted on top). Shares ONE index space with `imageInputs[].layerIndex`: merge both arrays and sort by `layerIndex` **descending** to build a Photoshop-style layers list (topmost first). Values may have gaps (decorative design objects occupy positions too); only the relative order is meaningful. Purely informational for display/navigation — the export accepts no z-order overrides. |
 
@@ -456,6 +458,28 @@ and numbered lists in ONE input:
   `maxLength` still counts the concatenated plain text (bullets don't count).
 - The stack's total height feeds container reflow like any other text, so
   keep treating the server render as authoritative for overflow.
+
+### Checkbox lists (`inputs[].listCheckboxes: true`)
+
+An input that also allows CHECKBOX lists accepts two more `lines` entries:
+`"cb"` (unchecked item) and `"cbx"` (checked item). Consecutive `cb`/`cbx`
+lines form ONE checklist — mixing states is the point:
+
+```jsonc
+{ "runs": [ { "text": "Opravy stěn\nTmelení lišt\nBroušení oprav" } ],
+  "lines": ["cb", "cbx", "cbx"] }
+```
+
+- Layout is identical to `ul` items (same indent / spacing); the line-start
+  marker is the checkbox. UI-wise: render each item with a clickable checkbox
+  that flips its line type between `cb` and `cbx`.
+- Marker art: `listStyle.checkboxImageUrl` (unchecked) /
+  `listStyle.checkboxCheckedImageUrl` (checked) — admin-picked gallery
+  images. A null URL means that state renders the DEFAULT drawn checkbox: a
+  rounded square filled with the item's text color, the checked one with a
+  white check mark.
+- `cb`/`cbx` on an input with `listCheckboxes: false` → **400
+  `checkbox_lists_not_allowed`**.
 
 ### Containers (`variant.containers`) — smart text areas
 

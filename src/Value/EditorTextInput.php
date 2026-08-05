@@ -47,6 +47,18 @@ readonly final class EditorTextInput
         /** Vertical gap between blocks (paragraph ↔ list), canvas px. */
         public null|float $listBlockSpacing = null,
         /**
+         * Checkbox lists (on top of `lists`): when enabled the fill value may
+         * carry 'cb' (unchecked) / 'cbx' (checked) line types and the user
+         * checks/unchecks items in the WYSIWYG. Rendered as a rounded square
+         * in the item's text color (checked adds a white check mark) unless
+         * the admin picked custom gallery images per state below.
+         */
+        public bool $listCheckboxes = false,
+        /** Gallery storage path of the custom UNCHECKED checkbox image. */
+        public null|string $listCheckboxImage = null,
+        /** Gallery storage path of the custom CHECKED checkbox image. */
+        public null|string $listCheckboxCheckedImage = null,
+        /**
          * "Vzorový text": the value rendered when the export/preview receives
          * NO override for this input — the admin-authored default fill.
          * Stored in the exact wire format a fill value uses: a plain string,
@@ -60,7 +72,7 @@ readonly final class EditorTextInput
     }
 
     /**
-     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float, sampleValue: null|string}
+     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float, listCheckboxes: bool, listCheckboxImage: null|string, listCheckboxCheckedImage: null|string, sampleValue: null|string}
      */
     public function toArray(): array
     {
@@ -79,6 +91,9 @@ readonly final class EditorTextInput
             'listIndent' => $this->listIndent,
             'listItemSpacing' => $this->listItemSpacing,
             'listBlockSpacing' => $this->listBlockSpacing,
+            'listCheckboxes' => $this->listCheckboxes,
+            'listCheckboxImage' => $this->listCheckboxImage,
+            'listCheckboxCheckedImage' => $this->listCheckboxCheckedImage,
             'sampleValue' => $this->sampleValue,
         ];
     }
@@ -91,7 +106,7 @@ readonly final class EditorTextInput
      * caller is responsible for stamping the matching id onto the canvas
      * object on the next save.
      *
-     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, sampleValue?: null|string} $data
+     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, sampleValue?: null|string} $data
      */
     public static function fromArray(array $data): self
     {
@@ -124,6 +139,10 @@ readonly final class EditorTextInput
             $bulletImage = null;
         }
 
+        $imagePath = static function (mixed $value): null|string {
+            return is_string($value) && trim($value) !== '' ? $value : null;
+        };
+
         return new self(
             inputId: $inputId,
             name: $data['name'],
@@ -139,6 +158,9 @@ readonly final class EditorTextInput
             listIndent: $spacing($data['listIndent'] ?? null),
             listItemSpacing: $spacing($data['listItemSpacing'] ?? null),
             listBlockSpacing: $spacing($data['listBlockSpacing'] ?? null),
+            listCheckboxes: ($data['listCheckboxes'] ?? false) === true,
+            listCheckboxImage: $imagePath($data['listCheckboxImage'] ?? null),
+            listCheckboxCheckedImage: $imagePath($data['listCheckboxCheckedImage'] ?? null),
             sampleValue: self::sampleValueFrom($data['sampleValue'] ?? null),
         );
     }
@@ -159,7 +181,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, sampleValue?: null|string}> $data */
+        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, sampleValue?: null|string}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

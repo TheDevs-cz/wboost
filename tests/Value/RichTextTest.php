@@ -369,4 +369,65 @@ final class RichTextTest extends TestCase
         self::assertNotNull($withoutLines);
         self::assertNull($withoutLines['lines']);
     }
+
+    public function testCheckboxLineTypesParseAndRoundTrip(): void
+    {
+        $rich = RichText::fromRaw(
+            [['text' => "intro\nopen\ndone"]],
+            strict: true,
+            inputLabel: 'Checklist',
+            rawLines: ['p', 'cb', 'cbx'],
+            listsAllowed: true,
+            checkboxesAllowed: true,
+        );
+
+        self::assertTrue($rich->hasLists());
+        self::assertSame(['p', 'cb', 'cbx'], $rich->lineTypes);
+        self::assertSame(['p', 'cb', 'cbx'], $rich->toEnvelopeArray()['lines']);
+    }
+
+    public function testStrictRejectsCheckboxLinesWhenCheckboxesNotAllowed(): void
+    {
+        $this->expectException(InvalidRichTextValue::class);
+        $this->expectExceptionMessage('does not allow checkbox lists');
+
+        RichText::fromRaw(
+            [['text' => "a\nb"]],
+            strict: true,
+            inputLabel: 'Checklist',
+            rawLines: ['cb', 'cbx'],
+            listsAllowed: true,
+            checkboxesAllowed: false,
+        );
+    }
+
+    public function testLenientDegradesForbiddenCheckboxLinesToBullets(): void
+    {
+        $rich = RichText::fromRaw(
+            [['text' => "a\nb\nc"]],
+            strict: false,
+            inputLabel: 'Checklist',
+            rawLines: ['cb', 'cbx', 'ol'],
+            listsAllowed: true,
+            checkboxesAllowed: false,
+        );
+
+        // List structure survives, only the checkbox states drop to bullets.
+        self::assertSame(['ul', 'ul', 'ol'], $rich->lineTypes);
+    }
+
+    public function testStrictRejectsCheckboxLinesWhenListsNotAllowedAtAll(): void
+    {
+        $this->expectException(InvalidRichTextValue::class);
+        $this->expectExceptionMessage('does not allow lists');
+
+        RichText::fromRaw(
+            [['text' => "a\nb"]],
+            strict: true,
+            inputLabel: 'Headline',
+            rawLines: ['cb', 'cbx'],
+            listsAllowed: false,
+            checkboxesAllowed: true,
+        );
+    }
 }

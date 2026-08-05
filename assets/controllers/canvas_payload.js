@@ -142,6 +142,9 @@ export function buildVariantPayload(canvas) {
                 listIndent: spacing(textbox.listIndent),
                 listItemSpacing: spacing(textbox.listItemSpacing),
                 listBlockSpacing: spacing(textbox.listBlockSpacing),
+                listCheckboxes: (textbox.richText && textbox.lists && textbox.listCheckboxes) || false,
+                listCheckboxImage: textbox.listCheckboxImage || null,
+                listCheckboxCheckedImage: textbox.listCheckboxCheckedImage || null,
                 sampleValue: typeof textbox.sampleValue === 'string' && textbox.sampleValue !== '' ? textbox.sampleValue : null,
             };
         });

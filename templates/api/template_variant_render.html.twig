@@ -243,17 +243,19 @@
 
                     const layout = WBoostRichTextBlocks.layoutStack(blocks, config, { width: obj.width }, measure);
 
-                    // Image bullets share one decoded element (data URI from
-                    // the renderer) — a FabricImage per item over the same img.
-                    let bulletImageEl = null;
-                    if (config.bullet === 'image' && config.bulletImageSrc) {
-                        bulletImageEl = await new Promise((resolve, reject) => {
-                            const img = new Image();
-                            img.onload = () => resolve(img);
-                            img.onerror = reject;
-                            img.src = config.bulletImageSrc;
-                        }).catch(() => null);
-                    }
+                    // Image bullets / checkbox-state images share one decoded
+                    // element each (data URIs from the renderer) — a
+                    // FabricImage per item over the same img.
+                    const decodeImage = (src) => !src ? Promise.resolve(null) : new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = src;
+                    }).catch(() => null);
+                    const bulletImageEl = config.bullet === 'image' ? await decodeImage(config.bulletImageSrc) : null;
+                    const checkboxImageEl = await decodeImage(config.checkboxImageSrc);
+                    const checkboxCheckedImageEl = await decodeImage(config.checkboxCheckedImageSrc);
+                    const ImageClass = fabric.FabricImage || fabric.Image;
 
                     const children = [];
                     layout.elements.forEach((element) => {
@@ -268,10 +270,69 @@
 
                         // Bullet: vertically centered on the item's first line.
                         const firstLine = base.fontSize * base.lineHeight;
+
+                        // Checkbox item: admin-picked state image, or the
+                        // default drawn checkbox — a rounded square filled
+                        // with the item's text color; the checked state adds
+                        // a white check path (font-independent, unlike a ✓
+                        // glyph which many brand fonts lack).
+                        if (element.listType === 'cb') {
+                            const size = Math.round(base.fontSize * 0.9);
+                            const boxLeft = obj.left + element.left;
+                            const boxTop = obj.top + element.top + Math.max(0, (firstLine - size) / 2);
+                            const stateImage = element.checked ? checkboxCheckedImageEl : checkboxImageEl;
+                            if (stateImage) {
+                                children.push(new ImageClass(stateImage, {
+                                    originX: 'left',
+                                    originY: 'top',
+                                    left: boxLeft,
+                                    top: boxTop,
+                                    scaleX: size / (stateImage.naturalWidth || 1),
+                                    scaleY: size / (stateImage.naturalHeight || 1),
+                                    selectable: false,
+                                }));
+                                return;
+                            }
+                            const boxLead = WBoostRichTextBlocks.itemLeadStyle(element.item);
+                            children.push(new fabric.Rect({
+                                originX: 'left',
+                                originY: 'top',
+                                left: boxLeft,
+                                top: boxTop,
+                                width: size,
+                                height: size,
+                                rx: size * 0.22,
+                                ry: size * 0.22,
+                                fill: boxLead.color || base.fill,
+                                selectable: false,
+                            }));
+                            if (element.checked) {
+                                const scale = size / 16;
+                                const check = new fabric.Path('M 3.2 8.6 L 6.6 12 L 12.8 4.4', {
+                                    originX: 'left',
+                                    originY: 'top',
+                                    stroke: '#ffffff',
+                                    strokeWidth: 2.4,
+                                    strokeLineCap: 'round',
+                                    strokeLineJoin: 'round',
+                                    fill: '',
+                                    scaleX: scale,
+                                    scaleY: scale,
+                                    selectable: false,
+                                });
+                                check.set({
+                                    left: boxLeft + (size - check.width * scale) / 2,
+                                    top: boxTop + (size - check.height * scale) / 2,
+                                });
+                                check.setCoords();
+                                children.push(check);
+                            }
+                            return;
+                        }
+
                         const text = WBoostRichTextBlocks.bulletText(config, element.listType, element.ordinal);
                         if (text === null && bulletImageEl) {
                             const size = Math.round(base.fontSize * 0.9);
-                            const ImageClass = fabric.FabricImage || fabric.Image;
                             children.push(new ImageClass(bulletImageEl, {
                                 originX: 'left',
                                 originY: 'top',

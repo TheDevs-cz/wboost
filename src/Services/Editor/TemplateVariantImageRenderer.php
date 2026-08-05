@@ -228,6 +228,15 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 ? $this->assetInliner->inlineImage($resolved->bulletImage)
                 : null;
             unset($config['bulletImage']);
+            // Checkbox state images (null = the default drawn checkbox in the
+            // item's text color), inlined like the bullet image.
+            $config['checkboxImageSrc'] = $resolved->checkboxImage !== null
+                ? $this->assetInliner->inlineImage($resolved->checkboxImage)
+                : null;
+            $config['checkboxCheckedImageSrc'] = $resolved->checkboxCheckedImage !== null
+                ? $this->assetInliner->inlineImage($resolved->checkboxCheckedImage)
+                : null;
+            unset($config['checkboxImage'], $config['checkboxCheckedImage']);
             $listConfigs[$input->inputId] = $config;
         }
 
