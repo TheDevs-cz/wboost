@@ -224,10 +224,13 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   warning; NESTED zones (`--nested`, dotted) hug their content with no height
   handle. Both have LEFT/RIGHT side handles that resize the container width
   (textbox lefts + wrap widths rescale proportionally, non-text members only
-  follow with their left edge), a ⚙ button opening the per-zone settings
-  popover (gap, spaceAfter, "Vnořit do kontejneru" parent select — the
-  discoverable nesting control; maxHeight on top-level), and an × button that
-  drops the
+  follow with their left edge), a ⧉ duplicate button (clones the whole tree —
+  objects incl. design-hidden members + definitions with fresh ids, spacing
+  copied, nested originals join the same parent as a sibling; the +20/+20
+  offset copy settles below the original via the normalize pass), a ⚙ button
+  opening the per-zone settings popover (gap, spaceAfter, "Vnořit do
+  kontejneru" parent select — the discoverable nesting control; maxHeight on
+  top-level; "Zrušit kontejner"), and an × button that drops the
   definition — members of a nested container are PROMOTED to the parent so
   the flow survives (top-level × frees the members; both undoable). Members
   are dragged INDIVIDUALLY (plain Fabric drag); the whole container (deep)

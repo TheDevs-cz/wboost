@@ -597,10 +597,10 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 }
 
 /* Per-zone settings (⚙ → gap / max height popover). Sits left of the ×. */
-.container-zone__settings {
+.container-zone__settings,
+.container-zone__duplicate {
     position: absolute;
     top: -20px;
-    right: 22px;
     padding: 1px 6px;
     border: none;
     font-size: 11px;
@@ -612,15 +612,27 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     cursor: pointer;
 }
 
-.container-zone__settings:hover {
+.container-zone__settings {
+    right: 22px;
+}
+
+/* Duplicates the container INCLUDING its objects. Sits left of the ⚙. */
+.container-zone__duplicate {
+    right: 46px;
+}
+
+.container-zone__settings:hover,
+.container-zone__duplicate:hover {
     background: #2c8caa;
 }
 
-.container-zone--overflow .container-zone__settings {
+.container-zone--overflow .container-zone__settings,
+.container-zone--overflow .container-zone__duplicate {
     background: #fa5c7c;
 }
 
-.container-zone--nested .container-zone__settings {
+.container-zone--nested .container-zone__settings,
+.container-zone--nested .container-zone__duplicate {
     background: rgba(57, 175, 209, 0.75);
 }
 

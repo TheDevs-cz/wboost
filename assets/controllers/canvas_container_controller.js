@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 
+import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
+
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
  *
@@ -476,6 +478,23 @@ export default class extends Controller {
             label.addEventListener('mousedown', (event) => this._beginLabelDrag(event, container));
             zone.appendChild(label);
 
+            // Duplicate the whole container INCLUDING its objects (deep —
+            // nested children come along). The copy lands offset and the
+            // collision-push / parent flow settles it below the original.
+            const duplicate = document.createElement('button');
+            duplicate.type = 'button';
+            duplicate.className = 'container-zone__duplicate';
+            duplicate.title = 'Duplikovat kontejner včetně obsahu';
+            duplicate.setAttribute('aria-label', 'Duplikovat kontejner');
+            duplicate.innerHTML = '<i class="mdi mdi-content-copy"></i>';
+            duplicate.addEventListener('mousedown', (event) => event.stopPropagation());
+            duplicate.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this._duplicateContainer(container);
+            });
+            zone.appendChild(duplicate);
+
             // Per-container settings (gap, max height).
             const settings = document.createElement('button');
             settings.type = 'button';
@@ -712,6 +731,92 @@ export default class extends Controller {
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+    }
+
+    /**
+     * Duplicate a container INCLUDING all of its objects: clones the whole
+     * tree (direct members + nested children, design-hidden ones too) with
+     * fresh inputIds, mirrors the definitions with fresh container ids
+     * (maxHeight/gap/spaceAfter copied), and — for a nested original — joins
+     * the copy to the SAME parent as a sibling section. The copy starts at a
+     * +20/+20 offset; the normalize pass (sibling collision-push / parent
+     * flow) then settles it below the original. Undoable as one step.
+     */
+    async _duplicateContainer(container) {
+        const canvas = this._canvas();
+        const layout = this._layout();
+        if (!canvas || !layout) return;
+
+        const containers = this._containers();
+
+        const treeDefs = [];
+        const collectTree = (def, seen) => {
+            if (!def || seen.has(def.id)) return;
+            seen.add(def.id);
+            treeDefs.push(def);
+            layout.childContainersOf(containers, def).forEach((child) => collectTree(child, seen));
+        };
+        collectTree(container, new Set());
+
+        // Member objects across the tree, in canvas stack order so the clones
+        // keep their relative z-order (they land as a block on top, like a
+        // paste). Resolved WITHOUT the visibility filter — a design-hidden
+        // member is still part of the container and must survive the copy.
+        const wanted = new Set();
+        treeDefs.forEach((def) => (def.memberInputIds || []).forEach((id) => wanted.add(id)));
+        const originals = this._objects().filter((o) => o.inputId && wanted.has(o.inputId));
+        if (originals.length === 0) return;
+
+        const OFFSET = 20;
+        const inputIdMap = new Map();
+        for (const original of originals) {
+            const clone = await original.clone(CANVAS_CUSTOM_PROPERTIES);
+            const newId = crypto.randomUUID();
+            inputIdMap.set(original.inputId, newId);
+            clone.inputId = newId;
+            clone.set({ left: clone.left + OFFSET, top: clone.top + OFFSET });
+            // Clone drops the live interaction flags — re-derive them exactly
+            // like the load path does.
+            const type = (clone.type || '').toLowerCase();
+            if (type === 'image') {
+                applyEditorLock(clone);
+            } else if (type === 'textbox') {
+                applyTextboxDefaults(clone);
+            }
+            canvas.add(clone);
+        }
+
+        const containerIdMap = new Map(treeDefs.map((def) => [def.id, crypto.randomUUID()]));
+        treeDefs.forEach((def) => {
+            const copy = {
+                id: containerIdMap.get(def.id),
+                maxHeight: def.maxHeight,
+                memberInputIds: (def.memberInputIds || [])
+                    .map((id) => inputIdMap.get(id))
+                    .filter(Boolean),
+                memberContainerIds: (def.memberContainerIds || [])
+                    .map((id) => containerIdMap.get(id))
+                    .filter(Boolean),
+            };
+            if (typeof def.gap === 'number' && isFinite(def.gap)) copy.gap = def.gap;
+            if (typeof def.spaceAfter === 'number' && isFinite(def.spaceAfter)) copy.spaceAfter = def.spaceAfter;
+            containers.push(copy);
+        });
+
+        // A nested original duplicates as a SIBLING inside the same parent.
+        const parent = this._parentOf(container);
+        if (parent) {
+            parent.memberContainerIds = [
+                ...(parent.memberContainerIds || []),
+                containerIdMap.get(container.id),
+            ];
+        }
+
+        this._dropDegenerate();
+        this._normalizeDesign();
+        this.renderZones();
+        canvas.requestRenderAll();
+        canvas.fire('object:modified', {});
     }
 
     /**
