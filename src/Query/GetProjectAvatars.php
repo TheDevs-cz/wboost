@@ -17,16 +17,19 @@ readonly final class GetProjectAvatars
     }
 
     /**
-     * Builds an avatar for every given project: the logo of its first manual
-     * that has one (brand manuals preferred), otherwise a monogram colored by
-     * the first primary brand color, otherwise a deterministic palette color.
+     * Builds an avatar for every given project: the custom project icon when
+     * uploaded, else the logo of its first manual that has one (brand manuals
+     * preferred), otherwise a monogram colored by the first primary brand
+     * color, otherwise a deterministic palette color.
      *
      * @param array<Project> $projects
      * @return array<string, ProjectAvatar> keyed by project id
      */
     public function forProjects(array $projects): array
     {
-        $manualsByProject = $this->manualsByProject($projects);
+        $manualsByProject = $this->manualsByProject(
+            array_filter($projects, static fn (Project $project): bool => $project->icon === null),
+        );
         $avatars = [];
 
         foreach ($projects as $project) {
@@ -36,12 +39,17 @@ readonly final class GetProjectAvatars
             $avatars[$projectId] = ProjectAvatar::build(
                 seed: $projectId,
                 projectName: $project->name,
-                logoPath: $this->firstLogoPath($manuals),
+                logoPath: $project->icon ?? $this->firstLogoPath($manuals),
                 brandColorHex: $this->firstBrandColorHex($manuals),
             );
         }
 
         return $avatars;
+    }
+
+    public function forProject(Project $project): ProjectAvatar
+    {
+        return $this->forProjects([$project])[$project->id->toString()];
     }
 
     /**

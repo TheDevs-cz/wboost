@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\Twig;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
+use WBoost\Web\Query\GetProjectAvatars;
 use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Services\FormatFileSize;
 use WBoost\Web\Services\SvgColorsMapper;
@@ -19,6 +20,7 @@ final class TwigExtension extends AbstractExtension
         readonly private SvgColorsMapper $svgColorsMapper,
         readonly private RegistrationRequestRepository $registrationRequestRepository,
         readonly private FormatFileSize $formatFileSize,
+        readonly private GetProjectAvatars $getProjectAvatars,
     ) {
     }
 
@@ -31,6 +33,7 @@ final class TwigExtension extends AbstractExtension
             new TwigFunction('uploaded_asset', $this->uploaderHelper->getPublicPath(...)),
             new TwigFunction('remap_svg_colors', $this->svgColorsMapper->mapToDataUri(...)),
             new TwigFunction('pending_registration_requests_count', $this->registrationRequestRepository->countPending(...)),
+            new TwigFunction('project_avatar', $this->getProjectAvatars->forProject(...)),
         ];
     }
 

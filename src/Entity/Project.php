@@ -44,6 +44,14 @@ class Project
     #[Column(options: ['default' => ''])]
     public string $slug;
 
+    /**
+     * Storage path of a custom project icon. Takes precedence over the brand
+     * logo and the initials monogram everywhere the project avatar shows.
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true)]
+    public null|string $icon = null;
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -68,6 +76,11 @@ class Project
     public function edit(string $name): void
     {
         $this->changeName($name);;
+    }
+
+    public function changeIcon(null|string $icon): void
+    {
+        $this->icon = $icon;
     }
 
     public function getUserSharingLevel(User $user): null|SharingLevel

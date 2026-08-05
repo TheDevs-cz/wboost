@@ -11,6 +11,7 @@ use WBoost\Web\Exceptions\UserNotFound;
 use WBoost\Web\Message\Project\AddProject;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Repository\UserRepository;
+use WBoost\Web\Services\ProjectIconUploader;
 
 #[AsMessageHandler]
 readonly final class AddProjectHandler
@@ -19,6 +20,7 @@ readonly final class AddProjectHandler
         private ProjectRepository $projectRepository,
         private UserRepository $userRepository,
         private ClockInterface $clock,
+        private ProjectIconUploader $iconUploader,
     ) {
     }
 
@@ -35,6 +37,12 @@ readonly final class AddProjectHandler
             $this->clock->now(),
             $message->name,
         );
+
+        if ($message->icon !== null) {
+            $project->changeIcon(
+                $this->iconUploader->upload($message->projectId, $message->icon),
+            );
+        }
 
         $this->projectRepository->add($project);
     }

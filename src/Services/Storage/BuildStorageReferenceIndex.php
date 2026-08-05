@@ -31,7 +31,7 @@ readonly final class BuildStorageReferenceIndex
      * template tables still embed `social-networks/…` URLs, and those files
      * live on under their original keys.
      */
-    private const string PATH_PREFIXES = '(?:file-upload|manuals|social-networks|custom-templates|emails)';
+    private const string PATH_PREFIXES = '(?:file-upload|manuals|social-networks|custom-templates|emails|projects)';
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -107,6 +107,12 @@ readonly final class BuildStorageReferenceIndex
                 'SELECT f.path AS path, %s FROM file_upload f %s',
                 $ownerColumns,
                 sprintf($ownerJoin, 'f.project_id'),
+            ),
+
+            'project.icon' => sprintf(
+                "SELECT pr.icon AS path, %s FROM project pr %s WHERE pr.icon IS NOT NULL AND pr.icon <> ''",
+                $ownerColumns,
+                sprintf($ownerJoin, 'pr.id'),
             ),
 
             'manual.intro_image' => sprintf(

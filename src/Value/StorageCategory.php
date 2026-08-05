@@ -18,6 +18,7 @@ namespace WBoost\Web\Value;
 enum StorageCategory: string
 {
     case GalleryImage = 'gallery_image';
+    case ProjectIcon = 'project_icon';
     case Manual = 'manual';
     case SocialNetwork = 'social_network';
     case Template = 'template';
@@ -36,6 +37,7 @@ enum StorageCategory: string
             str_starts_with($path, 'social-networks/preview/'),
             str_starts_with($path, 'custom-templates/preview/') => self::Preview,
             str_starts_with($path, 'file-upload/') => self::GalleryImage,
+            str_starts_with($path, 'projects/') => self::ProjectIcon,
             str_starts_with($path, 'manuals/') => self::Manual,
             str_starts_with($path, 'social-networks/') => self::SocialNetwork,
             str_starts_with($path, 'custom-templates/') => self::Template,
@@ -51,6 +53,7 @@ enum StorageCategory: string
     {
         return match ($this) {
             self::GalleryImage => 'Galerie',
+            self::ProjectIcon => 'Ikona projektu',
             self::Manual => 'Manuál',
             self::SocialNetwork => 'Sociální sítě',
             self::Template => 'Šablony',

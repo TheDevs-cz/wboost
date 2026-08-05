@@ -37,20 +37,14 @@
 
 {% block content %}
     {% set is_own = project.owner.id.equals(app.user.id) %}
-    {% set intro_manual = manuals|filter(manual => manual.logo.introImage)|first %}
+    {% set avatar = project_avatar(project) %}
     {% set color_manual = manuals|filter(manual => manual.detectedColors|length > 0)|first %}
 
     {# Project header — brand identity at a glance #}
     <div class="card">
         <div class="card-body">
             <div class="d-flex flex-wrap align-items-center gap-3">
-                <div class="flex-shrink-0 bg-light rounded d-flex align-items-center justify-content-center" style="width: 96px; height: 72px;">
-                    {% if intro_manual %}
-                        <img src="{{ uploaded_asset(intro_manual.logo.introImage.filePath) }}" alt="{{ project.name }}" style="max-width: 84px; max-height: 60px; object-fit: contain;">
-                    {% else %}
-                        <i class="uil-folder-open text-muted" style="font-size: 1.75rem;"></i>
-                    {% endif %}
-                </div>
+                {{ include('_project_avatar.html.twig', {'avatar': avatar, 'size': 72, 'font_size': '1.5rem', 'alt': project.name}) }}
 
                 <div class="flex-grow-1">
                     <h2 class="my-0">{{ project.name }}</h2>

@@ -44,6 +44,7 @@ final class AddProjectController extends AbstractController
                     $projectId,
                     $user->getUserIdentifier(),
                     $data->name,
+                    $data->icon,
                 ),
             );
 

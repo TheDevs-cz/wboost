@@ -31,6 +31,22 @@
  *    designed inter-item gap of THAT container with a uniform spacing —
  *    vertical member positions then only determine flow ORDER. When null,
  *    designed gaps are preserved (the pre-v2 behavior, and the default).
+ *  - SIBLING COLLISION-PUSH: top-level containers never overlap. After each
+ *    root tree is laid out, roots are walked in designed-top order and a root
+ *    whose content would run into a lower, HORIZONTALLY-overlapping root
+ *    pushes that root (its whole tree) down by the excess — chained. Designed
+ *    whitespace between them absorbs growth first (no movement until they
+ *    would actually collide) and there is no pull-up; full document flow
+ *    (gap-preserving, pull-up) is what NESTING is for. Side-by-side columns
+ *    (disjoint x-ranges) never interact. With opts.canvasHeight set, content
+ *    ending below the canvas bottom counts toward the root's overflowPx too —
+ *    a pushed section cannot silently fall off the canvas.
+ *  - `spaceAfter` (nullable, canvas px): the guaranteed minimum clearance
+ *    BELOW a container. A pushing root places the pushed sibling at
+ *    contentBottom + its own spaceAfter (and the minimum is enforced even at
+ *    designed positions); a nested child's spaceAfter floors the parent-flow
+ *    gap after it; against the canvas bottom it acts as the container's page
+ *    margin (content must end above canvasHeight − spaceAfter). Null = 0.
  *
  * This file is deliberately a dependency-free classic script (attaches to
  * window/globalThis, no ES module syntax) because it has three consumers that
@@ -250,11 +266,17 @@
      * still holds its designed text: build the container forest and snapshot
      * the designed geometry (item extents + gaps) the reflow is anchored to.
      *
-     * opts.getTop(o): absolute-top accessor override (the editor needs this
-     * while a Fabric ActiveSelection holds members with relative coords).
+     * opts.getTop(o)/opts.getLeft(o): absolute accessor overrides (the editor
+     * needs these while a Fabric ActiveSelection holds members with relative
+     * coords). opts.canvasHeight: when set (> 0), a root container's content
+     * must end above canvasHeight − spaceAfter or it counts as overflow.
      */
     function prepareFabricContainers(objects, containers, opts) {
         const getTop = (opts && opts.getTop) || function (o) { return o.top; };
+        const getLeft = (opts && opts.getLeft) || function (o) { return o.left; };
+        const canvasHeight = (opts && typeof opts.canvasHeight === 'number' && opts.canvasHeight > 0)
+            ? opts.canvasHeight
+            : null;
         const defs = (containers || []).filter((c) => c && c.id);
         const byId = new Map(defs.map((c) => [c.id, c]));
         const consumed = new Set();
@@ -364,17 +386,36 @@
                 gaps.push(items[i].designedExtTop - items[i - 1].designedExtBottom);
             }
 
+            // Horizontal designed extent of the whole tree — the sibling
+            // collision-push only couples roots whose x-ranges overlap
+            // (side-by-side columns never push each other).
+            let extLeft = Infinity;
+            let extRight = -Infinity;
+            direct.forEach((obj) => {
+                const left = getLeft(obj);
+                extLeft = Math.min(extLeft, left);
+                extRight = Math.max(extRight, left + obj.width * (obj.scaleX || 1));
+            });
+            childNodes.forEach((child) => {
+                extLeft = Math.min(extLeft, child.extLeft);
+                extRight = Math.max(extRight, child.extRight);
+            });
+
             consumed.add(def.id);
 
             return {
                 id: def.id,
                 maxHeight: def.maxHeight,
                 gap: normalizeGap(def.gap),
+                spaceAfter: normalizeGap(def.spaceAfter),
+                canvasHeight,
                 items,
                 gaps,
                 anchorTop: items[0].designedExtTop,
                 designedExtTop: items[0].designedExtTop,
                 designedExtBottom: Math.max.apply(null, items.map((i) => i.designedExtBottom)),
+                extLeft,
+                extRight,
             };
         }
 

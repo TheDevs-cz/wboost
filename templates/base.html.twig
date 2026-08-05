@@ -197,7 +197,11 @@
                         {% endif %}
 
                         {% if project is defined %}
-                            <li class="side-nav-title">{{ project.name }}</li>
+                            {% set nav_avatar = project_avatar(project) %}
+                            <li class="side-nav-title d-flex align-items-center">
+                                {{ include('_project_avatar.html.twig', {'avatar': nav_avatar, 'size': 22, 'font_size': '.6rem', 'alt': ''}) }}
+                                <span class="text-truncate ms-1">{{ project.name }}</span>
+                            </li>
 
                             <li class="side-nav-item {{ active_menu_item|default == 'manuals' ? 'menuitem-active' }}">
                                 <a href="{{ path('manuals_list', {'id': project.id}) }}" class="side-nav-link">

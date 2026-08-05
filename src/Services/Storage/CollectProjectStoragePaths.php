@@ -20,8 +20,9 @@ use WBoost\Web\Value\ProjectStoragePaths;
  * font list and the placeholder folders are all project-scoped), so there is no
  * later chance to reattach them either.
  *
- * Only two prefixes are keyed by the project itself (`file-upload/`, `fonts/`);
- * the rest have to be collected from the children while they still exist.
+ * Only three prefixes are keyed by the project itself (`file-upload/`,
+ * `fonts/`, `projects/`); the rest have to be collected from the children
+ * while they still exist.
  */
 readonly final class CollectProjectStoragePaths
 {
@@ -37,6 +38,7 @@ readonly final class CollectProjectStoragePaths
         $directories = [
             sprintf('file-upload/%s', $id),
             sprintf('fonts/%s', $id),
+            sprintf('projects/%s', $id),
         ];
         $files = [];
 

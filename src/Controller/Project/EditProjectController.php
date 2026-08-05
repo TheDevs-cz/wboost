@@ -30,7 +30,9 @@ final class EditProjectController extends AbstractController
         $data = new ProjectFormData();
         $data->name = $project->name;
 
-        $form = $this->createForm(ProjectFormType::class, $data);
+        $form = $this->createForm(ProjectFormType::class, $data, [
+            'allow_remove_icon' => $project->icon !== null,
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -38,7 +40,9 @@ final class EditProjectController extends AbstractController
                 new EditProject(
                     $project->id,
                     $data->name,
-                ),  
+                    $data->icon,
+                    $data->removeIcon,
+                ),
             );
 
             $this->addFlash('success', 'Projekt upraven!');

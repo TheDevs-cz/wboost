@@ -582,7 +582,8 @@ Every image upload is capped at **10 MB**, expressed server-side as
 `maxSize: '10m'` on the `Image`/`File` constraint in the form types (14
 occurrences across 9 `src/FormType/*` classes — manual images/logos, mockup
 pages, template + variant backgrounds, template groups, email signatures,
-the project gallery).
+the project gallery) plus the `Image` attribute on
+`FormData/ProjectFormData::$icon` (the custom project icon).
 
 **Symfony reads the `m` suffix as DECIMAL megabytes — 10 000 000 bytes, not
 10 MiB.** Every mirror of the limit must use that same number or a file in the

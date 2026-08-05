@@ -1,0 +1,11 @@
+{# Project avatar: custom icon / brand logo image, or initials monogram.
+   Vars: avatar (ProjectAvatar), size (px), font_size (css size), alt #}
+{% if avatar.logoPath %}
+    <img src="{{ uploaded_asset(avatar.logoPath) }}"
+         alt="{{ alt|default('') }}"
+         class="flex-shrink-0"
+         style="width: {{ size }}px; height: {{ size }}px; object-fit: contain;">
+{% else %}
+    <span class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-circle fw-semibold"
+          style="width: {{ size }}px; height: {{ size }}px; font-size: {{ font_size }}; letter-spacing: .5px; background: #{{ avatar.backgroundHex }}; color: #{{ avatar.textHex }};">{{ avatar.initials }}</span>
+{% endif %}

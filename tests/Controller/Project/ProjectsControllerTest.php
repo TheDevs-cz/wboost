@@ -40,7 +40,7 @@ final class ProjectsControllerTest extends WebTestCase
         $this->assertResponseIsSuccessful();
         // Project 1 has no logo images, so its card falls back to the initials
         // monogram colored by its manual's primary brand color.
-        $this->assertSelectorTextContains('div[style*="background: #C8102E"]', 'P1');
+        $this->assertSelectorTextContains('span[style*="background: #C8102E"]', 'P1');
     }
 
     public function testNonAdminIsScopedToTheirProjects(): void

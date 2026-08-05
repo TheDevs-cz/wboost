@@ -118,10 +118,14 @@ final class CollectProjectStoragePathsTest extends KernelTestCase
 
         $paths = self::getContainer()->get(CollectProjectStoragePaths::class)->collect($unknown);
 
-        // No children exist, so only the two project-keyed prefixes remain —
-        // both empty in storage, so deleting them is a harmless no-op.
+        // No children exist, so only the project-keyed prefixes remain —
+        // all empty in storage, so deleting them is a harmless no-op.
         self::assertSame(
-            ['file-upload/' . $unknown->toString(), 'fonts/' . $unknown->toString()],
+            [
+                'file-upload/' . $unknown->toString(),
+                'fonts/' . $unknown->toString(),
+                'projects/' . $unknown->toString(),
+            ],
             $paths->directories,
         );
         self::assertSame([], $paths->files);
