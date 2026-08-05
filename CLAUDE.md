@@ -234,8 +234,16 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   definition — members of a nested container are PROMOTED to the parent so
   the flow survives (top-level × frees the members; both undoable). Members
   are dragged INDIVIDUALLY (plain Fabric drag); the whole container (deep)
-  moves by dragging the zone's label. Typing reflows live through the whole
-  tree. After every design change the controller re-derives flow order and
+  moves by dragging the zone's label — snapped through the shared snapping
+  machine's DOM-gesture API (`canvas.wboostSnapping`:
+  beginGesture/snapGestureRect/endGesture on `canvas_snapping_controller`,
+  same guides/hysteresis/⌘-bypass as Fabric drags; ROOT container zone boxes
+  — member union, bottom extended to maxHeight — are snap TARGETS for every
+  drag too). A plain CLICK on the label (≤3px slop) SELECTS the container's
+  visible members as an ActiveSelection; Shift+click ADDS them to the current
+  selection — label-click A + shift-label-click B is how two containers are
+  selected for nesting via "Vytvořit kontejner". Typing reflows live through
+  the whole tree. After every design change the controller re-derives flow order and
   NORMALIZES positions through the shared engine (identity unless a gap is
   set / a child shifted); normalization is deferred while an ActiveSelection
   is live (its members carry relative coords) and runs when it clears.

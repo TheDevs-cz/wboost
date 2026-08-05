@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { ActiveSelection } from "fabric";
 
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
 
@@ -471,10 +472,12 @@ export default class extends Controller {
             zone.className = nested ? 'container-zone container-zone--nested' : 'container-zone';
 
             // The label doubles as the MOVE handle for the whole container
-            // (members are dragged individually with a plain Fabric drag).
+            // (members are dragged individually with a plain Fabric drag)
+            // and as its SELECT handle: click = select the container's
+            // members, Shift+click = add them to the current selection.
             const label = document.createElement('span');
             label.className = 'container-zone__label';
-            label.title = 'Tažením přesunete celý kontejner';
+            label.title = 'Klik vybere kontejner (Shift přidá k výběru), tažením ho přesunete';
             label.addEventListener('mousedown', (event) => this._beginLabelDrag(event, container));
             zone.appendChild(label);
 
@@ -632,7 +635,15 @@ export default class extends Controller {
     }
 
     /** Zone label drag = move the WHOLE container (all members together,
-     *  descendants included). */
+     *  descendants included), snapped through the shared machine
+     *  (canvas.wboostSnapping — same guides/hysteresis as Fabric drags,
+     *  targets incl. other containers, ⌘ bypasses). Each frame positions
+     *  members ABSOLUTELY from the gesture-start snapshot + total pointer
+     *  delta + snap correction, so a correction never feeds back into the
+     *  next frame. A press that never leaves the 3px slop is a CLICK and
+     *  selects the container instead (see _selectContainer — shift merges
+     *  into the current selection, which is how two containers get selected
+     *  for "Vytvořit kontejner" nesting). */
     _beginLabelDrag(event, container) {
         event.preventDefault();
         event.stopPropagation();
@@ -640,31 +651,108 @@ export default class extends Controller {
         const canvas = this._canvas();
         if (!g || !canvas) return;
 
-        let lastX = event.clientX;
-        let lastY = event.clientY;
+        const startX = event.clientX;
+        const startY = event.clientY;
         // Resolved once — per-mousemove membership lookups are wasted work.
         const dragMembers = this._deepMemberObjects(container);
+        const start = dragMembers.map((obj) => ({ obj, left: obj.left, top: obj.top }));
+        const bounds = this._zoneBounds(container, dragMembers);
+        const snapping = canvas.wboostSnapping || null;
+        if (snapping) snapping.beginGesture(dragMembers);
+        let travelled = false;
 
         const onMove = (e) => {
-            const dx = (e.clientX - lastX) / g.scale;
-            const dy = (e.clientY - lastY) / g.scale;
-            lastX = e.clientX;
-            lastY = e.clientY;
-            dragMembers.forEach((obj) => {
-                obj.set({ left: obj.left + dx, top: obj.top + dy });
+            if (!travelled && Math.abs(e.clientX - startX) <= 3 && Math.abs(e.clientY - startY) <= 3) {
+                return; // still inside the click slop — nothing moves yet
+            }
+            travelled = true;
+            let dx = (e.clientX - startX) / g.scale;
+            let dy = (e.clientY - startY) / g.scale;
+            if (snapping && bounds) {
+                const corr = snapping.snapGestureRect({
+                    left: bounds.left + dx, right: bounds.right + dx,
+                    top: bounds.top + dy, bottom: bounds.bottom + dy,
+                    cx: (bounds.left + bounds.right) / 2 + dx,
+                    cy: (bounds.top + bounds.bottom) / 2 + dy,
+                }, e);
+                dx += corr.dx;
+                dy += corr.dy;
+            }
+            start.forEach(({ obj, left, top }) => {
+                obj.set({ left: left + dx, top: top + dy });
                 obj.setCoords();
             });
             canvas.requestRenderAll();
         };
-        const onUp = () => {
+        const onUp = (e) => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
+            if (snapping) snapping.endGesture();
+            if (!travelled) {
+                this._selectContainer(container, event.shiftKey || e.shiftKey);
+                return;
+            }
             // Dirty + undo snapshot + design re-derivation (gaps unchanged —
             // everything moved by the same delta).
             canvas.fire('object:modified', {});
         };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
+    }
+
+    /** The zone box the container snaps BY: union of its visible deep
+     *  members, extended to the designer-set maxHeight for top-level
+     *  containers (the dashed bottom line the user sees) — the same shape
+     *  the snapping controller offers as a target for other drags. */
+    _zoneBounds(container, members) {
+        const visible = members.filter((o) => o.visible !== false);
+        if (!visible.length) return null;
+        const rects = visible.map((o) => o.getBoundingRect());
+        const left = Math.min(...rects.map((r) => r.left));
+        const top = Math.min(...rects.map((r) => r.top));
+        const right = Math.max(...rects.map((r) => r.left + r.width));
+        let bottom = Math.max(...rects.map((r) => r.top + r.height));
+        if (!this._parentOf(container) && Number.isFinite(container.maxHeight) && container.maxHeight > 0) {
+            bottom = Math.max(bottom, top + container.maxHeight);
+        }
+        return { left, top, right, bottom };
+    }
+
+    /**
+     * Click (no travel) on a zone label selects the container = an
+     * ActiveSelection of its visible deep member objects, like clicking any
+     * other object; SHIFT adds them to the current selection. Label-click
+     * container A + shift-label-click container B → members of both are
+     * selected → the multi-select bar's "Vytvořit kontejner" classifies
+     * their roots as children and nests them under a new parent.
+     */
+    _selectContainer(container, additive) {
+        const canvas = this._canvas();
+        if (!canvas) return;
+        const members = this._deepMemberObjects(container)
+            .filter((o) => o.visible !== false && o.selectable !== false);
+        if (!members.length) return;
+
+        const merged = new Set(additive ? canvas.getActiveObjects() : []);
+        members.forEach((o) => merged.add(o));
+        // Keep canvas stacking order inside the selection (the alignment
+        // controller's pattern) instead of click order.
+        const objects = this._objects().filter((o) => merged.has(o));
+        if (!objects.length) return;
+
+        canvas.discardActiveObject();
+        if (objects.length === 1) {
+            canvas.setActiveObject(objects[0]);
+        } else {
+            canvas.setActiveObject(new ActiveSelection(objects, { canvas }));
+        }
+        canvas.requestRenderAll();
+        // setActiveObject fires no selection events when the member set is
+        // unchanged — rebroadcast so the floating multi-bar and the
+        // create-container button state re-sync either way.
+        if (this.hasCanvasEditorOutlet) {
+            this.canvasEditorOutlet.dispatchSelectionChanged();
+        }
     }
 
     /**

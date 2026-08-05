@@ -97,6 +97,12 @@ export default class extends Controller {
         canvas.on('mouse:down', this._onDown);
         canvas.on('mouse:up', this._onUp);
         canvas.on('selection:cleared', this._onCleared);
+
+        // Sibling controllers reach the machine through the canvas instance
+        // (the wboostContainers/wboostGuides pattern): the container
+        // controller's zone-label drags are DOM gestures that produce no
+        // Fabric object:moving, so they snap via the gesture API below.
+        canvas.wboostSnapping = this;
     }
 
     canvasEditorOutletDisconnected(outlet) {
@@ -106,6 +112,61 @@ export default class extends Controller {
         canvas.off('mouse:down', this._onDown);
         canvas.off('mouse:up', this._onUp);
         canvas.off('selection:cleared', this._onCleared);
+        if (canvas.wboostSnapping === this) {
+            delete canvas.wboostSnapping;
+        }
+    }
+
+    // --- DOM-gesture snapping API (container label drag) --------------------
+
+    /**
+     * Start a snapped DOM gesture: cache stage geometry + targets once, with
+     * the dragged container's own member objects excluded (their container
+     * box too — see _collectTargets), exactly like a Fabric drag excludes
+     * the moving selection.
+     */
+    beginGesture(excludeObjects = []) {
+        this._resetGesture();
+        if (!this._canvas) return;
+        this._geo = this._geometry();
+        this._targets = this._collectTargets(new Set(excludeObjects));
+    }
+
+    /**
+     * Snap a free (pointer-driven) box through the same per-axis
+     * capture/hold/release machine as Fabric drags: returns the {dx, dy}
+     * correction and draws the guides at the corrected position. The caller
+     * must pass the box derived from gesture-start bounds + total pointer
+     * delta — never from the previously corrected position — so a snap
+     * correction can't feed back into the next frame. ⌘/Ctrl bypasses and
+     * the left-panel toggle disables, mirroring _handleMoving.
+     */
+    snapGestureRect(free, srcEvent) {
+        const none = { dx: 0, dy: 0 };
+        if (!this._enabled || !this._canvas || !this._geo || !this._targets) {
+            this._hideAll();
+            return none;
+        }
+        if (srcEvent && (srcEvent.metaKey || srcEvent.ctrlKey)) {
+            this._active = { x: null, y: null };
+            this._hideAll();
+            return none;
+        }
+        const rx = this._resolveAxis('x', free, this._geo);
+        const ry = this._resolveAxis('y', free, this._geo);
+        const dx = rx ? rx.delta : 0;
+        const dy = ry ? ry.delta : 0;
+        const snapped = {
+            left: free.left + dx, right: free.right + dx, cx: free.cx + dx,
+            top: free.top + dy, bottom: free.bottom + dy, cy: free.cy + dy,
+        };
+        this._draw(rx, ry, snapped, this._geo);
+        return { dx, dy };
+    }
+
+    endGesture() {
+        this._resetGesture();
+        this._hideAll();
     }
 
     toggleSnapping(event) {
@@ -380,6 +441,36 @@ export default class extends Controller {
                 } else if (guide.axis === 'y') {
                     rects.push({ top: guide.pos, bottom: guide.pos, cy: guide.pos, isCanvas: false, isGuide: true });
                 }
+            });
+        }
+
+        // Container zones are snap targets too: an object drag aligns to the
+        // dashed container box, and a dragged container (gesture API) snaps
+        // to its siblings. ROOT zones only — a nested box hugs members that
+        // already snap individually as objects. A container whose tree holds
+        // an excluded (= dragged) object is skipped: its box is derived from
+        // the dragged geometry, so it would only offer the gesture its own
+        // start position as a sticky pseudo-target.
+        const layout = window.WBoostContainerLayout;
+        const containers = Array.isArray(this._canvas.wboostContainers) ? this._canvas.wboostContainers : [];
+        if (layout && containers.length) {
+            const objects = this._canvas.getObjects();
+            layout.rootContainers(containers).forEach((container) => {
+                const members = layout.collectDeepMemberObjects(objects, containers, container)
+                    .filter((o) => o.visible !== false);
+                if (!members.length || members.some((o) => exclude.has(o))) return;
+                const rs = members.map((o) => this._rect(o));
+                const left = Math.min(...rs.map((r) => r.left));
+                const top = Math.min(...rs.map((r) => r.top));
+                const right = Math.max(...rs.map((r) => r.right));
+                let bottom = Math.max(...rs.map((r) => r.bottom));
+                // The visible zone of a top-level container extends to its
+                // designer-set maxHeight — that dashed bottom line is what
+                // the user aligns against, not the current content bottom.
+                if (Number.isFinite(container.maxHeight) && container.maxHeight > 0) {
+                    bottom = Math.max(bottom, top + container.maxHeight);
+                }
+                rects.push({ left, top, right, bottom, cx: (left + right) / 2, cy: (top + bottom) / 2, isCanvas: false });
             });
         }
         return rects;
