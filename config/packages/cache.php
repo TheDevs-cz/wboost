@@ -36,6 +36,23 @@ return App::config([
                     'adapter' => 'cache.adapter.redis_tag_aware',
                     'default_lifetime' => 21600, // 6h — a working session, then let it go
                 ],
+                // MCP protocol sessions (see config/packages/mcp.php). The MCP
+                // bundle defaults to a FILE store under %kernel.cache_dir%,
+                // which is wrong here twice over: blue/green deploys hand the
+                // next request to a different container (and every deploy warms
+                // a fresh cache dir), and FrankenPHP worker mode keeps several
+                // processes alive per container. A session created on one of
+                // them has to be readable by all of them, so the store must be
+                // the shared Redis the rest of the app already uses.
+                //
+                // Own pool (not cache.app) for the same reasons as above: own
+                // namespace, own short lifetime, and `cache:pool:clear` on it
+                // only logs MCP clients out. Not tag-aware — sessions are
+                // point-reads by id and nothing ever invalidates them in bulk.
+                'cache.mcp_session' => [
+                    'adapter' => 'cache.adapter.redis',
+                    'default_lifetime' => 3600, // mirrors mcp.http.session.ttl
+                ],
             ],
         ],
     ],

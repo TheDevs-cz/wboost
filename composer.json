@@ -45,6 +45,7 @@
         "psr-discovery/container-implementations": "^1.1",
         "psr-discovery/event-dispatcher-implementations": "^1.1",
         "psr-discovery/http-client-implementations": "^1.1",
+        "psr/simple-cache": "^3.0",
         "ramsey/uuid": "^4.2",
         "ramsey/uuid-doctrine": "^2.0",
         "sensiolabs/gotenberg-bundle": "^1.2",

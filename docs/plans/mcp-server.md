@@ -227,14 +227,19 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
   **Landed:** `mcp/sdk` **0.7.0** + `symfony/mcp-bundle` **0.12.0**, both pinned exact. Bundle FQCN is `Symfony\AI\McpBundle\McpBundle` (the package name says `symfony/mcp-bundle`, the namespace still says `Symfony\AI`). The transitive `php-http/discovery` recipe dropped a `config/packages/http_discovery.yaml` aliasing the six PSR-17 factory interfaces — deleted, because `config/packages/nyholm_psr7.yaml` already aliases exactly those six and two files fighting over them is a latent trap.
   **Config keys available to S0-T2:** `app`, `version`, `description`, `icons`, `website_url`, `pagination_limit`, `instructions`, `client_transports {stdio, http}` (**both default `false`** — the `/_mcp` route does not exist until one is enabled), `apps.enabled`, `http {path, allowed_hosts, session {store: file|memory|cache|framework, directory, cache_pool, prefix, ttl}}`.
 
-- [ ] **S0-T2 — Configure the server (buffered, Redis sessions, host allow-list).**
+- [x] **S0-T2 — Configure the server (buffered, Redis sessions, host allow-list).**
   **How:** create `config/packages/mcp.php` in the `App::config([...])` style. Path `/_mcp`. Session store = the `cache` driver over a PSR-16 wrapper of a Redis pool (**not** the default file store — blue/green deploy + worker mode). `allowed_hosts: ['wboost.cz', 'localhost']`. Add `config/routes/mcp.php`.
   Set the server `instructions` string (short: what wboost is, that the DSL is the design interface, that `get_context` comes first).
-  **Done when:** `docker compose exec web bin/console debug:router | grep _mcp` shows the route AND `curl -s -o /dev/null -w '%{http_code}' localhost:8080/_mcp -X POST` returns 401 (not 404/500).
+  **Done when:** `docker compose exec web bin/console debug:router | grep _mcp` shows the route AND `POST /_mcp` answers without a 404/500. ⚠️ **The original Done-when said 401 — that half moved to S1-T3**, where the firewall lands: with only `main` in play an unauthenticated POST redirects to `/login` (302), which is correct-for-now.
   **Depends:** S0-T1
+  **Landed:** route `_mcp_endpoint  GET|POST|DELETE|OPTIONS  /_mcp`. Session store = new Redis pool `cache.mcp_session` (`config/packages/cache.php`, next to `cache.gotenberg_preview`) wrapped by an explicit `Psr16Cache` service `mcp.session.psr16` — the bundle's `cache` store is `Mcp\Server\Session\Psr16SessionStore`, whose first arg is a **PSR-16** `Psr\SimpleCache\CacheInterface`, not a Symfony PSR-6 pool; it only auto-wraps for its own default id `cache.mcp.sessions` over `cache.app`. Required adding `psr/simple-cache: ^3.0` to `require` — `mcp/sdk` declares it only in `require-dev`, so the interface was missing and the first POST 500'd.
+  **`framework` store deliberately rejected:** it binds to `session.handler` = `PdoSessionHandler`, the Postgres row-locking handler behind the Sentry WEB-2B cascade.
+  **This answers infra task I-T2: stateless is NOT available.** `McpBundle::configureSessionStore()` runs unconditionally for any enabled transport, and `StreamableHttpTransport::handleRequest()` always mints/returns an `Mcp-Session-Id`. There is no flag and no alternative transport class. A shared store is mandatory; Redis is the right one.
 
 - [ ] **S0-T3 — Force buffered responses (FrankenPHP guard).** ⚠️ See §6 R1.
   **How:** ensure the MCP controller never returns a flushing `StreamedResponse`. Prefer configuration/negotiation (do not advertise `text/event-stream`); if the bundle streams unconditionally, wrap its controller with a decorator that buffers the body into a plain `Response`.
+  **Recon from S0-T2 — there is NO configuration switch, so a decorator it is:** `McpController::handle()` hard-codes `new StreamableHttpTransport(...)` and returns `$this->httpFoundationFactory->createResponse($psrResponse, $streamed)` with `$streamed = ('text/event-stream' === Content-Type)`. Only decorating `mcp.server.controller` can change that. The good news: `StreamableHttpTransport::handlePostRequest()` emits SSE **only** when `null !== $this->sessionFiber` — i.e. a handler suspended a Fiber for a server→client request (sampling / elicitation / progress). Plain tool handlers always answer `application/json`, verified live (`initialize` came back as a plain `Response`). There is also no GET SSE stream: the transport's `handleRequest()` `match` has no `GET` arm and answers 405. So the guard is narrow — buffer (or refuse) an `text/event-stream` PSR response — but it must exist, because S6-T2 wants per-dimension progress notifications, which is exactly the Fiber-suspending case.
+  Also note `StreamableHttpTransport::DEFAULT_MAX_BODY_BYTES` = 4 MiB and the bundle does not expose it — relevant to `upload_image` (S5-T6).
   **Done when:** a test in `tests/Mcp/TransportTest.php` asserts the `/_mcp` response is **not** an instance of `StreamedResponse` for `initialize` and for a `tools/call`.
   **Depends:** S0-T2
 
@@ -491,13 +496,18 @@ first — deploy semantics are non-obvious. Relevant facts:
   **Done when:** the limit change is pushed to the infra repo and confirmed active after the next
   wboost deploy (`docker stats` on the box shows the new ceiling).
 
-- [ ] **I-T2 — MCP session storage decision.**
+- [x] **I-T2 — MCP session storage decision.** *(Resolved in S0-T2; no infra change needed.)*
   If S0-T2 ends up needing a session store, point it at the existing Redis (`REDIS_CACHE_DSN`,
   `redis://redis:6379/1`) via a **distinct cache pool namespace** — do not add a second Redis.
   Note that `maxmemory` (512 MB, `allkeys-lru`) is **server-wide**, so a separate logical DB buys
   isolation of keys, not of capacity. Prefer stateless if the bundle allows it.
-  **Done when:** either the app config uses the existing pool with its own namespace, or a note in
-  §7 records that the transport runs stateless and no infra change is needed.
+  **Outcome:** stateless is **not available** — `McpBundle::configureSessionStore()` runs
+  unconditionally and `StreamableHttpTransport` always issues an `Mcp-Session-Id`. So: the new
+  `cache.mcp_session` pool sits on the **existing** Redis (`cache.adapter.redis`, its own
+  namespace, `default_lifetime` 3600 = the session TTL). No second Redis, no compose change,
+  nothing to deploy. Capacity caveat stands — these keys share the server-wide 512 MB
+  `allkeys-lru` budget with the preview blobs; sessions are small, but if `/_mcp` ever sees heavy
+  concurrent use, revisit alongside R3.
 
 - [ ] **I-T3 — Edge rate limiting for `/_mcp`.**
   An agent loop can hammer the endpoint. Add a Traefik rate-limit middleware scoped to the `/_mcp`
@@ -525,3 +535,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 <!-- YYYY-MM-DD — S<n>-T<n> / I-T<n> — what landed -->
 - 2026-08-05 — plan created.
 - 2026-08-05 — S0-T1 — installed `mcp/sdk` 0.7.0 + `symfony/mcp-bundle` 0.12.0 (exact pins), registered `Symfony\AI\McpBundle\McpBundle`; dropped the stray `http_discovery.yaml` recipe file (nyholm already owns those aliases).
+- 2026-08-05 — S0-T2 / I-T2 — `/_mcp` route live via `config/packages/mcp.php` + `config/routes/mcp.php`; sessions on a new Redis pool `cache.mcp_session` behind a `Psr16Cache` wrapper (stateless is not offered by the SDK); `allowed_hosts` covers wboost.cz + localhost; added `psr/simple-cache` (mcp/sdk ships it as require-dev only).
