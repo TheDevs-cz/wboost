@@ -56,11 +56,17 @@ readonly final class CanvasContainer
          * between the members are preserved (pre-nesting behavior).
          */
         public null|float $gap = null,
+        /**
+         * Guaranteed minimum clearance BELOW the container in canvas px:
+         * the landing distance when it pushes a sibling, the floor of the
+         * following gap when nested, and its page-bottom margin. Null = 0.
+         */
+        public null|float $spaceAfter = null,
     ) {
     }
 
     /**
-     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float}
+     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}
      */
     public function toArray(): array
     {
@@ -70,6 +76,7 @@ readonly final class CanvasContainer
             'memberInputIds' => $this->memberInputIds,
             'memberContainerIds' => $this->memberContainerIds,
             'gap' => $this->gap,
+            'spaceAfter' => $this->spaceAfter,
         ];
     }
 
@@ -124,17 +131,24 @@ readonly final class CanvasContainer
             return null;
         }
 
-        $gap = $data['gap'] ?? null;
-        if (!is_int($gap) && !is_float($gap)) {
-            $gap = null;
-        } else {
-            $gap = (float) $gap;
-            if ($gap < 0.0 || !is_finite($gap)) {
-                $gap = null;
-            }
-        }
+        return new self(
+            $id,
+            $maxHeight,
+            $memberInputIds,
+            $memberContainerIds,
+            self::nonNegativeFloatOrNull($data['gap'] ?? null),
+            self::nonNegativeFloatOrNull($data['spaceAfter'] ?? null),
+        );
+    }
 
-        return new self($id, $maxHeight, $memberInputIds, $memberContainerIds, $gap);
+    private static function nonNegativeFloatOrNull(mixed $value): null|float
+    {
+        if (!is_int($value) && !is_float($value)) {
+            return null;
+        }
+        $value = (float) $value;
+
+        return ($value < 0.0 || !is_finite($value)) ? null : $value;
     }
 
     /**

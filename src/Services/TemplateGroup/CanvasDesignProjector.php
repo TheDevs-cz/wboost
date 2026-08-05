@@ -127,9 +127,11 @@ readonly final class CanvasDesignProjector
             foreach ($decoded['containers'] as $container) {
                 if (is_array($container)) {
                     $this->scaleKey($container, 'maxHeight', $ry);
-                    // Uniform inter-item gap is vertical px — scales with the
-                    // same ratio; a null/absent gap (designed gaps) stays put.
+                    // Uniform inter-item gap + trailing clearance are vertical
+                    // px — they scale with the same ratio; null/absent values
+                    // (designed gaps / zero clearance) stay put.
                     $this->scaleKey($container, 'gap', $ry);
+                    $this->scaleKey($container, 'spaceAfter', $ry);
                 }
 
                 $containers[] = $container;

@@ -469,7 +469,13 @@
                 return;
             }
 
-            const gapBefore = node.gap !== null ? node.gap : (node.gaps[i - 1] !== undefined ? node.gaps[i - 1] : 0);
+            let gapBefore = node.gap !== null ? node.gap : (node.gaps[i - 1] !== undefined ? node.gaps[i - 1] : 0);
+            // A nested child's spaceAfter floors the parent-flow gap after it
+            // (measured against the DESIGNED predecessor, same as the gap).
+            const previousItem = node.items[i - 1];
+            if (previousItem && previousItem.kind === 'container' && previousItem.node.spaceAfter !== null) {
+                gapBefore = Math.max(gapBefore, previousItem.node.spaceAfter);
+            }
             item._extTop = previousBottom === null ? node.anchorTop : previousBottom + gapBefore;
             previousBottom = item._extTop + item._height;
         });
@@ -545,29 +551,62 @@
 
     /**
      * Phase B — run AFTER overrides (texts substituted, hides applied, heights
-     * re-wrapped): reflow every prepared tree by mutating member tops.
+     * re-wrapped): reflow every prepared tree by mutating member tops, then
+     * resolve sibling collisions between the roots (designed-top order, only
+     * horizontally-overlapping pairs, push-down only — chained; a pushing root
+     * keeps its spaceAfter as clearance, and the minimum clearance is enforced
+     * even at designed positions).
      *
      * Returns one result per container — roots AND descendants:
      *   { id, maxHeight, containerTop, contentBottom, overflowPx, nested,
      *     textFlow? }
      * Only ROOT containers can report overflowPx > 0 (a nested container grows
-     * freely — the outer bound is the contract); roots also carry `textFlow`:
-     * the DEEP text members in flow order with their final tops (null =
-     * hidden), which is what the fill overlay positions its boxes from.
+     * freely — the outer bound is the contract): the max of the root's own
+     * maxHeight excess and, when canvasHeight is known, content ending below
+     * canvasHeight − spaceAfter. Roots also carry `textFlow`: the DEEP text
+     * members in flow order with their final tops (null = hidden), which is
+     * what the fill overlay positions its boxes from.
      */
     function applyFabricLayout(prepared) {
+        const roots = (prepared || []).slice();
+        roots.forEach((root) => measureNode(root));
+
+        // Sibling collision-push over the measured (design-space) flows.
+        const placed = [];
+        [...roots].sort((a, b) => a.anchorTop - b.anchorTop).forEach((root) => {
+            let delta = 0;
+            placed.forEach((other) => {
+                const xOverlap = Math.min(other.extRight, root.extRight) - Math.max(other.extLeft, root.extLeft);
+                if (!(xOverlap > 0)) return;
+                const clearance = other.spaceAfter !== null ? other.spaceAfter : 0;
+                delta = Math.max(delta, (other._pushedBottom + clearance) - root.anchorTop);
+            });
+            delta = Math.max(0, delta);
+            root._rootDelta = delta;
+            root._pushedBottom = root._contentBottom + delta;
+            placed.push(root);
+        });
+
         const results = [];
-        (prepared || []).forEach((root) => {
-            measureNode(root);
+        roots.forEach((root) => {
+            const delta = root._rootDelta || 0;
             const textFlow = [];
-            commitNode(root, 0, textFlow);
+            commitNode(root, delta, textFlow);
+
+            const finalTop = root.anchorTop + delta;
+            const finalBottom = root._contentBottom + delta;
+            let overflowPx = Math.max(0, finalBottom - (finalTop + root.maxHeight));
+            if (root.canvasHeight !== null) {
+                const clearance = root.spaceAfter !== null ? root.spaceAfter : 0;
+                overflowPx = Math.max(overflowPx, finalBottom - (root.canvasHeight - clearance));
+            }
 
             results.push({
                 id: root.id,
                 maxHeight: root.maxHeight,
-                containerTop: root.anchorTop,
-                contentBottom: root._contentBottom,
-                overflowPx: Math.max(0, root._contentBottom - (root.anchorTop + root.maxHeight)),
+                containerTop: finalTop,
+                contentBottom: finalBottom,
+                overflowPx,
                 nested: false,
                 textFlow,
             });

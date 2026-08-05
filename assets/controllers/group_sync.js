@@ -46,10 +46,11 @@ function isContainerMemberObject(obj) {
     return isTextboxObject(obj);
 }
 
-/** Uniform-gap projection: scale when set, keep the key absent when not. */
-function projectedGap(container, ry) {
-    return typeof container.gap === 'number' && isFinite(container.gap)
-        ? container.gap * ry
+/** Vertical-spacing projection (gap / spaceAfter): scale when set, keep the
+ *  key absent when not. */
+function projectedSpacing(value, ry) {
+    return typeof value === 'number' && isFinite(value)
+        ? value * ry
         : undefined;
 }
 
@@ -369,7 +370,8 @@ export class GroupSync {
                 target.shadow.wboostContainers = containers.map((container) => ({
                     ...container,
                     maxHeight: container.maxHeight * ry,
-                    gap: projectedGap(container, ry),
+                    gap: projectedSpacing(container.gap, ry),
+                    spaceAfter: projectedSpacing(container.spaceAfter, ry),
                     memberInputIds: (container.memberInputIds || []).slice(),
                     memberContainerIds: (container.memberContainerIds || []).slice(),
                 }));
@@ -491,11 +493,12 @@ export class GroupSync {
                     .filter((id) => currentIds.has(id) && id !== container.id);
 
                 if (!existing) {
-                    // New container → absolute projection of maxHeight/gap.
+                    // New container → absolute projection of maxHeight/spacing.
                     next.push({
                         id: container.id,
                         maxHeight: container.maxHeight * ry,
-                        gap: projectedGap(container, ry),
+                        gap: projectedSpacing(container.gap, ry),
+                        spaceAfter: projectedSpacing(container.spaceAfter, ry),
                         memberInputIds: memberIds,
                         memberContainerIds: childIds,
                     });
@@ -509,19 +512,24 @@ export class GroupSync {
                     maxHeight = container.maxHeight * ry;
                 }
 
-                // Gap: keep the target's own value until the ACTIVE canvas
-                // changes it vs the baseline — then project absolutely.
-                let gap = typeof existing.gap === 'number' ? existing.gap : undefined;
-                const baseGap = base && typeof base.gap === 'number' ? base.gap : null;
-                const currentGap = typeof container.gap === 'number' ? container.gap : null;
-                if (!base || currentGap !== baseGap) {
-                    gap = projectedGap(container, ry);
-                }
+                // Spacing (gap / spaceAfter): keep the target's own value
+                // until the ACTIVE canvas changes it vs the baseline — then
+                // project absolutely.
+                const followSpacing = (key) => {
+                    let value = typeof existing[key] === 'number' ? existing[key] : undefined;
+                    const baseValue = base && typeof base[key] === 'number' ? base[key] : null;
+                    const currentValue = typeof container[key] === 'number' ? container[key] : null;
+                    if (!base || currentValue !== baseValue) {
+                        value = projectedSpacing(container[key], ry);
+                    }
+                    return value;
+                };
 
                 next.push({
                     id: container.id,
                     maxHeight,
-                    gap,
+                    gap: followSpacing('gap'),
+                    spaceAfter: followSpacing('spaceAfter'),
                     memberInputIds: memberIds,
                     memberContainerIds: childIds,
                 });

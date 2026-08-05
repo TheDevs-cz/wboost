@@ -147,7 +147,12 @@
                 // geometry (anchor top + inter-member gaps) the reflow is
                 // computed against. Must run after the custom-prop restore
                 // above (members are resolved by inputId).
-                const preparedContainers = WBoostContainerLayout.prepareFabricContainers(liveObjects, containers);
+                const preparedContainers = WBoostContainerLayout.prepareFabricContainers(liveObjects, containers, {
+                    // Gates the page-bottom overflow: a container pushed past
+                    // the canvas bottom (minus its spaceAfter) must fail the
+                    // strict export the same way a maxHeight excess does.
+                    canvasHeight: {{ variant.dimension.height }},
+                });
 
                 // Apply overrides by inputId. CRITICAL: use `obj.set(...)`
                 // and NOT direct property assignment. Fabric v7's Textbox

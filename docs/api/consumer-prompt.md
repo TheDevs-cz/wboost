@@ -208,6 +208,7 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "memberInputIds": ["95b0...", "a1c3..."],    // fillable member inputs in flow order (top → bottom)
             "memberContainerIds": ["0193a..."],          // NESTED child containers flowing inside this one (usually [])
             "gap": null,                                 // non-null → uniform px spacing between flow items (designed gaps otherwise)
+            "spaceAfter": null,                          // guaranteed clearance below (push landing distance + canvas-bottom margin); null = 0
             "nested": false                              // true → this container flows inside a parent; its own maxHeight is NOT enforced
           }
         ],
@@ -441,6 +442,18 @@ only the outermost bound is). A non-null `gap` replaces the designed spacing
 between consecutive flow items of that container with a uniform value
 (each container has its own gap — a section can be tight while the page flow
 between sections is loose).
+
+TOP-LEVEL containers additionally COLLISION-PUSH each other: walked in
+designed-top order, a container whose content would run into a lower,
+HORIZONTALLY-overlapping container pushes it (and everything under it,
+chained) down by the excess. Designed whitespace absorbs growth first and
+there is no pull-up — side-by-side columns (disjoint x-ranges) never
+interact. `spaceAfter` (canvas px, null = 0) is the container's guaranteed
+clearance below: the landing distance it keeps when pushing (also enforced as
+a minimum at designed positions), the floor of the gap after it when nested,
+and its margin against the canvas bottom — content that would end below
+`variant.height − spaceAfter` fails the export with the same
+`container_overflow` 400 (reported on the container that fell off).
 
 Containers may also hold DECORATIVE images (checklist icons, separators) the
 designer added: an icon overlapping a text rides along with it and disappears

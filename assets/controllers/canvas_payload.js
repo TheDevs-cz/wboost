@@ -234,6 +234,9 @@ export function sanitizedContainers(canvas, objects) {
             if (typeof container.gap === 'number' && Number.isFinite(container.gap) && container.gap >= 0) {
                 entry.gap = Math.round(container.gap * 10) / 10;
             }
+            if (typeof container.spaceAfter === 'number' && Number.isFinite(container.spaceAfter) && container.spaceAfter >= 0) {
+                entry.spaceAfter = Math.round(container.spaceAfter * 10) / 10;
+            }
             return entry;
         })
         .filter((container) => container.id && container.maxHeight > 0);

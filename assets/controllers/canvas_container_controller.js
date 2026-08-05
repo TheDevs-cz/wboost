@@ -434,11 +434,18 @@ export default class extends Controller {
 
     _resnapshotAll() {
         const layout = this._layout();
-        if (!layout) return;
+        const canvas = this._canvas();
+        if (!layout || !canvas) return;
         this._prepared = layout.prepareFabricContainers(
             this._objects(),
             this._containers(),
-            { getTop: (o) => this._absTop(o) },
+            {
+                getTop: (o) => this._absTop(o),
+                getLeft: (o) => this._absLeft(o),
+                // Logical canvas height = the variant's px height (zoom is a
+                // CSS transform) — gates the page-bottom overflow.
+                canvasHeight: typeof canvas.getHeight === 'function' ? canvas.getHeight() : canvas.height,
+            },
         );
     }
 
@@ -866,6 +873,82 @@ export default class extends Controller {
         gapHint.textContent = 'Prázdné = mezery podle návrhu. S jednotnou mezerou určuje svislá poloha prvků jen jejich pořadí.';
         el.appendChild(gapHint);
 
+        // Space AFTER the container: the clearance it keeps when pushing the
+        // container below it / against the bottom of the canvas.
+        const afterLabel = document.createElement('label');
+        afterLabel.className = 'form-label small mb-1';
+        afterLabel.textContent = 'Mezera za kontejnerem (px)';
+        el.appendChild(afterLabel);
+
+        const afterInput = document.createElement('input');
+        afterInput.type = 'number';
+        afterInput.min = '0';
+        afterInput.step = '1';
+        afterInput.placeholder = '0';
+        afterInput.className = 'form-control form-control-sm mb-1';
+        afterInput.value = (typeof container.spaceAfter === 'number' && isFinite(container.spaceAfter))
+            ? String(Math.round(container.spaceAfter * 10) / 10)
+            : '';
+        afterInput.addEventListener('input', () => {
+            const raw = afterInput.value.trim();
+            if (raw === '') {
+                delete container.spaceAfter;
+            } else {
+                const value = parseFloat(raw);
+                if (!(value >= 0)) return;
+                container.spaceAfter = value;
+            }
+            this._normalizeDesign();
+            this.repositionZones();
+            this.canvasEditorOutlet.markUnsaved();
+        });
+        afterInput.addEventListener('change', () => {
+            const canvas = this._canvas();
+            if (canvas) canvas.fire('object:modified', {});
+        });
+        el.appendChild(afterInput);
+
+        const afterHint = document.createElement('div');
+        afterHint.className = 'form-text small mb-2';
+        afterHint.textContent = 'Minimální odstup od dalšího kontejneru pod ním a od spodního okraje plátna.';
+        el.appendChild(afterHint);
+
+        // Explicit nesting control — the discoverable counterpart of
+        // "select members of two containers → Vytvořit kontejner".
+        const parentOptions = this._nestingTargets(container);
+        if (parentOptions.length > 0 || this._parentOf(container)) {
+            const nestLabel = document.createElement('label');
+            nestLabel.className = 'form-label small mb-1';
+            nestLabel.textContent = 'Vnořit do kontejneru';
+            el.appendChild(nestLabel);
+
+            const nestSelect = document.createElement('select');
+            nestSelect.className = 'form-select form-select-sm mb-1';
+            const noneOption = document.createElement('option');
+            noneOption.value = '';
+            noneOption.textContent = '— samostatný —';
+            nestSelect.appendChild(noneOption);
+            parentOptions.forEach(({ id, label }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = label;
+                nestSelect.appendChild(option);
+            });
+            const currentParent = this._parentOf(container);
+            nestSelect.value = currentParent && parentOptions.some((o) => o.id === currentParent.id)
+                ? currentParent.id
+                : '';
+            nestSelect.addEventListener('change', () => {
+                this._reparent(container, nestSelect.value || null);
+            });
+            el.appendChild(nestSelect);
+
+            const nestHint = document.createElement('div');
+            nestHint.className = 'form-text small mb-2';
+            nestHint.textContent = 'Vnořený kontejner se posouvá jako jeden blok v toku nadřazeného (mezery řídí nadřazený kontejner).';
+            el.appendChild(nestHint);
+        }
+
         if (!nested) {
             const maxLabel = document.createElement('label');
             maxLabel.className = 'form-label small mb-1';
@@ -914,6 +997,86 @@ export default class extends Controller {
         }
         this._settingsEl = null;
         this._settingsContainerId = null;
+    }
+
+    /**
+     * Containers this one may be nested INTO: everything except itself and
+     * its own descendants (a cycle), labelled by vertical order + the first
+     * member's name so the designer can tell them apart.
+     */
+    _nestingTargets(container) {
+        const layout = this._layout();
+        if (!layout) return [];
+        const containers = this._containers();
+
+        const descendants = new Set();
+        const collectDescendants = (c) => {
+            layout.childContainersOf(containers, c).forEach((child) => {
+                if (descendants.has(child.id)) return;
+                descendants.add(child.id);
+                collectDescendants(child);
+            });
+        };
+        collectDescendants(container);
+
+        const withTops = containers
+            .filter((c) => c.id !== container.id && !descendants.has(c.id))
+            .map((c) => {
+                const members = this._deepMemberObjects(c);
+                return {
+                    container: c,
+                    top: members.length ? Math.min(...members.map((o) => this._absTop(o))) : Infinity,
+                    name: this._containerDisplayName(c),
+                };
+            })
+            .sort((a, b) => a.top - b.top);
+
+        return withTops.map(({ container: c, name }, index) => ({
+            id: c.id,
+            label: name ? `Kontejner ${index + 1} – ${name}` : `Kontejner ${index + 1}`,
+        }));
+    }
+
+    _containerDisplayName(container) {
+        const first = this._memberObjects(container)[0];
+        if (!first) return '';
+        if (typeof first.name === 'string' && first.name.trim() !== '') {
+            return first.name.trim().slice(0, 30);
+        }
+        if (typeof first.text === 'string' && first.text.trim() !== '') {
+            return first.text.trim().slice(0, 30);
+        }
+        return '';
+    }
+
+    /** Move a container under a new parent (or make it standalone). */
+    _reparent(container, newParentId) {
+        const canvas = this._canvas();
+        if (!canvas) return;
+        const containers = this._containers();
+
+        containers.forEach((c) => {
+            if (Array.isArray(c.memberContainerIds) && c.memberContainerIds.includes(container.id)) {
+                c.memberContainerIds = c.memberContainerIds.filter((id) => id !== container.id);
+            }
+        });
+        if (newParentId) {
+            const parent = containers.find((c) => c.id === newParentId);
+            if (parent) {
+                parent.memberContainerIds = [...(parent.memberContainerIds || []), container.id];
+            }
+        }
+
+        this._dropDegenerate();
+        this._normalizeDesign();
+        this.renderZones();
+        canvas.fire('object:modified', {});
+        // Rebuild the popover — the nested/top-level field set changed.
+        const stillExists = this._containers().includes(container);
+        this._closeSettings();
+        if (stillExists) {
+            this._openSettings(container);
+        }
     }
 
     /** Keep the popover attached to its zone; drop it when the zone is gone. */

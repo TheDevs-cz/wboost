@@ -34,6 +34,7 @@ final class CanvasContainerTest extends TestCase
             'memberInputIds' => ['a', 'b'],
             'memberContainerIds' => ['child-1'],
             'gap' => 12.0,
+            'spaceAfter' => 24.0,
         ];
         $container = CanvasContainer::fromArray($data);
 
@@ -52,6 +53,7 @@ final class CanvasContainerTest extends TestCase
         self::assertNotNull($container);
         self::assertSame([], $container->memberContainerIds);
         self::assertNull($container->gap);
+        self::assertNull($container->spaceAfter);
     }
 
     public function testNestingRules(): void

@@ -337,6 +337,7 @@ final readonly class TemplatesProvider implements ProviderInterface
                 memberInputIds: $memberInputIds,
                 memberContainerIds: $memberContainerIds,
                 gap: $container->gap,
+                spaceAfter: $container->spaceAfter,
                 nested: $container->isNestedIn($containers),
             );
         }

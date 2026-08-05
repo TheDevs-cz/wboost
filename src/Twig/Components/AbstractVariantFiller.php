@@ -652,7 +652,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *         richText: bool
      *     }>,
      *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float}>
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
+     *     canvasHeight: int
      * }
      */
     public function textLayoutData(): array
@@ -694,6 +695,7 @@ abstract class AbstractVariantFiller extends AbstractController
                 static fn (CanvasContainer $container): array => $container->toArray(),
                 $containers,
             ),
+            'canvasHeight' => $variant->dimension->height(),
         ];
     }
 

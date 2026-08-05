@@ -22,6 +22,15 @@ namespace WBoost\Web\Api\Templates;
  * with a uniform spacing when non-null; null means the designed gaps are
  * preserved.
  *
+ * TOP-LEVEL containers additionally COLLISION-PUSH each other at render time:
+ * walked in designed-top order, a container whose content would run into a
+ * lower, horizontally-overlapping container pushes it (and everything under
+ * it, chained) down by the excess — designed whitespace absorbs growth first
+ * and there is no pull-up. `spaceAfter` (canvas px, null = 0) is the
+ * container's guaranteed clearance below: the landing distance when it
+ * pushes, and its margin against the canvas bottom — content ending below
+ * `variant.height − spaceAfter` is a `container_overflow` 400 too.
+ *
  * `memberInputIds` lists the FILLABLE member text inputs in flow order (top
  * to bottom); each listed input also carries this container's id as its
  * `containerId`. A container may additionally hold decorative images (icons /
@@ -43,6 +52,7 @@ final readonly class TemplateVariantContainerResponse
         public array $memberInputIds,
         public array $memberContainerIds = [],
         public null|float $gap = null,
+        public null|float $spaceAfter = null,
         public bool $nested = false,
     ) {
     }

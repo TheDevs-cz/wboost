@@ -127,15 +127,20 @@ hidden items collapse. Containers can NEST (`memberContainerIds` + `nested`):
 a child container flows inside its parent as one item and grows freely — only
 the OUTERMOST container's `maxHeight` bounds the flow (from its `y` downward,
 canvas px). A non-null `gap` replaces the designed spacing between consecutive
-flow items with a uniform one. When the filled content cannot fit the
-outermost bound even after reflow, the export is rejected with **400** and
-body `{ "error": "...", "code": "container_overflow", "containerId":
-"<uuid>", "overflowPx": 12.5 }` (`containerId` = the outermost container) —
-shorten the texts of that container tree's inputs. Member inputs carry
-`containerId` + `textStyle` in the listing so a consumer can mirror the
-reflow client-side; containers may also hold decorative images that ride the
-flow server-side without being listed as inputs, so treat the rendered
-preview as authoritative (see docs/api/consumer-prompt.md).
+flow items with a uniform one. TOP-LEVEL containers also COLLISION-PUSH each
+other: one whose content would run into a lower, horizontally-overlapping
+container pushes it down by the excess (chained; whitespace absorbs growth
+first, no pull-up), keeping its `spaceAfter` clearance — which also acts as
+the container's margin against the canvas bottom. When the filled content
+cannot fit the outermost bound (or ends below `height − spaceAfter`) even
+after reflow, the export is rejected with **400** and body `{ "error": "...",
+"code": "container_overflow", "containerId": "<uuid>", "overflowPx": 12.5 }`
+(`containerId` = the outermost container) — shorten the texts of that
+container tree's inputs. Member inputs carry `containerId` + `textStyle` in
+the listing so a consumer can mirror the reflow client-side; containers may
+also hold decorative images that ride the flow server-side without being
+listed as inputs, so treat the rendered preview as authoritative (see
+docs/api/consumer-prompt.md).
 MD,
                 requestBody: new RequestBody(
                     description: 'Map of inputId UUID → value (string, `{ value, hide }`, or `{ runs, hide }` for richText inputs).',

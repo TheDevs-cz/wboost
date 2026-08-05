@@ -163,6 +163,20 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   positions then only determine flow ORDER, and the editor NORMALIZES the
   design to those positions after every change (Notion-like: drag to
   reorder). Null (default + all pre-rework rows) = designed gaps.
+- **Sibling collision-push** (2026-08-05, the Pokojný malíř follow-up):
+  TOP-LEVEL containers never overlap — walked in designed-top order, a root
+  whose content would run into a lower, HORIZONTALLY-overlapping root pushes
+  it (whole tree, chained) down by the excess. Whitespace absorbs growth
+  first, no pull-up; side-by-side columns (disjoint x-ranges) never interact.
+  This is what makes two independent section containers interact WITHOUT
+  explicit nesting.
+- **`spaceAfter`** (nullable px, per container): guaranteed clearance BELOW —
+  the landing distance when pushing (enforced as a minimum even at designed
+  positions), the floor of the following gap when nested, and the page-bottom
+  margin: with the canvas height known (`opts.canvasHeight` — passed by the
+  render template, the editor and the fill overlay), root content ending
+  below `canvasHeight − spaceAfter` counts as overflowPx → strict export
+  400s on the container that fell off the page.
 
 - **Data model**: persisted as a top-level `containers` key INSIDE the canvas
   JSONB — `[{id, maxHeight, memberInputIds, memberContainerIds, gap}]`,
@@ -206,7 +220,9 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   handle. Both have LEFT/RIGHT side handles that resize the container width
   (textbox lefts + wrap widths rescale proportionally, non-text members only
   follow with their left edge), a ⚙ button opening the per-zone settings
-  popover (gap; maxHeight on top-level), and an × button that drops the
+  popover (gap, spaceAfter, "Vnořit do kontejneru" parent select — the
+  discoverable nesting control; maxHeight on top-level), and an × button that
+  drops the
   definition — members of a nested container are PROMOTED to the parent so
   the flow survives (top-level × frees the members; both undoable). Members
   are dragged INDIVIDUALLY (plain Fabric drag); the whole container (deep)

@@ -779,7 +779,9 @@ export default class extends Controller {
             });
         });
 
-        const prepared = layoutModule.prepareFabricContainers(pojos, data.containers || []);
+        const prepared = layoutModule.prepareFabricContainers(pojos, data.containers || [], {
+            canvasHeight: typeof data.canvasHeight === 'number' ? data.canvasHeight : null,
+        });
 
         Object.keys(textPojos).forEach((inputId) => {
             const pojo = textPojos[inputId];

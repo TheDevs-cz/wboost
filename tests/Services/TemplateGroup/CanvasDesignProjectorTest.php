@@ -84,7 +84,7 @@ final class CanvasDesignProjectorTest extends TestCase
                 ['type' => 'Textbox', 'inputId' => 'a', 'left' => 0, 'top' => 0, 'width' => 100],
             ],
             'containers' => [
-                ['id' => 'c-1', 'maxHeight' => 300, 'memberInputIds' => ['a', 'b'], 'gap' => 12],
+                ['id' => 'c-1', 'maxHeight' => 300, 'memberInputIds' => ['a', 'b'], 'gap' => 12, 'spaceAfter' => 40],
             ],
         ], JSON_THROW_ON_ERROR);
 
@@ -96,8 +96,9 @@ final class CanvasDesignProjectorTest extends TestCase
         self::assertIsArray($container);
 
         self::assertEqualsWithDelta(300 * (1920 / 1080), $container['maxHeight'], 0.001);
-        // The uniform gap is vertical px too — same ratio.
+        // The uniform gap + trailing clearance are vertical px too — same ratio.
         self::assertEqualsWithDelta(12 * (1920 / 1080), $container['gap'], 0.001);
+        self::assertEqualsWithDelta(40 * (1920 / 1080), $container['spaceAfter'], 0.001);
         self::assertSame(['a', 'b'], $container['memberInputIds']);
     }
 
