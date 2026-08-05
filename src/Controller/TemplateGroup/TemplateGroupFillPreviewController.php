@@ -15,11 +15,18 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
+use WBoost\Web\Value\RenderImageFormat;
 
 /**
  * Live preview for ONE member variant of the group fill page: the fill form
  * is POSTed here (debounced, per visible dimension) and the full server
- * render comes back as a PNG — the same pixels the ZIP export will contain.
+ * render comes back as a WebP — the same LAYOUT the ZIP export will contain,
+ * but no longer the same bytes: this is an on-screen preview, so it takes the
+ * faster/smaller lossy encode while the export stays lossless PNG.
+ *
+ * Safe to change unilaterally because the JS consumer is format-agnostic —
+ * group_fill_controller.js does `response.blob()` + `createObjectURL()` and
+ * inherits whatever Content-Type this sets.
  */
 final class TemplateGroupFillPreviewController extends AbstractController
 {
@@ -43,16 +50,17 @@ final class TemplateGroupFillPreviewController extends AbstractController
             throw $this->createNotFoundException('Variant does not belong to this group.');
         }
 
-        $bytes = $this->groupFillRenderer->renderPng(
+        $bytes = $this->groupFillRenderer->render(
             $variant,
             $request->request->all('textValues'),
             $request->request->all('hiddenValues'),
             $request->request->all('images'),
             $request->request->all('imagePlacements'),
+            format: RenderImageFormat::Webp,
         );
 
         return new Response($bytes, Response::HTTP_OK, [
-            'Content-Type' => 'image/png',
+            'Content-Type' => RenderImageFormat::Webp->contentType(),
             'Cache-Control' => 'no-store',
         ]);
     }

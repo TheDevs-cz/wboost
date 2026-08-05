@@ -6,8 +6,11 @@ namespace WBoost\Web\Tests\Services\Editor;
 
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemReader;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Sensiolabs\GotenbergBundle\Exception\ClientException;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\TagAwareAdapter;
 use Symfony\Component\HttpClient\Exception\TransportException;
 use ReflectionMethod;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
@@ -113,6 +116,7 @@ final class TemplateVariantImageRendererTest extends TestCase
             '/nonexistent/container_layout.js',
             '/nonexistent/rich_text_runs.js',
             '/nonexistent/rich_text_blocks.js',
+            new TagAwareAdapter(new ArrayAdapter()),
         );
 
         $method = new ReflectionMethod($renderer, 'alignTextboxInputIds');
@@ -126,6 +130,94 @@ final class TemplateVariantImageRendererTest extends TestCase
     private function input(string $inputId): EditorTextInput
     {
         return new EditorTextInput($inputId, 'Name', null, false, false, null, false);
+    }
+
+    /**
+     * The slice cache rests on ONE piece of reasoning: an object with no
+     * `inputId` cannot be a CanvasContainer member (containers address members
+     * by inputId), and suppression outside a slice is `opacity: 0` rather than
+     * `visible: false` so nothing else reflows. Therefore a slice containing no
+     * input-bound object cannot be changed by anything the user types, and is
+     * safe to reuse across keystrokes.
+     *
+     * Everything this rule cannot prove must fall back to "render fresh".
+     * These cases are the guard on that.
+     *
+     * @param list<mixed> $objects deliberately loose: one case feeds a
+     *     malformed entry, which is exactly what the rule must refuse to
+     *     reason about
+     */
+    #[DataProvider('sliceIndependenceCases')]
+    public function testSliceIsOverrideIndependentOnlyWhenProvable(
+        array $objects,
+        CanvasSlice $slice,
+        bool $expected,
+        string $because,
+    ): void {
+        $canvas = json_encode(['objects' => $objects], JSON_THROW_ON_ERROR);
+
+        $method = new ReflectionMethod(TemplateVariantImageRenderer::class, 'sliceIsOverrideIndependent');
+
+        self::assertSame($expected, $method->invoke(null, $canvas, $slice), $because);
+    }
+
+    /**
+     * @return iterable<string, array{list<mixed>, CanvasSlice, bool, string}>
+     */
+    public static function sliceIndependenceCases(): iterable
+    {
+        $logo = ['type' => 'Image', 'src' => 'logo.png'];
+        $decor = ['type' => 'Rect'];
+        $bound = ['type' => 'Textbox', 'inputId' => '11111111-1111-4111-8111-111111111111'];
+
+        yield 'decorative overlay is cacheable' => [
+            [$bound, $logo, $decor],
+            new CanvasSlice(1, null, withBackground: false),
+            true,
+            'a logo + rect above the placeholder cannot change with typed text',
+        ];
+
+        yield 'slice containing a bound input is NOT cacheable' => [
+            [$logo, $bound],
+            new CanvasSlice(0, null, withBackground: false),
+            false,
+            'the slice paints an input the user can edit',
+        ];
+
+        yield 'bound input outside the slice does not block caching' => [
+            [$bound, $logo],
+            new CanvasSlice(1, null, withBackground: false),
+            true,
+            'objects outside the slice are opacity:0 and cannot reflow a non-member',
+        ];
+
+        yield 'empty inputId is treated as unbound' => [
+            [['type' => 'Image', 'inputId' => '']],
+            new CanvasSlice(0, null, withBackground: false),
+            true,
+            'an empty inputId binds nothing',
+        ];
+
+        yield 'malformed object is not reasoned about' => [
+            ['not-an-object'],
+            new CanvasSlice(0, null, withBackground: false),
+            false,
+            'unknown shape must fall back to rendering fresh',
+        ];
+
+        yield 'empty range is not cacheable' => [
+            [$logo],
+            new CanvasSlice(1, 1, withBackground: false),
+            false,
+            'an empty slice paints nothing worth caching',
+        ];
+
+        yield 'bounded toIndex stops the scan' => [
+            [$logo, $decor, $bound],
+            new CanvasSlice(0, 2, withBackground: false),
+            true,
+            'the bound input sits at index 2, outside [0,2)',
+        ];
     }
 
     public function testReferencedFontFamiliesCollectsObjectAndOverrideFaces(): void

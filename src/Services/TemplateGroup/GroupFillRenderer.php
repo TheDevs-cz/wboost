@@ -9,6 +9,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Value\RenderImageFormat;
 
 /**
  * Renders ONE member variant of a template group with the group fill page's
@@ -44,13 +45,18 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawHiddenValues `hiddenValues[<inputId>]` checkboxes (present = hide)
      * @param array<array-key, mixed> $rawImages `images[<inputId>]` fields — a fileId string or `{imageId?, hide?, scale?, offsetXRatio?, offsetYRatio?, rotation?}`
      * @param array<array-key, mixed> $rawPlacements `imagePlacements[<variantId>][<inputId>]` per-dimension placement overrides
+     *
+     * `$format` defaults to lossless PNG because this method serves BOTH the
+     * on-screen fill preview and the ZIP export the user downloads. Only the
+     * preview controller opts into WebP; the export must stay PNG.
      */
-    public function renderPng(
+    public function render(
         TemplateVariant $variant,
         array $rawTextValues,
         array $rawHiddenValues,
         array $rawImages,
         array $rawPlacements = [],
+        RenderImageFormat $format = RenderImageFormat::Png,
     ): string {
         /** @var array<string, array{value?: string, hide?: bool}> $providedValues */
         $providedValues = [];
@@ -88,7 +94,7 @@ readonly final class GroupFillRenderer
             $this->parseImageValues($rawImages, is_array($variantPlacements) ? $variantPlacements : []),
         );
 
-        return $this->renderer->renderToBytes($variant, $overrides, $imageOverrides);
+        return $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, format: $format);
     }
 
     /**

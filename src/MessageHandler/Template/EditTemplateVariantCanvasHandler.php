@@ -7,10 +7,12 @@ namespace WBoost\Web\MessageHandler\Template;
 use League\Flysystem\FilesystemOperator;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use WBoost\Web\Exceptions\TemplateVariantNotFound;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
 use WBoost\Web\Value\BackgroundMode;
 
 #[AsMessageHandler]
@@ -21,6 +23,8 @@ readonly final class EditTemplateVariantCanvasHandler
         #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
         private FilesystemOperator $filesystem,
         private BackgroundLayer $backgroundLayer,
+        #[Autowire(service: 'cache.gotenberg_preview')]
+        private TagAwareCacheInterface $previewCache,
     ) {
     }
 
@@ -46,6 +50,13 @@ readonly final class EditTemplateVariantCanvasHandler
             // the background layer.
             $variant->edit($this->backgroundLayer->extractAssetPath($message->canvas));
         }
+
+        // Drop this variant's cached slice renders. The cache key already
+        // hashes the canvas, so a stale hit is not actually reachable — this is
+        // housekeeping, not correctness: it stops superseded designs occupying
+        // Redis until their TTL runs out, which matters because an admin
+        // editing a canvas saves repeatedly.
+        $this->previewCache->invalidateTags([TemplateVariantImageRenderer::variantCacheTag($message->variantId)]);
     }
 
     /**

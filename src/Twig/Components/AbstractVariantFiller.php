@@ -7,6 +7,7 @@ namespace WBoost\Web\Twig\Components;
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\UX\LiveComponent\Attribute\LiveProp;
+use Symfony\UX\LiveComponent\Attribute\PostHydrate;
 use Symfony\UX\LiveComponent\DefaultActionTrait;
 use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Entity\FileDirectory;
@@ -26,6 +27,7 @@ use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichText;
@@ -194,6 +196,37 @@ abstract class AbstractVariantFiller extends AbstractController
                 $this->hiddenValues[$input->inputId] ??= false;
             }
         }
+    }
+
+    /**
+     * Coerce `hiddenValues` back to the booleans its type declares.
+     *
+     * A writable LiveProp receives the client's RAW value: updates that target
+     * a sub-PATH (`hiddenValues[<uuid>]`, which is what the eye button writes)
+     * are written straight onto the array with no type coercion — only whole
+     * props go through the hydrator. And live_controller's
+     * `getValueFromElement()` reads a checkbox that carries a `value`
+     * attribute as `element.getAttribute('value')` / `null` — never a bool. So
+     * the eye handed us the STRING "1" (or `null` on un-hide), which
+     * `ResolveTextOverrides::parseHide()` strictly rejects: every first click
+     * on the eye 500'd the Live re-render (Sentry, 2026-08-05).
+     *
+     * The `value="1"` on the mirror stays — the plain form POST that drives
+     * the download needs it — so normalizing here is what keeps the Live path
+     * and {@see FillFormRequestParser} (which does the same coercion for the
+     * POST) agreeing on the same input.
+     */
+    #[PostHydrate]
+    public function normalizeHiddenValues(): void
+    {
+        $normalized = [];
+
+        /** @var mixed $hide */
+        foreach ($this->hiddenValues as $inputId => $hide) {
+            $normalized[$inputId] = $hide === true || $hide === 1 || $hide === '1' || $hide === 'true';
+        }
+
+        $this->hiddenValues = $normalized;
     }
 
     /**
@@ -890,8 +923,29 @@ abstract class AbstractVariantFiller extends AbstractController
             truncateOverflow: true,
             richTextOptions: $this->richTextOptions(),
         );
+        // Background-less slices are the transparent overlay layers: flat, tiny,
+        // and PNG measured FASTER for exactly that shape (0.147s vs 0.220s for
+        // WebP, saving only ~7KB). Everything that paints a background is the
+        // image-rich case where WebP wins twice — 0.292s vs 0.388s and ~10x
+        // smaller at social size, 1.00s vs 1.56s and ~14x smaller at A4 print.
+        // Payload matters as much as time here: these bytes get base64'd into
+        // the Live response 2-3x per keystroke.
+        //
+        // This is purely a SPEED split, not a fidelity one — lossy previews are
+        // an accepted trade-off; every EXPORT path stays lossless PNG.
+        //
+        // `withBackground` is not a flag invented for this: it is the same
+        // predicate that already drives omitBackground() in the renderer, and
+        // CanvasSlice::overlayGapsAbovePlaceholders() hardcodes it false for
+        // exactly the overlay gaps. So one expression covers all three callers:
+        // previewDataUri() (no slice) and backdropDataUri() (withBackground:
+        // true) get WebP, overlaySlices() gets PNG.
+        $format = ($slice !== null && !$slice->withBackground)
+            ? RenderImageFormat::Png
+            : RenderImageFormat::Webp;
+
         try {
-            $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, slice: $slice);
+            $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, slice: $slice, format: $format);
         } catch (TemplateRenderUnavailable) {
             // The renderer is overloaded. A fill page draws 2-3 renders (backdrop
             // + one per overlay slice) on EVERY edit, so letting this bubble
@@ -907,7 +961,7 @@ abstract class AbstractVariantFiller extends AbstractController
             return '';
         }
 
-        return 'data:image/png;base64,' . base64_encode($bytes);
+        return $format->dataUriPrefix() . base64_encode($bytes);
     }
 
     /**

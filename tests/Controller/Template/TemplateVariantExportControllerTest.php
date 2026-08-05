@@ -122,6 +122,58 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         self::assertArrayHasKey(TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, $component->hiddenValues);
     }
 
+    /**
+     * The fill page re-renders 2-3 times per keystroke and base64s the result
+     * into the Live response, so format choice here is the hot path:
+     *
+     *  - backdrop / full preview -> WebP. Image-rich, and ~10-14x smaller than
+     *    PNG, which is what keeps the Live response small.
+     *  - overlay slices -> PNG. Flat transparent layers, where PNG is actually
+     *    FASTER to encode (measured 0.147s vs 0.220s) for ~7KB more.
+     *
+     * Lossy previews are deliberate; the EXPORT paths stay PNG and are locked
+     * by the contract assertions elsewhere in this file.
+     */
+    public function testFillPagePreviewsUseWebpWhileOverlaySlicesStayPng(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
+
+        $testComponent = $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $variant],
+            client: $client,
+        );
+
+        /** @var VariantFiller $component */
+        $component = $testComponent->component();
+
+        // This variant has image placeholders, so the interactive path is
+        // backdrop + overlays rather than the single flat preview.
+        self::assertTrue($component->hasImagePlaceholders());
+        self::assertStringStartsWith('data:image/webp;base64,', $component->backdropDataUri());
+
+        // Guard against this test quietly becoming vacuous: if a fixture change
+        // ever removed the design content above the placeholders, the loop
+        // below would assert nothing and still pass.
+        $overlays = $component->overlaySlices();
+        self::assertNotEmpty($overlays, 'fixture must still produce overlay slices for this to test anything');
+
+        foreach ($overlays as $slice) {
+            self::assertStringStartsWith(
+                'data:image/png;base64,',
+                $slice['dataUri'],
+                'transparent overlay slices stay PNG — faster to encode for flat content',
+            );
+        }
+
+        $formats = array_column($this->getRendererFake()->calls, 'format');
+        self::assertNotEmpty($formats);
+        self::assertContains('webp', $formats, 'the backdrop must have been rendered as WebP');
+    }
+
     public function testRenderedTemplateUsesBracketNotationForUuidKeys(): void
     {
         $client = self::createClient();
@@ -270,6 +322,73 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             $previewCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null,
             'previewDataUri() must pass the freshly-typed value to the renderer',
         );
+    }
+
+    /**
+     * Regression for the production 500 on the FIRST click of a fill-page eye
+     * icon (Sentry, 2026-08-05): `Input "…".hide must be a boolean.`
+     *
+     * The eye flips a hidden mirror checkbox that carries `value="1"` (the
+     * plain download POST needs it). live_controller's `getValueFromElement()`
+     * reads such a checkbox as its `value` ATTRIBUTE — the string "1" — or
+     * `null` when cleared, never a bool, and a writable-path update is written
+     * onto the array with no hydrator coercion. `ResolveTextOverrides` then
+     * strictly rejected the string and the Live re-render blew up inside
+     * VariantFiller.html.twig.
+     *
+     * Simulates both wire values the browser actually sends.
+     */
+    public function testEyeCheckboxStringWireValueHydratesAsBooleanHide(): void
+    {
+        $client = self::createClient();
+        $userRepository = self::getContainer()->get(UserRepository::class);
+        $user = $userRepository->get(TestDataFixture::USER_1_EMAIL);
+
+        $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
+        $badgeId = TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID;
+
+        $testComponent = $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $variant],
+            client: $client,
+        )->actingAs($user);
+
+        // Wire-equivalent of: user clicks the eye, the mirror checkbox becomes
+        // checked, JS writes valueStore.dirtyProps['hiddenValues.<uuid>'] = "1".
+        $testComponent->set('hiddenValues.' . $badgeId, '1');
+
+        /** @var VariantFiller $component */
+        $component = $testComponent->component();
+        self::assertTrue(
+            $component->hiddenValues[$badgeId] ?? null,
+            'the raw "1" the checkbox sends must normalize to a real bool',
+        );
+
+        (string) $testComponent->render();
+
+        $previewCall = $this->lastPreviewCall();
+        self::assertNotNull($previewCall);
+        self::assertTrue(
+            $previewCall['hidden'][$badgeId] ?? false,
+            'the hide must reach the renderer as a resolved override',
+        );
+
+        // Un-hide: an unchecked checkbox with a `value` attribute is sent as
+        // null, which the strict parser rejected just as hard as "1".
+        $testComponent->set('hiddenValues.' . $badgeId, null);
+
+        /** @var VariantFiller $component */
+        $component = $testComponent->component();
+        self::assertFalse(
+            $component->hiddenValues[$badgeId] ?? null,
+            'clearing the checkbox sends null, which must normalize to false',
+        );
+
+        (string) $testComponent->render();
+
+        $previewCall = $this->lastPreviewCall();
+        self::assertNotNull($previewCall);
+        self::assertFalse($previewCall['hidden'][$badgeId] ?? false);
     }
 
     /**
@@ -511,6 +630,10 @@ final class TemplateVariantExportControllerTest extends WebTestCase
 
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
+        // What the user downloads and keeps must stay lossless. Locking the
+        // requested format (not only the emitted bytes) is what stops a future
+        // renderer-default change from quietly making downloads lossy.
+        self::assertSame('png', $lastCall['format'], 'the web download must stay lossless PNG');
         self::assertSame(
             'Hello',
             $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID] ?? null,
@@ -618,6 +741,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
 
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
+        self::assertSame('png', $lastCall['format'], 'the web download must stay lossless PNG');
         $placed = $lastCall['images'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID] ?? null;
         self::assertIsArray($placed);
         self::assertSame(1.5, $placed['scale']);
@@ -651,6 +775,23 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         $repository = self::getContainer()->get(TemplateVariantRepository::class);
 
         return $repository->get(Uuid::fromString($id));
+    }
+
+    /**
+     * The most recent preview render (the fill page also renders overlay
+     * slices, so the last call is not necessarily the one we want).
+     *
+     * @return null|array{texts: array<string, string>, hidden: array<string, bool>, mode: string, format: string, ...}
+     */
+    private function lastPreviewCall(): null|array
+    {
+        foreach (array_reverse($this->getRendererFake()->calls) as $call) {
+            if ($call['mode'] === 'renderToBytes') {
+                return $call;
+            }
+        }
+
+        return null;
     }
 
     private function getRendererFake(): FakeTemplateVariantImageRenderer

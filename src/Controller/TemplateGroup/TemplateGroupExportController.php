@@ -76,7 +76,9 @@ final class TemplateGroupExportController extends AbstractController
 
         foreach ($variants as $variant) {
             try {
-                $bytes = $this->groupFillRenderer->renderPng($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements);
+                // No format argument: the ZIP the user downloads must stay
+                // lossless PNG (entry names below are .png).
+                $bytes = $this->groupFillRenderer->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements);
             } catch (TemplateRenderUnavailable) {
                 return $this->renderFailed(
                     $group,
