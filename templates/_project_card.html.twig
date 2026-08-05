@@ -8,6 +8,15 @@
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
                     <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <a href="#"
+                           class="dropdown-item"
+                           data-bs-toggle="modal"
+                           data-bs-target="#share-modal-{{ project.id }}">
+                            <i class="mdi mdi-account-multiple-plus me-1"></i> Sdílení
+                            {% if project.shares|length > 0 %}<span class="badge bg-secondary ms-1">{{ project.shares|length }}</span>{% endif %}
+                        </a>
+                    {% endif %}
                     <a href="#"
                        class="dropdown-item"
                        data-modal-id="{{ project.id }}"
@@ -42,10 +51,9 @@
             </div>
         </a>
 
+        {# Renders only the sharing modal — its trigger lives in the card dropdown above. #}
         {% if is_granted('ROLE_ADMIN') %}
-            <div class="card-footer bg-transparent border-top-0 pt-0">
-                <twig:ManageProjectSharing :project="project" />
-            </div>
+            <twig:ManageProjectSharing :project="project" />
         {% endif %}
     </div>
 </div>

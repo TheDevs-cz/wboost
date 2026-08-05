@@ -2,11 +2,7 @@
     {% set collaborators = this.collaborators() %}
     {% set candidates = this.candidateUsers() %}
 
-    <button type="button" class="btn btn-sm btn-soft-secondary" data-bs-toggle="modal" data-bs-target="#share-modal-{{ project.id }}">
-        <i class="mdi mdi-account-multiple-plus"></i> Sdílení
-        {% if collaborators|length > 0 %}<span class="badge bg-secondary ms-1">{{ collaborators|length }}</span>{% endif %}
-    </button>
-
+    {# The "Sdílení" trigger lives in the project card's dropdown menu (_project_card.html.twig). #}
     <div class="modal fade text-start" id="share-modal-{{ project.id }}" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
