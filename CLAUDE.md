@@ -395,6 +395,17 @@ the property controllers above only populate/mutate their (relocated) fields.
 
 - The chrome lives in an **unscaled** overlay: `.canvas-stage` (position:relative)
   wraps the CSS-`scale()`-zoomed `.canvas-wrapper` and is the `layer` target.
+  The stage itself sits inside the `.canvas-viewport` SCROLL CONTAINER
+  (`overflow: auto`, max-height = visible band below the sticky header, sized
+  by `canvas_zoom_controller`): panning a zoomed-in canvas scrolls the
+  viewport, never the page, so the left panel and the toolbar stay put — the
+  navigator pans by scrolling it, and floating chrome must clamp within the
+  viewport box (`_chromeBounds()`), because anything positioned past its edges
+  is clipped by the overflow. The `.canvas-wrapper` carries `vertical-align:
+  top` — baseline-aligned, the stage's line box would grow to the wrapper's
+  internal baseline (Fabric's in-flow lower-canvas puts it at the UNSCALED
+  canvas bottom) and the zoom controller's negative-margin compensation only
+  trims below-baseline space.
   Screen position is derived from the live canvas rect:
   `scale = fabricContainerRect.width / canvasEl.width`, then
   `objX = (contRect.left - layerRect.left) + obj.getBoundingRect().left * scale`.
