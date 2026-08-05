@@ -375,15 +375,13 @@ export default class extends Controller {
         const MARGIN = 8;
         const eh = el.offsetHeight;
         const ew = el.offsetWidth;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const safeTop = this._safeTop();
+        const b = this._chromeBounds();
         const a = anchorEl.getBoundingClientRect();
 
         let left = a.left;
         let top = a.bottom + GAP;
-        left = Math.min(Math.max(left, MARGIN), vw - ew - MARGIN);
-        top = Math.min(Math.max(top, safeTop), Math.max(safeTop, vh - eh - MARGIN));
+        left = Math.min(Math.max(left, b.left + MARGIN), b.right - ew - MARGIN);
+        top = Math.min(Math.max(top, b.top), Math.max(b.top, b.bottom - eh - MARGIN));
 
         this._setPos(el, left, top, g);
     }
@@ -395,44 +393,63 @@ export default class extends Controller {
         const MARGIN = 8;
         const eh = el.offsetHeight;
         const ew = el.offsetWidth;
-        const safeTop = this._safeTop();
+        const b = this._chromeBounds();
 
         let top = box.top - GAP - eh;
-        if (top < safeTop) top = box.top + box.height + GAP;
+        if (top < b.top) top = box.top + box.height + GAP;
 
         let left = box.left + (box.width - ew) / 2;
-        left = Math.min(Math.max(left, MARGIN), window.innerWidth - ew - MARGIN);
+        left = Math.min(Math.max(left, b.left + MARGIN), b.right - ew - MARGIN);
 
         this._setPos(el, left, top, g);
     }
 
     /** Popover: BESIDE the element — right, else left, else below — so it never
      *  covers the element or the mini-toolbar. Top aligns with the element,
-     *  clamped to the viewport (below the sticky header). */
+     *  clamped to the chrome bounds (below the sticky header). */
     _placePopover(el, box, g) {
         const GAP = 10;
         const MARGIN = 8;
         const eh = el.offsetHeight;
         const ew = el.offsetWidth;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const safeTop = this._safeTop();
+        const b = this._chromeBounds();
 
         let left;
         let top = box.top;
-        if (box.left + box.width + GAP + ew <= vw - MARGIN) {
+        if (box.left + box.width + GAP + ew <= b.right - MARGIN) {
             left = box.left + box.width + GAP;          // to the right
-        } else if (box.left - GAP - ew >= MARGIN) {
+        } else if (box.left - GAP - ew >= b.left + MARGIN) {
             left = box.left - GAP - ew;                 // to the left
         } else {
             left = box.left;                            // below
             top = box.top + box.height + GAP;
         }
 
-        left = Math.min(Math.max(left, MARGIN), vw - ew - MARGIN);
-        top = Math.min(Math.max(top, safeTop), Math.max(safeTop, vh - eh - MARGIN));
+        left = Math.min(Math.max(left, b.left + MARGIN), b.right - ew - MARGIN);
+        top = Math.min(Math.max(top, b.top), Math.max(b.top, b.bottom - eh - MARGIN));
 
         this._setPos(el, left, top, g);
+    }
+
+    /** Screen-space box the chrome must stay inside: the stage's scroll
+     *  container (.canvas-viewport — anything positioned past its edges gets
+     *  CLIPPED by its overflow) intersected with the browser viewport, top
+     *  raised below the sticky header. Falls back to the window alone when
+     *  the stage has no viewport wrapper. */
+    _chromeBounds() {
+        let left = 0;
+        let top = 0;
+        let right = window.innerWidth;
+        let bottom = window.innerHeight;
+        const viewport = this.hasLayerTarget ? this.layerTarget.closest('.canvas-viewport') : null;
+        if (viewport) {
+            const r = viewport.getBoundingClientRect();
+            left = Math.max(left, r.left);
+            top = Math.max(top, r.top);
+            right = Math.min(right, r.right);
+            bottom = Math.min(bottom, r.bottom);
+        }
+        return { left, top: Math.max(top, this._safeTop()), right, bottom };
     }
 
     _setPos(el, screenLeft, screenTop, g) {

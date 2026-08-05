@@ -1,3 +1,12 @@
+/* Scroll container around .canvas-stage: panning a zoomed-in canvas scrolls
+   HERE, never the page — the left panel and the sticky toolbar stay put.
+   Max-height (visible band below the sticky header) is set by
+   canvas_zoom_controller; floating chrome clamps within this box because
+   anything positioned outside it would be clipped by the overflow. */
+.canvas-viewport {
+    overflow: auto;
+}
+
 .canvas-wrapper {
     display: inline-block;
     /* Top-align the inline-block (the .fill-stage rule): baseline-aligned, the

@@ -4,7 +4,10 @@ import { Controller } from "@hotwired/stimulus";
  * Visual zoom for the canvas wrapper. Just CSS-transforms the wrapper —
  * the underlying Fabric canvas dimensions don't change. The wrapper's
  * layout box is shrunk with negative margins to match the visual size,
- * so the page never reserves scroll space for the unscaled canvas.
+ * so the page never reserves scroll space for the unscaled canvas. The
+ * stage sits inside the `.canvas-viewport` scroll container (the viewport
+ * target), capped to the visible band below the sticky header — a zoomed-in
+ * canvas pans inside it, never by scrolling the page.
  *
  * On connect the scale auto-fits the canvas into the visible area (width
  * AND height, capped at 100 %) and keeps re-fitting on window resize
@@ -12,7 +15,7 @@ import { Controller } from "@hotwired/stimulus";
  * starts fully on screen instead of at an unusable 100 %.
  */
 export default class extends Controller {
-    static targets = ["zoomInButton", "zoomOutButton", "scaleDisplay", "canvasContainer"];
+    static targets = ["zoomInButton", "zoomOutButton", "scaleDisplay", "canvasContainer", "viewport"];
 
     static values = {
         min: { type: Number, default: 0.1 },
@@ -60,6 +63,7 @@ export default class extends Controller {
      *  canvas dimensions in place on variant switch, so the layout-box
      *  margins must track the live size even when the scale is kept. */
     fitToScreen() {
+        this.sizeViewport();
         this.compensateLayoutBox();
 
         if (this.userZoomed) {
@@ -88,10 +92,7 @@ export default class extends Controller {
         // The ruler gutter (.has-rulers padding) may not be applied yet at
         // connect time, so reserve it unconditionally.
         const availableWidth = stage.clientWidth - 24;
-        // Visible height below the sticky toolbar — the content above the
-        // stage scrolls away, the toolbar stays.
-        const header = document.querySelector('[data-editor-header]');
-        const availableHeight = Math.max(220, window.innerHeight - (header ? header.offsetHeight : 0) - 40);
+        const availableHeight = this.viewportMaxHeight() - 24;
 
         if (availableWidth <= 0) {
             return null;
@@ -117,6 +118,22 @@ export default class extends Controller {
         this.dispatch('changed', { detail: { scale: this.currentScale } });
 
         this.updateButtonStates();
+    }
+
+    /** Visible height below the sticky toolbar — the content above the
+     *  stage scrolls away, the toolbar stays. */
+    viewportMaxHeight() {
+        const header = document.querySelector('[data-editor-header]');
+        return Math.max(244, window.innerHeight - (header ? header.offsetHeight : 0) - 40);
+    }
+
+    /** Cap the stage's scroll container to the visible band so panning a
+     *  zoomed-in canvas scrolls INSIDE it — the page never gets the
+     *  scrollbars, so the left panel and the sticky toolbar stay put. */
+    sizeViewport() {
+        if (this.hasViewportTarget) {
+            this.viewportTarget.style.maxHeight = `${this.viewportMaxHeight()}px`;
+        }
     }
 
     /** transform: scale() is visual only — pull the layout box in to match

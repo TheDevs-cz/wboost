@@ -8,8 +8,10 @@ import { Controller } from "@hotwired/stimulus";
  * viewport center.
  *
  * Geometry model: zoom is a CSS scale() on .canvas-wrapper and panning is
- * plain WINDOW scrolling (canvas_zoom_controller compensates the layout box,
- * so the page owns the scrollbars). Everything here derives from the live
+ * scrolling the `.canvas-viewport` container around the stage (the page
+ * itself never owns the canvas scrollbars — the left panel and the sticky
+ * toolbar must stay put; window scrolling remains only as a fallback for a
+ * stage without the viewport wrapper). Everything here derives from the live
  * canvas element's getBoundingClientRect() — scale, origin and margins are
  * all folded into that one rect, so no zoom math is duplicated. The visible
  * band starts below the sticky [data-editor-header], which overlays the top
@@ -35,11 +37,12 @@ export default class extends Controller {
         // Outlet callbacks can fire before connect() — state must exist.
         this._thumbTimer = null;
         this._dragging = false;
+        this._scroller = null;
+        this._onScroll = () => this.refresh();
+        this._onResize = () => this.refresh();
     }
 
     connect() {
-        this._onScroll = () => this.refresh();
-        this._onResize = () => this.refresh();
         window.addEventListener('scroll', this._onScroll, { passive: true });
         window.addEventListener('resize', this._onResize);
         this.refresh();
@@ -48,6 +51,7 @@ export default class extends Controller {
     disconnect() {
         window.removeEventListener('scroll', this._onScroll);
         window.removeEventListener('resize', this._onResize);
+        this._dropScroller();
         if (this._thumbTimer) {
             clearTimeout(this._thumbTimer);
             this._thumbTimer = null;
@@ -56,6 +60,13 @@ export default class extends Controller {
 
     canvasEditorOutletConnected(outlet) {
         this._canvas = outlet.canvas;
+        // Element scrolls don't bubble to window — listen on the stage's
+        // scroll container directly to keep the view rectangle live.
+        const el = typeof outlet.canvas.getElement === 'function' ? outlet.canvas.getElement() : null;
+        this._scroller = el ? el.closest('.canvas-viewport') : null;
+        if (this._scroller) {
+            this._scroller.addEventListener('scroll', this._onScroll, { passive: true });
+        }
         this._onAfterRender = () => this._scheduleThumb();
         this._canvas.on('after:render', this._onAfterRender);
         this._scheduleThumb();
@@ -66,7 +77,15 @@ export default class extends Controller {
         if (outlet.canvas && this._onAfterRender) {
             outlet.canvas.off('after:render', this._onAfterRender);
         }
+        this._dropScroller();
         this._canvas = null;
+    }
+
+    _dropScroller() {
+        if (this._scroller) {
+            this._scroller.removeEventListener('scroll', this._onScroll);
+            this._scroller = null;
+        }
     }
 
     /** Recompute panel visibility + viewport rectangle. Wired to window
@@ -110,8 +129,9 @@ export default class extends Controller {
         document.addEventListener('mouseup', this._onPanUp);
     }
 
-    /** Scroll the window so the clicked/dragged map point lands in the middle
-     *  of the visible band (below the sticky header). */
+    /** Scroll so the clicked/dragged map point lands in the middle of the
+     *  stage viewport (window fallback: the visible band below the sticky
+     *  header). */
     _panTo(event) {
         const geo = this._geometry();
         if (!geo || !this.hasThumbTarget) return;
@@ -122,14 +142,24 @@ export default class extends Controller {
         const px = Math.max(0, Math.min(geo.logicalW, (event.clientX - thumbRect.left) / navScale));
         const py = Math.max(0, Math.min(geo.logicalH, (event.clientY - thumbRect.top) / navScale));
 
-        // Page coordinates of the target canvas point.
-        const pageX = window.scrollX + geo.rect.left + px * geo.displayScale;
-        const pageY = window.scrollY + geo.rect.top + py * geo.displayScale;
-        const bandCenterY = geo.topBound + (window.innerHeight - geo.topBound) / 2;
+        // Screen coordinates of the target canvas point.
+        const targetX = geo.rect.left + px * geo.displayScale;
+        const targetY = geo.rect.top + py * geo.displayScale;
 
+        if (this._scroller) {
+            const s = this._scroller.getBoundingClientRect();
+            this._scroller.scrollTo({
+                left: this._scroller.scrollLeft + targetX - (s.left + s.width / 2),
+                top: this._scroller.scrollTop + targetY - (s.top + s.height / 2),
+                behavior: 'auto',
+            });
+            return;
+        }
+
+        const bandCenterY = geo.topBound + (window.innerHeight - geo.topBound) / 2;
         window.scrollTo({
-            left: Math.max(0, pageX - window.innerWidth / 2),
-            top: Math.max(0, pageY - bandCenterY),
+            left: Math.max(0, window.scrollX + targetX - window.innerWidth / 2),
+            top: Math.max(0, window.scrollY + targetY - bandCenterY),
             behavior: 'auto',
         });
     }
@@ -204,10 +234,18 @@ export default class extends Controller {
         const header = document.querySelector('[data-editor-header]');
         const topBound = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
 
-        const visLeftCss = Math.max(rect.left, 0);
-        const visTopCss = Math.max(rect.top, topBound);
-        const visRightCss = Math.min(rect.right, window.innerWidth);
-        const visBottomCss = Math.min(rect.bottom, window.innerHeight);
+        // With the stage inside its scroll container, only the part of the
+        // canvas within the scrollport counts as visible.
+        const bounds = this._scroller ? this._scroller.getBoundingClientRect() : null;
+        const boundLeft = bounds ? Math.max(0, bounds.left) : 0;
+        const boundTop = Math.max(bounds ? bounds.top : 0, topBound);
+        const boundRight = Math.min(window.innerWidth, bounds ? bounds.right : Infinity);
+        const boundBottom = Math.min(window.innerHeight, bounds ? bounds.bottom : Infinity);
+
+        const visLeftCss = Math.max(rect.left, boundLeft);
+        const visTopCss = Math.max(rect.top, boundTop);
+        const visRightCss = Math.min(rect.right, boundRight);
+        const visBottomCss = Math.min(rect.bottom, boundBottom);
 
         return {
             rect,

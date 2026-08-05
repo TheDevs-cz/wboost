@@ -3,6 +3,11 @@
    text + image popovers. Expects: canvas_width, canvas_height (px),
    gallery_directories, and optional group_mode (adds the per-element
    "Srovnat podle skupiny" re-sync button targeting group-editor). #}
+{# The viewport is the SCROLL CONTAINER for the stage: panning a zoomed-in
+   canvas scrolls here, never the page — the left panel and the sticky toolbar
+   must stay put. Max-height (the visible band below the sticky header) is
+   maintained by canvas_zoom_controller. #}
+<div class="canvas-viewport" data-canvas-zoom-target="viewport">
 <div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage" data-canvas-snapping-target="layer" data-canvas-rulers-target="layer">
     <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
         <canvas id="c" width="{{ canvas_width }}" height="{{ canvas_height }}"></canvas>
@@ -361,6 +366,7 @@
         </div>
     </div>
 </div>
+</div>
 
 {# Pointer-modifier cheatsheet (canvas_editor_controller#applyPointerModifiers):
    Ctrl/⌘ follows Photoshop's Move-tool auto-select, Alt/⌥ the diagram-editor
@@ -371,8 +377,8 @@
 </p>
 
 {# Photoshop-style navigator (canvas_navigator_controller): fixed mini-map
-   with the visible-area rectangle; click/drag pans by scrolling the window.
-   Auto-hidden while the whole canvas fits the viewport. #}
+   with the visible-area rectangle; click/drag pans by scrolling the
+   .canvas-viewport scroll container. #}
 <div class="canvas-navigator d-none" data-canvas-navigator-target="panel">
     <div class="canvas-navigator__map" data-action="mousedown->canvas-navigator#beginPan">
         <canvas data-canvas-navigator-target="thumb" aria-label="Navigátor plátna"></canvas>
