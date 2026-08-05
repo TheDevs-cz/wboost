@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { Canvas, Textbox, FabricImage, cache } from "fabric";
 
 import { buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
-import { applyEditorLock } from './canvas_custom_properties.js';
+import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
@@ -101,6 +101,22 @@ export default class extends Controller {
         this.canvas.on('selection:updated', this._boundDispatchSelection);
         this.canvas.on('selection:cleared', this._boundDispatchSelection);
 
+        // Backdrop targeting (see applyBackdropState): an unlocked image that
+        // covers the canvas is click-through while unselected, so dragging
+        // over it rubber-bands instead of moving the picture. Re-evaluated on
+        // every mutation/selection change — coverage shifts when an image is
+        // scaled/moved, and the active object is exempt (that's what makes it
+        // movable once deliberately selected). A plain CLICK (mousedown+up
+        // without movement, nothing hit) selects the topmost backdrop under
+        // the pointer, Canva-style; Esc releases it back to click-through.
+        this._boundRefreshBackdrops = () => this.refreshBackdropStates();
+        ['object:added', 'object:modified', 'selection:created', 'selection:updated', 'selection:cleared']
+            .forEach((ev) => this.canvas.on(ev, this._boundRefreshBackdrops));
+        this.canvas.on('mouse:down', (opt) => {
+            this._backdropPress = opt.target ? null : this._scenePoint(opt);
+        });
+        this.canvas.on('mouse:up', (opt) => this.maybeSelectBackdrop(opt));
+
         // Mark form dirty whenever the canvas changes. The "unsaved changes"
         // indicator was the only meaningful piece of the old autosave UI;
         // keep it driven directly off Fabric events.
@@ -124,6 +140,66 @@ export default class extends Controller {
     dispatchSelectionChanged() {
         const activeObject = this.canvas.getActiveObject();
         this.dispatch('selection:changed', { detail: { activeObject } });
+    }
+
+    /**
+     * Sweep every unlocked image and set its backdrop click-through state
+     * from current coverage + selection (see applyBackdropState). Idempotent
+     * and cheap — pure arithmetic per image, no DOM, no Fabric events fired —
+     * so it can run on every mutation/selection event without contributing to
+     * the layer-heavy-canvas lag this editor already had to shed.
+     */
+    refreshBackdropStates() {
+        if (!this.canvas) return;
+        const width = this.canvas.getWidth();
+        const height = this.canvas.getHeight();
+        const active = new Set(this.canvas.getActiveObjects());
+        this.canvas.getObjects().forEach((obj) => {
+            if ((obj.type || '').toLowerCase() !== 'image') return;
+            applyBackdropState(obj, isBackdropCovering(obj, width, height), active.has(obj));
+        });
+    }
+
+    /**
+     * Canva-style backdrop selection: a plain click on "empty" canvas that is
+     * actually a click-through backdrop selects that backdrop. Fires on
+     * mouse:up, AFTER Fabric finalized its own targeting/rubber-band — so it
+     * only acts when nothing was hit (no target on down OR up), nothing ended
+     * up selected (a marquee that caught objects leaves an ActiveSelection),
+     * and the pointer didn't travel (a drag was a marquee attempt, not a
+     * click). selection:created from setActiveObject then runs the sweep,
+     * which exempts the now-active backdrop → it's immediately draggable.
+     */
+    maybeSelectBackdrop(opt) {
+        const press = this._backdropPress;
+        this._backdropPress = null;
+        if (!press || opt.target || this.canvas.getActiveObject()) return;
+
+        const up = this._scenePoint(opt);
+        if (!up || Math.abs(up.x - press.x) > 3 || Math.abs(up.y - press.y) > 3) return;
+
+        const width = this.canvas.getWidth();
+        const height = this.canvas.getHeight();
+        const objects = this.canvas.getObjects();
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            if ((obj.type || '').toLowerCase() !== 'image') continue;
+            if (obj.editorLocked === true || obj.isBackground === true) continue;
+            if (obj.visible === false) continue;
+            if (!isBackdropCovering(obj, width, height)) continue;
+            if (typeof obj.containsPoint === 'function' && !obj.containsPoint(up)) continue;
+            this.canvas.setActiveObject(obj);
+            this.canvas.requestRenderAll();
+            return;
+        }
+    }
+
+    _scenePoint(opt) {
+        if (opt && opt.scenePoint) return opt.scenePoint;
+        if (opt && opt.e && typeof this.canvas.getScenePoint === 'function') {
+            return this.canvas.getScenePoint(opt.e);
+        }
+        return null;
     }
 
     markUnsaved() {
@@ -267,6 +343,11 @@ export default class extends Controller {
                 this.canvas.wboostGuides = [];
             }
 
+            // restoreCustomProperties → applyEditorLock re-enabled every
+            // unlocked image; demote canvas-covering ones back to backdrop
+            // click-through before first interaction.
+            this.refreshBackdropStates();
+
             this.canvas.renderAll();
         } finally {
             this.loadingCanvas = false;
@@ -289,6 +370,18 @@ export default class extends Controller {
 
         if (isInputFocused || isEditingText) {
             // Allow default behavior (do not prevent default)
+            return;
+        }
+
+        // Esc drops the selection — the only way OFF a selected backdrop
+        // image (its pixels cover the whole canvas, so there is no empty spot
+        // to click; see maybeSelectBackdrop), and standard editor muscle
+        // memory anyway.
+        if (event.key === 'Escape') {
+            if (activeObject) {
+                this.canvas.discardActiveObject();
+                this.canvas.requestRenderAll();
+            }
             return;
         }
 

@@ -65,6 +65,53 @@ export function applyEditorLock(obj) {
     if (typeof obj.setCoords === 'function') obj.setCoords();
 }
 
+// An UNLOCKED image whose bounding box covers at least this share of the
+// canvas is treated as a "backdrop" for pointer targeting (see below).
+export const BACKDROP_COVERAGE_RATIO = 0.9;
+
+/**
+ * Does this object's axis-aligned bounding box cover (nearly) the whole
+ * canvas? Pure geometry — the intersection of the bbox with the canvas rect
+ * must be ≥ BACKDROP_COVERAGE_RATIO of the canvas area. Full-bleed photos
+ * overflow the canvas, so their clipped coverage is exactly 1.0; a hero image
+ * over half the design stays well under the threshold.
+ */
+export function isBackdropCovering(obj, canvasWidth, canvasHeight) {
+    if (!obj || !(canvasWidth > 0) || !(canvasHeight > 0)) return false;
+    const rect = typeof obj.getBoundingRect === 'function' ? obj.getBoundingRect() : null;
+    if (!rect) return false;
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(canvasWidth, rect.left + rect.width);
+    const bottom = Math.min(canvasHeight, rect.top + rect.height);
+    const covered = Math.max(0, right - left) * Math.max(0, bottom - top);
+    return covered >= BACKDROP_COVERAGE_RATIO * canvasWidth * canvasHeight;
+}
+
+/**
+ * Third interaction state, between "normal" and applyEditorLock's full lock:
+ * a canvas-covering UNLOCKED image ("backdrop") is skipped by pointer
+ * targeting while it is not selected — dragging over it draws Fabric's
+ * rubber-band multi-select instead of moving the picture, and a marquee never
+ * pulls it into the ActiveSelection (any rectangle you draw intersects a
+ * full-canvas image, so an evented backdrop would join EVERY marquee). Unlike
+ * editorLocked, NO lock flags are set: the moment the object becomes active —
+ * via a plain click (canvas_editor_controller's click-to-select on mouse:up),
+ * the layers panel, or Fabric restoring a selection — it is fully movable /
+ * scalable again, and it drops back to click-through on deselect.
+ *
+ * Locked (`editorLocked`) and background (`isBackground`) images are owned by
+ * applyEditorLock and never touched here. Editor-only, like applyEditorLock:
+ * none of these flags serialize, so the export render is untouched.
+ */
+export function applyBackdropState(obj, covering, isActive) {
+    if (!obj) return;
+    if (obj.editorLocked === true || obj.isBackground === true) return;
+    const passthrough = covering === true && isActive !== true;
+    obj.selectable = !passthrough;
+    obj.evented = !passthrough;
+}
+
 /**
  * Re-apply the deliberate interaction flags every text placeholder is created
  * with (see submitAddText) so a RELOADED textbox behaves identically to a
