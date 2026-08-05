@@ -47,7 +47,11 @@ import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from 
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["layer", "createButton", "section"];
+    static targets = ["layer", "createButton", "section", "panel", "panelList"];
+
+    /** Zone/panel accent per nesting depth — parent and child containers must
+     *  read as DIFFERENT colors at a glance (cycled past depth 2). */
+    static ZONE_COLORS = ['#39afd1', '#9d71f7', '#2fb380'];
 
     initialize() {
         // State lives in initialize(), NOT connect(): Stimulus may fire
@@ -467,9 +471,14 @@ export default class extends Controller {
             const members = this._deepMemberObjects(container);
             if (members.length < 2) return;
             const nested = this._parentOf(container) !== null;
+            const depth = this._depthOf(container);
 
             const zone = document.createElement('div');
             zone.className = nested ? 'container-zone container-zone--nested' : 'container-zone';
+            // Depth-coded accent (border, label, handles) — the CSS reads the
+            // vars with the legacy cyan as fallback.
+            zone.style.setProperty('--zone-color', this._zoneColor(depth));
+            zone.style.setProperty('--zone-tint', this._zoneTint(depth, nested));
 
             // The label doubles as the MOVE handle for the whole container
             // (members are dragged individually with a plain Fabric drag)
@@ -479,6 +488,10 @@ export default class extends Controller {
             label.className = 'container-zone__label';
             label.title = 'Klik vybere kontejner (Shift přidá k výběru), tažením ho přesunete';
             label.addEventListener('mousedown', (event) => this._beginLabelDrag(event, container));
+            // Overlapping chrome escape hatch: hovering a label lifts ITS
+            // zone above colliding siblings so its icons are clickable.
+            label.addEventListener('mouseenter', () => zone.classList.add('container-zone--raise'));
+            label.addEventListener('mouseleave', () => zone.classList.remove('container-zone--raise'));
             zone.appendChild(label);
 
             // Duplicate the whole container INCLUDING its objects (deep —
@@ -560,6 +573,107 @@ export default class extends Controller {
 
     repositionZones() {
         this._positionZones();
+        this._renderPanel();
+    }
+
+    // --- containers panel (left panel, the Vrstvy pattern) -------------------
+
+    _zoneColor(depth) {
+        const palette = this.constructor.ZONE_COLORS;
+        return palette[depth % palette.length];
+    }
+
+    _zoneTint(depth, nested) {
+        const hex = this._zoneColor(depth).slice(1);
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${nested ? 0.02 : 0.04})`;
+    }
+
+    /** id → "Kontejner N – name", numbered across ALL containers in designed
+     *  top order — the same numbering the ⚙ popover's parent select uses, so
+     *  the panel and the popover always talk about the same "Kontejner 2". */
+    _panelLabels() {
+        const withTops = this._containers().map((c) => {
+            const members = this._deepMemberObjects(c);
+            return {
+                id: c.id,
+                top: members.length ? Math.min(...members.map((o) => this._absTop(o))) : Infinity,
+                name: this._containerDisplayName(c),
+            };
+        }).sort((a, b) => a.top - b.top);
+
+        return new Map(withTops.map(({ id, name }, index) => [
+            id,
+            name ? `Kontejner ${index + 1} – ${name}` : `Kontejner ${index + 1}`,
+        ]));
+    }
+
+    /** Rebuild the "Kontejnery" left-panel list (called from renderZones):
+     *  tree order (roots by designed top, children indented under their
+     *  parent), row color = the zone's depth color. Hover highlights the zone
+     *  on the stage and DIMS every other one — the overlapping-chrome escape
+     *  hatch; click selects the container like a zone-label click. */
+    _renderPanel() {
+        if (!this.hasPanelTarget || !this.hasPanelListTarget) return;
+        const zonesById = new Map(this._zones.map((entry) => [entry.container.id, entry]));
+        this.panelTarget.classList.toggle('d-none', zonesById.size === 0);
+        this.panelListTarget.textContent = '';
+        if (zonesById.size === 0) return;
+
+        const layout = this._layout();
+        const containers = this._containers();
+        const labels = this._panelLabels();
+        const topOf = (c) => {
+            const members = this._deepMemberObjects(c);
+            return members.length ? Math.min(...members.map((o) => this._absTop(o))) : Infinity;
+        };
+
+        const addRows = (list, depth) => {
+            [...list].sort((a, b) => topOf(a) - topOf(b)).forEach((container) => {
+                if (zonesById.has(container.id)) {
+                    this.panelListTarget.appendChild(
+                        this._panelRow(container, depth, labels.get(container.id) || 'Kontejner'),
+                    );
+                }
+                if (layout) {
+                    addRows(layout.childContainersOf(containers, container), depth + 1);
+                }
+            });
+        };
+        addRows(layout ? layout.rootContainers(containers) : containers, 0);
+    }
+
+    _panelRow(container, depth, label) {
+        const row = document.createElement('div');
+        row.className = 'container-panel-row';
+        row.setAttribute('role', 'listitem');
+        row.style.setProperty('--zone-color', this._zoneColor(depth));
+        row.style.marginLeft = `${depth * 14}px`;
+        row.title = 'Klik vybere kontejner na plátně';
+
+        const icon = document.createElement('i');
+        icon.className = 'mdi mdi-view-agenda-outline';
+        const text = document.createElement('span');
+        text.className = 'text-truncate';
+        text.textContent = label;
+        row.append(icon, text);
+
+        row.addEventListener('mouseenter', () => this._setPanelFocus(container, true));
+        row.addEventListener('mouseleave', () => this._setPanelFocus(container, false));
+        row.addEventListener('click', () => this._selectContainer(container, false));
+        return row;
+    }
+
+    _setPanelFocus(container, on) {
+        if (!this.hasLayerTarget) return;
+        const entry = this._zones.find((e) => e.container.id === container.id);
+        this._zones.forEach((e) => e.zone.classList.remove('container-zone--focus'));
+        this.layerTarget.classList.toggle('container-zones-dim', on && Boolean(entry));
+        if (on && entry) {
+            entry.zone.classList.add('container-zone--focus');
+        }
     }
 
     _positionZones() {
@@ -632,6 +746,10 @@ export default class extends Controller {
     _clearZones() {
         this._zones.forEach(({ zone }) => zone.remove());
         this._zones = [];
+        // A re-render mid-hover must not leave the stage dimmed forever.
+        if (this.hasLayerTarget) {
+            this.layerTarget.classList.remove('container-zones-dim');
+        }
     }
 
     /** Zone label drag = move the WHOLE container (all members together,

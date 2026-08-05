@@ -473,13 +473,35 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
    touches the canvas bitmap, so it can't leak into thumbnails or exports.
    The zone itself is click-through; only the label + resize handle are
    interactive. */
+/* Zones are DEPTH-COLOR-CODED: the container controller stamps --zone-color /
+   --zone-tint per zone (root cyan, child violet, grandchild green, cycled) so
+   parent and child containers never read as the same box. The legacy cyan
+   stays as the var fallback. */
 .container-zone {
     position: absolute;
     z-index: 899;
     pointer-events: none;
-    border: 1.5px dashed #39afd1;
+    border: 1.5px dashed var(--zone-color, #39afd1);
     border-radius: 3px;
-    background: rgba(57, 175, 209, 0.04);
+    background: var(--zone-tint, rgba(57, 175, 209, 0.04));
+}
+
+/* Hovering a zone's label lifts the whole zone above colliding siblings so
+   its icon row is reachable even when two containers share a top edge. */
+.container-zone--raise {
+    z-index: 930;
+}
+
+/* Panel-row hover: the hovered container's zone pops, everything else fades —
+   the overlapping-chrome escape hatch driven from the Kontejnery panel. */
+.container-zones-dim .container-zone {
+    opacity: 0.15;
+}
+
+.container-zones-dim .container-zone--focus {
+    opacity: 1;
+    z-index: 931;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 12px rgba(0, 0, 0, 0.25);
 }
 
 .container-zone--overflow {
@@ -498,7 +520,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     line-height: 1.4;
     white-space: nowrap;
     color: #fff;
-    background: #39afd1;
+    background: var(--zone-color, #39afd1);
     border-radius: 3px 3px 0 0;
     pointer-events: auto;
     cursor: move;
@@ -519,7 +541,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     font-size: 12px;
     line-height: 1.3;
     color: #fff;
-    background: #39afd1;
+    background: var(--zone-color, #39afd1);
     border-radius: 3px 3px 0 0;
     pointer-events: auto;
     cursor: pointer;
@@ -541,7 +563,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     height: 10px;
     margin-left: -22px;
     border-radius: 5px;
-    background: #39afd1;
+    background: var(--zone-color, #39afd1);
     box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8);
     cursor: ns-resize;
     pointer-events: auto;
@@ -560,7 +582,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     height: 44px;
     margin-top: -22px;
     border-radius: 5px;
-    background: #39afd1;
+    background: var(--zone-color, #39afd1);
     box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8);
     cursor: ew-resize;
     pointer-events: auto;
@@ -584,16 +606,23 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .container-zone--nested {
     z-index: 900;
     border-style: dotted;
-    border-color: rgba(57, 175, 209, 0.75);
-    background: rgba(57, 175, 209, 0.02);
+    border-color: var(--zone-color, #39afd1);
+    background: var(--zone-tint, rgba(57, 175, 209, 0.02));
 }
 
+/* Nested chrome sits INSIDE the dotted box (root chrome sits above its top
+   edge), so parent and child rows occupy different bands and never overlap
+   even when the two boxes share a top edge. */
 .container-zone--nested .container-zone__label {
-    background: rgba(57, 175, 209, 0.75);
+    top: 2px;
+    left: 2px;
+    border-radius: 3px;
 }
 
 .container-zone--nested .container-zone__delete {
-    background: rgba(57, 175, 209, 0.75);
+    top: 2px;
+    right: 2px;
+    border-radius: 3px;
 }
 
 /* Per-zone settings (⚙ → gap / max height popover). Sits left of the ×. */
@@ -606,7 +635,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     font-size: 11px;
     line-height: 1.5;
     color: #fff;
-    background: #39afd1;
+    background: var(--zone-color, #39afd1);
     border-radius: 3px 3px 0 0;
     pointer-events: auto;
     cursor: pointer;
@@ -631,9 +660,44 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background: #fa5c7c;
 }
 
-.container-zone--nested .container-zone__settings,
+.container-zone--nested .container-zone__settings {
+    top: 2px;
+    right: 26px;
+    border-radius: 3px;
+}
+
 .container-zone--nested .container-zone__duplicate {
-    background: rgba(57, 175, 209, 0.75);
+    top: 2px;
+    right: 50px;
+    border-radius: 3px;
+}
+
+/* Kontejnery left-panel list (the Vrstvy pattern): depth-colored rows, hover
+   drives the zone highlight + dim on the stage, click selects. */
+.container-panel-list {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.container-panel-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    font-size: 12px;
+    cursor: pointer;
+    border-left: 3px solid var(--zone-color, #39afd1);
+    border-radius: 2px;
+    user-select: none;
+    min-width: 0;
+}
+
+.container-panel-row:hover {
+    background: rgba(114, 124, 245, 0.08);
+}
+
+.container-panel-row .mdi {
+    color: var(--zone-color, #39afd1);
 }
 
 .container-zone-popover {
