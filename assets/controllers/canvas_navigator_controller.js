@@ -15,9 +15,9 @@ import { Controller } from "@hotwired/stimulus";
  * band starts below the sticky [data-editor-header], which overlays the top
  * of the viewport.
  *
- * The panel auto-hides while the whole canvas fits the viewport — a map of a
- * fully visible canvas is dead chrome (auto-fit starts every template that
- * way; the map appears the moment zooming/scrolling crops the view).
+ * The panel is ALWAYS visible (explicit user decision — Photoshop keeps its
+ * Navigator open too): with the whole canvas in view the rectangle covers
+ * the entire map and shrinks into a window as you zoom in.
  *
  * Thumbnail: drawImage of Fabric's lowerCanvasEl (the composited scene) onto
  * a small canvas, throttled behind after:render — one scaled blit, no Fabric
@@ -80,15 +80,10 @@ export default class extends Controller {
             return;
         }
 
-        // Show the map only when navigation is genuinely needed: the canvas
-        // is LARGER (in screen px, with a little slack) than the visible band
-        // below the sticky header. At fit-to-screen zoom the whole canvas is
-        // reachable without panning — a map would be dead chrome there, even
-        // while a breadcrumb scroll offset momentarily crops the view.
-        const sizeFits = geo.rect.width <= window.innerWidth + 4
-            && geo.rect.height <= (window.innerHeight - geo.topBound) + 4;
-        this.panelTarget.classList.toggle('d-none', sizeFits);
-        if (sizeFits) return;
+        // ALWAYS visible (user decision) — like Photoshop's Navigator panel.
+        // With the whole canvas in view the rectangle simply covers the whole
+        // map; it only becomes a partial window once you zoom/scroll.
+        this.panelTarget.classList.remove('d-none');
 
         this._sizeThumb(geo);
 
