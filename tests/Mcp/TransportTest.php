@@ -4,33 +4,29 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Mcp;
 
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use WBoost\Web\Mcp\Transport\BufferStreamedResponse;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
-use WBoost\Web\Tests\TestingLogin;
 
 /**
  * Locks the FrankenPHP guard: `/_mcp` must never answer with a flushing
  * response, because under resident PHP that kills the NEXT request on the same
  * worker. See {@see \WBoost\Web\Mcp\Transport\BufferedMcpController}.
  *
- * The `/_mcp` requests below are made as a logged-in user: until Stage 1 adds
- * the `mcp` firewall the endpoint sits under `main`'s catch-all and an
- * anonymous POST is redirected to `/login`, never reaching the controller.
- * Swap this for token auth when S1-T3 lands.
+ * The `/_mcp` requests below authenticate with the MCP personal access token
+ * fixture (S1-T3 replaced the interim session login). The `mcp` firewall is
+ * stateless, so the header rides on every request — {@see TestingMcpClient}
+ * takes care of that. Authentication itself is covered by {@see AuthTest};
+ * here it is only the price of admission.
  */
 final class TransportTest extends WebTestCase
 {
-    private const string PROTOCOL_VERSION = '2025-06-18';
-
     public function testInitializeIsNotStreamed(): void
     {
         $client = self::createClient();
-        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
-        self::initialize($client);
+        TestingMcpClient::initialize($client, TestDataFixture::MCP_TOKEN_ACTIVE);
 
         $response = $client->getResponse();
 
@@ -42,19 +38,13 @@ final class TransportTest extends WebTestCase
     public function testToolsCallIsNotStreamed(): void
     {
         $client = self::createClient();
-        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
-        self::initialize($client);
+        $sessionId = TestingMcpClient::connect($client, TestDataFixture::MCP_TOKEN_ACTIVE);
 
-        $sessionId = $client->getResponse()->headers->get('Mcp-Session-Id');
-        self::assertIsString($sessionId);
-
-        self::jsonRpc($client, 'notifications/initialized', sessionId: $sessionId);
-
-        self::jsonRpc($client, 'tools/call', [
+        TestingMcpClient::request($client, 'tools/call', [
             'name' => 'transport_probe',
             'arguments' => ['value' => 'buffered'],
-        ], $sessionId);
+        ], $sessionId, TestDataFixture::MCP_TOKEN_ACTIVE);
 
         $response = $client->getResponse();
 
@@ -105,52 +95,5 @@ final class TransportTest extends WebTestCase
         self::assertSame('1.0', $buffered->getProtocolVersion());
         self::assertSame('text/event-stream', $buffered->headers->get('Content-Type'));
         self::assertSame('0198f2ab-0000-7000-8000-000000000000', $buffered->headers->get('Mcp-Session-Id'));
-    }
-
-    private static function initialize(KernelBrowser $client): void
-    {
-        self::jsonRpc($client, 'initialize', [
-            'protocolVersion' => self::PROTOCOL_VERSION,
-            'capabilities' => [],
-            'clientInfo' => ['name' => 'phpunit', 'version' => '1.0'],
-        ]);
-    }
-
-    /**
-     * @param array<string, mixed> $params
-     */
-    private static function jsonRpc(
-        KernelBrowser $client,
-        string $method,
-        array $params = [],
-        null|string $sessionId = null,
-    ): void {
-        $payload = ['jsonrpc' => '2.0', 'method' => $method];
-
-        // Notifications carry no id; requests do.
-        if (!str_starts_with($method, 'notifications/')) {
-            $payload['id'] = 1;
-        }
-
-        if ([] !== $params) {
-            $payload['params'] = $params;
-        }
-
-        $server = [
-            'CONTENT_TYPE' => 'application/json',
-            'HTTP_ACCEPT' => 'application/json, text/event-stream',
-        ];
-
-        if (null !== $sessionId) {
-            $server['HTTP_MCP_SESSION_ID'] = $sessionId;
-            $server['HTTP_MCP_PROTOCOL_VERSION'] = self::PROTOCOL_VERSION;
-        }
-
-        $client->request(
-            'POST',
-            '/_mcp',
-            server: $server,
-            content: json_encode($payload, \JSON_THROW_ON_ERROR),
-        );
     }
 }

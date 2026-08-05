@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace WBoost\Web\Repository;
 
 use DateTimeImmutable;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
+use Ramsey\Uuid\Doctrine\UuidType;
 use WBoost\Web\Entity\McpAccessToken;
 
 readonly final class McpAccessTokenRepository
@@ -47,5 +49,36 @@ readonly final class McpAccessTokenRepository
         assert($token instanceof McpAccessToken || $token === null);
 
         return $token;
+    }
+
+    /**
+     * Records that the token was just used.
+     *
+     * Deliberately a **DQL UPDATE, not a `flush()`**. The only caller is
+     * {@see \WBoost\Web\Mcp\Security\McpTokenAuthenticator}, which runs on
+     * `kernel.request` — long before the request has decided what it wants to
+     * persist. `flush()` there would commit the WHOLE unit of work as a side
+     * effect of authenticating, so a request that fails halfway could still
+     * leave partial writes behind. One statement in its own implicit
+     * transaction cannot: either this column moved or it did not, and a command
+     * handler rolling back its own `doctrine_transaction` later has no effect
+     * on it.
+     *
+     * The in-memory entity is kept in step with `markUsed()` so anything
+     * reading it in the same request sees the truth; should something else
+     * flush afterwards it merely re-writes the identical value.
+     */
+    public function touchLastUsed(McpAccessToken $token, DateTimeImmutable $now): void
+    {
+        $token->markUsed($now);
+
+        $this->entityManager->createQueryBuilder()
+            ->update(McpAccessToken::class, 't')
+            ->set('t.lastUsedAt', ':now')
+            ->where('t.id = :id')
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
+            ->setParameter('id', $token->id, UuidType::NAME)
+            ->getQuery()
+            ->execute();
     }
 }

@@ -17,10 +17,13 @@ use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Entity\McpAccessToken;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\RegistrationRequest;
 use WBoost\Web\Entity\SocialAccount;
+use WBoost\Web\Mcp\Security\McpScope;
+use WBoost\Web\Mcp\Security\McpTokenGenerator;
 use WBoost\Web\Services\Security\TokenCrypto;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\User;
@@ -82,6 +85,24 @@ final class TestDataFixture extends Fixture
     public const string OAUTH2_CLIENT_SECRET = 'testclientsecretbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
     public const string OAUTH2_INACTIVE_CLIENT_ID = 'testinactiveclientcccccccccccccc';
     public const string OAUTH2_INACTIVE_CLIENT_SECRET = 'testinactivesecretdddddddddddddddddddddddddddddddddddddddddddddd';
+
+    // MCP personal access tokens. The PLAINTEXT is a constant only because a
+    // test has to present it in an `Authorization` header — the fixture stores
+    // nothing but `McpTokenGenerator::hash()` of it, exactly like production.
+    // Every state the authenticator must distinguish gets its own row.
+    public const string MCP_TOKEN_ACTIVE_ID = '00000000-0000-0000-0000-0000000000e1';
+    public const string MCP_TOKEN_ACTIVE = 'wb_mcp_test-active-token-user1';
+
+    public const string MCP_TOKEN_REVOKED_ID = '00000000-0000-0000-0000-0000000000e2';
+    public const string MCP_TOKEN_REVOKED = 'wb_mcp_test-revoked-token-user1';
+
+    public const string MCP_TOKEN_EXPIRED_ID = '00000000-0000-0000-0000-0000000000e3';
+    public const string MCP_TOKEN_EXPIRED = 'wb_mcp_test-expired-token-user1';
+
+    // Belongs to the never-activated invitee — proves the firewall's UserChecker
+    // blocks a structurally valid token whose user may not log in.
+    public const string MCP_TOKEN_UNCONFIRMED_ID = '00000000-0000-0000-0000-0000000000e4';
+    public const string MCP_TOKEN_UNCONFIRMED = 'wb_mcp_test-token-unconfirmed-user';
 
     // Weekly Menu fixtures
     public const string WEEKLY_MENU_1_ID = '00000000-0000-0000-0000-000000000010';
@@ -723,6 +744,50 @@ final class TestDataFixture extends Fixture
         $inactiveClient->setActive(false);
         $inactiveClient->setGrants(new Grant(OAuth2Grants::CLIENT_CREDENTIALS));
         $manager->persist($inactiveClient);
+
+        // MCP access tokens — hashed through the production generator so the
+        // fixture can never drift from the format the authenticator expects.
+        $mcpTokens = new McpTokenGenerator();
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_ACTIVE_ID),
+            $user1,
+            'Test agent',
+            array_map(static fn (McpScope $scope): string => $scope->value, McpScope::cases()),
+            $mcpTokens->hash(self::MCP_TOKEN_ACTIVE),
+            $date,
+        ));
+
+        $revoked = new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_REVOKED_ID),
+            $user1,
+            'Revoked agent',
+            [McpScope::TemplatesRead->value],
+            $mcpTokens->hash(self::MCP_TOKEN_REVOKED),
+            $date,
+        );
+        $revoked->revoke($date->modify('+1 hour'));
+        $manager->persist($revoked);
+
+        // expiresAt is in 2024 — always in the past by the time a test runs.
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_EXPIRED_ID),
+            $user1,
+            'Expired agent',
+            [McpScope::TemplatesRead->value],
+            $mcpTokens->hash(self::MCP_TOKEN_EXPIRED),
+            $date,
+            $date->modify('+1 day'),
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_UNCONFIRMED_ID),
+            $invited,
+            'Agent of a never-activated account',
+            [McpScope::TemplatesRead->value],
+            $mcpTokens->hash(self::MCP_TOKEN_UNCONFIRMED),
+            $date,
+        ));
 
         $manager->flush();
     }
