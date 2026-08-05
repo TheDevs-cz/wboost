@@ -182,18 +182,14 @@
                 </div>
             </div>
 
-            {# Container ("smart text area") section — shown only when the
-               selected textbox is a container member (canvas-container). #}
+            {# Container membership — only the ELEMENT-specific action lives
+               here; the container itself (max. výška, mezery, vnoření,
+               zrušení) is configured in its zone's ⚙ popover on the canvas. #}
             <div class="d-none" data-canvas-container-target="section">
                 <hr class="my-2">
                 <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
-                <div class="my-2">
-                    <label for="container-max-height-control" class="form-label small">Max. výška (px)</label>
-                    <input type="number" id="container-max-height-control" min="20" class="form-control form-control-sm" data-canvas-container-target="maxHeightInput" data-action="input->canvas-container#updateMaxHeightFromInput">
-                </div>
-                <p class="text-muted small mb-2">Texty v kontejneru se při vyplňování posouvají podle délky textu nad nimi. Prvky přesouváte jednotlivě; celý kontejner přesunete tažením za jeho štítek, šířku a výšku upravíte úchyty na okrajích rámečku. Jednotnou mezeru mezi prvky nastavíte přes ⚙ na rámečku; výběrem prvků z více kontejnerů vytvoříte nadřazený kontejner (sekce se pak posouvají mezi sebou).</p>
-                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mb-1" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
-                <button type="button" class="btn btn-sm btn-outline-danger w-100" data-action="canvas-container#dissolveActiveContainer">Rozpustit kontejner</button>
+                <p class="text-muted small my-2">Tento text je součástí kontejneru. Nastavení kontejneru (max. výška, mezery, vnoření) najdete pod ⚙ na jeho rámečku na plátně.</p>
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
             </div>
         </div>
     </div>
@@ -278,19 +274,15 @@
                 <div class="alert alert-warning py-1 px-2 small mt-1 mb-0" role="alert" data-canvas-image-properties-target="warning" style="display: none;"></div>
             </div>
 
-            {# Container section for a DECORATIVE image member (ikona/oddělovač
-               v kontejneru) — mirrors the textbox popover's section; both are
-               plural canvas-container `section` targets. #}
+            {# Container membership for a DECORATIVE image member — mirrors the
+               textbox popover's section (both are plural `section` targets):
+               only the element-specific action, the container is configured
+               in its zone's ⚙ popover. #}
             <div class="d-none" data-canvas-container-target="section">
                 <hr class="my-2">
                 <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
-                <div class="my-2">
-                    <label for="container-max-height-control-image" class="form-label small">Max. výška (px)</label>
-                    <input type="number" id="container-max-height-control-image" min="20" class="form-control form-control-sm" data-canvas-container-target="maxHeightInput" data-action="input->canvas-container#updateMaxHeightFromInput">
-                </div>
-                <p class="text-muted small mb-2">Obrázek se posouvá spolu s textem, který překrývá (ikona řádku); obrázek mimo texty tvoří vlastní řádek toku.</p>
-                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mb-1" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
-                <button type="button" class="btn btn-sm btn-outline-danger w-100" data-action="canvas-container#dissolveActiveContainer">Rozpustit kontejner</button>
+                <p class="text-muted small my-2">Obrázek se posouvá spolu s textem, který překrývá (ikona řádku); obrázek mimo texty tvoří vlastní řádek toku. Nastavení kontejneru najdete pod ⚙ na jeho rámečku.</p>
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
             </div>
         </div>
     </div>

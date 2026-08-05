@@ -44,7 +44,7 @@ import { Controller } from "@hotwired/stimulus";
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["layer", "createButton", "section", "maxHeightInput"];
+    static targets = ["layer", "createButton", "section"];
 
     initialize() {
         // State lives in initialize(), NOT connect(): Stimulus may fire
@@ -314,30 +314,6 @@ export default class extends Controller {
         this.renderZones();
         canvas.fire('object:modified', {});
         this._syncSection(active);
-    }
-
-    dissolveActiveContainer() {
-        const canvas = this._canvas();
-        const active = canvas ? canvas.getActiveObject() : null;
-        const container = active && active.inputId ? this._containerOf(active.inputId) : null;
-        if (!container) return;
-        this._dissolve(container);
-        this._syncSection(active);
-    }
-
-    updateMaxHeightFromInput(event) {
-        const canvas = this._canvas();
-        const active = canvas ? canvas.getActiveObject() : null;
-        const container = active && active.inputId ? this._containerOf(active.inputId) : null;
-        if (!container) return;
-
-        const value = parseFloat(event && event.target ? event.target.value : NaN);
-        if (!(value > 0)) return;
-        // The bound lives on the ROOT of the tree — a nested container grows
-        // freely, so the field always edits the outermost limit.
-        this._rootOf(container).maxHeight = value;
-        this.repositionZones();
-        this.canvasEditorOutlet.markUnsaved();
     }
 
     _pruneRemoved(obj) {
@@ -769,7 +745,6 @@ export default class extends Controller {
             const dyCanvas = (e.clientY - startY) / g.scale;
             container.maxHeight = Math.max(20, Math.round(startMaxHeight + dyCanvas));
             this._positionZones();
-            this._syncSection();
             this._syncSettings();
         };
         const onUp = () => {
@@ -965,7 +940,6 @@ export default class extends Controller {
                 if (!(value > 0)) return;
                 container.maxHeight = value;
                 this.repositionZones();
-                this._syncSection();
                 this.canvasEditorOutlet.markUnsaved();
             });
             maxInput.addEventListener('change', () => {
@@ -984,6 +958,21 @@ export default class extends Controller {
             nestedHint.textContent = 'Vnořený kontejner roste podle obsahu — výšku omezuje vnější kontejner.';
             el.appendChild(nestedHint);
         }
+
+        // Dissolution lives here too — the ⚙ popover is the container's whole
+        // configuration surface (element popovers only carry the
+        // element-specific "Odebrat z kontejneru").
+        const dissolve = document.createElement('button');
+        dissolve.type = 'button';
+        dissolve.className = 'btn btn-sm btn-outline-danger w-100 mt-1';
+        dissolve.textContent = nested
+            ? 'Zrušit kontejner (prvky zůstanou v nadřazeném)'
+            : 'Zrušit kontejner (prvky zůstanou)';
+        dissolve.addEventListener('click', (event) => {
+            event.preventDefault();
+            this._dissolve(container);
+        });
+        el.appendChild(dissolve);
 
         this.layerTarget.appendChild(el);
         this._settingsEl = el;
@@ -1125,12 +1114,6 @@ export default class extends Controller {
             : null;
 
         this.sectionTargets.forEach((el) => el.classList.toggle('d-none', !container));
-        if (container) {
-            const root = this._rootOf(container);
-            this.maxHeightInputTargets.forEach((input) => {
-                input.value = String(Math.round(root.maxHeight));
-            });
-        }
     }
 
     _syncCreateButton(activeObject) {
