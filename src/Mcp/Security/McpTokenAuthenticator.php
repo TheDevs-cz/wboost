@@ -6,7 +6,6 @@ namespace WBoost\Web\Mcp\Security;
 
 use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -28,7 +27,8 @@ use WBoost\Web\Repository\McpAccessTokenRepository;
  * It resolves a real {@see User}, so every voter downstream keeps deciding what
  * that user may touch; the token's `scopes` are stashed on the security token
  * as a SECOND, narrowing axis for {@see McpScopeChecker} (effective permission
- * = role ∩ scope). Nothing here gates tools — that is S1-T6's job.
+ * = role ∩ scope). Nothing here gates tools — {@see McpToolGate} and its two
+ * consumers do that, one layer up.
  *
  * ## OAuth-shaped failures
  *
@@ -42,7 +42,9 @@ use WBoost\Web\Repository\McpAccessTokenRepository;
  * gets the bare challenge (no `error=`), a request whose `wb_mcp_` token did not
  * resolve gets `error="invalid_token"`. Both are 401 — never the 302 to
  * `/login` that `main`'s `form_login` entry point would produce, which is why
- * this authenticator is also the `mcp` firewall's entry point.
+ * this authenticator is also the `mcp` firewall's entry point. The wire format
+ * itself lives in {@see McpChallenge}, shared with the 403 the scope gate
+ * emits, so the two can never drift apart.
  *
  * ## `supports()` is the cheap filter
  *
@@ -54,10 +56,11 @@ use WBoost\Web\Repository\McpAccessTokenRepository;
 final class McpTokenAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
     /**
-     * RFC 9728 resource metadata, served by S1-T4. The authenticator only needs
-     * the PATH — the absolute URL is derived per request (see
-     * {@see resourceMetadataUrl()}), so the challenge is correct on
-     * `localhost:8080` and on `https://wboost.cz` without a configured base URL.
+     * RFC 9728 resource metadata, served by S1-T4. Only the PATH is fixed — the
+     * absolute URL is derived per request by {@see McpChallenge}, so the
+     * challenge is correct on `localhost:8080` and on `https://wboost.cz`
+     * without a configured base URL. The route that answers it is declared with
+     * this same constant.
      */
     public const string RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource';
 
@@ -79,6 +82,7 @@ final class McpTokenAuthenticator extends AbstractAuthenticator implements Authe
         private readonly McpAccessTokenRepository $accessTokens,
         private readonly McpTokenGenerator $tokenGenerator,
         private readonly ClockInterface $clock,
+        private readonly McpChallenge $challenge,
     ) {
     }
 
@@ -154,7 +158,11 @@ final class McpTokenAuthenticator extends AbstractAuthenticator implements Authe
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
     {
-        return $this->challenge($request, 'invalid_token', 'The MCP access token is invalid, expired or revoked.');
+        return $this->challenge->unauthorized(
+            $request,
+            'invalid_token',
+            'The MCP access token is invalid, expired or revoked.',
+        );
     }
 
     /**
@@ -163,7 +171,7 @@ final class McpTokenAuthenticator extends AbstractAuthenticator implements Authe
      */
     public function start(Request $request, null|AuthenticationException $authException = null): Response
     {
-        return $this->challenge(
+        return $this->challenge->unauthorized(
             $request,
             null,
             'An MCP access token is required: Authorization: Bearer ' . McpTokenGenerator::TOKEN_PREFIX . '…',
@@ -200,43 +208,5 @@ final class McpTokenAuthenticator extends AbstractAuthenticator implements Authe
         }
 
         $this->accessTokens->touchLastUsed($accessToken, $now);
-    }
-
-    /**
-     * RFC 9728 §5.1 challenge: quoted values, comma-separated. `error` is
-     * omitted when nothing was presented (RFC 6750 §3.1 — an error code implies
-     * a request that actually tried).
-     */
-    private function challenge(Request $request, null|string $error, string $description): Response
-    {
-        $parameters = [];
-
-        if ($error !== null) {
-            $parameters[] = sprintf('error="%s"', $error);
-        }
-
-        $parameters[] = sprintf('resource_metadata="%s"', $this->resourceMetadataUrl($request));
-        $parameters[] = sprintf('scope="%s"', McpScope::TemplatesRead->value);
-
-        return new JsonResponse(
-            [
-                'error' => $error ?? 'unauthorized',
-                'error_description' => $description,
-            ],
-            Response::HTTP_UNAUTHORIZED,
-            ['WWW-Authenticate' => 'Bearer ' . implode(', ', $parameters)],
-        );
-    }
-
-    /**
-     * Built from the live request, not from a configured host: the same code has
-     * to emit `http://localhost:8080/...` for local docker compose and
-     * `https://wboost.cz/...` in production. `getSchemeAndHttpHost()` rather
-     * than `getUriForPath()` on purpose — a `.well-known` URI is defined
-     * relative to the HOST root (RFC 8615) and must not inherit a base path.
-     */
-    private function resourceMetadataUrl(Request $request): string
-    {
-        return $request->getSchemeAndHttpHost() . self::RESOURCE_METADATA_PATH;
     }
 }

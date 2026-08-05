@@ -104,6 +104,18 @@ final class TestDataFixture extends Fixture
     public const string MCP_TOKEN_UNCONFIRMED_ID = '00000000-0000-0000-0000-0000000000e4';
     public const string MCP_TOKEN_UNCONFIRMED = 'wb_mcp_test-token-unconfirmed-user';
 
+    // Narrow tokens for the tool gate (S1-T6). Both belong to the SAME user as
+    // MCP_TOKEN_ACTIVE on purpose: whatever they cannot do is the SCOPE talking,
+    // not the roles — effective permission = role ∩ scope, and these two isolate
+    // the second half of that.
+    public const string MCP_TOKEN_READ_ONLY_ID = '00000000-0000-0000-0000-0000000000e5';
+    public const string MCP_TOKEN_READ_ONLY = 'wb_mcp_test-read-only-token-user1';
+
+    // `templates:design` ONLY — no `templates:read` of its own, so every read
+    // tool it reaches, it reaches through the implication closure.
+    public const string MCP_TOKEN_DESIGN_ONLY_ID = '00000000-0000-0000-0000-0000000000e6';
+    public const string MCP_TOKEN_DESIGN_ONLY = 'wb_mcp_test-design-only-token-user1';
+
     // Weekly Menu fixtures
     public const string WEEKLY_MENU_1_ID = '00000000-0000-0000-0000-000000000010';
     public const string WEEKLY_MENU_DAY_1_ID = '00000000-0000-0000-0000-000000000011';
@@ -786,6 +798,24 @@ final class TestDataFixture extends Fixture
             'Agent of a never-activated account',
             [McpScope::TemplatesRead->value],
             $mcpTokens->hash(self::MCP_TOKEN_UNCONFIRMED),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_READ_ONLY_ID),
+            $user1,
+            'Read-only agent',
+            [McpScope::TemplatesRead->value],
+            $mcpTokens->hash(self::MCP_TOKEN_READ_ONLY),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_DESIGN_ONLY_ID),
+            $user1,
+            'Design-only agent',
+            [McpScope::TemplatesDesign->value],
+            $mcpTokens->hash(self::MCP_TOKEN_DESIGN_ONLY),
             $date,
         ));
 

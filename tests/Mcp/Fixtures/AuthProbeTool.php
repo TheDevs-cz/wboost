@@ -9,6 +9,7 @@ use Symfony\Bundle\SecurityBundle\Security;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpScopeChecker;
+use WBoost\Web\Mcp\Security\McpToolScope;
 
 /**
  * Reports WHO the current `/_mcp` request authenticated as, and with which
@@ -22,7 +23,12 @@ use WBoost\Web\Mcp\Security\McpScopeChecker;
  *
  * It doubles as the proof of the S1-T2 seam — the scopes it lists come from
  * {@see McpScopeChecker}, i.e. from the attribute the authenticator stashed.
+ *
+ * Scoped `templates:read` because S1-T6 denies any tool that declares nothing;
+ * `AuthTest` drives it with the all-scopes fixture token, so the gate is not
+ * what that test is measuring.
  */
+#[McpToolScope(McpScope::TemplatesRead)]
 final class AuthProbeTool
 {
     public function __construct(
