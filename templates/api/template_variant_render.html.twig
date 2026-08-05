@@ -187,14 +187,21 @@
                 // types. A value WITH list lines is laid out as a BLOCK STACK
                 // replacing the designed textbox: paragraph textboxes at full
                 // width, list items as indented textboxes (hanging indent)
-                // with a bullet object each, all wrapped in a Group that
-                // inherits the textbox's inputId. The original textbox stays
-                // the container engine's member reference — it points at the
-                // group via wboostReplacedBy, which the engine resolves when
-                // reading heights / writing tops (phase A already snapshotted
-                // the DESIGNED geometry from the original). The maps are
-                // disjoint (renderer-side split), so no object gets both
-                // treatments.
+                // with a bullet object each — placed as LOOSE canvas objects
+                // at the textbox's stack position. Deliberately NOT a Fabric
+                // Group: v7's Group constructor re-interprets each child's
+                // left/top as its CENTER (origin flips to center, numbers
+                // kept), shifting every child up-left by half its size — for
+                // a print-width item textbox that pushed the text fully off
+                // canvas (verified empirically against the real bundle via a
+                // Gotenberg diagnostic). The original textbox stays the
+                // container engine's member reference — it points at a small
+                // SYNTHETIC handle via wboostReplacedBy ({height, set(top/
+                // left/visible)} moving all stack objects together), which
+                // the engine resolves when reading heights / writing tops
+                // (phase A already snapshotted the DESIGNED geometry from the
+                // original). The maps are disjoint (renderer-side split), so
+                // no object gets both treatments.
                 const buildListStack = async (obj, runs, lines, config) => {
                     const blocks = WBoostRichTextBlocks.groupBlocks(runs, lines);
                     const base = {
@@ -211,6 +218,14 @@
                     const boxes = [];
                     const measure = (fragmentRuns, width) => {
                         const box = new fabric.Textbox('', {
+                            // Fabric v7 defaults originX/originY to CENTER —
+                            // designed objects carry their serialized 'left'/
+                            // 'top', but every freshly constructed object must
+                            // set them explicitly or it renders shifted by
+                            // half its own size (the "bullets without text"
+                            // bug: a print-width item box lands off-canvas).
+                            originX: 'left',
+                            originY: 'top',
                             width: width,
                             fontFamily: base.fontFamily,
                             fontSize: base.fontSize,
@@ -258,6 +273,8 @@
                             const size = Math.round(base.fontSize * 0.9);
                             const ImageClass = fabric.FabricImage || fabric.Image;
                             children.push(new ImageClass(bulletImageEl, {
+                                originX: 'left',
+                                originY: 'top',
                                 left: obj.left + element.left,
                                 top: obj.top + element.top + Math.max(0, (firstLine - size) / 2),
                                 scaleX: size / (bulletImageEl.naturalWidth || 1),
@@ -270,6 +287,8 @@
                         const lead = WBoostRichTextBlocks.itemLeadStyle(element.item);
                         const TextClass = fabric.FabricText || fabric.Text;
                         children.push(new TextClass(text === null ? '•' : text, {
+                            originX: 'left',
+                            originY: 'top',
                             left: obj.left + element.left,
                             top: obj.top + element.top,
                             fontFamily: lead.fontFamily || base.fontFamily,
@@ -280,17 +299,45 @@
                         }));
                     });
 
-                    const group = new fabric.Group(children);
-                    group.inputId = obj.inputId;
-                    group.set({ visible: obj.visible !== false });
+                    const designVisible = obj.visible !== false;
+                    children.forEach((child) => { child.visible = designVisible; });
 
                     const index = canvas.getObjects().indexOf(obj);
-                    canvas.add(group);
-                    if (index >= 0) {
-                        canvas.moveObjectTo(group, index);
-                    }
                     canvas.remove(obj);
-                    obj.wboostReplacedBy = group;
+                    canvas.add(...children);
+                    if (index >= 0) {
+                        children.forEach((child, i) => canvas.moveObjectTo(child, index + i));
+                    }
+
+                    // Synthetic engine handle: quacks like the one object the
+                    // container engine expects (height read via
+                    // displayedHeight, top/left writes via setObjectProps,
+                    // fill-hide via set({visible})) and forwards every move
+                    // to ALL stack objects together.
+                    obj.wboostReplacedBy = {
+                        height: layout.height,
+                        scaleY: 1,
+                        visible: designVisible,
+                        top: obj.top,
+                        left: obj.left,
+                        set(props) {
+                            if (typeof props.top === 'number') {
+                                const dy = props.top - this.top;
+                                this.top = props.top;
+                                children.forEach((child) => { child.top += dy; child.setCoords(); });
+                            }
+                            if (typeof props.left === 'number') {
+                                const dx = props.left - this.left;
+                                this.left = props.left;
+                                children.forEach((child) => { child.left += dx; child.setCoords(); });
+                            }
+                            if (typeof props.visible === 'boolean') {
+                                this.visible = props.visible;
+                                children.forEach((child) => { child.visible = props.visible; });
+                            }
+                        },
+                        setCoords() {},
+                    };
                 };
 
                 for (const idKey of Object.keys(richTextOverrides)) {
