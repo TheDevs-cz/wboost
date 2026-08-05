@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\SocialNetwork;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemReader;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use WBoost\Web\Services\Image\NormalizeImageFormat;
 
 /**
  * Reads font and image binaries from the upload filesystem and produces base64
@@ -20,6 +21,7 @@ readonly final class AssetInliner
     public function __construct(
         #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
         private FilesystemReader $filesystem,
+        private NormalizeImageFormat $normalizeImageFormat,
     ) {
     }
 
@@ -43,6 +45,11 @@ readonly final class AssetInliner
      * Returns null when the file is missing or not a dimension-bearing raster
      * image (e.g. SVG — unsupported as a placeholder fill in v1).
      *
+     * The bytes go through {@see NormalizeImageFormat}, so a format Chromium
+     * cannot paint (a HEIC uploaded before uploads were normalised, say) is
+     * transcoded on the fly instead of failing the export, and the data URI's
+     * mime type always describes the actual bytes rather than the file name.
+     *
      * @return null|array{dataUri: string, width: int, height: int}
      */
     public function inlineImageWithDimensions(string $path): null|array
@@ -53,15 +60,15 @@ readonly final class AssetInliner
             return null;
         }
 
-        $size = @getimagesizefromstring($contents);
-        if ($size === false) {
+        $normalized = $this->normalizeImageFormat->normalize($contents);
+        if ($normalized === null) {
             return null;
         }
 
         return [
-            'dataUri' => sprintf('data:%s;base64,%s', $this->imageMimeType($path), base64_encode($contents)),
-            'width' => $size[0],
-            'height' => $size[1],
+            'dataUri' => sprintf('data:%s;base64,%s', $normalized['mimeType'], base64_encode($normalized['contents'])),
+            'width' => $normalized['width'],
+            'height' => $normalized['height'],
         ];
     }
 

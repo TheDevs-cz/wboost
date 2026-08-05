@@ -11,6 +11,7 @@ use Ramsey\Uuid\Uuid;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Services\Image\NormalizeImageFormat;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
@@ -186,7 +187,7 @@ final class ResolveImageOverridesTest extends TestCase
 
         return new ResolveImageOverrides(
             new FileUploadRepository($entityManager),
-            new AssetInliner($this->createStub(FilesystemReader::class)),
+            new AssetInliner($this->createStub(FilesystemReader::class), new NormalizeImageFormat()),
             new PlaceholderAllowedDirectories(new FileDirectoryRepository($entityManager)),
         );
     }

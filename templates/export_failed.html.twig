@@ -1,0 +1,37 @@
+{#
+    Shown when an export cannot be rendered because of what the user filled in
+    (an unsupported image, a value the renderer refuses) — i.e. a 400, not a
+    crash. The generic error page would say "Něco se pokazilo" and offer a link
+    to the homepage, which throws the whole filled-in form away; the message
+    plus a Back button keeps the reason visible AND the form values restorable
+    (the browser re-populates the previous page from history).
+#}
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'templates' %}
+
+{% block title %}Export se nezdařil{% endblock %}
+
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="mdi mdi-image-broken-variant text-danger" style="font-size: 2.5rem;"></i>
+
+                    <h4 class="mt-2 mb-1">Export se nezdařil</h4>
+
+                    <p class="text-muted mb-1">Zkontrolujte vyplněné hodnoty a zkuste to znovu.</p>
+                    <p class="text-muted small mb-4">{{ reason }}</p>
+
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <button type="button" class="btn btn-primary rounded-pill" onclick="history.back()">
+                            <i class="mdi mdi-arrow-left"></i> Zpět k vyplnění
+                        </button>
+                        <a href="{{ back_url }}" class="btn btn-outline-secondary rounded-pill">Začít znovu</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -8,6 +8,7 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
@@ -37,13 +38,25 @@ final class TemplateGroupExportController extends AbstractController
     ) {
     }
 
-    #[Route(path: '/template-group/{groupId}/export', name: 'template_group_export', methods: ['POST'])]
+    /**
+     * GET is accepted only to send the visitor back to the fill page. The
+     * export is a form POST whose response is a download, so this URL never
+     * shows up in the address bar of a healthy flow — but a failed export used
+     * to leave it there, and reloading or revisiting that page then raised a
+     * 405 with no way forward. A redirect is the honest answer to "I typed the
+     * export URL": the fill page is where an export starts.
+     */
+    #[Route(path: '/template-group/{groupId}/export', name: 'template_group_export', methods: ['GET', 'POST'])]
     #[IsGranted(TemplateGroupVoter::VIEW, 'group')]
     public function __invoke(
         #[MapEntity(id: 'groupId')]
         TemplateGroup $group,
         Request $request,
     ): Response {
+        if (!$request->isMethod(Request::METHOD_POST)) {
+            return $this->redirectToRoute('template_group_fill', ['groupId' => $group->id]);
+        }
+
         $variants = $this->members->variants($group->id);
 
         if ($variants === []) {
@@ -61,7 +74,21 @@ final class TemplateGroupExportController extends AbstractController
         $files = [];
 
         foreach ($variants as $variant) {
-            $bytes = $this->groupFillRenderer->renderPng($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements);
+            try {
+                $bytes = $this->groupFillRenderer->renderPng($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements);
+            } catch (BadRequestHttpException $e) {
+                // The fill values are not renderable (an unreadable image, a
+                // value the resolver refuses). That is the user's input, not a
+                // crash: show them the reason on a page they can go BACK from
+                // with the form still filled in, instead of the generic
+                // "something went wrong" screen.
+                return $this->render('export_failed.html.twig', [
+                    'project' => $group->project,
+                    'menu_item' => 'templates',
+                    'reason' => $e->getMessage(),
+                    'back_url' => $this->generateUrl('template_group_fill', ['groupId' => $group->id]),
+                ], new Response(status: Response::HTTP_BAD_REQUEST));
+            }
 
             $baseName = sprintf('%s-%s', $groupSlug, $this->dimensionSlug($variant));
             $fileName = "$baseName.png";

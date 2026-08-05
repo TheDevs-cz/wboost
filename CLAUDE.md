@@ -722,6 +722,27 @@ PHP/Caddy allow 50 MB (`upload_max_filesize`/`post_max_size` come from the
 `ghcr.io/thedevs-cz/php` base image, not this repo), so the app-level limit is
 the only thing in play.
 
+### Gallery uploads are format-normalized (`NormalizeImageFormat`)
+
+A gallery picture has to survive THREE readers: `getimagesizefromstring()` (the
+natural-size read behind every placeholder fill), a browser `<img>` (thumbnails,
+the fill page's live Fabric preview) and Gotenberg's headless Chromium (the
+export). PNG / JPEG / GIF / WebP pass all three; **HEIC/HEIF — the default
+iPhone camera format — passes none of them** (PHP sizes a real iPhone capture to
+`false`, Chrome paints nothing), which shipped as a broken thumbnail plus a 400
+"could not be read or is not a supported raster image" at export time.
+
+So `UploadFileHandler` — the single chokepoint behind BOTH the gallery form and
+the placeholder upload endpoints — runs every upload through
+`Services/Image/NormalizeImageFormat`: web-safe rasters pass byte-for-byte,
+anything else Imagick can decode is transcoded (PNG when it has alpha, else
+JPEG q90, EXIF orientation baked in and the ICC profile preserved), and the
+stored extension always describes the BYTES, never the client's file name. SVG
+is deliberately refused by the normalizer and stored untouched — it stays vector
+everywhere (logos, backgrounds). `AssetInliner::inlineImageWithDimensions` runs
+the same normalizer at render time, so files uploaded before this (and any other
+format Chromium can't paint) still export.
+
 ### Storage inventory — admin usage/orphan report
 
 `/admin/usage` carries a **Úložiště** section (bytes per project, rolled up per

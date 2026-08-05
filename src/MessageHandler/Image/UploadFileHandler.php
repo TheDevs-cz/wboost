@@ -14,6 +14,7 @@ use WBoost\Web\Message\Image\UploadFile;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\Image\NormalizeImageFormat;
 
 #[AsMessageHandler]
 readonly final class UploadFileHandler
@@ -24,6 +25,7 @@ readonly final class UploadFileHandler
         private ProjectRepository $projectRepository,
         private Filesystem $filesystem,
         private ClockInterface $clock,
+        private NormalizeImageFormat $normalizeImageFormat,
     )
     {
     }
@@ -41,10 +43,25 @@ readonly final class UploadFileHandler
             : null;
 
         $file = $message->file;
+        $contents = $file->getContent();
 
-        $extension = $file->getClientOriginalExtension();
+        // The single chokepoint every gallery upload passes through (the
+        // project gallery form AND the placeholder upload endpoints), so it is
+        // where a picture is made readable by the rest of the app: a HEIC
+        // straight off an iPhone becomes a JPEG here, and the extension always
+        // describes the bytes rather than the name the client happened to send.
+        // A non-raster upload (SVG above all) is stored untouched.
+        $normalized = $this->normalizeImageFormat->normalize($contents);
+
+        if ($normalized !== null) {
+            $contents = $normalized['contents'];
+            $extension = $normalized['extension'];
+        } else {
+            $extension = strtolower($file->getClientOriginalExtension());
+        }
+
         $filePath = "file-upload/{$project->id}/{$message->fileId}.$extension";
-        $this->filesystem->write($filePath, $file->getContent());
+        $this->filesystem->write($filePath, $contents);
 
         $image = new FileUpload(
             $message->fileId,

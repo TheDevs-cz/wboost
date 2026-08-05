@@ -625,6 +625,12 @@ For each image slot, let the user pick a picture (and, if allowed, position it):
    **`400`** — check the size client-side before posting so the user gets a
    useful message instead of a bare 400.
 
+   **Format:** PNG / JPEG / GIF / WebP are stored as sent; anything else raster
+   (**HEIC/HEIF above all — the default iPhone camera format**) is transcoded to
+   JPEG on upload, so the returned `url` may carry a different extension than the
+   file you posted. Accept `image/*` in your picker and let the server sort it
+   out; don't reject HEIC client-side.
+
    `directoryId` rules — render the slot's `directories` (+ a "Galerie" root
    option when `includesRoot`) as a folder select next to the upload control:
    - several folders in `directories` (restricted slot) → `directoryId`

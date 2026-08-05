@@ -8,6 +8,7 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
@@ -40,7 +41,9 @@ final class TemplateVariantDownloadController extends AbstractController
     #[Route(
         path: '/template-variant/{variantId}/download',
         name: 'template_variant_download',
-        methods: ['POST'],
+        // GET only bounces back to the fill page — see the group export
+        // controller for why a download URL ever gets visited directly.
+        methods: ['GET', 'POST'],
     )]
     #[IsGranted(TemplateVariantVoter::VIEW, 'variant')]
     public function __invoke(
@@ -48,6 +51,10 @@ final class TemplateVariantDownloadController extends AbstractController
         TemplateVariant $variant,
         Request $request,
     ): Response {
+        if (!$request->isMethod(Request::METHOD_POST)) {
+            return $this->redirectToRoute('template_variant_export', ['variantId' => $variant->id]);
+        }
+
         $rawTextValues = $request->request->all('textValues');
         $rawHiddenValues = $request->request->all('hiddenValues');
 
@@ -71,17 +78,28 @@ final class TemplateVariantDownloadController extends AbstractController
             $providedValues[$key]['hide'] = true;
         }
 
-        $overrides = $this->resolveTextOverrides->resolve(
-            $variant->inputs,
-            $providedValues,
-            truncateOverflow: true,
-            richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        );
-        $imageOverrides = $this->resolveImageOverrides->resolve(
-            $variant->imageInputs,
-            $variant->template->project->id,
-            $this->parseImageValues($request),
-        );
+        try {
+            $overrides = $this->resolveTextOverrides->resolve(
+                $variant->inputs,
+                $providedValues,
+                truncateOverflow: true,
+                richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
+            );
+            $imageOverrides = $this->resolveImageOverrides->resolve(
+                $variant->imageInputs,
+                $variant->template->project->id,
+                $this->parseImageValues($request),
+            );
+        } catch (BadRequestHttpException $e) {
+            // Unrenderable fill values are the user's input, not a crash — show
+            // the reason on a page they can go BACK from with the form intact.
+            return $this->render('export_failed.html.twig', [
+                'project' => $variant->template->project,
+                'menu_item' => 'templates',
+                'reason' => $e->getMessage(),
+                'back_url' => $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
+            ], new Response(status: Response::HTTP_BAD_REQUEST));
+        }
 
         $response = $this->renderer->render($variant, $overrides, $imageOverrides);
         $response->headers->set('Content-Type', 'image/png');

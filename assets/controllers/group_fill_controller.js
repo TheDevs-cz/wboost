@@ -53,6 +53,7 @@ export default class extends Controller {
     initialize() {
         this.refreshTimer = null;
         this.exportTimer = null;
+        this.exportButtonHtml = null;
         // Keyed by preview endpoint URL (one per variant).
         this.aborters = new Map();
         this.objectUrls = new Map();
@@ -71,9 +72,17 @@ export default class extends Controller {
             this.sharedPlacement[slot.inputId] = { ...NEUTRAL_PLACEMENT };
         });
         this.renderGhosts();
+
+        // Coming BACK to this page (the export failed and the user pressed
+        // Back) restores the DOM exactly as it was left — mid-export, i.e. with
+        // a disabled button spinning "Generuji ZIP…". Reset it, or the retry
+        // they came back for looks impossible.
+        this._onPageShow = (event) => event.persisted && this.exportFinished();
+        window.addEventListener('pageshow', this._onPageShow);
     }
 
     disconnect() {
+        window.removeEventListener('pageshow', this._onPageShow);
         clearTimeout(this.refreshTimer);
         clearTimeout(this.exportTimer);
         this.aborters.forEach((aborter) => aborter.abort());
@@ -150,7 +159,7 @@ export default class extends Controller {
         }
 
         const button = this.exportButtonTarget;
-        const originalHtml = button.innerHTML;
+        this.exportButtonHtml ??= button.innerHTML;
 
         setTimeout(() => {
             button.disabled = true;
@@ -158,10 +167,17 @@ export default class extends Controller {
         }, 0);
 
         clearTimeout(this.exportTimer);
-        this.exportTimer = setTimeout(() => {
-            button.disabled = false;
-            button.innerHTML = originalHtml;
-        }, 20000);
+        this.exportTimer = setTimeout(() => this.exportFinished(), 20000);
+    }
+
+    exportFinished() {
+        if (!this.hasExportButtonTarget || this.exportButtonHtml === null) {
+            return;
+        }
+
+        clearTimeout(this.exportTimer);
+        this.exportButtonTarget.disabled = false;
+        this.exportButtonTarget.innerHTML = this.exportButtonHtml;
     }
 
     refreshAll() {

@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Services\Image\NormalizeImageFormat;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
@@ -100,7 +101,7 @@ final class TemplateVariantImageRendererTest extends TestCase
         $renderer = new TemplateVariantImageRenderer(
             $this->createStub(GotenbergScreenshotInterface::class),
             new GetFonts($this->createStub(EntityManagerInterface::class)),
-            new AssetInliner($this->createStub(FilesystemReader::class)),
+            new AssetInliner($this->createStub(FilesystemReader::class), new NormalizeImageFormat()),
             $geometry,
             new TextInputObjectBinder($geometry),
             new ImagePlacement(),

@@ -194,6 +194,49 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         }
     }
 
+    /**
+     * The export is a POST whose response is a download, so this URL only ends
+     * up in the address bar when something went wrong. Answering a later
+     * reload/revisit with 405 stranded the user (and filled Sentry); the fill
+     * page is where an export starts.
+     */
+    public function testGetSendsTheVisitorBackToTheFillPage(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('GET', $this->exportUrl());
+
+        self::assertResponseRedirects('/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/fill');
+        self::assertSame([], $this->getRendererFake()->calls, 'a GET must not render anything');
+    }
+
+    /**
+     * Values the renderer refuses are the user's input, not a crash: the reason
+     * has to be visible on a page they can go BACK from with the form intact,
+     * instead of the generic "something went wrong" screen.
+     */
+    public function testUnrenderableFillShowsTheReasonInsteadOfTheGenericErrorPage(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $crawler = $client->request('POST', $this->exportUrl(), [
+            'images' => [
+                // A row whose storage object cannot be read as a picture — the
+                // very failure the HEIC upload produced in production.
+                TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID => [
+                    'imageId' => TestDataFixture::FILE_IN_OTHER_ID,
+                ],
+            ],
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('Export se nezdařil', $crawler->filter('body')->text());
+        self::assertStringContainsString('could not be read', $crawler->filter('body')->text());
+        self::assertNotSame('application/zip', $client->getResponse()->headers->get('Content-Type'));
+    }
+
     public function testExportIsForbiddenForUnrelatedUser(): void
     {
         // Export follows the fill page's project-VIEW gate — the owner and
