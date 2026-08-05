@@ -2796,3 +2796,37 @@ button.fill-layer-row__main:focus-visible {
     font-size: 11px;
     text-align: center;
 }
+
+/* Photoshop-style navigator mini-map (canvas_navigator_controller): fixed
+   bottom-right, auto-hidden while the whole canvas is visible. The rect is
+   the viewport marker; panning happens on the map itself. */
+.canvas-navigator {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 1030;
+    padding: 6px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.canvas-navigator__map {
+    position: relative;
+    line-height: 0;
+    cursor: crosshair;
+    background: #f1f3fa;
+}
+
+.canvas-navigator__map canvas {
+    display: block;
+}
+
+.canvas-navigator__rect {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px solid #727cf5;
+    background: rgba(114, 124, 245, 0.12);
+    pointer-events: none;
+}

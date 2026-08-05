@@ -39,7 +39,7 @@
 
     <div
         id="canvas-container"
-        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers"
+        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator"
         {# Canvas-mode only: layer-mode backgrounds live inside the canvas JSON
            as an isBackground object — a canvas-level override would shadow them. #}
         data-canvas-editor-background-image-value="{{ variant.backgroundMode.value == 'canvas' and variant.backgroundImage ? uploaded_asset(variant.backgroundImage) }}"
@@ -59,6 +59,7 @@
         data-canvas-layers-canvas-floating-toolbar-outlet="#canvas-container"
         data-canvas-snapping-canvas-editor-outlet="#canvas-container"
         data-canvas-rulers-canvas-editor-outlet="#canvas-container"
+        data-canvas-navigator-canvas-editor-outlet="#canvas-container"
         data-action="
             canvas-editor:selection:changed->canvas-clipboard#onSelectionChanged
             canvas-editor:selection:changed->canvas-text-toolbar#updateFromSelection
@@ -76,6 +77,8 @@
             canvas-zoom:changed->canvas-floating-toolbar#reposition
             canvas-zoom:changed->canvas-container#repositionZones
             canvas-zoom:changed->canvas-rulers#refresh
+            canvas-zoom:changed->canvas-navigator#refresh
+            canvas-editor:canvas:loaded->canvas-navigator#refresh
             canvas-editor:canvas:loaded->canvas-rulers#onCanvasLoaded
             canvas-editor:canvas:loaded->canvas-zoom#fitToScreen
             canvas-editor:copy->canvas-clipboard#copy

@@ -295,3 +295,13 @@
 <p class="text-muted small mt-2 mb-0">
     <i class="mdi mdi-gesture-tap-button me-1"></i>Alt/⌥ + tažení: výběr oblasti i přes objekty&ensp;·&ensp;Ctrl/⌘ + tažení: uchopí objekt pod kurzorem (i obrázek přes celé plátno)&ensp;·&ensp;Esc: zrušit výběr
 </p>
+
+{# Photoshop-style navigator (canvas_navigator_controller): fixed mini-map
+   with the visible-area rectangle; click/drag pans by scrolling the window.
+   Auto-hidden while the whole canvas fits the viewport. #}
+<div class="canvas-navigator d-none" data-canvas-navigator-target="panel">
+    <div class="canvas-navigator__map" data-action="mousedown->canvas-navigator#beginPan">
+        <canvas data-canvas-navigator-target="thumb" aria-label="Navigátor plátna"></canvas>
+        <div class="canvas-navigator__rect" data-canvas-navigator-target="rect"></div>
+    </div>
+</div>
