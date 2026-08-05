@@ -210,6 +210,11 @@ export default class extends Controller {
             this._normalizeDesign();
             this.renderZones();
         }
+        // Moving the selection elsewhere (a Vrstvy click opening its element
+        // popover, clicking another object, Esc) dismisses an open container
+        // settings popover. The panel-row / dblclick openers are unaffected:
+        // their selection events fire synchronously BEFORE they open it.
+        this._closeSettings();
         this._syncSection(active);
         this._syncCreateButton(active);
     }
