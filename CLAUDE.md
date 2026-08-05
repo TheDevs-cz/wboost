@@ -429,9 +429,19 @@ the property controllers above only populate/mutate their (relocated) fields.
 - The chrome lives in an **unscaled** overlay: `.canvas-stage` (position:relative)
   wraps the CSS-`scale()`-zoomed `.canvas-wrapper` and is the `layer` target.
   The stage itself sits inside the `.canvas-viewport` SCROLL CONTAINER
-  (`overflow: auto`, max-height = visible band below the sticky header, sized
-  by `canvas_zoom_controller`): panning a zoomed-in canvas scrolls the
-  viewport, never the page, so the left panel and the toolbar stay put — the
+  (`overflow: auto`), which flexes to fill the **app shell**: on lg+ the editor
+  root (`.editor-shell`) is sized by `canvas_zoom_controller` to end at the
+  window bottom and the page is PINNED (`body.editor-shell-page {overflow:
+  hidden}`, class toggled by the same controller, released below
+  `MIN_SHELL_HEIGHT` so a short window can still scroll). Do NOT try to derive
+  the height from `document.scrollHeight` — the shell's own overflow, and in
+  dev a whole exception page the debug toolbar appends when its request errors,
+  both read as "chrome below the shell" and collapse it to its floor. Panning a
+  zoomed-in canvas scrolls the viewport, never the page, so the left panel and
+  the toolbar stay put (that is also why the editors drop the `page_title_row`
+  block and the pointer-modifier cheatsheet lives in the "Nápověda" modal
+  instead of under the canvas — with a pinned shell every pixel above the stage
+  is canvas height the designer loses) — the
   navigator pans by scrolling it, and floating chrome must clamp within the
   viewport box (`_chromeBounds()`), because anything positioned past its edges
   is clipped by the overflow. The `.canvas-wrapper` carries `vertical-align:
