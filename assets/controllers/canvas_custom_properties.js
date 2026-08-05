@@ -10,8 +10,10 @@
 // per-slot user limits; allowedDirectoryIds is the gallery folders offered;
 // assetPath/assetId carry the gallery storage path + id so the server renderer
 // can inline the image as base64 without reverse-mapping its public URL.
-// editorLocked is an EDITOR-ONLY flag (images): when true the object can't be
-// moved/scaled/rotated in the admin canvas — a guard against accidental drags.
+// editorLocked is an EDITOR-ONLY flag (images): when true the object is
+// click-through in the admin canvas (not movable, not click-selectable —
+// select it via the layers panel) — a guard against accidental drags that
+// also keeps full-canvas images from blocking rubber-band multi-select.
 // It is deliberately NOT part of the imageInputs DTO and is ignored by the
 // server renderer and the user-fill flow; it only ever shapes Fabric's
 // interaction flags in the editor (see applyEditorLock).
@@ -33,20 +35,33 @@ export const CANVAS_CUSTOM_PROPERTIES = [
  * client-side editor convenience — none of these flags are serialized into the
  * canvas JSON by Fabric, so the export/render is untouched.
  *
+ * A locked image is CLICK-THROUGH (Figma-style): `evented`/`selectable` off,
+ * so pointer events pass to whatever is underneath — including empty canvas,
+ * where Fabric starts its rubber-band multi-select. This is load-bearing for
+ * full-canvas images: an evented full-canvas object swallows every mousedown
+ * (no rubber-band anywhere) and a locked one used to paint the not-allowed
+ * cursor across the whole editor. Background layers (`isBackground`) are
+ * ALWAYS click-through for the same reason — their pixels cover everything.
+ * Locked/background objects are selected via the LAYERS PANEL instead
+ * (programmatic setActiveObject ignores these flags), where the popover can
+ * unlock them again.
+ *
  * Reversible: unlocking restores the normal image affordances (movable, with
  * transform handles). Only ever called for image objects — textboxes carry
  * their own deliberate lock flags that this would clobber.
  */
 export function applyEditorLock(obj) {
     if (!obj) return;
-    const locked = obj.editorLocked === true;
+    const locked = obj.editorLocked === true || obj.isBackground === true;
     obj.lockMovementX = locked;
     obj.lockMovementY = locked;
     obj.lockScalingX = locked;
     obj.lockScalingY = locked;
     obj.lockRotation = locked;
     obj.hasControls = !locked;
-    obj.hoverCursor = locked ? 'not-allowed' : null;
+    obj.selectable = !locked;
+    obj.evented = !locked;
+    obj.hoverCursor = null;
     if (typeof obj.setCoords === 'function') obj.setCoords();
 }
 

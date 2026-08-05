@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { Canvas, Textbox, FabricImage, cache } from "fabric";
 
 import { buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
+import { applyEditorLock } from './canvas_custom_properties.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
@@ -407,6 +408,11 @@ export default class extends Controller {
         if (existing?.allowedDirectoryIds !== undefined) img.allowedDirectoryIds = existing.allowedDirectoryIds;
         img.assetPath = assetPath || undefined;
         img.assetId = assetId || undefined;
+        if (existing?.editorLocked !== undefined) img.editorLocked = existing.editorLocked;
+        // Backgrounds are always click-through on the canvas surface (a
+        // full-canvas evented object would kill rubber-band selection) —
+        // they are selected via the layers panel's "Pozadí" row instead.
+        applyEditorLock(img);
 
         let index = 0;
         if (existing) {

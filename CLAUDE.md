@@ -78,7 +78,12 @@ gallery pick + `persistBackgroundPath` side-channel POST. Untouched forever.
 regular image object in `objects[]` marked `isBackground: true`, initially
 placed **cover-fit anchored top-left** (`scale = max(cw/iw, ch/ih)`, overflow
 crops bottom-right) at stack index 0 — reorderable, undoable, snapping-excluded,
-styled distinctly in the layers panel ("Pozadí" row). Key facts:
+styled distinctly in the layers panel ("Pozadí" row), and **click-through on
+the canvas surface** (`applyEditorLock`: a full-canvas evented object would
+swallow every mousedown — no rubber-band multi-select, and when editor-locked
+it painted the not-allowed cursor everywhere; select it via the layers panel
+instead — the same click-through rule applies to `editorLocked` images).
+Key facts:
 
 - **Optional**: add-variant/group forms no longer require a background; a
   layer-mode variant without one renders a TRANSPARENT PNG (renderer calls
