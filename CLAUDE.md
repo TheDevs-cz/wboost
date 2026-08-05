@@ -131,7 +131,7 @@ orchestrator dispatches on Fabric's selection lifecycle:
 
 | Controller | Responsibility |
 |---|---|
-| `canvas_editor_controller` | Orchestrator. Owns the Fabric `Canvas`, loads/saves canvas JSON, marks the form dirty, broadcasts selection changes. |
+| `canvas_editor_controller` | Orchestrator. Owns the Fabric `Canvas` (retina scaling OFF above ~4M logical px — a print-size canvas would repaint dpr²× the pixels on every frame, the "editor is laggy" report), loads/saves canvas JSON, marks the form dirty, broadcasts selection changes. |
 | `canvas_history_controller` | Undo/redo stack — full-canvas-JSON snapshots, restored via the orchestrator's loader. |
 | `canvas_clipboard_controller` | Copy / paste / duplicate (keyboard + buttons). |
 | `canvas_zoom_controller` | CSS-transform-only visual zoom of the wrapper element. Dispatches `canvas-zoom:changed` so the floating toolbar re-anchors. |

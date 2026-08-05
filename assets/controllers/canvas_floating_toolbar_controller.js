@@ -294,12 +294,18 @@ export default class extends Controller {
         if (!g) return;
         const offX = g.contRect.left - g.layerRect.left;
         const offY = g.contRect.top - g.layerRect.top;
-        this._outlines.forEach(({ obj, el }) => {
-            const r = obj.getBoundingRect();
-            el.style.left = `${offX + r.left * g.scale}px`;
-            el.style.top = `${offY + r.top * g.scale}px`;
-            el.style.width = `${r.width * g.scale}px`;
-            el.style.height = `${r.height * g.scale}px`;
+        this._outlines.forEach((entry) => {
+            const r = entry.obj.getBoundingRect();
+            // Runs on every after:render frame while the highlight is on —
+            // with many layers the unconditional style writes (one layout
+            // invalidation per outline) were a real cost. Skip when unmoved.
+            const css = `${r.left.toFixed(1)}|${r.top.toFixed(1)}|${r.width.toFixed(1)}|${r.height.toFixed(1)}|${g.scale.toFixed(4)}|${offX.toFixed(1)}|${offY.toFixed(1)}`;
+            if (entry.css === css) return;
+            entry.css = css;
+            entry.el.style.left = `${offX + r.left * g.scale}px`;
+            entry.el.style.top = `${offY + r.top * g.scale}px`;
+            entry.el.style.width = `${r.width * g.scale}px`;
+            entry.el.style.height = `${r.height * g.scale}px`;
         });
     }
 

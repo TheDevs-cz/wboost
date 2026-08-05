@@ -80,8 +80,9 @@ export default class extends Controller {
 
         // Dragging a member moves ONLY that member (standard Fabric drag) —
         // the whole container is moved by dragging the zone's label instead
-        // (see _beginLabelDrag). During a drag the zone just follows.
-        this._onObjectMoving = () => this.repositionZones();
+        // (see _beginLabelDrag). During a drag the zone follows via the
+        // after:render hook (every drag frame ends in a render; a dedicated
+        // object:moving pass would just do the same work twice per frame).
         this._onObjectModified = () => this._afterDesignChange();
         this._onTextChanged = (e) => this._reflowFor(e.target);
         this._onObjectRemoved = (e) => {
@@ -89,7 +90,6 @@ export default class extends Controller {
         };
         this._onAfterRender = () => { if (this._zones.length) this._positionZones(); };
 
-        canvas.on('object:moving', this._onObjectMoving);
         canvas.on('object:modified', this._onObjectModified);
         canvas.on('text:changed', this._onTextChanged);
         canvas.on('object:removed', this._onObjectRemoved);
@@ -105,7 +105,6 @@ export default class extends Controller {
     canvasEditorOutletDisconnected(outlet) {
         const canvas = outlet.canvas;
         if (!canvas) return;
-        canvas.off('object:moving', this._onObjectMoving);
         canvas.off('object:modified', this._onObjectModified);
         canvas.off('text:changed', this._onTextChanged);
         canvas.off('object:removed', this._onObjectRemoved);
@@ -462,7 +461,8 @@ export default class extends Controller {
         const ordered = [...this._containers()].sort((a, b) => this._depthOf(a) - this._depthOf(b));
 
         ordered.forEach((container) => {
-            if (this._deepMemberObjects(container).length < 2) return;
+            const members = this._deepMemberObjects(container);
+            if (members.length < 2) return;
             const nested = this._parentOf(container) !== null;
 
             const zone = document.createElement('div');
@@ -527,7 +527,9 @@ export default class extends Controller {
             });
 
             this.layerTarget.appendChild(zone);
-            this._zones.push({ container, zone, label, nested });
+            // Members are cached for the per-frame reposition pass — the
+            // after:render hook must not re-resolve membership every frame.
+            this._zones.push({ container, zone, label, nested, members, css: '' });
         });
 
         this._positionZones();
@@ -546,46 +548,60 @@ export default class extends Controller {
         const offY = g.contRect.top - g.layerRect.top;
         const PAD = 6;
 
-        this._zones.forEach(({ container, zone, label, nested }) => {
-            const members = this._deepMemberObjects(container);
+        this._zones.forEach((entry) => {
+            const { container, zone, label, nested } = entry;
+            // The design-hidden filter runs live: the layers eye can flip
+            // `visible` without a membership change (no renderZones pass).
+            const members = entry.members.filter((o) => o.visible !== false);
             if (members.length < 2) {
-                zone.style.display = 'none';
+                if (entry.css !== 'hidden') {
+                    zone.style.display = 'none';
+                    entry.css = 'hidden';
+                }
                 return;
             }
-            zone.style.display = '';
 
-            const tops = members.map((o) => this._absTop(o));
-            const lefts = members.map((o) => this._absLeft(o));
-            const rights = members.map((o, i) => lefts[i] + o.width * (o.scaleX || 1));
-            const bottoms = members.map((o, i) => tops[i] + o.height * (o.scaleY || 1));
+            let top = Infinity;
+            let bottom = -Infinity;
+            let left = Infinity;
+            let right = -Infinity;
+            members.forEach((o) => {
+                const oTop = this._absTop(o);
+                const oLeft = this._absLeft(o);
+                top = Math.min(top, oTop);
+                bottom = Math.max(bottom, oTop + o.height * (o.scaleY || 1));
+                left = Math.min(left, oLeft);
+                right = Math.max(right, oLeft + o.width * (o.scaleX || 1));
+            });
 
-            const containerTop = Math.min(...tops);
-            const contentBottom = Math.max(...bottoms);
-            const left = Math.min(...lefts) - PAD;
-            const width = Math.max(...rights) - Math.min(...lefts) + 2 * PAD;
-            const height = nested ? (contentBottom - containerTop) : container.maxHeight;
-
-            zone.style.left = `${offX + left * g.scale}px`;
-            zone.style.top = `${offY + containerTop * g.scale}px`;
-            zone.style.width = `${width * g.scale}px`;
-            zone.style.height = `${height * g.scale}px`;
+            const height = nested ? (bottom - top) : container.maxHeight;
+            const overflowPx = nested ? 0 : bottom - (top + container.maxHeight);
+            const overflowing = overflowPx > 0.5;
 
             const gapBadge = (typeof container.gap === 'number' && isFinite(container.gap))
                 ? ` · mezery ${Math.round(container.gap)} px`
                 : '';
+            const text = nested
+                ? `Vnořený kontejner${gapBadge}`
+                : (overflowing
+                    ? `Kontejner · obsah přesahuje o ${Math.ceil(overflowPx)} px`
+                    : `Kontejner · max ${Math.round(container.maxHeight)} px${gapBadge}`);
 
-            if (nested) {
-                zone.classList.remove('container-zone--overflow');
-                label.textContent = `Vnořený kontejner${gapBadge}`;
+            // Skip the DOM writes when nothing changed — this runs on EVERY
+            // Fabric render frame via after:render.
+            const css = `${left.toFixed(1)}|${top.toFixed(1)}|${right.toFixed(1)}|${height.toFixed(1)}|${overflowing}|${text}|${g.scale.toFixed(4)}|${offX.toFixed(1)}|${offY.toFixed(1)}`;
+            if (entry.css === css) {
                 return;
             }
+            entry.css = css;
 
-            const overflowPx = contentBottom - (containerTop + container.maxHeight);
-            const overflowing = overflowPx > 0.5;
+            zone.style.display = '';
+            zone.style.left = `${offX + (left - PAD) * g.scale}px`;
+            zone.style.top = `${offY + top * g.scale}px`;
+            zone.style.width = `${(right - left + 2 * PAD) * g.scale}px`;
+            zone.style.height = `${height * g.scale}px`;
             zone.classList.toggle('container-zone--overflow', overflowing);
-            label.textContent = overflowing
-                ? `Kontejner · obsah přesahuje o ${Math.ceil(overflowPx)} px`
-                : `Kontejner · max ${Math.round(container.maxHeight)} px${gapBadge}`;
+            label.textContent = text;
         });
 
         this._positionSettings();
@@ -607,18 +623,19 @@ export default class extends Controller {
 
         let lastX = event.clientX;
         let lastY = event.clientY;
+        // Resolved once — per-mousemove membership lookups are wasted work.
+        const dragMembers = this._deepMemberObjects(container);
 
         const onMove = (e) => {
             const dx = (e.clientX - lastX) / g.scale;
             const dy = (e.clientY - lastY) / g.scale;
             lastX = e.clientX;
             lastY = e.clientY;
-            this._deepMemberObjects(container).forEach((obj) => {
+            dragMembers.forEach((obj) => {
                 obj.set({ left: obj.left + dx, top: obj.top + dy });
                 obj.setCoords();
             });
             canvas.requestRenderAll();
-            this._positionZones();
         };
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
@@ -683,10 +700,10 @@ export default class extends Controller {
             });
 
             // New wrap widths → new heights → reflow, still anchored to the
-            // pre-drag snapshot (stable while dragging).
+            // pre-drag snapshot (stable while dragging). Zones follow via
+            // after:render.
             layout.applyFabricLayout(this._prepared);
             canvas.requestRenderAll();
-            this._positionZones();
         };
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);

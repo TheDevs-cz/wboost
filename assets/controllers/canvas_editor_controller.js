@@ -30,7 +30,23 @@ export default class extends Controller {
     };
 
     connect() {
-        this.canvas = new Canvas('c');
+        // Retina scaling multiplies the backing store by devicePixelRatio² —
+        // for a print-size canvas (A4 @300dpi = 2480×3508 ≈ 8.7M logical px)
+        // that is ~35M pixels repainted on EVERY render frame, which is what
+        // made the editor crawl on layer-heavy print templates. The editor is
+        // almost always zoomed OUT on those (auto-fit), so the extra density
+        // is invisible anyway. Social presets (≤ 1080×1920 ≈ 2.1M px) keep
+        // retina for crispness at 100%+ zoom. The export is unaffected — it
+        // renders headless through Gotenberg, and the preview thumbnail uses
+        // its own offscreen canvas.
+        const canvasEl = document.getElementById('c');
+        const logicalPixels = canvasEl
+            ? (parseInt(canvasEl.getAttribute('width') || '0', 10)
+                * parseInt(canvasEl.getAttribute('height') || '0', 10))
+            : 0;
+        this.canvas = new Canvas('c', {
+            enableRetinaScaling: logicalPixels > 0 && logicalPixels <= 4_000_000,
+        });
 
         // Word-wrap parity with the export: the headless render template
         // patches Textbox wrapping (break-word for over-long words) — apply

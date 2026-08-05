@@ -167,6 +167,36 @@
     }
 
     /**
+     * inputId → object index over the member candidates. First occurrence
+     * wins, mirroring the Array.find semantics the resolution always had.
+     * Built once per pass so member resolution is O(members) instead of
+     * O(members × objects) — the editor calls into the layout on every
+     * design change and zone redraw, and layer-heavy canvases made the
+     * quadratic scan measurable.
+     */
+    function buildMemberIndex(objects) {
+        const index = new Map();
+        for (const o of objects) {
+            if (o.inputId !== undefined && !index.has(o.inputId) && isMemberCandidate(o)) {
+                index.set(o.inputId, o);
+            }
+        }
+        return index;
+    }
+
+    function collectMembersIndexed(index, container) {
+        const members = [];
+        const ids = Array.isArray(container.memberInputIds) ? container.memberInputIds : [];
+        for (const inputId of ids) {
+            const found = index.get(inputId);
+            if (found && found.visible !== false) {
+                members.push(found);
+            }
+        }
+        return members;
+    }
+
+    /**
      * Resolve a container's DIRECT input members (texts + decorative images,
      * by inputId) from a flat object list, preserving the persisted order.
      * Members that no longer exist are skipped.
@@ -180,15 +210,7 @@
      * therefore still resolve as members and collapse in phase B.
      */
     function collectMembers(objects, container) {
-        const members = [];
-        const ids = Array.isArray(container.memberInputIds) ? container.memberInputIds : [];
-        for (const inputId of ids) {
-            const found = objects.find((o) => isMemberCandidate(o) && o.inputId === inputId && o.visible !== false);
-            if (found) {
-                members.push(found);
-            }
-        }
-        return members;
+        return collectMembersIndexed(buildMemberIndex(objects), container);
     }
 
     /** Child container definitions of a container, resolved against the full list. */
@@ -246,17 +268,20 @@
      * Direct + descendant member objects of a container — what the editor
      * moves as a unit (zone label drag) and draws the zone around.
      */
-    function collectDeepMemberObjects(objects, containers, container, visiting) {
-        const seen = visiting || new Set();
+    function collectDeepIndexed(index, containers, container, seen) {
         if (!container || seen.has(container.id)) {
             return [];
         }
         seen.add(container.id);
-        const result = collectMembers(objects, container);
+        const result = collectMembersIndexed(index, container);
         childContainersOf(containers, container).forEach((child) => {
-            collectDeepMemberObjects(objects, containers, child, seen).forEach((o) => result.push(o));
+            collectDeepIndexed(index, containers, child, seen).forEach((o) => result.push(o));
         });
         return result;
+    }
+
+    function collectDeepMemberObjects(objects, containers, container, visiting) {
+        return collectDeepIndexed(buildMemberIndex(objects), containers, container, visiting || new Set());
     }
 
     // --- two-phase tree pipeline ---------------------------------------------
@@ -279,6 +304,7 @@
             : null;
         const defs = (containers || []).filter((c) => c && c.id);
         const byId = new Map(defs.map((c) => [c.id, c]));
+        const memberIndex = buildMemberIndex(objects);
         const consumed = new Set();
 
         function buildNode(def, visiting) {
@@ -297,7 +323,7 @@
             });
             visiting.delete(def.id);
 
-            const direct = collectMembers(objects, def);
+            const direct = collectMembersIndexed(memberIndex, def);
             const textObjects = direct.filter(isTextboxObject);
             const imageObjects = direct.filter(isImageObject);
 
@@ -635,9 +661,10 @@
      * memberInputIds whenever members are created, moved or saved.
      */
     function sortMemberIdsByTop(objects, memberInputIds) {
+        const index = buildMemberIndex(objects);
         const withTops = [];
         for (const inputId of memberInputIds || []) {
-            const found = objects.find((o) => isMemberCandidate(o) && o.inputId === inputId);
+            const found = index.get(inputId);
             if (found) {
                 withTops.push({ inputId, top: found.top });
             }
