@@ -266,11 +266,17 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
   **`findActiveByHash(string $tokenHash, DateTimeImmutable $now)`**: `revokedAt IS NULL AND (expiresAt IS NULL OR expiresAt > :now)`, `getOneOrNullResult()`. `$now` is a **parameter**, not an injected clock, so one instant covers both the lookup and S1-T3's `markUsed()`. The OR is explicitly parenthesized — `andWhere()` does not wrap a raw string, so without them the OR would swallow the preceding conditions. `McpAccessToken::isActive($now)` mirrors the predicate for callers already holding the entity.
   **Note:** the PHPUnit bootstrap drops+recreates `wboost_test` from the mapping each run, so a new migration needs no manual test-DB rebuild.
 
-- [ ] **S1-T2 — `McpScope` enum + scope checker.**
+- [x] **S1-T2 — `McpScope` enum + scope checker.**
   **How:** `src/Mcp/Security/McpScope.php` — cases `TemplatesRead = 'templates:read'`, `TemplatesExport = 'templates:export'`, `TemplatesDesign = 'templates:design'`, `GalleryWrite = 'gallery:write'`. `templates:design` implies `templates:read`; `templates:export` implies `templates:read` (encode the implication in the enum, one method).
   `McpScopeChecker` answers `granted(McpScope): bool` from the current token.
   **Done when:** `tests/Mcp/Security/McpScopeTest.php` covers the implication matrix and passes.
   **Depends:** S1-T1
+  **Landed:** `src/Mcp/Security/McpScope.php` + `McpScopeChecker.php`, `tests/Mcp/Security/McpScopeTest.php` (30 tests — the full 4×4 grid via data provider plus a coverage guard that fails loudly if a case is added).
+  **`McpScope::grants(): list<self>`** — "every scope a token holding this one carries", self first. Written as an **expansion, not pairwise comparisons** (pairwise is what rots when a case is added): a work-queue walks the closure, so it is **transitive** — a future scope implying `TemplatesDesign` automatically grants `TemplatesRead` with no extra code — and the already-expanded guard makes a declared cycle terminate rather than hang. The inner `match` is exhaustive with no `default`, so **adding a case fails PHPStan until its implications are stated**. Also `McpScope::fromStrings(list<string>): list<self>` — pure parse, drops unknown values instead of throwing, because a scope string a later release removed must degrade to "not granted", never 500 an otherwise valid request.
+  **⚠️ SEAM CONTRACT FOR S1-T3 — the authenticator MUST do exactly this:**
+  `$token->setAttribute(McpScopeChecker::TOKEN_ATTRIBUTE, $accessToken->scopes);`
+  Constant `WBoost\Web\Mcp\Security\McpScopeChecker::TOKEN_ATTRIBUTE` = `'mcp_scopes'`. Value shape is **`list<string>`** — the raw wire strings copied verbatim off `McpAccessToken::$scopes`, *not* `McpScope` instances, so the security token stays trivially serializable and the checker owns all parsing.
+  **Checker surface:** `granted(McpScope): bool` and `grantedScopes(): list<McpScope>` (implication-expanded + deduped — for `tools/list` filtering in S1-T6 and the `WWW-Authenticate … scope="…"` challenge). Both **fail closed**: no security token, no `mcp_scopes` attribute (a web-session or OAuth-API request), or a non-array attribute all yield "no scopes", never "all scopes".
 
 - [ ] **S1-T3 — Authenticator + firewall.**
   **How:** `src/Mcp/Security/McpTokenAuthenticator.php` (custom authenticator): read `Authorization: Bearer`, hash, look up an active token, resolve its `User`, stash the granted scopes in the token attributes, touch `lastUsedAt` (throttled — at most once per minute per token, to avoid a write per tool call).
@@ -549,3 +555,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-05 — S0-T3 — `BufferedMcpController` decorates `mcp.server.controller` so `/_mcp` can never return a flushing `StreamedResponse` (R1 guarded); the nested double output buffer is required — a single one lets the SDK's `ob_flush()` escape to the SAPI.
 - 2026-08-05 — S0-T4 — `src/Mcp/{Tool,Design,Security}` autowired in `config/services.php`, `Response/`+`Design/Dsl/`+`Exception/` excluded (verified with throwaway probes); tool attribute is `Mcp\Capability\Attribute\McpTool` → tag `mcp.tool`. **Stage 0 complete.**
 - 2026-08-05 — S1-T1 — `McpAccessToken` entity + repo + migration; wire format centralised in `McpTokenGenerator` (`wb_mcp_` prefix, sha256 of the whole string, secret never stored).
+- 2026-08-06 — S1-T2 — `McpScope` enum (transitive `grants()` expansion, exhaustive match so a new case cannot ship with undefined implications) + fail-closed `McpScopeChecker`; seam to S1-T3 is `McpScopeChecker::TOKEN_ATTRIBUTE`.
