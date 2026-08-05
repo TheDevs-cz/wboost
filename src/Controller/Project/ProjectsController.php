@@ -5,6 +5,7 @@ namespace WBoost\Web\Controller\Project;
 
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Query\GetProjectAvatars;
 use WBoost\Web\Query\GetProjects;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,6 +15,7 @@ final class ProjectsController extends AbstractController
 {
     public function __construct(
         readonly private GetProjects $getProjects,
+        readonly private GetProjectAvatars $getProjectAvatars,
     ) {
     }
 
@@ -53,6 +55,7 @@ final class ProjectsController extends AbstractController
             'ownProjects' => $ownProjects,
             'sharedProjects' => $sharedProjects,
             'otherProjects' => $otherProjects,
+            'avatars' => $this->getProjectAvatars->forProjects($projects),
         ]);
     }
 }

@@ -30,6 +30,19 @@ final class ProjectsControllerTest extends WebTestCase
         $this->assertSelectorTextContains('body', 'Ostatní projekty');
     }
 
+    public function testProjectCardShowsMonogramWithBrandColor(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $browser->request('GET', '/projects');
+
+        $this->assertResponseIsSuccessful();
+        // Project 1 has no logo images, so its card falls back to the initials
+        // monogram colored by its manual's primary brand color.
+        $this->assertSelectorTextContains('div[style*="background: #C8102E"]', 'P1');
+    }
+
     public function testNonAdminIsScopedToTheirProjects(): void
     {
         $browser = self::createClient();

@@ -25,12 +25,28 @@
 
         <a href="{{ path('project_dashboard', {'id': project.id}) }}" class="text-body">
             <div class="card-body">
-                <h4 class="m-0 {{ is_own ? '' : 'text-muted' }}">
-                    {{ project.name }}
-                </h4>
-                {% if not is_own %}
-                    <span class="badge bg-secondary mt-2">vlastník: {{ project.owner.getDisplayName() }}</span>
-                {% endif %}
+                {% set avatar = avatars[project.id.toString] ?? null %}
+                <div class="d-flex align-items-center">
+                    {% if avatar %}
+                        {% if avatar.logoPath %}
+                            <div class="flex-shrink-0 me-2 bg-light rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                                <img src="{{ uploaded_asset(avatar.logoPath) }}" alt="{{ project.name }}" style="max-width: 46px; max-height: 46px; object-fit: contain;">
+                            </div>
+                        {% else %}
+                            <div class="flex-shrink-0 me-2 rounded-circle d-flex align-items-center justify-content-center fw-semibold {{ is_own ? '' : 'opacity-75' }}" style="width: 56px; height: 56px; font-size: 1.15rem; letter-spacing: .5px; background: #{{ avatar.backgroundHex }}; color: #{{ avatar.textHex }};">
+                                {{ avatar.initials }}
+                            </div>
+                        {% endif %}
+                    {% endif %}
+                    <div class="min-width-0">
+                        <h4 class="m-0 {{ is_own ? '' : 'text-muted' }}">
+                            {{ project.name }}
+                        </h4>
+                        {% if not is_own %}
+                            <span class="badge bg-secondary mt-1">vlastník: {{ project.owner.getDisplayName() }}</span>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </a>
 
