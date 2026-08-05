@@ -242,6 +242,7 @@ final readonly class TemplatesProvider implements ProviderInterface
                     richText: $input->richText,
                     lists: $input->richText && $input->lists,
                     listStyle: $listStyle,
+                    sampleValue: $input->sampleValue,
                     frame: $frame !== null
                         ? new TemplateVariantInputFrameResponse(
                             $frame->x,

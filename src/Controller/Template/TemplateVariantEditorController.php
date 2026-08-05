@@ -34,6 +34,7 @@ final class TemplateVariantEditorController extends AbstractController
         readonly private MessageBusInterface $bus,
         readonly private ClockInterface $clock,
         readonly private FileDirectoryRepository $fileDirectoryRepository,
+        readonly private ResolveRichTextOptions $resolveRichTextOptions,
     ) {
     }
 
@@ -119,6 +120,7 @@ final class TemplateVariantEditorController extends AbstractController
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
             'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($template->project->id)),
+            'rich_toolbar' => $this->resolveRichTextOptions->forVariant($variant)->toToolbarArray(),
             'menu_item' => 'templates',
             'module_label' => 'Šablony',
             'module_templates_url' => $this->generateUrl('templates', ['projectId' => $template->project->id]),

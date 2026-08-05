@@ -41,6 +41,14 @@ final readonly class TemplateVariantInputResponse
         /** Resolved list styling; non-null exactly when `lists` is true. */
         public null|TemplateVariantListStyleResponse $listStyle = null,
         /**
+         * "Vzorový text" — the admin-authored default the render uses when
+         * the export receives NO value for this input. Same wire format the
+         * export accepts: a plain string, or the `{"runs":[...],"lines":...}`
+         * envelope (JSON string starting with `{"runs"`). Prefill your form
+         * with it so an untouched export matches the preview.
+         */
+        public null|string $sampleValue = null,
+        /**
          * Stacking position of this input's textbox on the variant canvas
          * (0 = backmost, higher = painted on top). Shares one index space with
          * `imageInputs[].layerIndex`, so sorting BOTH arrays together by this

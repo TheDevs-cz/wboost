@@ -346,6 +346,24 @@ item, ul/ol toolbar toggles. API: `inputs[].lists` + resolved `listStyle`
 rescale — keep them null on grouped templates so the font-derived defaults
 track each dimension).
 
+**Vzorový text (`sampleValue` on `EditorTextInput`, 2026-08-05).** Per-input
+admin-authored DEFAULT FILL, stored in the exact wire format a fill value
+uses (plain string or the `{"runs","lines"}` envelope — full rich feature
+set incl. lists). Render: `ResolveTextOverrides` falls back to it when the
+input key is ABSENT from providedValues (an explicit `""` suppresses it), and
+a sample is ALWAYS parsed leniently — a stale stored sample must never 400 an
+API consumer who merely omitted the input (per-input `$lenient` flag). Fill
+page: `postMount` seeds `textValues` from it, so field + preview + untouched
+export agree. Admin UX: "Vzorový text" button in the text popover opens
+`#sampleTextModal` — rich inputs get a FRESH fill-page WYSIWYG per open
+(canvas_input_properties clones the `<template>` skeleton in
+`_editor_stage.html.twig`, stamps the textbox's values, Stimulus connects on
+insert; the editor writes its wire value into the `[data-sample-mirror]`
+hidden input via the usual `data-text-mirror` lookup), plain inputs get a
+textarea. Both editor controllers pass `rich_toolbar`
+(`RichTextOptions::toToolbarArray()`, also used by the fill page) for the
+modal's toolbar markup. API: `inputs[].sampleValue` (raw wire string).
+
 **Floating element toolbar.** Selection-contextual editing is NOT in the left
 panel — it floats next to the selected object (Canva/Slides style).
 `canvas_floating_toolbar_controller` owns *when* and *where* the chrome shows;

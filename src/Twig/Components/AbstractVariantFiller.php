@@ -177,7 +177,10 @@ abstract class AbstractVariantFiller extends AbstractController
                 continue;
             }
 
-            $this->textValues[$input->inputId] ??= '';
+            // First render seeds from the admin's "Vzorový text" (the same
+            // value the renderer falls back to when an input is omitted), so
+            // the field, the preview and an untouched export all agree.
+            $this->textValues[$input->inputId] ??= $input->sampleValue ?? '';
 
             if ($input->hidable) {
                 $this->hiddenValues[$input->inputId] ??= false;
@@ -444,7 +447,10 @@ abstract class AbstractVariantFiller extends AbstractController
                 'richText' => $input->richText,
                 'lists' => $input->richText && $input->lists,
                 'frame' => $frame,
-                'value' => $this->textValues[$input->inputId] ?? '',
+                // Prefill: an input the user hasn't touched yet seeds from
+                // the admin's "Vzorový text" — the same value the render
+                // falls back to, so the field and the preview agree.
+                'value' => $this->textValues[$input->inputId] ?? $input->sampleValue ?? '',
                 'runs' => $this->seededRuns($input),
                 'lines' => $this->seededEnvelope($input)['lines'] ?? null,
                 'designFontFamily' => $styles[$input->inputId]['fontFamily'] ?? null,
@@ -558,7 +564,7 @@ abstract class AbstractVariantFiller extends AbstractController
             return null;
         }
 
-        $storedValue = $this->textValues[$input->inputId] ?? '';
+        $storedValue = $this->textValues[$input->inputId] ?? $input->sampleValue ?? '';
         $envelope = RichText::tryExtractEnvelope($storedValue);
 
         if ($envelope !== null) {
@@ -601,18 +607,7 @@ abstract class AbstractVariantFiller extends AbstractController
             return null;
         }
 
-        /** @var array<string, list<array{family: string, faceName: string}>> $grouped */
-        $grouped = [];
-        foreach ($options->fonts as $font) {
-            $grouped[$font->fontName][] = ['family' => $font->family, 'faceName' => $font->faceName];
-        }
-
-        $fontGroups = [];
-        foreach ($grouped as $name => $faces) {
-            $fontGroups[] = ['name' => $name, 'faces' => $faces];
-        }
-
-        return [...$options->toArray(), 'fontGroups' => $fontGroups];
+        return $options->toToolbarArray();
     }
 
     private function richTextOptions(): null|RichTextOptions

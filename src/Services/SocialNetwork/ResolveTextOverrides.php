@@ -67,20 +67,27 @@ readonly final class ResolveTextOverrides
             }
 
             $inputId = $input->inputId;
+            $provided = array_key_exists($inputId, $providedValues);
 
-            if (!array_key_exists($inputId, $providedValues)) {
+            // "Vzorový text": an input the caller did not address at all
+            // falls back to the admin's sample value — processed through the
+            // exact same pipeline as a provided value, but ALWAYS leniently
+            // (a stale stored sample must never 400 an API consumer who
+            // merely omitted the input).
+            if (!$provided && $input->sampleValue === null) {
                 continue;
             }
 
-            $rawValue = $providedValues[$inputId];
+            $rawValue = $provided ? $providedValues[$inputId] : $input->sampleValue;
+            $lenient = $truncateOverflow || !$provided;
             $label = $input->name ?? $inputId;
 
-            [$textValue, $hideValue, $rawRuns, $rawLines] = $this->parseValue($label, $rawValue, $input->richText, $truncateOverflow);
+            [$textValue, $hideValue, $rawRuns, $rawLines] = $this->parseValue($label, $rawValue, $input->richText, $lenient);
 
             if ($rawRuns !== null) {
                 $richText = RichText::fromRaw(
                     $rawRuns,
-                    strict: !$truncateOverflow,
+                    strict: !$lenient,
                     inputLabel: $label,
                     allowedFontFamilies: $richTextOptions?->allowedFamilies(),
                     rawLines: $rawLines,
@@ -88,7 +95,7 @@ readonly final class ResolveTextOverrides
                 );
 
                 if ($input->maxLength !== null && mb_strlen($richText->toPlainText()) > $input->maxLength) {
-                    if ($truncateOverflow) {
+                    if ($lenient) {
                         $richText = $richText->truncateToPlainLength($input->maxLength);
                     } else {
                         throw new BadRequestHttpException(sprintf(
@@ -114,7 +121,7 @@ readonly final class ResolveTextOverrides
                 }
             } elseif ($textValue !== null) {
                 if ($input->maxLength !== null && mb_strlen($textValue) > $input->maxLength) {
-                    if ($truncateOverflow) {
+                    if ($lenient) {
                         $textValue = mb_substr($textValue, 0, $input->maxLength);
                     } else {
                         throw new BadRequestHttpException(sprintf(

@@ -21,6 +21,7 @@ export default class extends Controller {
         "name", "description", "locked", "hidable", "uppercase", "richText",
         "lists", "listConfig", "listBullet", "listBulletPreview", "listBulletPick",
         "listIndent", "listItemSpacing", "listBlockSpacing",
+        "sampleBadge", "sampleHost", "sampleTemplate", "samplePlain",
     ];
 
     connect() {
@@ -29,10 +30,24 @@ export default class extends Controller {
         // controllers live on #canvas-container) — no template wiring needed.
         this._onBulletImage = (event) => this.onBulletImageSelected(event);
         this.element.addEventListener('canvas-editor:bullet-image', this._onBulletImage);
+
+        // Tear the per-open WYSIWYG instance down when the sample modal
+        // closes — the next open clones a fresh one with fresh values.
+        const sampleModal = document.getElementById('sampleTextModal');
+        if (sampleModal) {
+            this._onSampleModalHidden = () => {
+                if (this.hasSampleHostTarget) this.sampleHostTarget.textContent = '';
+            };
+            sampleModal.addEventListener('hidden.bs.modal', this._onSampleModalHidden);
+        }
     }
 
     disconnect() {
         this.element.removeEventListener('canvas-editor:bullet-image', this._onBulletImage);
+        const sampleModal = document.getElementById('sampleTextModal');
+        if (sampleModal && this._onSampleModalHidden) {
+            sampleModal.removeEventListener('hidden.bs.modal', this._onSampleModalHidden);
+        }
     }
 
     canvasEditorOutletConnected(outlet) {
@@ -80,6 +95,7 @@ export default class extends Controller {
             this.richTextTarget.disabled = activeObject.locked || false;
         }
         this._syncListControls(activeObject);
+        this._syncSampleBadge(activeObject);
     }
 
     /** Populate + show/hide the list config (only for rich inputs; the
@@ -167,6 +183,103 @@ export default class extends Controller {
         activeObject.listBulletImage = path;
         this._syncListControls(activeObject);
         this.canvasEditorOutlet.markUnsaved();
+    }
+
+    // --- Vzorový text (sample value) ---------------------------------------
+
+    /**
+     * Open the sample modal. Rich inputs get a FRESH fill-page WYSIWYG: the
+     * <template> skeleton is cloned, the active textbox's values are stamped
+     * on the clone (Stimulus connects it on insert), and the editor writes
+     * its wire value into the [data-sample-mirror] hidden input — the exact
+     * envelope/plain format the render pipeline consumes. Plain inputs edit
+     * a simple textarea instead.
+     */
+    openSampleModal() {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        this._sampleObject = activeObject;
+        const stored = typeof activeObject.sampleValue === 'string' ? activeObject.sampleValue : '';
+        const rich = activeObject.richText === true && this.hasSampleTemplateTarget;
+
+        if (this.hasSampleHostTarget) this.sampleHostTarget.textContent = '';
+        if (this.hasSamplePlainTarget) {
+            this.samplePlainTarget.classList.toggle('d-none', rich);
+            this.samplePlainTarget.value = rich ? '' : stored;
+        }
+
+        if (rich) {
+            const seed = this._parseSampleSeed(stored);
+            const clone = this.sampleTemplateTarget.content.firstElementChild.cloneNode(true);
+            clone.dataset.richTextEditorInputIdValue = activeObject.inputId || '';
+            clone.dataset.richTextEditorMaxLengthValue = String(activeObject.maxLength || 0);
+            clone.dataset.richTextEditorUppercaseValue = activeObject.uppercase ? 'true' : 'false';
+            clone.dataset.richTextEditorListsValue = activeObject.lists ? 'true' : 'false';
+            clone.dataset.richTextEditorRunsValue = JSON.stringify(seed.runs);
+            clone.dataset.richTextEditorLinesValue = JSON.stringify(seed.lines);
+            clone.dataset.richTextEditorDesignFontValue = activeObject.fontFamily || '';
+            const listButtons = clone.querySelector('[data-sample-lists]');
+            if (listButtons) listButtons.classList.toggle('d-none', !activeObject.lists);
+            const mirror = clone.querySelector('[data-sample-mirror]');
+            if (mirror) {
+                mirror.setAttribute('data-text-mirror', activeObject.inputId || '');
+                mirror.value = stored;
+            }
+            this.sampleHostTarget.appendChild(clone);
+        }
+
+        const modal = new bootstrap.Modal('#sampleTextModal');
+        modal.show();
+    }
+
+    _parseSampleSeed(stored) {
+        if (stored.trim().startsWith('{')) {
+            try {
+                const decoded = JSON.parse(stored);
+                if (decoded && Array.isArray(decoded.runs)) {
+                    return { runs: decoded.runs, lines: Array.isArray(decoded.lines) ? decoded.lines : [] };
+                }
+            } catch (err) {
+                // Fall through — treat as plain text.
+            }
+        }
+        return { runs: stored === '' ? [] : [{ text: stored }], lines: [] };
+    }
+
+    saveSample() {
+        const obj = this._sampleObject || this._getActiveTextbox();
+        if (!obj) return;
+        let value;
+        if (obj.richText === true && this.hasSampleHostTarget && this.sampleHostTarget.querySelector('[data-sample-mirror]')) {
+            value = this.sampleHostTarget.querySelector('[data-sample-mirror]').value;
+        } else {
+            value = this.hasSamplePlainTarget ? this.samplePlainTarget.value : '';
+        }
+        obj.sampleValue = value.trim() === '' ? null : value;
+        this._syncSampleBadge(obj);
+        if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.markUnsaved();
+        this._hideSampleModal();
+    }
+
+    clearSample() {
+        const obj = this._sampleObject || this._getActiveTextbox();
+        if (!obj) return;
+        obj.sampleValue = null;
+        this._syncSampleBadge(obj);
+        if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.markUnsaved();
+        this._hideSampleModal();
+    }
+
+    _hideSampleModal() {
+        const modalElement = document.getElementById('sampleTextModal');
+        const modal = modalElement ? bootstrap.Modal.getInstance(modalElement) : null;
+        if (modal) modal.hide();
+    }
+
+    _syncSampleBadge(activeObject) {
+        if (!this.hasSampleBadgeTarget) return;
+        const hasSample = typeof activeObject.sampleValue === 'string' && activeObject.sampleValue !== '';
+        this.sampleBadgeTarget.classList.toggle('d-none', !hasSample);
     }
 
     updateLocked(event) {

@@ -142,6 +142,7 @@ export function buildVariantPayload(canvas) {
                 listIndent: spacing(textbox.listIndent),
                 listItemSpacing: spacing(textbox.listItemSpacing),
                 listBlockSpacing: spacing(textbox.listBlockSpacing),
+                sampleValue: typeof textbox.sampleValue === 'string' && textbox.sampleValue !== '' ? textbox.sampleValue : null,
             };
         });
 

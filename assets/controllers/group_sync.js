@@ -32,6 +32,7 @@ const META_KEYS = [
     // should keep them blank (null = derived from the font size, which the
     // projector DOES scale, so the defaults track each dimension correctly).
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
+    'sampleValue',
 ];
 
 function isTextboxObject(obj) {

@@ -46,11 +46,21 @@ readonly final class EditorTextInput
         public null|float $listItemSpacing = null,
         /** Vertical gap between blocks (paragraph ↔ list), canvas px. */
         public null|float $listBlockSpacing = null,
+        /**
+         * "Vzorový text": the value rendered when the export/preview receives
+         * NO override for this input — the admin-authored default fill.
+         * Stored in the exact wire format a fill value uses: a plain string,
+         * or the `{"runs":[...],"lines":[...]}` envelope (so it carries the
+         * full rich feature set incl. lists). Always parsed LENIENTLY at
+         * render time — a stale sample must never 400 an API consumer who
+         * simply omitted the input.
+         */
+        public null|string $sampleValue = null,
     ) {
     }
 
     /**
-     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float}
+     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float, sampleValue: null|string}
      */
     public function toArray(): array
     {
@@ -69,6 +79,7 @@ readonly final class EditorTextInput
             'listIndent' => $this->listIndent,
             'listItemSpacing' => $this->listItemSpacing,
             'listBlockSpacing' => $this->listBlockSpacing,
+            'sampleValue' => $this->sampleValue,
         ];
     }
 
@@ -80,7 +91,7 @@ readonly final class EditorTextInput
      * caller is responsible for stamping the matching id onto the canvas
      * object on the next save.
      *
-     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int} $data
+     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, sampleValue?: null|string} $data
      */
     public static function fromArray(array $data): self
     {
@@ -128,7 +139,19 @@ readonly final class EditorTextInput
             listIndent: $spacing($data['listIndent'] ?? null),
             listItemSpacing: $spacing($data['listItemSpacing'] ?? null),
             listBlockSpacing: $spacing($data['listBlockSpacing'] ?? null),
+            sampleValue: self::sampleValueFrom($data['sampleValue'] ?? null),
         );
+    }
+
+    private static function sampleValueFrom(mixed $value): null|string
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        // Defensive cap: the envelope of a MAX_TOTAL_LENGTH value with styles
+        // stays far under this; anything bigger is garbage, not a sample.
+        return mb_substr($value, 0, 60000);
     }
 
     /**
@@ -136,7 +159,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int}> $data */
+        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, sampleValue?: null|string}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

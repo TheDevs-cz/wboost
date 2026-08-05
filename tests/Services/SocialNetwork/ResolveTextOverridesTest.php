@@ -266,6 +266,85 @@ final class ResolveTextOverridesTest extends TestCase
         self::assertSame([], $result->richTexts);
     }
 
+    public function testSampleValueRendersWhenInputOmitted(): void
+    {
+        $input = new EditorTextInput(
+            inputId: self::INPUT_ID,
+            name: 'Headline',
+            maxLength: null,
+            locked: false,
+            uppercase: false,
+            description: null,
+            hidable: false,
+            sampleValue: 'Vzorový nadpis',
+        );
+
+        $resolved = (new ResolveTextOverrides())->resolve([$input], []);
+
+        self::assertSame('Vzorový nadpis', $resolved->texts[self::INPUT_ID]);
+    }
+
+    public function testProvidedValueBeatsTheSample(): void
+    {
+        $input = new EditorTextInput(
+            inputId: self::INPUT_ID,
+            name: 'Headline',
+            maxLength: null,
+            locked: false,
+            uppercase: false,
+            description: null,
+            hidable: false,
+            sampleValue: 'Vzorový nadpis',
+        );
+
+        $resolved = (new ResolveTextOverrides())->resolve([$input], [self::INPUT_ID => 'Skutečný text']);
+
+        self::assertSame('Skutečný text', $resolved->texts[self::INPUT_ID]);
+    }
+
+    public function testProvidedEmptyStringSuppressesTheSample(): void
+    {
+        $input = new EditorTextInput(
+            inputId: self::INPUT_ID,
+            name: 'Headline',
+            maxLength: null,
+            locked: false,
+            uppercase: false,
+            description: null,
+            hidable: false,
+            sampleValue: 'Vzorový nadpis',
+        );
+
+        $resolved = (new ResolveTextOverrides())->resolve([$input], [self::INPUT_ID => '']);
+
+        self::assertSame('', $resolved->texts[self::INPUT_ID]);
+    }
+
+    public function testRichSampleEnvelopeWithListsResolvesLeniently(): void
+    {
+        $input = new EditorTextInput(
+            inputId: self::INPUT_ID,
+            name: 'Checklist',
+            maxLength: null,
+            locked: false,
+            uppercase: false,
+            description: null,
+            hidable: false,
+            richText: true,
+            lists: true,
+            sampleValue: '{"runs":[{"text":"Intro\nItem"}],"lines":["p","ul"]}',
+        );
+
+        // Strict mode (API export) + omitted input: the sample parses
+        // LENIENTLY, so a stored sample can never 400 the consumer.
+        $resolved = (new ResolveTextOverrides())->resolve([$input], [], truncateOverflow: false);
+
+        self::assertSame("Intro
+Item", $resolved->texts[self::INPUT_ID]);
+        self::assertTrue($resolved->richTexts[self::INPUT_ID]->hasLists());
+        self::assertSame(['p', 'ul'], $resolved->richTexts[self::INPUT_ID]->lineTypes);
+    }
+
     private function input(int $maxLength, bool $uppercase = false): EditorTextInput
     {
         return new EditorTextInput(
