@@ -370,6 +370,29 @@ inline-SVG white check. API: `inputs[].listCheckboxes` + `listStyle.
 checkboxImageUrl`/`checkboxCheckedImageUrl` (null = drawn default). Overlay
 measurement needs nothing checkbox-specific (cb geometry ≡ ul geometry).
 
+**Checklist COMPONENT (`checklist` + 4 capability flags on
+`EditorTextInput`, 2026-08-05).** "Přidat zaškrtávací seznam" in the left
+panel adds an input that IS one checkbox list — under the hood a plain
+textbox with `richText`+`lists`+`listCheckboxes` forced true (same value
+model / render pipeline / group sync), plus `checklist: true` and
+`checklistToggle`/`checklistEditText`/`checklistAdd`/`checklistRemove`
+(default true). `#addChecklistModal` takes the default items (textarea, one
+per line — they become BOTH the designed stand-in text and the sampleValue
+envelope with all-'cb' lines; per-item checked defaults are authored later
+via the Vzorový text WYSIWYG) + the four capability toggles. Text popover:
+checklist inputs show a capabilities section and HIDE the rich/lists/
+checkbox enable-toggles (forced on; unchecking would silently break
+rendering). Fill page: `checklist_editor_controller.js` replaces the
+WYSIWYG — one row per item (checkbox disabled unless toggle, text readonly
+unless editText, × only with remove, add button/Enter-inserts only with
+add), value synced as the ordinary checkbox-list envelope; removing all
+items writes explicit `''` (suppresses the sample). Overlay reflow rides
+the shared `checklist-editor:changed → richTextChanged` wiring.
+Enforcement: capabilities are a UI contract EXCEPT all-four-off =
+read-only server-side (`ResolveTextOverrides` ignores provided overrides,
+sample renders). API: `inputs[].checklist` = null | `{toggle, editText,
+addItems, removeItems}` (presence ⇔ component).
+
 **Vzorový text (`sampleValue` on `EditorTextInput`, 2026-08-05).** Per-input
 admin-authored DEFAULT FILL, stored in the exact wire format a fill value
 uses (plain string or the `{"runs","lines"}` envelope — full rich feature
