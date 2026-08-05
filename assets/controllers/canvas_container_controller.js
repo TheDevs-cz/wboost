@@ -569,11 +569,14 @@ export default class extends Controller {
 
         this._positionZones();
         this._syncSettings();
+        // The panel mirrors the zone STRUCTURE, so it re-renders exactly when
+        // the zones do — here, not in repositionZones (that one fires on
+        // zoom/scroll and only moves existing chrome).
+        this._renderPanel();
     }
 
     repositionZones() {
         this._positionZones();
-        this._renderPanel();
     }
 
     // --- containers panel (left panel, the Vrstvy pattern) -------------------

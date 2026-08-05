@@ -80,10 +80,15 @@ export default class extends Controller {
             return;
         }
 
-        const fullyVisible = geo.visX <= 0.5 && geo.visY <= 0.5
-            && geo.visW >= geo.logicalW - 1 && geo.visH >= geo.logicalH - 1;
-        this.panelTarget.classList.toggle('d-none', fullyVisible);
-        if (fullyVisible) return;
+        // Show the map only when navigation is genuinely needed: the canvas
+        // is LARGER (in screen px, with a little slack) than the visible band
+        // below the sticky header. At fit-to-screen zoom the whole canvas is
+        // reachable without panning — a map would be dead chrome there, even
+        // while a breadcrumb scroll offset momentarily crops the view.
+        const sizeFits = geo.rect.width <= window.innerWidth + 4
+            && geo.rect.height <= (window.innerHeight - geo.topBound) + 4;
+        this.panelTarget.classList.toggle('d-none', sizeFits);
+        if (sizeFits) return;
 
         this._sizeThumb(geo);
 

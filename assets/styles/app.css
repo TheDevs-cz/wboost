@@ -2815,8 +2815,12 @@ button.fill-layer-row__main:focus-visible {
 .canvas-navigator__map {
     position: relative;
     line-height: 0;
-    cursor: crosshair;
+    cursor: pointer;
     background: #f1f3fa;
+}
+
+.canvas-navigator__map:active {
+    cursor: move;
 }
 
 .canvas-navigator__map canvas {
