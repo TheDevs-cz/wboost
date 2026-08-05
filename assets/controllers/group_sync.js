@@ -33,6 +33,7 @@ const META_KEYS = [
     // projector DOES scale, so the defaults track each dimension correctly).
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
     'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
+    'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
     'sampleValue',
 ];
 

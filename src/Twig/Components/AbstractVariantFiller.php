@@ -406,6 +406,12 @@ abstract class AbstractVariantFiller extends AbstractController
      *     richText: bool,
      *     lists: bool,
      *     listCheckboxes: bool,
+     *     checklist: bool,
+     *     checklistAdd: bool,
+     *     checklistRemove: bool,
+     *     checklistEditText: bool,
+     *     checklistToggle: bool,
+     *     checklistItems: null|list<array{text: string, checked: bool}>,
      *     frame: null|array{x: float, y: float, width: float, height: float},
      *     value: string,
      *     runs: null|list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>,
@@ -448,6 +454,15 @@ abstract class AbstractVariantFiller extends AbstractController
                 'richText' => $input->richText,
                 'lists' => $input->richText && $input->lists,
                 'listCheckboxes' => $input->richText && $input->lists && $input->listCheckboxes,
+                // Checklist COMPONENT: the fill page renders the simple
+                // per-item editor instead of the WYSIWYG, gated by the four
+                // capability flags; items are the current/seeded value.
+                'checklist' => $input->checklist,
+                'checklistAdd' => $input->checklistAdd,
+                'checklistRemove' => $input->checklistRemove,
+                'checklistEditText' => $input->checklistEditText,
+                'checklistToggle' => $input->checklistToggle,
+                'checklistItems' => $this->checklistItems($input),
                 'frame' => $frame,
                 // Prefill: an input the user hasn't touched yet seeds from
                 // the admin's "Vzorový text" — the same value the render
@@ -552,6 +567,40 @@ abstract class AbstractVariantFiller extends AbstractController
     private function seededRuns(EditorTextInput $input): null|array
     {
         return $this->seededEnvelope($input)['runs'] ?? null;
+    }
+
+    /**
+     * Per-item seed for a CHECKLIST component's fill editor, derived from the
+     * current/seeded value: one entry per line, checked = 'cbx' line type.
+     * Null for non-checklist inputs.
+     *
+     * @return null|list<array{text: string, checked: bool}>
+     */
+    private function checklistItems(EditorTextInput $input): null|array
+    {
+        if (!$input->checklist) {
+            return null;
+        }
+
+        $envelope = $this->seededEnvelope($input) ?? ['runs' => [], 'lines' => null];
+        $plain = implode('', array_map(
+            static fn (array $run): string => $run['text'],
+            $envelope['runs'],
+        ));
+
+        if ($plain === '') {
+            return [];
+        }
+
+        $items = [];
+        foreach (explode("\n", $plain) as $index => $text) {
+            $items[] = [
+                'text' => $text,
+                'checked' => ($envelope['lines'][$index] ?? 'cb') === 'cbx',
+            ];
+        }
+
+        return $items;
     }
 
     /**

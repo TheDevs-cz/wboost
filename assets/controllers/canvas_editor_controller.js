@@ -702,6 +702,11 @@ export default class extends Controller {
         modal.show();
     }
 
+    showAddChecklistModal() {
+        const modal = new bootstrap.Modal('#addChecklistModal');
+        modal.show();
+    }
+
     /**
      * Stage 7: open the unified project image gallery in "background" mode.
      * The mode is stashed on the controller so onAssetSelected (fired from a
@@ -900,6 +905,79 @@ export default class extends Controller {
         this.canvas.renderAll();
 
         const modal = bootstrap.Modal.getInstance('#addTextModal');
+        modal.hide();
+
+        form.reset();
+    }
+
+    /**
+     * Dedicated CHECKLIST component: one textbox whose value is a checkbox
+     * list. Under the hood it is a plain rich+lists+listCheckboxes input —
+     * same render pipeline, same API contract — plus `checklist: true` so
+     * the fill page swaps the WYSIWYG for the simple per-item editor, and
+     * the four capability flags. The default items become BOTH the designed
+     * stand-in text and the sample value (envelope with all-'cb' lines), so
+     * canvas, preview and untouched export agree from the first save.
+     */
+    submitAddChecklist(event) {
+        event.preventDefault();
+
+        const form = document.getElementById('addChecklistForm');
+        const inputName = document.getElementById('checklistName').value || 'Zaškrtávací seznam';
+        const rawItems = document.getElementById('checklistItems').value
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line !== '');
+        const items = rawItems.length > 0 ? rawItems : ['První položka', 'Druhá položka', 'Třetí položka'];
+        const text = items.join('\n');
+
+        const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
+
+        const textBox = new Textbox(text, {
+            left: 100,
+            top: 100,
+            width: 300,
+            fontFamily: fontFamily,
+            fill: '#000000',
+            fontSize: 24,
+            lineHeight: DEFAULT_LINE_HEIGHT,
+            textAlign: 'left',
+            editable: true,
+            originX: 'left',
+            originY: 'top',
+            lockScalingX: true,
+            lockScalingY: true,
+            lockScalingFlip: true,
+            lockRotation: true,
+            hasControls: true,
+            cornerStyle: 'circle',
+            cornerSize: 8,
+            selectable: true,
+            inputId: crypto.randomUUID(),
+            name: inputName,
+            locked: false,
+            uppercase: false,
+            description: null,
+            hidable: document.getElementById('checklistHidableCheckbox').checked,
+            richText: true,
+            lists: true,
+            listCheckboxes: true,
+            checklist: true,
+            checklistToggle: document.getElementById('checklistToggleCheckbox').checked,
+            checklistEditText: document.getElementById('checklistEditTextCheckbox').checked,
+            checklistAdd: document.getElementById('checklistAddCheckbox').checked,
+            checklistRemove: document.getElementById('checklistRemoveCheckbox').checked,
+            sampleValue: JSON.stringify({
+                runs: [{ text: text, fontFamily: null, color: null, underline: false }],
+                lines: items.map(() => 'cb'),
+            }),
+        });
+
+        this.canvas.add(textBox);
+        this.canvas.setActiveObject(textBox);
+        this.canvas.renderAll();
+
+        const modal = bootstrap.Modal.getInstance('#addChecklistModal');
         modal.hide();
 
         form.reset();

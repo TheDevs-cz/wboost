@@ -69,6 +69,20 @@ readonly final class ResolveTextOverrides
             $inputId = $input->inputId;
             $provided = array_key_exists($inputId, $providedValues);
 
+            // A checklist component with every capability disabled is
+            // effectively read-only: provided overrides are ignored (the
+            // sample still renders), mirroring the fill UI where nothing is
+            // editable. Capabilities beyond this all-off case are a UI
+            // contract — the render accepts any valid checkbox-list value.
+            if (
+                $provided
+                && $input->checklist
+                && !$input->checklistAdd && !$input->checklistRemove
+                && !$input->checklistEditText && !$input->checklistToggle
+            ) {
+                $provided = false;
+            }
+
             // "Vzorový text": an input the caller did not address at all
             // falls back to the admin's sample value — processed through the
             // exact same pipeline as a provided value, but ALWAYS leniently

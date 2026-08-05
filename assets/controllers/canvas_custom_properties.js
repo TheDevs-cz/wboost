@@ -30,6 +30,7 @@ export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
     'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
+    'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
     'sampleValue',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
     'assetPath', 'assetId', 'editorLocked', 'isBackground',

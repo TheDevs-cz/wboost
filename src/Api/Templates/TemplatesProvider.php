@@ -249,6 +249,14 @@ final readonly class TemplatesProvider implements ProviderInterface
                     lists: $input->richText && $input->lists,
                     listStyle: $listStyle,
                     listCheckboxes: $input->richText && $input->lists && $input->listCheckboxes,
+                    checklist: $input->checklist
+                        ? new TemplateVariantChecklistResponse(
+                            toggle: $input->checklistToggle,
+                            editText: $input->checklistEditText,
+                            addItems: $input->checklistAdd,
+                            removeItems: $input->checklistRemove,
+                        )
+                        : null,
                     sampleValue: $input->sampleValue,
                     frame: $frame !== null
                         ? new TemplateVariantInputFrameResponse(

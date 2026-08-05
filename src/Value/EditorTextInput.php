@@ -59,6 +59,24 @@ readonly final class EditorTextInput
         /** Gallery storage path of the custom CHECKED checkbox image. */
         public null|string $listCheckboxCheckedImage = null,
         /**
+         * DEDICATED checklist component ("Přidat zaškrtávací seznam"): the
+         * whole input IS one checkbox list — the fill page renders a simple
+         * per-item editor (rows with a checkbox) instead of the WYSIWYG, and
+         * the four capability flags below control what the end user may do.
+         * Always created with richText + lists + listCheckboxes forced true
+         * (the value model and render pipeline are the plain checkbox-list
+         * ones; only the editing surface differs).
+         */
+        public bool $checklist = false,
+        /** Checklist capability: the user may ADD new items. */
+        public bool $checklistAdd = true,
+        /** Checklist capability: the user may REMOVE items. */
+        public bool $checklistRemove = true,
+        /** Checklist capability: the user may EDIT item texts. */
+        public bool $checklistEditText = true,
+        /** Checklist capability: the user may CHECK/UNCHECK items. */
+        public bool $checklistToggle = true,
+        /**
          * "Vzorový text": the value rendered when the export/preview receives
          * NO override for this input — the admin-authored default fill.
          * Stored in the exact wire format a fill value uses: a plain string,
@@ -72,7 +90,7 @@ readonly final class EditorTextInput
     }
 
     /**
-     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float, listCheckboxes: bool, listCheckboxImage: null|string, listCheckboxCheckedImage: null|string, sampleValue: null|string}
+     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float, listCheckboxes: bool, listCheckboxImage: null|string, listCheckboxCheckedImage: null|string, checklist: bool, checklistAdd: bool, checklistRemove: bool, checklistEditText: bool, checklistToggle: bool, sampleValue: null|string}
      */
     public function toArray(): array
     {
@@ -94,6 +112,11 @@ readonly final class EditorTextInput
             'listCheckboxes' => $this->listCheckboxes,
             'listCheckboxImage' => $this->listCheckboxImage,
             'listCheckboxCheckedImage' => $this->listCheckboxCheckedImage,
+            'checklist' => $this->checklist,
+            'checklistAdd' => $this->checklistAdd,
+            'checklistRemove' => $this->checklistRemove,
+            'checklistEditText' => $this->checklistEditText,
+            'checklistToggle' => $this->checklistToggle,
             'sampleValue' => $this->sampleValue,
         ];
     }
@@ -106,7 +129,7 @@ readonly final class EditorTextInput
      * caller is responsible for stamping the matching id onto the canvas
      * object on the next save.
      *
-     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, sampleValue?: null|string} $data
+     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string} $data
      */
     public static function fromArray(array $data): self
     {
@@ -161,6 +184,11 @@ readonly final class EditorTextInput
             listCheckboxes: ($data['listCheckboxes'] ?? false) === true,
             listCheckboxImage: $imagePath($data['listCheckboxImage'] ?? null),
             listCheckboxCheckedImage: $imagePath($data['listCheckboxCheckedImage'] ?? null),
+            checklist: ($data['checklist'] ?? false) === true,
+            checklistAdd: ($data['checklistAdd'] ?? true) === true,
+            checklistRemove: ($data['checklistRemove'] ?? true) === true,
+            checklistEditText: ($data['checklistEditText'] ?? true) === true,
+            checklistToggle: ($data['checklistToggle'] ?? true) === true,
             sampleValue: self::sampleValueFrom($data['sampleValue'] ?? null),
         );
     }
@@ -181,7 +209,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, sampleValue?: null|string}> $data */
+        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

@@ -388,6 +388,7 @@ For each entry in `variant.inputs`:
 | `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
 | `lists` / `listStyle` | When `lists` is `true`, offer bullet/numbered-list buttons in the WYSIWYG and send per-line types via the envelope's `lines` key (see "Lists inside rich text"). `listStyle` carries the RESOLVED bullet + spacing geometry for local preview mirroring. |
 | `listCheckboxes` | When `true` (implies `lists`), additionally offer a CHECKBOX-list button and per-item check toggles — `lines` may then carry `"cb"` (unchecked) / `"cbx"` (checked) item types (see "Checkbox lists"). |
+| `checklist` | Nullable object. Non-null → this input is a DEDICATED checklist component: render a fixed per-item editor instead of a WYSIWYG (see "Checklist components"). |
 | `sampleValue` | Nullable. The admin's default fill ("Vzorový text") the render uses when you OMIT the input entirely. Same wire format the export accepts: a plain string, or the `{"runs":[...],"lines":[...]}` envelope (a JSON string starting with `{"runs"`). Prefill your form with it so an untouched export matches the preview; sending an explicit `""` suppresses it (renders empty). |
 | `layerIndex` | Nullable int — the object's stacking position on the variant canvas (0 = backmost, higher = painted on top). Shares ONE index space with `imageInputs[].layerIndex`: merge both arrays and sort by `layerIndex` **descending** to build a Photoshop-style layers list (topmost first). Values may have gaps (decorative design objects occupy positions too); only the relative order is meaningful. Purely informational for display/navigation — the export accepts no z-order overrides. |
 
@@ -480,6 +481,28 @@ lines form ONE checklist — mixing states is the point:
   white check mark.
 - `cb`/`cbx` on an input with `listCheckboxes: false` → **400
   `checkbox_lists_not_allowed`**.
+
+### Checklist components (`inputs[].checklist` non-null)
+
+A designer can add an input that IS one checkbox list (the dedicated
+"Zaškrtávací seznam" component). Such inputs carry a non-null `checklist`
+object with four capability flags:
+
+```jsonc
+"checklist": { "toggle": true, "editText": true, "addItems": true, "removeItems": false }
+```
+
+- UI: do NOT render the free WYSIWYG. Render one row per item — checkbox
+  (disabled unless `toggle`) + text field (read-only unless `editText`) +
+  remove button (only with `removeItems`) — plus an "add item" button (only
+  with `addItems`). Seed the rows from `sampleValue` (its envelope's lines
+  are the items; `cbx` = pre-checked).
+- Value: the ordinary checkbox-list envelope — unstyled runs whose lines are
+  all `cb`/`cbx`, e.g.
+  `{ "runs": [{"text":"First\nSecond"}], "lines": ["cbx","cb"] }`.
+- The flags are a **UI contract** (the server accepts any valid checkbox-list
+  value) with one exception: when ALL FOUR are false the input is read-only —
+  provided overrides are ignored and the sample renders.
 
 ### Containers (`variant.containers`) — smart text areas
 

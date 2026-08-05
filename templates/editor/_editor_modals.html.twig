@@ -55,3 +55,60 @@
         </div>
     </div>
 </div>
+
+{# Add CHECKLIST component modal: one input = one checkbox list. The default
+   items become both the designed stand-in text and the sample value (all
+   unchecked; per-item checked defaults are edited later via "Vzorový text").
+   The four toggles control what the END USER may do on the fill page. #}
+<div class="modal fade" id="addChecklistModal" tabindex="-1" aria-labelledby="addChecklistModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addChecklistModalLabel">Přidat zaškrtávací seznam</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addChecklistForm" data-action="submit->canvas-editor#submitAddChecklist">
+                    <div class="mb-3">
+                        <label for="checklistName" class="form-label">Název pole</label>
+                        <input type="text" class="form-control" id="checklistName">
+                    </div>
+                    <div class="mb-3">
+                        <label for="checklistItems" class="form-label">Výchozí položky</label>
+                        <textarea class="form-control" id="checklistItems" rows="4" placeholder="První položka&#10;Druhá položka&#10;Třetí položka"></textarea>
+                        <div class="form-text">Jedna položka na řádek. Výchozí zaškrtnutí upravíte později přes „Vzorový text" (kliknutím na čtvereček).</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label mb-1">Uživatel může při vyplňování:</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="checklistToggleCheckbox" checked>
+                            <label class="form-check-label" for="checklistToggleCheckbox">Zaškrtávat / odškrtávat položky</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="checklistEditTextCheckbox" checked>
+                            <label class="form-check-label" for="checklistEditTextCheckbox">Upravovat text položek</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="checklistAddCheckbox" checked>
+                            <label class="form-check-label" for="checklistAddCheckbox">Přidávat nové položky</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="checklistRemoveCheckbox" checked>
+                            <label class="form-check-label" for="checklistRemoveCheckbox">Odebírat položky</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="checklistHidableCheckbox">
+                            <label class="form-check-label" for="checklistHidableCheckbox">Povolit schovávatelnost</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
+                <button type="button" class="btn btn-primary" data-action="canvas-editor#submitAddChecklist">Přidat seznam</button>
+            </div>
+        </div>
+    </div>
+</div>

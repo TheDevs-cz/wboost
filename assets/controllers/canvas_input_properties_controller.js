@@ -24,6 +24,7 @@ export default class extends Controller {
         "listCheckboxes", "checkboxConfig",
         "checkboxImagePreview", "checkboxImageClear",
         "checkboxCheckedImagePreview", "checkboxCheckedImageClear",
+        "checklistSection", "checklistToggle", "checklistEditText", "checklistAdd", "checklistRemove",
         "sampleBadge", "sampleHost", "sampleTemplate", "samplePlain",
     ];
 
@@ -101,7 +102,40 @@ export default class extends Controller {
             this.richTextTarget.disabled = activeObject.locked || false;
         }
         this._syncListControls(activeObject);
+        this._syncChecklistControls(activeObject);
         this._syncSampleBadge(activeObject);
+    }
+
+    /** Checklist COMPONENT inputs: show the capability toggles, hide the
+     *  rich/lists enable-toggles (forced true for the component — unchecking
+     *  them would silently break its rendering). */
+    _syncChecklistControls(activeObject) {
+        const isChecklist = activeObject.checklist === true;
+        if (this.hasChecklistSectionTarget) {
+            this.checklistSectionTarget.classList.toggle('d-none', !isChecklist);
+        }
+        if (this.hasChecklistToggleTarget) this.checklistToggleTarget.checked = activeObject.checklistToggle !== false;
+        if (this.hasChecklistEditTextTarget) this.checklistEditTextTarget.checked = activeObject.checklistEditText !== false;
+        if (this.hasChecklistAddTarget) this.checklistAddTarget.checked = activeObject.checklistAdd !== false;
+        if (this.hasChecklistRemoveTarget) this.checklistRemoveTarget.checked = activeObject.checklistRemove !== false;
+
+        const richWrapper = this.element.querySelector('[data-richtext-wrapper]');
+        if (richWrapper) richWrapper.classList.toggle('d-none', isChecklist);
+        const checkboxesWrapper = this.element.querySelector('[data-checkboxes-wrapper]');
+        if (checkboxesWrapper) checkboxesWrapper.classList.toggle('d-none', isChecklist);
+        if (isChecklist) {
+            const listsWrapper = this.hasListsTarget ? this.listsTarget.closest('[data-lists-wrapper]') : null;
+            if (listsWrapper) listsWrapper.classList.add('d-none');
+        }
+    }
+
+    updateChecklistFlag(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        const prop = event.params && event.params.prop;
+        if (!['checklistToggle', 'checklistEditText', 'checklistAdd', 'checklistRemove'].includes(prop)) return;
+        activeObject[prop] = event.target.checked;
+        this.canvasEditorOutlet.markUnsaved();
     }
 
     /** Populate + show/hide the list config (only for rich inputs; the

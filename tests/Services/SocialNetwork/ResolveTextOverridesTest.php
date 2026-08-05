@@ -345,6 +345,85 @@ Item", $resolved->texts[self::INPUT_ID]);
         self::assertSame(['p', 'ul'], $resolved->richTexts[self::INPUT_ID]->lineTypes);
     }
 
+    public function testChecklistValueResolvesWithCheckboxLines(): void
+    {
+        $input = $this->checklistInput();
+
+        $resolved = (new ResolveTextOverrides())->resolve(
+            [$input],
+            [self::INPUT_ID => '{"runs":[{"text":"First\nSecond"}],"lines":["cbx","cb"]}'],
+        );
+
+        self::assertSame("First\nSecond", $resolved->texts[self::INPUT_ID]);
+        self::assertSame(['cbx', 'cb'], $resolved->richTexts[self::INPUT_ID]->lineTypes);
+    }
+
+    public function testChecklistWithAllCapabilitiesOffIgnoresProvidedOverride(): void
+    {
+        $input = $this->checklistInput(
+            toggle: false,
+            editText: false,
+            add: false,
+            remove: false,
+            sampleValue: '{"runs":[{"text":"Fixed item"}],"lines":["cbx"]}',
+        );
+
+        // The provided value must NOT win — the input is read-only, the
+        // admin sample renders instead.
+        $resolved = (new ResolveTextOverrides())->resolve(
+            [$input],
+            [self::INPUT_ID => '{"runs":[{"text":"Hacked"}],"lines":["cb"]}'],
+        );
+
+        self::assertSame('Fixed item', $resolved->texts[self::INPUT_ID]);
+        self::assertSame(['cbx'], $resolved->richTexts[self::INPUT_ID]->lineTypes);
+    }
+
+    public function testChecklistWithAnyCapabilityAcceptsProvidedOverride(): void
+    {
+        $input = $this->checklistInput(
+            toggle: true,
+            editText: false,
+            add: false,
+            remove: false,
+            sampleValue: '{"runs":[{"text":"Fixed item"}],"lines":["cb"]}',
+        );
+
+        $resolved = (new ResolveTextOverrides())->resolve(
+            [$input],
+            [self::INPUT_ID => '{"runs":[{"text":"Fixed item"}],"lines":["cbx"]}'],
+        );
+
+        self::assertSame(['cbx'], $resolved->richTexts[self::INPUT_ID]->lineTypes);
+    }
+
+    private function checklistInput(
+        bool $toggle = true,
+        bool $editText = true,
+        bool $add = true,
+        bool $remove = true,
+        null|string $sampleValue = null,
+    ): EditorTextInput {
+        return new EditorTextInput(
+            inputId: self::INPUT_ID,
+            name: 'Checklist',
+            maxLength: null,
+            locked: false,
+            uppercase: false,
+            description: null,
+            hidable: false,
+            richText: true,
+            lists: true,
+            listCheckboxes: true,
+            checklist: true,
+            checklistAdd: $add,
+            checklistRemove: $remove,
+            checklistEditText: $editText,
+            checklistToggle: $toggle,
+            sampleValue: $sampleValue,
+        );
+    }
+
     private function input(int $maxLength, bool $uppercase = false): EditorTextInput
     {
         return new EditorTextInput(

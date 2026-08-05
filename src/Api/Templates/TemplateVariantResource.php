@@ -98,6 +98,16 @@ export draws the default checkbox: a rounded square filled with the item's
 text color, the checked one with a white check mark. `cb`/`cbx` lines on an
 input with `listCheckboxes: false` → **400 `checkbox_lists_not_allowed`**.
 
+### Checklist components (`inputs[].checklist` non-null)
+
+An input whose `checklist` object is non-null was added by the designer as a
+DEDICATED checkbox list: instead of a free-form WYSIWYG, render a fixed
+per-item editor (one row per line, each with a checkbox) and honor the
+capability flags — `toggle` (check/uncheck), `editText`, `addItems`,
+`removeItems`. The wire format is the ordinary checkbox-list envelope; the
+flags are a UI contract, except that with ALL FOUR false the input is
+read-only server-side (provided overrides are ignored, the sample renders).
+
 ## Image placeholders (`images`)
 
 `images` fills IMAGE placeholders, keyed by `variants[].imageInputs[].id`. Each

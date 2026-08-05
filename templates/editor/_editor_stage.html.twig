@@ -179,10 +179,34 @@
                 </div>
 
                 <!-- Rich Text (WYSIWYG) Control -->
-                <div class="col-12">
+                <div class="col-12" data-richtext-wrapper>
                     <div class="form-check mb-0">
                         <input type="checkbox" id="rich-text-control" class="form-check-input" data-canvas-input-properties-target="richText" data-action="change->canvas-input-properties#updateRichText">
                         <label for="rich-text-control" class="form-check-label small">Formátovatelný text <i class="mdi mdi-information-outline text-muted" title="Uživatel může měnit písmo, barvu a podtržení částí textu."></i></label>
+                    </div>
+                </div>
+
+                {# Checklist COMPONENT capabilities — shown only for inputs
+                   created via "Přidat zaškrtávací seznam" (checklist: true).
+                   The rich/lists enable-toggles are hidden for them (forced
+                   on); spacing + checkbox art below still apply. #}
+                <div class="col-12 d-none" data-canvas-input-properties-target="checklistSection">
+                    <span class="small fw-bold"><i class="mdi mdi-format-list-checks me-1"></i>Zaškrtávací seznam — uživatel může:</span>
+                    <div class="form-check mb-0 mt-1">
+                        <input type="checkbox" id="checklist-toggle-control" class="form-check-input" data-canvas-input-properties-target="checklistToggle" data-action="change->canvas-input-properties#updateChecklistFlag" data-canvas-input-properties-prop-param="checklistToggle">
+                        <label for="checklist-toggle-control" class="form-check-label small">Zaškrtávat / odškrtávat položky</label>
+                    </div>
+                    <div class="form-check mb-0">
+                        <input type="checkbox" id="checklist-edit-text-control" class="form-check-input" data-canvas-input-properties-target="checklistEditText" data-action="change->canvas-input-properties#updateChecklistFlag" data-canvas-input-properties-prop-param="checklistEditText">
+                        <label for="checklist-edit-text-control" class="form-check-label small">Upravovat text položek</label>
+                    </div>
+                    <div class="form-check mb-0">
+                        <input type="checkbox" id="checklist-add-control" class="form-check-input" data-canvas-input-properties-target="checklistAdd" data-action="change->canvas-input-properties#updateChecklistFlag" data-canvas-input-properties-prop-param="checklistAdd">
+                        <label for="checklist-add-control" class="form-check-label small">Přidávat nové položky</label>
+                    </div>
+                    <div class="form-check mb-0">
+                        <input type="checkbox" id="checklist-remove-control" class="form-check-input" data-canvas-input-properties-target="checklistRemove" data-action="change->canvas-input-properties#updateChecklistFlag" data-canvas-input-properties-prop-param="checklistRemove">
+                        <label for="checklist-remove-control" class="form-check-label small">Odebírat položky</label>
                     </div>
                 </div>
 
@@ -227,7 +251,7 @@
                            lines). Without custom images the render draws a
                            rounded square in the item's text color — the
                            checked one with a white check mark. #}
-                        <div class="col-12">
+                        <div class="col-12" data-checkboxes-wrapper>
                             <div class="form-check mb-0">
                                 <input type="checkbox" id="list-checkboxes-control" class="form-check-input" data-canvas-input-properties-target="listCheckboxes" data-action="change->canvas-input-properties#updateListCheckboxes">
                                 <label for="list-checkboxes-control" class="form-check-label small">Povolit zaškrtávací seznam <i class="mdi mdi-information-outline text-muted" title="Uživatel může vkládat seznam se zaškrtávacími políčky a jednotlivé položky zaškrtávat/odškrtávat."></i></label>

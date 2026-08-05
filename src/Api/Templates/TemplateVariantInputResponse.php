@@ -50,6 +50,14 @@ final readonly class TemplateVariantInputResponse
          */
         public bool $listCheckboxes = false,
         /**
+         * Non-null exactly when this input is a dedicated CHECKLIST
+         * component: render a fixed per-item checklist editor (not the
+         * free-form WYSIWYG) and honor the capability flags — see
+         * {@see TemplateVariantChecklistResponse}. The value wire format is
+         * the ordinary checkbox-list envelope ('cb'/'cbx' lines).
+         */
+        public null|TemplateVariantChecklistResponse $checklist = null,
+        /**
          * "Vzorový text" — the admin-authored default the render uses when
          * the export receives NO value for this input. Same wire format the
          * export accepts: a plain string, or the `{"runs":[...],"lines":...}`

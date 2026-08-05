@@ -70,7 +70,7 @@
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
-        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged"
+        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged"
         {% if hasImages %}
             data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
@@ -401,7 +401,29 @@
                                 </div>
                             </div>
                             {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
-                            {% if ph.richText and richToolbar %}
+                            {% if ph.checklist %}
+                                {# CHECKLIST component branch: fixed per-item
+                                   editor (checkbox + text + remove per row),
+                                   gated by the admin capability flags. Values
+                                   travel as the same checkbox-list envelope
+                                   the WYSIWYG writes. #}
+                                <div
+                                    data-controller="checklist-editor"
+                                    data-checklist-editor-input-id-value="{{ ph.inputId }}"
+                                    data-checklist-editor-items-value="{{ (ph.checklistItems ?? [])|json_encode }}"
+                                    data-checklist-editor-can-toggle-value="{{ ph.checklistToggle ? 'true' : 'false' }}"
+                                    data-checklist-editor-can-edit-text-value="{{ ph.checklistEditText ? 'true' : 'false' }}"
+                                    data-checklist-editor-can-add-value="{{ ph.checklistAdd ? 'true' : 'false' }}"
+                                    data-checklist-editor-can-remove-value="{{ ph.checklistRemove ? 'true' : 'false' }}"
+                                    data-checklist-editor-max-length-value="{{ ph.maxLength ?? 0 }}"
+                                >
+                                    <div class="d-flex flex-column gap-1" data-checklist-editor-target="rows"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 d-none" data-checklist-editor-target="addButton" data-action="checklist-editor#addItem"><i class="mdi mdi-plus me-1"></i>Přidat položku</button>
+                                    <div class="d-flex justify-content-end mt-1">
+                                        <small class="text-muted" data-checklist-editor-target="counter"></small>
+                                    </div>
+                                </div>
+                            {% elseif ph.richText and richToolbar %}
                                 {# WYSIWYG branch: contenteditable + toolbar, one
                                    rich-text-editor controller per popover. Seeded
                                    from parsed runs (NEVER the raw mirror value —

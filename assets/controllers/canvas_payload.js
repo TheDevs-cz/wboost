@@ -145,6 +145,11 @@ export function buildVariantPayload(canvas) {
                 listCheckboxes: (textbox.richText && textbox.lists && textbox.listCheckboxes) || false,
                 listCheckboxImage: textbox.listCheckboxImage || null,
                 listCheckboxCheckedImage: textbox.listCheckboxCheckedImage || null,
+                checklist: textbox.checklist === true,
+                checklistAdd: textbox.checklistAdd !== false,
+                checklistRemove: textbox.checklistRemove !== false,
+                checklistEditText: textbox.checklistEditText !== false,
+                checklistToggle: textbox.checklistToggle !== false,
                 sampleValue: typeof textbox.sampleValue === 'string' && textbox.sampleValue !== '' ? textbox.sampleValue : null,
             };
         });
