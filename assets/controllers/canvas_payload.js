@@ -66,9 +66,7 @@ export function restoreCustomProperties(canvas, sourceCanvas) {
  * bottom-right; must match the server's `ImagePlacement::computeCover`).
  */
 export function coverForDimensions(img, canvasWidth, canvasHeight, anchor = 'center') {
-    const element = typeof img.getElement === 'function' ? img.getElement() : null;
-    const imageWidth = (element && (element.naturalWidth || element.width)) || img.width || 1;
-    const imageHeight = (element && (element.naturalHeight || element.height)) || img.height || 1;
+    const { imageWidth, imageHeight } = naturalSize(img);
     const scale = Math.max(canvasWidth / imageWidth, canvasHeight / imageHeight);
     img.set({
         ...(anchor === 'top-left'
@@ -79,6 +77,54 @@ export function coverForDimensions(img, canvasWidth, canvasHeight, anchor = 'cen
         scaleX: scale,
         scaleY: scale,
     });
+}
+
+/**
+ * Place a NEWLY ADDED (non-background) image inside a canvas of the given
+ * logical dimensions so it always lands fully visible — CSS `object-fit:
+ * contain`, but only ever scaling DOWNWARDS.
+ *
+ * An OVERSIZED picture (either side longer than the canvas) is scaled by the
+ * smaller axis ratio and pinned to the top-left corner, so one side ends up
+ * exactly maxed out. Before this, a print-resolution photo was dropped at its
+ * natural size and landed mostly off-canvas with its resize handles outside
+ * the viewport — the designer had to zoom out and scale it down by hand on
+ * every single add.
+ *
+ * A picture that FITS keeps its natural size (dropping a small logo must never
+ * balloon it to full-canvas) at `offset`, nudged back towards the origin only
+ * as far as needed to keep it fully inside the right/bottom edges.
+ *
+ * Origins are pinned to 'left'/'top' to override Fabric v7's 'center' default,
+ * matching legacy data and the server-side renderer's expectations.
+ */
+export function containForDimensions(img, canvasWidth, canvasHeight, offset = 0) {
+    const { imageWidth, imageHeight } = naturalSize(img);
+    const oversized = imageWidth > canvasWidth || imageHeight > canvasHeight;
+    const scale = oversized ? Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight) : 1;
+
+    img.set({
+        originX: 'left',
+        originY: 'top',
+        left: oversized ? 0 : Math.max(0, Math.min(offset, canvasWidth - imageWidth)),
+        top: oversized ? 0 : Math.max(0, Math.min(offset, canvasHeight - imageHeight)),
+        scaleX: scale,
+        scaleY: scale,
+    });
+}
+
+/**
+ * An image's UNSCALED pixel size. Prefers the underlying element's natural
+ * dimensions (authoritative even before Fabric has measured the picture) and
+ * falls back to the Fabric object's own width/height.
+ */
+function naturalSize(img) {
+    const element = typeof img.getElement === 'function' ? img.getElement() : null;
+
+    return {
+        imageWidth: (element && (element.naturalWidth || element.width)) || img.width || 1,
+        imageHeight: (element && (element.naturalHeight || element.height)) || img.height || 1,
+    };
 }
 
 /**

@@ -1,10 +1,16 @@
 import { Controller } from "@hotwired/stimulus";
 import { Canvas, Textbox, FabricImage, cache } from "fabric";
 
-import { buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
+import { buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
+
+/**
+ * Where a freshly added image lands when it comfortably fits — offset from the
+ * canvas origin so it doesn't hide whatever already sits in the corner.
+ */
+const IMAGE_DROP_OFFSET = 100;
 
 /**
  * Orchestrator controller for the social-network template variant editor.
@@ -995,18 +1001,14 @@ export default class extends Controller {
         // Fabric v7: FabricImage.fromURL is Promise-based.
         const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
         img.set({
-            left: 100,
-            top: 100,
             angle: 0,
-            // Pin origin to 'left'/'top' to override v7's new 'center' default
-            // — keeps newly-added images consistent with legacy data and the
-            // server-side renderer's expectations.
-            originX: 'left',
-            originY: 'top',
             // (`cornersize`/`hasRotatingPoint` were dead props — the casing was
             // wrong and the rotating point ships by default since Fabric v6.)
             cornerSize: 10,
         });
+        // Position + scale: contain-fit so the picture is never dropped partly
+        // (or almost entirely) outside the canvas. Sets the left/top origins.
+        containForDimensions(img, this.canvas.width, this.canvas.height, IMAGE_DROP_OFFSET);
         // Stamp inputId proactively (Stage 2 convention) so it can be promoted
         // to a fillable image placeholder by id.
         if (!img.inputId) {
