@@ -18,6 +18,11 @@ return static function (ContainerConfigurator $container): void {
     // Data fixtures
     $services->load('WBoost\\Web\\Tests\\DataFixtures\\', __DIR__ . '/../tests/DataFixtures/{*.php}');
 
+    // MCP fixtures — a trivial tool so tests/Mcp/TransportTest.php can drive a
+    // real `tools/call` (Stage 2 ships the production tools). Autoconfigure
+    // picks up the SDK's #[McpTool] attribute; test env only.
+    $services->load('WBoost\\Web\\Tests\\Mcp\\Fixtures\\', __DIR__ . '/../tests/Mcp/Fixtures/{*.php}');
+
     // Test fakes — replace the social-network image renderer with a deterministic 1×1 PNG
     // emitter so tests don't depend on Gotenberg / Minio / project fonts.
     $services->load('WBoost\\Web\\Tests\\Fakes\\', __DIR__ . '/../tests/Fakes/{*.php}');

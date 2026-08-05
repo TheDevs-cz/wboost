@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Symfony\Component\Cache\Psr16Cache;
+use WBoost\Web\Mcp\Transport\BufferedMcpController;
+use WBoost\Web\Mcp\Transport\BufferStreamedResponse;
 
 return App::config([
     'services' => [
@@ -18,6 +20,29 @@ return App::config([
         'mcp.session.psr16' => [
             'class' => Psr16Cache::class,
             'arguments' => [service('cache.mcp_session')],
+            'autowire' => false,
+            'autoconfigure' => false,
+        ],
+
+        // FrankenPHP guard: the bundle's controller returns a *flushing*
+        // StreamedResponse whenever the transport answers text/event-stream,
+        // and under resident PHP that commits output early and kills the NEXT
+        // request on the same worker ("headers already sent"). The bundle
+        // exposes no switch for it, so the controller is decorated and the body
+        // buffered. See the class docblocks — that is where the reasoning lives.
+        //
+        // Registered here rather than in config/services.php because the
+        // src/Mcp/ autowiring there is scoped to Tool/ + Design/ + Security/,
+        // and these two are neither: they are transport plumbing that must be
+        // wired by hand (explicit `.inner`, no autoconfiguration).
+        BufferStreamedResponse::class => [
+            'autowire' => false,
+            'autoconfigure' => false,
+        ],
+
+        BufferedMcpController::class => [
+            'decorates' => 'mcp.server.controller',
+            'arguments' => [service('.inner'), service(BufferStreamedResponse::class)],
             'autowire' => false,
             'autoconfigure' => false,
         ],
