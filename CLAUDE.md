@@ -473,9 +473,36 @@ the property controllers above only populate/mutate their (relocated) fields.
   hides during inline text editing (`text:editing:entered/exited`); flips the
   popover above/below to stay in the viewport and below the sticky header
   (`[data-editor-header]`).
-- The left-panel toggle "Zvýraznit editovatelné prvky" (`toggleHighlight`) draws
+- The top-bar toggle "Zobrazit editovatelné prvky" (`toggleHighlight`) draws
   one **DOM** `.editable-outline` per selectable object (NOT on the canvas
   bitmap, so it never leaks into the saved preview thumbnail or the server PNG).
+
+**Overlay chrome toggles** (`templates/editor/_editor_toggles.html.twig`, the
+top bar shared by the single-variant and the group editor). Element IDs are the
+contract — each controller reads its switch's initial state with
+`querySelector('#…')` on connect, so a renamed id silently starts the chrome
+OFF with no error anywhere. None of them persist: every reload starts all-on.
+
+| switch | controller | what it hides |
+|---|---|---|
+| `#highlight-editable-control` | canvas-floating-toolbar `toggleHighlight` | the dashed `.editable-outline` frames |
+| `#caption-visible-control` | canvas-floating-toolbar `toggleCaptions` | the `.editable-outline__name` field tags |
+| `#container-zones-control` | canvas-container `toggleZones` | the dashed `.container-zone` chrome |
+| `#snap-enabled-control` | canvas-snapping | drag snapping |
+| `#ruler-enabled-control` | canvas-rulers | rulers + guides |
+
+Frames and captions are the two INDEPENDENT halves of one overlay: all four
+combinations are reachable, so ONE `.editable-outline` element per object is
+built whenever EITHER is on (`_overlayOn()`), the frame is a CSS modifier away
+(`--frameless`) and the tag is simply not appended. The expensive part — the
+`after:render` positioning loop — stays unaware of the toggles.
+Hiding container zones is chrome-only: the definitions still reflow the design,
+still list in the "Kontejnery" panel and still save. It is CSS-driven
+(`.container-zones-off`) because `_positionZones()` rewrites
+`zone.style.display` every render frame and would fight inline styles — and
+while zones are hidden `_openSettings()` is a no-op, since the popover anchors
+to a zone rect that now measures 0×0 (the panel row still selects the
+container).
 
 **User-fill flow — Live Component (Stage 5)**
 
@@ -489,8 +516,14 @@ overrides via `ResolveTextOverrides`; download is a regular controller action.
 happens ON the preview: every text + image placeholder shows an always-visible
 icon cluster — **pencil** (text → floating popover with the replace input; image
 → a gallery **modal** with thumbnails + folder select + upload) and an **eye**
-(hide, only when `hidable`). The "highlight editable elements" toggle (on by
-default) controls ONLY the dashed border; the icons stay visible regardless. Box
+(hide, only when `hidable`). Two independent toggles gate the chrome, mirroring
+the admin editor's pair and both on by default: "Zobrazit oblasti k vyplnění"
+(`#fill-highlight-toggle` → `fill-highlight-on`) controls the dashed border AND
+the icon clusters, "Popisky prvků" (`#fill-captions-toggle` → `fill-captions-on`)
+the `.fill-box__name` field tags. Both classes are also stamped on the form in
+the Twig markup — the CSS gates on them, so dropping them there loads the page
+with the chrome invisible. An OVERFLOWING box keeps its red border and its tag
+regardless of either toggle: that is a validation signal, not a hint. Box
 positions come from the designer frame scaled to the displayed preview
 (`scale = previewWidth / variant.dimension.width()`). The overlay, popovers and
 modals all live in `data-live-ignore` subtrees so a Live re-render never wipes

@@ -160,6 +160,19 @@ export default class extends Controller {
         this.element.classList.toggle("fill-highlight-on", event.target.checked);
     }
 
+    /**
+     * Field-name tags, on their own switch — independent of the borders above,
+     * mirroring the admin editor's pair. Named areas are useful while filling
+     * and pure noise while judging the result, and that is a different decision
+     * from wanting the dashed frames.
+     *
+     * An OVERFLOWING box keeps its tag either way: that one is a validation
+     * signal (it names the container that will 400 the export), not a hint.
+     */
+    toggleCaptions(event) {
+        this.element.classList.toggle("fill-captions-on", event.target.checked);
+    }
+
     // --- Zoom (whole preview) ------------------------------------------------
     // Visual CSS scale on the stage: the preview + overlay boxes scale together,
     // so they stay aligned with no re-measuring. reposition() computes the box

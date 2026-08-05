@@ -65,7 +65,7 @@
         method="POST"
         action="{{ this.downloadPath() }}"
         data-turbo="false"
-        class="fill-form fill-highlight-on"
+        class="fill-form fill-highlight-on fill-captions-on"
         data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
@@ -100,6 +100,20 @@
                     data-action="change->variant-fill-overlay#toggleHighlight"
                 >
                 <label class="form-check-label small" for="fill-highlight-toggle">Zobrazit oblasti k vyplnění</label>
+            </div>
+
+            {# Name tags, independent of the borders above (same pair as the
+               admin editor). Also `checked` as a DOM property, so it lives in
+               the same data-live-ignore subtree. #}
+            <div class="form-check form-switch mb-0">
+                <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="fill-captions-toggle"
+                    checked
+                    data-action="change->variant-fill-overlay#toggleCaptions"
+                >
+                <label class="form-check-label small" for="fill-captions-toggle" title="Jmenovky polí zobrazené v rohu každé oblasti">Popisky prvků</label>
             </div>
 
             <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Přiblížení náhledu">

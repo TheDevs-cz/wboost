@@ -69,11 +69,19 @@ export default class extends Controller {
         this._normalizePending = false;
         this._settingsEl = null;
         this._settingsContainerId = null;
+        // Zone chrome visibility. Lives here with the rest of the state
+        // because canvasEditorOutletConnected() (which renders zones) can fire
+        // before connect() reads the toggle.
+        this._zonesVisible = true;
     }
 
     connect() {
         this._boundReposition = () => this.repositionZones();
         window.addEventListener('resize', this._boundReposition);
+
+        const toggle = this.element.querySelector('#container-zones-control');
+        this._zonesVisible = toggle ? toggle.checked : true;
+        this._applyZoneVisibility();
     }
 
     disconnect() {
@@ -450,6 +458,30 @@ export default class extends Controller {
     }
 
     // --- zone overlay --------------------------------------------------------
+
+    /**
+     * Show/hide the dashed zone chrome (top-bar switch). Purely visual: the
+     * container DEFINITIONS are untouched, so the design keeps reflowing, the
+     * "Kontejnery" panel keeps listing them and a save still persists them —
+     * this only gets the boxes, labels and handles out of the designer's way
+     * while they judge the composition.
+     *
+     * CSS-driven rather than per-zone inline styles, because _positionZones()
+     * writes `zone.style.display` on every render frame and would fight us;
+     * clearing that inline value simply lets the class rule apply.
+     */
+    toggleZones(event) {
+        this._zonesVisible = event.target.checked;
+        this._applyZoneVisibility();
+    }
+
+    _applyZoneVisibility() {
+        if (!this.hasLayerTarget) return;
+        this.layerTarget.classList.toggle('container-zones-off', !this._zonesVisible);
+        // An open settings popover anchors to its zone's rect; a hidden zone
+        // measures 0×0 and would strand it in the stage's top-left corner.
+        if (!this._zonesVisible) this._closeSettings();
+    }
 
     _depthOf(container) {
         let depth = 0;
@@ -1138,6 +1170,9 @@ export default class extends Controller {
     _openSettings(container) {
         this._closeSettings();
         if (!this.hasLayerTarget) return;
+        // Zones hidden: the popover has nothing to anchor to (see
+        // _applyZoneVisibility). The panel row still selects the container.
+        if (!this._zonesVisible) return;
 
         const nested = this._parentOf(container) !== null;
 

@@ -33,11 +33,13 @@ export default class extends Controller {
 
     connect() {
         this._outlines = [];
-        // Default the highlight overlay to the toggle's initial state (checked by
-        // default in the left panel) so editable outlines are drawn on load; the
-        // outlet hook below renders them once the canvas is wired.
+        // Default both overlay halves to their toggles' initial state (checked
+        // by default in the top bar) so they are drawn on load; the outlet hook
+        // below renders them once the canvas is wired.
         const toggle = this.element.querySelector('#highlight-editable-control');
         this._highlight = toggle ? toggle.checked : false;
+        const captionToggle = this.element.querySelector('#caption-visible-control');
+        this._captions = captionToggle ? captionToggle.checked : false;
         this._editing = false;
         this._boundReposition = () => this.reposition();
         this._boundKeydown = (event) => { if (event.key === 'Escape') this.closePopovers(); };
@@ -98,19 +100,19 @@ export default class extends Controller {
 
         // Keep the highlight overlay aligned on every repaint, and rebuild it
         // when the object set changes.
-        this._onAfterRender = () => { if (this._highlight) this._positionOutlines(); };
+        this._onAfterRender = () => { if (this._overlayOn()) this._positionOutlines(); };
         canvas.on('after:render', this._onAfterRender);
-        this._onObjAdded = () => { if (this._highlight) this._renderOutlines(); };
+        this._onObjAdded = () => { if (this._overlayOn()) this._renderOutlines(); };
         this._onObjRemoved = () => {
-            if (this._highlight) this._renderOutlines();
+            if (this._overlayOn()) this._renderOutlines();
             if (!canvas.getActiveObject()) this._hideChrome();
         };
         canvas.on('object:added', this._onObjAdded);
         canvas.on('object:removed', this._onObjRemoved);
 
-        // Draw outlines for objects already on the canvas when the toggle starts
+        // Draw outlines for objects already on the canvas when a toggle starts
         // on (later object:added events keep them in sync as the canvas loads).
-        if (this._highlight) this._renderOutlines();
+        if (this._overlayOn()) this._renderOutlines();
 
         this._hideChrome();
     }
@@ -251,9 +253,30 @@ export default class extends Controller {
 
     // --- highlight editable elements -------------------------------------
 
+    /**
+     * The overlay has two INDEPENDENT halves — the dashed frame and the field
+     * name tag — driven by their own switches, so all four combinations are
+     * reachable (frames alone, tags alone, both, neither). One element per
+     * object carries both: the frame is a CSS modifier away and the tag is
+     * simply not appended, which keeps the after:render positioning loop (the
+     * expensive part) unaware of the toggles.
+     */
+    _overlayOn() {
+        return this._highlight || this._captions;
+    }
+
     toggleHighlight(event) {
         this._highlight = event.target.checked;
-        if (this._highlight) this._renderOutlines();
+        this._syncOutlines();
+    }
+
+    toggleCaptions(event) {
+        this._captions = event.target.checked;
+        this._syncOutlines();
+    }
+
+    _syncOutlines() {
+        if (this._overlayOn()) this._renderOutlines();
         else this._clearOutlines();
     }
 
@@ -263,8 +286,8 @@ export default class extends Controller {
         const objects = this.canvasEditorOutlet.canvas.getObjects().filter((o) => o.selectable !== false);
         this._outlines = objects.map((obj) => {
             const el = document.createElement('div');
-            el.className = 'editable-outline';
-            const label = this._outlineLabel(obj);
+            el.className = this._highlight ? 'editable-outline' : 'editable-outline editable-outline--frameless';
+            const label = this._captions ? this._outlineLabel(obj) : null;
             if (label) {
                 const name = document.createElement('span');
                 name.className = 'editable-outline__name';
@@ -332,7 +355,7 @@ export default class extends Controller {
         const g = this._geometry();
         if (!g) return;
 
-        if (this._highlight) this._positionOutlines(g);
+        if (this._overlayOn()) this._positionOutlines(g);
 
         const obj = this.canvasEditorOutlet.canvas.getActiveObject();
         if (!obj || this._editing) return;

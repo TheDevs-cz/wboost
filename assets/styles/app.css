@@ -204,8 +204,17 @@
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
+/* Captions on, frames off: the element still carries the name tag and still
+   rides the after:render positioning loop — only the frame stops painting. */
+.editable-outline--frameless {
+    border-color: transparent;
+    box-shadow: none;
+}
+
 /* Field-name tag inside a highlight outline (same look as the fill page's
-   .fill-box__name), so the designer sees which input each box is. */
+   .fill-box__name), so the designer sees which input each box is. Its own
+   top-bar switch (#caption-visible-control) — the tag sits over the top of
+   every element, which is exactly what a composition review does not want. */
 .editable-outline__name {
     position: absolute;
     top: 0;
@@ -567,6 +576,15 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     border: 1.5px dashed var(--zone-color, #39afd1);
     border-radius: 3px;
     background: var(--zone-tint, rgba(57, 175, 209, 0.04));
+}
+
+/* Top-bar switch (#container-zones-control): hide the zone chrome entirely.
+   A class rather than inline styles because _positionZones() rewrites
+   `zone.style.display` on every render frame; clearing that inline value is
+   what lets this rule through. Definitions are untouched — the design still
+   reflows and the Kontejnery panel still lists them. */
+.container-zones-off .container-zone {
+    display: none;
 }
 
 /* Hovering a zone's label lifts the whole zone above colliding siblings so
@@ -1020,7 +1038,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
    label, so neighbouring boxes' tags can't collide). Anchored to the top edge
    opposite the tool cluster — left by default, since the tools sit top-right —
    with the tool corner reserved so the name is NEVER hidden under the pencil.
-   Shown together with the dashed border (the highlight toggle). */
+   Shown/hidden by its OWN toggle, not the dashed border's. */
 .fill-box__name {
     position: absolute;
     top: 0;
@@ -1053,8 +1071,9 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     border-radius: 0 0 0 3px;
 }
 
-/* Visible with the highlight border, and always for an overflowing member. */
-.fill-form.fill-js.fill-highlight-on .fill-box__name {
+/* Own switch (#fill-captions-toggle), independent of the border toggle — and
+   always visible for an overflowing member, which is a validation signal. */
+.fill-form.fill-js.fill-captions-on .fill-box__name {
     opacity: 1;
 }
 

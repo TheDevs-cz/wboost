@@ -57,6 +57,34 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         self::assertSelectorExists('[data-canvas-floating-toolbar-target="imagePopover"] [data-canvas-image-properties-target="placeholder"]');
     }
 
+    /**
+     * The overlay switches in the editor's top bar. Their ELEMENT IDs are the
+     * contract: canvas_floating_toolbar and canvas_container read their initial
+     * state with `querySelector('#…')` on connect, so a renamed id silently
+     * defaults the overlay to "off" with no error anywhere.
+     *
+     * Captions are deliberately a SEPARATE switch from the outline one — the
+     * two halves of the same overlay, independently toggleable.
+     */
+    public function testEditorPageRendersIndependentOverlayToggles(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request('GET', $this->editorUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists(
+            '#highlight-editable-control[checked][data-action="change->canvas-floating-toolbar#toggleHighlight"]',
+        );
+        self::assertSelectorExists(
+            '#caption-visible-control[checked][data-action="change->canvas-floating-toolbar#toggleCaptions"]',
+        );
+        self::assertSelectorExists(
+            '#container-zones-control[checked][data-action="change->canvas-container#toggleZones"]',
+        );
+    }
+
     public function testGroupedVariantRedirectsToGroupEditor(): void
     {
         $client = self::createClient();
@@ -220,6 +248,13 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         // and the form posts to the template download route.
         self::assertSelectorExists('[data-controller~="variant-image-fill"]');
         self::assertSelectorExists('form[action$="/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/download"]');
+
+        // Both overlay halves start on, each on its own switch — and the two
+        // classes are what the CSS gates on, so the initial markup must carry
+        // them or the page loads with the chrome invisible.
+        self::assertSelectorExists('form.fill-form.fill-highlight-on.fill-captions-on');
+        self::assertSelectorExists('#fill-highlight-toggle[checked]');
+        self::assertSelectorExists('#fill-captions-toggle[checked][data-action="change->variant-fill-overlay#toggleCaptions"]');
     }
 
     private function loadVariant(): TemplateVariant
