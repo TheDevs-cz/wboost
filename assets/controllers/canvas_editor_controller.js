@@ -5,6 +5,7 @@ import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
+import { syncChecklistSample, sweepChecklistSamples } from './canvas_checklist_sample.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
@@ -132,6 +133,10 @@ export default class extends Controller {
         // canvas_checklist_preview) — every freshly added / re-loaded object
         // needs the instance patch, so sweep on add (load re-runs it too).
         this.canvas.on('object:added', (opt) => applyChecklistPreview(opt.target));
+        // ...and their sample envelope IS the exported value, so an inline
+        // text edit has to be written into it (canvas_checklist_sample) —
+        // otherwise the canvas shows the new items and the PNG keeps the old.
+        this.canvas.on('text:changed', (opt) => syncChecklistSample(opt.target));
         // Pointer modifiers (applyPointerModifiers): Alt/⌥+drag always
         // rubber-bands, Ctrl/⌘+drag always grabs the object under the cursor
         // (backdrops included). Must run BEFORE Fabric's target search.
@@ -445,6 +450,11 @@ export default class extends Controller {
             // Hydrated objects are fresh instances — re-apply the checklist
             // render patch (undo/redo restores land here too).
             sweepChecklistPreviews(this.canvas);
+            // Heal checklists saved before the text↔sample sync existed: their
+            // stored envelope may still hold the pre-edit items. Idempotent on
+            // consistent objects, and deliberately does NOT mark the form dirty
+            // — the reconciliation rides along with the designer's next save.
+            sweepChecklistSamples(this.canvas);
 
             this.canvas.renderAll();
         } finally {

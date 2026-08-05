@@ -388,11 +388,33 @@ model / render pipeline / group sync), plus `checklist: true` and
 `checklistToggle`/`checklistEditText`/`checklistAdd`/`checklistRemove`
 (default true). `#addChecklistModal` takes the default items (textarea, one
 per line — they become BOTH the designed stand-in text and the sampleValue
-envelope with all-'cb' lines; per-item checked defaults are authored later
-via the Vzorový text WYSIWYG) + the four capability toggles. Text popover:
+envelope with all-'cb' lines) + the four capability toggles. Text popover:
 checklist inputs show a capabilities section and HIDE the rich/lists/
 checkbox enable-toggles (forced on; unchecking would silently break
-rendering). Fill page: `checklist_editor_controller.js` replaces the
+rendering).
+
+**Admin item editing — canvas text and sample are kept in LOCKSTEP**
+(`assets/controllers/canvas_checklist_sample.js`, 2026-08-05). A checklist's
+canvas `text` is only a stand-in; what the export draws is its `sampleValue`
+envelope (nothing is provided for the input, so `ResolveTextOverrides` falls
+back to the sample). Two sources of truth for one item list — so an inline
+canvas edit used to change only `text` and the PNG kept the ORIGINAL items,
+while the editor preview (which draws from `_textLines`) happily showed the
+new ones. The rule now: **the canvas text owns the items, the sample owns the
+checked states**, carried over BY LINE INDEX (lines the sample doesn't reach
+default to 'cb'). The reconciliation is idempotent, so it runs on every
+`text:changed`, on canvas load (heals rows saved before this — deliberately
+WITHOUT marking the form dirty; it rides along with the next save) and right
+after the item editor writes. The admin item editor is the popover's
+`Vzorový text` button relabeled **"Položky seznamu"** for checklist inputs:
+the same `#sampleTextModal` hosting the fill page's
+`checklist_editor_controller` with all four capabilities forced ON (the flags
+gate the USER, not the designer authoring defaults) and no clear button — an
+empty sample would export the stand-in as plain paragraphs, checkboxes gone.
+Saving writes BOTH faces and fires a synthetic `text:changed` so container
+reflow and group sync treat it like typing.
+
+Fill page: `checklist_editor_controller.js` replaces the
 WYSIWYG — one row per item (checkbox disabled unless toggle, text readonly
 unless editText, × only with remove, add button/Enter-inserts only with
 add), value synced as the ordinary checkbox-list envelope; removing all

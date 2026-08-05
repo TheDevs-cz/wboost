@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { applyChecklistItems, checklistItems, itemsFromValue } from './canvas_checklist_sample.js';
 
 /**
  * Editor-side input metadata: name / description / locked / hidable /
@@ -26,6 +27,7 @@ export default class extends Controller {
         "checkboxCheckedImagePreview", "checkboxCheckedImageClear",
         "checklistSection", "checklistToggle", "checklistEditText", "checklistAdd", "checklistRemove",
         "sampleBadge", "sampleHost", "sampleTemplate", "samplePlain",
+        "sampleLabel", "sampleIcon", "sampleTitle", "sampleHint", "sampleClear", "checklistTemplate",
     ];
 
     connect() {
@@ -103,7 +105,7 @@ export default class extends Controller {
         }
         this._syncListControls(activeObject);
         this._syncChecklistControls(activeObject);
-        this._syncSampleBadge(activeObject);
+        this._syncSampleChrome(activeObject);
     }
 
     /** Checklist COMPONENT inputs: show the capability toggles, hide the
@@ -306,18 +308,43 @@ export default class extends Controller {
      * its wire value into the [data-sample-mirror] hidden input — the exact
      * envelope/plain format the render pipeline consumes. Plain inputs edit
      * a simple textarea instead.
+     *
+     * CHECKLIST components take the same modal but the fill page's per-item
+     * editor ("Položky seznamu"): items ARE the sample for them, so a raw
+     * WYSIWYG over the envelope would be a needlessly sharp tool. The admin
+     * always gets every capability here — the four flags gate the USER, not
+     * the designer authoring the defaults.
      */
     openSampleModal() {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         this._sampleObject = activeObject;
         const stored = typeof activeObject.sampleValue === 'string' ? activeObject.sampleValue : '';
-        const rich = activeObject.richText === true && this.hasSampleTemplateTarget;
+        const checklist = activeObject.checklist === true && this.hasChecklistTemplateTarget;
+        const rich = !checklist && activeObject.richText === true && this.hasSampleTemplateTarget;
 
         if (this.hasSampleHostTarget) this.sampleHostTarget.textContent = '';
         if (this.hasSamplePlainTarget) {
-            this.samplePlainTarget.classList.toggle('d-none', rich);
-            this.samplePlainTarget.value = rich ? '' : stored;
+            this.samplePlainTarget.classList.toggle('d-none', rich || checklist);
+            this.samplePlainTarget.value = rich || checklist ? '' : stored;
+        }
+        this._syncSampleChrome(activeObject);
+
+        if (checklist) {
+            const clone = this.checklistTemplateTarget.content.firstElementChild.cloneNode(true);
+            const items = checklistItems(activeObject);
+            clone.dataset.checklistEditorInputIdValue = activeObject.inputId || '';
+            clone.dataset.checklistEditorItemsValue = JSON.stringify(items);
+            clone.dataset.checklistEditorMaxLengthValue = String(activeObject.maxLength || 0);
+            const mirror = clone.querySelector('[data-sample-mirror]');
+            if (mirror) {
+                mirror.setAttribute('data-text-mirror', activeObject.inputId || '');
+                // Seeded from the RECONCILED items, not the stored value: a
+                // checklist that diverged before the sync existed then heals
+                // on a plain open + Uložit, with no edit needed.
+                mirror.value = this._checklistValue(items);
+            }
+            this.sampleHostTarget.appendChild(clone);
         }
 
         if (rich) {
@@ -364,14 +391,32 @@ export default class extends Controller {
     saveSample() {
         const obj = this._sampleObject || this._getActiveTextbox();
         if (!obj) return;
+        const mirror = this.hasSampleHostTarget ? this.sampleHostTarget.querySelector('[data-sample-mirror]') : null;
+
+        // A checklist writes BOTH faces — the items are the canvas text and
+        // the sample at once — and announces the change so container reflow
+        // and the group editor treat it like typing.
+        if (obj.checklist === true && mirror) {
+            applyChecklistItems(obj, itemsFromValue(mirror.value));
+            this._syncSampleChrome(obj);
+            if (this.hasCanvasEditorOutlet) {
+                this.canvasEditorOutlet.canvas.fire('text:changed', { target: obj });
+                this.canvasEditorOutlet.canvas.renderAll();
+                this.canvasEditorOutlet.markUnsaved();
+            }
+            this._hideSampleModal();
+
+            return;
+        }
+
         let value;
-        if (obj.richText === true && this.hasSampleHostTarget && this.sampleHostTarget.querySelector('[data-sample-mirror]')) {
-            value = this.sampleHostTarget.querySelector('[data-sample-mirror]').value;
+        if (obj.richText === true && mirror) {
+            value = mirror.value;
         } else {
             value = this.hasSamplePlainTarget ? this.samplePlainTarget.value : '';
         }
         obj.sampleValue = value.trim() === '' ? null : value;
-        this._syncSampleBadge(obj);
+        this._syncSampleChrome(obj);
         if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.markUnsaved();
         this._hideSampleModal();
     }
@@ -380,9 +425,25 @@ export default class extends Controller {
         const obj = this._sampleObject || this._getActiveTextbox();
         if (!obj) return;
         obj.sampleValue = null;
-        this._syncSampleBadge(obj);
+        this._syncSampleChrome(obj);
         if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.markUnsaved();
         this._hideSampleModal();
+    }
+
+    /** The wire value for a list of items — mirrors checklist_editor's own
+     *  `_sync`, so the seeded mirror and an edited one are the same shape. */
+    _checklistValue(items) {
+        if (items.length === 0) return '';
+
+        return JSON.stringify({
+            runs: [{
+                text: items.map((item) => item.text).join('\n'),
+                fontFamily: null,
+                color: null,
+                underline: false,
+            }],
+            lines: items.map((item) => (item.checked ? 'cbx' : 'cb')),
+        });
     }
 
     _hideSampleModal() {
@@ -391,10 +452,39 @@ export default class extends Controller {
         if (modal) modal.hide();
     }
 
-    _syncSampleBadge(activeObject) {
-        if (!this.hasSampleBadgeTarget) return;
-        const hasSample = typeof activeObject.sampleValue === 'string' && activeObject.sampleValue !== '';
-        this.sampleBadgeTarget.classList.toggle('d-none', !hasSample);
+    /**
+     * The sample button + modal wear two hats. For an ordinary input they are
+     * "Vzorový text" — an optional default, hence the "nastaven" badge and the
+     * clear button. For a CHECKLIST they are "Položky seznamu": the items are
+     * the component's content, so an empty sample is not a state worth
+     * offering (clearing one would export the stand-in text as plain
+     * paragraphs, checkboxes gone).
+     */
+    _syncSampleChrome(activeObject) {
+        const checklist = activeObject.checklist === true;
+
+        if (this.hasSampleBadgeTarget) {
+            const hasSample = typeof activeObject.sampleValue === 'string' && activeObject.sampleValue !== '';
+            this.sampleBadgeTarget.classList.toggle('d-none', checklist || !hasSample);
+        }
+        if (this.hasSampleLabelTarget) {
+            this.sampleLabelTarget.textContent = checklist ? 'Položky seznamu' : 'Vzorový text';
+        }
+        if (this.hasSampleIconTarget) {
+            this.sampleIconTarget.classList.toggle('mdi-text-box-outline', !checklist);
+            this.sampleIconTarget.classList.toggle('mdi-format-list-checks', checklist);
+        }
+        if (this.hasSampleTitleTarget) {
+            this.sampleTitleTarget.textContent = checklist ? 'Položky seznamu' : 'Vzorový text';
+        }
+        if (this.hasSampleHintTarget) {
+            this.sampleHintTarget.textContent = checklist
+                ? 'Výchozí položky seznamu. Zobrazí se v náhledu i exportu, dokud je uživatel nezmění — a text položek se propíše i na plátno.'
+                : 'Zobrazí se v náhledu i exportu, dokud uživatel pole nevyplní. Podporuje vše co vyplňování — u formátovatelných polí včetně stylů a seznamů.';
+        }
+        if (this.hasSampleClearTarget) {
+            this.sampleClearTarget.classList.toggle('d-none', checklist);
+        }
     }
 
     updateLocked(event) {
