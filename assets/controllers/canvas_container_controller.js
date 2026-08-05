@@ -486,8 +486,16 @@ export default class extends Controller {
             // members, Shift+click = add them to the current selection.
             const label = document.createElement('span');
             label.className = 'container-zone__label';
-            label.title = 'Klik vybere kontejner (Shift přidá k výběru), tažením ho přesunete';
+            label.title = 'Klik vybere kontejner (Shift přidá k výběru), dvojklik otevře nastavení, tažením ho přesunete';
             label.addEventListener('mousedown', (event) => this._beginLabelDrag(event, container));
+            // Double-click = open the container's ⚙ settings popover (the
+            // two single clicks select it first, which is fine).
+            label.addEventListener('dblclick', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this._closeSettings();
+                this._openSettings(container);
+            });
             // Overlapping chrome escape hatch: hovering a label lifts ITS
             // zone above colliding siblings so its icons are clickable.
             label.addEventListener('mouseenter', () => zone.classList.add('container-zone--raise'));
@@ -665,7 +673,14 @@ export default class extends Controller {
 
         row.addEventListener('mouseenter', () => this._setPanelFocus(container, true));
         row.addEventListener('mouseleave', () => this._setPanelFocus(container, false));
+        // Click focuses the container (selects its members, like a Vrstvy
+        // row); double-click opens its ⚙ settings popover.
         row.addEventListener('click', () => this._selectContainer(container, false));
+        row.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            this._closeSettings();
+            this._openSettings(container);
+        });
         return row;
     }
 
