@@ -673,11 +673,10 @@ export default class extends Controller {
 
         row.addEventListener('mouseenter', () => this._setPanelFocus(container, true));
         row.addEventListener('mouseleave', () => this._setPanelFocus(container, false));
-        // Click focuses the container (selects its members, like a Vrstvy
-        // row); double-click opens its ⚙ settings popover.
-        row.addEventListener('click', () => this._selectContainer(container, false));
-        row.addEventListener('dblclick', (event) => {
-            event.preventDefault();
+        // One click, the Vrstvy pattern: focus the container (select its
+        // members on canvas) AND open its ⚙ settings popover.
+        row.addEventListener('click', () => {
+            this._selectContainer(container, false);
             this._closeSettings();
             this._openSettings(container);
         });
