@@ -448,7 +448,16 @@ the property controllers above only populate/mutate their (relocated) fields.
   top` — baseline-aligned, the stage's line box would grow to the wrapper's
   internal baseline (Fabric's in-flow lower-canvas puts it at the UNSCALED
   canvas bottom) and the zoom controller's negative-margin compensation only
-  trims below-baseline space.
+  trims below-baseline space. A pinned page is also **programmatically**
+  scrollable (`overflow: hidden` stops the user, not `focus()`), and the user
+  cannot scroll back — so the zoom controller snaps any stray document scroll
+  back to 0 while pinned. The known offender was Fabric's hidden textarea:
+  `canvas_hidden_textarea.js` patches `IText` so it is `position: fixed` in
+  VIEWPORT coordinates (Fabric computes them in unscaled canvas px on the body
+  — `top: 3035px` for a caret 480 px down at 26 % zoom — then focuses it,
+  which scrolled the shell into a blank band until reload) and focuses with
+  `preventScroll`. Anything else that positions a focusable element off the
+  shell must do the same.
   Screen position is derived from the live canvas rect:
   `scale = fabricContainerRect.width / canvasEl.width`, then
   `objX = (contRect.left - layerRect.left) + obj.getBoundingRect().left * scale`.
