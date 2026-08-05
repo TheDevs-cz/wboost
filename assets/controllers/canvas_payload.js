@@ -126,6 +126,7 @@ export function buildVariantPayload(canvas) {
             if (!textbox.inputId) {
                 textbox.inputId = crypto.randomUUID();
             }
+            const spacing = (value) => (typeof value === 'number' && isFinite(value) && value >= 0 ? value : null);
             return {
                 inputId: textbox.inputId,
                 name: textbox.name,
@@ -135,6 +136,12 @@ export function buildVariantPayload(canvas) {
                 description: textbox.description || '',
                 hidable: textbox.hidable || false,
                 richText: textbox.richText || false,
+                lists: (textbox.richText && textbox.lists) || false,
+                listBullet: textbox.listBullet || null,
+                listBulletImage: textbox.listBulletImage || null,
+                listIndent: spacing(textbox.listIndent),
+                listItemSpacing: spacing(textbox.listItemSpacing),
+                listBlockSpacing: spacing(textbox.listBlockSpacing),
             };
         });
 

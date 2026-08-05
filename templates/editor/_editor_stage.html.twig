@@ -180,6 +180,46 @@
                         <label for="rich-text-control" class="form-check-label small">Formátovatelný text <i class="mdi mdi-information-outline text-muted" title="Uživatel může měnit písmo, barvu a podtržení částí textu."></i></label>
                     </div>
                 </div>
+
+                {# Lists ("odrážky a číslování") — only meaningful for rich
+                   inputs; the config block shows once enabled. Blank spacing
+                   fields = derived defaults from the font size
+                   (ResolvedListStyle). #}
+                <div class="col-12" data-lists-wrapper>
+                    <div class="form-check mb-0">
+                        <input type="checkbox" id="lists-control" class="form-check-input" data-canvas-input-properties-target="lists" data-action="change->canvas-input-properties#updateLists">
+                        <label for="lists-control" class="form-check-label small">Povolit seznamy <i class="mdi mdi-information-outline text-muted" title="Uživatel může vkládat odrážkové a číslované seznamy (tlačítka v editoru textu)."></i></label>
+                    </div>
+                </div>
+                <div class="col-12 d-none" data-canvas-input-properties-target="listConfig">
+                    <div class="row g-1">
+                        <div class="col-12">
+                            <label for="list-bullet-control" class="form-label small mb-1">Styl odrážky</label>
+                            <div class="d-flex align-items-center gap-1">
+                                <select id="list-bullet-control" class="form-select form-select-sm" data-canvas-input-properties-target="listBullet" data-action="change->canvas-input-properties#updateListBullet">
+                                    <option value="disc">• Puntík</option>
+                                    <option value="dash">– Pomlčka</option>
+                                    <option value="check">✓ Fajfka</option>
+                                    <option value="image">Vlastní obrázek</option>
+                                </select>
+                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vybrat obrázek odrážky z galerie" data-canvas-input-properties-target="listBulletPick" data-action="canvas-input-properties#pickBulletImage"><i class="mdi mdi-image-search-outline"></i></button>
+                                <i class="mdi mdi-check-circle-outline text-success d-none flex-shrink-0" title="" data-canvas-input-properties-target="listBulletPreview"></i>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <label for="list-indent-control" class="form-label small mb-1">Odsazení <i class="mdi mdi-information-outline text-muted" title="Odsazení textu položky od levého okraje (px). Prázdné = automaticky dle velikosti písma."></i></label>
+                            <input type="number" min="0" step="1" id="list-indent-control" class="form-control form-control-sm" placeholder="auto" data-canvas-input-properties-target="listIndent" data-action="change->canvas-input-properties#updateListSpacing" data-canvas-input-properties-prop-param="listIndent">
+                        </div>
+                        <div class="col-4">
+                            <label for="list-item-spacing-control" class="form-label small mb-1">Mezi položkami <i class="mdi mdi-information-outline text-muted" title="Mezera mezi položkami seznamu (px). Prázdné = 0."></i></label>
+                            <input type="number" min="0" step="1" id="list-item-spacing-control" class="form-control form-control-sm" placeholder="auto" data-canvas-input-properties-target="listItemSpacing" data-action="change->canvas-input-properties#updateListSpacing" data-canvas-input-properties-prop-param="listItemSpacing">
+                        </div>
+                        <div class="col-4">
+                            <label for="list-block-spacing-control" class="form-label small mb-1">Mezi bloky <i class="mdi mdi-information-outline text-muted" title="Mezera mezi odstavcem a seznamem (px). Prázdné = automaticky dle velikosti písma."></i></label>
+                            <input type="number" min="0" step="1" id="list-block-spacing-control" class="form-control form-control-sm" placeholder="auto" data-canvas-input-properties-target="listBlockSpacing" data-action="change->canvas-input-properties#updateListSpacing" data-canvas-input-properties-prop-param="listBlockSpacing">
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {# Container membership — only the ELEMENT-specific action lives

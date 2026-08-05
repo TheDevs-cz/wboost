@@ -25,24 +25,33 @@ readonly final class RichText
     public const int MAX_RUNS = 200;
     public const int MAX_TOTAL_LENGTH = 10000;
 
+    /** Per-line type values ('p' plain, 'ul' bullet item, 'ol' numbered item). */
+    public const array LINE_TYPES = ['p', 'ul', 'ol'];
+
     /**
      * @param list<RichTextRun> $runs
+     * @param list<string> $lineTypes One entry per LINE of the plain-text
+     *   projection (split on "\n"): 'p' | 'ul' | 'ol'. All-'p' for values
+     *   without lists — consecutive 'p' lines render exactly like the
+     *   pre-lists flat value, so the projection is fully backward compatible.
      */
     private function __construct(
         public array $runs,
+        public array $lineTypes,
     ) {
     }
 
     /**
      * Envelope detection for the web mirror path: the fill-page WYSIWYG writes
-     * `{"runs":[...]}` into the (string-typed) mirror input. Returns the RAW,
-     * unvalidated runs payload, or null when the string is not an envelope —
-     * plain text typed without JS, malformed JSON, or the wrong shape all fall
-     * back to being treated as a plain string value.
+     * `{"runs":[...]}` (optionally with `"lines":[...]` once lists are used)
+     * into the (string-typed) mirror input. Returns the RAW, unvalidated
+     * payload, or null when the string is not an envelope — plain text typed
+     * without JS, malformed JSON, or the wrong shape all fall back to being
+     * treated as a plain string value.
      *
-     * @return null|list<mixed>
+     * @return null|array{runs: list<mixed>, lines: null|list<mixed>}
      */
-    public static function tryExtractEnvelopeRuns(string $value): null|array
+    public static function tryExtractEnvelope(string $value): null|array
     {
         $trimmed = trim($value);
 
@@ -56,7 +65,21 @@ readonly final class RichText
             return null;
         }
 
-        return array_values($decoded['runs']);
+        $lines = null;
+        if (array_key_exists('lines', $decoded) && is_array($decoded['lines'])) {
+            $lines = array_values($decoded['lines']);
+        }
+
+        return ['runs' => array_values($decoded['runs']), 'lines' => $lines];
+    }
+
+    /**
+     * @deprecated internal back-compat shim — use {@see tryExtractEnvelope}.
+     * @return null|list<mixed>
+     */
+    public static function tryExtractEnvelopeRuns(string $value): null|array
+    {
+        return self::tryExtractEnvelope($value)['runs'] ?? null;
     }
 
     /**
@@ -68,6 +91,11 @@ readonly final class RichText
      *
      * @param list<mixed> $rawRuns
      * @param null|list<string> $allowedFontFamilies null = skip the whitelist check
+     * @param null|list<mixed> $rawLines Raw per-line types from the envelope
+     *   (`lines` key); null = no list structure (all lines 'p').
+     * @param bool $listsAllowed Whether the input's definition enables lists —
+     *   a value carrying 'ul'/'ol' lines for a lists-disabled input is a
+     *   structured 400 in strict mode and degrades to plain lines leniently.
      * @throws InvalidRichTextValue in strict mode only
      */
     public static function fromRaw(
@@ -75,6 +103,8 @@ readonly final class RichText
         bool $strict,
         string $inputLabel,
         null|array $allowedFontFamilies = null,
+        null|array $rawLines = null,
+        bool $listsAllowed = false,
     ): self {
         if (count($rawRuns) > self::MAX_RUNS) {
             if ($strict) {
@@ -94,7 +124,12 @@ readonly final class RichText
             }
         }
 
-        $richText = self::normalized($runs);
+        $lineTypes = self::parseLineTypes($rawLines, $strict, $inputLabel, $listsAllowed);
+        $richText = self::normalized($runs, $lineTypes);
+
+        if ($strict && $rawLines !== null && count($rawLines) !== count($richText->lineTypes) && $richText->hasLists()) {
+            throw InvalidRichTextValue::invalidValue($inputLabel, '"lines" must carry exactly one entry per line of the concatenated text');
+        }
 
         if (mb_strlen($richText->toPlainText()) > self::MAX_TOTAL_LENGTH) {
             if ($strict) {
@@ -105,6 +140,48 @@ readonly final class RichText
         }
 
         return $richText;
+    }
+
+    /**
+     * @param null|list<mixed> $rawLines
+     * @return null|list<string> Validated line types, or null for "no list
+     *   structure" (normalized() then fills all-'p' to the line count).
+     * @throws InvalidRichTextValue in strict mode only
+     */
+    private static function parseLineTypes(null|array $rawLines, bool $strict, string $inputLabel, bool $listsAllowed): null|array
+    {
+        if ($rawLines === null) {
+            return null;
+        }
+
+        $lineTypes = [];
+        $hasList = false;
+
+        foreach ($rawLines as $rawLine) {
+            if (!is_string($rawLine) || !in_array($rawLine, self::LINE_TYPES, true)) {
+                if ($strict) {
+                    throw InvalidRichTextValue::invalidValue($inputLabel, 'every "lines" entry must be one of "p", "ul", "ol"');
+                }
+
+                $rawLine = 'p';
+            }
+
+            if ($rawLine !== 'p') {
+                $hasList = true;
+            }
+
+            $lineTypes[] = $rawLine;
+        }
+
+        if ($hasList && !$listsAllowed) {
+            if ($strict) {
+                throw InvalidRichTextValue::listsNotAllowed($inputLabel);
+            }
+
+            return null;
+        }
+
+        return $hasList ? $lineTypes : null;
     }
 
     public function toPlainText(): string
@@ -119,6 +196,18 @@ readonly final class RichText
     {
         foreach ($this->runs as $run) {
             if ($run->isStyled()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Any 'ul'/'ol' line — list structure that must ride the rich path. */
+    public function hasLists(): bool
+    {
+        foreach ($this->lineTypes as $type) {
+            if ($type !== 'p') {
                 return true;
             }
         }
@@ -159,7 +248,9 @@ readonly final class RichText
             $remaining = 0;
         }
 
-        return self::normalized($truncated);
+        // Cutting text can only DROP trailing lines — the surviving lines
+        // keep their types (normalized() slices the array to the new count).
+        return self::normalized($truncated, $this->lineTypes);
     }
 
     /**
@@ -169,6 +260,7 @@ readonly final class RichText
      */
     public function toUpper(): self
     {
+        // Case mapping never touches "\n", so the line structure is stable.
         return self::normalized(array_map(
             static fn (RichTextRun $run): RichTextRun => new RichTextRun(
                 text: mb_strtoupper($run->text),
@@ -177,7 +269,7 @@ readonly final class RichText
                 underline: $run->underline,
             ),
             $this->runs,
-        ));
+        ), $this->lineTypes);
     }
 
     /**
@@ -189,6 +281,21 @@ readonly final class RichText
             static fn (RichTextRun $run): array => $run->toArray(),
             $this->runs,
         );
+    }
+
+    /**
+     * The full wire shape for the render template / envelope round-trips:
+     * runs + the per-line types (null while the value has no list lines, so
+     * pre-lists consumers keep seeing exactly the shape they pin).
+     *
+     * @return array{runs: list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>, lines: null|list<string>}
+     */
+    public function toEnvelopeArray(): array
+    {
+        return [
+            'runs' => $this->toArray(),
+            'lines' => $this->hasLists() ? $this->lineTypes : null,
+        ];
     }
 
     /**
@@ -213,8 +320,11 @@ readonly final class RichText
 
     /**
      * @param list<RichTextRun> $runs
+     * @param null|list<string> $lineTypes Sliced/padded ('p') to the merged
+     *   text's actual line count, so the invariant "one type per line" holds
+     *   no matter what the caller passed.
      */
-    private static function normalized(array $runs): self
+    private static function normalized(array $runs, null|array $lineTypes = null): self
     {
         /** @var list<RichTextRun> $merged */
         $merged = [];
@@ -240,7 +350,16 @@ readonly final class RichText
             $merged[] = $run;
         }
 
-        return new self($merged);
+        $plain = implode('', array_map(static fn (RichTextRun $run): string => $run->text, $merged));
+        $lineCount = substr_count($plain, "\n") + 1;
+
+        $normalizedTypes = [];
+        for ($i = 0; $i < $lineCount; $i++) {
+            $type = $lineTypes[$i] ?? 'p';
+            $normalizedTypes[] = in_array($type, self::LINE_TYPES, true) ? $type : 'p';
+        }
+
+        return new self($merged, $normalizedTypes);
     }
 
     /**

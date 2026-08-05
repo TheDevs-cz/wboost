@@ -75,7 +75,7 @@ readonly final class ResolveTextOverrides
             $rawValue = $providedValues[$inputId];
             $label = $input->name ?? $inputId;
 
-            [$textValue, $hideValue, $rawRuns] = $this->parseValue($label, $rawValue, $input->richText, $truncateOverflow);
+            [$textValue, $hideValue, $rawRuns, $rawLines] = $this->parseValue($label, $rawValue, $input->richText, $truncateOverflow);
 
             if ($rawRuns !== null) {
                 $richText = RichText::fromRaw(
@@ -83,6 +83,8 @@ readonly final class ResolveTextOverrides
                     strict: !$truncateOverflow,
                     inputLabel: $label,
                     allowedFontFamilies: $richTextOptions?->allowedFamilies(),
+                    rawLines: $rawLines,
+                    listsAllowed: $input->lists,
                 );
 
                 if ($input->maxLength !== null && mb_strlen($richText->toPlainText()) > $input->maxLength) {
@@ -105,7 +107,9 @@ readonly final class ResolveTextOverrides
 
                 // An all-unstyled value degrades to a plain override — the
                 // renderer then treats it exactly like untouched-toolbar text.
-                if ($richText->isStyled()) {
+                // LIST structure counts as styling: the block-stack layout
+                // only runs on the rich path.
+                if ($richText->isStyled() || $richText->hasLists()) {
                     $richTexts[$inputId] = $richText;
                 }
             } elseif ($textValue !== null) {
@@ -137,20 +141,20 @@ readonly final class ResolveTextOverrides
     }
 
     /**
-     * @return array{0: string|null, 1: bool|null, 2: list<mixed>|null}
+     * @return array{0: string|null, 1: bool|null, 2: list<mixed>|null, 3: list<mixed>|null}
      */
     private function parseValue(string $label, mixed $raw, bool $richAllowed, bool $lenient): array
     {
         if (is_string($raw)) {
             if ($richAllowed) {
-                $envelopeRuns = RichText::tryExtractEnvelopeRuns($raw);
+                $envelope = RichText::tryExtractEnvelope($raw);
 
-                if ($envelopeRuns !== null) {
-                    return [null, null, $envelopeRuns];
+                if ($envelope !== null) {
+                    return [null, null, $envelope['runs'], $envelope['lines']];
                 }
             }
 
-            return [$raw, null, null];
+            return [$raw, null, null, null];
         }
 
         if (!is_array($raw)) {
@@ -163,6 +167,7 @@ readonly final class ResolveTextOverrides
         $textValue = null;
         $hideValue = null;
         $rawRuns = null;
+        $rawLines = null;
 
         if (array_key_exists('runs', $raw)) {
             if (!$richAllowed) {
@@ -182,6 +187,7 @@ readonly final class ResolveTextOverrides
                 throw InvalidRichTextValue::invalidValue($label, 'provide either "value" or "runs", not both');
             } else {
                 $rawRuns = array_values($raw['runs']);
+                $rawLines = $this->parseLines($label, $raw, $lenient);
             }
         }
 
@@ -192,15 +198,36 @@ readonly final class ResolveTextOverrides
             $textValue = $raw['value'];
 
             if ($richAllowed) {
-                $envelopeRuns = RichText::tryExtractEnvelopeRuns($textValue);
+                $envelope = RichText::tryExtractEnvelope($textValue);
 
-                if ($envelopeRuns !== null) {
-                    return [null, $this->parseHide($label, $raw), $envelopeRuns];
+                if ($envelope !== null) {
+                    return [null, $this->parseHide($label, $raw), $envelope['runs'], $envelope['lines']];
                 }
             }
         }
 
-        return [$textValue, $this->parseHide($label, $raw), $rawRuns];
+        return [$textValue, $this->parseHide($label, $raw), $rawRuns, $rawLines];
+    }
+
+    /**
+     * @param array<mixed> $raw
+     * @return list<mixed>|null
+     */
+    private function parseLines(string $label, array $raw, bool $lenient): null|array
+    {
+        if (!array_key_exists('lines', $raw) || $raw['lines'] === null) {
+            return null;
+        }
+
+        if (!is_array($raw['lines'])) {
+            if (!$lenient) {
+                throw InvalidRichTextValue::invalidValue($label, '"lines" must be an array of line types ("p", "ul", "ol")');
+            }
+
+            return null;
+        }
+
+        return array_values($raw['lines']);
     }
 
     /**

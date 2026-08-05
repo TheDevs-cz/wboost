@@ -296,6 +296,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             'font_faces' => [],
             'text_overrides' => [],
             'rich_text_overrides' => [],
+            'list_configs' => [],
             'hidden_overrides' => [],
             'containers' => [],
             'strict_container_overflow' => false,
@@ -303,6 +304,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
             'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
+            'rich_text_blocks_inline_script' => '/* rich-text-blocks stub */',
         ]);
 
         // The restore pass must:
@@ -334,6 +336,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             'font_faces' => [],
             'text_overrides' => [],
             'rich_text_overrides' => [],
+            'list_configs' => [],
             'hidden_overrides' => [],
             'containers' => [],
             'strict_container_overflow' => false,
@@ -341,6 +344,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
             'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
+            'rich_text_blocks_inline_script' => '/* rich-text-blocks stub */',
         ]);
 
         // Must use set() for both text and visibility overrides.
@@ -371,6 +375,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             'font_faces' => [],
             'text_overrides' => [],
             'rich_text_overrides' => [],
+            'list_configs' => [],
             'hidden_overrides' => [],
             'containers' => [
                 ['id' => 'c-1', 'maxHeight' => 120, 'memberInputIds' => ['a-1', 'b-2']],
@@ -380,6 +385,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
             'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
+            'rich_text_blocks_inline_script' => '/* rich-text-blocks stub */',
         ]);
 
         $prepare = strpos($rendered, 'WBoostContainerLayout.prepareFabricContainers');
@@ -422,6 +428,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             ],
             'text_overrides' => [],
             'rich_text_overrides' => [],
+            'list_configs' => [],
             'hidden_overrides' => [],
             'containers' => [],
             'strict_container_overflow' => false,
@@ -429,6 +436,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
             'break_word_inline_script' => '/* break-word stub */',
             'container_layout_inline_script' => '/* container-layout stub */',
             'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
+            'rich_text_blocks_inline_script' => '/* rich-text-blocks stub */',
         ]);
 
         // The faces must reach the client as data the script iterates over.

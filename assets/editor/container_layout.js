@@ -147,8 +147,23 @@
         return isTextboxObject(candidate) || isImageObject(candidate);
     }
 
+    /**
+     * Replacement indirection: a surface may swap a member object for a
+     * different live object AFTER phase A (the render template replaces a
+     * lists-bearing rich textbox with a block-stack Group) by stamping
+     * `original.wboostReplacedBy = replacement`. The engine keeps holding the
+     * ORIGINAL reference (phase A snapshotted its designed geometry), and
+     * resolves the live object only where it reads current heights or writes
+     * positions — so the reflow measures and moves the stack, not the
+     * orphaned textbox.
+     */
+    function liveObject(object) {
+        return (object && object.wboostReplacedBy) ? object.wboostReplacedBy : object;
+    }
+
     function displayedHeight(object) {
-        return object.height * (object.scaleY || 1);
+        var live = liveObject(object);
+        return live.height * (live.scaleY || 1);
     }
 
     function normalizeGap(gap) {
@@ -156,13 +171,14 @@
     }
 
     function setObjectProps(object, props) {
-        if (typeof object.set === 'function') {
-            object.set(props);
+        var live = liveObject(object);
+        if (typeof live.set === 'function') {
+            live.set(props);
         } else {
-            Object.keys(props).forEach(function (key) { object[key] = props[key]; });
+            Object.keys(props).forEach(function (key) { live[key] = props[key]; });
         }
-        if (typeof object.setCoords === 'function') {
-            object.setCoords();
+        if (typeof live.setCoords === 'function') {
+            live.setCoords();
         }
     }
 

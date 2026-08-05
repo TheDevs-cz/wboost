@@ -247,4 +247,126 @@ final class RichTextTest extends TestCase
         self::assertFalse($rich->isStyled());
         self::assertSame([], $rich->toArray());
     }
+
+    public function testLineTypesParseAndEnvelopeRoundTrip(): void
+    {
+        $rich = RichText::fromRaw(
+            [['text' => "intro\nfirst\nsecond"]],
+            strict: true,
+            inputLabel: 'Checklist',
+            rawLines: ['p', 'ul', 'ul'],
+            listsAllowed: true,
+        );
+
+        self::assertTrue($rich->hasLists());
+        self::assertSame(['p', 'ul', 'ul'], $rich->lineTypes);
+        self::assertSame(['p', 'ul', 'ul'], $rich->toEnvelopeArray()['lines']);
+    }
+
+    public function testValueWithoutListsEmitsNullLinesInEnvelope(): void
+    {
+        $rich = RichText::fromRaw([['text' => "a\nb"]], strict: true, inputLabel: 'Headline');
+
+        self::assertFalse($rich->hasLists());
+        self::assertSame(['p', 'p'], $rich->lineTypes);
+        self::assertNull($rich->toEnvelopeArray()['lines']);
+    }
+
+    public function testStrictRejectsListLinesWhenListsNotAllowed(): void
+    {
+        $this->expectException(InvalidRichTextValue::class);
+        $this->expectExceptionMessage('does not allow lists');
+
+        RichText::fromRaw(
+            [['text' => "a\nb"]],
+            strict: true,
+            inputLabel: 'Headline',
+            rawLines: ['ul', 'ul'],
+            listsAllowed: false,
+        );
+    }
+
+    public function testLenientDegradesForbiddenListsToPlainLines(): void
+    {
+        $rich = RichText::fromRaw(
+            [['text' => "a\nb"]],
+            strict: false,
+            inputLabel: 'Headline',
+            rawLines: ['ul', 'ol'],
+            listsAllowed: false,
+        );
+
+        self::assertFalse($rich->hasLists());
+        self::assertSame(['p', 'p'], $rich->lineTypes);
+    }
+
+    public function testStrictRejectsInvalidLineTypeValues(): void
+    {
+        $this->expectException(InvalidRichTextValue::class);
+
+        RichText::fromRaw(
+            [['text' => "a\nb"]],
+            strict: true,
+            inputLabel: 'Headline',
+            rawLines: ['ul', 'banana'],
+            listsAllowed: true,
+        );
+    }
+
+    public function testStrictRejectsLineCountMismatch(): void
+    {
+        $this->expectException(InvalidRichTextValue::class);
+        $this->expectExceptionMessage('one entry per line');
+
+        RichText::fromRaw(
+            [['text' => "a\nb\nc"]],
+            strict: true,
+            inputLabel: 'Headline',
+            rawLines: ['ul'],
+            listsAllowed: true,
+        );
+    }
+
+    public function testTruncationDropsTrailingLineTypesWithTheirLines(): void
+    {
+        $rich = RichText::fromRaw(
+            [['text' => "abc\ndef\nghi"]],
+            strict: true,
+            inputLabel: 'Checklist',
+            rawLines: ['p', 'ul', 'ul'],
+            listsAllowed: true,
+        );
+
+        // Cut inside line 2 — line 3 disappears, surviving lines keep types.
+        $cut = $rich->truncateToPlainLength(5);
+
+        self::assertSame("abc\nd", $cut->toPlainText());
+        self::assertSame(['p', 'ul'], $cut->lineTypes);
+    }
+
+    public function testUppercaseKeepsLineTypes(): void
+    {
+        $rich = RichText::fromRaw(
+            [['text' => "a\nb"]],
+            strict: true,
+            inputLabel: 'Checklist',
+            rawLines: ['ul', 'ol'],
+            listsAllowed: true,
+        );
+
+        self::assertSame(['ul', 'ol'], $rich->toUpper()->lineTypes);
+    }
+
+    public function testEnvelopeExtractionCarriesLines(): void
+    {
+        $envelope = RichText::tryExtractEnvelope('{"runs":[{"text":"a\nb"}],"lines":["ul","ul"]}');
+
+        self::assertNotNull($envelope);
+        self::assertSame(['ul', 'ul'], $envelope['lines']);
+
+        $withoutLines = RichText::tryExtractEnvelope('{"runs":[{"text":"a"}]}');
+
+        self::assertNotNull($withoutLines);
+        self::assertNull($withoutLines['lines']);
+    }
 }

@@ -39,6 +39,14 @@ final class InvalidRichTextValue extends \Exception
         );
     }
 
+    public static function listsNotAllowed(string $inputLabel): self
+    {
+        return new self(
+            'lists_not_allowed',
+            sprintf('Input "%s" does not allow lists. Provide the value without "lines" list types.', $inputLabel),
+        );
+    }
+
     public static function invalidValue(string $inputLabel, string $reason): self
     {
         return new self(

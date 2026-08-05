@@ -27,11 +27,30 @@ readonly final class EditorTextInput
          * plain text field, and the export accepts a `runs` value for it.
          */
         public bool $richText = false,
+        /**
+         * Lists inside the WYSIWYG (only meaningful with richText: true):
+         * when enabled, the fill value's envelope may carry per-line types
+         * (`lines: ["p","ul","ol",...]`) and the renderer lays the value out
+         * as a block stack (paragraphs + bulleted/numbered items). The
+         * `list*` fields are the admin's per-input styling; null = derived
+         * default (see {@see ResolvedListStyle}).
+         */
+        public bool $lists = false,
+        /** 'disc' | 'dash' | 'check' | 'image' (null = disc). */
+        public null|string $listBullet = null,
+        /** Gallery storage path of the custom bullet (bullet = 'image'). */
+        public null|string $listBulletImage = null,
+        /** Item text indent from the input's left edge, canvas px. */
+        public null|float $listIndent = null,
+        /** Extra vertical gap between list items, canvas px. */
+        public null|float $listItemSpacing = null,
+        /** Vertical gap between blocks (paragraph ↔ list), canvas px. */
+        public null|float $listBlockSpacing = null,
     ) {
     }
 
     /**
-     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool}
+     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float}
      */
     public function toArray(): array
     {
@@ -44,6 +63,12 @@ readonly final class EditorTextInput
             'description' => $this->description,
             'hidable' => $this->hidable,
             'richText' => $this->richText,
+            'lists' => $this->lists,
+            'listBullet' => $this->listBullet,
+            'listBulletImage' => $this->listBulletImage,
+            'listIndent' => $this->listIndent,
+            'listItemSpacing' => $this->listItemSpacing,
+            'listBlockSpacing' => $this->listBlockSpacing,
         ];
     }
 
@@ -55,7 +80,7 @@ readonly final class EditorTextInput
      * caller is responsible for stamping the matching id onto the canvas
      * object on the next save.
      *
-     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool} $data
+     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int} $data
      */
     public static function fromArray(array $data): self
     {
@@ -69,6 +94,25 @@ readonly final class EditorTextInput
             );
         }
 
+        $spacing = static function (mixed $value): null|float {
+            if (!is_int($value) && !is_float($value)) {
+                return null;
+            }
+            $value = (float) $value;
+
+            return is_finite($value) && $value >= 0 ? $value : null;
+        };
+
+        $bullet = $data['listBullet'] ?? null;
+        if (!is_string($bullet) || !in_array($bullet, ['disc', 'dash', 'check', 'image'], true)) {
+            $bullet = null;
+        }
+
+        $bulletImage = $data['listBulletImage'] ?? null;
+        if (!is_string($bulletImage) || trim($bulletImage) === '') {
+            $bulletImage = null;
+        }
+
         return new self(
             inputId: $inputId,
             name: $data['name'],
@@ -78,6 +122,12 @@ readonly final class EditorTextInput
             description: $data['description'] ?? null,
             hidable: $data['hidable'] ?? false,
             richText: $data['richText'] ?? false,
+            lists: ($data['lists'] ?? false) === true,
+            listBullet: $bullet,
+            listBulletImage: $bulletImage,
+            listIndent: $spacing($data['listIndent'] ?? null),
+            listItemSpacing: $spacing($data['listItemSpacing'] ?? null),
+            listBlockSpacing: $spacing($data['listBlockSpacing'] ?? null),
         );
     }
 
@@ -86,7 +136,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool}> $data */
+        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

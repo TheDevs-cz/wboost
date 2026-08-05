@@ -75,6 +75,18 @@ canonicalized to `\n`); `runs` and `value` are mutually exclusive.
 - Structurally invalid runs → **400 `invalid_rich_text`**; runs on a non-rich
   input → **400 `rich_text_not_allowed`**.
 
+## Lists inside rich text (`inputs[].lists: true`)
+
+A lists-enabled rich input additionally accepts per-LINE list types:
+`{ "runs": [...], "lines": ["p","ul","ol",...] }` — one entry per
+`\n`-separated line of the concatenated runs (`p` paragraph, `ul` bullet item,
+`ol` numbered item). The export lays the value out as a block stack: items
+wrap at `frame.width − listStyle.indent` with a hanging indent and a bullet
+(`listStyle.bullet` / `bulletImageUrl`; `ol` renders ordinals) at the line
+start; `listStyle` values are RESOLVED px. List lines on a `lists: false`
+input → **400 `lists_not_allowed`**; malformed `lines` → **400
+`invalid_rich_text`**.
+
 ## Image placeholders (`images`)
 
 `images` fills IMAGE placeholders, keyed by `variants[].imageInputs[].id`. Each

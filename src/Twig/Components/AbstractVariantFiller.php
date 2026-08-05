@@ -26,6 +26,7 @@ use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\ResolvedImageOverrides;
+use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\RichTextOptions;
 
@@ -400,9 +401,11 @@ abstract class AbstractVariantFiller extends AbstractController
      *     uppercase: bool,
      *     hidable: bool,
      *     richText: bool,
+     *     lists: bool,
      *     frame: null|array{x: float, y: float, width: float, height: float},
      *     value: string,
      *     runs: null|list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>,
+     *     lines: null|list<string>,
      *     designFontFamily: null|string,
      *     textAlign: string,
      *     hidden: bool
@@ -439,9 +442,11 @@ abstract class AbstractVariantFiller extends AbstractController
                 'uppercase' => $input->uppercase,
                 'hidable' => $input->hidable,
                 'richText' => $input->richText,
+                'lists' => $input->richText && $input->lists,
                 'frame' => $frame,
                 'value' => $this->textValues[$input->inputId] ?? '',
                 'runs' => $this->seededRuns($input),
+                'lines' => $this->seededEnvelope($input)['lines'] ?? null,
                 'designFontFamily' => $styles[$input->inputId]['fontFamily'] ?? null,
                 'textAlign' => $styles[$input->inputId]['textAlign'] ?? 'left',
                 'hidden' => $this->hiddenValues[$input->inputId] ?? false,
@@ -538,22 +543,42 @@ abstract class AbstractVariantFiller extends AbstractController
      */
     private function seededRuns(EditorTextInput $input): null|array
     {
+        return $this->seededEnvelope($input)['runs'] ?? null;
+    }
+
+    /**
+     * Seed for a rich input's WYSIWYG: runs + the per-line list types (null
+     * while the stored value carries no lists).
+     *
+     * @return null|array{runs: list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>, lines: null|list<string>}
+     */
+    private function seededEnvelope(EditorTextInput $input): null|array
+    {
         if (!$input->richText) {
             return null;
         }
 
         $storedValue = $this->textValues[$input->inputId] ?? '';
-        $envelopeRuns = RichText::tryExtractEnvelopeRuns($storedValue);
+        $envelope = RichText::tryExtractEnvelope($storedValue);
 
-        if ($envelopeRuns !== null) {
-            return RichText::fromRaw($envelopeRuns, strict: false, inputLabel: $input->name ?? $input->inputId)->toArray();
+        if ($envelope !== null) {
+            return RichText::fromRaw(
+                $envelope['runs'],
+                strict: false,
+                inputLabel: $input->name ?? $input->inputId,
+                rawLines: $envelope['lines'],
+                listsAllowed: $input->lists,
+            )->toEnvelopeArray();
         }
 
         if ($storedValue === '') {
-            return [];
+            return ['runs' => [], 'lines' => null];
         }
 
-        return [['text' => $storedValue, 'fontFamily' => null, 'color' => null, 'underline' => false]];
+        return [
+            'runs' => [['text' => $storedValue, 'fontFamily' => null, 'color' => null, 'underline' => false]],
+            'lines' => null,
+        ];
     }
 
     /**
@@ -649,7 +674,9 @@ abstract class AbstractVariantFiller extends AbstractController
      *         uppercase: bool,
      *         maxLength: null|int,
      *         hidable: bool,
-     *         richText: bool
+     *         richText: bool,
+     *         lists: bool,
+     *         listStyle: null|array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float}
      *     }>,
      *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}}>,
      *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
@@ -685,6 +712,17 @@ abstract class AbstractVariantFiller extends AbstractController
                 'maxLength' => $input->maxLength,
                 'hidable' => $input->hidable,
                 'richText' => $input->richText,
+                // Lists change the measured height (block stack instead of a
+                // single wrapped textbox) — the overlay needs the RESOLVED
+                // spacing config to mirror the server's stack layout.
+                'lists' => $input->richText && $input->lists,
+                'listStyle' => $input->richText && $input->lists
+                    ? ResolvedListStyle::resolve(
+                        $input,
+                        fontSize: (float) ($styles[$input->inputId]['fontSize'] ?? 40),
+                        lineHeight: (float) ($styles[$input->inputId]['lineHeight'] ?? 1.16),
+                    )->toArray()
+                    : null,
             ];
         }
 

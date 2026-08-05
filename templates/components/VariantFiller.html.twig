@@ -50,6 +50,7 @@
         <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
         <script src="{{ asset('editor/container_layout.js') }}"></script>
         <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
+        <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
         <style>
             {% for face in fontFaces %}
                 @font-face {
@@ -412,6 +413,8 @@
                                     data-rich-text-editor-max-length-value="{{ ph.maxLength ?? 0 }}"
                                     data-rich-text-editor-uppercase-value="{{ ph.uppercase ? 'true' : 'false' }}"
                                     data-rich-text-editor-runs-value="{{ ph.runs|json_encode }}"
+                                    data-rich-text-editor-lines-value="{{ (ph.lines ?? [])|json_encode }}"
+                                    data-rich-text-editor-lists-value="{{ ph.lists ? 'true' : 'false' }}"
                                     data-rich-text-editor-design-font-value="{{ ph.designFontFamily ?? '' }}"
                                     data-rich-text-editor-fonts-value="{{ richToolbar.fonts|json_encode }}"
                                     data-rich-text-editor-colors-value="{{ richToolbar.colors|json_encode }}"
@@ -432,6 +435,12 @@
                                             <button type="button" class="btn btn-outline-secondary fst-italic" title="Kurzíva (Ctrl+I) — přepne řez písma" data-rich-text-editor-target="italic" data-action="rich-text-editor#toggleItalic">I</button>
                                             <button type="button" class="btn btn-outline-secondary text-decoration-underline" title="Podtržení (Ctrl+U)" data-rich-text-editor-target="underline" data-action="rich-text-editor#toggleUnderline">U</button>
                                         </div>
+                                        {% if ph.lists %}
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Seznamy">
+                                                <button type="button" class="btn btn-outline-secondary" title="Odrážkový seznam" data-rich-text-editor-target="ulButton" data-action="rich-text-editor#toggleBulletList"><i class="mdi mdi-format-list-bulleted" aria-hidden="true"></i></button>
+                                                <button type="button" class="btn btn-outline-secondary" title="Číslovaný seznam" data-rich-text-editor-target="olButton" data-action="rich-text-editor#toggleNumberedList"><i class="mdi mdi-format-list-numbered" aria-hidden="true"></i></button>
+                                            </div>
+                                        {% endif %}
                                         <button type="button" class="btn btn-sm btn-outline-secondary" title="Výchozí styl — odstraní veškeré formátování" data-action="rich-text-editor#clearFormatting"><i class="mdi mdi-format-clear" aria-hidden="true"></i></button>
                                     </div>
                                     <div class="fill-richtext-toolbar__swatches d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barva textu">

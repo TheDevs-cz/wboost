@@ -28,6 +28,7 @@ use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichTextFontOption;
 
 /**
@@ -212,6 +213,24 @@ final readonly class TemplatesProvider implements ProviderInterface
                 $frame = $frames[$input->inputId] ?? null;
                 $textStyle = $textStyles[$input->inputId] ?? null;
 
+                $listStyle = null;
+                if ($input->richText && $input->lists) {
+                    $resolved = ResolvedListStyle::resolve(
+                        $input,
+                        fontSize: (float) ($textStyle['fontSize'] ?? 40),
+                        lineHeight: (float) ($textStyle['lineHeight'] ?? 1.16),
+                    );
+                    $listStyle = new TemplateVariantListStyleResponse(
+                        bullet: $resolved->bullet,
+                        bulletImageUrl: $resolved->bulletImage !== null
+                            ? $this->uploaderHelper->getPublicPath($resolved->bulletImage)
+                            : null,
+                        indent: $resolved->indent,
+                        itemSpacing: $resolved->itemSpacing,
+                        blockSpacing: $resolved->blockSpacing,
+                    );
+                }
+
                 return new TemplateVariantInputResponse(
                     id: $input->inputId,
                     name: $input->name,
@@ -221,6 +240,8 @@ final readonly class TemplatesProvider implements ProviderInterface
                     description: $input->description,
                     hidable: $input->hidable,
                     richText: $input->richText,
+                    lists: $input->richText && $input->lists,
+                    listStyle: $listStyle,
                     frame: $frame !== null
                         ? new TemplateVariantInputFrameResponse(
                             $frame->x,

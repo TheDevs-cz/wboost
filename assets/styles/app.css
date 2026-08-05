@@ -2830,3 +2830,27 @@ button.fill-layer-row__main:focus-visible {
     background: rgba(114, 124, 245, 0.12);
     pointer-events: none;
 }
+
+/* WYSIWYG list lines (rich_text_editor_controller line-div rendering):
+   bullets/ordinals are ::before chrome — they exist only in the editor UI,
+   the export draws its own bullet objects from the shared blocks layout. */
+.fill-richtext-editor .rt-line { min-height: 1em; }
+
+.fill-richtext-editor .rt-line[data-type="ul"],
+.fill-richtext-editor .rt-line[data-type="ol"] {
+    position: relative;
+    padding-left: 1.6em;
+}
+
+.fill-richtext-editor .rt-line[data-type="ul"]::before {
+    content: '\2022';
+    position: absolute;
+    left: 0.35em;
+}
+
+.fill-richtext-editor .rt-line[data-type="ol"]::before {
+    content: attr(data-number);
+    position: absolute;
+    left: 0;
+    font-variant-numeric: tabular-nums;
+}

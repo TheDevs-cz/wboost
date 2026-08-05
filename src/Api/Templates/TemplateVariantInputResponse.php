@@ -30,6 +30,17 @@ final readonly class TemplateVariantInputResponse
          */
         public bool $richText = false,
         /**
+         * When true the rich value's envelope may also carry per-line list
+         * types (`lines: ["p","ul","ol",...]`, one entry per "\n"-separated
+         * line of the concatenated runs) and the export lays the value out as
+         * a block stack — see `listStyle` for the resolved geometry. Sending
+         * list lines to an input with `lists: false` is a structured 400
+         * (`lists_not_allowed`).
+         */
+        public bool $lists = false,
+        /** Resolved list styling; non-null exactly when `lists` is true. */
+        public null|TemplateVariantListStyleResponse $listStyle = null,
+        /**
          * Stacking position of this input's textbox on the variant canvas
          * (0 = backmost, higher = painted on top). Shares one index space with
          * `imageInputs[].layerIndex`, so sorting BOTH arrays together by this

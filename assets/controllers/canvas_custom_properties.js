@@ -22,8 +22,13 @@
 // styled distinctly in the layers panel, replaced in place by the "Pozadí"
 // picker, excluded from snapping and from ALL group-editor propagation
 // (backgrounds stay per-dimension), stripped on copy/paste.
+// lists* props (textboxes with richText): lists enables ul/ol in the fill
+// WYSIWYG; listBullet ('disc'|'dash'|'check'|'image'), listBulletImage
+// (gallery storage path), listIndent / listItemSpacing / listBlockSpacing
+// (px, null = derived default — see ResolvedListStyle).
 export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
+    'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
     'assetPath', 'assetId', 'editorLocked', 'isBackground',
 ];

@@ -33,12 +33,16 @@ import { Controller } from "@hotwired/stimulus";
  * PLAIN text length in code points (PHP mb_strlen parity).
  */
 export default class extends Controller {
-    static targets = ["editor", "counter", "fontSelect", "bold", "italic", "underline", "colorInput"];
+    static targets = ["editor", "counter", "fontSelect", "bold", "italic", "underline", "colorInput", "ulButton", "olButton"];
     static values = {
         inputId: String,
         maxLength: { type: Number, default: 0 },
         uppercase: { type: Boolean, default: false },
         runs: { type: Array, default: [] },
+        // Per-line list types ('p'|'ul'|'ol') seeding + `lists` gate — only a
+        // lists-enabled input renders the list buttons and emits `lines`.
+        lines: { type: Array, default: [] },
+        lists: { type: Boolean, default: false },
         designFont: { type: String, default: "" },
         fonts: { type: Array, default: [] },
         colors: { type: Array, default: [] },
@@ -46,6 +50,7 @@ export default class extends Controller {
 
     connect() {
         this.runs = this._module().normalize(this.runsValue);
+        this.lineTypes = this._fitTypes(this.linesValue);
         this._undoStack = [];
         this._redoStack = [];
         this._composing = false;
@@ -64,11 +69,29 @@ export default class extends Controller {
 
     // --- editor events --------------------------------------------------------
 
-    /** Enter / Shift+Enter insert a newline (multi-line fill values); handle
-     *  undo/redo + B/I/U shortcuts. */
+    /** Enter / Shift+Enter insert a newline (multi-line fill values). Inside
+     *  a list the new line inherits the item type; Enter on an EMPTY item
+     *  exits the list instead (converts the line to a plain paragraph — the
+     *  standard editor convention). Handles undo/redo + B/I/U shortcuts. */
     keydown(event) {
         if (event.key === "Enter") {
             event.preventDefault();
+            if (this.listsValue) {
+                const sel = this._selectionOffsets();
+                if (sel && sel.start === sel.end) {
+                    const li = this._lineIndexAt(sel.start);
+                    const type = this.lineTypes[li];
+                    if ((type === "ul" || type === "ol") && this._lineText(li) === "") {
+                        this._pushUndo();
+                        this.lineTypes[li] = "p";
+                        this._render();
+                        this._restoreSelection(sel);
+                        this._sync();
+                        this._updateToolbarState();
+                        return;
+                    }
+                }
+            }
             this._insertText("\n");
             return;
         }
@@ -169,16 +192,91 @@ export default class extends Controller {
             underline: styleSource.underline === true,
         };
 
+        // Line-type bookkeeping BEFORE the runs change: lines added by the
+        // inserted text inherit the type of the line the caret sits on
+        // (Enter inside a list item = next item); lines swallowed by a
+        // multi-line selection replacement drop out.
+        const liStart = this._lineIndexAt(Math.min(selection.start, selection.end), plain);
+        const liEnd = this._lineIndexAt(Math.max(selection.start, selection.end), plain);
+        const insertedLines = (text.match(/\n/g) || []).length;
+        const inherit = this.lineTypes[liStart] || "p";
+        this.lineTypes = [
+            ...this.lineTypes.slice(0, liStart + 1),
+            ...Array(insertedLines).fill(inherit),
+            ...this.lineTypes.slice(liEnd + 1),
+        ];
+
         let runs = module.normalize([...before, inserted, ...after]);
         if (this.maxLengthValue) {
             runs = module.truncate(runs, this.maxLengthValue);
         }
         this.runs = runs;
+        this.lineTypes = this._fitTypes(this.lineTypes);
 
         this._render();
         const caret = Math.min(selection.start + text.length, module.plainText(this.runs).length);
         this._restoreSelection({ start: caret, end: caret });
         this._sync();
+    }
+
+    // --- lists ------------------------------------------------------------------
+
+    toggleBulletList() {
+        this._toggleList("ul");
+    }
+
+    toggleNumberedList() {
+        this._toggleList("ol");
+    }
+
+    /** Flip the lines covered by the selection (whole text for a collapsed
+     *  caret on empty value; the caret's line otherwise) to the list type —
+     *  or back to plain paragraphs when they all already are that type. */
+    _toggleList(type) {
+        if (!this.listsValue) return;
+        const module = this._module();
+        const plain = module.plainText(this.runs);
+        const offsets = this._selectionOffsets();
+        const start = offsets ? Math.min(offsets.start, offsets.end) : plain.length;
+        const end = offsets ? Math.max(offsets.start, offsets.end) : plain.length;
+        const liStart = this._lineIndexAt(start, plain);
+        const liEnd = this._lineIndexAt(end, plain);
+
+        this._pushUndo();
+        let allAlready = true;
+        for (let i = liStart; i <= liEnd; i += 1) {
+            if (this.lineTypes[i] !== type) allAlready = false;
+        }
+        for (let i = liStart; i <= liEnd; i += 1) {
+            this.lineTypes[i] = allAlready ? "p" : type;
+        }
+
+        this._render();
+        this._restoreSelection(offsets || this._endOffsets());
+        this._sync();
+        this._updateToolbarState();
+    }
+
+    /** 0-based line index of a plain-text offset. */
+    _lineIndexAt(offset, plain = null) {
+        const text = plain === null ? this._module().plainText(this.runs) : plain;
+        return (text.slice(0, Math.max(0, offset)).match(/\n/g) || []).length;
+    }
+
+    _lineText(index) {
+        return this._module().plainText(this.runs).split("\n")[index] || "";
+    }
+
+    /** Slice/pad line types to the current text's line count ('p' fill);
+     *  non-list values collapse to all-'p' when lists are disabled. */
+    _fitTypes(types) {
+        const count = this._module().plainText(this.runs).split("\n").length;
+        const result = [];
+        for (let i = 0; i < count; i += 1) {
+            const t = Array.isArray(types) ? types[i] : "p";
+            result.push(this.listsValue && (t === "ul" || t === "ol") ? t : "p");
+        }
+        return result;
     }
 
     // --- toolbar actions ------------------------------------------------------
@@ -328,65 +426,88 @@ export default class extends Controller {
 
     // --- DOM <-> runs ---------------------------------------------------------
 
+    /** LINE-DIV rendering: one div.rt-line per "\n"-separated line (the
+     *  browser's own contenteditable block structure), carrying its list type
+     *  as data-type — CSS draws the bullets, JS stamps ordinal numbers for
+     *  'ol'. Newlines therefore live BETWEEN line divs, not in text nodes;
+     *  the selection helpers add one implicit "\n" per line boundary. An
+     *  empty line renders a placeholder <br> so it keeps a caret-able line
+     *  box (this replaces the old trailing-<br> hack of the flat model). */
     _render() {
         const editor = this.editorTarget;
         editor.textContent = "";
-        this.runs.forEach((run) => {
-            const span = document.createElement("span");
-            span.dataset.rtRun = "1";
-            if (run.fontFamily) {
-                span.dataset.font = run.fontFamily;
-                span.style.fontFamily = `"${run.fontFamily}"`;
+        const blocksModule = window.WBoostRichTextBlocks;
+        const lines = blocksModule ? blocksModule.splitLines(this.runs) : [this.runs.slice()];
+        let ordinal = 0;
+
+        lines.forEach((lineRuns, index) => {
+            const type = this.lineTypes[index] || "p";
+            const lineEl = document.createElement("div");
+            lineEl.className = "rt-line";
+            lineEl.dataset.type = type;
+            if (type === "ol") {
+                ordinal = this.lineTypes[index - 1] === "ol" ? ordinal + 1 : 1;
+                lineEl.dataset.number = `${ordinal}.`;
             }
-            if (run.color) {
-                span.dataset.color = run.color;
-                span.style.color = run.color;
+
+            lineRuns.forEach((run) => {
+                const span = document.createElement("span");
+                span.dataset.rtRun = "1";
+                if (run.fontFamily) {
+                    span.dataset.font = run.fontFamily;
+                    span.style.fontFamily = `"${run.fontFamily}"`;
+                }
+                if (run.color) {
+                    span.dataset.color = run.color;
+                    span.style.color = run.color;
+                }
+                if (run.underline === true) {
+                    span.dataset.underline = "1";
+                    span.style.textDecoration = "underline";
+                }
+                span.textContent = run.text;
+                lineEl.appendChild(span);
+            });
+
+            if (lineRuns.length === 0) {
+                lineEl.appendChild(document.createElement("br"));
             }
-            if (run.underline === true) {
-                span.dataset.underline = "1";
-                span.style.textDecoration = "underline";
-            }
-            span.textContent = run.text;
-            editor.appendChild(span);
+            editor.appendChild(lineEl);
         });
-        this._ensureTrailingBreak();
     }
 
-    /** A trailing "\n" in white-space: pre-wrap renders NO final line box: the
-     *  caret can't sit on the new line, and Chrome then inserts the next typed
-     *  character BEFORE the invisible newline — the "first Shift+Enter doesn't
-     *  take, the second one does" bug (browser-verified). The standard
-     *  contenteditable cure is a placeholder <br> after the final newline: it
-     *  makes the last line real. Called from _render AND after every native
-     *  edit (_commitDomState) because Chrome consumes the placeholder while
-     *  typing on the last line — without the re-add, backspacing back to a
-     *  trailing "\n" re-enters the broken state. Appending never disturbs the
-     *  caret (text nodes are untouched), _parseDom ignores <br> (only text
-     *  nodes carry value) and the selection TreeWalker is text-only, so
-     *  plain-text offsets stay in lockstep. */
-    _ensureTrailingBreak() {
-        const lastRun = this.runs[this.runs.length - 1];
-        if (!lastRun || !lastRun.text.endsWith("\n")) return;
-        const last = this.editorTarget.lastChild;
-        if (!(last && last.nodeType === Node.ELEMENT_NODE && last.tagName === "BR")) {
-            this.editorTarget.appendChild(document.createElement("br"));
-        }
+    /** The editor's line elements (every element child is a line — browsers
+     *  clone the .rt-line class + dataset when they split a line natively). */
+    _lineElements() {
+        return Array.from(this.editorTarget.children).filter((el) => el.nodeType === Node.ELEMENT_NODE);
     }
 
-    /** Whitelist parser: only span[data-rt-run] attributes carry style; any
-     *  markup the browser (or an extension) sneaks in is flattened to the
-     *  nearest styled ancestor. Newlines live INSIDE the text nodes (we render
-     *  "\n" with white-space: pre-wrap and never emit <br>), so a stray browser
-     *  <br> contributes nothing — this keeps the runs' plain-text offsets in
-     *  lockstep with the text-only TreeWalker used for selection. */
+    /** Whitelist parser over the line-div structure: only span[data-rt-run]
+     *  attributes carry style, every line div contributes its data-type, and
+     *  lines are re-joined with "\n" separator runs (styled like the
+     *  preceding run so normalization merges them away). A line-internal <br>
+     *  is the empty-line placeholder and contributes nothing. */
     _parseDom() {
         const runs = [];
-        const walk = (node, inherited) => {
+        const lineTypes = [];
+        let started = false;
+
+        const pushSeparator = () => {
+            const prev = runs[runs.length - 1] || {};
+            runs.push({
+                text: "\n",
+                fontFamily: prev.fontFamily || null,
+                color: prev.color || null,
+                underline: prev.underline === true,
+            });
+        };
+
+        const walkInline = (node, inherited) => {
             if (node.nodeType === Node.TEXT_NODE) {
                 runs.push({ ...inherited, text: node.data });
                 return;
             }
-            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            if (node.nodeType !== Node.ELEMENT_NODE || node.tagName === "BR") return;
             let style = inherited;
             if (node.dataset && node.dataset.rtRun !== undefined) {
                 style = {
@@ -395,39 +516,83 @@ export default class extends Controller {
                     underline: node.dataset.underline === "1",
                 };
             }
-            node.childNodes.forEach((child) => walk(child, style));
+            node.childNodes.forEach((child) => walkInline(child, style));
         };
-        this.editorTarget.childNodes.forEach((node) => walk(node, { fontFamily: null, color: null, underline: false }));
-        return this._module().normalize(runs);
+
+        const defaultStyle = { fontFamily: null, color: null, underline: false };
+        this.editorTarget.childNodes.forEach((node) => {
+            const isBlock = node.nodeType === Node.ELEMENT_NODE
+                && (node.tagName === "DIV" || node.tagName === "P");
+            if (isBlock) {
+                if (started) pushSeparator();
+                started = true;
+                const type = node.dataset ? node.dataset.type : null;
+                lineTypes.push(this.listsValue && (type === "ul" || type === "ol") ? type : "p");
+                walkInline(node, defaultStyle);
+            } else {
+                // Stray top-level inline content — treat as (part of) the
+                // current line rather than losing the text.
+                if (!started) {
+                    started = true;
+                    lineTypes.push("p");
+                }
+                walkInline(node, defaultStyle);
+            }
+        });
+        if (!started) {
+            lineTypes.push("p");
+        }
+
+        return { runs: this._module().normalize(runs), lineTypes };
     }
 
-    /** Parse the (browser-mutated) DOM into runs + enforce maxLength + sync.
-     *  The DOM itself is only rebuilt when truncation actually bit. */
+    /** Parse the (browser-mutated) DOM into runs + line types, enforce
+     *  maxLength + sync. The DOM is only rebuilt when truncation bit. */
     _commitDomState() {
         const module = this._module();
-        let runs = this._parseDom();
+        const parsed = this._parseDom();
+        let runs = parsed.runs;
         let truncated = false;
         if (this.maxLengthValue && module.codePointLength(module.plainText(runs)) > this.maxLengthValue) {
             runs = module.truncate(runs, this.maxLengthValue);
             truncated = true;
         }
 
-        const changed = JSON.stringify(runs) !== JSON.stringify(this.runs);
+        const changed = JSON.stringify(runs) !== JSON.stringify(this.runs)
+            || JSON.stringify(parsed.lineTypes) !== JSON.stringify(this.lineTypes);
         if (changed) {
-            this._pushUndo(this.runs, true);
+            this._pushUndo({ runs: this.runs, lines: this.lineTypes }, true);
             this.runs = runs;
+            this.lineTypes = parsed.lineTypes;
+            this.lineTypes = this._fitTypes(this.lineTypes);
         }
 
         if (truncated) {
             this._render();
             this._restoreSelection(this._endOffsets());
-        } else {
-            // _render (via truncation) already guarantees the placeholder;
-            // every other native edit must re-guarantee it — see the helper.
-            this._ensureTrailingBreak();
         }
 
         this._sync();
+        this._renumberLists();
+    }
+
+    /** Keep 'ol' ordinal labels correct after native edits without a full
+     *  re-render (which would break the caret mid-typing). */
+    _renumberLists() {
+        if (!this.listsValue) return;
+        let ordinal = 0;
+        let previousType = null;
+        this._lineElements().forEach((lineEl) => {
+            const type = lineEl.dataset ? lineEl.dataset.type : null;
+            if (type === "ol") {
+                ordinal = previousType === "ol" ? ordinal + 1 : 1;
+                const label = `${ordinal}.`;
+                if (lineEl.dataset.number !== label) {
+                    lineEl.dataset.number = label;
+                }
+            }
+            previousType = type;
+        });
     }
 
     // --- selection ------------------------------------------------------------
@@ -465,31 +630,54 @@ export default class extends Controller {
         };
     }
 
+    /** Plain-text offset of a DOM position. Line-div aware: each boundary
+     *  between line divs counts as one implicit "\n" (newlines no longer
+     *  exist as characters in the DOM). */
     _offsetAt(container, offset) {
-        let total = 0;
-        const walker = document.createTreeWalker(this.editorTarget, NodeFilter.SHOW_TEXT);
-        let node;
-        while ((node = walker.nextNode())) {
-            if (node === container) {
-                return total + offset;
-            }
-            total += node.data.length;
-        }
-        // Element container (e.g. the editor itself): count text inside the
-        // first `offset` children.
-        if (container.nodeType === Node.ELEMENT_NODE) {
+        const lines = this._lineElements();
+
+        // Editor-level position: before child `offset` = start of that line.
+        if (container === this.editorTarget) {
             let sum = 0;
-            for (let i = 0; i < Math.min(offset, container.childNodes.length); i += 1) {
-                sum += container.childNodes[i].textContent.length;
+            for (let i = 0; i < Math.min(offset, lines.length); i += 1) {
+                if (i > 0) sum += 1;
+                sum += lines[i].textContent.length;
             }
-            let prefix = 0;
-            const prefixWalker = document.createTreeWalker(this.editorTarget, NodeFilter.SHOW_TEXT);
-            let prefixNode;
-            while ((prefixNode = prefixWalker.nextNode())) {
-                if (container.contains(prefixNode)) break;
-                prefix += prefixNode.data.length;
+            if (offset > 0 && offset < lines.length) sum += 1;
+            return sum;
+        }
+
+        let total = 0;
+        for (let li = 0; li < lines.length; li += 1) {
+            if (li > 0) total += 1;
+            const lineEl = lines[li];
+
+            if (container === lineEl) {
+                let sum = 0;
+                for (let i = 0; i < Math.min(offset, lineEl.childNodes.length); i += 1) {
+                    sum += lineEl.childNodes[i].textContent.length;
+                }
+                return total + sum;
             }
-            return container === this.editorTarget ? sum : prefix + sum;
+
+            if (lineEl.contains(container)) {
+                const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node === container) {
+                        return total + offset;
+                    }
+                    if (container.nodeType === Node.ELEMENT_NODE && container.contains(node)) {
+                        // Element container inside the line — approximate to
+                        // its start; toolbar actions only need line accuracy.
+                        return total;
+                    }
+                    total += node.data.length;
+                }
+                return total;
+            }
+
+            total += lineEl.textContent.length;
         }
         return total;
     }
@@ -507,19 +695,41 @@ export default class extends Controller {
         this.editorTarget.focus();
     }
 
+    /** Inverse of _offsetAt over the line-div structure. */
     _positionAt(offset) {
-        const walker = document.createTreeWalker(this.editorTarget, NodeFilter.SHOW_TEXT);
+        const lines = this._lineElements();
         let remaining = offset;
-        let node;
-        let last = null;
-        while ((node = walker.nextNode())) {
-            last = node;
-            if (remaining <= node.data.length) {
-                return { node, offset: remaining };
+        let lastText = null;
+        let lastLine = null;
+
+        for (let li = 0; li < lines.length; li += 1) {
+            if (li > 0) {
+                remaining -= 1; // the implicit newline between line divs
+                if (remaining < 0) {
+                    // Boundary itself → start of this line.
+                    remaining = 0;
+                }
             }
-            remaining -= node.data.length;
+            const lineEl = lines[li];
+            lastLine = lineEl;
+            const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
+            let node;
+            let hasText = false;
+            while ((node = walker.nextNode())) {
+                hasText = true;
+                lastText = node;
+                if (remaining <= node.data.length) {
+                    return { node, offset: remaining };
+                }
+                remaining -= node.data.length;
+            }
+            if (!hasText && remaining === 0) {
+                return { node: lineEl, offset: 0 };
+            }
         }
-        if (last) return { node: last, offset: last.data.length };
+
+        if (lastText) return { node: lastText, offset: lastText.data.length };
+        if (lastLine) return { node: lastLine, offset: 0 };
         return { node: this.editorTarget, offset: 0 };
     }
 
@@ -530,8 +740,8 @@ export default class extends Controller {
 
     // --- undo -----------------------------------------------------------------
 
-    _pushUndo(state = this.runs, coalesce = false) {
-        const snapshot = JSON.stringify(state);
+    _pushUndo(state = null, coalesce = false) {
+        const snapshot = JSON.stringify(state || { runs: this.runs, lines: this.lineTypes });
         const top = this._undoStack[this._undoStack.length - 1];
         if (top === snapshot) return;
         // Typing produces one parse per keystroke; coalesce bursts so undo
@@ -545,24 +755,28 @@ export default class extends Controller {
         this._redoStack = [];
     }
 
-    _undo() {
-        const snapshot = this._undoStack.pop();
-        if (snapshot === undefined) return;
-        this._redoStack.push(JSON.stringify(this.runs));
-        this.runs = this._module().normalize(JSON.parse(snapshot));
+    _applySnapshot(snapshot) {
+        const state = JSON.parse(snapshot);
+        // Pre-lists snapshots were a bare runs array.
+        this.runs = this._module().normalize(Array.isArray(state) ? state : state.runs);
+        this.lineTypes = this._fitTypes(Array.isArray(state) ? null : state.lines);
         this._render();
         this._restoreSelection(this._endOffsets());
         this._sync();
     }
 
+    _undo() {
+        const snapshot = this._undoStack.pop();
+        if (snapshot === undefined) return;
+        this._redoStack.push(JSON.stringify({ runs: this.runs, lines: this.lineTypes }));
+        this._applySnapshot(snapshot);
+    }
+
     _redo() {
         const snapshot = this._redoStack.pop();
         if (snapshot === undefined) return;
-        this._undoStack.push(JSON.stringify(this.runs));
-        this.runs = this._module().normalize(JSON.parse(snapshot));
-        this._render();
-        this._restoreSelection(this._endOffsets());
-        this._sync();
+        this._undoStack.push(JSON.stringify({ runs: this.runs, lines: this.lineTypes }));
+        this._applySnapshot(snapshot);
     }
 
     // --- mirror sync + toolbar state -------------------------------------------
@@ -578,9 +792,10 @@ export default class extends Controller {
         // untouched inputs); styling OR a newline promotes to the envelope,
         // which the server's rich-input envelope detection unwraps (an unstyled
         // one degrades to a plain override that preserves the newline).
-        const needsEnvelope = plain !== "" && (module.isStyled(this.runs) || plain.indexOf("\n") !== -1);
+        const hasLists = this.listsValue && this.lineTypes.some((t) => t !== "p");
+        const needsEnvelope = plain !== "" && (module.isStyled(this.runs) || plain.indexOf("\n") !== -1 || hasLists);
         const mirrorValue = needsEnvelope
-            ? JSON.stringify({ runs: this.runs })
+            ? JSON.stringify(hasLists ? { runs: this.runs, lines: this.lineTypes } : { runs: this.runs })
             : plain;
 
         const mirror = document.querySelector(`[data-text-mirror="${this.inputIdValue}"]`);
@@ -624,6 +839,22 @@ export default class extends Controller {
         if (this.hasFontSelectTarget) {
             const families = new Set(runs.map((run) => run.fontFamily || ""));
             this.fontSelectTarget.value = families.size === 1 ? [...families][0] : "";
+        }
+
+        if (this.listsValue && (this.hasUlButtonTarget || this.hasOlButtonTarget)) {
+            const offsets = this._selectionOffsets();
+            const plain = this._module().plainText(this.runs);
+            const start = offsets ? Math.min(offsets.start, offsets.end) : plain.length;
+            const end = offsets ? Math.max(offsets.start, offsets.end) : plain.length;
+            const liStart = this._lineIndexAt(start, plain);
+            const liEnd = this._lineIndexAt(end, plain);
+            const covered = this.lineTypes.slice(liStart, liEnd + 1);
+            if (this.hasUlButtonTarget) {
+                this.ulButtonTarget.classList.toggle("active", covered.length > 0 && covered.every((t) => t === "ul"));
+            }
+            if (this.hasOlButtonTarget) {
+                this.olButtonTarget.classList.toggle("active", covered.length > 0 && covered.every((t) => t === "ol"));
+            }
         }
     }
 

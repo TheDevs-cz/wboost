@@ -27,6 +27,10 @@
        The fill page loads the same file for its measurement overlay, so the
        preview reflow and this render can never disagree. #}
     <script>{{ rich_text_runs_inline_script|raw }}</script>
+    {# rich_text_blocks.js lays lists-bearing rich values ("lines" in the
+       envelope) out as a block stack — paragraphs + bulleted/numbered items.
+       Same three-surface contract as rich_text_runs.js. #}
+    <script>{{ rich_text_blocks_inline_script|raw }}</script>
 </head>
 <body>
     <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
@@ -65,6 +69,7 @@
                 const canvasJson = {{ canvas_json|raw }};
                 const textOverrides = {{ text_overrides|json_encode|raw }};
                 const richTextOverrides = {{ rich_text_overrides|json_encode|raw }};
+                const listConfigs = {{ list_configs|json_encode|raw }};
                 const hiddenOverrides = {{ hidden_overrides|json_encode|raw }};
                 const containers = {{ containers|json_encode|raw }};
                 const strictContainerOverflow = {{ strict_container_overflow ? 'true' : 'false' }};
@@ -176,21 +181,142 @@
                         obj.set({ text: String(textOverrides[idKey]) });
                     }
                 });
-                // Rich overrides carry per-character styling as runs; the
-                // shared module converts them to grapheme-indexed Fabric
-                // styles and applies them in the styles-before-text order the
-                // re-wrap depends on. The maps are disjoint (renderer-side
-                // split), so no object gets both treatments.
-                Object.keys(richTextOverrides).forEach((idKey) => {
-                    const obj = liveObjects.find((o) => o.inputId === idKey);
-                    if (obj) {
-                        WBoostRichTextRuns.applyToTextbox(obj, richTextOverrides[idKey], fabric.util.stylesFromArray);
+                // Rich overrides arrive as envelopes { runs, lines }: runs are
+                // per-character styling (grapheme-indexed, styles-before-text
+                // ordering via the shared module); lines are the per-line list
+                // types. A value WITH list lines is laid out as a BLOCK STACK
+                // replacing the designed textbox: paragraph textboxes at full
+                // width, list items as indented textboxes (hanging indent)
+                // with a bullet object each, all wrapped in a Group that
+                // inherits the textbox's inputId. The original textbox stays
+                // the container engine's member reference — it points at the
+                // group via wboostReplacedBy, which the engine resolves when
+                // reading heights / writing tops (phase A already snapshotted
+                // the DESIGNED geometry from the original). The maps are
+                // disjoint (renderer-side split), so no object gets both
+                // treatments.
+                const buildListStack = async (obj, runs, lines, config) => {
+                    const blocks = WBoostRichTextBlocks.groupBlocks(runs, lines);
+                    const base = {
+                        fontFamily: obj.fontFamily,
+                        fontSize: obj.fontSize,
+                        lineHeight: obj.lineHeight,
+                        charSpacing: obj.charSpacing,
+                        fill: obj.fill,
+                        textAlign: obj.textAlign,
+                    };
+
+                    // measure() is called once per text element in element
+                    // order (module contract) — queue the boxes and zip below.
+                    const boxes = [];
+                    const measure = (fragmentRuns, width) => {
+                        const box = new fabric.Textbox('', {
+                            width: width,
+                            fontFamily: base.fontFamily,
+                            fontSize: base.fontSize,
+                            lineHeight: base.lineHeight,
+                            charSpacing: base.charSpacing,
+                            fill: base.fill,
+                            textAlign: base.textAlign,
+                            editable: false,
+                            selectable: false,
+                        });
+                        WBoostRichTextRuns.applyToTextbox(box, fragmentRuns, fabric.util.stylesFromArray);
+                        boxes.push(box);
+                        return box.height;
+                    };
+
+                    const layout = WBoostRichTextBlocks.layoutStack(blocks, config, { width: obj.width }, measure);
+
+                    // Image bullets share one decoded element (data URI from
+                    // the renderer) — a FabricImage per item over the same img.
+                    let bulletImageEl = null;
+                    if (config.bullet === 'image' && config.bulletImageSrc) {
+                        bulletImageEl = await new Promise((resolve, reject) => {
+                            const img = new Image();
+                            img.onload = () => resolve(img);
+                            img.onerror = reject;
+                            img.src = config.bulletImageSrc;
+                        }).catch(() => null);
                     }
-                });
+
+                    const children = [];
+                    layout.elements.forEach((element) => {
+                        if (element.kind === 'text') {
+                            const box = boxes.shift();
+                            if (!box) return;
+                            box.set({ left: obj.left + element.left, top: obj.top + element.top });
+                            box.setCoords();
+                            children.push(box);
+                            return;
+                        }
+
+                        // Bullet: vertically centered on the item's first line.
+                        const firstLine = base.fontSize * base.lineHeight;
+                        const text = WBoostRichTextBlocks.bulletText(config, element.listType, element.ordinal);
+                        if (text === null && bulletImageEl) {
+                            const size = Math.round(base.fontSize * 0.9);
+                            const ImageClass = fabric.FabricImage || fabric.Image;
+                            children.push(new ImageClass(bulletImageEl, {
+                                left: obj.left + element.left,
+                                top: obj.top + element.top + Math.max(0, (firstLine - size) / 2),
+                                scaleX: size / (bulletImageEl.naturalWidth || 1),
+                                scaleY: size / (bulletImageEl.naturalHeight || 1),
+                                selectable: false,
+                            }));
+                            return;
+                        }
+
+                        const lead = WBoostRichTextBlocks.itemLeadStyle(element.item);
+                        const TextClass = fabric.FabricText || fabric.Text;
+                        children.push(new TextClass(text === null ? '•' : text, {
+                            left: obj.left + element.left,
+                            top: obj.top + element.top,
+                            fontFamily: lead.fontFamily || base.fontFamily,
+                            fontSize: base.fontSize,
+                            lineHeight: base.lineHeight,
+                            fill: lead.color || base.fill,
+                            selectable: false,
+                        }));
+                    });
+
+                    const group = new fabric.Group(children);
+                    group.inputId = obj.inputId;
+                    group.set({ visible: obj.visible !== false });
+
+                    const index = canvas.getObjects().indexOf(obj);
+                    canvas.add(group);
+                    if (index >= 0) {
+                        canvas.moveObjectTo(group, index);
+                    }
+                    canvas.remove(obj);
+                    obj.wboostReplacedBy = group;
+                };
+
+                for (const idKey of Object.keys(richTextOverrides)) {
+                    const obj = liveObjects.find((o) => o.inputId === idKey);
+                    if (!obj) continue;
+                    const envelope = richTextOverrides[idKey];
+                    const runs = Array.isArray(envelope) ? envelope : (envelope.runs || []);
+                    const lines = Array.isArray(envelope) ? null : (envelope.lines || null);
+                    const listConfig = listConfigs[idKey] || null;
+                    if (lines && WBoostRichTextBlocks.hasListLines(lines) && listConfig) {
+                        await buildListStack(obj, runs, lines, listConfig);
+                    } else {
+                        WBoostRichTextRuns.applyToTextbox(obj, runs, fabric.util.stylesFromArray);
+                    }
+                }
                 Object.keys(hiddenOverrides).forEach((idKey) => {
                     const obj = liveObjects.find((o) => o.inputId === idKey);
                     if (obj) {
+                        // A lists-bearing rich input was replaced by its stack
+                        // group — visibility must land on BOTH: the engine's
+                        // phase-B hidden checks read the original reference,
+                        // the canvas paints the replacement.
                         obj.set({ visible: !hiddenOverrides[idKey] });
+                        if (obj.wboostReplacedBy) {
+                            obj.wboostReplacedBy.set({ visible: !hiddenOverrides[idKey] });
+                        }
                     }
                 });
 

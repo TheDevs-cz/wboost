@@ -27,6 +27,11 @@ const META_KEYS = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable',
     'richText', 'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate',
     'allowedDirectoryIds', 'visible',
+    // List config propagates as exact copies. The px values (indent /
+    // spacings) do NOT rescale per dimension — admins of grouped templates
+    // should keep them blank (null = derived from the font size, which the
+    // projector DOES scale, so the defaults track each dimension correctly).
+    'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
 ];
 
 function isTextboxObject(obj) {

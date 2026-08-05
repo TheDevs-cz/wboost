@@ -839,13 +839,18 @@ export default class extends Controller {
         const module = window.WBoostRichTextRuns;
 
         if (def.richText && module) {
+            const blocksModule = window.WBoostRichTextBlocks;
             let runs = null;
+            let lines = null;
             const trimmed = raw.trim();
             if (trimmed.startsWith("{")) {
                 try {
                     const decoded = JSON.parse(trimmed);
                     if (decoded && Array.isArray(decoded.runs)) {
                         runs = module.normalize(decoded.runs);
+                        if (def.lists && Array.isArray(decoded.lines)) {
+                            lines = decoded.lines;
+                        }
                     }
                 } catch (err) {
                     // Not an envelope — treat as plain text below.
@@ -860,7 +865,14 @@ export default class extends Controller {
             if (def.uppercase) {
                 runs = module.upper(runs);
             }
-            return { text: module.plainText(runs), runs: module.isStyled(runs) ? runs : null };
+            // Re-fit the line types to the (possibly truncated) text — null
+            // when no list lines survive, mirroring the server's RichText.
+            lines = lines && blocksModule ? blocksModule.normalizeLines(runs, lines) : null;
+            return {
+                text: module.plainText(runs),
+                runs: module.isStyled(runs) || lines ? runs : null,
+                lines,
+            };
         }
 
         let value = raw;
@@ -900,6 +912,24 @@ export default class extends Controller {
             }
 
             const module = window.WBoostRichTextRuns;
+            const blocksModule = window.WBoostRichTextBlocks;
+
+            // Lists → the value renders as a BLOCK STACK, not a single wrapped
+            // textbox: mirror the server's stack layout with the same shared
+            // module, measuring each fragment on the cached offscreen box
+            // (paragraphs at full width, items at the indented width).
+            if (value.lines && value.runs && blocksModule && module && def.listStyle) {
+                const blocks = blocksModule.groupBlocks(value.runs, value.lines);
+                const measure = (fragmentRuns, width) => {
+                    box.set({ width });
+                    module.applyToTextbox(box, fragmentRuns, util.stylesFromArray);
+                    return box.height;
+                };
+                const layout = blocksModule.layoutStack(blocks, def.listStyle, { width: def.frame.width }, measure);
+                box.set({ width: def.frame.width });
+                return layout.height;
+            }
+
             if (value.runs && module) {
                 module.applyToTextbox(box, value.runs, util.stylesFromArray);
             } else if (module) {

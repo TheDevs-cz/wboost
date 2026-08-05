@@ -815,6 +815,11 @@ export default class extends Controller {
             this.dispatch('background:changed', { detail: { url, path, layerMode: this.backgroundModeValue === 'layer' } });
         } else if (mode === 'replaceImage') {
             this.replaceSelectedImage(url, path, id);
+        } else if (mode === 'bulletImage') {
+            // List bullet pick for the input-properties popover — both
+            // controllers share the editor root, so a plain Stimulus dispatch
+            // reaches its element listener without template wiring.
+            this.dispatch('bullet-image', { detail: { url, path, id } });
         } else {
             this.addImageToCanvas(url, path, id);
         }

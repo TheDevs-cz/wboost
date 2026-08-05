@@ -314,6 +314,38 @@ just swap `fontFamily`), brand-color swatches + free picker, underline.
   `InvalidRichTextValue`, the ContainerOverflow pattern). Documented in
   OpenAPI + consumer-prompt.md; mfkfm consumes it.
 
+**Lists inside rich text (`lists` on `EditorTextInput`, 2026-08-05).** A rich
+input the admin flags "Povolit seznamy" accepts per-LINE list types in the
+envelope: `{runs, lines: ["p","ul","ol",...]}` — one entry per `\n`-separated
+line of the concatenated runs (`RichText::$lineTypes`, all-'p' ≡ no lists ≡
+the pre-lists value; list structure routes to the rich path even when runs
+are unstyled). Rendering = **block stack** replacing the designed textbox:
+consecutive 'p' lines merge into ONE paragraph textbox (byte-identical to the
+flat rendering), consecutive 'ul'/'ol' lines become individually-wrapped item
+textboxes at `indent` (hanging indent) with a bullet object each (char •/–/✓
+in the item's lead color/face, `ol` ordinals, or a gallery image bullet
+inlined by the renderer). Admin config on the input (`listBullet`,
+`listBulletImage`, `listIndent`, `listItemSpacing`, `listBlockSpacing`; null =
+derived defaults — single source `ResolvedListStyle`, JS mirror none: servers
+resolve everywhere). Shared layout = `assets/editor/rich_text_blocks.js`
+(classic script, third sibling of container_layout/rich_text_runs; the
+`measure()` callback runs once per text element IN ELEMENT ORDER — callers
+queue their Fabric boxes on it). Render template wraps the stack in a Fabric
+Group carrying the textbox's inputId and stamps
+`textbox.wboostReplacedBy = group` — the container engine resolves that
+indirection in `displayedHeight`/`setObjectProps` (phase A snapshotted the
+designed textbox; phase B measures/moves the stack), and fill-hide visibility
+lands on BOTH objects. The fill overlay measures stacks via the same module
+over its cached offscreen box (`textLayoutData` ships `lists` + resolved
+`listStyle`). WYSIWYG: line-DIV rendering (`div.rt-line[data-type]`, CSS
+bullets, JS-stamped `ol` ordinals), selection offsets count one implicit
+`\n` per line boundary, Enter inherits the item type / exits on an empty
+item, ul/ol toolbar toggles. API: `inputs[].lists` + resolved `listStyle`
+(bullet, bulletImageUrl, indent, itemSpacing, blockSpacing); strict 400
+`lists_not_allowed`. Group sync copies list props exactly (px values don't
+rescale — keep them null on grouped templates so the font-derived defaults
+track each dimension).
+
 **Floating element toolbar.** Selection-contextual editing is NOT in the left
 panel — it floats next to the selected object (Canva/Slides style).
 `canvas_floating_toolbar_controller` owns *when* and *where* the chrome shows;

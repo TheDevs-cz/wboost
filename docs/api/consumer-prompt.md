@@ -365,6 +365,7 @@ structured `400` `{ "error": "...", "code": "..." }` with one of these codes:
 | `invalid_rich_text` | Malformed runs (non-object run, missing/non-string `text`, unknown run key, `runs` + `value` together, > 200 runs, > 10 000 chars total). |
 | `font_not_allowed` | A run's `fontFamily` is not in `richTextOptions.fonts[].family`. The body includes `allowedFonts` (the valid family list). |
 | `invalid_color` | A run's `color` isn't a hex color. Use `#rrggbb` (or `#rgb`); **no alpha**. Colors are otherwise free-form — `richTextOptions.colors` are suggested brand swatches, NOT a whitelist. |
+| `lists_not_allowed` | You sent `lines` list types (`ul`/`ol`) for an input whose `lists` is `false`. Drop the `lines` key or send only `"p"` entries. |
 
 ---
 
@@ -384,6 +385,7 @@ For each entry in `variant.inputs`:
 | `containerId` | Nullable. When set, this input is a member of `variants[].containers[]` entry with that id and reflows at render time. |
 | `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing, textAlign}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow, or to anchor a name tag by `textAlign` (`left`\|`center`\|`right`\|`justify`). |
 | `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
+| `lists` / `listStyle` | When `lists` is `true`, offer bullet/numbered-list buttons in the WYSIWYG and send per-line types via the envelope's `lines` key (see "Lists inside rich text"). `listStyle` carries the RESOLVED bullet + spacing geometry for local preview mirroring. |
 | `layerIndex` | Nullable int — the object's stacking position on the variant canvas (0 = backmost, higher = painted on top). Shares ONE index space with `imageInputs[].layerIndex`: merge both arrays and sort by `layerIndex` **descending** to build a Photoshop-style layers list (topmost first). Values may have gaps (decorative design objects occupy positions too); only the relative order is meaningful. Purely informational for display/navigation — the export accepts no z-order overrides. |
 
 Build the `inputs` payload as `{ <inputId>: <string|{value,hide}|{runs,hide}> }`,
@@ -424,6 +426,35 @@ Contract details:
 - The rendered PNG is authoritative: styled wrapping (a bold face is wider!)
   and container reflow are computed server-side, so keep using the debounced
   full render as the preview.
+
+### Lists inside rich text (`inputs[].lists: true`)
+
+A rich input the designer flagged with `lists: true` additionally accepts
+per-LINE list types in the envelope — the user can mix paragraphs, bulleted
+and numbered lists in ONE input:
+
+```jsonc
+{ "runs": [ { "text": "Intro\nFirst step\nSecond step\nOutro" } ],
+  "lines": ["p", "ul", "ul", "p"] }   // one entry per \n-separated line
+```
+
+- `lines[i]` ∈ `"p"` (plain paragraph line) | `"ul"` (bulleted item) | `"ol"`
+  (numbered item), one entry per line of the CONCATENATED runs text (split on
+  `\n`). Omit `lines` entirely for a value without lists.
+- Rendering: consecutive `p` lines form one paragraph (exactly the pre-lists
+  rendering); consecutive `ul`/`ol` lines form a list whose items wrap
+  individually at `frame.width − listStyle.indent` with a hanging indent, a
+  bullet at the line start (image bullets: `listStyle.bulletImageUrl`; `ol`
+  always renders the ordinal "1."), `listStyle.itemSpacing` px between items
+  and `listStyle.blockSpacing` px between blocks. All `listStyle` values are
+  RESOLVED px — never re-derive defaults.
+- Sending list lines to an input with `lists: false` → **400
+  `lists_not_allowed`**; malformed `lines` (bad value, wrong count) → **400
+  `invalid_rich_text`**.
+- Runs styling (face/color/underline) works inside list items unchanged;
+  `maxLength` still counts the concatenated plain text (bullets don't count).
+- The stack's total height feeds container reflow like any other text, so
+  keep treating the server render as authoritative for overflow.
 
 ### Containers (`variant.containers`) — smart text areas
 

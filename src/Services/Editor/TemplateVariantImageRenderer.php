@@ -29,6 +29,7 @@ use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverride;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
+use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichText;
 
 final class TemplateVariantImageRenderer implements TemplateVariantImageRendererInterface
@@ -70,6 +71,8 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         private readonly string $containerLayoutScriptPath,
         #[Autowire('%kernel.project_dir%/assets/editor/rich_text_runs.js')]
         private readonly string $richTextRunsScriptPath,
+        #[Autowire('%kernel.project_dir%/assets/editor/rich_text_blocks.js')]
+        private readonly string $richTextBlocksScriptPath,
     ) {
     }
 
@@ -195,10 +198,38 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // styles + set text) OR the rich path (set text + per-char styles) —
         // never both — so the rich ids are subtracted here.
         $plainTextOverrides = array_diff_key($overrides->texts, $overrides->richTexts);
+        // Envelope shape ({runs, lines}) — the template needs the per-line
+        // types to lay lists-bearing values out as a block stack.
         $richTextOverrides = array_map(
-            static fn (RichText $richText): array => $richText->toArray(),
+            static fn (RichText $richText): array => $richText->toEnvelopeArray(),
             $overrides->richTexts,
         );
+
+        // Effective list styling per lists-enabled rich input, bullet images
+        // inlined as data URIs (headless Chromium has no Minio access). The
+        // text style (fontSize/lineHeight) drives the derived defaults.
+        $listConfigs = [];
+        $decodedCanvas = json_decode($variant->canvas, true);
+        $textStyles = is_array($decodedCanvas)
+            ? $this->textInputObjectBinder->textStylesByInputId($decodedCanvas, $variant->inputs)
+            : [];
+        foreach ($variant->inputs as $input) {
+            if (!$input->richText || !$input->lists) {
+                continue;
+            }
+            $style = $textStyles[$input->inputId] ?? null;
+            $resolved = ResolvedListStyle::resolve(
+                $input,
+                fontSize: (float) ($style['fontSize'] ?? 40),
+                lineHeight: (float) ($style['lineHeight'] ?? 1.16),
+            );
+            $config = $resolved->toArray();
+            $config['bulletImageSrc'] = $resolved->bulletImage !== null
+                ? $this->assetInliner->inlineImage($resolved->bulletImage)
+                : null;
+            unset($config['bulletImage']);
+            $listConfigs[$input->inputId] = $config;
+        }
 
         $builder = $this->gotenberg->html()
             ->content('api/template_variant_render.html.twig', [
@@ -207,6 +238,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'font_faces' => $fontFaceData,
                 'text_overrides' => $plainTextOverrides,
                 'rich_text_overrides' => $richTextOverrides,
+                'list_configs' => $listConfigs,
                 'hidden_overrides' => $overrides->hidden,
                 'containers' => array_map(
                     static fn (CanvasContainer $container): array => $container->toArray(),
@@ -217,6 +249,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'break_word_inline_script' => $this->getInlineScript($this->breakWordScriptPath),
                 'container_layout_inline_script' => $this->getInlineScript($this->containerLayoutScriptPath),
                 'rich_text_runs_inline_script' => $this->getInlineScript($this->richTextRunsScriptPath),
+                'rich_text_blocks_inline_script' => $this->getInlineScript($this->richTextBlocksScriptPath),
             ])
             ->width($variant->dimension->width())
             ->height($variant->dimension->height())
