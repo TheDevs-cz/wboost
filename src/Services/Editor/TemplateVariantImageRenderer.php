@@ -10,7 +10,10 @@ use Sensiolabs\GotenbergBundle\Enumeration\ScreenshotFormat;
 use Sensiolabs\GotenbergBundle\Exception\ClientException;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
 use Sensiolabs\GotenbergBundle\Processor\InMemoryProcessor;
+use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
@@ -28,6 +31,7 @@ use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\PlaceholderFrame;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverride;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
@@ -36,6 +40,9 @@ use WBoost\Web\Value\RichText;
 
 final class TemplateVariantImageRenderer implements TemplateVariantImageRendererInterface
 {
+    /** Renders larger than this are returned but never stored (see renderToBytes). */
+    private const int PREVIEW_CACHE_MAX_BYTES = 1_048_576;
+
     /**
      * Cached inline-script contents by path — read once per request from disk
      * and inlined into every Gotenberg HTML payload so the headless render is
@@ -75,7 +82,19 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         private readonly string $richTextRunsScriptPath,
         #[Autowire('%kernel.project_dir%/assets/editor/rich_text_blocks.js')]
         private readonly string $richTextBlocksScriptPath,
+        #[Autowire(service: 'cache.gotenberg_preview')]
+        private readonly TagAwareCacheInterface $previewCache,
     ) {
+    }
+
+    /**
+     * Cache tag for everything rendered from one variant. Invalidated wherever
+     * the variant's design changes (canvas save), so a stale overlay can never
+     * outlive an edit even though the key already includes a canvas hash.
+     */
+    public static function variantCacheTag(UuidInterface $variantId): string
+    {
+        return 'template_variant_render_' . $variantId->toString();
     }
 
     public function render(
@@ -84,6 +103,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
+        RenderImageFormat $format = RenderImageFormat::Png,
     ): Response {
         // Return a BUFFERED Response, NOT Gotenberg's StreamedResponse. The
         // streamed response echoes + flush()es each chunk to the SAPI. Under
@@ -95,9 +115,11 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // images are small, so buffering the bytes in memory is cheap and the
         // controllers (download / API export) layer their own headers on top.
         return new Response(
-            $this->renderToBytes($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice),
+            $this->renderToBytes($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format),
             Response::HTTP_OK,
-            ['Content-Type' => 'image/png'],
+            // Derived from the enum, never a literal: the header and the bytes
+            // are then incapable of disagreeing.
+            ['Content-Type' => $format->contentType()],
         );
     }
 
@@ -107,13 +129,48 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|ResolvedImageOverrides $imageOverrides = null,
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
+        RenderImageFormat $format = RenderImageFormat::Png,
+    ): string {
+        $cacheKey = $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format);
+
+        if ($cacheKey === null) {
+            return $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format);
+        }
+
+        return $this->previewCache->get(
+            $cacheKey,
+            function (ItemInterface $item) use ($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format): string {
+                $item->tag([self::variantCacheTag($variant->id)]);
+
+                $bytes = $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format);
+
+                // Never let one pathological variant dominate the pool. The
+                // canvas cap allows 10000x10000, which can render far larger
+                // than a normal overlay; expiring immediately returns the bytes
+                // to the caller but keeps them out of Redis.
+                if (strlen($bytes) > self::PREVIEW_CACHE_MAX_BYTES) {
+                    $item->expiresAfter(0);
+                }
+
+                return $bytes;
+            },
+        );
+    }
+
+    private function renderBytesUncached(
+        TemplateVariant $variant,
+        ResolvedInputOverrides $overrides,
+        null|ResolvedImageOverrides $imageOverrides,
+        bool $strictContainerOverflow,
+        null|CanvasSlice $slice,
+        RenderImageFormat $format,
     ): string {
         // The bundle's InMemoryProcessor drains the chunked HTTP response from
         // Gotenberg into a string. Unlike `stream()`, it never calls echo /
         // flush(), so it does not interfere with the outer HTTP response that
         // is still being assembled (headers, cookies, content-type).
         try {
-            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice)
+            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format)
                 ->generate()
                 ->processor(new InMemoryProcessor())
                 ->process();
@@ -150,12 +207,167 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         return $bytes;
     }
 
+    /**
+     * A cache key for renders whose pixels PROVABLY cannot change with any text
+     * override — or null, meaning "cannot prove it, so render every time"
+     * (exactly today's behaviour). Never returns a key that would be wrong.
+     *
+     * **Why this is safe.** The fill page re-renders 2-3 times per keystroke:
+     * the backdrop plus one transparent overlay per placeholder gap. Those all
+     * receive the SAME resolved overrides, so keying on the overrides would
+     * change every key on every keystroke and never hit. The narrowing is
+     * therefore the whole point, and it rests on two facts about the model:
+     *
+     *  1. `buildCanvasJson()` takes the image overrides and the slice but NOT
+     *     the text overrides — text is applied in the browser from the separate
+     *     `text_overrides` context key. So the canvas geometry a slice renders
+     *     is not a function of what the user typed.
+     *  2. Suppression outside a slice is `opacity: 0`, not `visible: false`
+     *     ({@see CanvasSlice}), specifically so hidden objects keep their layout
+     *     influence. The one way a text change can still MOVE something is
+     *     container reflow — and {@see CanvasContainer} addresses its members by
+     *     `inputId`. An object with no `inputId` cannot be a container member,
+     *     so it cannot be reflowed by anyone else's text.
+     *
+     * Hence: if no object inside the slice carries an `inputId`, no text /
+     * rich-text / hide override can alter a single pixel of it. That is the
+     * decorative-overlay case (a logo locked above a photo slot), which is
+     * exactly the render that repeats unchanged on every keystroke.
+     *
+     * Anything else — a full render (`$slice === null`), a slice containing a
+     * bound input, or a canvas we cannot decode — returns null and is rendered
+     * fresh, mirroring the "couldn't determine safely → do what we do today"
+     * rule the font narrowing above already follows.
+     */
+    private function overrideIndependentCacheKey(
+        TemplateVariant $variant,
+        null|ResolvedImageOverrides $imageOverrides,
+        bool $strictContainerOverflow,
+        null|CanvasSlice $slice,
+        RenderImageFormat $format,
+    ): null|string {
+        // A full render always paints the user's text.
+        if ($slice === null || !self::sliceIsOverrideIndependent($variant->canvas, $slice)) {
+            return null;
+        }
+
+        // Everything below can still change the pixels, so all of it is in the
+        // key. The canvas hash covers the design, the containers and the
+        // background; the font fingerprint covers the inlined faces (font files
+        // are immutable per storage path, so identity is enough); the asset
+        // fingerprint covers the inlined Fabric/layout scripts, which change on
+        // deploy. Image overrides are included in full — they are small, and on
+        // this path they are the constant "all placeholders hidden" set.
+        return 'gotenberg_slice_' . hash('xxh128', serialize([
+            'variant' => $variant->id->toString(),
+            'canvas' => hash('xxh128', $variant->canvas),
+            'background' => $variant->backgroundImage,
+            'backgroundMode' => $variant->backgroundMode->value,
+            'width' => $variant->dimension->width(),
+            'height' => $variant->dimension->height(),
+            'inputs' => array_map(static fn (EditorTextInput $i): string => serialize($i), $variant->inputs),
+            'imageInputs' => array_map(static fn (object $i): string => serialize($i), $variant->imageInputs),
+            'imageOverrides' => $imageOverrides === null ? null : serialize($imageOverrides),
+            'slice' => [$slice->fromIndex, $slice->toIndex, $slice->withBackground],
+            'strict' => $strictContainerOverflow,
+            'format' => $format->value,
+            'fonts' => $this->fontFingerprint($variant),
+            'assets' => $this->assetFingerprint(),
+        ]));
+    }
+
+    /**
+     * True when NO object inside the slice is bound to an input, which is what
+     * makes the slice's pixels independent of every text / rich-text / hide
+     * override. Conservative by design: any shape it cannot reason about
+     * returns false, i.e. "render it fresh, like we always did".
+     *
+     * Kept pure (canvas string in, bool out) so the one piece of reasoning this
+     * cache rests on is directly unit-testable without an entity or a container.
+     */
+    private static function sliceIsOverrideIndependent(string $canvasJson, CanvasSlice $slice): bool
+    {
+        $decoded = json_decode($canvasJson, true);
+
+        if (!is_array($decoded) || !is_array($decoded['objects'] ?? null)) {
+            return false;
+        }
+
+        /** @var array<array-key, mixed> $objects */
+        $objects = $decoded['objects'];
+        $to = $slice->toIndex ?? count($objects);
+
+        // An empty range paints nothing; treat it as unknown rather than
+        // inventing a cache entry for a render that should not be happening.
+        if ($to <= $slice->fromIndex) {
+            return false;
+        }
+
+        for ($i = $slice->fromIndex; $i < $to; $i++) {
+            $object = $objects[$i] ?? null;
+
+            if (!is_array($object)) {
+                return false; // unexpected shape — do not reason about it
+            }
+
+            $inputId = $object['inputId'] ?? null;
+
+            if (is_string($inputId) && $inputId !== '') {
+                return false; // bound to an input ⇒ the user can change it
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Identity of the project's fonts. Font uploads are immutable per storage
+     * path (the inlining memo above relies on the same property), so the set of
+     * paths is enough — no need to hash megabytes of base64 face data.
+     */
+    private function fontFingerprint(TemplateVariant $variant): string
+    {
+        $paths = [];
+
+        foreach ($this->getFonts->allForProject($variant->template->project->id) as $font) {
+            foreach ($font->faces as $face) {
+                $paths[] = $font->name . '|' . $face->name . '|' . $face->weight . '|' . $face->style . '|' . $face->filePath;
+            }
+        }
+
+        sort($paths);
+
+        return hash('xxh128', implode("\n", $paths));
+    }
+
+    /**
+     * Identity of the inlined JS bundles. They are committed assets, so they
+     * only change on deploy — mtime+size is enough and costs a stat, not a read.
+     */
+    private function assetFingerprint(): string
+    {
+        $parts = [];
+
+        foreach ([
+            $this->fabricUmdBundlePath,
+            $this->breakWordScriptPath,
+            $this->containerLayoutScriptPath,
+            $this->richTextRunsScriptPath,
+            $this->richTextBlocksScriptPath,
+        ] as $path) {
+            $parts[] = $path . '|' . (string) @filemtime($path) . '|' . (string) @filesize($path);
+        }
+
+        return hash('xxh128', implode("\n", $parts));
+    }
+
     private function buildScreenshot(
         TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         null|ResolvedImageOverrides $imageOverrides,
         bool $strictContainerOverflow,
         null|CanvasSlice $slice,
+        RenderImageFormat $format = RenderImageFormat::Png,
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
@@ -276,11 +488,22 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             ->width($variant->dimension->width())
             ->height($variant->dimension->height())
             ->clip(true)
-            ->format(ScreenshotFormat::Png)
+            // No `->quality()`: Gotenberg only honours it for JPEG (verified
+            // 2026-08-05 — q50/q85/unset produce byte-identical WebP), and JPEG
+            // is unrepresentable here because the omitBackground() paths below
+            // need alpha. WebP is therefore Chromium's default lossy encode.
+            //
+            // WebP also has a hard 16383 px/side limit. That is currently
+            // guaranteed by MAX_CANVAS_PIXELS = 10000 in the variant FormData —
+            // if that cap is ever raised, WebP renders start failing here.
+            ->format(match ($format) {
+                RenderImageFormat::Png => ScreenshotFormat::Png,
+                RenderImageFormat::Webp => ScreenshotFormat::Webp,
+            })
             ->waitForExpression('window.canvasRendered === true');
 
         if ($variant->backgroundMode === BackgroundMode::Layer) {
-            // A layer-mode variant may have no background at all — the PNG
+            // A layer-mode variant may have no background at all — the image
             // must come out with real alpha where nothing is drawn, not
             // Chromium's default white page paint. (The render template's
             // body is already CSS-transparent.)

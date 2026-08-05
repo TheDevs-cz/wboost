@@ -11,9 +11,11 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use WBoost\Web\Entity\ExportEvent;
 use WBoost\Web\Entity\SocialAccount;
 use WBoost\Web\Exceptions\FacebookTokenExpired;
+use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Meta\MetaGraphApiInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeMetaGraphApi;
+use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Value\ExportChannel;
 
@@ -43,6 +45,15 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         $data = json_decode((string) $client->getResponse()->getContent(), true);
 
         return is_array($data) ? $data : [];
+    }
+
+    private function getRendererFake(): FakeTemplateVariantImageRenderer
+    {
+        $renderer = self::getContainer()->get(TemplateVariantImageRendererInterface::class);
+        /** @phpstan-ignore staticMethod.impossibleType */
+        self::assertInstanceOf(FakeTemplateVariantImageRenderer::class, $renderer);
+
+        return $renderer;
     }
 
     private function fakeApi(): FakeMetaGraphApi
@@ -76,6 +87,17 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         self::assertSame(FakeMetaGraphApi::PAGE_WITHOUT_IG_ID, $publishCalls[0]['args']['pageId']);
         self::assertSame('Náš nový příspěvek', $publishCalls[0]['args']['caption']);
         self::assertGreaterThan(0, $publishCalls[0]['args']['imageBytesLength']);
+
+        // MetaGraphApi uploads these bytes as a DataPart labelled
+        // 'wboost-export.png' / 'image/png'. If the renderer ever handed this
+        // path WebP, we would be lying to Graph about the payload — a silent,
+        // third-party-visible breakage no local assertion would otherwise
+        // catch. Lock the requested format here.
+        $rendererCalls = $this->getRendererFake()->calls;
+        self::assertNotEmpty($rendererCalls);
+        foreach ($rendererCalls as $call) {
+            self::assertSame('png', $call['format'], 'bytes published to Meta must be PNG, as declared to Graph');
+        }
 
         // Usage tracking: one ExportEvent on the facebook channel.
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);

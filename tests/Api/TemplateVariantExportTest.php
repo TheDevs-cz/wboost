@@ -117,6 +117,12 @@ final class TemplateVariantExportTest extends ApiTestCase
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
         self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, $lastCall['variantId']);
+        // The public API contract is "raw PNG binary" (docs/api/consumer-prompt.md).
+        // Asserting the requested FORMAT as well as the bytes means a future
+        // change of the renderer's default cannot silently ship lossy WebP to
+        // external consumers — the bytes assertion alone would not catch a
+        // caller that starts asking for WebP.
+        self::assertSame('png', $lastCall['format'], 'the public API export must stay lossless PNG');
         // headline: shorthand string
         self::assertSame('Hello', $lastCall['texts'][TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
         // tagline: uppercase=true, applied server-side
@@ -161,6 +167,7 @@ final class TemplateVariantExportTest extends ApiTestCase
         $lastCall = $this->getRendererFake()->calls[count($this->getRendererFake()->calls) - 1];
         self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, $lastCall['variantId']);
         self::assertSame('Alias', $lastCall['texts'][TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
+        self::assertSame('png', $lastCall['format'], 'the public API export must stay lossless PNG');
     }
 
     public function testExtendedShapeAppliesValueAndHide(): void

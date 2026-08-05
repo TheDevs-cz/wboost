@@ -65,6 +65,10 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         foreach ($calls as $call) {
             self::assertSame([TestDataFixture::GROUP_SHARED_INPUT_ID => 'Letní kampaň'], $call['texts']);
             self::assertFalse($call['strictContainerOverflow'], 'group export renders lenient, like the web download');
+            // Positive lock, not just "the bytes happen to be PNG": if someone
+            // later flips the renderer default or passes WebP through here, the
+            // user's downloaded ZIP would silently become lossy. Fail loudly.
+            self::assertSame('png', $call['format'], 'the downloaded ZIP must stay lossless PNG');
         }
     }
 
@@ -249,7 +253,14 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    public function testPreviewReturnsPngForMemberVariant(): void
+    /**
+     * The on-screen preview takes the lossy/smaller encode; the ZIP export
+     * stays lossless PNG — see
+     * {@see testExportRendersEveryMemberVariantWithTheUnifiedValuesAndReturnsZip()},
+     * which asserts the `.png` entry names, the PNG magic bytes AND that the
+     * renderer was asked for PNG. Both halves of that split matter.
+     */
+    public function testPreviewReturnsWebpForMemberVariant(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
@@ -262,13 +273,20 @@ final class TemplateGroupExportControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $response = $client->getResponse();
-        self::assertSame('image/png', $response->headers->get('Content-Type'));
-        self::assertStringStartsWith("\x89PNG", (string) $response->getContent());
+        self::assertSame('image/webp', $response->headers->get('Content-Type'));
+
+        // Assert the BYTES too, not just the header: a WebP file is
+        // `RIFF` + 4 size bytes + `WEBP`. Checking both is what proves the
+        // header and the payload actually agree.
+        $content = (string) $response->getContent();
+        self::assertStringStartsWith('RIFF', $content);
+        self::assertSame('WEBP', substr($content, 8, 4));
 
         $calls = $this->getRendererFake()->calls;
         self::assertCount(1, $calls);
         self::assertSame(TestDataFixture::GROUPED_PRESET_VARIANT_ID, $calls[0]['variantId']);
         self::assertSame([TestDataFixture::GROUP_SHARED_INPUT_ID => 'Náhled'], $calls[0]['texts']);
+        self::assertSame('webp', $calls[0]['format']);
     }
 
     public function testPreviewRejectsVariantOutsideTheGroup(): void
