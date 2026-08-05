@@ -112,10 +112,17 @@ export default class extends Controller {
         this._boundRefreshBackdrops = () => this.refreshBackdropStates();
         ['object:added', 'object:modified', 'selection:created', 'selection:updated', 'selection:cleared']
             .forEach((ev) => this.canvas.on(ev, this._boundRefreshBackdrops));
+        // Pointer modifiers (applyPointerModifiers): Alt/⌥+drag always
+        // rubber-bands, Ctrl/⌘+drag always grabs the object under the cursor
+        // (backdrops included). Must run BEFORE Fabric's target search.
+        this.canvas.on('mouse:down:before', (opt) => this.applyPointerModifiers(opt));
         this.canvas.on('mouse:down', (opt) => {
             this._backdropPress = opt.target ? null : this._scenePoint(opt);
         });
-        this.canvas.on('mouse:up', (opt) => this.maybeSelectBackdrop(opt));
+        this.canvas.on('mouse:up', (opt) => {
+            this.releasePointerModifiers();
+            this.maybeSelectBackdrop(opt);
+        });
 
         // Mark form dirty whenever the canvas changes. The "unsaved changes"
         // indicator was the only meaningful piece of the old autosave UI;
@@ -174,6 +181,9 @@ export default class extends Controller {
         const press = this._backdropPress;
         this._backdropPress = null;
         if (!press || opt.target || this.canvas.getActiveObject()) return;
+        // Alt = area-select modifier: an Alt-click deliberately ignores
+        // whatever is under the pointer, so it never selects the backdrop.
+        if (opt.e && opt.e.altKey) return;
 
         const up = this._scenePoint(opt);
         if (!up || Math.abs(up.x - press.x) > 3 || Math.abs(up.y - press.y) > 3) return;
@@ -200,6 +210,71 @@ export default class extends Controller {
             return this.canvas.getScenePoint(opt.e);
         }
         return null;
+    }
+
+    /**
+     * Pointer-modifier conventions, applied on mouse:down:before — i.e.
+     * ahead of Fabric's own target search for this press:
+     *
+     * Alt/⌥ + drag — ALWAYS area-select: skipTargetFind for the duration of
+     * the press, so the drag draws the rubber-band even when it starts on an
+     * object (diagram-editor convention — Photoshop-family tools solve this
+     * with a separate marquee tool, which a single-tool canvas doesn't have).
+     * Exception: a press on a transform HANDLE of the active object keeps
+     * its native Photoshop meaning (Alt = centered scaling).
+     *
+     * Ctrl/⌘ + drag — ALWAYS grab: the topmost click-through backdrop under
+     * the pointer is promoted to targetable for this press, so Fabric picks
+     * it up and the drag moves it immediately — Photoshop's Move-tool
+     * auto-select convention (Ctrl/⌘-drag grabs the layer under the cursor).
+     * Normal objects need no promotion (they target natively, and one on top
+     * of the backdrop still wins, like Photoshop's topmost layer); the
+     * backdrop sweep re-demotes the image once it's deselected. Composes
+     * with the existing ⌘-while-dragging snap bypass: ⌘ consistently means
+     * "direct, precise manipulation".
+     */
+    applyPointerModifiers(opt) {
+        const e = opt && opt.e;
+        if (!e || !this.canvas) return;
+
+        if (e.altKey) {
+            const active = this.canvas.getActiveObject();
+            let onControl = false;
+            if (active && typeof active.findControl === 'function' && typeof this.canvas.getViewportPoint === 'function') {
+                onControl = !!active.findControl(this.canvas.getViewportPoint(e));
+            }
+            if (!onControl) {
+                this.canvas.skipTargetFind = true;
+                this._modifierSkipTargetFind = true;
+            }
+            return;
+        }
+
+        if (!e.metaKey && !e.ctrlKey) return;
+        const point = this._scenePoint(opt);
+        if (!point) return;
+        const width = this.canvas.getWidth();
+        const height = this.canvas.getHeight();
+        const objects = this.canvas.getObjects();
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            if (obj.evented !== false) continue; // only passthrough backdrops need promoting
+            if ((obj.type || '').toLowerCase() !== 'image') continue;
+            if (obj.editorLocked === true || obj.isBackground === true) continue;
+            if (obj.visible === false) continue;
+            if (!isBackdropCovering(obj, width, height)) continue;
+            if (typeof obj.containsPoint === 'function' && !obj.containsPoint(point)) continue;
+            obj.evented = true;
+            obj.selectable = true;
+            return;
+        }
+    }
+
+    releasePointerModifiers() {
+        if (this._modifierSkipTargetFind && this.canvas) {
+            this.canvas.skipTargetFind = false;
+            this._modifierSkipTargetFind = false;
+        }
     }
 
     markUnsaved() {
