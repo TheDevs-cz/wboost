@@ -14,20 +14,8 @@
 
         <hr class="my-2">
 
-        <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" role="switch" id="highlight-editable-control" checked data-action="change->canvas-floating-toolbar#toggleHighlight">
-            <label class="form-check-label small" for="highlight-editable-control">Zobrazit editovatelné prvky</label>
-        </div>
-
-        <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" role="switch" id="snap-enabled-control" checked data-action="change->canvas-snapping#toggleSnapping">
-            <label class="form-check-label small" for="snap-enabled-control">Přichytávání k prvkům <span class="text-muted">(⌘ = vypnout)</span></label>
-        </div>
-
-        <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" role="switch" id="ruler-enabled-control" checked data-action="change->canvas-rulers#toggle">
-            <label class="form-check-label small" for="ruler-enabled-control">Pravítka a vodítka <span class="text-muted">(tažením z pravítka)</span></label>
-        </div>
+        {# The highlight / snapping / rulers toggles live in the TOP bar next
+           to the zoom controls — editor/_editor_toggles.html.twig. #}
 
         <p class="text-muted small mb-0 mt-2">
             <i class="mdi mdi-information-outline me-1"></i>Vyberte prvek na plátně — jeho nastavení se zobrazí přímo u něj.

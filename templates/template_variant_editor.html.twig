@@ -98,6 +98,8 @@
 
                     <p class="d-inline-block my-0 small text-muted" data-canvas-zoom-target="scaleDisplay">100%</p>
 
+                    {{ include('editor/_editor_toggles.html.twig') }}
+
                     {% if variant.group and is_granted('ROLE_DESIGNER') %}
                         <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="badge bg-info-lighten text-info ms-2" title="Tato varianta vznikla ve skupině — otevřít skupinový editor"><i class="uil-layer-group"></i> Skupina: {{ variant.group.name }}</a>
                     {% endif %}
