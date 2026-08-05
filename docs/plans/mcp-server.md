@@ -256,11 +256,15 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
 
 ### Stage 1 — Auth & scope (PAT, OAuth-shaped)
 
-- [ ] **S1-T1 — `McpAccessToken` entity + migration.**
+- [x] **S1-T1 — `McpAccessToken` entity + migration.**
   **How:** `src/Entity/McpAccessToken.php` — `id` (UUID v7), `user` (ManyToOne, `ON DELETE CASCADE`), `name`, `scopes` (JSON `list<string>`), `tokenHash` (sha256 of the secret; **never store the secret**), `createdAt`, `lastUsedAt` (nullable), `expiresAt` (nullable), `revokedAt` (nullable). Repository with `findActiveByHash()`.
   Token wire format: `wb_mcp_<32 bytes base64url>`; the lookup is by hash of the whole string.
   **Done when:** `docker compose exec web bin/console doctrine:migrations:migrate -n` applies AND `bin/console doctrine:schema:validate` reports the mapping in sync.
   **Depends:** S0-T4
+  **Landed:** `src/Entity/McpAccessToken.php` (shaped after `PasswordResetToken` / `SocialAccount`), `src/Repository/McpAccessTokenRepository.php`, `migrations/Version20260805220000.php` (hand-edited from `diff` output, keeps Doctrine's generated index names so schema-validate stays in sync, has a `down()`).
+  **The format lives in `src/Mcp/Security/McpTokenGenerator.php`** — the single source both S1-T3 and S1-T5 consume: `TOKEN_PREFIX = 'wb_mcp_'`, `generate()` (plaintext `wb_mcp_<32 bytes base64url unpadded>`), `hash()` (sha256 hex of the WHOLE wire string, prefix included), `looksLikeToken()` (prefix check, so a foreign bearer token never costs a DB round-trip). The entity has no plaintext field, setter or getter at all — storing a secret is structurally impossible.
+  **`findActiveByHash(string $tokenHash, DateTimeImmutable $now)`**: `revokedAt IS NULL AND (expiresAt IS NULL OR expiresAt > :now)`, `getOneOrNullResult()`. `$now` is a **parameter**, not an injected clock, so one instant covers both the lookup and S1-T3's `markUsed()`. The OR is explicitly parenthesized — `andWhere()` does not wrap a raw string, so without them the OR would swallow the preceding conditions. `McpAccessToken::isActive($now)` mirrors the predicate for callers already holding the entity.
+  **Note:** the PHPUnit bootstrap drops+recreates `wboost_test` from the mapping each run, so a new migration needs no manual test-DB rebuild.
 
 - [ ] **S1-T2 — `McpScope` enum + scope checker.**
   **How:** `src/Mcp/Security/McpScope.php` — cases `TemplatesRead = 'templates:read'`, `TemplatesExport = 'templates:export'`, `TemplatesDesign = 'templates:design'`, `GalleryWrite = 'gallery:write'`. `templates:design` implies `templates:read`; `templates:export` implies `templates:read` (encode the implication in the enum, one method).
@@ -544,3 +548,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-05 — S0-T2 / I-T2 — `/_mcp` route live via `config/packages/mcp.php` + `config/routes/mcp.php`; sessions on a new Redis pool `cache.mcp_session` behind a `Psr16Cache` wrapper (stateless is not offered by the SDK); `allowed_hosts` covers wboost.cz + localhost; added `psr/simple-cache` (mcp/sdk ships it as require-dev only).
 - 2026-08-05 — S0-T3 — `BufferedMcpController` decorates `mcp.server.controller` so `/_mcp` can never return a flushing `StreamedResponse` (R1 guarded); the nested double output buffer is required — a single one lets the SDK's `ob_flush()` escape to the SAPI.
 - 2026-08-05 — S0-T4 — `src/Mcp/{Tool,Design,Security}` autowired in `config/services.php`, `Response/`+`Design/Dsl/`+`Exception/` excluded (verified with throwaway probes); tool attribute is `Mcp\Capability\Attribute\McpTool` → tag `mcp.tool`. **Stage 0 complete.**
+- 2026-08-05 — S1-T1 — `McpAccessToken` entity + repo + migration; wire format centralised in `McpTokenGenerator` (`wb_mcp_` prefix, sha256 of the whole string, secret never stored).
