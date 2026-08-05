@@ -578,6 +578,25 @@ export pixels match. Post-Stage 6 the Fabric UMD bundle is committed at
 `assets/fabric/fabric-7.3.1.min.js` and inlined as a `<script>` tag — the
 renderer no longer fetches Fabric from jsDelivr at render time.
 
+**Render capacity is a hard dependency of user-facing pages, so failures are
+typed.** Gotenberg is a synchronous dependency: nothing is queued, and one fill
+page draws 2–3 renders per edit (backdrop + one per overlay slice). The
+`gotenberg.client` scoped client therefore caps the call
+(`timeout: 20` / `max_duration: 25` in `config/packages/sensiolabs_gotenberg.yaml`)
+and the renderer classifies the failure — `isRendererOverloaded()`: a
+client-side timeout (TransportException as `previous`) or Gotenberg's own
+429/503/504 → `TemplateRenderUnavailable` (`#[WithHttpStatus]` 503), anything
+else stays a render error. Without that cap an overloaded renderer consumed
+PHP's whole 30 s `max_execution_time` and died as a FATAL mid-request, holding
+the session row lock for those 30 s so every other request of the same user
+queued behind it and timed out in turn — one slow render took whole sessions
+down for an hour (Sentry WEB-2B, 2026-08-05; the trigger was the Gotenberg
+container OOM-killing Chromium inside its 2 GiB cgroup, fixed in the infra
+repo). The export controllers answer with `export_failed.html.twig` + 503, and
+the fill component degrades to "no preview this round"
+(`AbstractVariantFiller::renderUnavailable()`) rather than 503-ing the Live
+re-render, which would strand the page on its spinner.
+
 ### One "Šablony" module — merge history + dimension model
 
 Until 2026-08 the app had three sibling sections: "Sociální sítě" (fixed-format

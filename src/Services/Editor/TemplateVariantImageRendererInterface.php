@@ -51,6 +51,7 @@ interface TemplateVariantImageRendererInterface
      * page's layered preview, {@see CanvasSlice}); null renders everything.
      *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
+     * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable when the renderer is overloaded / unreachable
      */
     public function render(
         TemplateVariant $variant,
@@ -66,6 +67,7 @@ interface TemplateVariantImageRendererInterface
      * with the HTTP response cycle.
      *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
+     * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable when the renderer is overloaded / unreachable
      */
     public function renderToBytes(
         TemplateVariant $variant,

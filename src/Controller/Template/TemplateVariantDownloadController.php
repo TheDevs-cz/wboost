@@ -12,6 +12,7 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
+use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
@@ -93,15 +94,19 @@ final class TemplateVariantDownloadController extends AbstractController
         } catch (BadRequestHttpException $e) {
             // Unrenderable fill values are the user's input, not a crash — show
             // the reason on a page they can go BACK from with the form intact.
-            return $this->render('export_failed.html.twig', [
-                'project' => $variant->template->project,
-                'menu_item' => 'templates',
-                'reason' => $e->getMessage(),
-                'back_url' => $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
-            ], new Response(status: Response::HTTP_BAD_REQUEST));
+            return $this->renderFailed($variant, $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
 
-        $response = $this->renderer->render($variant, $overrides, $imageOverrides);
+        try {
+            $response = $this->renderer->render($variant, $overrides, $imageOverrides);
+        } catch (TemplateRenderUnavailable) {
+            return $this->renderFailed(
+                $variant,
+                'Vykreslovací služba je přetížená a neodpověděla včas. Zkuste stažení prosím znovu za chvíli.',
+                Response::HTTP_SERVICE_UNAVAILABLE,
+            );
+        }
+
         $response->headers->set('Content-Type', 'image/png');
         $response->headers->set('Content-Disposition', sprintf(
             'attachment; filename="%s.png"',
@@ -111,6 +116,16 @@ final class TemplateVariantDownloadController extends AbstractController
         $this->recordExportUsage->record($variant, ExportChannel::Web);
 
         return $response;
+    }
+
+    private function renderFailed(TemplateVariant $variant, string $reason, int $status): Response
+    {
+        return $this->render('export_failed.html.twig', [
+            'project' => $variant->template->project,
+            'menu_item' => 'templates',
+            'reason' => $reason,
+            'back_url' => $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
+        ], new Response(status: $status));
     }
 
     /**

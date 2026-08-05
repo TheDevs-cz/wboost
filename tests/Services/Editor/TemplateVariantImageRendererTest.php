@@ -7,6 +7,8 @@ namespace WBoost\Web\Tests\Services\Editor;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemReader;
 use PHPUnit\Framework\TestCase;
+use Sensiolabs\GotenbergBundle\Exception\ClientException;
+use Symfony\Component\HttpClient\Exception\TransportException;
 use ReflectionMethod;
 use Sensiolabs\GotenbergBundle\GotenbergScreenshotInterface;
 use WBoost\Web\Query\GetFonts;
@@ -253,5 +255,35 @@ final class TemplateVariantImageRendererTest extends TestCase
         self::assertSame(0, $objects[1]['opacity']);
         self::assertIsArray($objects[2]);
         self::assertSame(0, $objects[2]['opacity']);
+    }
+
+    /**
+     * A busy renderer must be distinguishable from a broken render: the first
+     * is a 503 the user retries, the second fails again identically. This is
+     * the classification the 2026-08-05 overload turned into a PHP fatal.
+     */
+    public function testClassifiesClientTimeoutAsOverloaded(): void
+    {
+        $timedOut = new ClientException('Idle timeout reached', 0, new TransportException('Idle timeout reached'));
+
+        self::assertTrue(TemplateVariantImageRenderer::isRendererOverloaded($timedOut));
+    }
+
+    public function testClassifiesGotenbergBusyStatusesAsOverloaded(): void
+    {
+        // 503 = Gotenberg's own --api-timeout ("context deadline exceeded"),
+        // 429 = its Chromium queue is full.
+        self::assertTrue(TemplateVariantImageRenderer::isRendererOverloaded(new ClientException('context deadline exceeded', 503)));
+        self::assertTrue(TemplateVariantImageRenderer::isRendererOverloaded(new ClientException('gateway timeout', 504)));
+        self::assertTrue(TemplateVariantImageRenderer::isRendererOverloaded(new ClientException('too many requests', 429)));
+    }
+
+    public function testDoesNotMistakeARenderErrorForOverload(): void
+    {
+        // 409 carries the container-overflow marker, 400/500 are genuine render
+        // failures — retrying any of them changes nothing.
+        self::assertFalse(TemplateVariantImageRenderer::isRendererOverloaded(new ClientException('CONTAINER_OVERFLOW:{}', 409)));
+        self::assertFalse(TemplateVariantImageRenderer::isRendererOverloaded(new ClientException('bad request', 400)));
+        self::assertFalse(TemplateVariantImageRenderer::isRendererOverloaded(new ClientException('context canceled', 500)));
     }
 }

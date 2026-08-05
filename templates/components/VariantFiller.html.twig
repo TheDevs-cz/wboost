@@ -187,6 +187,17 @@
             <span data-variant-fill-overlay-target="previewSource" data-src="{{ previewSrc }}" hidden></span>
         {% endif %}
 
+        {# Renderer overloaded: the sources above came back empty. Say so rather
+           than showing a blank preview — the form values are untouched and the
+           next edit re-renders. #}
+        {% if this.renderUnavailable() %}
+            <div class="alert alert-warning" role="alert">
+                <i class="mdi mdi-image-off-outline"></i>
+                Náhled se teď nepodařilo vygenerovat — vykreslovací služba je vytížená.
+                Vyplněné hodnoty zůstávají, zkuste to prosím za chvíli znovu.
+            </div>
+        {% endif %}
+
         <div class="fill-body">
         <div class="fill-viewport">
         <div class="fill-stage" data-variant-fill-overlay-target="stage">

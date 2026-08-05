@@ -3,6 +3,24 @@ framework:
         scoped_clients:
             gotenberg.client:
                 base_uri: '%env(GOTENBERG_DSN)%'
+                # A render call MUST fail inside the request's own time budget.
+                # Gotenberg sends nothing until the screenshot is finished, so
+                # the whole render counts as IDLE time — and with the framework
+                # defaults (idle 30s, no max duration) an overloaded renderer
+                # burned exactly PHP's 30s max_execution_time, killing the
+                # request with a MaxExecutionTimeError: a FATAL, mid-request.
+                # That is the worst possible outcome, because the session row
+                # stays locked for those 30s, so every other request of the same
+                # user (a fill page fires 2-3 renders per edit) queues behind it
+                # and times out in turn — one slow render took whole sessions
+                # down for an hour (Sentry WEB-2B, 2026-08-05).
+                #
+                # Capping below 30s makes it a catchable TransportException that
+                # the renderer turns into TemplateRenderUnavailable, leaving the
+                # request enough budget to answer with an honest error. A render
+                # is ~2s, so this is ~10x headroom, not a tight bound.
+                timeout: 20
+                max_duration: 25
 
 sensiolabs_gotenberg:
     http_client: 'gotenberg.client'

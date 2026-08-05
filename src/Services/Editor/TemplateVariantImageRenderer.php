@@ -13,8 +13,10 @@ use Sensiolabs\GotenbergBundle\Processor\InMemoryProcessor;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\ContainerOverflow;
+use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
@@ -115,6 +117,13 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 ->generate()
                 ->processor(new InMemoryProcessor())
                 ->process();
+        } catch (TransportExceptionInterface $exception) {
+            // The call hit the scoped client's timeout / max_duration (see
+            // config/packages/sensiolabs_gotenberg.yaml): Gotenberg is
+            // overloaded or down. Surfacing it as its own exception keeps the
+            // request alive long enough to answer honestly — before the cap
+            // existed, this was PHP's max_execution_time fatal instead.
+            throw TemplateRenderUnavailable::timedOut($exception);
         } catch (ClientException $exception) {
             // In strict mode the render template signals container overflow
             // as an uncaught console exception; failOnConsoleExceptions makes
@@ -123,6 +132,10 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             $overflow = ContainerOverflow::tryFromGotenbergError($this->gotenbergErrorBody($exception));
             if ($overflow !== null) {
                 throw $overflow;
+            }
+
+            if (self::isRendererOverloaded($exception)) {
+                throw TemplateRenderUnavailable::timedOut($exception);
             }
 
             throw $exception;
@@ -543,6 +556,34 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         $canvas['objects'] = $objects;
 
         return $canvas;
+    }
+
+    /**
+     * Whether a failed Gotenberg call means "the renderer is BUSY" rather than
+     * "this render is broken" — the difference between a 503 the user should
+     * retry and a 4xx/500 that will fail again identically.
+     *
+     * The bundle funnels EVERY HttpClient failure through ClientException, so
+     * the client-side cap (the scoped client's timeout / max_duration) arrives
+     * with a TransportException as its previous, while Gotenberg's own overload
+     * answers arrive as the status code: 503 when its `--api-timeout` fires
+     * ("context deadline exceeded"), 500 when the caller gave up first
+     * ("context canceled" — deliberately NOT treated as overload, since a
+     * genuine render error is a 500 too), 429 when the Chromium queue is full.
+     *
+     * Pure + static so the classification is unit-testable in isolation.
+     */
+    public static function isRendererOverloaded(ClientException $exception): bool
+    {
+        if ($exception->getPrevious() instanceof TransportExceptionInterface) {
+            return true;
+        }
+
+        return in_array($exception->getCode(), [
+            Response::HTTP_TOO_MANY_REQUESTS,
+            Response::HTTP_SERVICE_UNAVAILABLE,
+            Response::HTTP_GATEWAY_TIMEOUT,
+        ], true);
     }
 
     /**

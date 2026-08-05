@@ -12,6 +12,7 @@ use Symfony\UX\TwigComponent\Attribute\PostMount;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\TemplateVariant;
+use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
@@ -56,6 +57,13 @@ use WBoost\Web\Value\RichTextOptions;
 abstract class AbstractVariantFiller extends AbstractController
 {
     use DefaultActionTrait;
+
+    /**
+     * Set when a render was skipped because the renderer is overloaded (see
+     * {@see renderToDataUri()}). Deliberately NOT a LiveProp: it describes this
+     * one render pass, and the next edit must retry rather than inherit it.
+     */
+    private bool $renderUnavailable = false;
 
     /**
      * Whether the current user has a usable Facebook connection (drives the
@@ -186,6 +194,16 @@ abstract class AbstractVariantFiller extends AbstractController
                 $this->hiddenValues[$input->inputId] ??= false;
             }
         }
+    }
+
+    /**
+     * True when this pass could not draw a preview because the renderer was
+     * busy — the template turns it into a "try again" notice instead of showing
+     * a silently blank preview. Call it AFTER the preview/backdrop sources.
+     */
+    public function renderUnavailable(): bool
+    {
+        return $this->renderUnavailable;
     }
 
     public function hasImagePlaceholders(): bool
@@ -867,7 +885,18 @@ abstract class AbstractVariantFiller extends AbstractController
             truncateOverflow: true,
             richTextOptions: $this->richTextOptions(),
         );
-        $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, slice: $slice);
+        try {
+            $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, slice: $slice);
+        } catch (TemplateRenderUnavailable) {
+            // The renderer is overloaded. A fill page draws 2-3 renders (backdrop
+            // + one per overlay slice) on EVERY edit, so letting this bubble
+            // would 503 the Live re-render and leave the page stuck on its
+            // spinner. Degrade to "no preview this round" instead: the form and
+            // its values survive, and the next edit tries again.
+            $this->renderUnavailable = true;
+
+            return '';
+        }
 
         if ($bytes === '') {
             return '';

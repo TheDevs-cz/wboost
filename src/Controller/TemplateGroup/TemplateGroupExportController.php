@@ -13,6 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
+use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Slugify;
@@ -76,18 +77,19 @@ final class TemplateGroupExportController extends AbstractController
         foreach ($variants as $variant) {
             try {
                 $bytes = $this->groupFillRenderer->renderPng($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements);
+            } catch (TemplateRenderUnavailable) {
+                return $this->renderFailed(
+                    $group,
+                    'Vykreslovací služba je přetížená a neodpověděla včas. Zkuste export prosím znovu za chvíli.',
+                    Response::HTTP_SERVICE_UNAVAILABLE,
+                );
             } catch (BadRequestHttpException $e) {
                 // The fill values are not renderable (an unreadable image, a
                 // value the resolver refuses). That is the user's input, not a
                 // crash: show them the reason on a page they can go BACK from
                 // with the form still filled in, instead of the generic
                 // "something went wrong" screen.
-                return $this->render('export_failed.html.twig', [
-                    'project' => $group->project,
-                    'menu_item' => 'templates',
-                    'reason' => $e->getMessage(),
-                    'back_url' => $this->generateUrl('template_group_fill', ['groupId' => $group->id]),
-                ], new Response(status: Response::HTTP_BAD_REQUEST));
+                return $this->renderFailed($group, $e->getMessage(), Response::HTTP_BAD_REQUEST);
             }
 
             $baseName = sprintf('%s-%s', $groupSlug, $this->dimensionSlug($variant));
@@ -113,6 +115,16 @@ final class TemplateGroupExportController extends AbstractController
             'Content-Disposition' => sprintf('attachment; filename="%s.zip"', $groupSlug),
             'Cache-Control' => 'no-store',
         ]);
+    }
+
+    private function renderFailed(TemplateGroup $group, string $reason, int $status): Response
+    {
+        return $this->render('export_failed.html.twig', [
+            'project' => $group->project,
+            'menu_item' => 'templates',
+            'reason' => $reason,
+            'back_url' => $this->generateUrl('template_group_fill', ['groupId' => $group->id]),
+        ], new Response(status: $status));
     }
 
     /**

@@ -36,7 +36,23 @@ readonly final class AssetInliner
             return $this->inlineSvg($path);
         }
 
-        return $this->inline($path, $this->imageMimeType($path));
+        try {
+            $contents = $this->filesystem->read($path);
+        } catch (FilesystemException) {
+            return null;
+        }
+
+        // Same normalisation as the placeholder path: a picture headless
+        // Chromium cannot paint (a HEIC dropped straight onto the canvas)
+        // becomes a JPEG here instead of an image that silently fails to load,
+        // and the mime type describes the bytes rather than the file name.
+        $normalized = $this->normalizeImageFormat->normalize($contents);
+
+        if ($normalized !== null) {
+            return sprintf('data:%s;base64,%s', $normalized['mimeType'], base64_encode($normalized['contents']));
+        }
+
+        return sprintf('data:%s;base64,%s', $this->imageMimeType($path), base64_encode($contents));
     }
 
     /**
