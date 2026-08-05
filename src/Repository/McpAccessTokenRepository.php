@@ -8,7 +8,9 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Doctrine\UuidType;
+use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\McpAccessToken;
+use WBoost\Web\Exceptions\McpAccessTokenNotFound;
 
 readonly final class McpAccessTokenRepository
 {
@@ -20,6 +22,48 @@ readonly final class McpAccessTokenRepository
     public function add(McpAccessToken $token): void
     {
         $this->entityManager->persist($token);
+    }
+
+    /**
+     * @throws McpAccessTokenNotFound
+     */
+    public function get(UuidInterface $tokenId): McpAccessToken
+    {
+        $token = $this->entityManager->find(McpAccessToken::class, $tokenId);
+
+        if ($token instanceof McpAccessToken) {
+            return $token;
+        }
+
+        throw new McpAccessTokenNotFound();
+    }
+
+    /**
+     * Every token of every user — the administrative listing behind
+     * `app:mcp:token:list`, which runs on the box and is not scoped to anyone.
+     *
+     * Revoked and expired rows are INCLUDED on purpose: the list doubles as the
+     * audit trail of what was ever handed out, and hiding a revoked token would
+     * make "did I actually revoke it?" unanswerable. Status is a column.
+     *
+     * Ordering is newest-first, tie-broken by id so two tokens created inside
+     * the same second (which `created_at` cannot tell apart) still come back in
+     * a stable order rather than whatever the planner felt like.
+     *
+     * @return list<McpAccessToken>
+     */
+    public function listAll(): array
+    {
+        /** @var list<McpAccessToken> $tokens */
+        $tokens = $this->entityManager->createQueryBuilder()
+            ->from(McpAccessToken::class, 't')
+            ->select('t')
+            ->orderBy('t.createdAt', 'DESC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $tokens;
     }
 
     /**

@@ -294,15 +294,23 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
   **Challenge:** `Bearer resource_metadata="<scheme+host>/.well-known/oauth-protected-resource", scope="templates:read"`, with `error="invalid_token"` added only when a `wb_mcp_` token failed to resolve (RFC 6750 §3.1 — omitted when nothing was presented). Built from `$request->getSchemeAndHttpHost()`, **not** `getUriForPath()`: a `.well-known` URI is host-root-relative (RFC 8615) and must not inherit a base path. `RESOURCE_METADATA_PATH` is public for S1-T4 to reuse.
   **`UserChecker` IS attached** to the MCP firewall: it blocks `confirmed === false`, so a token minted before deactivation cannot keep an MCP door open that the web login has already closed. Deleted users need nothing extra — the token row cascades.
 
-- [ ] **S1-T4 — `/.well-known/oauth-protected-resource`.**
+- [x] **S1-T4 — `/.well-known/oauth-protected-resource`.**
   **How:** a tiny invokable controller returning RFC 9728 JSON: `resource` (canonical `https://wboost.cz/_mcp`), `authorization_servers` (`["https://wboost.cz"]` — points at ourselves, correct once Stage 8 lands), `scopes_supported`, `bearer_methods_supported: ["header"]`. Public route.
   **Done when:** `curl -s localhost:8080/.well-known/oauth-protected-resource | jq -e '.resource and .scopes_supported'` succeeds.
   **Depends:** S1-T3
+  **Landed:** `src/Controller/Mcp/McpProtectedResourceMetadataController.php` + `tests/Mcp/ProtectedResourceMetadataTest.php` (5 tests). **No route file** — `config/routes.php` imports `src/Controller` as `attribute` and every neighbouring controller uses `#[Route]`; route name `mcp_protected_resource_metadata`, GET only. No `#[IsGranted]`: the PUBLIC access_control rule from S1-T3 is what makes it public, and a test asserts it answers 200 with no `Authorization` header (an access_control regression here would otherwise be invisible).
+  **Nothing in the document is a literal.** The `#[Route(path:)]` argument *is* `McpTokenAuthenticator::RESOURCE_METADATA_PATH`, so the URL the 401 challenge advertises and the URL that answers cannot drift. `resource` = `generateUrl('_mcp_endpoint', ABSOLUTE_URL)` — from the **router**, so a change to `mcp.http.path` propagates (the route name is the one unavoidable literal — the bundle's `RouteLoader` hard-codes it with no constant — so it is a documented private const the test would fail on). `authorization_servers` = `[$request->getSchemeAndHttpHost()]`, the same derivation the authenticator uses. `scopes_supported` = `array_map(…, McpScope::cases())`, with the test deriving its expectation from the same enum so a new scope cannot leave the endpoint stale.
+  ⚠️ **`setPublic()` on this response does not survive.** This path is under the stateful `main` firewall, and `AbstractSessionListener` rewrites cache headers on any response that touched the session — **zeroing `max-age` specifically when it sees a `public` directive**. Private caching passes through untouched, so the controller sets only `setMaxAge()` (served: `max-age=3600, must-revalidate, private`). Forcing shared caching would mean suppressing the listener on a response that can carry `Set-Cookie`. Reasoning is in the const docblock so nobody re-adds `setPublic()`.
 
-- [ ] **S1-T5 — CLI token management.**
+- [x] **S1-T5 — CLI token management.**
   **How:** `app:mcp:token:create <email> --name= --scopes=` (prints the secret **once**), `app:mcp:token:list`, `app:mcp:token:revoke <id>`. Mirror `app:oauth-client:create`'s ergonomics.
   **Done when:** create → list shows it → revoke → a request with that token 401s (asserted in `tests/Mcp/AuthTest.php` or a command test).
   **Depends:** S1-T3
+  **Landed:** `src/ConsoleCommands/Mcp/{Create,List,Revoke}McpAccessToken*.php`, `src/Message/Mcp/` + `src/MessageHandler/Mcp/` (Create + Revoke), `src/Exceptions/McpAccessTokenNotFound.php`, `tests/Mcp/TokenCommandsTest.php` (6 tests). Repository gained `get(UuidInterface)` (throws — the repo-wide `get` convention) and `listAll()` (all users, `createdAt DESC, id ASC` for determinism; revoked/expired included — the listing is the record of what was ever handed out).
+  Mirrors `app:oauth-client:*` for ergonomics and `app:user:register` for the write path: **both mutating commands dispatch through the bus**; the plaintext rides in the message and the **handler** hashes it via `McpTokenGenerator::hash()` (the `RegisterUser`/plain-password precedent), so the wire format stays the generator's secret. Revoke looks the token up first, so a typo gets a clean error instead of a `HandlerFailedException`. Revoke is idempotent and says so.
+  **`--scopes`** is comma-separated, trimmed, deduped, and **strict**: an unknown value errors listing the valid scopes and mints nothing (a human-facing input surface must not silently drop, unlike `fromStrings()` tolerating a stale *stored* value). Omitted → `templates:read`. Scopes are stored literally, never pre-expanded — implication stays a check-time concern. `--expires` deliberately skipped (not asked for; the column stays reachable).
+  ⚠️ **Symfony 8's `KernelTestCase::runCommand()` cannot test any command that prints a table** — it renders into a `TestOutput` that throws on `section()`, and `SymfonyStyle::table()`/`definitionList()` always request one. Use the legacy `CommandTester::execute()`. Also note `runCommand` is now a parent-class name, so a local helper needs a different one.
+  **Verified end-to-end by the orchestrator** (not just by the subagent): `create` → live `initialize` **200** → `revoke` → same token **401**. That round-trip is what proves the CLI's hashing and the authenticator's hashing agree.
 
 - [ ] **S1-T6 — Tool gating + `tools/list` filtering.**
   **How:** a `#[McpToolScope(McpScope::…)]` attribute (or a small registry) consumed by the bundle's tool collection so (a) a call without the scope returns **403** with `WWW-Authenticate: Bearer error="insufficient_scope", scope="…"`, and (b) `tools/list` omits tools the token cannot call.
@@ -542,6 +550,12 @@ first — deploy semantics are non-obvious. Relevant facts:
   the real FrankenPHP worker, not just locally.
   **Done when:** the journal entry exists and a subsequent unrelated request on the same worker
   succeeds (proving R1 has not regressed).
+  **Also assert the SCHEME:** both the 401 challenge URL and `/.well-known/oauth-protected-resource`
+  are derived from `$request->getSchemeAndHttpHost()`, so behind Traefik they depend on
+  `x-forwarded-proto` being trusted. That is configured (`framework.php` `trusted_headers` +
+  `TRUSTED_PROXIES=PRIVATE_SUBNETS`), but verify the served document actually says
+  `https://wboost.cz/_mcp` and not `http://` — a wrong scheme means clients are handed the wrong
+  RFC 9728 resource identifier.
 
 - [ ] **I-T5 (Stage 8 only) — OAuth endpoints at the edge.**
   Full OAuth adds `/api/authorize`, `/.well-known/oauth-authorization-server` and possibly a
@@ -561,3 +575,5 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-05 — S1-T1 — `McpAccessToken` entity + repo + migration; wire format centralised in `McpTokenGenerator` (`wb_mcp_` prefix, sha256 of the whole string, secret never stored).
 - 2026-08-06 — S1-T2 — `McpScope` enum (transitive `grants()` expansion, exhaustive match so a new case cannot ship with undefined implications) + fail-closed `McpScopeChecker`; seam to S1-T3 is `McpScopeChecker::TOKEN_ATTRIBUTE`.
 - 2026-08-06 — S1-T3 — `McpTokenAuthenticator` + stateless `mcp` firewall above `main`; `POST /_mcp` now 401s with the RFC 9728 `resource_metadata` challenge instead of 302-ing to /login. `lastUsedAt` throttled via DQL UPDATE (never `flush()` from an authenticator); `UserChecker` attached.
+- 2026-08-06 — S1-T4 — `/.well-known/oauth-protected-resource` (RFC 9728); every field derived — path from the authenticator constant, `resource` from the router, `scopes_supported` from `McpScope::cases()`. `setPublic()` cannot be used: `AbstractSessionListener` zeroes `max-age` on public responses that touched the session.
+- 2026-08-06 — S1-T5 — `app:mcp:token:create|list|revoke`; writes via the bus, handler hashes the plaintext, strict `--scopes` validation. Orchestrator-verified round-trip: create → 200 → revoke → 401.
