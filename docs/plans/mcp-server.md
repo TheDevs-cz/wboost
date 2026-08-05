@@ -220,10 +220,12 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
 
 ### Stage 0 — Foundations & transport
 
-- [ ] **S0-T1 — Install the MCP SDK + bundle.**
+- [x] **S0-T1 — Install the MCP SDK + bundle.**
   **How:** `docker compose exec web composer require mcp/sdk symfony/mcp-bundle`. Pin exact versions in `composer.json` (the bundle is experimental — floating constraints will break a later build). Register the bundle in `config/bundles.php` if Flex does not.
-  **Done when:** `docker compose exec web composer show mcp/sdk symfony/mcp-bundle` succeeds AND `grep -q McpBundle config/bundles.php`.
+  **Done when:** `docker compose exec web composer show -D | grep -E 'mcp/sdk|symfony/mcp-bundle'` lists both AND `grep -q McpBundle config/bundles.php`.
   **Depends:** —
+  **Landed:** `mcp/sdk` **0.7.0** + `symfony/mcp-bundle` **0.12.0**, both pinned exact. Bundle FQCN is `Symfony\AI\McpBundle\McpBundle` (the package name says `symfony/mcp-bundle`, the namespace still says `Symfony\AI`). The transitive `php-http/discovery` recipe dropped a `config/packages/http_discovery.yaml` aliasing the six PSR-17 factory interfaces — deleted, because `config/packages/nyholm_psr7.yaml` already aliases exactly those six and two files fighting over them is a latent trap.
+  **Config keys available to S0-T2:** `app`, `version`, `description`, `icons`, `website_url`, `pagination_limit`, `instructions`, `client_transports {stdio, http}` (**both default `false`** — the `/_mcp` route does not exist until one is enabled), `apps.enabled`, `http {path, allowed_hosts, session {store: file|memory|cache|framework, directory, cache_pool, prefix, ttl}}`.
 
 - [ ] **S0-T2 — Configure the server (buffered, Redis sessions, host allow-list).**
   **How:** create `config/packages/mcp.php` in the `App::config([...])` style. Path `/_mcp`. Session store = the `cache` driver over a PSR-16 wrapper of a Redis pool (**not** the default file store — blue/green deploy + worker mode). `allowed_hosts: ['wboost.cz', 'localhost']`. Add `config/routes/mcp.php`.
@@ -522,3 +524,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 
 <!-- YYYY-MM-DD — S<n>-T<n> / I-T<n> — what landed -->
 - 2026-08-05 — plan created.
+- 2026-08-05 — S0-T1 — installed `mcp/sdk` 0.7.0 + `symfony/mcp-bundle` 0.12.0 (exact pins), registered `Symfony\AI\McpBundle\McpBundle`; dropped the stray `http_discovery.yaml` recipe file (nyholm already owns those aliases).
