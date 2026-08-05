@@ -43,13 +43,37 @@ export default class extends Controller {
 
         this.onResize = () => this.fitToScreen();
         window.addEventListener('resize', this.onResize);
+        this.onPageScroll = () => this.resetStrayPageScroll();
+        window.addEventListener('scroll', this.onPageScroll, { passive: true });
         this.fitToScreen();
 
     }
 
     disconnect() {
         window.removeEventListener('resize', this.onResize);
+        window.removeEventListener('scroll', this.onPageScroll);
         document.body.classList.remove('editor-shell-page');
+    }
+
+    /** While the shell is pinned the page has nothing to scroll — so any
+     *  document scroll offset is a stray one, and `overflow: hidden` means the
+     *  user cannot scroll back out of it. (Programmatic scrolls still work on
+     *  an overflow-hidden body: focusing an element positioned below the fold
+     *  — Fabric's hidden textarea used to be exactly that — strands the editor
+     *  on a blank band until reload.) Snap it back. */
+    resetStrayPageScroll() {
+        if (!document.body.classList.contains('editor-shell-page')) {
+            return;
+        }
+
+        const scroller = document.scrollingElement || document.documentElement;
+
+        if (scroller.scrollTop !== 0) {
+            scroller.scrollTop = 0;
+        }
+        if (scroller.scrollLeft !== 0) {
+            scroller.scrollLeft = 0;
+        }
     }
 
     zoomIn() {
@@ -74,6 +98,7 @@ export default class extends Controller {
      *  margins must track the live size even when the scale is kept. */
     fitToScreen() {
         this.sizeShell();
+        this.resetStrayPageScroll();
         this.compensateLayoutBox();
 
         if (this.userZoomed) {

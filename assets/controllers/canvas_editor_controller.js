@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
-import { Canvas, Textbox, FabricImage, cache } from "fabric";
+import { Canvas, IText, Textbox, FabricImage, cache } from "fabric";
 
+import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
@@ -62,6 +63,14 @@ export default class extends Controller {
         if (window.WBoostFabricBreakWord) {
             window.WBoostFabricBreakWord.enable(Textbox);
         }
+
+        // Entering text editing focuses Fabric's hidden textarea, which it
+        // positions in UNSCALED canvas coordinates on the body — on a print
+        // canvas that lands ~2000 px down the document and the focus scroll
+        // took the whole (overflow-hidden) app shell with it, unrecoverably.
+        // Patch it onto IText so Textbox inherits it; the group editor drives
+        // this same canvas, so both editors are covered.
+        patchHiddenTextarea(IText);
 
         // Kick off font loading FIRST and keep the promise. The project fonts
         // are declared as @font-face served over HTTP from Minio, so on a cold
