@@ -3,6 +3,7 @@ import { Canvas, Textbox, FabricImage, cache } from "fabric";
 
 import { buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
+import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
@@ -112,6 +113,10 @@ export default class extends Controller {
         this._boundRefreshBackdrops = () => this.refreshBackdropStates();
         ['object:added', 'object:modified', 'selection:created', 'selection:updated', 'selection:cleared']
             .forEach((ev) => this.canvas.on(ev, this._boundRefreshBackdrops));
+        // Checklist components paint their own checkboxes in the editor (see
+        // canvas_checklist_preview) — every freshly added / re-loaded object
+        // needs the instance patch, so sweep on add (load re-runs it too).
+        this.canvas.on('object:added', (opt) => applyChecklistPreview(opt.target));
         // Pointer modifiers (applyPointerModifiers): Alt/⌥+drag always
         // rubber-bands, Ctrl/⌘+drag always grabs the object under the cursor
         // (backdrops included). Must run BEFORE Fabric's target search.
@@ -422,6 +427,9 @@ export default class extends Controller {
             // unlocked image; demote canvas-covering ones back to backdrop
             // click-through before first interaction.
             this.refreshBackdropStates();
+            // Hydrated objects are fresh instances — re-apply the checklist
+            // render patch (undo/redo restores land here too).
+            sweepChecklistPreviews(this.canvas);
 
             this.canvas.renderAll();
         } finally {

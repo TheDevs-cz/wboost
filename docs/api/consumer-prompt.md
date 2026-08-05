@@ -455,6 +455,13 @@ and numbered lists in ONE input:
 - Sending list lines to an input with `lists: false` → **400
   `lists_not_allowed`**; malformed `lines` (bad value, wrong count) → **400
   `invalid_rich_text`**.
+- **If you mirror the layout locally**: each block/item is measured as its own
+  text box, and a text engine typically drops the LAST line's leading from a
+  box's height (Fabric certainly does: a one-line box is `fontSize × 1.13`
+  tall at any line height). Re-insert
+  `fontSize × 1.13 × (textStyle.lineHeight − 1)` px BETWEEN elements — never
+  after the last one — or your preview will collapse to line height 1 while
+  the server render keeps the designed spacing.
 - Runs styling (face/color/underline) works inside list items unchanged;
   `maxLength` still counts the concatenated plain text (bullets don't count).
 - The stack's total height feeds container reflow like any other text, so

@@ -241,7 +241,19 @@
                         return box.height;
                     };
 
-                    const layout = WBoostRichTextBlocks.layoutStack(blocks, config, { width: obj.width }, measure);
+                    // Fabric drops the LAST line's leading from a Textbox's
+                    // height, so every stack element would swallow the
+                    // designed line spacing — hand the layout the leading to
+                    // re-insert between elements (see rich_text_blocks.js).
+                    const fontSizeMult = typeof obj._fontSizeMult === 'number' ? obj._fontSizeMult : 1.13;
+                    const glyphLine = base.fontSize * fontSizeMult;
+                    const lineLeading = Math.max(0, glyphLine * (base.lineHeight - 1));
+                    const layout = WBoostRichTextBlocks.layoutStack(
+                        blocks,
+                        config,
+                        { width: obj.width, lineLeading: lineLeading },
+                        measure,
+                    );
 
                     // Image bullets / checkbox-state images share one decoded
                     // element each (data URIs from the renderer) — a
@@ -268,8 +280,12 @@
                             return;
                         }
 
-                        // Bullet: vertically centered on the item's first line.
-                        const firstLine = base.fontSize * base.lineHeight;
+                        // Bullet: vertically centered on the item's first line
+                        // GLYPH box (fontSize × _fontSizeMult). Fabric draws
+                        // each line's glyphs at the top of its line box and
+                        // puts the leading below, so centering on the full
+                        // lineHeight-scaled box would sink the marker.
+                        const firstLine = glyphLine;
 
                         // Checkbox item: admin-picked state image, or the
                         // default drawn checkbox — a rounded square filled

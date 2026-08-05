@@ -925,7 +925,17 @@ export default class extends Controller {
                     module.applyToTextbox(box, fragmentRuns, util.stylesFromArray);
                     return box.height;
                 };
-                const layout = blocksModule.layoutStack(blocks, def.listStyle, { width: def.frame.width }, measure);
+                // Same leading compensation the render template applies —
+                // Fabric omits the last line's leading per Textbox, and each
+                // stack element is one (see rich_text_blocks.js).
+                const fontSizeMult = typeof box._fontSizeMult === "number" ? box._fontSizeMult : 1.13;
+                const lineLeading = Math.max(0, def.style.fontSize * fontSizeMult * (def.style.lineHeight - 1));
+                const layout = blocksModule.layoutStack(
+                    blocks,
+                    def.listStyle,
+                    { width: def.frame.width, lineLeading },
+                    measure,
+                );
                 box.set({ width: def.frame.width });
                 return layout.height;
             }

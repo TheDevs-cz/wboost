@@ -173,8 +173,21 @@
      * Lay the blocks out as a vertical stack anchored at (0, 0) of the input's
      * designed box. `config` = the RESOLVED list style ({ bullet, indent,
      * itemSpacing, blockSpacing } in canvas px — server-resolved, see
-     * ResolvedListStyle); `geom` = { width } (the designed wrap width);
+     * ResolvedListStyle); `geom` = { width, lineLeading } (the designed wrap
+     * width + the designed LINE LEADING, see below);
      * `measure(runs, width)` returns the wrapped height of a runs fragment.
+     *
+     * `geom.lineLeading` (px, default 0) exists because Fabric's
+     * `calcTextHeight()` deliberately omits the LAST line's leading: a
+     * single-line Textbox is `fontSize × _fontSizeMult` tall at ANY
+     * lineHeight, while every further line advances by
+     * `fontSize × _fontSizeMult × lineHeight`. Each stack element is its own
+     * Textbox, so without compensation every element boundary would swallow
+     * the leading and the whole stack would render at lineHeight 1 —
+     * the designed line spacing silently ignored. Callers therefore pass
+     * `fontSize × _fontSizeMult × (lineHeight − 1)` and it is inserted
+     * BETWEEN elements (never after the last one), which reproduces one
+     * flowing Textbox exactly.
      *
      * Returns { height, elements } — elements in paint order:
      *   { kind: 'text', runs, left, top, width }
@@ -187,7 +200,9 @@
         var indent = Math.max(0, (config && config.indent) || 0);
         var itemSpacing = Math.max(0, (config && config.itemSpacing) || 0);
         var blockSpacing = Math.max(0, (config && config.blockSpacing) || 0);
+        var leading = Math.max(0, (geom && geom.lineLeading) || 0);
         var itemWidth = Math.max(10, geom.width - indent);
+        var textCount = 0;
 
         (Array.isArray(blocks) ? blocks : []).forEach(function (block, blockIndex) {
             if (blockIndex > 0) {
@@ -196,7 +211,8 @@
             if (block.type === 'p') {
                 var height = measure(block.runs, geom.width);
                 elements.push({ kind: 'text', runs: block.runs, left: 0, top: y, width: geom.width });
-                y += height;
+                y += height + leading;
+                textCount += 1;
                 return;
             }
             (block.items || []).forEach(function (itemRuns, itemIndex) {
@@ -210,9 +226,15 @@
                 }
                 elements.push(bullet);
                 elements.push({ kind: 'text', runs: itemRuns, left: indent, top: y, width: itemWidth });
-                y += itemHeight;
+                y += itemHeight + leading;
+                textCount += 1;
             });
         });
+
+        // The stack, like one flowing Textbox, carries NO trailing leading.
+        if (textCount > 0) {
+            y -= leading;
+        }
 
         return { height: y, elements: elements };
     }

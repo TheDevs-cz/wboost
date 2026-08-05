@@ -511,6 +511,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *
      * @return list<array{
      *     kind: 'text'|'image',
+     *     icon: string,
      *     inputId: string,
      *     label: string,
      *     hidable: bool,
@@ -538,6 +539,9 @@ abstract class AbstractVariantFiller extends AbstractController
             $name = trim($input->name ?? '');
             $layers[] = [
                 'kind' => 'text',
+                // Checklist components get their own glyph — a "text" icon
+                // misrepresents what the row edits.
+                'icon' => $input->checklist ? 'mdi-format-list-checks' : 'mdi-format-text',
                 'inputId' => $input->inputId,
                 // The generic fallback numbers by the FULL inputs list, so
                 // "Text 4" matches the admin editor even with locked inputs
@@ -553,6 +557,7 @@ abstract class AbstractVariantFiller extends AbstractController
             $name = trim($input->name ?? '');
             $layers[] = [
                 'kind' => 'image',
+                'icon' => 'mdi-image-outline',
                 'inputId' => $input->inputId,
                 'label' => $name !== '' ? $name : ($input->isBackground ? 'Pozadí' : sprintf('Obrázek %d', $position + 1)),
                 'hidable' => $input->hidable,

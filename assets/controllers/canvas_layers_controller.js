@@ -232,9 +232,13 @@ export default class extends Controller {
         main.className = 'canvas-layer-row__main';
         main.dataset.action = 'canvas-layers#select focus->canvas-layers#hover blur->canvas-layers#unhover';
 
+        // Checklist COMPONENT rows read as their own element type — a plain
+        // "Text" row/icon hides what the object actually is.
+        const isChecklist = isText && obj.checklist === true;
+
         const label = this._labelFor(obj, isText, isPlaceholder, isBackground);
         const typeLabel = isText
-            ? 'Text'
+            ? (isChecklist ? 'Zaškrtávací seznam' : 'Text')
             : (isBackground
                 ? (isPlaceholder ? 'Pozadí (placeholder)' : 'Pozadí')
                 : (isPlaceholder ? 'Obrázkový placeholder' : 'Obrázek'));
@@ -243,7 +247,7 @@ export default class extends Controller {
 
         const icon = document.createElement('i');
         const iconGlyph = isText
-            ? 'mdi-format-text'
+            ? (isChecklist ? 'mdi-format-list-checks' : 'mdi-format-text')
             : (isBackground ? 'mdi-wallpaper' : (isPlaceholder ? 'mdi-image-edit-outline' : 'mdi-image-outline'));
         icon.className = `canvas-layer-row__icon mdi ${iconGlyph}`;
         icon.setAttribute('aria-hidden', 'true');

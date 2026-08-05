@@ -363,12 +363,12 @@
                                     data-action="variant-fill-overlay#{{ layer.kind == 'image' ? 'openImageModal' : 'openPopover' }} focus->variant-fill-overlay#highlightLayer blur->variant-fill-overlay#unhighlightLayer"
                                     data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
                                 >
-                                    <i class="fill-layer-row__icon mdi {{ layer.kind == 'image' ? 'mdi-image-outline' : 'mdi-format-text' }}" aria-hidden="true"></i>
+                                    <i class="fill-layer-row__icon mdi {{ layer.icon }}" aria-hidden="true"></i>
                                     <span class="fill-layer-row__label">{{ layer.label }}</span>
                                 </button>
                             {% else %}
                                 <span class="fill-layer-row__main" title="{{ layer.label }}">
-                                    <i class="fill-layer-row__icon mdi {{ layer.kind == 'image' ? 'mdi-image-outline' : 'mdi-format-text' }}" aria-hidden="true"></i>
+                                    <i class="fill-layer-row__icon mdi {{ layer.icon }}" aria-hidden="true"></i>
                                     <span class="fill-layer-row__label">{{ layer.label }}</span>
                                 </span>
                             {% endif %}

@@ -330,7 +330,17 @@ derived defaults — single source `ResolvedListStyle`, JS mirror none: servers
 resolve everywhere). Shared layout = `assets/editor/rich_text_blocks.js`
 (classic script, third sibling of container_layout/rich_text_runs; the
 `measure()` callback runs once per text element IN ELEMENT ORDER — callers
-queue their Fabric boxes on it). Render template wraps the stack in a Fabric
+queue their Fabric boxes on it). **`geom.lineLeading` is load-bearing**:
+Fabric's `calcTextHeight()` omits the LAST line's leading (a one-line
+Textbox is `fontSize × _fontSizeMult` tall at ANY lineHeight; further lines
+advance by `× lineHeight`), and every stack element is its own Textbox — so
+without re-inserting `fontSize × _fontSizeMult × (lineHeight − 1)` BETWEEN
+elements (never after the last) the whole stack renders at line height 1 and
+the designed spacing silently disappears (the 2026-08-05 "line height
+ignored in export" bug). Both callers derive it from the live box's
+`_fontSizeMult`; the same glyph-box height (NOT `fontSize × lineHeight`)
+centers bullet images + checkboxes, since Fabric puts a line's leading BELOW
+its glyphs. Render template wraps the stack in a Fabric
 Group carrying the textbox's inputId and stamps
 `textbox.wboostReplacedBy = group` — the container engine resolves that
 indirection in `displayedHeight`/`setObjectProps` (phase A snapshotted the
