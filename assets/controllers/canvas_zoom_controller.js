@@ -1,13 +1,21 @@
 import { Controller } from "@hotwired/stimulus";
 
+/** Below this the shell would be uselessly cramped — the page scrolls instead. */
+const MIN_SHELL_HEIGHT = 320;
+
 /**
  * Visual zoom for the canvas wrapper. Just CSS-transforms the wrapper —
  * the underlying Fabric canvas dimensions don't change. The wrapper's
  * layout box is shrunk with negative margins to match the visual size,
- * so the page never reserves scroll space for the unscaled canvas. The
- * stage sits inside the `.canvas-viewport` scroll container (the viewport
- * target), capped to the visible band below the sticky header — a zoomed-in
- * canvas pans inside it, never by scrolling the page.
+ * so the viewport never reserves scroll space for the unscaled canvas.
+ *
+ * Also owns the editor's APP-SHELL height (lg+): the controller root is
+ * pinned to the bottom of the window, so the page itself does not scroll and
+ * the left panel + `.canvas-viewport` scroll independently (see the
+ * `.editor-shell` rules in app.css). One shell height is measured rather than
+ * computed as calc(100vh - Npx) because the title/breadcrumb block above wraps
+ * to arbitrary heights and the theme adds its own padding below — a corrective
+ * pass folds whatever is left over in, so no second (page) scrollbar survives.
  *
  * On connect the scale auto-fits the canvas into the visible area (width
  * AND height, capped at 100 %) and keeps re-fitting on window resize
@@ -36,10 +44,12 @@ export default class extends Controller {
         this.onResize = () => this.fitToScreen();
         window.addEventListener('resize', this.onResize);
         this.fitToScreen();
+
     }
 
     disconnect() {
         window.removeEventListener('resize', this.onResize);
+        document.body.classList.remove('editor-shell-page');
     }
 
     zoomIn() {
@@ -63,7 +73,7 @@ export default class extends Controller {
      *  canvas dimensions in place on variant switch, so the layout-box
      *  margins must track the live size even when the scale is kept. */
     fitToScreen() {
-        this.sizeViewport();
+        this.sizeShell();
         this.compensateLayoutBox();
 
         if (this.userZoomed) {
@@ -83,24 +93,46 @@ export default class extends Controller {
      *  small never creates a scrollbar. */
     fitScale() {
         const { width, height } = this.canvasLayoutSize();
-        const stage = this.canvasContainerTarget.parentElement;
+        const available = this.availableSize();
 
-        if (!stage || width <= 0 || height <= 0) {
+        if (!available || width <= 0 || height <= 0) {
             return null;
         }
 
         // The ruler gutter (.has-rulers padding) may not be applied yet at
         // connect time, so reserve it unconditionally.
-        const availableWidth = stage.clientWidth - 24;
-        const availableHeight = this.viewportMaxHeight() - 24;
+        const availableWidth = available.width - 24;
+        const availableHeight = available.height - 24;
 
-        if (availableWidth <= 0) {
+        if (availableWidth <= 0 || availableHeight <= 0) {
             return null;
         }
 
         const fit = Math.min(availableWidth / width, availableHeight / height);
 
         return Math.max(this.minValue, Math.min(this.maxValue, Math.floor(fit * 100) / 100));
+    }
+
+    /** Room the canvas may occupy. In shell mode that is the viewport's own
+     *  client box (clientWidth/Height exclude its scrollbars, so a fit never
+     *  leaves one behind); stacked below lg it is the stage width and the
+     *  window band under the sticky header. */
+    availableSize() {
+        if (this.shellMode() && this.hasViewportTarget) {
+            const vp = this.viewportTarget;
+            return vp.clientWidth > 0 ? { width: vp.clientWidth, height: vp.clientHeight } : null;
+        }
+
+        const stage = this.canvasContainerTarget.parentElement;
+        if (!stage || stage.clientWidth <= 0) {
+            return null;
+        }
+        const header = document.querySelector('[data-editor-header]');
+
+        return {
+            width: stage.clientWidth,
+            height: Math.max(244, window.innerHeight - (header ? header.offsetHeight : 0) - 40),
+        };
     }
 
     applyScale() {
@@ -120,20 +152,40 @@ export default class extends Controller {
         this.updateButtonStates();
     }
 
-    /** Visible height below the sticky toolbar — the content above the
-     *  stage scrolls away, the toolbar stays. */
-    viewportMaxHeight() {
-        const header = document.querySelector('[data-editor-header]');
-        return Math.max(244, window.innerHeight - (header ? header.offsetHeight : 0) - 40);
+    /** The app-shell layout only applies where the panel and stage columns sit
+     *  side by side (Bootstrap's lg breakpoint); stacked below that, the page
+     *  scrolls as usual. */
+    shellMode() {
+        return this.element.classList.contains('editor-shell')
+            && window.matchMedia('(min-width: 992px)').matches;
     }
 
-    /** Cap the stage's scroll container to the visible band so panning a
-     *  zoomed-in canvas scrolls INSIDE it — the page never gets the
-     *  scrollbars, so the left panel and the sticky toolbar stay put. */
-    sizeViewport() {
-        if (this.hasViewportTarget) {
-            this.viewportTarget.style.maxHeight = `${this.viewportMaxHeight()}px`;
+    /** Pin the editor root to the bottom of the window so the PAGE has nothing
+     *  to scroll — panning then happens inside .canvas-viewport and the left
+     *  panel + toolbar can't be dragged along. */
+    sizeShell() {
+        const shell = this.element;
+
+        if (!this.shellMode()) {
+            shell.style.height = '';
+            document.body.classList.remove('editor-shell-page');
+            return;
         }
+
+        // Document-relative, so the measurement doesn't depend on where the
+        // page happens to be scrolled when this runs.
+        const top = shell.getBoundingClientRect().top + window.scrollY;
+        const available = window.innerHeight - top - 8;
+
+        shell.style.height = `${Math.max(MIN_SHELL_HEIGHT, available)}px`;
+
+        // The page is pinned rather than measured: whatever a theme or the dev
+        // debug toolbar leaves below the shell can't produce a second scrollbar
+        // (deriving the height from document.scrollHeight is unusable — the
+        // toolbar appends a whole exception page down there when it errors).
+        // Released on a window too short for the shell, so a cramped screen
+        // scrolls instead of hiding the bottom of the editor for good.
+        document.body.classList.toggle('editor-shell-page', available >= MIN_SHELL_HEIGHT);
     }
 
     /** transform: scale() is visual only — pull the layout box in to match

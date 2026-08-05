@@ -23,6 +23,10 @@
 
 {% block title %}Editor - Varianta {{ dimension_label }}{% endblock %}
 
+{# Full-height editor: the h1 would only repeat the breadcrumb's last item,
+   and every pixel above the stage is canvas height the designer loses. #}
+{% block page_title_row %}{% endblock %}
+
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
@@ -39,6 +43,7 @@
 
     <div
         id="canvas-container"
+        class="editor-shell"
         data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator"
         {# Canvas-mode only: layer-mode backgrounds live inside the canvas JSON
            as an isBackground object — a canvas-level override would shadow them. #}
@@ -118,12 +123,12 @@
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-12 col-lg-2">
+        <div class="row editor-shell-row">
+            <div class="col-12 col-lg-2 editor-left-panel">
                 {{ include('editor/_editor_left_panel.html.twig') }}
             </div>
 
-            <div class="col-12 col-lg-10">
+            <div class="col-12 col-lg-10 editor-stage-col">
                 {{ include('editor/_editor_stage.html.twig', {
                     'canvas_width': variant.dimension.width,
                     'canvas_height': variant.dimension.height,

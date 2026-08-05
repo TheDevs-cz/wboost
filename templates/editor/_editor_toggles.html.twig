@@ -13,8 +13,12 @@
         <input class="form-check-input" type="checkbox" role="switch" id="snap-enabled-control" checked data-action="change->canvas-snapping#toggleSnapping">
         <label class="form-check-label small" for="snap-enabled-control">Přichytávání k prvkům <span class="text-muted">(⌘ = vypnout)</span></label>
     </div>
-    <div class="form-check form-switch form-check-inline my-0 align-middle">
+    <div class="form-check form-switch form-check-inline my-0 me-3 align-middle">
         <input class="form-check-input" type="checkbox" role="switch" id="ruler-enabled-control" checked data-action="change->canvas-rulers#toggle">
         <label class="form-check-label small" for="ruler-enabled-control">Pravítka a vodítka</label>
     </div>
+    {# Pointer-modifier cheatsheet — a modal rather than a line under the
+       canvas, which cost the stage vertical space on every screen. The modal
+       lives in the shared stage partial (#editorHelpModal). #}
+    <button type="button" class="btn btn-sm btn-outline-secondary align-middle" data-bs-toggle="modal" data-bs-target="#editorHelpModal" title="Nápověda k ovládání plátna"><i class="mdi mdi-help-circle-outline me-1"></i>Nápověda</button>
 </div>

@@ -1,6 +1,8 @@
 {# Left panel: add text / add image / layers list / highlight toggle. All actions
    target controllers present on both the single-variant and the group editor page. #}
-<div class="card" style="position: sticky;top: 93px;z-index: 999;">
+{# Sticky only below lg — in the app-shell layout the surrounding column is the
+   scroll container, where a sticky card would offset itself as you scroll it. #}
+<div class="card editor-left-panel-card">
     <div class="card-body">
         {% if fonts|length == 0 %}
             <p class="text-danger">

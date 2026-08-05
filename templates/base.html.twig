@@ -286,6 +286,10 @@
                     <div class="container-fluid">
 
                         <!-- start page title -->
+                        {# Overridable so full-height app screens (the canvas
+                           editors) can reclaim the vertical space — their
+                           breadcrumb already ends with this exact title. #}
+                        {% block page_title_row %}
                         <div class="row">
                             <div class="col-sm-6">
                                 <div class="page-title-box">
@@ -296,6 +300,7 @@
                                 {% block title_actions %}{% endblock %}
                             </div>
                         </div>
+                        {% endblock %}
                         <!-- end page title -->
 
                         {% block breadcrumb %}{% endblock %}

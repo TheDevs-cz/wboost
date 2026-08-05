@@ -1,10 +1,78 @@
 /* Scroll container around .canvas-stage: panning a zoomed-in canvas scrolls
    HERE, never the page — the left panel and the sticky toolbar stay put.
-   Max-height (visible band below the sticky header) is set by
-   canvas_zoom_controller; floating chrome clamps within this box because
-   anything positioned outside it would be clipped by the overflow. */
+   Floating chrome clamps within this box because anything positioned outside
+   it would be clipped by the overflow. */
 .canvas-viewport {
     overflow: auto;
+}
+
+/* Editor app shell (lg+, where the panel/stage columns sit side by side):
+   the PAGE itself does not scroll — its height is pinned to the window by
+   canvas_zoom_controller, and the left panel + canvas viewport each scroll
+   on their own. Sizing it in JS rather than calc(100vh - Npx) is deliberate:
+   the title/breadcrumb block above wraps to arbitrary heights and the theme
+   adds its own padding below, so the offset is not a constant. Without this
+   the window keeps a second scrollbar next to the canvas one. */
+@media (min-width: 992px) {
+    /* Class set by canvas_zoom_controller while the shell fits the window: the
+       page can then never scroll, so the canvas viewport owns the only
+       scrollbar. body's overflow propagates to the viewport (html is visible),
+       the same mechanism Bootstrap's modal-open uses. */
+    body.editor-shell-page {
+        overflow: hidden;
+    }
+
+    .editor-shell {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* The single-variant editor wraps its toolbar + columns in a <form>; the
+       group editor has no form. Both reach .editor-shell-row either way. */
+    .editor-shell > form {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    /* Toolbars / the group variant rail keep their natural height (flex items
+       don't shrink below their content); the columns row takes the rest. */
+    .editor-shell-row {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .editor-shell-row > [class*="col-"] {
+        min-height: 0;
+        max-height: 100%;
+    }
+
+    .editor-left-panel {
+        overflow-y: auto;
+    }
+
+    /* Stage column: viewport takes the leftover height, the pointer-modifier
+       hint stays pinned under it instead of scrolling away with the canvas. */
+    .editor-stage-col {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .editor-stage-col > .canvas-viewport {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+}
+
+/* Below lg the columns stack and the page scrolls normally — the panel card
+   sticks to the top of the page instead of scrolling in its own pane. */
+@media (max-width: 991.98px) {
+    .editor-left-panel-card {
+        position: sticky;
+        top: 93px;
+        z-index: 999;
+    }
 }
 
 .canvas-wrapper {

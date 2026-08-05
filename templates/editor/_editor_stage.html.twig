@@ -394,11 +394,35 @@
 
 {# Pointer-modifier cheatsheet (canvas_editor_controller#applyPointerModifiers):
    Ctrl/⌘ follows Photoshop's Move-tool auto-select, Alt/⌥ the diagram-editor
-   marquee-through convention. Lives in the shared stage partial so the
-   single-variant editor and the group editor show the same hint. #}
-<p class="text-muted small mt-2 mb-0">
-    <i class="mdi mdi-gesture-tap-button me-1"></i>Alt/⌥ + tažení: výběr oblasti i přes objekty&ensp;·&ensp;Ctrl/⌘ + tažení: uchopí objekt pod kurzorem (i obrázek přes celé plátno)&ensp;·&ensp;Esc: zrušit výběr
-</p>
+   marquee-through convention. Opened from the "Nápověda" button in the top bar
+   (editor/_editor_toggles.html.twig) — as a line under the canvas it cost the
+   stage vertical space on every screen. Shared partial, so the single-variant
+   editor and the group editor show the same help. #}
+<div class="modal fade" id="editorHelpModal" tabindex="-1" aria-labelledby="editorHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editorHelpModalLabel"><i class="mdi mdi-gesture-tap-button me-1"></i> Ovládání plátna</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-sm-4">Alt/⌥ + tažení</dt>
+                    <dd class="col-sm-8">Výběr oblasti i přes objekty</dd>
+
+                    <dt class="col-sm-4">Ctrl/⌘ + tažení</dt>
+                    <dd class="col-sm-8">Uchopí objekt pod kurzorem (i obrázek přes celé plátno)</dd>
+
+                    <dt class="col-sm-4">⌘ + tažení</dt>
+                    <dd class="col-sm-8">Dočasně vypne přichytávání k prvkům</dd>
+
+                    <dt class="col-sm-4">Esc</dt>
+                    <dd class="col-sm-8 mb-0">Zrušit výběr</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
 
 {# Photoshop-style navigator (canvas_navigator_controller): fixed mini-map
    with the visible-area rectangle; click/drag pans by scrolling the
