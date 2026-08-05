@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace WBoost\Web\ConsoleCommands\Mcp;
 
-use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use WBoost\Web\Entity\McpAccessToken;
 use WBoost\Web\Repository\McpAccessTokenRepository;
 
 /**
@@ -24,6 +22,8 @@ use WBoost\Web\Repository\McpAccessTokenRepository;
 #[AsCommand('app:mcp:token:list', 'List MCP access tokens (secrets are never shown)')]
 final class ListMcpAccessTokensConsoleCommand extends Command
 {
+    private const string DATE_FORMAT = 'Y-m-d H:i';
+
     public function __construct(
         readonly private McpAccessTokenRepository $mcpAccessTokenRepository,
         readonly private ClockInterface $clock,
@@ -47,35 +47,27 @@ final class ListMcpAccessTokensConsoleCommand extends Command
         $rows = [];
 
         foreach ($tokens as $token) {
+            // The status DECISION lives on the entity; all that happens here is
+            // pinning the label to the instant that explains it ("revoked
+            // 2026-08-05 12:00"), which is presentation.
+            $status = $token->status($now);
+            $changedAt = $token->statusChangedAt($now);
+
             $rows[] = [
                 $token->id->toString(),
                 $token->user->email,
                 $token->name,
                 implode(', ', $token->scopes),
-                self::status($token, $now),
-                $token->createdAt->format('Y-m-d H:i'),
-                $token->lastUsedAt?->format('Y-m-d H:i') ?? '—',
+                $changedAt === null
+                    ? $status->value
+                    : sprintf('%s %s', $status->value, $changedAt->format(self::DATE_FORMAT)),
+                $token->createdAt->format(self::DATE_FORMAT),
+                $token->lastUsedAt?->format(self::DATE_FORMAT) ?? '—',
             ];
         }
 
         $io->table(['ID', 'User', 'Name', 'Scopes', 'Status', 'Created', 'Last used'], $rows);
 
         return self::SUCCESS;
-    }
-
-    private static function status(McpAccessToken $token, DateTimeImmutable $now): string
-    {
-        if ($token->revokedAt !== null) {
-            return sprintf('revoked %s', $token->revokedAt->format('Y-m-d H:i'));
-        }
-
-        // Whatever is left after the revoked branch can only fail isActive() by
-        // having passed its expiry — the two conditions are the same predicate
-        // findActiveByHash() runs, read from the other side.
-        if (!$token->isActive($now)) {
-            return sprintf('expired %s', $token->expiresAt?->format('Y-m-d H:i') ?? '');
-        }
-
-        return 'active';
     }
 }

@@ -60,12 +60,14 @@ final class RevokeMcpAccessTokenConsoleCommand extends Command
             return self::FAILURE;
         }
 
-        if ($token->revokedAt !== null) {
+        if ($token->isRevoked()) {
             $io->info(sprintf(
                 'Token "%s" (%s) was already revoked on %s.',
                 $token->name,
                 $token->user->email,
-                $token->revokedAt->format('Y-m-d H:i'),
+                // Never null once isRevoked() is true; the fallback exists
+                // because a predicate method narrows nothing for the analyser.
+                $token->revokedAt?->format('Y-m-d H:i') ?? '—',
             ));
 
             return self::SUCCESS;

@@ -12,8 +12,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Messenger\MessageBusInterface;
+use WBoost\Web\Exceptions\InvalidMcpScopes;
 use WBoost\Web\Exceptions\UserNotFound;
 use WBoost\Web\Mcp\Security\McpScope;
+use WBoost\Web\Mcp\Security\McpScopeSelection;
 use WBoost\Web\Mcp\Security\McpTokenGenerator;
 use WBoost\Web\Message\Mcp\CreateMcpAccessToken;
 use WBoost\Web\Repository\UserRepository;
@@ -45,8 +47,8 @@ final class CreateMcpAccessTokenConsoleCommand extends Command
                 'scopes',
                 null,
                 InputOption::VALUE_REQUIRED,
-                sprintf('Comma-separated scopes (%s)', implode(', ', self::validScopes())),
-                McpScope::TemplatesRead->value,
+                sprintf('Comma-separated scopes (%s)', implode(', ', McpScope::values())),
+                McpScopeSelection::DEFAULT_SCOPES,
             )
             ->setHelp(sprintf(
                 <<<'HELP'
@@ -65,8 +67,8 @@ final class CreateMcpAccessTokenConsoleCommand extends Command
                     The secret is printed ONCE. Only its sha256 is stored, so a lost token is
                     replaced (create a new one, revoke the old) — never recovered.
                     HELP,
-                implode(', ', self::validScopes()),
-                McpScope::TemplatesRead->value,
+                implode(', ', McpScope::values()),
+                McpScopeSelection::DEFAULT_SCOPES,
             ));
     }
 
@@ -83,50 +85,19 @@ final class CreateMcpAccessTokenConsoleCommand extends Command
         /** @var string $rawScopes */
         $rawScopes = $input->getOption('scopes');
 
+        // Scopes first: a typo is answered without ever touching the database.
         try {
-            $user = $this->userRepository->get($email);
-        } catch (UserNotFound) {
-            $io->error(sprintf('User with email "%s" was not found.', $email));
+            $scopes = McpScopeSelection::parse($rawScopes);
+        } catch (InvalidMcpScopes $exception) {
+            $io->error($exception->getMessage());
 
             return self::FAILURE;
         }
 
-        /** @var list<string> $scopes */
-        $scopes = [];
-
-        foreach (explode(',', $rawScopes) as $candidate) {
-            $candidate = trim($candidate);
-
-            if ($candidate === '') {
-                continue;
-            }
-
-            // Strict on purpose: McpScope::fromStrings() tolerates unknown
-            // values because a STORED row must never break authentication, but
-            // a human typing --scopes=templates:reed has made a mistake and
-            // silently issuing a token with fewer scopes than asked for is the
-            // worst possible answer.
-            $scope = McpScope::tryFrom($candidate);
-
-            if ($scope === null) {
-                $io->error(sprintf(
-                    'Unknown scope "%s". Valid scopes: %s.',
-                    $candidate,
-                    implode(', ', self::validScopes()),
-                ));
-
-                return self::FAILURE;
-            }
-
-            if (in_array($scope->value, $scopes, true)) {
-                continue;
-            }
-
-            $scopes[] = $scope->value;
-        }
-
-        if ($scopes === []) {
-            $io->error(sprintf('At least one scope is required. Valid scopes: %s.', implode(', ', self::validScopes())));
+        try {
+            $user = $this->userRepository->get($email);
+        } catch (UserNotFound) {
+            $io->error(sprintf('User with email "%s" was not found.', $email));
 
             return self::FAILURE;
         }
@@ -163,13 +134,5 @@ final class CreateMcpAccessTokenConsoleCommand extends Command
         $io->warning('Store the token now — only its hash is kept, so it cannot be shown again. A lost token is replaced, never recovered.');
 
         return self::SUCCESS;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private static function validScopes(): array
-    {
-        return array_map(static fn (McpScope $scope): string => $scope->value, McpScope::cases());
     }
 }

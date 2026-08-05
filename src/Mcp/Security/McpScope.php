@@ -82,6 +82,21 @@ enum McpScope: string
     }
 
     /**
+     * Every scope's wire value, in declaration order.
+     *
+     * The list a human input surface offers and an error message names — kept
+     * here rather than re-derived at each call site, so a new case shows up in
+     * the CLI help and in {@see \WBoost\Web\Exceptions\InvalidMcpScopes} the
+     * moment it is declared.
+     *
+     * @return list<string>
+     */
+    public static function values(): array
+    {
+        return array_map(static fn (self $scope): string => $scope->value, self::cases());
+    }
+
+    /**
      * Parses the raw strings persisted on {@see \WBoost\Web\Entity\McpAccessToken}
      * into cases, **dropping anything this release does not understand** and
      * de-duplicating the rest.

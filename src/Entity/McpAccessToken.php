@@ -15,6 +15,7 @@ use Doctrine\ORM\Mapping\Table;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\McpAccessTokenStatus;
 
 /**
  * A personal access token that authenticates ONE user against the MCP server
@@ -101,16 +102,60 @@ class McpAccessToken
         $this->revokedAt = $now;
     }
 
+    public function isRevoked(): bool
+    {
+        return $this->revokedAt !== null;
+    }
+
+    /**
+     * The token's lifecycle state at `$now` — the one place that decides it.
+     *
+     * **Revocation wins over expiry** when both apply: it is an operator's
+     * explicit act, and reporting "expired" would read as if the token had
+     * merely aged out, hiding the fact that someone killed it. (Nothing depends
+     * on the precedence for ACCESS — either state denies — so it is purely a
+     * question of what the listing tells a human.)
+     *
+     * Expiry is exclusive at the exact instant, matching the `expiresAt > :now`
+     * in `findActiveByHash()`: this must answer the same question the
+     * authentication query does, or the listing would call a token active that
+     * cannot log in.
+     */
+    public function status(DateTimeImmutable $now): McpAccessTokenStatus
+    {
+        if ($this->revokedAt !== null) {
+            return McpAccessTokenStatus::Revoked;
+        }
+
+        if ($this->expiresAt !== null && $this->expiresAt <= $now) {
+            return McpAccessTokenStatus::Expired;
+        }
+
+        return McpAccessTokenStatus::Active;
+    }
+
+    /**
+     * The instant that EXPLAINS {@see status()} — when it was revoked, when it
+     * expired, null while it is active. Saves every caller from re-deciding
+     * which of the two nullable columns is the interesting one.
+     */
+    public function statusChangedAt(DateTimeImmutable $now): null|DateTimeImmutable
+    {
+        return match ($this->status($now)) {
+            McpAccessTokenStatus::Active => null,
+            McpAccessTokenStatus::Revoked => $this->revokedAt,
+            McpAccessTokenStatus::Expired => $this->expiresAt,
+        };
+    }
+
     /**
      * Mirrors the `findActiveByHash()` predicate for callers that already hold
-     * the entity.
+     * the entity. A thin reading of {@see status()} rather than a second copy
+     * of the rules — two predicates that can disagree is exactly the bug this
+     * avoids.
      */
     public function isActive(DateTimeImmutable $now): bool
     {
-        if ($this->revokedAt !== null) {
-            return false;
-        }
-
-        return $this->expiresAt === null || $this->expiresAt > $now;
+        return $this->status($now) === McpAccessTokenStatus::Active;
     }
 }
