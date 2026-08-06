@@ -531,8 +531,8 @@ final class DslParser
             return null;
         }
 
-        $start = $this->readColumn($path, 0, $rawCol[0] ?? null);
-        $end = $this->readColumn($path, 1, $rawCol[1] ?? null);
+        $start = $this->readColumn($path, 0, $rawCol[0]);
+        $end = $this->readColumn($path, 1, $rawCol[1]);
 
         if ($start === null || $end === null) {
             return null;

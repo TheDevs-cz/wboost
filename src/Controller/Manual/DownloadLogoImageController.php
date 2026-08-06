@@ -115,6 +115,10 @@ final class DownloadLogoImageController extends AbstractController
 
         $doc = new \DOMDocument();
 
+        if ($svgContent === '') {
+            throw new \Exception('Failed to load SVG content into DOMDocument.');
+        }
+
         // Load the SVG content into the DOMDocument
         if (!$doc->loadXML($svgContent)) {
             throw new \Exception('Failed to load SVG content into DOMDocument.');

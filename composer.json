@@ -24,7 +24,7 @@
         "api-platform/symfony": "^4.3",
         "doctrine/doctrine-bundle": "^3.0",
         "doctrine/doctrine-migrations-bundle": "^4.0",
-        "doctrine/orm": "^3.0",
+        "doctrine/orm": "^3.0 <3.6.8",
         "dompdf/php-font-lib": "^1.0",
         "endroid/qr-code": "^6.0",
         "jeroendesloovere/vcard": "^1.7",
@@ -141,6 +141,9 @@
             "allow-contrib": true,
             "require": "8.*",
             "docker": false
+        },
+        "pinned-dependencies": {
+            "doctrine/orm": "Held at <3.6.8 until doctrine/dbal ^4.5 is RELEASED (only 4.5.x-dev exists as of 2026-08-06). ORM 3.6.8 added GenerateSchemaEventArgs::setSchema(), whose body throws BadMethodCallException unless DBAL exposes the Schema::edit() API (^4.5). symfony/doctrine-bridge's schema listeners probe for it with method_exists() and then call it, so ORM >=3.6.8 + DBAL 4.4 breaks every postGenerateSchema path: doctrine:schema:create (the PHPUnit bootstrap -> whole suite dies), schema:update and migrations:diff. Holding the bridge back does NOT help - 8.1.1 has the same guard (verified). ORM 3.6.8 carries bugfixes only, no security fixes. TO UNPIN: once DBAL 4.5.0 is tagged, restore \"^3.0\", run composer update -W, and confirm `bin/console doctrine:schema:update --dump-sql` succeeds."
         }
     },
     "replace": {
