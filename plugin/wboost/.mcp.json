@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "wboost": {
+      "type": "http",
+      "url": "https://wboost.cz/_mcp",
+      "headers": {
+        "Authorization": "Bearer ${user_config.token}"
+      }
+    }
+  }
+}

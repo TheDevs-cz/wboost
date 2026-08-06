@@ -1,0 +1,29 @@
+{
+  "name": "wboost",
+  "displayName": "wboost",
+  "description": "Work with wboost brand templates from Claude: list projects and their brand fonts and colours, find template variants, fill their text and image placeholders, preview the result and export the finished PNG.",
+  "version": "0.1.0",
+  "author": {
+    "name": "TheDevs",
+    "url": "https://wboost.cz"
+  },
+  "homepage": "https://wboost.cz",
+  "repository": "https://github.com/TheDevs-cz/wboost",
+  "license": "MIT",
+  "keywords": [
+    "wboost",
+    "brand",
+    "templates",
+    "design",
+    "export"
+  ],
+  "userConfig": {
+    "token": {
+      "type": "string",
+      "title": "wboost access token",
+      "description": "Your personal wboost MCP token — it starts with wb_mcp_ and is shown once, when it is created. Ask a wboost operator to mint one for your account (see docs/mcp/connect.md). The token acts as YOU: it can never reach more than your own account already can.",
+      "required": true,
+      "sensitive": true
+    }
+  }
+}

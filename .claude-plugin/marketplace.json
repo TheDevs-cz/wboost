@@ -1,0 +1,29 @@
+{
+  "name": "wboost",
+  "description": "The wboost plugin: connect Claude to your wboost account to fill and export brand templates.",
+  "owner": {
+    "name": "TheDevs",
+    "url": "https://wboost.cz"
+  },
+  "plugins": [
+    {
+      "name": "wboost",
+      "source": "./plugin/wboost",
+      "description": "Work with wboost brand templates from Claude: list projects and their brand fonts and colours, find template variants, fill their text and image placeholders, preview the result and export the finished PNG.",
+      "version": "0.1.0",
+      "author": {
+        "name": "TheDevs",
+        "url": "https://wboost.cz"
+      },
+      "homepage": "https://wboost.cz",
+      "license": "MIT",
+      "keywords": [
+        "wboost",
+        "brand",
+        "templates",
+        "design",
+        "export"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,18 @@
 # WBoost
 
+## AI clients (MCP)
+
+WBoost exposes an MCP server at `https://wboost.cz/_mcp`. Connect Claude Code
+with one command:
+
+```bash
+claude plugin marketplace add TheDevs-cz/wboost && claude plugin install wboost@wboost
+```
+
+See [`docs/mcp/connect.md`](docs/mcp/connect.md) for tokens, scopes and
+troubleshooting, [`docs/mcp/prompts.md`](docs/mcp/prompts.md) for prompts that
+work, and [`plugin/wboost/`](plugin/wboost/) for the plugin itself.
+
 ## Development
 Simply run `docker compose up`
 

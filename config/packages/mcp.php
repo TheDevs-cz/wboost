@@ -55,13 +55,27 @@ return App::config([
         'website_url' => 'https://wboost.cz',
 
         // Sent to every client on connect, so keep it short and load-bearing.
+        // Sent to every client on connect, so keep it short — and keep it TRUE
+        // of the tools actually registered. It shipped once describing a design
+        // DSL that did not exist yet; a client cannot discover that the
+        // instructions are aspirational, it just tries and fails. Whatever this
+        // says must be checkable against src/Mcp/Tool/.
         'instructions' => <<<'INSTRUCTIONS'
-            wboost is a brand-manual and template-design platform: projects hold brand
-            manuals (colors, fonts, logos) and templates that are rendered to images.
-            Templates are authored through a semantic design DSL — describe the design in
-            DSL terms and never hand-write or patch raw Fabric.js canvas JSON.
-            Always call get_context first: it returns the projects, brand assets and DSL
-            reference you need before any other tool will make sense.
+            wboost is a brand-manual platform: a project holds brand manuals (colours,
+            fonts, logos) and templates — designed canvases whose text and image slots are
+            filled in and rendered to images.
+            Call get_context first. It tells you which projects this account can reach and
+            gives you their ids, exact font face strings and brand colours; nothing else
+            makes sense without it. From there: find_templates lists a project's templates
+            and variants, describe_variant tells you exactly what one variant can be filled
+            with, render_variant returns a fast downscaled preview, and export_variant
+            returns the final full-size PNG.
+            Two things worth knowing. Everything is addressed by UUID — the inputs map is
+            keyed by the inputId that describe_variant reports, never by an input's name.
+            And preview with render_variant while you iterate: export_variant is the
+            deliverable, it is stricter, and it is counted.
+            Designing new templates is not available through this connector yet; that is
+            done in the wboost editor.
             INSTRUCTIONS,
 
         'client_transports' => [
