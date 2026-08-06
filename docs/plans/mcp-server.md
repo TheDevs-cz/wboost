@@ -217,6 +217,24 @@ Rules:
 
 ## 5. Stages & tasks
 
+> **⚠️ SEQUENCING CHANGED 2026-08-06, at the user's explicit request.** After Milestone A shipped
+> and went live on prod, the user asked for *"one command installation for claude code/chatgpt"*
+> with the token *"generated automatically for anyone"*. That reorders the remaining work:
+>
+> 1. **Stage 6 packaging (S6-T3/T4/T5) pulled forward**, scoped to the SIX shipped tools only —
+>    plugin + marketplace in this (public) repo, a Skill teaching the read/render/export loop, and
+>    `docs/mcp/`. The Skill is written so a "Designing new templates" section slots in later.
+> 2. **Stage 8 (OAuth 2.1) pulled forward**, because it is the ONLY thing that satisfies the actual
+>    request: claude.ai and ChatGPT connectors do not support custom headers, so a PAT cannot reach
+>    them at all. OAuth is added ALONGSIDE PATs, never replacing them (§0.9 was built for exactly
+>    this). The deciding sub-task is **S8-T4 (Dynamic Client Registration)** — without it, "zero
+>    config" is not reachable for those clients.
+> 3. **Stages 4 and 5 (the DSL compiler and the design tools) are DEFERRED** behind the above. They
+>    remain the largest and most accuracy-critical part of the plan; nothing about them changes.
+>
+> Milestone B ("create from scratch") therefore now comes after packaging + OAuth.
+
+
 Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent runs to decide.
 
 ### Stage 0 — Foundations & transport
