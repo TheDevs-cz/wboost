@@ -1,6 +1,8 @@
 import { Controller } from "@hotwired/stimulus";
 import Sortable from "sortablejs";
 
+import { applyEditorLock } from './canvas_custom_properties.js';
+
 /**
  * Photoshop-style layers panel for the admin canvas editor (left panel).
  *
@@ -10,6 +12,14 @@ import Sortable from "sortablejs";
  *             layer (same coordinate math as the floating toolbar; never
  *             drawn on the canvas bitmap),
  *   - click → selects the object and opens its floating property popover,
+ *   - lock  → the SAME toggle the element's popover carries, which means two
+ *             different things by type and each row says which in its title:
+ *             an image (the background included) flips `editorLocked`, the
+ *             EDITOR lock that makes it click-through and immovable; a text
+ *             flips `locked`, the FILL-time flag that stops the end user
+ *             overwriting it. Routed through the property controllers when
+ *             the row is the active object so the popover checkbox and the
+ *             mini-toolbar stay in step.
  *   - eye   → Photoshop-style visibility toggle. PERSISTED: `visible` is a
  *             native Fabric prop that rides the canvas JSON, so a hidden
  *             layer stays hidden in saves, exports and thumbnails, and is
@@ -29,7 +39,10 @@ import Sortable from "sortablejs";
  * their CURRENT stack index and every rebuild re-reads canvas.getObjects().
  */
 export default class extends Controller {
-    static outlets = ["canvas-editor", "canvas-floating-toolbar"];
+    static outlets = [
+        "canvas-editor", "canvas-floating-toolbar",
+        "canvas-input-properties", "canvas-image-properties",
+    ];
     static targets = ["list", "stage"];
 
     // Outlet callbacks can fire before connect() — initialize state here.
@@ -260,15 +273,30 @@ export default class extends Controller {
         text.textContent = label;
         main.appendChild(text);
 
-        if (isText && obj.locked) {
-            const lock = document.createElement('i');
-            lock.className = 'canvas-layer-row__flag mdi mdi-lock';
-            lock.title = 'Uzamčený text';
-            lock.setAttribute('aria-hidden', 'true');
-            main.appendChild(lock);
-        }
-
         row.appendChild(main);
+
+        // Padlock, sibling of the main button like the eye. What it locks
+        // depends on the element type — see the class docblock — so the title
+        // spells it out rather than relying on the shared metaphor.
+        const locked = isText ? obj.locked === true : obj.editorLocked === true;
+        if (locked) {
+            row.classList.add('canvas-layer-row--locked');
+        }
+        const lockTitle = isText
+            ? (locked ? 'Odemknout — uživatel bude moci text vyplnit' : 'Uzamknout — uživatel nebude moci text vyplnit')
+            : (locked ? 'Odemknout — půjde vybrat, posouvat a měnit velikost' : 'Uzamknout v editoru — proti posunutí');
+        const lock = document.createElement('button');
+        lock.type = 'button';
+        lock.className = 'canvas-layer-row__lock';
+        lock.dataset.action = 'canvas-layers#toggleLock';
+        lock.title = lockTitle;
+        lock.setAttribute('aria-label', `${lockTitle}: ${label}`);
+        lock.setAttribute('aria-pressed', String(locked));
+        const lockIcon = document.createElement('i');
+        lockIcon.className = `mdi ${locked ? 'mdi-lock' : 'mdi-lock-open-variant-outline'}`;
+        lockIcon.setAttribute('aria-hidden', 'true');
+        lock.appendChild(lockIcon);
+        row.appendChild(lock);
 
         // Photoshop-style eye: a sibling of the main button so toggling
         // visibility never selects the row.
@@ -297,6 +325,60 @@ export default class extends Controller {
         row.appendChild(grip);
 
         return row;
+    }
+
+    /**
+     * The padlock. Delegates to the element's own property controller when the
+     * row IS the active object — that is the one path that also mirrors the
+     * popover checkbox and the mini-toolbar — and flips the flag directly
+     * otherwise (the popover is showing some other element, so there is
+     * nothing to keep in step).
+     */
+    toggleLock(event) {
+        event.stopPropagation();
+        const obj = this._objectFromEvent(event);
+        if (!obj || !this.hasCanvasEditorOutlet) return;
+        const canvas = this.canvasEditorOutlet.canvas;
+
+        const isText = (obj.type || '').toLowerCase() === 'textbox';
+        const isActive = canvas.getActiveObject() === obj;
+        const outlet = isText
+            ? (this.hasCanvasInputPropertiesOutlet ? this.canvasInputPropertiesOutlet : null)
+            : (this.hasCanvasImagePropertiesOutlet ? this.canvasImagePropertiesOutlet : null);
+
+        if (isActive && outlet) {
+            if (isText) {
+                outlet.toggleLocked();
+            } else {
+                outlet.toggleEditorLock();
+            }
+            // The mini-toolbar's own padlock reflects the same flag — it is
+            // refreshed by a second data-action when clicked there, so do it
+            // by hand when the change came from this panel.
+            if (this.hasCanvasFloatingToolbarOutlet) {
+                this.canvasFloatingToolbarOutlet.refreshContextToggle();
+            }
+        } else if (isText) {
+            obj.locked = obj.locked !== true;
+            this.canvasEditorOutlet.markUnsaved();
+        } else {
+            obj.editorLocked = obj.editorLocked !== true;
+            applyEditorLock(obj);
+            this.canvasEditorOutlet.markUnsaved();
+        }
+
+        if (!isText) {
+            // applyEditorLock just rewrote selectable/evented; let the backdrop
+            // sweep re-decide passthrough for a newly unlocked canvas-covering
+            // image (a background, most of all).
+            this.canvasEditorOutlet.refreshBackdropStates();
+        }
+
+        canvas.requestRenderAll();
+        // No Fabric event fires for a plain flag flip — announce it the way
+        // the eye does (dirty + history + group propagation).
+        canvas.fire('object:modified', {});
+        this.rebuild();
     }
 
     /**

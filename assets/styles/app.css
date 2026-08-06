@@ -499,6 +499,37 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     line-height: 1;
 }
 
+/* Padlock, same restraint as the eye: barely there until hovered, full
+   strength once the layer is actually locked (that is the state worth
+   noticing at a glance). */
+.canvas-layer-row__lock {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 2px 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font-size: 0.9rem;
+    line-height: 1;
+    opacity: 0.45;
+}
+
+.canvas-layer-row__lock:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.07);
+}
+
+.canvas-layer-row__lock:focus-visible {
+    outline: 2px solid #727cf5;
+    outline-offset: -2px;
+    opacity: 1;
+}
+
+.canvas-layer-row--locked .canvas-layer-row__lock {
+    opacity: 0.9;
+}
+
 /* Photoshop-style visibility eye. Subtle until hovered/hidden so the panel
    stays calm; a hidden row dims as a whole (the eye keeps full opacity as
    the affordance to un-hide). */
