@@ -557,7 +557,7 @@ readonly final class DesignCompiler
         null|DesignAsset $asset,
     ): array {
         $frameWidth = $rect->width;
-        $frameHeight = $this->imageFrameHeight($rect, $asset);
+        $frameHeight = self::imageFrameHeight($rect, $asset);
 
         $left = $rect->x;
         $top = $rect->y;
@@ -637,8 +637,13 @@ readonly final class DesignCompiler
      * `{"x": …, "y": …, "width": 400}` places a photo without distorting it.
      * With no picture either, a square: the honest default when nothing in the
      * document implies a proportion.
+     *
+     * Public and static because {@see \WBoost\Web\Mcp\Design\Lint\DesignLinter}
+     * reports the bounds of the box this compiler emits, and a second copy of
+     * this fallback would have the linter warning about a rectangle nothing
+     * draws.
      */
-    private function imageFrameHeight(Rect $rect, null|DesignAsset $asset): float
+    public static function imageFrameHeight(Rect $rect, null|DesignAsset $asset): float
     {
         if ($rect->height !== null) {
             return $rect->height;
@@ -1005,9 +1010,15 @@ readonly final class DesignCompiler
      * that failed AND the ones that would work, so the agent fixes it in the
      * same turn.
      *
+     * Public because {@see \WBoost\Web\Mcp\Design\Lint\DesignLinter} reports the
+     * same problem one stage earlier (so `preview_design` can list it beside
+     * every other finding instead of dying on it), and it must say the same
+     * words. Sharing the builder is what makes "the two cannot disagree" a fact
+     * rather than a comment — the linter's test asserts the texts are identical.
+     *
      * @param list<string> $allowed
      */
-    private static function fontNotAllowed(int $index, string $font, array $allowed): CompileViolation
+    public static function fontNotAllowed(int $index, string $font, array $allowed): CompileViolation
     {
         $path = sprintf('elements[%d].font', $index);
 

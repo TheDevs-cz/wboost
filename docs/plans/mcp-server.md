@@ -473,12 +473,12 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
   **Done when:** `tests/Mcp/Design/DesignCompilerTest.php` has one explicit test per numbered invariant in §4 (20+ tests), all passing.
   **Depends:** S4-T2
 
-- [ ] **S4-T5 — `DesignDecompiler` (canvas → DSL) + round-trip.**
+- [x] **S4-T5 — `DesignDecompiler` (canvas → DSL) + round-trip.**
   **How:** the inverse, so `get_design` / `describe_variant` can show an existing design and the agent can edit it. Names slugs from input names (slugified, deduped) and remembers the mapping via `inputId`.
   **Done when:** a round-trip test over **every canvas in `tests/DataFixtures`** plus ≥3 real exported canvases: `decompile → compile` produces a canvas that renders identically (compare normalized JSON ignoring key order and float noise ≤ 0.01).
   **Depends:** S4-T4
 
-- [ ] **S4-T6 — `DesignLinter`.**
+- [x] **S4-T6 — `DesignLinter`.**
   **How:** deterministic warnings, each with `code`, human message, and the offending slug: out of canvas bounds; unintended overlap of two text elements not in the same container; font not in project (**error**, not warning); colour not in the brand palette (warning); font size below a legibility floor (relative to canvas height); predicted container overflow (from `TextMeasurer`); container with <2 members; image element with no asset and no placeholder flag; text element with `maxLength` shorter than its own stand-in text.
   **Done when:** `tests/Mcp/Design/DesignLinterTest.php` has a fixture triggering each code exactly once.
   **Depends:** S4-T3, S4-T4
@@ -496,6 +496,8 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
   **Depends:** S5-T1, S4-T6
 
 - [ ] **S5-T3 — `set_design(variantId, design)` → commit.**
+  🚨 **DATA-LOSS HAZARD FOUND BY S4-T5 — `set_design` MUST REFUSE, not warn.** A background uploaded through the add/edit-variant form is stored under `custom-templates/{variantId}/background-*.png` with **no `file_upload` row at all**. The DSL can only name gallery assets, so such a background is *unnameable*: decompiling reports `asset_unresolved`, and compiling that document back produces a variant with **no background**. This is common in production — it hit 1 of 5 real canvases sampled. A warning is not enough here, because the agent's whole job is to write the document back. **Refuse the write** when a destructive loss would blank a background the user never asked to remove, or require an explicit acknowledgement.
+  Second finding: real stored canvases carry `isBackground` at stack index ≠ 0, and stale object-level mirrors of `allowMove`/`allowResize`. **§4.3-11 and the object mirror are invariants of what the COMPILER emits, not of what is stored** — do not assume them when reading.
   **How:** parse → lint → compile → dispatch `EditTemplateVariantCanvasEditor` (with `previewImageDataUri: ''`) → render the thumbnail server-side (PNG) and store it at `custom-templates/preview/<variantId>.png`, then persist the path. Reject `variant->group !== null` (§4.22). Return image + `editorUrl` + warnings.
   Implement thumbnail persistence as its own message/handler so it is reusable and testable.
   **Done when:** test asserts the canvas round-trips through `describe_variant`, the thumbnail path is set, a grouped variant is refused with the group-tool message, and inputs keep their UUIDs across two `set_design` calls with the same slugs.
@@ -683,3 +685,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-06 — S3-T3 — `export_variant` (full-size strict PNG, `templates:export` scope, usage recorded last on success only); fill resolution extracted into `Mcp/Fill/VariantFill` shared with `render_variant`. Overflow errors name the container's fillable inputs and admit when they cannot tell which is at fault. **Stage 3 complete — MILESTONE A.**
 - 2026-08-06 — I-T4 — production smoke green on https://wboost.cz (401 challenge, 6 tools, real PNG export, R1 holds on the real worker); PATs issued for j.mikes@me.com + lukasrejda@lukasrejda.cz; journal entry in ~/www/lily.srv.
 - 2026-08-06 — S4-T1…T4 — the DSL core: strict parser (85 tests, all violations at once), `GridResolver` (edges rounded not widths — no 1px seams), `TextMeasurer` (validated against real Chromium, error strictly one-sided), and `DesignCompiler` with one named test per §4 invariant + a live drift guard against the JS `CANVAS_CUSTOM_PROPERTIES`. Corrected §4.2-8 (`editorLocked` IS persisted), noted §4.1-3 vacuous in v1 and §4.5-22 unenforceable in the compiler.
+- 2026-08-06 — S4-T5 + S4-T6 — decompiler (lossy-but-reporting, idempotent to a lossless fixed point, 13 canvases incl. 5 anonymized production ones) and linter (9 codes, thresholds sanity-checked against real templates). **Stage 4 complete.** Found a data-loss hazard for S5-T3: form-uploaded backgrounds have no gallery row and would be blanked by a naive `set_design`.
