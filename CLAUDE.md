@@ -102,14 +102,28 @@ Key facts:
   rx-scales) the layer per dimension and stamps NO canvas-level block for
   layer-mode sources. Editor-side the "Pozadí" pick calls `setBackgroundLayer`
   (ordinary dirty canvas edit, NO side-channel POST).
-- **Group editor**: backgrounds are strictly per-dimension. `isBackground`
-  objects are excluded from the whole group_sync engine (baseline/diff,
-  projectNewObject, removeObject, resync, z-order — `isSyncable()`), the
-  `object:added/removed` handlers gate on the flag, and layer-mode variants
-  get `backgroundUrl: null` in variantsData so every canvas-level re-apply
-  site no-ops. Cover fit is absolute per (image, canvas size) — propagating it
-  relatively would compound drift, and group-seeded siblings SHARE the
-  background's inputId, so a resync would clobber per-dimension covers.
+- **Group editor**: background GEOMETRY is strictly per-dimension, the
+  background PICTURE is shared. `isBackground` objects are excluded from the
+  whole group_sync engine (baseline/diff, projectNewObject, removeObject,
+  resync, z-order — `isSyncable()`), the `object:added/removed` handlers gate
+  on the flag, and layer-mode variants get `backgroundUrl: null` in
+  variantsData so every canvas-level re-apply site no-ops. Cover fit is
+  absolute per (image, canvas size) — propagating it relatively would compound
+  drift, and group-seeded siblings SHARE the background's inputId, so a resync
+  would clobber per-dimension covers. But excluding the *picture* too left a
+  dimension able to end up with NO background at all: it rendered over
+  transparency and whatever full-canvas artwork sat lowest read as the
+  background, so the stack looked scrambled even though its object order was
+  identical to every other dimension (the 2026-08-06 "group export ignores
+  layer order" report). Two paths therefore fan the picture out, each
+  recomputing the cover fit from scratch for the target's own canvas and
+  giving it its OWN copy of the file (a later change on one dimension never
+  reaches the others): `GroupSync.projectBackgroundLayer` on a layer-mode
+  "Pozadí" pick (replacing each included target's background in place, at the
+  slot it occupied — index 0 when it had none, metadata copied from the active
+  layer so the shared inputId stays the join key), and
+  `AddTemplateGroupDimensionHandler` when a new dimension is added with no
+  upload of its own.
 - **Fillable (Phase B)**: the designer can mark the layer `imagePlaceholder` →
   it flows into `imageInputs` with `isBackground: true` (new `EditorImageInput`
   field; `allowMove/Resize/Rotate` forced false — the fill is a deterministic

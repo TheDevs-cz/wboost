@@ -6,6 +6,8 @@ namespace WBoost\Web\MessageHandler\TemplateGroup;
 
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
+use Ramsey\Uuid\UuidInterface;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\TemplateVariant;
@@ -67,12 +69,12 @@ readonly final class AddTemplateGroupDimensionHandler
         $backgroundImagePath = null;
         $canvas = null;
 
-        if ($message->backgroundImage !== null) {
+        [$bytes, $extension] = $this->backgroundSource($message->backgroundImage, $group->id);
+
+        if ($bytes !== null) {
             $timestamp = $this->clock->now()->getTimestamp();
-            $extension = $message->backgroundImage->guessExtension();
 
             $backgroundImagePath = "custom-templates/$variantId/background-$timestamp.$extension";
-            $bytes = $message->backgroundImage->getContent();
             $this->filesystem->write($backgroundImagePath, $bytes);
 
             $size = getimagesizefromstring($bytes);
@@ -102,5 +104,42 @@ readonly final class AddTemplateGroupDimensionHandler
 
         $variant->assignToGroup($group);
         $this->variantRepository->add($variant);
+    }
+
+    /**
+     * The background bytes for a new dimension. Without an upload it INHERITS
+     * the group's existing background picture: a dimension that silently ends
+     * up with no background renders its design over transparency, and whatever
+     * full-canvas artwork sits lowest reads as the background — the layer
+     * stack looks scrambled even though the object order is identical to every
+     * other dimension.
+     *
+     * Only the PICTURE is shared. Each variant gets its own copy of the file
+     * (so a later change on one dimension never reaches the others) and the
+     * cover fit is computed from scratch for this dimension's canvas — cover
+     * is an absolute function of (image, canvas size), never a scaled copy.
+     *
+     * @return array{null|string, string} bytes (null = no background), extension
+     */
+    private function backgroundSource(null|UploadedFile $upload, UuidInterface $groupId): array
+    {
+        if ($upload !== null) {
+            return [$upload->getContent(), $upload->guessExtension() ?? 'png'];
+        }
+
+        foreach ($this->members->variants($groupId) as $member) {
+            if ($member->backgroundImage === null) {
+                continue;
+            }
+
+            $extension = pathinfo($member->backgroundImage, PATHINFO_EXTENSION);
+
+            return [
+                $this->filesystem->read($member->backgroundImage),
+                $extension !== '' ? $extension : 'png',
+            ];
+        }
+
+        return [null, 'png'];
     }
 }

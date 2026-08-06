@@ -179,7 +179,7 @@ export default class extends Controller {
     }
 
     /** canvas-editor:background:changed — active variant picked a new background. */
-    onBackgroundChanged(event) {
+    async onBackgroundChanged(event) {
         const active = this._variant(this.activeId);
         if (!active || !event.detail || !event.detail.url) {
             return;
@@ -195,6 +195,16 @@ export default class extends Controller {
 
         active.dirty = true;
         this._refreshDirtyDots();
+
+        // A background pick is a group-level decision: the picture travels to
+        // every included dimension, cover-fitted for each one's own size
+        // (see GroupSync.projectBackgroundLayer). Canvas-mode groups keep the
+        // legacy per-variant background upload and are left alone.
+        if (event.detail.layerMode && this.sync && !this._quiet(this.canvasEditorOutlet)) {
+            const source = this.canvasEditorOutlet.canvas.getObjects().find((o) => o.isBackground === true);
+            this._afterPropagation(await this.sync.projectBackgroundLayer(source));
+            this._scheduleHistoryPush();
+        }
     }
 
     // ------------------------------------------------------------------ propagation

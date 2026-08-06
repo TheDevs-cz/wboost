@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\MessageHandler\TemplateGroup;
 
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -72,6 +73,63 @@ final class AddTemplateGroupDimensionHandlerTest extends KernelTestCase
         self::assertIsArray($layer);
         self::assertTrue($layer['isBackground'] ?? null);
         self::assertSame($added->backgroundImage, $layer['assetPath']);
+    }
+
+    /**
+     * A dimension added without an upload must not end up background-less: it
+     * would render its design over transparency, and whatever full-canvas
+     * artwork sits lowest would read as the background — the stack looks
+     * scrambled although the object order matches every other dimension.
+     */
+    public function testDimensionWithoutUploadInheritsTheGroupBackgroundPicture(): void
+    {
+        $filesystem = self::getContainer()->get(Filesystem::class);
+        $pngBytes = base64_decode(self::PNG_1X1_BASE64, true);
+        self::assertIsString($pngBytes);
+        $groupBackgroundBytes = $pngBytes . 'group-marker';
+        $filesystem->write('fixtures/bg-1.png', $groupBackgroundBytes);
+
+        $groupId = Uuid::fromString(TestDataFixture::TEMPLATE_GROUP_1_ID);
+        $variantId = Uuid::uuid4();
+
+        $handler = self::getContainer()->get(AddTemplateGroupDimensionHandler::class);
+        $handler(new AddTemplateGroupDimension(
+            $groupId,
+            $variantId,
+            TemplateDimension::fromPreset(DimensionPreset::InstagramPortrait),
+            null,
+        ));
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $added = null;
+        foreach (self::getContainer()->get(GetTemplateGroupMembers::class)->variants($groupId) as $variant) {
+            if ($variant->id->equals($variantId)) {
+                $added = $variant;
+            }
+        }
+
+        self::assertNotNull($added);
+
+        // Its OWN copy of the file — a later change on one dimension must
+        // never reach the others.
+        $path = $added->backgroundImage;
+        self::assertIsString($path);
+        self::assertStringStartsWith("custom-templates/$variantId/", $path);
+        self::assertSame($groupBackgroundBytes, $filesystem->read($path));
+
+        // Seeded as a layer, cover-fitted for THIS dimension (1×1 source onto
+        // 1080×1350 → scale = the larger ratio), never a scaled copy.
+        $decoded = json_decode($added->canvas, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        $objects = $decoded['objects'] ?? null;
+        self::assertIsArray($objects);
+        self::assertCount(1, $objects);
+        $layer = $objects[0];
+        self::assertIsArray($layer);
+        self::assertTrue($layer['isBackground'] ?? null);
+        self::assertSame($path, $layer['assetPath']);
+        self::assertEqualsWithDelta(1350.0, $layer['scaleX'], 0.001);
     }
 
     public function testCreatesTemplateLazilyWhenGroupLacksIt(): void

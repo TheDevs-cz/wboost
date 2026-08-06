@@ -1,4 +1,5 @@
-import { CANVAS_CUSTOM_PROPERTIES } from './canvas_custom_properties.js';
+import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_properties.js';
+import { coverForDimensions } from './canvas_payload.js';
 import { applyGeometryDelta, projectGeometry, ratios } from './group_projection.js';
 
 /**
@@ -283,6 +284,61 @@ export class GroupSync {
             clone.setCoords();
 
             target.shadow.add(clone);
+            touched.add(target.id);
+        }
+
+        return touched;
+    }
+
+    /**
+     * Fan the background PICTURE out to every included target — the one thing
+     * about a background that IS shared across dimensions.
+     *
+     * Everything else about it stays per-dimension: the layer is excluded from
+     * the diffing engine (baseline, projectNewObject, resync, z-order) because
+     * cover fit is an absolute function of (image, canvas size) and relative
+     * propagation would compound drift. But excluding the picture too left the
+     * designer with no way to give the other dimensions a background at all —
+     * they rendered transparent, and whatever full-canvas artwork sat lowest
+     * read as the background. So the picture travels and the FIT is recomputed
+     * from scratch for each target's own size (never scaled from the source),
+     * landing at the slot the target's own background occupied — index 0 when
+     * it had none.
+     *
+     * Metadata (inputId, placeholder flags, name) is copied from the active
+     * layer rather than preserved per target: a group-level pick is a
+     * group-level decision, and the shared inputId is the same join key
+     * CanvasDesignProjector stamps when it seeds a dimension.
+     */
+    async projectBackgroundLayer(source) {
+        const touched = new Set();
+
+        if (!source || source.isBackground !== true) {
+            return touched;
+        }
+
+        for (const target of this.targets()) {
+            const clone = await source.clone(CANVAS_CUSTOM_PROPERTIES);
+            CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                if (source[prop] !== undefined) {
+                    clone[prop] = source[prop];
+                }
+            });
+
+            coverForDimensions(clone, target.width, target.height, 'top-left');
+            // Backgrounds are click-through on the canvas surface — the shadow
+            // is static, but the flags ride the save into the editor.
+            applyEditorLock(clone);
+
+            const existing = target.shadow.getObjects().find((o) => o.isBackground === true);
+            let index = 0;
+            if (existing) {
+                index = target.shadow.getObjects().indexOf(existing);
+                target.shadow.remove(existing);
+            }
+
+            target.shadow.add(clone);
+            target.shadow.moveObjectTo(clone, index);
             touched.add(target.id);
         }
 
