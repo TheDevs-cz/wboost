@@ -28,6 +28,7 @@ use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\ResolvedCanvasContainer;
 use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichTextFontOption;
 
@@ -284,20 +285,12 @@ final readonly class TemplatesProvider implements ProviderInterface
     }
 
     /**
-     * Container definitions with the zone anchor resolved: `y` is the highest
-     * designed member frame in the container's tree (direct fillable members
-     * plus, for a nesting parent, its children's anchors) — the coordinate a
-     * consumer draws the zone from. A container whose whole tree resolves to
-     * no locatable member is omitted (it cannot reflow anything at render
-     * time), and dropped containers also disappear from their parent's
-     * `memberContainerIds`.
-     *
-     * Member ids are narrowed to the LISTED inputs: a design-hidden member
-     * (the editor's per-layer eye toggle) is not fillable, is absent from
-     * inputs[], and the render-time layout skips it exactly like a deleted
-     * member — a consumer mirroring the reflow must not see it either.
-     * Decorative image members ride the flow server-side only and are not
-     * listed (they are not fillable).
+     * Container definitions with the zone anchor resolved — see
+     * {@see ResolvedCanvasContainer::collection()}, the single implementation
+     * this listing shares with the MCP `describe_variant` tool. Only the
+     * mapping into the transport DTO lives here: the two surfaces describe the
+     * same design, so they must not be able to disagree about where a
+     * container sits or which members it publishes.
      *
      * @param list<CanvasContainer> $containers
      * @param array<string, \WBoost\Web\Value\PlaceholderFrame> $frames
@@ -306,80 +299,19 @@ final readonly class TemplatesProvider implements ProviderInterface
      */
     private function buildContainers(array $containers, array $frames, array $inputs): array
     {
-        $inputIds = [];
-        foreach ($inputs as $input) {
-            $inputIds[$input->inputId] = true;
-        }
-
-        $byId = [];
-        foreach ($containers as $container) {
-            $byId[$container->id] = $container;
-        }
-
-        /** @var array<string, null|float> $anchors */
-        $anchors = [];
-        $resolveAnchor = function (CanvasContainer $container) use (&$resolveAnchor, &$anchors, $byId, $frames): null|float {
-            if (array_key_exists($container->id, $anchors)) {
-                return $anchors[$container->id];
-            }
-            $anchors[$container->id] = null; // cycle guard
-
-            $candidates = [];
-            foreach ($container->memberInputIds as $memberInputId) {
-                if (isset($frames[$memberInputId])) {
-                    $candidates[] = $frames[$memberInputId]->y;
-                }
-            }
-            foreach ($container->memberContainerIds as $childId) {
-                $child = $byId[$childId] ?? null;
-                if ($child === null) {
-                    continue;
-                }
-                $childAnchor = $resolveAnchor($child);
-                if ($childAnchor !== null) {
-                    $candidates[] = $childAnchor;
-                }
-            }
-
-            return $anchors[$container->id] = ($candidates === [] ? null : min($candidates));
-        };
-
-        $resolvable = [];
-        foreach ($containers as $container) {
-            if ($resolveAnchor($container) !== null) {
-                $resolvable[$container->id] = true;
-            }
-        }
-
-        $result = [];
-        foreach ($containers as $container) {
-            $y = $anchors[$container->id] ?? null;
-            if ($y === null) {
-                continue;
-            }
-
-            $memberInputIds = array_values(array_filter(
-                $container->memberInputIds,
-                static fn (string $id): bool => isset($inputIds[$id]),
-            ));
-            $memberContainerIds = array_values(array_filter(
-                $container->memberContainerIds,
-                static fn (string $id): bool => isset($resolvable[$id]),
-            ));
-
-            $result[] = new TemplateVariantContainerResponse(
+        return array_map(
+            static fn (ResolvedCanvasContainer $container): TemplateVariantContainerResponse => new TemplateVariantContainerResponse(
                 id: $container->id,
                 maxHeight: $container->maxHeight,
-                y: $y,
-                memberInputIds: $memberInputIds,
-                memberContainerIds: $memberContainerIds,
+                y: $container->y,
+                memberInputIds: $container->memberInputIds,
+                memberContainerIds: $container->memberContainerIds,
                 gap: $container->gap,
                 spaceAfter: $container->spaceAfter,
-                nested: $container->isNestedIn($containers),
-            );
-        }
-
-        return $result;
+                nested: $container->nested,
+            ),
+            ResolvedCanvasContainer::collection($containers, $frames, $inputs),
+        );
     }
 
     /**

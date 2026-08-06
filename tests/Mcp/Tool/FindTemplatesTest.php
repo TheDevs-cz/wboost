@@ -36,7 +36,7 @@ final class FindTemplatesTest extends WebTestCase
     private null|KernelBrowser $browser = null;
 
     /**
-     * The owner's whole library: three templates, echoed alongside the project
+     * The owner's whole library: four templates, echoed alongside the project
      * they belong to.
      */
     public function testOwnerSeesEveryTemplateOfTheProject(): void
@@ -50,9 +50,11 @@ final class FindTemplatesTest extends WebTestCase
         self::assertSame(
             [
                 // position 0, by name: "Custom Template 1" before "Insta
-                // Template 1"; the grouped one sits at position 1.
+                // Template 1" before "Orientation Template"; the grouped one
+                // sits at position 1.
                 TestDataFixture::CUSTOM_TEMPLATE_1_ID,
                 TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID,
+                TestDataFixture::ORIENTATION_TEMPLATE_ID,
                 TestDataFixture::GROUPED_TEMPLATE_ID,
             ],
             array_keys(self::templatesById($result)),

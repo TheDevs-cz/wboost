@@ -30,6 +30,7 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
+use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\Color;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\EditorImageInput;
@@ -178,6 +179,24 @@ final class TestDataFixture extends Fixture
     public const string FILE_IN_OTHER_ID = '00000000-0000-0000-0000-000000000072';
     public const string FILE_IN_ROOT_ID = '00000000-0000-0000-0000-000000000073';
 
+    // A NESTED folder (inside ALLOWED) — the gallery tree is only one level
+    // deep without it, so nothing would tell a per-level listing apart from a
+    // whole-tree one. Deliberately EMPTY: a folder holding no pictures is a
+    // real state a browsing agent must handle.
+    public const string FILE_DIRECTORY_NESTED_ID = '00000000-0000-0000-0000-000000000063';
+
+    // A TRASHED image, in the shape the soft delete leaves behind: `deletedAt`
+    // stamped, `directory` detached to NULL, the original folder remembered in
+    // `restoreDirectory`. The detachment is why it must be asserted absent from
+    // the gallery ROOT above all — a listing that filtered by folder alone
+    // would show the entire bin there.
+    public const string FILE_TRASHED_ID = '00000000-0000-0000-0000-000000000074';
+
+    // PROJECT_2's only gallery folder. Exists so a folder id can be FOREIGN
+    // while still being real: passing it alongside a project the caller CAN see
+    // must fail exactly like an id that matches nothing.
+    public const string FILE_DIRECTORY_PROJECT_2_ID = '00000000-0000-0000-0000-000000000064';
+
     // Custom template fixtures — mirror the social-network ones (same input mix,
     // same gallery folders) but with a free-form A4 mm dimension.
     public const string CUSTOM_TEMPLATE_1_ID = '00000000-0000-0000-0000-000000000080';
@@ -214,6 +233,27 @@ final class TestDataFixture extends Fixture
     public const string GROUP_SHARED_INPUT_ID = '00000000-0000-0000-0000-0000000000c6';
     /** Image placeholder shared by both member variants — unrestricted slot (whole gallery + root). */
     public const string GROUP_SHARED_IMAGE_INPUT_ID = '00000000-0000-0000-0000-0000000000c7';
+
+    // "Orientation Template" (PROJECT_1) — ONE variant carrying every input
+    // FEATURE the older fixtures leave untouched, so a describing surface can
+    // be asserted against real data instead of defaults: a rich input with
+    // lists + checkbox lines, a dedicated checklist component with a non-default
+    // capability, a per-input sampleValue, a design-HIDDEN textbox (present on
+    // the canvas, absent from inputs[] — it must not consume a positional
+    // binding slot), a fillable BACKGROUND layer and an UNRESTRICTED image slot
+    // next to a restricted one. Layer background mode, 1:1 so canvas pixels and
+    // designed coordinates are the same numbers.
+    public const string ORIENTATION_TEMPLATE_ID = '00000000-0000-0000-0000-000000000101';
+    public const string ORIENTATION_VARIANT_ID = '00000000-0000-0000-0000-000000000102';
+    public const string ORIENTATION_INPUT_INTRO_ID = '00000000-0000-0000-0000-000000000103';
+    public const string ORIENTATION_INPUT_BULLETS_ID = '00000000-0000-0000-0000-000000000104';
+    public const string ORIENTATION_INPUT_CHECKLIST_ID = '00000000-0000-0000-0000-000000000105';
+    /** Fillable background layer — restricted to the "Photos" folder. */
+    public const string ORIENTATION_IMAGE_BACKGROUND_ID = '00000000-0000-0000-0000-000000000106';
+    /** Ordinary image slot with an EMPTY allow-list = the whole gallery, root included. */
+    public const string ORIENTATION_IMAGE_FREE_ID = '00000000-0000-0000-0000-000000000107';
+    public const string ORIENTATION_ROOT_CONTAINER_ID = '00000000-0000-0000-0000-000000000108';
+    public const string ORIENTATION_NESTED_CONTAINER_ID = '00000000-0000-0000-0000-000000000109';
 
     public function __construct(
         private readonly TokenCrypto $tokenCrypto,
@@ -445,6 +485,18 @@ final class TestDataFixture extends Fixture
             $dirOther,
         ));
 
+        // Second level of the tree, inside "Photos" — without it every folder
+        // in the fixtures is top-level and a one-level listing is
+        // indistinguishable from a whole-tree one.
+        $manager->persist(new FileDirectory(
+            Uuid::fromString(self::FILE_DIRECTORY_NESTED_ID),
+            $project1,
+            FileSource::ProjectImage,
+            'Logos',
+            $dirAllowed,
+            $date,
+        ));
+
         $manager->persist(new FileUpload(
             Uuid::fromString(self::FILE_IN_ROOT_ID),
             $project1,
@@ -452,6 +504,31 @@ final class TestDataFixture extends Fixture
             FileSource::ProjectImage,
             'fixtures/in-root.png',
             null,
+        ));
+
+        // In the Koš. Built through the real transition so the row carries the
+        // exact shape production leaves behind (detached from "Photos",
+        // `restoreDirectory` remembering it) rather than a hand-set flag.
+        $trashed = new FileUpload(
+            Uuid::fromString(self::FILE_TRASHED_ID),
+            $project1,
+            $date,
+            FileSource::ProjectImage,
+            'fixtures/in-trash.png',
+            $dirAllowed,
+        );
+        $trashed->moveToTrash($date);
+        $manager->persist($trashed);
+
+        // PROJECT_2's gallery folder — a REAL folder that is nonetheless
+        // foreign to PROJECT_1.
+        $manager->persist(new FileDirectory(
+            Uuid::fromString(self::FILE_DIRECTORY_PROJECT_2_ID),
+            $project2,
+            FileSource::ProjectImage,
+            'Project 2 photos',
+            null,
+            $date,
         ));
 
         // Former social template (USER_1 / PROJECT_1), now a unified Template —
@@ -794,6 +871,183 @@ final class TestDataFixture extends Fixture
         );
         $groupedFreeformVariant->assignToGroup($templateGroup1);
         $manager->persist($groupedFreeformVariant);
+
+        // "Orientation Template" (PROJECT_1) — the feature-complete variant the
+        // describing surfaces are asserted against. Everything here exists
+        // because it is a DIFFERENT branch of some publishing rule; see the
+        // constants block for the inventory.
+        $orientationTemplate = new Template(
+            Uuid::fromString(self::ORIENTATION_TEMPLATE_ID),
+            $project1,
+            null,
+            $date,
+            'Orientation Template',
+            null,
+            0,
+        );
+        $manager->persist($orientationTemplate);
+
+        $orientationVariant = new TemplateVariant(
+            Uuid::fromString(self::ORIENTATION_VARIANT_ID),
+            $orientationTemplate,
+            TemplateDimension::fromPreset(DimensionPreset::InstagramPost),
+            // Layer mode keeps this column as a denormalized pointer to the
+            // background LAYER's asset, not to a canvas-level background.
+            'fixtures/orientation-bg.png',
+            $date,
+            BackgroundMode::Layer,
+        );
+
+        $orientationCanvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                // 0 — the background layer, marked fillable by the designer.
+                [
+                    'type' => 'Image',
+                    'inputId' => self::ORIENTATION_IMAGE_BACKGROUND_ID,
+                    'imagePlaceholder' => true,
+                    'isBackground' => true,
+                    // Cover-fit anchored top-left; the designed box deliberately
+                    // OVERFLOWS the 1080×1080 canvas, which is why a background
+                    // slot must publish the canvas rect instead of this one.
+                    'left' => 0, 'top' => 0, 'width' => 1200, 'height' => 1100,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                    'assetPath' => 'fixtures/orientation-bg.png',
+                ],
+                // 1 — inputs[0]: plain text with a designer-authored default.
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 100, 'width' => 520, 'height' => 80,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                    'fontFamily' => 'Rubik (Rubik Regular)', 'fontSize' => 32, 'lineHeight' => 1.2,
+                ],
+                // 2 — DESIGN-HIDDEN (the editor's per-layer eye): it is NOT in
+                // inputs[], so it must not consume a positional binding slot.
+                // Every frame after this one is wrong if it ever does.
+                [
+                    'type' => 'Textbox',
+                    'visible' => false,
+                    'left' => 80, 'top' => 900, 'width' => 400, 'height' => 40,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+                // 3 — inputs[1]: WYSIWYG with lists + checkbox lines.
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 220, 'width' => 520, 'height' => 160,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                    'fontFamily' => 'Rubik (Rubik Regular)', 'fontSize' => 24,
+                ],
+                // 4 — inputs[2]: the checklist component.
+                [
+                    'type' => 'Textbox',
+                    'left' => 80, 'top' => 420, 'width' => 520, 'height' => 200,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                    'fontFamily' => 'Rubik (Rubik Regular)', 'fontSize' => 24,
+                ],
+                // 5 — the unrestricted image slot.
+                [
+                    'type' => 'Image',
+                    'inputId' => self::ORIENTATION_IMAGE_FREE_ID,
+                    'imagePlaceholder' => true,
+                    'left' => 620, 'top' => 220, 'width' => 360, 'height' => 360,
+                    'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                ],
+            ],
+            'backgroundImage' => null,
+            // A NESTED pair: the root flows the intro and, as one item, the
+            // child holding the two list inputs. Only the root bounds anything;
+            // the child grows with its content.
+            'containers' => [
+                [
+                    'id' => self::ORIENTATION_ROOT_CONTAINER_ID,
+                    'maxHeight' => 700,
+                    'memberInputIds' => [self::ORIENTATION_INPUT_INTRO_ID],
+                    'memberContainerIds' => [self::ORIENTATION_NESTED_CONTAINER_ID],
+                    'spaceAfter' => 40,
+                ],
+                [
+                    'id' => self::ORIENTATION_NESTED_CONTAINER_ID,
+                    'maxHeight' => 400,
+                    'memberInputIds' => [
+                        self::ORIENTATION_INPUT_BULLETS_ID,
+                        self::ORIENTATION_INPUT_CHECKLIST_ID,
+                    ],
+                    'gap' => 24,
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $orientationVariant->editCanvas(
+            $orientationCanvas,
+            [
+                new EditorTextInput(
+                    self::ORIENTATION_INPUT_INTRO_ID,
+                    'intro',
+                    120,
+                    false,
+                    false,
+                    'Lead paragraph, one or two sentences',
+                    false,
+                    sampleValue: 'Welcome to the show',
+                ),
+                new EditorTextInput(
+                    self::ORIENTATION_INPUT_BULLETS_ID,
+                    'bullets',
+                    null,
+                    false,
+                    false,
+                    null,
+                    true,
+                    richText: true,
+                    lists: true,
+                    listCheckboxes: true,
+                ),
+                // The checklist component: richText + lists + listCheckboxes are
+                // forced on by the editor, and one capability is off so a
+                // surface reporting the four flags cannot pass by defaulting.
+                new EditorTextInput(
+                    self::ORIENTATION_INPUT_CHECKLIST_ID,
+                    'tasks',
+                    null,
+                    false,
+                    false,
+                    null,
+                    false,
+                    richText: true,
+                    lists: true,
+                    listCheckboxes: true,
+                    checklist: true,
+                    checklistAdd: false,
+                    sampleValue: '{"runs":[{"text":"First task\nSecond task"}],"lines":["cb","cbx"]}',
+                ),
+            ],
+            null,
+            [
+                new EditorImageInput(
+                    self::ORIENTATION_IMAGE_BACKGROUND_ID,
+                    'background',
+                    'Full-bleed photo',
+                    allowMove: false,
+                    allowResize: false,
+                    allowRotate: false,
+                    hidable: true,
+                    allowedDirectoryIds: [self::FILE_DIRECTORY_ALLOWED_ID],
+                    isBackground: true,
+                ),
+                new EditorImageInput(
+                    self::ORIENTATION_IMAGE_FREE_ID,
+                    'photo',
+                    null,
+                    allowMove: true,
+                    allowResize: true,
+                    allowRotate: true,
+                    hidable: false,
+                    // Empty = UNRESTRICTED: every project folder plus the root.
+                    allowedDirectoryIds: [],
+                ),
+            ],
+        );
+        $manager->persist($orientationVariant);
 
         // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
         $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, self::OAUTH2_CLIENT_SECRET);
