@@ -13,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Exceptions\ContainerOverflow;
+use WBoost\Web\Mcp\Fill\VariantFill;
 use WBoost\Web\Mcp\Tool\RenderVariantTool;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
@@ -412,12 +413,14 @@ final class RenderVariantTest extends WebTestCase
         // renderer, NOT the interface: the test env aliases the interface to
         // the fake for every other suite (config/services_test.php).
         $tool = new RenderVariantTool(
-            $security,
-            $container->get(TemplateVariantRepository::class),
+            new VariantFill(
+                $security,
+                $container->get(TemplateVariantRepository::class),
+                $container->get(ResolveTextOverrides::class),
+                $container->get(ResolveRichTextOptions::class),
+                $container->get(ResolveImageOverrides::class),
+            ),
             $container->get(TemplateVariantImageRenderer::class),
-            $container->get(ResolveTextOverrides::class),
-            $container->get(ResolveRichTextOptions::class),
-            $container->get(ResolveImageOverrides::class),
             new DownscaleImage(),
         );
 

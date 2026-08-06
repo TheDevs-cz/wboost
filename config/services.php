@@ -90,13 +90,14 @@ return static function (ContainerConfigurator $container): void {
     // API Platform State Providers / Processors (DTOs themselves are not services).
     $services->load('WBoost\\Web\\Api\\', __DIR__ . '/../src/Api/**/{*Provider.php,*Processor.php}');
 
-    // MCP server: tool classes, the design pipeline and the token security layer.
+    // MCP server: tool classes, the shared fill resolution, the design pipeline
+    // and the token security layer.
     // Same rule as src/Api/ above — response DTOs, the parsed DSL value objects and
     // the exceptions are plain values, never services. The directory list is an
     // explicit allow-list (anything else under src/Mcp/ is wired by hand); the
     // exclude list states the DTO rule out loud and is load-bearing for Design/Dsl,
     // which sits inside a loaded directory.
-    $services->load('WBoost\\Web\\Mcp\\', __DIR__ . '/../src/Mcp/{Tool,Design,Security}/**/*.php')
+    $services->load('WBoost\\Web\\Mcp\\', __DIR__ . '/../src/Mcp/{Tool,Fill,Design,Security}/**/*.php')
         ->exclude([
             __DIR__ . '/../src/Mcp/Response/**/*.php',
             __DIR__ . '/../src/Mcp/Design/Dsl/**/*.php',

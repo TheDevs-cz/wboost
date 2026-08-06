@@ -128,6 +128,13 @@ final class TestDataFixture extends Fixture
     public const string MCP_TOKEN_DESIGN_ONLY_ID = '00000000-0000-0000-0000-0000000000e6';
     public const string MCP_TOKEN_DESIGN_ONLY = 'wb_mcp_test-design-only-token-user1';
 
+    // `templates:export` ONLY — the same isolation for the export tier.
+    // MCP_TOKEN_ACTIVE holds every scope, so it can prove that export_variant
+    // WORKS but never that `templates:export` alone is what unlocked it (nor
+    // that it drags `templates:read` in through the closure).
+    public const string MCP_TOKEN_EXPORT_ONLY_ID = '00000000-0000-0000-0000-0000000000e9';
+    public const string MCP_TOKEN_EXPORT_ONLY = 'wb_mcp_test-export-only-token-user1';
+
     // Belongs to SHARED_USER — a read token whose whole project list is one
     // project somebody else owns.
     public const string MCP_TOKEN_SHARED_USER_ID = '00000000-0000-0000-0000-0000000000e7';
@@ -1123,6 +1130,15 @@ final class TestDataFixture extends Fixture
             'Design-only agent',
             [McpScope::TemplatesDesign->value],
             $mcpTokens->hash(self::MCP_TOKEN_DESIGN_ONLY),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_EXPORT_ONLY_ID),
+            $user1,
+            'Export-only agent',
+            [McpScope::TemplatesExport->value],
+            $mcpTokens->hash(self::MCP_TOKEN_EXPORT_ONLY),
             $date,
         ));
 

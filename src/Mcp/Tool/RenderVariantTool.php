@@ -8,25 +8,18 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 use Mcp\Schema\Content\ImageContent;
-use Mcp\Schema\Content\TextContent;
 use Mcp\Schema\Result\CallToolResult;
-use Ramsey\Uuid\Uuid;
-use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\ContainerOverflow;
-use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
-use WBoost\Web\Exceptions\TemplateVariantNotFound;
+use WBoost\Web\Mcp\Fill\VariantFill;
 use WBoost\Web\Mcp\Response\RenderVariantResponse;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
-use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Image\DownscaleImage;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
-use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -58,14 +51,16 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  * be rejected by the export for a reason this call did not surface. Which is
  * also why maxLength, the rich-text whitelist and the per-slot image limits are
  * enforced STRICTLY here: being forgiving would only postpone the failure to
- * the one call where it costs the user their deliverable.
+ * the one call where it costs the user their deliverable. That shared vocabulary
+ * lives in {@see VariantFill} — the collaborator this tool and `export_variant`
+ * both resolve through, so the two can never disagree about what a fill means.
  *
  * ## Container overflow: lenient here, and how it is detected at all
  *
  * Overflow is the ONE contract this tool relaxes. `export_variant` refuses an
  * overflowing fill; here the picture comes back showing the overflow, with a
- * warning naming the container and the pixels, so the agent can shorten the
- * text and try again instead of being left with nothing to look at.
+ * warning naming the inputs and the pixels, so the agent can shorten the text
+ * and try again instead of being left with nothing to look at.
  *
  * That costs a subtlety worth stating plainly, because the call sequence looks
  * backwards: the render below is issued STRICT first. Overflow can only be
@@ -84,18 +79,19 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  * ## Why the reply is two content blocks
  *
  * The other read tools return a DTO and the SDK encodes it into a single
- * {@see TextContent}. An image cannot travel that way — a real MCP client
- * renders an {@see ImageContent} block and would show a base64 blob smuggled
- * into text as gibberish — so this one returns a {@see CallToolResult} itself,
- * carrying the JSON summary AND the picture. The summary comes first: it says
- * what the image is, at what size, and what is wrong with it, which is the
- * context the model wants before looking.
+ * {@see \Mcp\Schema\Content\TextContent}. An image cannot travel that way — a
+ * real MCP client renders an {@see ImageContent} block and would show a base64
+ * blob smuggled into text as gibberish — so this one returns a
+ * {@see CallToolResult} itself, carrying the JSON summary AND the picture. The
+ * summary comes first: it says what the image is, at what size, and what is
+ * wrong with it, which is the context the model wants before looking.
  *
  * ## Authorisation
  *
  * {@see TemplateVariantVoter::VIEW}, and the same anti-enumeration rule as
  * `describe_variant`: a variant the caller may not see reports the SAME failure
- * as an id that matches no row (one {@see notFound()} factory, one wording).
+ * as an id that matches no row (one {@see VariantFill::notFound()} factory, one
+ * wording).
  */
 #[McpToolScope(McpScope::TemplatesRead)]
 readonly final class RenderVariantTool
@@ -120,12 +116,8 @@ readonly final class RenderVariantTool
     private const RenderImageFormat FORMAT = RenderImageFormat::Webp;
 
     public function __construct(
-        private Security $security,
-        private TemplateVariantRepository $templateVariantRepository,
+        private VariantFill $fill,
         private TemplateVariantImageRendererInterface $renderer,
-        private ResolveTextOverrides $resolveTextOverrides,
-        private ResolveRichTextOptions $resolveRichTextOptions,
-        private ResolveImageOverrides $resolveImageOverrides,
         private DownscaleImage $downscaleImage,
     ) {
     }
@@ -157,10 +149,10 @@ readonly final class RenderVariantTool
      * Slots you do not fill keep the designer's stand-in picture.
      *
      * Text that overflows its container is REPORTED here, not refused: the
-     * picture comes back showing the overflow and warnings says which container
-     * and by how many pixels. export_variant refuses that same fill, so treat
-     * the warning as work to do first — shorten the texts of that container, or
-     * hide one of its inputs.
+     * picture comes back showing the overflow and warnings says which inputs
+     * share that container and by how many pixels it is too long.
+     * export_variant refuses that same fill, so treat the warning as work to do
+     * first — shorten one of those texts, or hide one of them.
      *
      * The reply is a JSON summary followed by the image. width and height
      * describe the picture returned; canvasWidth and canvasHeight are the
@@ -181,15 +173,15 @@ readonly final class RenderVariantTool
         #[Schema(type: 'object', additionalProperties: true)]
         array $images = [],
     ): CallToolResult {
-        $variant = $this->variant($variantId);
+        $variant = $this->fill->variant($variantId);
 
-        $providedInputs = self::stringKeyed($inputs);
-        $providedImages = self::stringKeyed($images);
+        $providedInputs = VariantFill::stringKeyed($inputs);
+        $providedImages = VariantFill::stringKeyed($images);
 
-        $warnings = self::unaddressedKeys($variant, $providedInputs, $providedImages);
+        $warnings = VariantFill::warnings($variant, $providedInputs, $providedImages);
 
-        $overrides = $this->resolveTexts($variant, $providedInputs);
-        $imageOverrides = $this->resolveImages($variant, $providedImages);
+        $overrides = $this->fill->texts($variant, $providedInputs);
+        $imageOverrides = $this->fill->images($variant, $providedImages);
 
         $render = $this->renderPreview($variant, $overrides, $imageOverrides);
 
@@ -213,100 +205,9 @@ readonly final class RenderVariantTool
         );
 
         return new CallToolResult([
-            new TextContent(self::encode($summary)),
+            VariantFill::summary($summary),
             ImageContent::fromString($preview['contents'], self::FORMAT->contentType()),
         ]);
-    }
-
-    /**
-     * The variant, or the one refusal this tool ever gives for a variant id.
-     */
-    private function variant(string $variantId): TemplateVariant
-    {
-        if (!Uuid::isValid($variantId)) {
-            // NOT folded into notFound(): a string that cannot be a variant id
-            // reveals nothing about which variants exist, and telling the agent
-            // it sent a template id (or a name) where a variant id belongs is
-            // the difference between a fixable mistake and a silent dead end.
-            throw new ToolCallException(sprintf(
-                '"%s" is not a valid template variant id. Variant ids are UUIDs; call find_templates to list the ones this account can reach.',
-                $variantId,
-            ));
-        }
-
-        try {
-            $variant = $this->templateVariantRepository->get(Uuid::fromString($variantId));
-        } catch (TemplateVariantNotFound) {
-            throw self::notFound($variantId);
-        }
-
-        if (!$this->security->isGranted(TemplateVariantVoter::VIEW, $variant)) {
-            throw self::notFound($variantId);
-        }
-
-        return $variant;
-    }
-
-    /**
-     * The refusal, worded once. Both callers — "no such row" and "not yours" —
-     * must produce a byte-identical message; see the class docblock.
-     */
-    private static function notFound(string $variantId): ToolCallException
-    {
-        return new ToolCallException(sprintf(
-            'Template variant %s was not found, or this account cannot access it. Call find_templates to list the variants of a project this account can reach.',
-            $variantId,
-        ));
-    }
-
-    /**
-     * Text overrides, resolved STRICTLY (`truncateOverflow: false`) — the API
-     * export's setting, not the web fill page's. A preview that silently cut an
-     * over-long value would hand the agent a picture of a fill the export then
-     * refuses, which is the one failure this tool is supposed to prevent.
-     *
-     * The structured violations become tool errors carrying the same wording
-     * the REST 400 body does, plus its machine code and its context (the
-     * allowed font list, above all — that is what makes the message actionable
-     * rather than merely accurate).
-     *
-     * @param array<string, mixed> $providedInputs
-     */
-    private function resolveTexts(TemplateVariant $variant, array $providedInputs): ResolvedInputOverrides
-    {
-        try {
-            return $this->resolveTextOverrides->resolve(
-                $variant->inputs,
-                $providedInputs,
-                richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-            );
-        } catch (InvalidRichTextValue $invalidRichText) {
-            throw new ToolCallException(self::withContext(
-                sprintf('%s (%s)', $invalidRichText->getMessage(), $invalidRichText->errorCode),
-                $invalidRichText->context,
-            ));
-        } catch (BadRequestHttpException $badRequest) {
-            // maxLength — already phrased for a human ("Input "Nadpis" exceeds
-            // max length of 24 characters."), so it is passed through as-is.
-            throw new ToolCallException($badRequest->getMessage());
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $providedImages
-     */
-    private function resolveImages(TemplateVariant $variant, array $providedImages): ResolvedImageOverrides
-    {
-        try {
-            return $this->resolveImageOverrides->resolve(
-                $variant->imageInputs,
-                $variant->template->project->id,
-                $providedImages,
-            );
-        } catch (BadRequestHttpException $badRequest) {
-            // "cannot be rotated", "is not available for this placeholder", …
-            throw new ToolCallException($badRequest->getMessage());
-        }
     }
 
     /**
@@ -335,13 +236,16 @@ readonly final class RenderVariantTool
                 'warning' => null,
             ];
         } catch (ContainerOverflow $overflow) {
+            // The SAME sentence `export_variant` refuses with, plus the one
+            // clause that differs: here the picture still comes back. Sharing
+            // the wording is the point — an agent must not have to learn two
+            // vocabularies for one defect.
             $warning = sprintf(
-                'Container %s overflows its max height by %.1f px. The preview shows the overflow, but export_variant will refuse this fill — shorten the texts of that container (describe_variant reports which inputs belong to it) or hide one of them.',
-                $overflow->containerId ?? '(unknown)',
-                $overflow->overflowPx,
+                '%s The preview shows the overflow, but export_variant will refuse this fill.',
+                VariantFill::overflowFor($variant, $overflow),
             );
         } catch (TemplateRenderUnavailable) {
-            throw self::rendererBusy();
+            throw VariantFill::rendererBusy();
         } catch (\Throwable) {
             // Strict mode also fails the render on console errors the lenient
             // path deliberately tolerates. Falling through to the lenient
@@ -361,151 +265,12 @@ readonly final class RenderVariantTool
                 'warning' => $warning,
             ];
         } catch (TemplateRenderUnavailable) {
-            throw self::rendererBusy();
+            throw VariantFill::rendererBusy();
         } catch (\Throwable $failure) {
             throw new ToolCallException(sprintf(
                 'Rendering this variant failed: %s. This is a problem with the design or its assets, not with the values provided — opening the variant in the wboost editor will show it.',
                 $failure->getMessage(),
             ));
         }
-    }
-
-    /**
-     * Gotenberg is a synchronous dependency shared with every fill page and
-     * export in the app; "busy" is a retry, not a defect in the request.
-     */
-    private static function rendererBusy(): ToolCallException
-    {
-        return new ToolCallException(
-            'The image renderer is busy and did not answer in time. Nothing was changed — try the same call again in a few seconds.',
-        );
-    }
-
-    /**
-     * Ids the caller addressed that no input on this variant answers to.
-     *
-     * The resolvers ignore unknown ids in silence (the REST contract, so that a
-     * consumer's stale id cannot break an otherwise valid export). For an agent
-     * silence is the worst answer available: a fill keyed by NAMES instead of
-     * ids renders the untouched design and looks like the tool ignored the
-     * request. Locked inputs are called out for the same reason — they are
-     * addressable-looking and unwritable.
-     *
-     * @param array<string, mixed> $providedInputs
-     * @param array<string, mixed> $providedImages
-     *
-     * @return list<string>
-     */
-    private static function unaddressedKeys(TemplateVariant $variant, array $providedInputs, array $providedImages): array
-    {
-        $warnings = [];
-
-        $known = [];
-        $locked = [];
-
-        foreach ($variant->inputs as $input) {
-            $known[$input->inputId] = true;
-
-            if ($input->locked) {
-                $locked[$input->inputId] = $input->name ?? $input->inputId;
-            }
-        }
-
-        $unknown = array_values(array_diff(array_keys($providedInputs), array_keys($known)));
-
-        if ($unknown !== []) {
-            $warnings[] = sprintf(
-                'These inputs ids match no text input on this variant and were ignored: %s. Text inputs are addressed by describe_variant inputs[].id, never by name.',
-                implode(', ', $unknown),
-            );
-        }
-
-        $addressedLocked = array_values(array_intersect_key($locked, $providedInputs));
-
-        if ($addressedLocked !== []) {
-            $warnings[] = sprintf(
-                'These inputs are locked by the designer and keep their designed text: %s.',
-                implode(', ', $addressedLocked),
-            );
-        }
-
-        $knownImages = [];
-
-        foreach ($variant->imageInputs as $imageInput) {
-            $knownImages[$imageInput->inputId] = true;
-        }
-
-        $unknownImages = array_values(array_diff(array_keys($providedImages), array_keys($knownImages)));
-
-        if ($unknownImages !== []) {
-            $warnings[] = sprintf(
-                'These image slot ids match no image placeholder on this variant and were ignored: %s. Image slots are addressed by describe_variant imageInputs[].id.',
-                implode(', ', $unknownImages),
-            );
-        }
-
-        return $warnings;
-    }
-
-    /**
-     * Re-keys a decoded JSON object to string keys.
-     *
-     * `json_decode(..., true)` turns a numeric-looking property name into an
-     * INT key, and both resolvers look their ids up with
-     * `array_key_exists('<uuid>', …)` — a mismatch that cannot happen with real
-     * UUID keys but would silently drop a caller's value if one ever did. Doing
-     * it once here also gives the warning builder above a shape it can compare.
-     *
-     * @param array<array-key, mixed> $provided
-     *
-     * @return array<string, mixed>
-     */
-    private static function stringKeyed(array $provided): array
-    {
-        $result = [];
-
-        foreach ($provided as $key => $value) {
-            $result[(string) $key] = $value;
-        }
-
-        return $result;
-    }
-
-    /**
-     * A structured-error message with its context appended as `key: value`
-     * pairs, so an agent reading only the sentence still learns the allowed
-     * fonts rather than being told to guess.
-     *
-     * @param array<string, mixed> $context
-     */
-    private static function withContext(string $message, array $context): string
-    {
-        $parts = [];
-
-        foreach ($context as $key => $value) {
-            $parts[] = sprintf('%s: %s', $key, is_array($value)
-                ? implode(', ', array_map(static fn (mixed $item): string => self::scalarToString($item), $value))
-                : self::scalarToString($value));
-        }
-
-        return $parts === [] ? $message : sprintf('%s Allowed values — %s.', $message, implode('; ', $parts));
-    }
-
-    private static function scalarToString(mixed $value): string
-    {
-        return is_scalar($value) ? (string) $value : json_encode($value, JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * The summary block, encoded with the same flags the SDK's own formatter
-     * uses for a DTO — so this tool's text block reads exactly like every other
-     * tool's, even though it builds the result by hand.
-     */
-    private static function encode(RenderVariantResponse $summary): string
-    {
-        return json_encode(
-            $summary,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE,
-        );
     }
 }
