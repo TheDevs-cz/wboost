@@ -64,6 +64,9 @@ export default class extends Controller {
         this.refreshTimer = null;
         this.exportTimer = null;
         this.exportButtonHtml = null;
+        // Which dimension the debounced refresh is queued for: undefined = none
+        // queued, null = all of them, otherwise one variantId.
+        this._pendingScope = undefined;
         // Keyed by preview endpoint URL (one per variant).
         this.aborters = new Map();
         this.objectUrls = new Map();
@@ -102,10 +105,42 @@ export default class extends Controller {
         this._endDrag();
     }
 
+    /** A text / picture / hide change — it lands in every dimension. */
     changed() {
+        this._scheduleRefresh(null);
+    }
+
+    /**
+     * Only ONE dimension's pixels can have changed (a per-dimension placement
+     * edit on an unlinked dimension). Every render is a Gotenberg call that
+     * takes seconds, so re-rendering the others would spin a spinner over
+     * previews that are already correct and burn the renderer's capacity —
+     * which is a hard dependency of this page, not a background job.
+     */
+    changedFor(variantId) {
+        this._scheduleRefresh(variantId);
+    }
+
+    _scheduleRefresh(variantId) {
         clearTimeout(this.refreshTimer);
-        this.previewTargets.forEach((img) => img.closest('.group-fill-preview-frame')?.classList.add('is-pending'));
-        this.refreshTimer = setTimeout(() => this.refreshAll(), this.debounceValue);
+
+        // Coalescing across the debounce window: a pending refresh for a
+        // DIFFERENT scope widens to all. Narrowing instead would leave the
+        // other previews marked pending with pixels nobody is going to redraw.
+        const scope = this._pendingScope === undefined || this._pendingScope === variantId
+            ? variantId
+            : null;
+        this._pendingScope = scope;
+
+        const previews = scope === null
+            ? this.previewTargets
+            : this.previewTargets.filter((img) => img.dataset.variantId === scope);
+
+        previews.forEach((img) => img.closest('.group-fill-preview-frame')?.classList.add('is-pending'));
+        this.refreshTimer = setTimeout(() => {
+            this._pendingScope = undefined;
+            this.refreshAll(previews);
+        }, this.debounceValue);
     }
 
     // Enter in a fill field must never trigger the ZIP download — only the
@@ -190,9 +225,9 @@ export default class extends Controller {
         this.exportButtonTarget.innerHTML = this.exportButtonHtml;
     }
 
-    refreshAll() {
+    refreshAll(previews = null) {
         const formData = new FormData(this.element);
-        this.previewTargets.forEach((img) => this.refreshOne(img, formData));
+        (previews ?? this.previewTargets).forEach((img) => this.refreshOne(img, formData));
     }
 
     async refreshOne(img, formData) {
@@ -316,7 +351,8 @@ export default class extends Controller {
      * dimension at once).
      */
     _mutatePlacement(variantId, inputId, mutate) {
-        const target = this._isUnlinked(variantId)
+        const unlinked = this._isUnlinked(variantId);
+        const target = unlinked
             ? (this.overridePlacement[variantId][inputId] ??= { ...this._effectivePlacement(variantId, inputId) })
             : (this.sharedPlacement[inputId] ??= { ...NEUTRAL_PLACEMENT });
 
@@ -325,7 +361,13 @@ export default class extends Controller {
         this._writePlacementFields(inputId);
         this.renderGhosts();
         this._syncPlacementControls();
-        this.changed();
+        // Dragging an unlinked dimension moves only its own picture; dragging a
+        // linked one moves the shared placement, i.e. every linked dimension.
+        if (unlinked) {
+            this.changedFor(variantId);
+        } else {
+            this.changed();
+        }
     }
 
     /**
@@ -627,7 +669,9 @@ export default class extends Controller {
         this.slotsValue.forEach((slot) => this._writePlacementFields(slot.inputId));
         this._activateGhosts(variantId);
         this._syncPlacementControls();
-        this.changed();
+        // Linking / unlinking can only move THIS dimension: unlinking seeds
+        // from what it already shows, relinking drops it onto the shared value.
+        this.changedFor(variantId);
     }
 
     /** Give a dimension its own placement, seeded from what it currently shows. */
@@ -701,7 +745,8 @@ export default class extends Controller {
         this._writePlacementFields(inputId);
         this._activateGhosts(variantId);
         this._syncPlacementControls();
-        this.changed();
+        // The dimension was unlinked on the way in, so nothing else moved.
+        this.changedFor(variantId);
     }
 
     /**
