@@ -35,6 +35,8 @@ readonly final class BackgroundLayer
         'allowResize',
         'allowRotate',
         'allowedDirectoryIds',
+        // The designer's lock choice survives a background swap — see the
+        // seeding note in buildObject().
         'editorLocked',
     ];
 
@@ -81,6 +83,12 @@ readonly final class BackgroundLayer
             'crossOrigin' => 'anonymous',
             'isBackground' => true,
             'imagePlaceholder' => false,
+            // Seeded LOCKED: click-through on the canvas surface so a
+            // full-canvas image can't swallow the rubber band, selected from
+            // the layers panel. The designer unlocks it to move / resize it —
+            // `editorLocked` is in PRESERVED_PROPERTIES, so a background swap
+            // keeps whatever state they chose.
+            'editorLocked' => true,
             'assetPath' => $assetPath,
             'inputId' => $inputId ?? \Ramsey\Uuid\Uuid::uuid4()->toString(),
         ];

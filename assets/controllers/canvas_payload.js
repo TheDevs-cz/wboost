@@ -47,6 +47,13 @@ export function restoreCustomProperties(canvas, sourceCanvas) {
         // submitAddText — otherwise Fabric's permissive defaults let the user
         // stretch and shift a reloaded box.
         if (t === 'image') {
+            // Backgrounds saved before they became ordinary lockable layers
+            // carry no editorLocked flag; they were force-locked, so default
+            // them to locked rather than silently making every existing
+            // background draggable. The next save writes the flag explicitly.
+            if (obj.isBackground === true && obj.editorLocked === undefined) {
+                obj.editorLocked = true;
+            }
             applyEditorLock(obj);
         } else if (t === 'textbox') {
             applyTextboxDefaults(obj);

@@ -219,7 +219,7 @@ export default class extends Controller {
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
             if ((obj.type || '').toLowerCase() !== 'image') continue;
-            if (obj.editorLocked === true || obj.isBackground === true) continue;
+            if (obj.editorLocked === true) continue;
             if (obj.visible === false) continue;
             if (!isBackdropCovering(obj, width, height)) continue;
             if (typeof obj.containsPoint === 'function' && !obj.containsPoint(up)) continue;
@@ -285,7 +285,7 @@ export default class extends Controller {
             const obj = objects[i];
             if (obj.evented !== false) continue; // only passthrough backdrops need promoting
             if ((obj.type || '').toLowerCase() !== 'image') continue;
-            if (obj.editorLocked === true || obj.isBackground === true) continue;
+            if (obj.editorLocked === true) continue;
             if (obj.visible === false) continue;
             if (!isBackdropCovering(obj, width, height)) continue;
             if (typeof obj.containsPoint === 'function' && !obj.containsPoint(point)) continue;
@@ -625,10 +625,12 @@ export default class extends Controller {
         if (existing?.allowedDirectoryIds !== undefined) img.allowedDirectoryIds = existing.allowedDirectoryIds;
         img.assetPath = assetPath || undefined;
         img.assetId = assetId || undefined;
-        if (existing?.editorLocked !== undefined) img.editorLocked = existing.editorLocked;
-        // Backgrounds are always click-through on the canvas surface (a
-        // full-canvas evented object would kill rubber-band selection) —
-        // they are selected via the layers panel's "Pozadí" row instead.
+        // A FRESH background is seeded locked — a designer picking a backdrop
+        // almost never wants to nudge it next, and a locked layer is
+        // click-through so it can't swallow the rubber band. Unlocking it (the
+        // mini-toolbar padlock / the popover) makes it move and resize like any
+        // other picture; a REPLACEMENT keeps whatever lock state was set.
+        img.editorLocked = existing?.editorLocked !== undefined ? existing.editorLocked : true;
         applyEditorLock(img);
 
         let index = 0;

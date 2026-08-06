@@ -78,11 +78,18 @@ gallery pick + `persistBackgroundPath` side-channel POST. Untouched forever.
 regular image object in `objects[]` marked `isBackground: true`, initially
 placed **cover-fit anchored top-left** (`scale = max(cw/iw, ch/ih)`, overflow
 crops bottom-right) at stack index 0 — reorderable, undoable, snapping-excluded,
-styled distinctly in the layers panel ("Pozadí" row), and **click-through on
-the canvas surface** (`applyEditorLock`: a full-canvas evented object would
-swallow every mousedown — no rubber-band multi-select, and when editor-locked
-it painted the not-allowed cursor everywhere; select it via the layers panel
-instead — the same click-through rule applies to `editorLocked` images).
+styled distinctly in the layers panel ("Pozadí" row), and **an ordinary
+lockable layer**: it is seeded `editorLocked: true` (`setBackgroundLayer` /
+`BackgroundLayer::buildObject`, and `restoreCustomProperties` defaults
+pre-existing flag-less backgrounds to locked) and therefore click-through —
+a full-canvas evented object would swallow every mousedown, killing
+rubber-band multi-select — but **unlocking it via the mini-toolbar padlock
+makes it move and resize like any other picture**. `isBackground` itself no
+longer gates interaction anywhere (`applyEditorLock` / `applyBackdropState` /
+the backdrop-targeting sweeps key on `editorLocked` alone), so an unlocked
+background gets the normal backdrop treatment: passthrough while unselected,
+plain-click to select, fully manipulable while active. It used to be
+force-locked, which meant the designer could never reposition it at all.
 Key facts:
 
 - **Optional**: add-variant/group forms no longer require a background; a

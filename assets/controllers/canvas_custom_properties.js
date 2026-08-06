@@ -20,8 +20,10 @@
 // isBackground marks THE background layer of a layer-mode variant (regular
 // image object, initially cover-fitted top-left at the bottom of the stack):
 // styled distinctly in the layers panel, replaced in place by the "Pozadí"
-// picker, excluded from snapping and from ALL group-editor propagation
-// (backgrounds stay per-dimension), stripped on copy/paste.
+// picker, excluded from snapping and from group-editor GEOMETRY propagation
+// (the picture is shared, the fit is per-dimension), stripped on copy/paste.
+// It does NOT gate interaction — a background is an ordinary layer that is
+// seeded editorLocked and moves/resizes freely once unlocked.
 // lists* props (textboxes with richText): lists enables ul/ol in the fill
 // WYSIWYG; listBullet ('disc'|'dash'|'check'|'image'), listBulletImage
 // (gallery storage path), listIndent / listItemSpacing / listBlockSpacing

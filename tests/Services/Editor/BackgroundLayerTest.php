@@ -33,6 +33,10 @@ final class BackgroundLayerTest extends TestCase
 
         self::assertTrue($object['isBackground']);
         self::assertFalse($object['imagePlaceholder']);
+        // Seeded LOCKED: a background is an ordinary layer the designer can
+        // move and resize once unlocked, but a full-canvas evented image would
+        // swallow the rubber band, so it starts click-through.
+        self::assertTrue($object['editorLocked']);
         self::assertSame('left', $object['originX']);
         self::assertSame('top', $object['originY']);
         self::assertSame(0, $object['left']);
@@ -113,6 +117,9 @@ final class BackgroundLayerTest extends TestCase
                     'imagePlaceholder' => true,
                     'name' => 'Pozadí kampaně',
                     'hidable' => true,
+                    // Deliberately unlocked so it can be repositioned — a
+                    // background swap must not silently re-lock it.
+                    'editorLocked' => false,
                     'allowedDirectoryIds' => ['dir-1'],
                     'src' => 'https://a/old.png',
                     'assetPath' => 'p/old.png',
@@ -137,6 +144,7 @@ final class BackgroundLayerTest extends TestCase
         self::assertTrue($swapped['imagePlaceholder']);
         self::assertSame('Pozadí kampaně', $swapped['name']);
         self::assertTrue($swapped['hidable']);
+        self::assertFalse($swapped['editorLocked'], 'the designer\'s lock choice survives the swap');
         self::assertSame(['dir-1'], $swapped['allowedDirectoryIds']);
     }
 
