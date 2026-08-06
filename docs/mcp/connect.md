@@ -5,10 +5,15 @@ client to it lets the assistant see your projects and brand assets, fill a
 template variant's placeholders and hand you the exported PNG — without you
 opening the app.
 
-This release supports **Claude Code**. Connectors that require a browser
-OAuth flow (claude.ai, ChatGPT) are not supported yet; they need the OAuth 2.1
-authorization-code grant, which is on the backlog. Until then, authentication is
-a personal access token you paste once.
+This release supports **Claude Code**, and authentication is a personal access
+token you paste once.
+
+`/_mcp` also accepts an **OAuth 2.1 bearer token** issued by wboost's own
+authorization server (authorization-code grant with PKCE), and both credentials
+behave identically once inside — same account, same scopes, same tools. What is
+still missing for claude.ai / ChatGPT connectors is *automatic client
+registration*: today an operator has to register the connector's `client_id` and
+redirect URI by hand, so those connectors cannot yet set themselves up.
 
 ---
 
@@ -37,8 +42,10 @@ bin/console app:mcp:token:list          # every token ever issued, with its stat
 bin/console app:mcp:token:revoke <id>   # kill one; idempotent
 ```
 
-> When OAuth lands, this whole step disappears: you will sign in to wboost in a
-> browser and the client will get its own token. Nothing about the tools changes.
+> Once a client can register itself, this whole step disappears: you will sign
+> in to wboost in a browser and the client will get its own token. Nothing about
+> the tools changes — an OAuth-authenticated client sees exactly what a personal
+> access token of the same scopes sees.
 
 ### Scopes
 

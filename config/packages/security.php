@@ -7,6 +7,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 use Symfony\Component\Security\Core\Authorization\Voter\AuthenticatedVoter;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Mcp\Security\McpOAuthAuthenticator;
 use WBoost\Web\Mcp\Security\McpTokenAuthenticator;
 use WBoost\Web\Services\Security\FacebookAuthenticator;
 use WBoost\Web\Services\Security\UserChecker;
@@ -74,15 +75,34 @@ return App::config([
                 'provider' => 'api_user_provider',
                 'oauth2' => true,
             ],
-            // MCP server (personal access tokens). MUST stay above `main`:
-            // firewalls match in order, and under `main` an unauthenticated
-            // POST /_mcp would be answered by its form_login entry point with a
-            // 302 to /login instead of the 401 challenge an MCP client needs.
+            // MCP server. MUST stay above `main`: firewalls match in order, and
+            // under `main` an unauthenticated POST /_mcp would be answered by
+            // its form_login entry point with a 302 to /login instead of the
+            // 401 challenge an MCP client needs.
+            //
+            // TWO credentials, one behaviour (S8-T6). A personal access token
+            // (`wb_mcp_…`) and an OAuth 2.1 bearer issued by this app's own
+            // authorization server resolve to the SAME User and stash their
+            // scopes under the SAME token attribute, so voters, McpScopeChecker,
+            // McpToolGate and `tools/list` filtering cannot tell them apart.
+            //
+            // The two authenticators' `supports()` are DISJOINT (PAT = the
+            // `wb_mcp_` prefix, OAuth = every other bearer) and that is
+            // load-bearing, not tidiness: Symfony runs every supporting
+            // authenticator in turn and does NOT stop at the first success, so
+            // two authenticators claiming one request would let the second
+            // one's failure overwrite the first one's success with a 401. It is
+            // also why the bundle's own `oauth2: true` cannot be used here —
+            // its `supports()` claims every bearer, PATs included. See
+            // McpOAuthAuthenticator's docblock.
             //
             // The UserChecker is deliberately the same one `main` uses: it
             // blocks users with confirmed=false, so a never-activated (or
-            // deactivated) account cannot keep using a token it still holds. A
-            // deleted user needs no check — the token row cascades away with it.
+            // deactivated) account cannot keep using a credential it still
+            // holds — on BOTH paths, since it belongs to the firewall rather
+            // than to either authenticator. A deleted user needs no check: the
+            // PAT row cascades away with it, and an OAuth token's `sub` stops
+            // resolving.
             'mcp' => [
                 'pattern' => '^/_mcp',
                 'stateless' => true,
@@ -90,7 +110,11 @@ return App::config([
                 'user_checker' => UserChecker::class,
                 'custom_authenticators' => [
                     McpTokenAuthenticator::class,
+                    McpOAuthAuthenticator::class,
                 ],
+                // Only ONE entry point per firewall, and both authenticators
+                // fail into the same McpChallenge anyway. This one answers the
+                // "nothing usable was presented" case.
                 'entry_point' => McpTokenAuthenticator::class,
             ],
             'main' => [

@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\OAuth2;
 
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
-use League\Bundle\OAuth2ServerBundle\Model\Client as OAuth2Client;
 use League\Bundle\OAuth2ServerBundle\OAuth2Grants;
-use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
-use League\Bundle\OAuth2ServerBundle\ValueObject\RedirectUri;
-use League\Bundle\OAuth2ServerBundle\ValueObject\Scope;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
+use WBoost\Web\Tests\TestingOAuthClient;
 
 /**
  * The OAuth 2.1 authorization-code flow (S8-T1) — the mechanism claude.ai and
@@ -34,17 +31,11 @@ use WBoost\Web\Tests\TestingLogin;
  */
 final class AuthorizationEndpointTest extends WebTestCase
 {
-    /** Exactly 32 chars — `oauth2_client.identifier` is `varchar(32)`. */
-    private const string PUBLIC_CLIENT_ID = 'mcptestpublicclientxxxxxxxxxxxxx';
+    private const string PUBLIC_CLIENT_ID = TestingOAuthClient::PUBLIC_CLIENT_ID;
 
-    private const string REDIRECT_URI = 'http://localhost/oauth/callback';
+    private const string REDIRECT_URI = TestingOAuthClient::REDIRECT_URI;
 
-    /**
-     * The RFC 7636 verifier/challenge pair used throughout: `S256` challenge =
-     * base64url(sha256(verifier)), computed rather than pasted so the pair can
-     * never drift.
-     */
-    private const string CODE_VERIFIER = 'wboost-test-code-verifier-0123456789-abcdefghijklmnop';
+    private const string CODE_VERIFIER = TestingOAuthClient::CODE_VERIFIER;
 
     /**
      * Anonymous first contact is a REDIRECT TO THE LOGIN FORM, not an error
@@ -217,56 +208,90 @@ final class AuthorizationEndpointTest extends WebTestCase
     }
 
     /**
+     * The refresh-token decision of S8-T6, asserted from both ends.
+     *
+     * League ISSUES a refresh token with every authorization-code exchange
+     * whether or not the grant is enabled — the flag only governs redemption.
+     * So before S8-T6 this response already carried a `refresh_token` the token
+     * endpoint would answer `unsupported_grant_type` to, and an hour-old
+     * connector had to re-run the whole browser flow. The fix was to enable the
+     * grant; this test is what stops it being quietly turned off again, leaving
+     * the broken advertisement behind.
+     *
+     * The second half asserts ROTATION (`revoke_refresh_tokens`, on by default),
+     * which is what bounds the risk of handing a long-lived credential to a
+     * PUBLIC client: redeeming a refresh token invalidates it, so a stolen copy
+     * is single-use and a replay fails.
+     */
+    public function testTheIssuedRefreshTokenCanBeRedeemedAndIsRotated(): void
+    {
+        $client = self::createClient();
+        self::registerPublicClient($client);
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request('GET', '/api/authorize?' . http_build_query(self::authorizeQuery()));
+        parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), PHP_URL_QUERY), $params);
+
+        $payload = TestingOAuthClient::exchange($client, [
+            'grant_type' => OAuth2Grants::AUTHORIZATION_CODE,
+            'client_id' => self::PUBLIC_CLIENT_ID,
+            'redirect_uri' => self::REDIRECT_URI,
+            'code' => is_string($params['code'] ?? null) ? $params['code'] : '',
+            'code_verifier' => self::CODE_VERIFIER,
+        ]);
+
+        $refreshToken = $payload['refresh_token'] ?? null;
+        self::assertIsString($refreshToken, 'The authorization-code response carried no refresh token.');
+
+        $refreshed = TestingOAuthClient::exchange($client, [
+            'grant_type' => OAuth2Grants::REFRESH_TOKEN,
+            'client_id' => self::PUBLIC_CLIENT_ID,
+            'refresh_token' => $refreshToken,
+        ]);
+
+        self::assertSame(
+            Response::HTTP_OK,
+            $client->getResponse()->getStatusCode(),
+            (string) $client->getResponse()->getContent(),
+        );
+
+        $accessToken = $refreshed['access_token'] ?? null;
+        self::assertIsString($accessToken);
+
+        // The refreshed token still names the same user and the same scopes —
+        // a refresh must never widen (or lose) what was consented to.
+        self::assertSame(TestDataFixture::USER_1_ID, self::subjectOf($accessToken));
+        self::assertSame([McpScope::TemplatesRead->value], self::claim($accessToken, 'scopes'));
+
+        // Rotation: the presented refresh token was revoked by its own use, so
+        // a replay is `invalid_grant` (league's 400 for a refresh token that
+        // does not decrypt, is expired, or has been revoked).
+        $replayed = TestingOAuthClient::exchange($client, [
+            'grant_type' => OAuth2Grants::REFRESH_TOKEN,
+            'client_id' => self::PUBLIC_CLIENT_ID,
+            'refresh_token' => $refreshToken,
+        ]);
+
+        self::assertSame(
+            Response::HTTP_BAD_REQUEST,
+            $client->getResponse()->getStatusCode(),
+            'A refresh token survived being redeemed — rotation is off.',
+        );
+        self::assertSame('invalid_grant', $replayed['error'] ?? null);
+        self::assertArrayNotHasKey('access_token', $replayed);
+    }
+
+    /**
      * @return array<string, string>
      */
     private static function authorizeQuery(): array
     {
-        return [
-            'response_type' => 'code',
-            'client_id' => self::PUBLIC_CLIENT_ID,
-            'redirect_uri' => self::REDIRECT_URI,
-            'scope' => McpScope::TemplatesRead->value,
-            'state' => 'opaque-state',
-            'code_challenge' => self::codeChallenge(),
-            'code_challenge_method' => 'S256',
-        ];
+        return TestingOAuthClient::authorizeQuery([McpScope::TemplatesRead->value]);
     }
 
-    private static function codeChallenge(): string
-    {
-        return rtrim(strtr(base64_encode(hash('sha256', self::CODE_VERIFIER, true)), '+/', '-_'), '=');
-    }
-
-    /**
-     * A PUBLIC client (no secret) with a registered redirect URI — the shape
-     * every MCP connector has, and the shape PKCE is mandatory for. Created
-     * per test rather than in the shared fixture so the client_credentials
-     * fixtures stay exactly as the API suite expects them; DAMA rolls the row
-     * back.
-     *
-     * The explicit `setScopes()` is LOAD-BEARING, and it is the trap any future
-     * client-registration code (S8-T4) has to avoid: the bundle's
-     * `AddClientDefaultScopesListener` stamps `league_oauth2_server.scopes.default`
-     * — i.e. the legacy `api` scope — onto every client saved without scopes of
-     * its own, and `ScopeRepository::setupScopes` then refuses anything outside
-     * that list. A client registered without the MCP scopes therefore sails
-     * through the authorize step and only fails when the code is exchanged, with
-     * `invalid_scope`.
-     */
     private static function registerPublicClient(KernelBrowser $browser): void
     {
-        $manager = $browser->getContainer()->get(ClientManagerInterface::class);
-
-        $client = new OAuth2Client('mcp-test-public', self::PUBLIC_CLIENT_ID, null);
-        $client->setActive(true);
-        $client->setGrants(new Grant(OAuth2Grants::AUTHORIZATION_CODE));
-        $client->setRedirectUris(new RedirectUri(self::REDIRECT_URI));
-        $client->setScopes(...array_map(
-            static fn (McpScope $scope): Scope => new Scope($scope->value),
-            McpScope::cases(),
-        ));
-
-        $manager->save($client);
+        TestingOAuthClient::registerPublicClient($browser->getContainer()->get(ClientManagerInterface::class));
     }
 
     private static function subjectOf(string $jwt): string

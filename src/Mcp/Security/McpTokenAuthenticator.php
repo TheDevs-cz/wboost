@@ -30,11 +30,17 @@ use WBoost\Web\Repository\McpAccessTokenRepository;
  * = role ∩ scope). Nothing here gates tools — {@see McpToolGate} and its two
  * consumers do that, one layer up.
  *
+ * Since S8-T6 it is one of TWO authenticators on the `mcp` firewall — its
+ * sibling {@see McpOAuthAuthenticator} serves OAuth 2.1 bearers — and the
+ * partition between them is the `wb_mcp_` prefix checked in
+ * {@see presentedToken()}. Nothing in this class changed for that: both produce
+ * the same token, the same user and the same scope attribute, which is what
+ * makes the two credential types indistinguishable downstream.
+ *
  * ## OAuth-shaped failures
  *
- * Personal access tokens are the transport today, full OAuth 2.1 is Stage 8 —
- * but the 401 already speaks the protocol the MCP spec expects, so a client can
- * discover where to get a token without this class changing later:
+ * The 401 speaks the protocol the MCP spec expects, so a client can discover
+ * where to get a token:
  *
  *     WWW-Authenticate: Bearer resource_metadata="https://…/.well-known/oauth-protected-resource", scope="templates:read"
  *
@@ -49,9 +55,10 @@ use WBoost\Web\Repository\McpAccessTokenRepository;
  * ## `supports()` is the cheap filter
  *
  * A missing header, a malformed one, or a bearer token belonging to some other
- * scheme (the OAuth API's JWT, say) all fail {@see McpTokenGenerator::looksLikeToken()}
- * and return `false` — no database round-trip, and the entry point answers with
- * the bare challenge.
+ * scheme all fail {@see McpTokenGenerator::looksLikeToken()} and return `false`
+ * — no database round-trip. A JWT falls through to
+ * {@see McpOAuthAuthenticator}; anything that is no bearer token at all reaches
+ * the entry point and gets the bare challenge.
  */
 final class McpTokenAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
@@ -167,14 +174,18 @@ final class McpTokenAuthenticator extends AbstractAuthenticator implements Authe
 
     /**
      * Entry point: no usable credentials at all. Named in the `mcp` firewall so
-     * `main`'s `form_login` entry point can never turn this into a 302.
+     * `main`'s `form_login` entry point can never turn this into a 302 — it
+     * speaks for BOTH authenticators, which is why the description names both
+     * credential types rather than only this class's own.
      */
     public function start(Request $request, null|AuthenticationException $authException = null): Response
     {
         return $this->challenge->unauthorized(
             $request,
             null,
-            'An MCP access token is required: Authorization: Bearer ' . McpTokenGenerator::TOKEN_PREFIX . '…',
+            'A bearer token is required: either an MCP personal access token (Authorization: Bearer '
+                . McpTokenGenerator::TOKEN_PREFIX
+                . '…) or an OAuth access token obtained from the authorization server named in resource_metadata.',
         );
     }
 

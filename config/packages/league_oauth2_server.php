@@ -24,17 +24,43 @@ use WBoost\Web\Mcp\Security\McpScope;
  * - `authorization_code` (S8-T1): the interactive flow — the ONLY mechanism
  *   claude.ai / ChatGPT connectors can use, since they cannot send custom
  *   headers and therefore cannot carry a personal access token.
+ * - `refresh_token` (S8-T6): see below — it was already being ISSUED before it
+ *   was enabled, which is a bug, not a feature.
  *
- * `refresh_token` stays OFF deliberately: turning it on is a token-lifetime
- * decision that belongs with S8-T6 (swap the authenticator), not with enabling
- * the grant. Until then an auth-code access token simply expires after
- * `access_token_ttl` and the client repeats the (already-consented) flow.
+ * ## Why `refresh_token` had to be decided here (S8-T6)
+ *
+ * With the flag off, league STILL put a `refresh_token` in every
+ * authorization-code response: `enable_refresh_token_grant` only controls
+ * whether `grant_type=refresh_token` can be REDEEMED at the token endpoint, and
+ * the bundle hands `AuthCodeGrant` a refresh-token repository plus a TTL
+ * unconditionally. Clients were therefore handed a credential the server would
+ * answer `unsupported_grant_type` to. The two ways out were to stop issuing one
+ * (a custom grant subclass or a null repository — fighting the library) or to
+ * accept it, and accepting it is also what the product needs: `access_token_ttl`
+ * is one hour, so without redemption every connector re-runs the whole browser
+ * flow every hour.
+ *
+ * **The trade-off, stated plainly:** MCP connectors are PUBLIC clients with no
+ * secret, so a stolen refresh token is usable by whoever holds it. Three things
+ * bound that, none of which apply to the access token itself:
+ *
+ * - **Rotation.** `revoke_refresh_tokens` defaults to true, so redeeming a
+ *   refresh token revokes it and mints a new one. A stolen token is single-use,
+ *   and a replay after the legitimate client has refreshed simply fails.
+ * - **Revocability.** Refresh tokens are rows, not self-contained JWTs — the
+ *   credentials revoker (and `app:oauth-client:revoke`) can kill them, which is
+ *   exactly what cannot be done to an issued access token.
+ * - **A bounded idle window** (`refresh_token_ttl` below).
+ *
+ * `grant_types_supported` in the RFC 8414 metadata follows automatically,
+ * because it is this same list.
  *
  * @var list<string>
  */
 $supportedGrants = [
     OAuth2Grants::CLIENT_CREDENTIALS,
     OAuth2Grants::AUTHORIZATION_CODE,
+    OAuth2Grants::REFRESH_TOKEN,
 ];
 
 return App::config([
@@ -49,6 +75,15 @@ return App::config([
             'encryption_key' => '%env(OAUTH2_ENCRYPTION_KEY)%',
             'encryption_key_type' => 'plain',
             'access_token_ttl' => 'PT1H',
+
+            // The IDLE window, not the session length: league mints a fresh
+            // refresh token (with a fresh TTL) on every redemption, so a
+            // connector in daily use never expires, while one nobody has
+            // touched for a month has to be re-authorized in the browser.
+            // Spelled out rather than left to the bundle's identical default,
+            // because for a public client this number IS the security
+            // boundary — see the trade-off note above.
+            'refresh_token_ttl' => 'P1M',
 
             'enable_client_credentials_grant' => in_array(OAuth2Grants::CLIENT_CREDENTIALS, $supportedGrants, true),
             'enable_password_grant' => in_array(OAuth2Grants::PASSWORD, $supportedGrants, true),

@@ -98,9 +98,15 @@ final class AuthorizationServerMetadataTest extends WebTestCase
     }
 
     /**
-     * Both grants this server really serves — the in-production
-     * client_credentials flow of the REST API and the new interactive one —
-     * and neither of the ones that are switched off.
+     * The three grants this server really serves — the in-production
+     * client_credentials flow of the REST API, the interactive one, and
+     * `refresh_token` (S8-T6: league issues refresh tokens with every
+     * auth-code exchange, so the choice was to make them redeemable or to stop
+     * advertising them) — and neither of the ones that are switched off.
+     *
+     * `refresh_token` appearing here is also the drift alarm for the derivation
+     * itself: nothing in this controller was touched when the grant was
+     * enabled, only the `$supportedGrants` list that drives both.
      */
     public function testGrantTypesMirrorTheEnabledGrants(): void
     {
@@ -111,6 +117,7 @@ final class AuthorizationServerMetadataTest extends WebTestCase
 
         self::assertContains('authorization_code', $grants);
         self::assertContains('client_credentials', $grants);
+        self::assertContains('refresh_token', $grants);
         self::assertNotContains('password', $grants);
         self::assertNotContains('implicit', $grants);
     }
