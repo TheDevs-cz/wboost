@@ -38,7 +38,13 @@ return static function (ContainerConfigurator $container): void {
         ->autowire()
         ->public()
         // Admin recipients for new-registration notifications (csv env -> list<string>).
-        ->bind('array $signupNotificationRecipients', '%env(csv:SIGNUP_NOTIFICATION_EMAILS)%');
+        ->bind('array $signupNotificationRecipients', '%env(csv:SIGNUP_NOTIFICATION_EMAILS)%')
+        // OAuth2 grants this authorization server offers — the SAME list that
+        // drives the bundle's `enable_*_grant` switches, so the RFC 8414
+        // metadata document cannot advertise a grant that is turned off (or
+        // miss one that was turned on). Defined in
+        // `config/packages/league_oauth2_server.php`.
+        ->bind('array $grantTypesSupported', '%oauth2.grant_types_supported%');
 
     $services->set(PdoSessionHandler::class)
         ->args([
@@ -114,6 +120,16 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(
         \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,
         \WBoost\Web\Services\Meta\MetaGraphApi::class,
+    );
+
+    // OAuth2 resource owner identity (S8-T1): override the bundle's converter so
+    // an authorization-code token's `sub` is the App User UUID — the identifier
+    // `api_user_provider` (an entity provider on the `id` column) can actually
+    // load, and the one IssueAccessTokenWithUserListener already writes for the
+    // client_credentials grant.
+    $services->alias(
+        \League\Bundle\OAuth2ServerBundle\Converter\UserConverterInterface::class,
+        \WBoost\Web\Services\OAuth2\AppUserConverter::class,
     );
 
     /** @see https://github.com/doctrine/migrations/issues/1406 */

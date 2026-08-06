@@ -42,12 +42,34 @@ return App::config([
                 'stateless' => true,
                 'security' => false,
             ],
+            // The OAuth2 TOKEN endpoint authenticates the CLIENT (secret or
+            // PKCE verifier), never a Symfony user — so it must not sit behind
+            // any firewall. `/api/authorize` used to share this entry and was
+            // moved out by S8-T1; see the `api` pattern right below.
             'api_token' => [
-                'pattern' => '^/api/(token|authorize)$',
+                'pattern' => '^/api/token$',
                 'security' => false,
             ],
+            // Everything under /api EXCEPT the authorization endpoint.
+            //
+            // `/api/authorize` is the one OAuth endpoint that has to identify
+            // the END USER (the resource owner whose id becomes the token's
+            // `sub`), and the bundle reads that user straight off
+            // `Security::getUser()` — it throws outright if there is none. A
+            // stateless, bearer-only firewall can never supply it, so the
+            // request has to reach the session-backed `main` firewall instead.
+            //
+            // Firewalls match in ORDER and the first hit wins, so the only way
+            // to let `/api/authorize` fall through to `main` (which has no
+            // pattern and therefore catches everything left) is to carve it out
+            // of this pattern. The negative lookahead does exactly that and
+            // touches nothing else: `/api/token` was already claimed above,
+            // and every other `/api/...` path — including anything that merely
+            // STARTS with `/api/authorize`, since the lookahead is anchored
+            // with `$` — still matches here and keeps its bearer-token
+            // behaviour unchanged.
             'api' => [
-                'pattern' => '^/api',
+                'pattern' => '^/api(?!/authorize$)',
                 'stateless' => true,
                 'provider' => 'api_user_provider',
                 'oauth2' => true,
@@ -94,8 +116,23 @@ return App::config([
             ],
         ],
         'access_control' => [
+            // OAuth 2.1 authorization endpoint (S8-T1). Handled by the `main`
+            // firewall (see the `api` firewall pattern above), and DELIBERATELY
+            // not public: demanding a full login is what turns an anonymous
+            // visit into a 302 to the Czech login form instead of the bundle's
+            // "A logged in user is required to resolve the authorization
+            // request" 500. The `main` ExceptionListener stores the full
+            // authorize URL (query string included) under
+            // `_security.main.target_path`, so the user lands back here after
+            // logging in and the flow continues — which only works because the
+            // firewall handling the request is literally named `main`, the same
+            // name the login form's success handler reads the target path for.
             [
-                'path' => '^/api/(token|authorize|docs|contexts/.*|\.well-known/.*)',
+                'path' => '^/api/authorize$',
+                'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],
+            ],
+            [
+                'path' => '^/api/(token|docs|contexts/.*|\.well-known/.*)',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [
@@ -108,6 +145,15 @@ return App::config([
             // a login for it.
             [
                 'path' => '^/\.well-known/oauth-protected-resource',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
+            // RFC 8414 authorization-server metadata (S8-T2): the document the
+            // RFC 9728 resource metadata above points a client at. Read while
+            // UNAUTHENTICATED by definition — it is how a client discovers
+            // where to send the user to log in — so it must stay above the
+            // `^/` catch-all, which would answer it with a redirect to /login.
+            [
+                'path' => '^/\.well-known/oauth-authorization-server',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [
