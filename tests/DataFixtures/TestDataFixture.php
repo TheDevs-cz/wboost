@@ -14,6 +14,7 @@ use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateCategory;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\Manual;
@@ -191,6 +192,13 @@ final class TestDataFixture extends Fixture
     public const string CUSTOM_TEMPLATE_VARIANT_1_IMAGE_PHOTO_ID = '00000000-0000-0000-0000-000000000095';
     public const string CUSTOM_TEMPLATE_VARIANT_1_IMAGE_LOCKED_ID = '00000000-0000-0000-0000-000000000096';
     public const string CUSTOM_TEMPLATE_VARIANT_2_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000097';
+
+    // The ONLY filed category in the fixtures (PROJECT_1), holding
+    // CUSTOM_TEMPLATE_1. Its name shares no word with any template name on
+    // purpose: it is what proves a name-or-category search really consults the
+    // category, and not just the template it happens to contain.
+    public const string TEMPLATE_CATEGORY_1_ID = '00000000-0000-0000-0000-000000000098';
+    public const string TEMPLATE_CATEGORY_1_NAME = 'Print materials';
 
     // Template group fixtures — one group (PROJECT_1) holding exactly ONE
     // template whose variants span a preset (1:1) and a free-form (A4 mm)
@@ -571,13 +579,24 @@ final class TestDataFixture extends Fixture
         );
         $manager->persist($socialVariant2);
 
+        // The one filed category — every other fixture template sits
+        // uncategorized, so both branches of "has a category" are covered.
+        $templateCategory1 = new TemplateCategory(
+            Uuid::fromString(self::TEMPLATE_CATEGORY_1_ID),
+            $project1,
+            $date,
+            self::TEMPLATE_CATEGORY_1_NAME,
+            0,
+        );
+        $manager->persist($templateCategory1);
+
         // Free-form template (USER_1 / PROJECT_1) — same input mix as the
         // preset variant above, with a free-form A4 (210×297 mm @ 300 DPI)
         // dimension.
         $template1 = new Template(
             Uuid::fromString(self::CUSTOM_TEMPLATE_1_ID),
             $project1,
-            null,
+            $templateCategory1,
             $date,
             'Custom Template 1',
             null,

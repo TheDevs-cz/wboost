@@ -40,7 +40,7 @@ final class ScopeFilteringTest extends WebTestCase
      * here** — that this list needs editing is the point: a tool appearing in a
      * token's listing is a deliberate act, not a side effect.
      */
-    private const array READ_TOOLS = ['auth_probe', 'get_context', 'scope_read_probe', 'transport_probe'];
+    private const array READ_TOOLS = ['auth_probe', 'find_templates', 'get_context', 'scope_read_probe', 'transport_probe'];
 
     private const string DESIGN_TOOL = 'scope_design_probe';
 
