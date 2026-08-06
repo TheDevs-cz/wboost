@@ -115,12 +115,15 @@ return static function (ContainerConfigurator $container): void {
     // Same rule as src/Api/ above — response DTOs, the parsed DSL value objects and
     // the exceptions are plain values, never services. The directory list is an
     // explicit allow-list (anything else under src/Mcp/ is wired by hand); the
-    // exclude list states the DTO rule out loud and is load-bearing for Design/Dsl,
-    // which sits inside a loaded directory.
+    // exclude list states the DTO rule out loud and is load-bearing for Design/Dsl
+    // and Design/Geometry, which sit inside a loaded directory. Geometry is pure
+    // math with a private constructor (GridResolver is called statically, like
+    // DslParser): a swappable grid would not be the public contract it has to be.
     $services->load('WBoost\\Web\\Mcp\\', __DIR__ . '/../src/Mcp/{Tool,Fill,Design,Security}/**/*.php')
         ->exclude([
             __DIR__ . '/../src/Mcp/Response/**/*.php',
             __DIR__ . '/../src/Mcp/Design/Dsl/**/*.php',
+            __DIR__ . '/../src/Mcp/Design/Geometry/**/*.php',
             __DIR__ . '/../src/Mcp/Exception/**/*.php',
         ]);
 
