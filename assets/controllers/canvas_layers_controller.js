@@ -130,9 +130,11 @@ export default class extends Controller {
         // setActiveObject fires no Fabric selection events — rebroadcast FIRST
         // so the floating toolbar shows the mini-toolbar for the new selection
         // (its selection handler closes popovers), THEN open the popover.
+        // KeepFocus: the user selected a layer, they did not ask to type — and
+        // focusing a popover field makes handleKeydown swallow Delete.
         this.canvasEditorOutlet.dispatchSelectionChanged();
         if (this.hasCanvasFloatingToolbarOutlet) {
-            this.canvasFloatingToolbarOutlet.openPopover();
+            this.canvasFloatingToolbarOutlet.openPopoverKeepFocus();
         }
     }
 

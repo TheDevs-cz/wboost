@@ -168,7 +168,25 @@ export default class extends Controller {
 
     // --- pencil -> full-options popover ----------------------------------
 
+    /** The pencil: an explicit "edit this element's properties" gesture, so the
+     *  first field takes focus and the user can type straight away. */
     openPopover() {
+        this._openPopover(true);
+    }
+
+    /**
+     * Opened as a SIDE EFFECT of selecting a row in the layers panel. Same
+     * popover, but keyboard focus stays where it was: focusing a field would
+     * make `canvas_editor_controller.handleKeydown` treat every keystroke as
+     * typing and bail, so Delete/Backspace silently did nothing to a layer
+     * selected from the panel — which was the only way to select a locked one
+     * (a background, most of all).
+     */
+    openPopoverKeepFocus() {
+        this._openPopover(false);
+    }
+
+    _openPopover(focusField) {
         if (!this.hasCanvasEditorOutlet) return;
         const obj = this.canvasEditorOutlet.canvas.getActiveObject();
         if (!obj) return;
@@ -185,8 +203,10 @@ export default class extends Controller {
             target.classList.remove('d-none');
             this.reposition();
             this._setPencilExpanded(true);
-            const field = target.querySelector('input, select, textarea');
-            if (field) field.focus();
+            if (focusField) {
+                const field = target.querySelector('input, select, textarea');
+                if (field) field.focus();
+            }
         }
     }
 
