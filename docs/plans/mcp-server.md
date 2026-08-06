@@ -608,7 +608,9 @@ first — deploy semantics are non-obvious. Relevant facts:
   per-session render cap in S5-T2 so the two do not fight.
   **Done when:** the middleware is in the infra repo and a burst test gets 429s at the expected rate.
 
-- [ ] **I-T4 — Production smoke.**
+- [x] **I-T4 — Production smoke.** *(Done 2026-08-06 — journal entry pushed to `~/www/lily.srv`.)*
+  **Result:** `/.well-known/oauth-protected-resource` serves `resource: https://wboost.cz/_mcp` (**https** — `x-forwarded-proto` trusted correctly through traefik); no-token `POST /_mcp` → 401 with the `resource_metadata` challenge; full handshake with a real token → 6 tools, `get_context` right user + 25 projects, `export_variant` a real 1080×1080 PNG (65 599 B) through the box's gotenberg with an `export_event` row at `channel = mcp`. **R1 holds on the real worker** — an unrelated request straight after an MCP call succeeded. Two PATs issued (ids in the journal); nothing else on the box changed.
+
   After the first deploy carrying `/_mcp`: create a token for one real user, connect from Claude
   Code against `https://wboost.cz/_mcp`, run `get_context` + `export_variant`, and log the result in
   `docs/journal.md`. Verify the `allowed_hosts` list (R5) and that responses are buffered (R1) in
@@ -651,3 +653,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-06 — S3-T1 — `ExportChannel::Mcp` added (no migration; the column is a plain varchar). Corrected a plan assumption: `/admin/usage` does not break out by channel at all, so MCP exports fold into the same totals.
 - 2026-08-06 — S3-T2 — `render_variant`: WebP downscaled to a 1200px long edge via the new `Services/Image/DownscaleImage`, lenient overflow surfaced as a warning by probing strict first, `inputs`/`images` accepting byte-identical shapes to the REST `ExportRequest`. Established the `gotenberg` test group (excluded by default).
 - 2026-08-06 — S3-T3 — `export_variant` (full-size strict PNG, `templates:export` scope, usage recorded last on success only); fill resolution extracted into `Mcp/Fill/VariantFill` shared with `render_variant`. Overflow errors name the container's fillable inputs and admit when they cannot tell which is at fault. **Stage 3 complete — MILESTONE A.**
+- 2026-08-06 — I-T4 — production smoke green on https://wboost.cz (401 challenge, 6 tools, real PNG export, R1 holds on the real worker); PATs issued for j.mikes@me.com + lukasrejda@lukasrejda.cz; journal entry in ~/www/lily.srv.

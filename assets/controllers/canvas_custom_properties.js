@@ -48,11 +48,17 @@ export const CANVAS_CUSTOM_PROPERTIES = [
  * where Fabric starts its rubber-band multi-select. This is load-bearing for
  * full-canvas images: an evented full-canvas object swallows every mousedown
  * (no rubber-band anywhere) and a locked one used to paint the not-allowed
- * cursor across the whole editor. Background layers (`isBackground`) are
- * ALWAYS click-through for the same reason — their pixels cover everything.
- * Locked/background objects are selected via the LAYERS PANEL instead
- * (programmatic setActiveObject ignores these flags), where the popover can
- * unlock them again.
+ * cursor across the whole editor. Locked objects are selected via the LAYERS
+ * PANEL instead (programmatic setActiveObject ignores these flags), where the
+ * popover can unlock them again.
+ *
+ * Background layers are NOT special-cased here. They used to be force-locked
+ * on the same "their pixels cover everything" reasoning, which cost the
+ * designer the ability to move or resize the background at all. The backdrop
+ * state below already solves the pointer problem for any canvas-covering
+ * image without taking the affordances away, so a background is an ordinary
+ * lockable layer: seeded LOCKED (see setBackgroundLayer /
+ * BackgroundLayer::buildObject) and fully manipulable once unlocked.
  *
  * Reversible: unlocking restores the normal image affordances (movable, with
  * transform handles). Only ever called for image objects — textboxes carry
@@ -60,7 +66,7 @@ export const CANVAS_CUSTOM_PROPERTIES = [
  */
 export function applyEditorLock(obj) {
     if (!obj) return;
-    const locked = obj.editorLocked === true || obj.isBackground === true;
+    const locked = obj.editorLocked === true;
     obj.lockMovementX = locked;
     obj.lockMovementY = locked;
     obj.lockScalingX = locked;
@@ -108,13 +114,15 @@ export function isBackdropCovering(obj, canvasWidth, canvasHeight) {
  * the layers panel, or Fabric restoring a selection — it is fully movable /
  * scalable again, and it drops back to click-through on deselect.
  *
- * Locked (`editorLocked`) and background (`isBackground`) images are owned by
+ * This is what lets an UNLOCKED background layer stay grabbable: it covers the
+ * canvas by definition, so it is passthrough until you click it, then behaves
+ * like any other picture. Locked (`editorLocked`) images are owned by
  * applyEditorLock and never touched here. Editor-only, like applyEditorLock:
  * none of these flags serialize, so the export render is untouched.
  */
 export function applyBackdropState(obj, covering, isActive) {
     if (!obj) return;
-    if (obj.editorLocked === true || obj.isBackground === true) return;
+    if (obj.editorLocked === true) return;
     const passthrough = covering === true && isActive !== true;
     obj.selectable = !passthrough;
     obj.evented = !passthrough;
