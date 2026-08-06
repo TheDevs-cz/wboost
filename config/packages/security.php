@@ -155,8 +155,17 @@ return App::config([
                 'path' => '^/api/authorize$',
                 'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],
             ],
+            // `register` is the RFC 7591 client-registration endpoint (S8-T4).
+            // Unauthenticated BY DESIGN — a connector introduces itself before
+            // any user is in the loop — and unlike `/api/token` it needs no
+            // firewall carve-out: the `api` firewall's oauth2 authenticator
+            // simply does not claim a request with no bearer, so this rule is
+            // the only thing standing between it and the `^/api` login
+            // requirement below. Whether it answers at all is a separate
+            // switch (`OAUTH2_DYNAMIC_CLIENT_REGISTRATION`, off by default);
+            // reaching a 404 without a session is the intended behaviour.
             [
-                'path' => '^/api/(token|docs|contexts/.*|\.well-known/.*)',
+                'path' => '^/api/(token|register|docs|contexts/.*|\.well-known/.*)',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [

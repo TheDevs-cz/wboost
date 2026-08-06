@@ -89,7 +89,16 @@ enum McpScope: string
      * the CLI help and in {@see \WBoost\Web\Exceptions\InvalidMcpScopes} the
      * moment it is declared.
      *
-     * @return list<string>
+     * The `non-empty-list<non-empty-string>` is not decoration: OAuth value
+     * objects (`League\…\ValueObject\Scope`) demand a `non-empty-string`, and
+     * "at least one scope exists" is what
+     * {@see \WBoost\Web\Services\OAuth2\DynamicClientRegistrar} relies on to
+     * guarantee it never saves a client with an EMPTY scope list — the state
+     * the bundle's default-scope listener overwrites with the blanket `api`
+     * scope. Both facts follow from this being an enum with cases, so stating
+     * them costs nothing and spares every caller a re-assertion.
+     *
+     * @return non-empty-list<non-empty-string>
      */
     public static function values(): array
     {

@@ -66,6 +66,36 @@ $supportedGrants = [
 return App::config([
     'parameters' => [
         'oauth2.grant_types_supported' => $supportedGrants,
+
+        /*
+         * RFC 7591 dynamic client registration (S8-T4) — **the one switch**.
+         *
+         * It gates BOTH `POST /api/register`
+         * ({@see \WBoost\Web\Controller\OAuth2\ClientRegistrationController})
+         * and the `registration_endpoint` field of the RFC 8414 metadata
+         * document, so the server can never advertise an endpoint that 404s or
+         * hide one that answers.
+         *
+         * ## It is OFF, and turning it on before S8-T5 is a vulnerability
+         *
+         * Registration is unauthenticated by design — a connector introduces
+         * itself before any user is involved. Combined with
+         * {@see \WBoost\Web\Services\OAuth2\ApproveAuthorizationRequestListener},
+         * which currently approves every authorization request without asking,
+         * that means: anyone registers a client pointing at a host they own,
+         * sends a logged-in wboost user a link to `/api/authorize`, and
+         * receives a token scoped to that user's projects — one click, no
+         * prompt. PKCE does not help (the attacker IS the client and holds the
+         * verifier), https-only redirect URIs do not help (attackers own https
+         * hosts), rate limiting does not help. The consent screen does.
+         *
+         * The registrar's constraints (public clients only, https-or-loopback
+         * redirect URIs, no wildcards, MCP scopes only, no outbound fetch) are
+         * built and tested; they bound what a registration can be, not whether
+         * the user agreed to it. So this stays `0` until S8-T5 lands, at which
+         * point flipping it is the entire change.
+         */
+        'oauth2.dynamic_client_registration_enabled' => '%env(bool:OAUTH2_DYNAMIC_CLIENT_REGISTRATION)%',
     ],
 
     'league_oauth2_server' => [

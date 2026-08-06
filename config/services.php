@@ -29,7 +29,14 @@ return static function (ContainerConfigurator $container): void {
         ->set('env(FACEBOOK_APP_ID)', '')
         ->set('env(FACEBOOK_APP_SECRET)', '')
         ->set('env(META_GRAPH_BASE_URL)', 'https://graph.facebook.com/v23.0/')
-        ->set('env(SOCIAL_TOKEN_ENCRYPTION_KEY)', '');
+        ->set('env(SOCIAL_TOKEN_ENCRYPTION_KEY)', '')
+        // RFC 7591 dynamic client registration (S8-T4) — OFF unless explicitly
+        // turned on. The default lives here as well as in `.env` because prod's
+        // `.env` is rendered from Infisical: a deploy made before the variable
+        // exists there must fall back to "disabled", never to a container that
+        // cannot boot. See config/packages/league_oauth2_server.php for why the
+        // safe value is `0` until the consent screen (S8-T5) exists.
+        ->set('env(OAUTH2_DYNAMIC_CLIENT_REGISTRATION)', '0');
 
     $services = $container->services();
 
@@ -44,7 +51,12 @@ return static function (ContainerConfigurator $container): void {
         // metadata document cannot advertise a grant that is turned off (or
         // miss one that was turned on). Defined in
         // `config/packages/league_oauth2_server.php`.
-        ->bind('array $grantTypesSupported', '%oauth2.grant_types_supported%');
+        ->bind('array $grantTypesSupported', '%oauth2.grant_types_supported%')
+        // Whether `POST /api/register` answers and whether the RFC 8414
+        // document advertises it — one flag, two consumers, so they cannot
+        // disagree. Defined in config/packages/league_oauth2_server.php, where
+        // the reason it defaults to OFF is written down.
+        ->bind('bool $dynamicClientRegistrationEnabled', '%oauth2.dynamic_client_registration_enabled%');
 
     $services->set(PdoSessionHandler::class)
         ->args([

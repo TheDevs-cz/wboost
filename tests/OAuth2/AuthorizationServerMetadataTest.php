@@ -169,16 +169,22 @@ final class AuthorizationServerMetadataTest extends WebTestCase
     }
 
     /**
-     * S8-T4 has not landed, so claiming support would make a client attempt a
-     * URL `client_id` this server cannot dereference instead of falling back
-     * to a registered one.
+     * Client ID Metadata Documents stay unsupported after S8-T4, deliberately:
+     * a CIMD `client_id` IS an https URL the server dereferences, and
+     * `oauth2_client.identifier` is `VARCHAR(32)` — the table's primary key,
+     * hard-coded in the bundle's mapping driver and referenced by four foreign
+     * keys. No URL fits. Claiming support anyway would make a client attempt a
+     * URL `client_id` instead of falling back to a registered one, which is a
+     * hard failure rather than a degraded flow.
+     *
+     * RFC 7591 registration is what claude.ai and ChatGPT actually speak, and
+     * that is what S8-T4 built — see {@see ClientRegistrationTest}.
      */
-    public function testClientIdMetadataDocumentsAreNotClaimedYet(): void
+    public function testClientIdMetadataDocumentsAreNotClaimed(): void
     {
         $document = self::fetch(self::createClient());
 
         self::assertFalse($document['client_id_metadata_document_supported'] ?? null);
-        self::assertArrayNotHasKey('registration_endpoint', $document);
     }
 
     /**

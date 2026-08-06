@@ -53,6 +53,23 @@ return App::config([
                     'adapter' => 'cache.adapter.redis',
                     'default_lifetime' => 3600, // mirrors mcp.http.session.ttl
                 ],
+                // Sliding-window state for the RFC 7591 client-registration
+                // limiter (config/packages/rate_limiter.php). Its own pool
+                // rather than the framework's `cache.rate_limiter` (a child of
+                // cache.app) for one reason that matters and one that is
+                // hygiene: the test environment has to override it to something
+                // that actually stores (cache.app is Redis, which CI does not
+                // run, and a limiter over a pool that always misses never
+                // limits) — and a `cache:pool:clear` on it resets rate limits
+                // only, touching no application cache.
+                //
+                // Not tag-aware: limiter state is a point read/write per key.
+                // The lifetime is the window plus slack; the component expires
+                // its own entries anyway.
+                'cache.oauth2_client_registration' => [
+                    'adapter' => 'cache.adapter.redis',
+                    'default_lifetime' => 7200,
+                ],
             ],
         ],
     ],

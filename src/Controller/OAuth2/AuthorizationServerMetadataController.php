@@ -75,6 +75,7 @@ final class AuthorizationServerMetadataController extends AbstractController
      */
     public function __construct(
         private readonly array $grantTypesSupported,
+        private readonly bool $dynamicClientRegistrationEnabled,
     ) {
     }
 
@@ -104,11 +105,12 @@ final class AuthorizationServerMetadataController extends AbstractController
      *     code_challenge_methods_supported: list<string>,
      *     token_endpoint_auth_methods_supported: list<string>,
      *     client_id_metadata_document_supported: bool,
+     *     registration_endpoint?: string,
      * }
      */
     private function metadata(Request $request): array
     {
-        return [
+        $metadata = [
             'issuer' => $request->getSchemeAndHttpHost(),
             'authorization_endpoint' => $this->generateUrl('oauth2_authorize', [], UrlGeneratorInterface::ABSOLUTE_URL),
             'token_endpoint' => $this->generateUrl('oauth2_token', [], UrlGeneratorInterface::ABSOLUTE_URL),
@@ -136,14 +138,36 @@ final class AuthorizationServerMetadataController extends AbstractController
             // the case PKCE protects).
             'token_endpoint_auth_methods_supported' => ['client_secret_basic', 'client_secret_post', 'none'],
 
-            // Client ID Metadata Documents are S8-T4. Advertising `true` before
-            // the server can actually dereference a URL client_id would make
-            // every such client fail at the authorize step instead of falling
-            // back to a registered client_id, so this stays false until the
-            // fetch (with its SSRF guards) exists. `registration_endpoint`
-            // (RFC 7591) is omitted for the same reason: an absent field means
-            // "not supported", which is the truth today.
+            // Client ID Metadata Documents stay UNSUPPORTED, and S8-T4 decided
+            // that deliberately rather than deferring it again. A CIMD
+            // `client_id` IS an https URL the server dereferences, but
+            // `oauth2_client.identifier` is `VARCHAR(32)` — hard-coded in
+            // `League\Bundle\OAuth2ServerBundle\Persistence\Mapping\Driver::buildClientMetadata()`,
+            // used as the table's primary key and referenced by three foreign
+            // keys plus our own `oauth2_client_user`. No URL fits, so support
+            // would mean overriding a private mapping driver and rewriting
+            // those columns, for a draft specification that no shipping
+            // connector uses. RFC 7591 registration (below) is what claude.ai
+            // and ChatGPT actually speak. Advertising `true` here without the
+            // dereference would make every such client fail at the authorize
+            // step instead of falling back to a registered client_id.
             'client_id_metadata_document_supported' => false,
         ];
+
+        // Advertised ONLY while the endpoint really answers (S8-T4). RFC 8414
+        // reads an absent field as "not supported", which is exactly what a
+        // conformant client should conclude while
+        // `OAUTH2_DYNAMIC_CLIENT_REGISTRATION` is off — it then falls back to
+        // an operator-issued client_id instead of failing. One flag drives both
+        // halves, so the document can never promise an endpoint that 404s.
+        if ($this->dynamicClientRegistrationEnabled) {
+            $metadata['registration_endpoint'] = $this->generateUrl(
+                'oauth2_client_registration',
+                [],
+                UrlGeneratorInterface::ABSOLUTE_URL,
+            );
+        }
+
+        return $metadata;
     }
 }

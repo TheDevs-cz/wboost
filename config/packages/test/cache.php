@@ -40,6 +40,12 @@ return App::config([
                     'adapter' => 'cache.adapter.filesystem',
                     'default_lifetime' => 3600,
                 ],
+                // NOTE: `cache.oauth2_client_registration` is deliberately NOT
+                // overridden here. The rate limiter that would use it is
+                // pointed at a plain in-memory storage service instead — see
+                // config/packages/test/rate_limiter.php, which explains why no
+                // cache pool (array included) can hold limiter state under
+                // test.
             ],
         ],
     ],
