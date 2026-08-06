@@ -127,58 +127,73 @@
                                         <input type="hidden" name="images[{{ input.inputId }}][imageId]" value=""
                                                data-group-fill-target="imageValue" data-input-id="{{ input.inputId }}">
 
-                                        {# Placement the designer allowed. These edit the SHARED
-                                           placement — dimensions the user unlinked keep their own.
-                                           The primary interaction is dragging the picture in the
-                                           preview itself; these are the precise counterpart. #}
+                                        {# Placement is ALWAYS per dimension. The PICTURE is picked once
+                                           for the whole group, but how it sits inside each dimension's
+                                           frame is its own decision — a crop that works in 4:5 rarely
+                                           works in 9:16 — so every dimension gets its own row instead of
+                                           a shared slider plus an unlink dance. Dragging the picture in
+                                           a preview edits the same values; these are the precise
+                                           counterpart, and they live here so every control for a slot is
+                                           in one place next to the picture it belongs to. #}
                                         {% if input.allowMove or input.allowResize or input.allowRotate %}
                                             <div class="group-fill-placement-controls mt-2 d-none"
                                                  data-group-fill-target="placementControls"
                                                  data-input-id="{{ input.inputId }}">
-                                                {% if input.allowResize %}
-                                                    <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-zoom-{{ input.inputId }}">
-                                                        <span><i class="mdi mdi-magnify-plus-outline"></i> Zvětšení</span>
-                                                        <span data-group-fill-target="zoomLabel" data-input-id="{{ input.inputId }}">100 %</span>
-                                                    </label>
-                                                    <input type="range" class="form-range" id="group-fill-zoom-{{ input.inputId }}"
-                                                           min="1" max="4" step="0.01" value="1"
-                                                           data-group-fill-target="zoomRange" data-input-id="{{ input.inputId }}"
-                                                           data-action="input->group-fill#zoomChanged">
-                                                    <input type="hidden" name="images[{{ input.inputId }}][scale]" value=""
-                                                           data-group-fill-target="placementField"
-                                                           data-input-id="{{ input.inputId }}" data-field="scale">
-                                                {% endif %}
-                                                {% if input.allowRotate %}
-                                                    <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-rotation-{{ input.inputId }}">
-                                                        <span><i class="mdi mdi-rotate-right"></i> Otočení</span>
-                                                        <span data-group-fill-target="rotationLabel" data-input-id="{{ input.inputId }}">0°</span>
-                                                    </label>
-                                                    <input type="range" class="form-range" id="group-fill-rotation-{{ input.inputId }}"
-                                                           min="-180" max="180" step="1" value="0"
-                                                           data-group-fill-target="rotationRange" data-input-id="{{ input.inputId }}"
-                                                           data-action="input->group-fill#rotationChanged">
-                                                    <input type="hidden" name="images[{{ input.inputId }}][rotation]" value=""
-                                                           data-group-fill-target="placementField"
-                                                           data-input-id="{{ input.inputId }}" data-field="rotation">
-                                                {% endif %}
-                                                {% if input.allowMove %}
-                                                    {# Pan travels as a FRACTION of the frame so one value
-                                                       lands correctly in every dimension's own frame. #}
-                                                    <input type="hidden" name="images[{{ input.inputId }}][offsetXRatio]" value=""
-                                                           data-group-fill-target="placementField"
-                                                           data-input-id="{{ input.inputId }}" data-field="offsetXRatio">
-                                                    <input type="hidden" name="images[{{ input.inputId }}][offsetYRatio]" value=""
-                                                           data-group-fill-target="placementField"
-                                                           data-input-id="{{ input.inputId }}" data-field="offsetYRatio">
-                                                {% endif %}
-                                                <div class="d-flex justify-content-between align-items-center gap-1 mt-1">
-                                                    <span class="font-11 text-muted">
-                                                        {% if input.allowMove %}Obrázek posunete tažením přímo v náhledu.{% endif %}
-                                                    </span>
-                                                    <button type="button" class="btn btn-link btn-sm p-0 font-12"
-                                                            data-action="group-fill#resetPlacement"
-                                                            data-group-fill-inputid-param="{{ input.inputId }}">Vycentrovat</button>
-                                                </div>
+                                                <p class="font-11 fw-bold text-uppercase text-muted mb-1">Umístění v rozměrech</p>
+                                                {% for v in variants %}
+                                                    {% set variantId = v.variant.id %}
+                                                    <div class="group-fill-variant-slot">
+                                                        <p class="font-12 mb-1">{{ v.dimension_label }}</p>
+                                                        {% if input.allowResize %}
+                                                            <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-zoom-{{ variantId }}-{{ input.inputId }}">
+                                                                <span><i class="mdi mdi-magnify-plus-outline"></i> Zvětšení</span>
+                                                                <span data-group-fill-target="variantZoomLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">100 %</span>
+                                                            </label>
+                                                            <input type="range" class="form-range" id="group-fill-zoom-{{ variantId }}-{{ input.inputId }}"
+                                                                   min="1" max="4" step="0.01" value="1"
+                                                                   data-group-fill-target="variantZoomRange"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
+                                                                   data-action="input->group-fill#variantZoomChanged">
+                                                            <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][scale]" value=""
+                                                                   data-group-fill-target="overrideField"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="scale">
+                                                        {% endif %}
+                                                        {% if input.allowRotate %}
+                                                            <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-rotation-{{ variantId }}-{{ input.inputId }}">
+                                                                <span><i class="mdi mdi-rotate-right"></i> Otočení</span>
+                                                                <span data-group-fill-target="variantRotationLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">0°</span>
+                                                            </label>
+                                                            <input type="range" class="form-range" id="group-fill-rotation-{{ variantId }}-{{ input.inputId }}"
+                                                                   min="-180" max="180" step="1" value="0"
+                                                                   data-group-fill-target="variantRotationRange"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
+                                                                   data-action="input->group-fill#variantRotationChanged">
+                                                            <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][rotation]" value=""
+                                                                   data-group-fill-target="overrideField"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="rotation">
+                                                        {% endif %}
+                                                        {% if input.allowMove %}
+                                                            {# Pan is stored as a FRACTION of the frame — the one
+                                                               form that survives a preview displayed at an
+                                                               arbitrary size. #}
+                                                            <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][offsetXRatio]" value=""
+                                                                   data-group-fill-target="overrideField"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="offsetXRatio">
+                                                            <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][offsetYRatio]" value=""
+                                                                   data-group-fill-target="overrideField"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="offsetYRatio">
+                                                        {% endif %}
+                                                        <div class="d-flex justify-content-between align-items-center gap-1">
+                                                            <span class="font-11 text-muted">
+                                                                {% if input.allowMove %}Posunete tažením v náhledu.{% endif %}
+                                                            </span>
+                                                            <button type="button" class="btn btn-link btn-sm p-0 font-12"
+                                                                    data-action="group-fill#resetVariantPlacement"
+                                                                    data-group-fill-variantid-param="{{ variantId }}"
+                                                                    data-group-fill-inputid-param="{{ input.inputId }}">Vycentrovat</button>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
                                             </div>
                                         {% endif %}
                                     </div>
@@ -203,6 +218,11 @@
                             {% set variantId = v.variant.id %}
                             <div class="col-sm-6 col-xl-4">
                                 <div class="card group-fill-preview-card">
+                                    {# Which dimension this is, ABOVE the image: a caption under a
+                                       preview reads as belonging to whatever comes next, and there
+                                       is nothing under it any more — every control for this
+                                       dimension lives in the left panel beside its picture. #}
+                                    <div class="group-fill-preview-heading">{{ v.dimension_label }}</div>
                                     <div class="group-fill-preview-frame" style="aspect-ratio: {{ v.width }} / {{ v.height }};">
                                         <img src="{{ (v.variant.previewImagePath ?: v.variant.backgroundImage) ? uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) : asset('images/manual-placeholder.png') }}"
                                              alt="{{ v.dimension_label }}"
@@ -224,107 +244,6 @@
                                             </div>
                                         </div>
                                         <div class="group-fill-preview-error">Náhled se nepodařilo načíst</div>
-                                    </div>
-                                    <div class="card-body group-fill-preview-body">
-                                        <span class="text-muted font-12 d-block">{{ v.dimension_label }}</span>
-
-                                    {% if adjustable_image_inputs|length > 0 %}
-                                        {# Per-DIMENSION controls, collapsed by default so a grid of many
-                                           dimensions stays readable. Real buttons rather than the link-
-                                           coloured text they started as: two sentences of blue and orange
-                                           under a preview read as a caption, not as things you can press.
-                                           Opening one and moving a slider unlinks that dimension
-                                           automatically — the left panel's sliders remain the "apply to
-                                           every dimension" shortcut. #}
-                                        <div class="d-none mt-2" data-group-fill-target="overrideBar" data-variant-id="{{ variantId }}">
-                                            <div class="d-flex align-items-center gap-1">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary flex-grow-1 font-12"
-                                                        data-action="group-fill#toggleVariantPanel"
-                                                        data-group-fill-variantid-param="{{ variantId }}"
-                                                        data-group-fill-target="variantPanelToggle"
-                                                        data-variant-id="{{ variantId }}"
-                                                        aria-expanded="false">
-                                                    <i class="mdi mdi-tune-variant me-1"></i>Upravit umístění
-                                                </button>
-                                                {# State AND action in one control: what it says is what
-                                                   this dimension currently does, what it does is switch. #}
-                                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0 font-12"
-                                                        data-action="group-fill#toggleOverride"
-                                                        data-group-fill-variantid-param="{{ variantId }}"
-                                                        data-group-fill-target="overrideButton"
-                                                        data-variant-id="{{ variantId }}">
-                                                    <i class="mdi mdi-link-variant me-1"></i>Společné
-                                                </button>
-                                            </div>
-
-                                            <div class="group-fill-placement-controls mt-2 d-none"
-                                                 data-group-fill-target="variantPanel"
-                                                 data-variant-id="{{ variantId }}">
-                                                {% for slot in adjustable_image_inputs %}
-                                                    {% set input = slot.input %}
-                                                    <div class="group-fill-variant-slot d-none"
-                                                         data-group-fill-target="variantSlot"
-                                                         data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">
-                                                        {% if adjustable_image_inputs|length > 1 %}
-                                                            <p class="font-11 text-muted mb-1">{{ input.name ?: 'Obrázek ' ~ loop.index }}</p>
-                                                        {% endif %}
-                                                        {% if input.allowResize %}
-                                                            <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-variant-zoom-{{ variantId }}-{{ input.inputId }}">
-                                                                <span><i class="mdi mdi-magnify-plus-outline"></i> Zvětšení</span>
-                                                                <span data-group-fill-target="variantZoomLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">100 %</span>
-                                                            </label>
-                                                            <input type="range" class="form-range" id="group-fill-variant-zoom-{{ variantId }}-{{ input.inputId }}"
-                                                                   min="1" max="4" step="0.01" value="1"
-                                                                   data-group-fill-target="variantZoomRange"
-                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
-                                                                   data-action="input->group-fill#variantZoomChanged">
-                                                        {% endif %}
-                                                        {% if input.allowRotate %}
-                                                            <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-variant-rotation-{{ variantId }}-{{ input.inputId }}">
-                                                                <span><i class="mdi mdi-rotate-right"></i> Otočení</span>
-                                                                <span data-group-fill-target="variantRotationLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">0°</span>
-                                                            </label>
-                                                            <input type="range" class="form-range" id="group-fill-variant-rotation-{{ variantId }}-{{ input.inputId }}"
-                                                                   min="-180" max="180" step="1" value="0"
-                                                                   data-group-fill-target="variantRotationRange"
-                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
-                                                                   data-action="input->group-fill#variantRotationChanged">
-                                                        {% endif %}
-                                                        <div class="text-end">
-                                                            <button type="button" class="btn btn-link btn-sm p-0 font-12"
-                                                                    data-action="group-fill#resetVariantPlacement"
-                                                                    data-group-fill-variantid-param="{{ variantId }}"
-                                                                    data-group-fill-inputid-param="{{ input.inputId }}">Vycentrovat</button>
-                                                        </div>
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-
-                                            {# Per-dimension placement override. Empty = this dimension
-                                               follows the shared placement; filled = it was unlinked. #}
-                                            {% for slot in adjustable_image_inputs %}
-                                                {% set input = slot.input %}
-                                                {% if input.allowResize %}
-                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][scale]" value=""
-                                                           data-group-fill-target="overrideField"
-                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="scale">
-                                                {% endif %}
-                                                {% if input.allowRotate %}
-                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][rotation]" value=""
-                                                           data-group-fill-target="overrideField"
-                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="rotation">
-                                                {% endif %}
-                                                {% if input.allowMove %}
-                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][offsetXRatio]" value=""
-                                                           data-group-fill-target="overrideField"
-                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="offsetXRatio">
-                                                    <input type="hidden" name="imagePlacements[{{ variantId }}][{{ input.inputId }}][offsetYRatio]" value=""
-                                                           data-group-fill-target="overrideField"
-                                                           data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}" data-field="offsetYRatio">
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
                                     </div>
                                 </div>
                             </div>

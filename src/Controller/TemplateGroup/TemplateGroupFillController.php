@@ -70,7 +70,6 @@ final class TemplateGroupFillController extends AbstractController
             'variants' => $variants,
             'text_inputs' => $this->placeholders->textInputs($memberVariants),
             'image_inputs' => $imageInputs,
-            'adjustable_image_inputs' => $adjustableImageInputs,
             'placement_slots' => array_map(
                 static fn (array $slot): array => [
                     'inputId' => $slot['input']->inputId,

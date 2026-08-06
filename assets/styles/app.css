@@ -2770,12 +2770,20 @@ button.fill-layer-row__main:focus-visible {
 }
 
 /* Group fill & export page (template_group_fill.html.twig) */
+/* Which dimension this card is, above the image (a caption underneath reads
+   as belonging to whatever follows it). */
+.group-fill-preview-heading {
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    font-size: 0.75rem;
+    color: var(--ct-secondary-color, #8a969c);
+}
+
 .group-fill-preview-frame {
     position: relative;
     width: 100%;
     background: #f6f7fb;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 0.25rem 0.25rem 0 0;
+    border-radius: 0 0 0.25rem 0.25rem;
     overflow: hidden;
 }
 
@@ -2894,28 +2902,12 @@ button.fill-layer-row__main:focus-visible {
     margin-bottom: 1.5rem;
 }
 
-/* The theme's 1.5rem card padding is a lot under a preview; keep it snug at
-   the top (right below the image) and roomy enough at the bottom that the
-   controls don't sit on the card's edge. */
-.group-fill-preview-body {
-    padding: 0.6rem 0.75rem 0.75rem;
-}
-
-/* Per-dimension placement panel: one block per adjustable slot, separated so
-   several slots don't read as one long strip of sliders. The divider is
-   suppressed on the first VISIBLE slot (a `+` sibling selector can't tell —
-   slots without a picked picture are display:none but still siblings), which
-   the controller marks as it toggles the rows. */
-.group-fill-variant-slot {
+/* One block per dimension inside a slot's placement panel, separated so
+   several dimensions don't read as one long strip of sliders. */
+.group-fill-variant-slot + .group-fill-variant-slot {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.group-fill-variant-slot--first {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
 }
 
 .group-fill-image-thumb {
