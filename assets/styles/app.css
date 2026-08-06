@@ -2856,6 +2856,23 @@ button.fill-layer-row__main:focus-visible {
     margin-bottom: 0.35rem;
 }
 
+/* Per-dimension placement panel: one block per adjustable slot, separated so
+   several slots don't read as one long strip of sliders. The divider is
+   suppressed on the first VISIBLE slot (a `+` sibling selector can't tell —
+   slots without a picked picture are display:none but still siblings), which
+   the controller marks as it toggles the rows. */
+.group-fill-variant-slot {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.group-fill-variant-slot--first {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+
 .group-fill-image-thumb {
     flex: 0 0 auto;
     width: 56px;

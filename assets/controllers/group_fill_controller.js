@@ -36,12 +36,22 @@ const NUDGE_RATIO = 0.01;
  * dimension can be UNLINKED, after which dragging it writes only its own
  * `imagePlacements[<variantId>][<inputId>]` fields and the shared value stops
  * reaching it.
+ *
+ * Two places edit that: the LEFT PANEL's sliders drive the shared placement
+ * (set it once for every linked dimension — the common case), and each preview
+ * card carries its OWN collapsed panel of the same sliders. The per-dimension
+ * ones unlink that dimension implicitly, because opening one card's panel and
+ * moving one card's slider can't mean anything else. Dragging in a preview
+ * deliberately still follows the link state, so "drag once, every dimension
+ * pans" remains available until the user opts out.
  */
 export default class extends Controller {
     static targets = [
         'preview', 'imageThumb', 'imageValue', 'imageOptions', 'exportButton',
         'placementLayer', 'placementControls', 'placementField', 'overrideField',
         'overrideBar', 'overrideButton', 'zoomRange', 'zoomLabel', 'rotationRange', 'rotationLabel',
+        'variantPanel', 'variantPanelToggle', 'variantSlot',
+        'variantZoomRange', 'variantZoomLabel', 'variantRotationRange', 'variantRotationLabel',
     ];
 
     static values = {
@@ -611,14 +621,84 @@ export default class extends Controller {
         if (this._isUnlinked(variantId)) {
             delete this.overridePlacement[variantId];
         } else {
-            const own = {};
-            this.slotsValue.forEach((slot) => {
-                own[slot.inputId] = { ...this._effectivePlacement(variantId, slot.inputId) };
-            });
-            this.overridePlacement[variantId] = own;
+            this._unlink(variantId);
         }
 
         this.slotsValue.forEach((slot) => this._writePlacementFields(slot.inputId));
+        this._activateGhosts(variantId);
+        this._syncPlacementControls();
+        this.changed();
+    }
+
+    /** Give a dimension its own placement, seeded from what it currently shows. */
+    _unlink(variantId) {
+        if (this._isUnlinked(variantId)) {
+            return;
+        }
+
+        const own = {};
+        this.slotsValue.forEach((slot) => {
+            own[slot.inputId] = { ...this._effectivePlacement(variantId, slot.inputId) };
+        });
+        this.overridePlacement[variantId] = own;
+    }
+
+    // --- Per-dimension controls -------------------------------------------
+    //
+    // The left panel's sliders drive the SHARED placement (every linked
+    // dimension at once) — set-it-for-all, which is the common case. These
+    // live on the dimension's own card and are the escape hatch when one
+    // aspect ratio needs a different crop: touching one UNLINKS that dimension
+    // first, because you opened that card's panel and moved that card's
+    // slider — there is no other thing you could have meant. Dragging in a
+    // preview deliberately keeps following the link state, so "drag once, all
+    // dimensions pan" stays available until you opt out.
+
+    toggleVariantPanel(event) {
+        const variantId = event.params.variantid;
+        const panel = this.variantPanelTargets.find((element) => element.dataset.variantId === variantId);
+        if (!panel) {
+            return;
+        }
+
+        const open = panel.classList.toggle('d-none') === false;
+        this.variantPanelToggleTargets
+            .filter((button) => button.dataset.variantId === variantId)
+            .forEach((button) => button.setAttribute('aria-expanded', open ? 'true' : 'false'));
+    }
+
+    variantZoomChanged(event) {
+        this._mutateVariantPlacement(event.target, (placement) => {
+            placement.scale = clamp(parseFloat(event.target.value) || 1, ZOOM_MIN, ZOOM_MAX);
+        });
+    }
+
+    variantRotationChanged(event) {
+        this._mutateVariantPlacement(event.target, (placement) => {
+            placement.rotation = clamp(parseInt(event.target.value, 10) || 0, ROTATION_MIN, ROTATION_MAX);
+        });
+    }
+
+    resetVariantPlacement(event) {
+        const { variantid: variantId, inputid: inputId } = event.params;
+        this._unlink(variantId);
+        this.overridePlacement[variantId][inputId] = { ...NEUTRAL_PLACEMENT };
+        this._afterVariantChange(variantId, inputId);
+    }
+
+    _mutateVariantPlacement(control, mutate) {
+        const variantId = control.dataset.variantId;
+        const inputId = control.dataset.inputId;
+
+        this._unlink(variantId);
+        const placement = (this.overridePlacement[variantId][inputId] ??= { ...this._effectivePlacement(variantId, inputId) });
+        mutate(placement);
+
+        this._afterVariantChange(variantId, inputId);
+    }
+
+    _afterVariantChange(variantId, inputId) {
+        this._writePlacementFields(inputId);
         this._activateGhosts(variantId);
         this._syncPlacementControls();
         this.changed();
@@ -663,5 +743,37 @@ export default class extends Controller {
                 : '<i class="mdi mdi-link-variant"></i> Umístění podle společného';
             button.classList.toggle('text-warning', unlinked);
         });
+
+        // Per-dimension panels: a slot only shows once it has a picture, and
+        // its ranges mirror what THAT dimension currently renders with (its
+        // own placement when unlinked, the shared one while it follows).
+        const firstVisible = new Set();
+        this.variantSlotTargets.forEach((row) => {
+            const visible = !!this.pictures[row.dataset.inputId];
+            row.classList.toggle('d-none', !visible);
+
+            const isFirst = visible && !firstVisible.has(row.dataset.variantId);
+            if (isFirst) {
+                firstVisible.add(row.dataset.variantId);
+            }
+            row.classList.toggle('group-fill-variant-slot--first', isFirst);
+        });
+
+        const mirror = (ranges, labels, key, format) => {
+            ranges.forEach((range) => {
+                const { variantId, inputId } = range.dataset;
+                const value = this._effectivePlacement(variantId, inputId)[key] ?? (key === 'scale' ? 1 : 0);
+                range.value = String(value);
+                const label = labels.find(
+                    (element) => element.dataset.variantId === variantId && element.dataset.inputId === inputId,
+                );
+                if (label) {
+                    label.textContent = format(value);
+                }
+            });
+        };
+
+        mirror(this.variantZoomRangeTargets, this.variantZoomLabelTargets, 'scale', (v) => `${Math.round(v * 100)} %`);
+        mirror(this.variantRotationRangeTargets, this.variantRotationLabelTargets, 'rotation', (v) => `${Math.round(v)}°`);
     }
 }

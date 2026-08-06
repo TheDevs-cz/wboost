@@ -230,13 +230,72 @@
                                     </div>
                                     {% if adjustable_image_inputs|length > 0 %}
                                         <div class="card-body pt-0 pb-2 d-none" data-group-fill-target="overrideBar" data-variant-id="{{ variantId }}">
-                                            <button type="button" class="btn btn-link btn-sm p-0 font-12 text-decoration-none"
-                                                    data-action="group-fill#toggleOverride"
-                                                    data-group-fill-variantid-param="{{ variantId }}"
-                                                    data-group-fill-target="overrideButton"
-                                                    data-variant-id="{{ variantId }}">
-                                                <i class="mdi mdi-link-variant"></i> Umístění podle společného
-                                            </button>
+                                            <div class="d-flex justify-content-between align-items-center gap-2">
+                                                {# Per-DIMENSION controls, collapsed by default so a grid
+                                                   of many dimensions stays readable. Opening one and
+                                                   moving a slider unlinks that dimension automatically —
+                                                   the left panel's sliders remain the "apply to every
+                                                   dimension" shortcut. #}
+                                                <button type="button" class="btn btn-link btn-sm p-0 font-12 text-decoration-none"
+                                                        data-action="group-fill#toggleVariantPanel"
+                                                        data-group-fill-variantid-param="{{ variantId }}"
+                                                        data-group-fill-target="variantPanelToggle"
+                                                        data-variant-id="{{ variantId }}"
+                                                        aria-expanded="false">
+                                                    <i class="mdi mdi-tune-variant"></i> Upravit umístění
+                                                </button>
+                                                <button type="button" class="btn btn-link btn-sm p-0 font-12 text-decoration-none text-end"
+                                                        data-action="group-fill#toggleOverride"
+                                                        data-group-fill-variantid-param="{{ variantId }}"
+                                                        data-group-fill-target="overrideButton"
+                                                        data-variant-id="{{ variantId }}">
+                                                    <i class="mdi mdi-link-variant"></i> Umístění podle společného
+                                                </button>
+                                            </div>
+
+                                            <div class="group-fill-placement-controls mt-2 d-none"
+                                                 data-group-fill-target="variantPanel"
+                                                 data-variant-id="{{ variantId }}">
+                                                {% for slot in adjustable_image_inputs %}
+                                                    {% set input = slot.input %}
+                                                    <div class="group-fill-variant-slot d-none"
+                                                         data-group-fill-target="variantSlot"
+                                                         data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">
+                                                        {% if adjustable_image_inputs|length > 1 %}
+                                                            <p class="font-11 text-muted mb-1">{{ input.name ?: 'Obrázek ' ~ loop.index }}</p>
+                                                        {% endif %}
+                                                        {% if input.allowResize %}
+                                                            <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-variant-zoom-{{ variantId }}-{{ input.inputId }}">
+                                                                <span><i class="mdi mdi-magnify-plus-outline"></i> Zvětšení</span>
+                                                                <span data-group-fill-target="variantZoomLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">100 %</span>
+                                                            </label>
+                                                            <input type="range" class="form-range" id="group-fill-variant-zoom-{{ variantId }}-{{ input.inputId }}"
+                                                                   min="1" max="4" step="0.01" value="1"
+                                                                   data-group-fill-target="variantZoomRange"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
+                                                                   data-action="input->group-fill#variantZoomChanged">
+                                                        {% endif %}
+                                                        {% if input.allowRotate %}
+                                                            <label class="form-label font-12 text-muted mb-0 d-flex justify-content-between" for="group-fill-variant-rotation-{{ variantId }}-{{ input.inputId }}">
+                                                                <span><i class="mdi mdi-rotate-right"></i> Otočení</span>
+                                                                <span data-group-fill-target="variantRotationLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">0°</span>
+                                                            </label>
+                                                            <input type="range" class="form-range" id="group-fill-variant-rotation-{{ variantId }}-{{ input.inputId }}"
+                                                                   min="-180" max="180" step="1" value="0"
+                                                                   data-group-fill-target="variantRotationRange"
+                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
+                                                                   data-action="input->group-fill#variantRotationChanged">
+                                                        {% endif %}
+                                                        <div class="text-end">
+                                                            <button type="button" class="btn btn-link btn-sm p-0 font-12"
+                                                                    data-action="group-fill#resetVariantPlacement"
+                                                                    data-group-fill-variantid-param="{{ variantId }}"
+                                                                    data-group-fill-inputid-param="{{ input.inputId }}">Vycentrovat</button>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+
                                             {# Per-dimension placement override. Empty = this dimension
                                                follows the shared placement; filled = it was unlinked. #}
                                             {% for slot in adjustable_image_inputs %}
