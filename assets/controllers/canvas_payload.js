@@ -11,6 +11,19 @@ import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from 
  */
 
 /**
+ * Longest edge of the stored preview thumbnail (`preview_image_path`), shared
+ * by both editors so a variant looks the same wherever its thumbnail is shown.
+ *
+ * It is not just a listing thumbnail: the group fill page shows it full-width
+ * in the preview grid until the first live render lands, and the fill page
+ * shows it while a render is in flight. At the old 400 px that meant roughly a
+ * quarter of the pixels a 2× display asks for, which read as "the export is
+ * blurry". 1000 px covers the widest place it is displayed at 2×, and still
+ * costs well under a megabyte of PNG per variant in the save POST.
+ */
+export const PREVIEW_MAX_WIDTH = 1000;
+
+/**
  * Fabric v7's _fromObject does not copy arbitrary custom properties from the
  * source JSON onto deserialized objects — only properties registered as
  * customProperties (or in SerializedObjectProps) survive. Re-stamp every

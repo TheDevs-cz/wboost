@@ -1,13 +1,18 @@
 import { Controller } from "@hotwired/stimulus";
 import { FabricImage, StaticCanvas } from "fabric";
 
-import { buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
+import { PREVIEW_MAX_WIDTH, buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { GroupSync } from './group_sync.js';
 
 const MINI_REFRESH_DELAY = 120; // ms; setTimeout on purpose — rAF never fires in hidden tabs
 const SYNC_DEBOUNCE = 150;
 const HISTORY_DEBOUNCE = 400;
 const HISTORY_MAX = 15;
+// Offscreen per-variant canvases are thumbnail-sized: they only ever feed the
+// miniature rail, and a print variant at full size would cost hundreds of MB
+// across a group. The stored preview is re-rendered from them at a multiplier
+// (see _collectSave) rather than blitted, so it is not limited by this.
+const SHADOW_WIDTH = 400;
 
 /**
  * Orchestrator of the template-group editor page. Composes with the regular
@@ -280,7 +285,7 @@ export default class extends Controller {
 
     async _createShadow(variant) {
         const el = document.createElement('canvas');
-        const scale = 400 / variant.width;
+        const scale = SHADOW_WIDTH / variant.width;
         el.width = Math.max(1, Math.round(variant.width * scale));
         el.height = Math.max(1, Math.round(variant.height * scale));
 
@@ -649,7 +654,14 @@ export default class extends Controller {
                 }
                 payload = buildVariantPayload(variant.shadow);
                 try {
-                    preview = variant.shadow.toDataURL({ format: 'png' });
+                    // toDataURL RE-RENDERS at multiplier × zoom rather than
+                    // upscaling the 400px bitmap, so the thumbnail is as sharp
+                    // as the design allows — text re-rasterizes, pictures
+                    // re-sample from their originals.
+                    preview = variant.shadow.toDataURL({
+                        format: 'png',
+                        multiplier: Math.min(PREVIEW_MAX_WIDTH, variant.width) / SHADOW_WIDTH,
+                    });
                 } catch (err) {
                     console.warn('Preview generation skipped (tainted canvas):', err);
                 }

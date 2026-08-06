@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { Canvas, IText, Textbox, FabricImage, cache } from "fabric";
 
 import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
-import { buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
+import { PREVIEW_MAX_WIDTH, buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
 import { syncChecklistSample, sweepChecklistSamples } from './canvas_checklist_sample.js';
@@ -1080,7 +1080,7 @@ export default class extends Controller {
         // Gallery images are loaded crossorigin="anonymous" so this normally
         // succeeds; this guard only catches the tainted-canvas edge cases.
         try {
-            this.previewImageTarget.value = this.getScaledCanvasDataURI(400); // 400px max-width
+            this.previewImageTarget.value = this.getScaledCanvasDataURI(PREVIEW_MAX_WIDTH);
         } catch (err) {
             console.warn('Preview generation skipped (tainted canvas):', err);
             this.previewImageTarget.value = '';
@@ -1123,8 +1123,10 @@ export default class extends Controller {
         const originalHeight = this.canvas.height;
         const aspectRatio = originalWidth / originalHeight;
 
-        let newWidth = maxWidth;
-        let newHeight = maxWidth / aspectRatio;
+        // Never upscale: a canvas narrower than the cap has nothing more to
+        // give, and stretching it would only inflate the PNG.
+        const newWidth = Math.min(maxWidth, originalWidth);
+        const newHeight = newWidth / aspectRatio;
 
         // Create an off-screen canvas
         const offScreenCanvas = document.createElement('canvas');
