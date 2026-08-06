@@ -2887,6 +2887,20 @@ button.fill-layer-row__main:focus-visible {
     margin-bottom: 0.35rem;
 }
 
+/* Dimension cards on the group fill page. The theme's 0.75rem card margin is
+   too tight for a grid of previews with controls underneath — consecutive
+   cards read as one column of stuff. */
+.group-fill-preview-card {
+    margin-bottom: 1.5rem;
+}
+
+/* The theme's 1.5rem card padding is a lot under a preview; keep it snug at
+   the top (right below the image) and roomy enough at the bottom that the
+   controls don't sit on the card's edge. */
+.group-fill-preview-body {
+    padding: 0.6rem 0.75rem 0.75rem;
+}
+
 /* Per-dimension placement panel: one block per adjustable slot, separated so
    several slots don't read as one long strip of sliders. The divider is
    suppressed on the first VISIBLE slot (a `+` sibling selector can't tell —

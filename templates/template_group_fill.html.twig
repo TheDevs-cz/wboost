@@ -202,7 +202,7 @@
                         {% for v in variants %}
                             {% set variantId = v.variant.id %}
                             <div class="col-sm-6 col-xl-4">
-                                <div class="card">
+                                <div class="card group-fill-preview-card">
                                     <div class="group-fill-preview-frame" style="aspect-ratio: {{ v.width }} / {{ v.height }};">
                                         <img src="{{ (v.variant.previewImagePath ?: v.variant.backgroundImage) ? uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) : asset('images/manual-placeholder.png') }}"
                                              alt="{{ v.dimension_label }}"
@@ -225,31 +225,35 @@
                                         </div>
                                         <div class="group-fill-preview-error">Náhled se nepodařilo načíst</div>
                                     </div>
-                                    <div class="card-body py-2 d-flex align-items-center justify-content-end gap-1">
-                                        <span class="text-muted font-12 text-end">{{ v.dimension_label }}</span>
-                                    </div>
+                                    <div class="card-body group-fill-preview-body">
+                                        <span class="text-muted font-12 d-block">{{ v.dimension_label }}</span>
+
                                     {% if adjustable_image_inputs|length > 0 %}
-                                        <div class="card-body pt-0 pb-2 d-none" data-group-fill-target="overrideBar" data-variant-id="{{ variantId }}">
-                                            <div class="d-flex justify-content-between align-items-center gap-2">
-                                                {# Per-DIMENSION controls, collapsed by default so a grid
-                                                   of many dimensions stays readable. Opening one and
-                                                   moving a slider unlinks that dimension automatically —
-                                                   the left panel's sliders remain the "apply to every
-                                                   dimension" shortcut. #}
-                                                <button type="button" class="btn btn-link btn-sm p-0 font-12 text-decoration-none"
+                                        {# Per-DIMENSION controls, collapsed by default so a grid of many
+                                           dimensions stays readable. Real buttons rather than the link-
+                                           coloured text they started as: two sentences of blue and orange
+                                           under a preview read as a caption, not as things you can press.
+                                           Opening one and moving a slider unlinks that dimension
+                                           automatically — the left panel's sliders remain the "apply to
+                                           every dimension" shortcut. #}
+                                        <div class="d-none mt-2" data-group-fill-target="overrideBar" data-variant-id="{{ variantId }}">
+                                            <div class="d-flex align-items-center gap-1">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary flex-grow-1 font-12"
                                                         data-action="group-fill#toggleVariantPanel"
                                                         data-group-fill-variantid-param="{{ variantId }}"
                                                         data-group-fill-target="variantPanelToggle"
                                                         data-variant-id="{{ variantId }}"
                                                         aria-expanded="false">
-                                                    <i class="mdi mdi-tune-variant"></i> Upravit umístění
+                                                    <i class="mdi mdi-tune-variant me-1"></i>Upravit umístění
                                                 </button>
-                                                <button type="button" class="btn btn-link btn-sm p-0 font-12 text-decoration-none text-end"
+                                                {# State AND action in one control: what it says is what
+                                                   this dimension currently does, what it does is switch. #}
+                                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0 font-12"
                                                         data-action="group-fill#toggleOverride"
                                                         data-group-fill-variantid-param="{{ variantId }}"
                                                         data-group-fill-target="overrideButton"
                                                         data-variant-id="{{ variantId }}">
-                                                    <i class="mdi mdi-link-variant"></i> Umístění podle společného
+                                                    <i class="mdi mdi-link-variant me-1"></i>Společné
                                                 </button>
                                             </div>
 
@@ -321,6 +325,7 @@
                                             {% endfor %}
                                         </div>
                                     {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         {% endfor %}

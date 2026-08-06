@@ -708,7 +708,13 @@ export default class extends Controller {
         const open = panel.classList.toggle('d-none') === false;
         this.variantPanelToggleTargets
             .filter((button) => button.dataset.variantId === variantId)
-            .forEach((button) => button.setAttribute('aria-expanded', open ? 'true' : 'false'));
+            .forEach((button) => {
+                button.setAttribute('aria-expanded', open ? 'true' : 'false');
+                button.innerHTML = open
+                    ? '<i class="mdi mdi-chevron-up me-1"></i>Skrýt umístění'
+                    : '<i class="mdi mdi-tune-variant me-1"></i>Upravit umístění';
+                button.classList.toggle('active', open);
+            });
     }
 
     variantZoomChanged(event) {
@@ -781,12 +787,20 @@ export default class extends Controller {
             }
         });
 
+        // State AND action in one control: the label is what this dimension
+        // currently does, the click switches it — with the consequence spelled
+        // out in the title, because "Vlastní"/"Společné" alone can't say which
+        // way pressing it goes.
         this.overrideButtonTargets.forEach((button) => {
             const unlinked = this._isUnlinked(button.dataset.variantId);
             button.innerHTML = unlinked
-                ? '<i class="mdi mdi-link-variant-off"></i> Vlastní umístění — zpět na společné'
-                : '<i class="mdi mdi-link-variant"></i> Umístění podle společného';
-            button.classList.toggle('text-warning', unlinked);
+                ? '<i class="mdi mdi-link-variant-off me-1"></i>Vlastní'
+                : '<i class="mdi mdi-link-variant me-1"></i>Společné';
+            button.title = unlinked
+                ? 'Tento rozměr má vlastní umístění — kliknutím se vrátí ke společnému'
+                : 'Tento rozměr sleduje společné umístění — kliknutím dostane vlastní';
+            button.classList.toggle('btn-outline-warning', unlinked);
+            button.classList.toggle('btn-outline-secondary', !unlinked);
         });
 
         // Per-dimension panels: a slot only shows once it has a picture, and
