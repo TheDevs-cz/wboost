@@ -753,7 +753,7 @@ abstract class AbstractVariantFiller extends AbstractController
         foreach ($this->getFonts->allForProject($project->id) as $font) {
             foreach ($font->faces as $fontFace) {
                 $result[] = [
-                    'family' => sprintf('%s (%s)', $font->name, $fontFace->name),
+                    'family' => $font->faceFamily($fontFace),
                     'url' => $this->uploaderHelper->getPublicPath($fontFace->filePath),
                 ];
             }

@@ -70,7 +70,7 @@ final readonly class ProjectFontsProvider implements ProviderInterface
                 // Family string parity with the canvases / ResolveRichTextOptions:
                 // "FontName (FaceName)" is what textStyle.fontFamily carries.
                 $responses[] = new ProjectFontResponse(
-                    family: sprintf('%s (%s)', $font->name, $face->name),
+                    family: $font->faceFamily($face),
                     fontName: $font->name,
                     faceName: $face->name,
                     weight: $face->weight,

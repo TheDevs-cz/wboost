@@ -50,6 +50,23 @@ class Font
     }
 
     /**
+     * The exact `fontFamily` string one of this font's faces is addressed by
+     * everywhere outside the font management screen: `"Rubik (Rubik Bold)"`.
+     *
+     * It is a WIRE value, not a label. Canvas objects store it verbatim, the
+     * render template registers its `@font-face` under it, the rich-text export
+     * whitelist compares against it, and the MCP `get_context` tool hands the
+     * list to an agent that must reproduce it byte for byte (an unknown family
+     * is a hard error at design-compile time). Hence one implementation: a
+     * second `sprintf('%s (%s)', …)` somewhere else is a family string waiting
+     * to drift by a space.
+     */
+    public function faceFamily(FontFace $face): string
+    {
+        return sprintf('%s (%s)', $this->name, $face->name);
+    }
+
+    /**
      * @throws FontAlreadyHasFontFace
      */
     public function addFontFace(FontFace $fontFace): void

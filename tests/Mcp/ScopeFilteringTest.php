@@ -34,8 +34,13 @@ final class ScopeFilteringTest extends WebTestCase
      * Everything a `templates:read` token may reach. Asserted as an EXACT set —
      * "the design tool is absent" would also pass against a filter that hid
      * every tool, which is a broken server, not a secure one.
+     *
+     * Sorted; the `*_probe` entries are the `test`-env fixtures, the rest are
+     * production tools. **Every new `templates:read` tool has to be added
+     * here** — that this list needs editing is the point: a tool appearing in a
+     * token's listing is a deliberate act, not a side effect.
      */
-    private const array READ_TOOLS = ['auth_probe', 'scope_read_probe', 'transport_probe'];
+    private const array READ_TOOLS = ['auth_probe', 'get_context', 'scope_read_probe', 'transport_probe'];
 
     private const string DESIGN_TOOL = 'scope_design_probe';
 

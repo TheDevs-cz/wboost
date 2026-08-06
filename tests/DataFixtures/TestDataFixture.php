@@ -61,6 +61,16 @@ final class TestDataFixture extends Fixture
     public const string INVITED_USER_ID = '00000000-0000-0000-0000-0000000000a2';
     public const string INVITED_USER_EMAIL = 'invited@test.cz';
 
+    // Confirmed, role-less account that OWNS nothing and has PROJECT_1 shared
+    // with it — the "a project was shared with me" case, end to end.
+    //
+    // None of the accounts above can stand in for it: USER_1 owns PROJECT_1,
+    // the admin sees every project by god-mode (so a shared project proves
+    // nothing about sharing), and the invitee is unconfirmed, which the
+    // firewall's UserChecker blocks before any tool runs.
+    public const string SHARED_USER_ID = '00000000-0000-0000-0000-0000000000a3';
+    public const string SHARED_USER_EMAIL = 'shared@test.cz';
+
     // Pending public signup request — drives the admin requests list + dismiss/convert.
     public const string REGISTRATION_REQUEST_PENDING_ID = '00000000-0000-0000-0000-0000000000b1';
     public const string REGISTRATION_REQUEST_PENDING_EMAIL = 'wantsaccess@test.cz';
@@ -115,6 +125,17 @@ final class TestDataFixture extends Fixture
     // tool it reaches, it reaches through the implication closure.
     public const string MCP_TOKEN_DESIGN_ONLY_ID = '00000000-0000-0000-0000-0000000000e6';
     public const string MCP_TOKEN_DESIGN_ONLY = 'wb_mcp_test-design-only-token-user1';
+
+    // Belongs to SHARED_USER — a read token whose whole project list is one
+    // project somebody else owns.
+    public const string MCP_TOKEN_SHARED_USER_ID = '00000000-0000-0000-0000-0000000000e7';
+    public const string MCP_TOKEN_SHARED_USER = 'wb_mcp_test-token-shared-user';
+
+    // Belongs to the ADMIN. Roles are not scopes, and the `mcp` firewall is
+    // stateless (there is no session to log an admin into alongside a token), so
+    // the god-mode read path needs a token of its own.
+    public const string MCP_TOKEN_ADMIN_ID = '00000000-0000-0000-0000-0000000000e8';
+    public const string MCP_TOKEN_ADMIN = 'wb_mcp_test-token-admin';
 
     // Weekly Menu fixtures
     public const string WEEKLY_MENU_1_ID = '00000000-0000-0000-0000-000000000010';
@@ -295,6 +316,19 @@ final class TestDataFixture extends Fixture
         // share-count is asserted nowhere; PROJECT_2 stays share-free for the
         // exact-count handler tests.
         $project1->share($admin, SharingLevel::Read, $date, $admin);
+
+        // A confirmed, role-less recipient of the same share — the account that
+        // proves "shared with me" reaches a normal user, without the admin's
+        // god-mode or the invitee's blocked login muddying it.
+        $sharedUser = new User(
+            Uuid::fromString(self::SHARED_USER_ID),
+            self::SHARED_USER_EMAIL,
+            $date,
+            true,
+        );
+        $manager->persist($sharedUser);
+
+        $project1->share($sharedUser, SharingLevel::Read, $date, $admin);
 
         // A pending public registration request.
         $manager->persist(new RegistrationRequest(
@@ -816,6 +850,24 @@ final class TestDataFixture extends Fixture
             'Design-only agent',
             [McpScope::TemplatesDesign->value],
             $mcpTokens->hash(self::MCP_TOKEN_DESIGN_ONLY),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_SHARED_USER_ID),
+            $sharedUser,
+            'Agent of a share recipient',
+            [McpScope::TemplatesRead->value],
+            $mcpTokens->hash(self::MCP_TOKEN_SHARED_USER),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_ADMIN_ID),
+            $admin,
+            'Admin agent',
+            [McpScope::TemplatesRead->value],
+            $mcpTokens->hash(self::MCP_TOKEN_ADMIN),
             $date,
         ));
 

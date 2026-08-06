@@ -86,7 +86,7 @@ readonly final class ResolveRichTextOptions
         foreach ($usedFonts as $font) {
             foreach ($font->faces as $face) {
                 $options[] = new RichTextFontOption(
-                    family: sprintf('%s (%s)', $font->name, $face->name),
+                    family: $font->faceFamily($face),
                     fontName: $font->name,
                     faceName: $face->name,
                     weight: $face->weight,

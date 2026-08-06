@@ -393,7 +393,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         foreach ($fonts as $font) {
             $faceFamilies = [];
             foreach ($font->faces as $fontFace) {
-                $faceFamilies[] = sprintf('%s (%s)', $font->name, $fontFace->name);
+                $faceFamilies[] = $font->faceFamily($fontFace);
             }
 
             if ($neededFamilies !== null && array_intersect($faceFamilies, $neededFamilies) === []) {
