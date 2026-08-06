@@ -181,6 +181,7 @@ Rules:
 1. **Positional textbox↔input contract.** `TextInputObjectBinder` binds the *i-th VISIBLE Textbox object* to `inputs[i]`. Therefore: the emitted `inputs[]` array order MUST equal the order of visible Textbox objects in `canvas.objects[]`. Non-textbox objects never appear in `inputs[]`.
 2. `inputId` (UUID v4 string) is stamped on the canvas object **and** mirrored on the `EditorTextInput` / `EditorImageInput` entry.
 3. Objects with `visible: false` are excluded from `inputs[]` and `imageInputs[]` (design-hidden layers are not fillable).
+   *(S4-T4 note: **vacuous in DSL v1** — there is no `visible` key in any parser key set, so the compiler cannot emit a hidden object. Both halves are tested anyway (the DSL has no such key; no compiled object carries `visible`) so a future DSL extension cannot quietly break it.)*
 4. `imageInputs[]` contains only image objects with `imagePlaceholder: true` and `visible !== false`; they bind by their own `inputId` (reliable), not positionally.
 
 ### 4.2 Fabric object shape
@@ -188,7 +189,8 @@ Rules:
 5. `originX: 'left'`, `originY: 'top'` on every object. Fabric v7 defaults to `center` — omitting these misplaces everything relative to legacy data and the renderer.
 6. Textboxes carry `width` (the wrap width). Height is Fabric-computed; never author it.
 7. Custom properties must be exactly the set in `assets/controllers/canvas_custom_properties.js` → `CANVAS_CUSTOM_PROPERTIES`. **That JS file is the source of truth**; the compiler mirrors it and a test asserts the two lists agree.
-8. Editor-only interaction flags (`lockScalingX`, `hasControls`, `selectable`, `evented`, `editorLocked`) are NOT serialized by Fabric and MUST NOT be authored — the editor re-derives them on load (`applyTextboxDefaults` / `applyEditorLock`).
+8. Editor-only interaction flags (`lockScalingX`, `hasControls`, `selectable`, `evented`) are NOT serialized by Fabric and MUST NOT be authored — the editor re-derives them on load (`applyTextboxDefaults` / `applyEditorLock`).
+   ⚠️ **CORRECTED 2026-08-06 (S4-T4): `editorLocked` does NOT belong in that list.** It IS a `CANVAS_CUSTOM_PROPERTY`, it IS persisted, and it is the **input** to `applyEditorLock()`, not its output. `BackgroundLayer::buildObject()` seeds it `true` — and invariant 12 mandates using that builder — so a compiler that refused to author it would fight the very helper it is told to call. Rule: author it **only** where `BackgroundLayer` puts it (the background layer), never elsewhere.
 9. Image objects need `src` (the public URL via `UploaderHelper::getPublicPath`) **and** `assetPath` (+ `assetId` where known), or `AssetInliner` cannot inline them for headless Chromium.
 10. `fontFamily` must be an exact face string from the project's fonts (e.g. `"Hero New (Hero New ExtraBold)"`). Unknown family → hard error naming the allowed list (mirror the `font_not_allowed` pattern).
 
@@ -209,9 +211,17 @@ Rules:
 
 ### 4.5 Persistence
 
+> **Added by S4-T4 — decisions §4 did not specify, now binding:**
+> - **Slug naming is `src/Mcp/Design/DesignSlug.php`** (ASCII-transliterate → lowercase → `-` → dedupe `-2`/`-3`, capped 64). Persisted inputs carry **no** slug and `CANVAS_CUSTOM_PROPERTIES` is closed, so a slug cannot be stashed on the object — it must be re-derived identically on both sides. **S4-T5's decompiler MUST name slugs through `DesignSlug`**, or a `get_design` → `set_design` round trip re-mints every inputId and breaks §4.1's whole point. `DesignIdentity::fromMap()` exists so S5-T3 can supply an authoritative mapping instead.
+> - **`inputId` is UUID v4** — verified against production: all 79 `inputs[]`/`image_inputs[]` entries carry version nibble `4`, zero v7. `ProvideIdentity::next()` (v7) is for **entity** ids only.
+> - **A `background` element with `fillable: true` and no `asset` is a compile error.** The Phase-B contract is that an unfilled background renders the *designed* picture; with no asset there is no object to carry the flag, so compiling it would silently drop `fillable`. Everything else about a missing background stays legal (invariant 14).
+> - **Fit rules:** a fillable placeholder fills its rect **exactly** (the rect *is* the API/fill-page frame); a decorative image is **contain-fitted and centred**, never distorted. Both round-trip losslessly.
+
+
 20. All canvas writes go through `EditTemplateVariantCanvasEditor`. **No direct `$variant->editCanvas()` from MCP code.**
 21. `previewImageDataUri` is browser-produced and unavailable here. Pass `''` (the handler then keeps the existing thumbnail) and render + store the thumbnail server-side in the same task — see S5-T3.
 22. Group-created variants (`variant->group !== null`) MUST be rejected by `set_design` with an error pointing at the group tools, mirroring `TemplateVariantEditorController`'s redirect.
+   *(S4-T4 note: **not enforceable in the compiler** and deliberately not enforced there — `preview_design` legitimately compiles for variants it never writes. This belongs at **S5-T3's write boundary**. The compiler test pins the reason: no `TemplateVariant` appears in its signature or imports.)*
 
 ---
 
@@ -442,23 +452,23 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
 
 > This is where accuracy is won. Everything here is unit-testable without Gotenberg and without an LLM. Over-invest.
 
-- [ ] **S4-T1 — DSL value objects + strict parser.**
+- [x] **S4-T1 — DSL value objects + strict parser.**
   **How:** `src/Mcp/Design/Dsl/` — `DesignDocument`, `CanvasSpec`, `TextElement`, `ImageElement`, `BackgroundElement`, `ContainerElement`, `Placement` (semantic `at` + absolute). Strict parse with precise errors (`"elements[2].font is required"`). Slug uniqueness enforced. Unknown keys rejected (agents hallucinate keys — silent acceptance produces silently wrong designs).
   **Done when:** `tests/Mcp/Design/DslParserTest.php` covers every element kind, every required-field error, unknown-key rejection, duplicate slugs.
   **Depends:** S0-T4
 
-- [ ] **S4-T2 — `GridResolver`.**
+- [x] **S4-T2 — `GridResolver`.**
   **How:** resolve `at: {area, col, row, marginX, marginY, offsetX, offsetY}` to px on a 12-column grid over the canvas. Areas: `top | upper | middle | lower | bottom | full` (thirds/halves — document the exact math in the class docblock, it is a public contract). Absolute `x/y/width` always wins when present.
   **Done when:** `tests/Mcp/Design/GridResolverTest.php` pins the px output for a 1080×1080 and a 2480×3508 (A4@300dpi) canvas.
   **Depends:** S4-T1
 
-- [ ] **S4-T3 — `TextMeasurer` (php-font-lib).**
+- [x] **S4-T3 — `TextMeasurer` (php-font-lib).**
   **How:** load the project's face file from Minio (memoize per path, like `TemplateVariantImageRenderer::$inlinedFonts`), read `hmtx` advance widths + `head.unitsPerEm` via `FontLib\Font`, and estimate wrapped line count for a given text/width/fontSize. Apply a per-face calibration factor (default 1.0) stored in a small config map.
   Expose `estimateLines()` and `estimateHeight()` — clearly documented as **approximate**; Chromium remains the arbiter.
   **Done when:** `tests/Mcp/Design/TextMeasurerTest.php` asserts, for at least 3 fixture strings against a real fixture font, that the estimate is within ±1 line of a recorded Gotenberg render.
   **Depends:** S4-T1
 
-- [ ] **S4-T4 — `DesignCompiler` (DSL → canvas + inputs).**
+- [x] **S4-T4 — `DesignCompiler` (DSL → canvas + inputs).**
   **How:** the heart. Emit Fabric objects in stack order, enforcing **every invariant in §4**. Slug→UUID mapping takes the existing variant's inputs as input so ids are preserved across `set_design`. Reuse `BackgroundLayer::buildObject()` for backgrounds. Emit `containers` with flow-ordered members, sanitized to the same fixpoint as `sanitizedContainers()`.
   **Done when:** `tests/Mcp/Design/DesignCompilerTest.php` has one explicit test per numbered invariant in §4 (20+ tests), all passing.
   **Depends:** S4-T2
@@ -672,3 +682,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-06 — S3-T2 — `render_variant`: WebP downscaled to a 1200px long edge via the new `Services/Image/DownscaleImage`, lenient overflow surfaced as a warning by probing strict first, `inputs`/`images` accepting byte-identical shapes to the REST `ExportRequest`. Established the `gotenberg` test group (excluded by default).
 - 2026-08-06 — S3-T3 — `export_variant` (full-size strict PNG, `templates:export` scope, usage recorded last on success only); fill resolution extracted into `Mcp/Fill/VariantFill` shared with `render_variant`. Overflow errors name the container's fillable inputs and admit when they cannot tell which is at fault. **Stage 3 complete — MILESTONE A.**
 - 2026-08-06 — I-T4 — production smoke green on https://wboost.cz (401 challenge, 6 tools, real PNG export, R1 holds on the real worker); PATs issued for j.mikes@me.com + lukasrejda@lukasrejda.cz; journal entry in ~/www/lily.srv.
+- 2026-08-06 — S4-T1…T4 — the DSL core: strict parser (85 tests, all violations at once), `GridResolver` (edges rounded not widths — no 1px seams), `TextMeasurer` (validated against real Chromium, error strictly one-sided), and `DesignCompiler` with one named test per §4 invariant + a live drift guard against the JS `CANVAS_CUSTOM_PROPERTIES`. Corrected §4.2-8 (`editorLocked` IS persisted), noted §4.1-3 vacuous in v1 and §4.5-22 unenforceable in the compiler.
