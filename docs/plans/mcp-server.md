@@ -377,10 +377,13 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
 
 ### Stage 3 — Render & export
 
-- [ ] **S3-T1 — `ExportChannel::Mcp`.**
+- [x] **S3-T1 — `ExportChannel::Mcp`.**
   **How:** add the case + label. Check `/admin/usage` renders the new column (the report derives columns from data, so this should be free — verify).
   **Done when:** `grep -q "Mcp" src/Value/ExportChannel.php` and the usage page still renders in a controller test.
   **Depends:** —
+  **Landed:** `case Mcp = 'mcp'` between `Api` and `Facebook` (grouped with the other machine-to-machine channel) + its `label()` arm. **One file touched, no migration** — `export_event.channel` is a plain `VARCHAR(255)` (`Version20260629100000`), mapped `type: 'string', enumType:`, with no CHECK constraint and no Postgres enum types anywhere in the schema.
+  **⚠️ THE PLAN WAS WRONG about `/admin/usage`.** It does not derive *channel* columns from data — it does not break out by channel **at all**. `GetUsageOverview` groups by `owner_id / project_id / date_trunc('month')`; `channel` is in neither the SELECT nor the GROUP BY, and no Twig template references it. The "columns derived from data" property is about **month** columns (and storage categories in the Úložiště section). So the new case is genuinely free here, but for a different reason than assumed: MCP exports will be **counted into the same download totals as every other channel and not distinguishable in the report**. If per-channel reporting is ever wanted, that is new work, not a free consequence.
+  Also: `ExportChannel::label()` currently has **no callers** in `src/` or `templates/` — the `'MCP'` label is not yet visible in any UI. The enum's own `label()` is the only `match` over the type in the codebase and has **no `default`**, so PHPStan max would have caught an unhandled case; every other site is a pass-through or a hard-coded per-chokepoint constant.
 
 - [ ] **S3-T2 — `render_variant(variantId, inputs?, images?)` → image.**
   **How:** resolve overrides with `ResolveTextOverrides` / `ResolveImageOverrides`, render **WebP** at a downscaled size (target ≤ 1200 px on the long edge — pass through the existing render path; downscale with Imagick after render if the renderer cannot target a size). Return MCP image content (base64 + mime). **Lenient** container overflow (report it as a warning, don't fail).
@@ -620,3 +623,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-06 — S2-T1 — `get_context`, the first real tool: user + granted scopes + every visible project with its fonts, brand colours, distinct dimensions and counts. Face string extracted to `Font::faceFamily()` (user-approved touch of the guarded render/rich-text files). 60s per-user cache of the projects half only.
 - 2026-08-06 — S2-T2 — `find_templates(projectId, query?)`: templates + per-variant summaries, grouped flag on both levels, 404-not-403 via `ToolCallException` with foreign/unknown proven indistinguishable, `inputCount` proven equal to the REST listing.
 - 2026-08-06 — S2-T3 + S2-T4 — `describe_variant` (inputs/imageInputs/containers/richTextOptions, cross-checked value-for-value against the REST listing; container resolution now shared with `TemplatesProvider` via `ResolvedCanvasContainer`) and `list_gallery` (one tree level, trash excluded on the load-bearing root path, SVG reports null size). **Stage 2 complete — 4 read tools.**
+- 2026-08-06 — S3-T1 — `ExportChannel::Mcp` added (no migration; the column is a plain varchar). Corrected a plan assumption: `/admin/usage` does not break out by channel at all, so MCP exports fold into the same totals.

@@ -6,13 +6,15 @@ namespace WBoost\Web\Value;
 
 /**
  * How a tracked export was triggered — a logged-in user downloading a PNG from
- * the web fill page, a service-to-service call through the OAuth2 API, or a
- * direct publish to a connected social network.
+ * the web fill page, a service-to-service call through the OAuth2 API, an agent
+ * rendering a variant through the MCP server, or a direct publish to a
+ * connected social network.
  */
 enum ExportChannel: string
 {
     case Web = 'web';
     case Api = 'api';
+    case Mcp = 'mcp';
     case Facebook = 'facebook';
     case Instagram = 'instagram';
 
@@ -21,6 +23,7 @@ enum ExportChannel: string
         return match ($this) {
             self::Web => 'Web',
             self::Api => 'API',
+            self::Mcp => 'MCP',
             self::Facebook => 'Facebook',
             self::Instagram => 'Instagram',
         };
