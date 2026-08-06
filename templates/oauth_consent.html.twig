@@ -1,0 +1,129 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Propojení aplikace{% endblock %}
+
+{% block body_class %}authentication-bg position-relative{% endblock %}
+
+{#
+    Standalone decision screen, laid out like the login page (same
+    `authentication-bg`, same centred card): the user is mid-flow in a
+    connector's browser window and the only thing they should be doing here is
+    reading and deciding. The app shell's navigation would just be somewhere
+    else to click.
+#}
+{% block full_content %}
+    <div class="position-absolute start-0 end-0 start-0 bottom-0 w-100 h-100">
+        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 800 800">
+            <g fill-opacity="0.22">
+                <circle style="fill: rgba(var(--ct-primary-rgb), 0.1);" cx="400" cy="400" r="600"></circle>
+                <circle style="fill: rgba(var(--ct-primary-rgb), 0.2);" cx="400" cy="400" r="500"></circle>
+                <circle style="fill: rgba(var(--ct-primary-rgb), 0.3);" cx="400" cy="400" r="300"></circle>
+                <circle style="fill: rgba(var(--ct-primary-rgb), 0.4);" cx="400" cy="400" r="200"></circle>
+                <circle style="fill: rgba(var(--ct-primary-rgb), 0.5);" cx="400" cy="400" r="100"></circle>
+            </g>
+        </svg>
+    </div>
+
+    <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-xxl-5 col-lg-6">
+                    <div class="card">
+
+                        <div class="card-header py-4 text-center bg-dark">
+                            <span><img src="{{ asset('images/logo-lg.svg') }}" alt="logo" height="22"></span>
+                        </div>
+
+                        <div class="card-body p-4">
+                            {{ include('_flashes.html.twig') }}
+
+                            <div class="text-center">
+                                <h4 class="text-dark-50 pb-0 fw-bold">Povolit přístup aplikaci?</h4>
+                                <p class="text-muted">
+                                    Aplikace <strong class="text-body text-break">{{ pending.clientName }}</strong>
+                                    žádá o přístup k vašemu účtu ve WBoostu.
+                                </p>
+                            </div>
+
+                            {# The name is chosen by the application itself — under dynamic client
+                               registration it is the one field an attacker fully controls — so it is
+                               never presented as an identity on its own. The redirect host is what
+                               actually receives the access, and it is checked against the client's
+                               registration by the authorization server. #}
+                            <div class="alert alert-warning small">
+                                <i class="mdi mdi-shield-alert-outline me-1"></i>
+                                Název aplikace si určuje aplikace sama.
+                                {% if pending.redirectHost %}
+                                    Přístup dostane server <strong class="text-break">{{ pending.redirectHost }}</strong>
+                                    — pokud tuto adresu neznáte, přístup nepovolujte.
+                                {% else %}
+                                    Pokud jste propojení právě sami nespustili, přístup nepovolujte.
+                                {% endif %}
+                            </div>
+
+                            <div class="border rounded p-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-1">
+                                <div class="small">
+                                    <span class="text-muted">Propojujete účet</span>
+                                    <strong class="ms-1 text-break">{{ app.user.email }}</strong>
+                                    {% if app.user.name %}
+                                        <span class="text-muted ms-1">({{ app.user.name }})</span>
+                                    {% endif %}
+                                </div>
+                                <a href="{{ path('logout') }}" class="small text-muted">Nejste to vy? Odhlásit se</a>
+                            </div>
+
+                            <h5 class="mb-2">Aplikace bude moci:</h5>
+
+                            {% if scopes|filter(scope => not scope.known)|length > 0 %}
+                                <div class="alert alert-danger small">
+                                    <i class="mdi mdi-alert-outline me-1"></i>
+                                    Aplikace žádá i o oprávnění, která tato verze WBoostu nezná (viz níže).
+                                    Nedokážeme popsat, co vám umožní — přístup povolte jen tehdy, pokud aplikaci opravdu důvěřujete.
+                                </div>
+                            {% endif %}
+
+                            <ul class="list-unstyled mb-3">
+                                {% for scope in scopes %}
+                                    <li class="d-flex gap-2 mb-2">
+                                        <i class="mdi {{ scope.known ? 'mdi-check-circle-outline text-success' : 'mdi-help-circle-outline text-danger' }} font-18"></i>
+                                        <div>
+                                            <div class="fw-semibold {{ scope.known ? '' : 'text-danger' }}">
+                                                {{ scope.title }}
+                                            </div>
+                                            <div class="text-muted small">{{ scope.description }}</div>
+                                            {% if scope.impliedBy %}
+                                                <div class="text-muted small fst-italic">
+                                                    Je součástí oprávnění „{{ scope.impliedBy }}“.
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+
+                            <p class="text-muted small">
+                                Oprávnění platí ve všech projektech, ke kterým máte přístup, a nikdy vám neumožní více,
+                                než na co máte právo sami. Přístup můžete kdykoli odebrat v sekci
+                                <a href="{{ path('connected_apps') }}">Propojené aplikace</a>.
+                            </p>
+
+                            <form action="{{ path('oauth_consent') }}" method="post" class="d-flex gap-2 justify-content-end">
+                                <input type="hidden" name="_token" value="{{ csrf_token(csrfTokenId) }}">
+
+                                <button type="submit" name="deny" value="1" class="btn btn-light">
+                                    Odmítnout
+                                </button>
+                                <button type="submit" name="approve" value="1" class="btn btn-primary">
+                                    <i class="mdi mdi-check me-1"></i> Povolit přístup
+                                </button>
+                            </form>
+                        </div> <!-- end card-body -->
+                    </div>
+                    <!-- end card -->
+                </div> <!-- end col -->
+            </div>
+            <!-- end row -->
+        </div>
+        <!-- end container -->
+    </div>
+{% endblock %}

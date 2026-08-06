@@ -98,6 +98,7 @@ readonly final class TestingOAuthClient
         TestingLogin::logInAsUser($browser, $email);
 
         $browser->request('GET', '/api/authorize?' . http_build_query(self::authorizeQuery($scopes)));
+        self::approveConsent($browser);
 
         $location = (string) $browser->getResponse()->headers->get('Location');
         parse_str((string) parse_url($location, PHP_URL_QUERY), $params);
@@ -127,6 +128,59 @@ readonly final class TestingOAuthClient
         }
 
         return $accessToken;
+    }
+
+    /**
+     * Clicks through the S8-T5 consent interstitial, if it was shown.
+     *
+     * Every token in the suite is minted through the REAL endpoints, and since
+     * S8-T5 the real flow has THREE legs, not one: `/api/authorize` parks the
+     * request and redirects to `/oauth/consent`, the user answers, and the
+     * browser goes back to `/api/authorize` — which is where the code finally
+     * appears. Callers therefore see the same "read the Location header" shape
+     * as before, with this in between.
+     *
+     * It is a NO-OP when no consent screen appeared, which is not laziness: a
+     * remembered approval legitimately skips the prompt, so a helper that
+     * insisted on the screen would fail the second authorization of the same
+     * client — the exact behaviour the feature exists to provide.
+     *
+     * The form is submitted through the DomCrawler, so the real CSRF token
+     * rides along; hand-POSTing would silently test a path production does not
+     * have.
+     */
+    public static function approveConsent(KernelBrowser $browser): void
+    {
+        self::answerConsent($browser, 'approve');
+    }
+
+    /**
+     * The refusal half of {@see approveConsent()} — same three legs, "Odmítnout"
+     * instead. The response afterwards is the redirect league builds for a
+     * DENIED authorization, i.e. `error=access_denied` at the client's own
+     * redirect URI.
+     */
+    public static function denyConsent(KernelBrowser $browser): void
+    {
+        self::answerConsent($browser, 'deny');
+    }
+
+    private static function answerConsent(KernelBrowser $browser, string $button): void
+    {
+        $location = (string) $browser->getResponse()->headers->get('Location');
+
+        if (!str_contains($location, '/oauth/consent')) {
+            return;
+        }
+
+        $crawler = $browser->followRedirect();
+
+        $browser->submit($crawler->selectButton($button)->form());
+
+        // POST /oauth/consent answers with a redirect back to /api/authorize;
+        // following it leaves the browser holding the client redirect, exactly
+        // as an uninterrupted flow would.
+        $browser->followRedirect();
     }
 
     /**

@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\McpAccessToken;
+use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\McpAccessTokenNotFound;
 
 readonly final class McpAccessTokenRepository
@@ -58,6 +59,33 @@ readonly final class McpAccessTokenRepository
         $tokens = $this->entityManager->createQueryBuilder()
             ->from(McpAccessToken::class, 't')
             ->select('t')
+            ->orderBy('t.createdAt', 'DESC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $tokens;
+    }
+
+    /**
+     * One user's own tokens — the "Propojené aplikace" page, where a personal
+     * access token sits next to the OAuth connections because from the user's
+     * side both are "an app that can reach my projects".
+     *
+     * Same inclusive rule as {@see listAll()}: revoked and expired rows stay,
+     * with their status as a column, so "did I actually revoke it?" has an
+     * answer on screen.
+     *
+     * @return list<McpAccessToken>
+     */
+    public function listForUser(User $user): array
+    {
+        /** @var list<McpAccessToken> $tokens */
+        $tokens = $this->entityManager->createQueryBuilder()
+            ->from(McpAccessToken::class, 't')
+            ->select('t')
+            ->where('t.user = :user')
+            ->setParameter('user', $user)
             ->orderBy('t.createdAt', 'DESC')
             ->addOrderBy('t.id', 'ASC')
             ->getQuery()

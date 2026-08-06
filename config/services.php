@@ -35,7 +35,8 @@ return static function (ContainerConfigurator $container): void {
         // `.env` is rendered from Infisical: a deploy made before the variable
         // exists there must fall back to "disabled", never to a container that
         // cannot boot. See config/packages/league_oauth2_server.php for why the
-        // safe value is `0` until the consent screen (S8-T5) exists.
+        // committed default is `0` (turning it on is a deployment decision now
+        // that the consent screen exists).
         ->set('env(OAUTH2_DYNAMIC_CLIENT_REGISTRATION)', '0');
 
     $services = $container->services();
@@ -99,6 +100,7 @@ return static function (ContainerConfigurator $container): void {
             __DIR__ . '/../src/Query/UsageMonthMetrics.php',
             __DIR__ . '/../src/Query/UserActivityOverview.php',
             __DIR__ . '/../src/Query/TemplateGroupListItem.php',
+            __DIR__ . '/../src/Query/ConnectedApp.php',
             __DIR__ . '/../src/Query/StorageOverview.php',
             __DIR__ . '/../src/Query/StorageFilesPage.php',
             __DIR__ . '/../src/Query/ProjectTemplateStats.php',

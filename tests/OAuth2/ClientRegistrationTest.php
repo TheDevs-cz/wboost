@@ -681,6 +681,14 @@ final class ClientRegistrationTest extends WebTestCase
             'code_challenge_method' => 'S256',
         ]));
 
+        // A self-registered client is by definition one the user has never seen
+        // before, so this is exactly the case S8-T5's consent screen exists
+        // for: the authorization is parked until the user approves it. That
+        // interstitial IS the acceptance criterion for turning dynamic
+        // registration on at all — without it, registering a client and sending
+        // its authorization URL to a logged-in user is an account takeover.
+        TestingOAuthClient::approveConsent($browser);
+
         $location = (string) $browser->getResponse()->headers->get('Location');
 
         self::assertStringStartsWith(

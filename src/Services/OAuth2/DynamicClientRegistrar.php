@@ -24,13 +24,12 @@ use WBoost\Web\Mcp\Security\McpScope;
  * its own, but everything needed is public API:
  * {@see ClientManagerInterface::save()} plus the {@see Client} model.
  *
- * ## ⚠️ Nothing here is reachable until consent exists — read this first
+ * ## ⚠️ Why this was unreachable until consent existed — read this first
  *
  * The endpoint in front of this class is OFF by default
- * (`OAUTH2_DYNAMIC_CLIENT_REGISTRATION`), and the reason is not caution about
- * the code below. It is that open registration composes with
- * {@see ApproveAuthorizationRequestListener}, which today auto-approves every
- * authorization request, into a one-click account takeover:
+ * (`OAUTH2_DYNAMIC_CLIENT_REGISTRATION`), and the reason was never caution
+ * about the code below. It was that open registration composed with an
+ * AUTO-APPROVING authorization endpoint into a one-click account takeover:
  *
  * 1. anyone registers a client whose `redirect_uri` is a host they own;
  * 2. they send a logged-in wboost user a link to `/api/authorize`;
@@ -42,9 +41,12 @@ use WBoost\Web\Mcp\Security\McpScope;
  * here the attacker IS the client and holds the verifier. Neither do https-only
  * redirect URIs (an attacker can own an https host), nor rate limiting. The
  * only thing that closes it is the user being shown who is asking and for what
- * — i.e. S8-T5. Until that lands, the flag stays off and every client is
- * operator-created via `app:oauth-client:create`, which is the assumption
- * ApproveAuthorizationRequestListener's docblock already writes down.
+ * — and step 3 no longer exists: since S8-T5,
+ * {@see ResolveAuthorizationRequestListener} parks a first-time authorization
+ * on a Czech consent screen that names the application, the account and every
+ * scope, and only a click approves it. That is what makes the flag safe to
+ * turn on; the constraints below bound what a registration can BE, never
+ * whether the user agreed to it.
  *
  * ## No outbound fetch, ever
  *
@@ -422,12 +424,13 @@ final readonly class DynamicClientRegistrar
     }
 
     /**
-     * The name a human will read on the consent screen (S8-T5), so it is
-     * stripped of control characters — a `\r` or a run of newlines is how you
-     * push the real client name off a rendered line. It is NOT otherwise
-     * trusted: a self-chosen display name is a phishing surface the consent
-     * screen has to present as such, which is that task's problem, not this
-     * one's.
+     * The name a human will read on the consent screen, so it is stripped of
+     * control characters — a `\r` or a run of newlines is how you push the real
+     * client name off a rendered line. It is NOT otherwise trusted: a
+     * self-chosen display name is a phishing surface, and `oauth_consent.html.twig`
+     * presents it as one — escaped, labelled "the application chooses this name
+     * itself", and shown next to the redirect URI's host, which is the half of
+     * the client's identity the authorization server actually validated.
      *
      * @param array<array-key, mixed> $metadata
      *

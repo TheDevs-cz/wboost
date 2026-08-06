@@ -1,0 +1,142 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Propojené aplikace{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('user_profile') }}">Můj účet</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-1">Aplikace propojené s vaším účtem</h4>
+            <p class="text-muted">
+                Tyto aplikace mohou pracovat s vašimi projekty i bez toho, abyste byli přihlášení v prohlížeči.
+                Odpojením jim okamžitě přestane fungovat i už vydaný přístup.
+            </p>
+
+            {% if apps is empty %}
+                <p class="text-muted mb-0">Zatím nemáte propojenou žádnou aplikaci.</p>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-centered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Aplikace</th>
+                                <th>Oprávnění</th>
+                                <th>Propojeno</th>
+                                <th>Naposledy použito</th>
+                                <th class="text-end">Akce</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for app in apps %}
+                                <tr>
+                                    <td>
+                                        <strong class="text-break">{{ app.clientName }}</strong>
+                                        {% if app.redirectHosts is not empty %}
+                                            <div class="text-muted small text-break">{{ app.redirectHosts|join(', ') }}</div>
+                                        {% endif %}
+                                        {% if app.liveTokenCount > 0 %}
+                                            <span class="badge bg-success-subtle text-success mt-1">aktivní přístup</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-muted mt-1">bez aktivního přístupu</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <ul class="list-unstyled mb-0">
+                                            {% for scope in app.scopes %}
+                                                <li class="{{ scope.known ? '' : 'text-danger' }}">
+                                                    <i class="mdi {{ scope.known ? 'mdi-check text-success' : 'mdi-help-circle-outline' }} me-1"></i>{{ scope.title }}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </td>
+                                    <td class="text-nowrap">{{ app.approvedAt|date('d.m.Y H:i') }}</td>
+                                    <td class="text-nowrap">
+                                        {{ app.lastUsedAt ? app.lastUsedAt|date('d.m.Y H:i') : '—' }}
+                                    </td>
+                                    <td class="text-end">
+                                        {# No confirm dialog: disconnecting is recoverable (the app can
+                                           ask again) and an un-dismissable native confirm() is worse
+                                           than the mistake it prevents. #}
+                                        <form action="{{ path('connected_app_revoke') }}" method="post">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('connected_app_revoke') }}">
+                                            <input type="hidden" name="clientIdentifier" value="{{ app.clientIdentifier }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="mdi mdi-link-off me-1"></i>Odpojit
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-1">Osobní přístupové tokeny</h4>
+            <p class="text-muted">
+                Tokeny, které vám vydal správce pro připojení nástrojů (například Claude Code) k vašim projektům.
+                Nové vydává správce; zde je můžete kdykoli zneplatnit.
+            </p>
+
+            {% if tokens is empty %}
+                <p class="text-muted mb-0">Nemáte žádné osobní přístupové tokeny.</p>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-centered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Název</th>
+                                <th>Oprávnění</th>
+                                <th>Vydán</th>
+                                <th>Naposledy použit</th>
+                                <th>Stav</th>
+                                <th class="text-end">Akce</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for token in tokens %}
+                                {% set status = token.status(now) %}
+                                <tr>
+                                    <td><strong class="text-break">{{ token.name }}</strong></td>
+                                    <td class="text-muted small">{{ token.scopes|join(', ') }}</td>
+                                    <td class="text-nowrap">{{ token.createdAt|date('d.m.Y H:i') }}</td>
+                                    <td class="text-nowrap">{{ token.lastUsedAt ? token.lastUsedAt|date('d.m.Y H:i') : '—' }}</td>
+                                    <td>
+                                        {% if status.value == 'active' %}
+                                            <span class="badge bg-success-subtle text-success">platný</span>
+                                        {% elseif status.value == 'revoked' %}
+                                            <span class="badge bg-danger-subtle text-danger">zneplatněn</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-muted">vypršel</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        {% if status.value == 'active' %}
+                                            <form action="{{ path('connected_app_token_revoke', {'tokenId': token.id}) }}" method="post">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('connected_app_token_revoke') }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="mdi mdi-key-remove me-1"></i>Zneplatnit
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

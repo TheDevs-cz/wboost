@@ -76,24 +76,33 @@ return App::config([
          * document, so the server can never advertise an endpoint that 404s or
          * hide one that answers.
          *
-         * ## It is OFF, and turning it on before S8-T5 is a vulnerability
+         * ## It is OFF — and what made it unsafe is now fixed (S8-T5)
          *
          * Registration is unauthenticated by design — a connector introduces
-         * itself before any user is involved. Combined with
-         * {@see \WBoost\Web\Services\OAuth2\ApproveAuthorizationRequestListener},
-         * which currently approves every authorization request without asking,
-         * that means: anyone registers a client pointing at a host they own,
-         * sends a logged-in wboost user a link to `/api/authorize`, and
-         * receives a token scoped to that user's projects — one click, no
-         * prompt. PKCE does not help (the attacker IS the client and holds the
-         * verifier), https-only redirect URIs do not help (attackers own https
-         * hosts), rate limiting does not help. The consent screen does.
+         * itself before any user is involved. Combined with an AUTO-APPROVING
+         * authorization endpoint (what
+         * `ApproveAuthorizationRequestListener` used to be) that meant: anyone
+         * registers a client pointing at a host they own, sends a logged-in
+         * wboost user a link to `/api/authorize`, and receives a token scoped
+         * to that user's projects — one click, no prompt. PKCE does not help
+         * (the attacker IS the client and holds the verifier), https-only
+         * redirect URIs do not help (attackers own https hosts), rate limiting
+         * does not help. The consent screen does.
+         *
+         * {@see \WBoost\Web\Services\OAuth2\ResolveAuthorizationRequestListener}
+         * now shows one: a first-time authorization is parked, the user is told
+         * which application is asking (name AND redirect host), which wboost
+         * account is about to be connected and exactly what the app will be
+         * able to do, and only a click resolves it. Approvals are remembered
+         * per user and client WITH their scopes, so a client that later asks
+         * for more is prompted again instead of silently upgraded.
          *
          * The registrar's constraints (public clients only, https-or-loopback
-         * redirect URIs, no wildcards, MCP scopes only, no outbound fetch) are
-         * built and tested; they bound what a registration can be, not whether
-         * the user agreed to it. So this stays `0` until S8-T5 lands, at which
-         * point flipping it is the entire change.
+         * redirect URIs, no wildcards, MCP scopes only, no outbound fetch)
+         * bound what a registration can BE; consent is what decides whether the
+         * user agreed to it. Both halves now exist, so flipping this to `1` is
+         * a deployment decision rather than a code change — it stays `0` in the
+         * committed default until that decision is made.
          */
         'oauth2.dynamic_client_registration_enabled' => '%env(bool:OAUTH2_DYNAMIC_CLIENT_REGISTRATION)%',
     ],

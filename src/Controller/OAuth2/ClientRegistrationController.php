@@ -23,12 +23,14 @@ use WBoost\Web\Services\OAuth2\DynamicClientRegistrar;
  *
  * ## It is OFF unless `OAUTH2_DYNAMIC_CLIENT_REGISTRATION` says otherwise
  *
- * And it must stay off until the consent screen (S8-T5) exists. The reasoning
- * is in {@see DynamicClientRegistrar}'s docblock and it is not about this
- * code: open registration plus today's auto-approving
- * {@see \WBoost\Web\Services\OAuth2\ApproveAuthorizationRequestListener} is a
- * one-click account takeover, and neither PKCE nor https-only redirect URIs nor
- * rate limiting closes it. The flag is deliberately ONE switch that flips both
+ * The reason it had to be off is gone as of S8-T5: open registration plus an
+ * AUTO-APPROVING authorization endpoint was a one-click account takeover (see
+ * {@see DynamicClientRegistrar}'s docblock — neither PKCE nor https-only
+ * redirect URIs nor rate limiting closed it), and
+ * {@see \WBoost\Web\Services\OAuth2\ResolveAuthorizationRequestListener} now
+ * puts a consent screen in front of every first-time authorization. Turning the
+ * flag on is a deployment decision, not a code change.
+ * The flag is deliberately ONE switch that flips both
  * this endpoint and its advertisement in
  * {@see AuthorizationServerMetadataController} — a discoverable endpoint that
  * 404s, or a working endpoint nothing advertises, are both worse than either

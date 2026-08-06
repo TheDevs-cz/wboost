@@ -102,9 +102,12 @@ final class AuthorizationEndpointTest extends WebTestCase
     /**
      * The happy path proves three things at once: the auth-code grant is
      * enabled at all, the logged-in user is resolved as the resource owner,
-     * and the (auto-approving, S8-T5-pending) resolve listener runs — without
-     * it the bundle's default verdict is DENIED and this would redirect with
-     * `error=access_denied`.
+     * and the resolve listener runs — without it the bundle's default verdict
+     * is DENIED and this would redirect with `error=access_denied`.
+     *
+     * Since S8-T5 the path runs THROUGH the consent screen (which
+     * {@see ConsentTest} covers in its own right); `approveConsent()` is the
+     * user clicking "Povolit přístup".
      */
     public function testAnAuthenticatedUserGetsAnAuthorizationCode(): void
     {
@@ -113,6 +116,7 @@ final class AuthorizationEndpointTest extends WebTestCase
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
         $client->request('GET', '/api/authorize?' . http_build_query(self::authorizeQuery()));
+        TestingOAuthClient::approveConsent($client);
 
         self::assertSame(Response::HTTP_FOUND, $client->getResponse()->getStatusCode());
 
@@ -144,6 +148,7 @@ final class AuthorizationEndpointTest extends WebTestCase
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
         $client->request('GET', '/api/authorize?' . http_build_query(self::authorizeQuery()));
+        TestingOAuthClient::approveConsent($client);
         parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), PHP_URL_QUERY), $params);
 
         $code = $params['code'] ?? null;
@@ -184,6 +189,7 @@ final class AuthorizationEndpointTest extends WebTestCase
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
         $client->request('GET', '/api/authorize?' . http_build_query(self::authorizeQuery()));
+        TestingOAuthClient::approveConsent($client);
         parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), PHP_URL_QUERY), $params);
 
         self::assertArrayNotHasKey('error', $params, 'The requested MCP scope was refused by the authorization server.');
@@ -230,6 +236,7 @@ final class AuthorizationEndpointTest extends WebTestCase
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
         $client->request('GET', '/api/authorize?' . http_build_query(self::authorizeQuery()));
+        TestingOAuthClient::approveConsent($client);
         parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), PHP_URL_QUERY), $params);
 
         $payload = TestingOAuthClient::exchange($client, [
