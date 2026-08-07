@@ -21,13 +21,24 @@ called anyway.
 | scope | tools |
 |---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` |
-| `templates:export` | `export_variant` (implies `templates:read`) |
-| `templates:design` | *no tools in this release* |
-| `gallery:write` | `upload_image` (implies nothing — a gallery token sees this tool and no other) |
+| `templates:export` | `export_variant` |
+| `templates:design` | `preview_design`, `set_design` |
+| `gallery:write` | `upload_image` |
+
+Each row lists the tools that **declare** that scope. Implication is separate and
+runs one way: `templates:export` and `templates:design` each also grant
+`templates:read`, so either of them brings all five read tools with it.
+`gallery:write` implies nothing — a gallery-only token sees `upload_image` and
+nothing else.
 
 `get_context` echoes the granted scopes back in `scopes[]`. If a tool the user
-expects is missing from the list, their token lacks its scope — a new token is
-the fix, not a retry.
+expects is missing from the list, the connection lacks its scope: re-authorize
+(OAuth) or mint a new token (PAT). Scopes cannot be edited on an existing token.
+
+Authorisation is scope **∩** what the account itself may do. Notably: designing
+requires *owning* the project. A project merely shared with the user grants
+viewing, rendering and exporting, but `set_design` and `preview_design` refuse
+with a message saying exactly that.
 
 ---
 
@@ -59,6 +70,9 @@ No arguments. Returns:
 Projects are the ones the account can VIEW — owned, shared, or all of them for an
 admin. Cached server-side for 60 s per user.
 
+`fonts[]` is the whitelist for both a rich-text run's `fontFamily` and a design
+element's `font`. `colors[]` is a suggestion list, not a whitelist.
+
 ---
 
 ## `find_templates(projectId, query?)`
@@ -88,7 +102,8 @@ only appear there). Omit it to list everything.
 ```
 
 A grouped template can still hold ungrouped variants somebody added by hand, so
-the per-variant `grouped` flag is the one that matters.
+the per-variant `grouped` flag is the one that matters — and it is the flag that
+predicts a `set_design` refusal before you make the call.
 
 A `projectId` the account cannot see reports the *same* failure as one that does
 not exist — that is deliberate, not a bug to work around.
@@ -97,7 +112,8 @@ not exist — that is deliberate, not a bug to work around.
 
 ## `describe_variant(variantId)`
 
-The only source of the ids `render_variant` / `export_variant` are keyed by.
+The only source of the ids `render_variant` / `export_variant` are keyed by, and
+of the canvas size a design must be authored at.
 
 ```jsonc
 {
@@ -148,6 +164,10 @@ The only source of the ids `render_variant` / `export_variant` are keyed by.
 }
 ```
 
+**This describes the fillable surface, not the design.** There is no tool that
+returns a variant's design as a DSL document — see `SKILL.md` on why that makes
+`set_design` an authoring tool rather than an editing one.
+
 **`includesRoot: true` is the marker of an UNRESTRICTED slot**: it is true exactly
 when the designer left the allow-list empty, and then `directories[]` already
 lists every folder in the project. A restricted slot always reports
@@ -171,7 +191,7 @@ One level at a time. Omit `directoryId` for the root.
   "path": [{ "id", "name" }],        // breadcrumb, root → current; empty at root
   "directories": [{ "id", "name" }], // folders directly inside the current one
   "images": [{
-    "id",              // ← the value an images map takes
+    "id",              // ← the value an images map or a design `asset` takes
     "name",            // stored file name = id + format extension, NOT a caption
     "url",
     "width", "height"  // null for SVG (vector) and for unreadable bytes
@@ -183,9 +203,9 @@ Use `width` / `height` against the slot's `frame` — a portrait photo in a
 landscape slot is cropped, not letterboxed.
 
 Deleted pictures sit in a trash bin for a few days and are **never** listed here;
-they also cannot be used in a fill. Nothing in the gallery can be deleted, moved
-or renamed from this connector — `upload_image` is the one way to change it, and
-it only ever adds.
+they also cannot be used in a fill or named by a design. Nothing in the gallery
+can be deleted, moved or renamed from this connector — `upload_image` is the one
+way to change it, and it only ever adds.
 
 ---
 
@@ -195,7 +215,7 @@ Adds a picture to the project's gallery. Scope `gallery:write`.
 
 ```jsonc
 {
-  "imageId",         // ← the same value list_gallery reports and an images map takes
+  "imageId",         // ← the same value list_gallery reports; an images map and a design `asset` take it
   "url",
   "width", "height"  // of the STORED bytes; null for SVG
 }
@@ -215,6 +235,10 @@ Adds a picture to the project's gallery. Scope `gallery:write`.
 - Omit `directoryId` to file it at the gallery root (a real location). Each call
   adds a new picture; nothing is ever overwritten, and nothing can be removed
   from here.
+
+This is also the repair for the commonest `set_design` overwrite loss: a
+background that has no gallery id cannot be named in a design, but the same
+picture uploaded here can.
 
 ---
 
@@ -260,6 +284,175 @@ recorded. A successful export **is** recorded in the project's usage report.
 
 ---
 
+## `preview_design(variantId, design)`
+
+Compiles a design document and draws it against a **detached copy** of the
+variant. Nothing is persisted: not the canvas, not the thumbnail, not the inputs,
+and no export is recorded. Scope `templates:design`, and the account must be able
+to EDIT the variant. A grouped variant is accepted here (previewing changes
+nothing).
+
+Reply = a JSON summary, then the image **when one was drawn**.
+
+```jsonc
+{
+  "variantId", "templateName", "projectName",
+  "rendered": true,          // ← read this first
+  "status",                  // short verdict string
+  "errorCount", "warningCount",
+  "issues": [ … ],           // see below
+  "format": "image/webp",    // null when nothing was drawn
+  "width", "height",         // the PICTURE (≤ 1200 px long edge); null when not drawn
+  "downscaled",              // null when not drawn
+  "canvasWidth", "canvasHeight"   // the variant's real size
+}
+```
+
+`rendered: false` ⇒ the reply is flagged as an error, carries no image, and
+`issues[]` says what blocked it. Only `severity: "error"` blocks; warnings always
+come back **with** the picture.
+
+---
+
+## `set_design(variantId, design, acknowledgeLosses?)`
+
+The commit: replaces the variant's whole canvas, its text and image inputs and
+its thumbnail, and returns the picture that was stored. Same document, same
+pipeline as `preview_design` — a document that previewed cleanly cannot be
+refused here for a reason the preview did not surface. Scope `templates:design` +
+EDIT. A **grouped** variant is refused (its design is shared across the group and
+is authored only in the group editor).
+
+```jsonc
+{
+  "variantId", "templateName", "projectName",
+  "saved": true,             // ← read this first
+  "status",
+  "errorCount", "warningCount",
+  "issues": [ … ],
+  "editorUrl",               // where a human opens the result
+  "thumbnailUpdated",
+  "format": "image/png",     // PNG here, not WebP: it IS the stored render
+  "width", "height", "downscaled",
+  "canvasWidth", "canvasHeight"
+}
+```
+
+`saved: false` ⇒ **nothing was written** and the variant still has its previous
+design.
+
+Container overflow is a **warning** here, not a refusal — a design in progress is
+still worth saving. `export_variant` still refuses to produce a file from it.
+
+**`acknowledgeLosses`** defaults to false and belongs to the `overwrite` stage
+alone. Read `SKILL.md` rule 7 before using it: it repairs nothing, changes
+nothing about what is written, and only downgrades "this save destroys X" errors
+into warnings. The order inside the tool is: resolve the variant → overwrite
+guard → preflight the document → render → write, with the guard's and the
+document's findings merged into one `issues[]` so a bad key and an unnameable
+background are both reported in one turn.
+
+### The `issues[]` entry
+
+```jsonc
+{
+  "severity",   // "error" (blocks) | "warning" (advisory)
+  "stage",      // "parse" | "variant" | "lint" | "compile" | "overwrite"
+  "code",       // machine-readable, e.g. "font_not_allowed", "object_dropped"
+  "slug",       // nullable — the element id it is about
+  "path",       // e.g. "elements[2].font"
+  "message",
+  "allowed": [] // present on some codes, e.g. the allowed font faces
+}
+```
+
+| stage | the question it answers | how you fix it |
+|---|---|---|
+| `parse` | is this a well-formed DSL document? | re-read the grammar below |
+| `variant` | was it written for THIS variant? | set `canvas` to the variant's size |
+| `lint` | is it a good design? | judgement — usually advisory |
+| `compile` | does this project HAVE what it names? | `get_context` / `list_gallery` |
+| `overwrite` | what does WRITING this destroy? | keep the thing, or acknowledge |
+
+`parse` and `compile` produce only errors; `variant` produces only warnings;
+`lint` and `overwrite` produce both. The single lint **error** is
+`font_not_allowed` — an unknown face would be silently substituted by the
+renderer, so it stops the call before anything is drawn. Other lint codes
+(`out_of_canvas_bounds`, `text_overlap`, `color_not_in_palette`,
+`font_size_too_small`, `container_overflow_predicted`, `container_too_few_items`,
+`image_without_asset_or_placeholder`, `max_length_below_stand_in`) are warnings.
+
+---
+
+## The design DSL — the exhaustive key tables
+
+The parser is **strict**: a key not listed here is rejected, with the nearest
+valid key suggested. Every problem in a document is reported at once.
+
+Element `id` is a slug: `^[a-z0-9][a-z0-9_-]*$`, at most 64 characters, unique
+within the document. Slugs carry input identity across saves.
+
+### Keys per block
+
+| block | keys the parser accepts |
+|---|---|
+| document root | `canvas`, `elements` |
+| `canvas` | `width`, `height`, `background` |
+| `canvas.background` | `image`, `fill` |
+| `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
+| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `at`, `x`, `y`, `width`, `input` |
+| `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input` |
+| `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
+| `background` element | `kind`, `id`, `asset`, `fillable` |
+| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter` |
+
+### Enumerated values
+
+| where | accepted values |
+|---|---|
+| `kind` | `text`, `image`, `background`, `container` |
+| `at.area` | `top`, `upper`, `middle`, `lower`, `bottom`, `full` |
+| `align` | `left`, `center`, `right`, `justify` |
+
+### Required, and defaults
+
+- **root**: `canvas` and `elements` are both required; `elements` may be `[]`.
+- **`canvas`**: `width` and `height` required, each 1…20000 canvas px, and both
+  must equal the variant's own size. Print sizes are authored at their 300 DPI
+  raster size (A4 = 2480 × 3508), never in millimetres. `background` is optional;
+  `background.fill` is a flat colour that may be combined with a `background`
+  element, but `background.image` and a `background` element are mutually
+  exclusive — they define the same layer.
+- **`text`**: `text`, `font` and `size` are required, plus a placement.
+  `color` defaults to `#000000`, `align` to `left`, `lineHeight` to `1.16`.
+- **placement**: give either `at`, **or** all of `x`, `y` and `width`
+  (`height` too for an `image`). `at.col` defaults to `[1, 12]` on the
+  12-column grid, start ≤ end; margins and offsets default to `0`.
+- **`image`**: `asset` and `input` are both optional, but an image with neither
+  draws nothing and is linted. With `input` it is a fillable slot; without, it is
+  decorative. Its input defaults: `placeholder` true, `allowMove` true,
+  `allowResize` true, `allowRotate` false, `hidable` false,
+  `allowedDirectories` `[]` (= the whole gallery, never "none").
+- **`background`**: at most **one** per document; it compiles to the single
+  background layer pinned to the bottom of the stack. `fillable: true` makes it a
+  fillable whole-canvas cover slot.
+- **`container`**: needs at least 2 referenced items counting `members` and
+  `children` together. `members` are texts and **decorative** images — never a
+  fillable image placeholder, never the background, never another container
+  (nest via `children`). A container has exactly one parent and the graph must be
+  a tree. **A top-level container must carry `maxHeight`**; a nested one may omit
+  it, because only the root's bound gates overflow. `gap` replaces every designed
+  inter-item gap with a uniform spacing; `spaceAfter` is guaranteed clearance
+  below.
+- **colours**: `#rrggbb` or `#rgb` shorthand, normalized to lowercase. No alpha.
+- **`asset` / `allowedDirectories[]`**: gallery UUIDs from `list_gallery` or
+  `upload_image` — never a file name or a URL.
+
+A worked document that exercises all four kinds is in `SKILL.md`.
+
+---
+
 ## Fill vocabulary (identical for both image tools, and to the REST export)
 
 ### `inputs` — keyed by `inputs[].id`
@@ -301,8 +494,10 @@ an `imageId` is refused. Omitted slots keep the designer's stand-in picture.
 | `"…" is not a valid project id / template variant id / folder id` | you sent a name or the wrong kind of id — go back one tool |
 | `Project X was not found, or this account cannot access it` | the account cannot see it; do not probe for others |
 | `Template variant X was not found, or this account cannot access it` | same |
+| `Template variant X can be read by this account but not designed on` | designing needs project ownership; sharing only grants viewing |
+| `Template variant X belongs to the synchronized template group "…"` | `set_design` cannot touch it; the message links the group editor |
 | `Input "…" exceeds max length of N characters.` | shorten the value; it is not truncated for you |
-| `Input "…" overflows its container by N px` / `The texts of container … overflow` | shorten a text, hide a hidable one, or the designer raises `maxHeight` |
+| `Input "…" overflows its container by N px` / `The texts of container … overflow` | shorten a text, hide a hidable one, or raise `maxHeight` |
 | `rich_text_not_allowed` / `lists_not_allowed` / `checkbox_lists_not_allowed` | the input does not have that capability — check `describe_variant` |
 | `font_not_allowed` (with `Allowed values — …`) | use a family from that list verbatim |
 | `invalid_color` | a colour must be a hex value |
@@ -312,4 +507,7 @@ an `imageId` is refused. Omitted slots keep the designer's stand-in picture.
 | `Rendering / Exporting this variant failed: …` | a broken design or asset, not your values — tell the user to open it in the editor |
 
 Every "not found or not yours" wording is deliberately identical to "does not
-exist", so these tools cannot be used to discover what other accounts hold.
+exist", so these tools cannot be used to discover what other accounts hold. The
+one deliberate exception is the EDIT gate: a variant you can already see reports
+the real reason ("readable but not designable"), because pretending it vanished
+would only send you hunting for a wrong id.

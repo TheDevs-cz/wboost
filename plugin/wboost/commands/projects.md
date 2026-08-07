@@ -16,9 +16,12 @@ Orient the user in their wboost account.
    If `$ARGUMENTS` is empty and there is exactly one project, call
    `find_templates` on it with no query and list everything. With several
    projects, list the projects only and ask which one to open.
-3. End by telling the user they can ask you to fill and export any variant, and
-   note the granted `scopes` if `templates:export` is missing (they will not be
-   able to export).
+3. End by telling the user they can ask you to fill and export any variant — and,
+   if `templates:design` is granted, to author a variant's design too. Report the
+   granted `scopes` whenever one is missing that limits what you can offer:
+   without `templates:export` you cannot hand them a file, without
+   `templates:design` you cannot design, without `gallery:write` you cannot add
+   pictures.
 
 Keep it a short readable summary, not a JSON dump. Always mention project and
 template names to the user; keep the ids for your own next call.

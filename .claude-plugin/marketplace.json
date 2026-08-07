@@ -9,8 +9,8 @@
     {
       "name": "wboost",
       "source": "./plugin/wboost",
-      "description": "Work with wboost brand templates from Claude: list projects and their brand fonts and colours, find template variants, fill their text and image placeholders, preview the result and export the finished PNG.",
-      "version": "0.1.0",
+      "description": "Work with wboost brand templates from Claude: list projects and their brand fonts and colours, find template variants, fill their text and image placeholders, preview and export the finished PNG, upload pictures to a project gallery, and author a variant's design.",
+      "version": "0.2.0",
       "author": {
         "name": "TheDevs",
         "url": "https://wboost.cz"

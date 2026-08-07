@@ -2,7 +2,8 @@
 
 Connects Claude to a [wboost](https://wboost.cz) account so it can list your
 projects and brand assets, fill a template variant's placeholders, preview the
-result and export the finished PNG.
+result, export the finished PNG, add pictures to a project gallery and author a
+variant's design.
 
 ## Install
 
@@ -10,16 +11,13 @@ result and export the finished PNG.
 claude plugin marketplace add TheDevs-cz/wboost && claude plugin install wboost@wboost
 ```
 
-Claude Code prompts once for your **wboost access token** (masked, stored in your
-OS keychain — never in this repo or in `settings.json`). To skip the prompt, pass
-it: `claude plugin install wboost@wboost --config token=wb_mcp_…`.
+**Nothing to paste.** The first time the server is used, Claude Code discovers
+wboost's authorization server, registers itself, and opens your browser: you sign
+in, approve the permissions on a consent screen, and you are connected. If the
+browser does not open by itself, run `claude mcp login wboost`.
 
-A token starts with `wb_mcp_` and is issued by a wboost operator:
-
-```bash
-bin/console app:mcp:token:create you@example.com \
-  --name="Claude Code" --scopes=templates:read,templates:export
-```
+You can review and revoke the connection at any time at
+`https://wboost.cz/user-profile/connected-apps`.
 
 Full instructions, scope meanings and troubleshooting:
 [`docs/mcp/connect.md`](../../docs/mcp/connect.md).
@@ -29,8 +27,8 @@ Copy-paste prompts to try: [`docs/mcp/prompts.md`](../../docs/mcp/prompts.md).
 
 | component | what it is |
 |---|---|
-| MCP server `wboost` | HTTP transport to `https://wboost.cz/_mcp` — six tools: `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant`, `export_variant` |
-| skill `/wboost:wboost` | how to use those tools well — ids not names, render before export, container overflow, the fill value shapes |
+| MCP server `wboost` | HTTP transport to `https://wboost.cz/_mcp` — nine tools: `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant`, `export_variant`, `upload_image`, `preview_design`, `set_design` |
+| skill `/wboost:wboost` | how to use those tools well — ids not names, render before export, container overflow, the fill value shapes, the design DSL, and what `acknowledgeLosses` really does |
 | `/wboost:projects` | what does this account hold |
 | `/wboost:export` | brief → template → fill → preview → PNG |
 
@@ -39,23 +37,49 @@ templates; you do not have to invoke it by hand.
 
 ## Scope of this release
 
-Read and render only. The tools can look at anything the account can see and
-produce images from it — they cannot change a template, upload a picture, or
-delete anything. Authoring designs from an AI client is not available yet;
-templates are created in the wboost editor.
+Read, render, **and author**. The tools can look at anything the account can see,
+produce images from it, add pictures to a project gallery, and write a variant's
+design.
 
-The token acts as **you**: scopes can only narrow what your own account may
-reach, never widen it.
+**Nothing deletes.** No tool removes a template, a variant or a picture; gallery
+pictures can be added but never removed, moved or renamed from a client.
+
+Two capabilities are deliberately absent: there is no tool that reads a design
+back as a document (so `set_design` authors designs rather than edits them), and
+there is no tool for group design — a synchronized group's shared design is
+authored in the wboost group editor.
+
+Permissions are granted per connection on the consent screen and can only narrow
+what your own account may reach, never widen it. Designing additionally requires
+*owning* the project: a project shared with you grants viewing, rendering and
+exporting only.
+
+## Authentication
+
+The plugin's `.mcp.json` declares the server with **no `Authorization` header**,
+which is exactly what makes the client fall back to OAuth 2.1 + PKCE discovery
+against `/.well-known/oauth-protected-resource` and register itself.
+
+That is deliberate, and it is why there is no token setting on this plugin. An
+`Authorization` header — including one holding an unset config placeholder, which
+resolves to an empty `Bearer` — suppresses the OAuth path entirely, because the
+client believes it is already authenticating. The result would be a bare 401 with
+no browser flow and nothing explaining why.
+
+Personal access tokens still work on the same endpoint; they are for CI and
+headless agents, and they are used through a manual `claude mcp add --header …`
+rather than through this plugin. See
+[`docs/mcp/connect.md`](../../docs/mcp/connect.md).
 
 ## Layout
 
 ```
 plugin/wboost/
-├── .claude-plugin/plugin.json   # manifest + the userConfig token prompt
-├── .mcp.json                    # HTTP transport, Authorization: Bearer ${user_config.token}
+├── .claude-plugin/plugin.json   # manifest
+├── .mcp.json                    # HTTP transport, no auth header (OAuth by discovery)
 ├── skills/wboost/
 │   ├── SKILL.md
-│   └── references/tools.md      # field-by-field response reference
+│   └── references/tools.md      # field-by-field response + DSL grammar reference
 └── commands/
     ├── projects.md
     └── export.md
@@ -80,4 +104,9 @@ Load it without installing:
 claude --plugin-dir plugin/wboost
 ```
 
-Never commit a token. The manifest only ever references `${user_config.token}`.
+The skill's tool list and DSL grammar tables are asserted against the running
+code by `tests/Mcp/SkillDocumentationTest.php` — a tool that lands or changes
+scope, or a change to the parser's accepted keys, fails that test until the skill
+is updated.
+
+Never commit a token.

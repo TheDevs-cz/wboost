@@ -26,4 +26,8 @@ asking the user to — only escalate if the text cannot be shortened without
 losing something they asked for, in which case explain that the designer must
 raise the container's `maxHeight` in the wboost editor.
 
-If the token lacks `templates:export`, stop after step 5 and say so.
+If the connection lacks `templates:export`, stop after step 5 and say so.
+
+This command fills a design somebody already made; it never calls `set_design`.
+If no template in the project fits the brief, say so and offer to design one
+rather than silently overwriting an existing variant.

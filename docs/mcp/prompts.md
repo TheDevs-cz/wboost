@@ -1,15 +1,18 @@
 # Prompts that work
 
-Ten copy-paste prompts for a client connected to the wboost MCP server (see
-[`connect.md`](connect.md)). They cover the jobs the six shipped tools actually
-do — orienting in an account, filling a template variant, and getting a finished
-PNG out.
+Copy-paste prompts for a client connected to the wboost MCP server (see
+[`connect.md`](connect.md)). They cover the jobs the nine shipped tools actually
+do — orienting in an account, filling a template variant, getting a finished PNG
+out, adding a picture to the gallery, and authoring a design.
 
 **The prompts are in Czech**; wboost's users and their template copy are Czech,
 and asking for Czech copy in Czech is what keeps the assistant from drafting
 English headlines. The commentary around them is English, matching the rest of
 `docs/`. An English prompt works exactly as well — the tools are
 language-agnostic.
+
+Prompts 1–10 need `templates:read` (plus `templates:export` for #6); 11 needs
+`gallery:write`; 12–14 need `templates:design`.
 
 ---
 
@@ -91,7 +94,7 @@ Variants of one template are its dimensions. Each has its **own** input ids, so
 the assistant has to `describe_variant` each one — it cannot reuse the first
 variant's ids. Watch for a `grouped: true` flag: those variants are kept in sync
 by the designer through the group editor, which does not change how you fill
-them.
+them (only how they are *designed*).
 
 ---
 
@@ -134,16 +137,95 @@ constraint the assistant has to respect, not a hint.
 
 ---
 
+## 11. Put this picture in the gallery
+
+> Tady je fotka z toho workshopu (přikládám ji) — nahraj ji do galerie projektu
+> Studio Brno do složky Fotky a použij ji na plakátu.
+
+`upload_image` takes the bytes base64-encoded and returns an `imageId` usable
+immediately in a fill or a design. Two practical limits: the assistant must have
+the **bytes** (it never fetches a URL you give it — that would be an SSRF against
+wboost's own network), and one MCP request body caps out around **3 MB** of
+picture, well below wboost's own 10 MB. A phone photo in HEIC is converted to
+JPEG on the way in.
+
+Nothing can be deleted, moved or renamed from a client — uploads only ever add.
+
+---
+
+## 12. Design something new
+
+> V projektu Studio Brno máme prázdnou variantu 1080 × 1350 na Instagram. Navrhni
+> do ní plakát na jarní keramický workshop — nadpis, podnadpis, datum a místo,
+> fotku nahoře — a ukaž mi, jak to vypadá. Zatím nic neukládej.
+
+`preview_design`: the assistant writes a design document and has it drawn without
+saving anything. It should take font faces from `get_context` **verbatim** (an
+unknown face is an error that stops the render, because Chromium would otherwise
+silently substitute one), set `canvas` to the variant's own pixel size, and read
+back the `issues[]` — `severity`, `stage` and a `path` like `elements[2].font`.
+
+Iterate here as much as you like; nothing is persisted.
+
+---
+
+## 13. Save it
+
+> Dobré, ulož to do té varianty.
+
+`set_design` — the commit, once. It writes the canvas, the inputs and a fresh
+thumbnail, and returns the picture that was stored plus an `editorUrl` a human
+can open.
+
+Two things it may say instead:
+
+- **`overwrite` issues.** The design being replaced holds something the DSL
+  cannot express — typically a background uploaded through the variant form
+  rather than the gallery — and saving would destroy it. This is the one refusal
+  that is not about the new document, so changing the design will not clear it.
+  The right move is the repair the message names (upload that picture with
+  `upload_image`, reference it by id), not `acknowledgeLosses: true`. Only
+  acknowledge when you have read the list and want the replacement anyway.
+- **A grouped variant is refused outright.** Its design is shared across the
+  group's dimensions and is authored only in the wboost group editor.
+
+Note the asymmetry with export: a design whose containers are predicted to
+overflow still **saves** (it is a warning — a work in progress is worth keeping),
+but `export_variant` will still refuse to produce a file from it.
+
+---
+
+## 14. Design, then immediately use it
+
+> Navrhni tu variantu, ulož ji, a rovnou mi z ní vyexportuj PNG s tím textem,
+> co jsme vymysleli.
+
+The two loops back to back: `preview_design` → `set_design` → `describe_variant`
+(the input ids exist only **after** the design is saved) → `render_variant` →
+`export_variant`. Worth asking for explicitly, because the assistant has to
+re-describe the variant in the middle — the slugs it chose in the document are
+what became the inputs, but their UUIDs come from `describe_variant`.
+
+---
+
 ## Two things to say out loud in any prompt
 
 - **The project or template name.** The account may hold dozens of projects;
   naming one saves a round of questions.
-- **What you want at the end** — a preview to look at, or a file to download.
-  Preview and export are different calls with different costs, and only the
-  second one shows up in the usage report.
+- **What you want at the end** — a preview to look at, a file to download, or a
+  saved design. Preview, export and save are different calls with different
+  costs: only the export shows up in the usage report, and only the save changes
+  anything.
 
 ## What these prompts will not do
 
-Creating a new template, editing a design, uploading a picture or deleting
-anything is not available through this connector. Asking for it gets you a
-pointer to the wboost editor, which is the right answer.
+- **Delete anything.** No tool removes a template, a variant or a picture.
+  Gallery pictures can be added but never removed, moved or renamed from a
+  client.
+- **Edit an existing design in place.** Nothing reads a design back as a
+  document, so an assistant asked to "just move the logo a bit" would be
+  replacing the whole design blind. That belongs in the wboost editor.
+- **Design a synchronized group.** A grouped variant's design is shared across
+  its dimensions and is authored only in the group editor.
+- **Design in a project that is merely shared with you.** Rendering and exporting
+  work; designing requires owning the project.
