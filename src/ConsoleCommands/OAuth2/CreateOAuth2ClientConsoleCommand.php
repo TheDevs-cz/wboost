@@ -16,6 +16,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\PasswordHasher\PasswordHasherInterface;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Exceptions\UserNotFound;
 use WBoost\Web\Repository\UserRepository;
@@ -27,6 +29,14 @@ final class CreateOAuth2ClientConsoleCommand extends Command
         readonly private ClientManagerInterface $clientManager,
         readonly private UserRepository $userRepository,
         readonly private EntityManagerInterface $entityManager,
+        // The bundle's hasher, not a generic autowired one: it must be the SAME
+        // service the token endpoint verifies with, or a client created here
+        // would never authenticate. `ClientManager::save()` does NOT hash — it
+        // only persists — so hashing is the caller's job, and skipping it now
+        // stores a clear-text secret that `allow_plaintext_secrets: false`
+        // (see config/packages/league_oauth2_server.php) refuses to verify.
+        #[Autowire(service: 'league.oauth2_server.password_hasher')]
+        readonly private PasswordHasherInterface $passwordHasher,
     ) {
         parent::__construct();
     }
@@ -59,7 +69,7 @@ final class CreateOAuth2ClientConsoleCommand extends Command
         $identifier = bin2hex(random_bytes(16));
         $plainTextSecret = bin2hex(random_bytes(32));
 
-        $client = new OAuth2Client($name, $identifier, $plainTextSecret);
+        $client = new OAuth2Client($name, $identifier, $this->passwordHasher->hash($plainTextSecret));
         $client->setActive(true);
         $client->setGrants(new Grant(OAuth2Grants::CLIENT_CREDENTIALS));
 

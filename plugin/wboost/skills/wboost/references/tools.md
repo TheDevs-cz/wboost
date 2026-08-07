@@ -23,7 +23,7 @@ called anyway.
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` |
 | `templates:export` | `export_variant` (implies `templates:read`) |
 | `templates:design` | *no tools in this release* |
-| `gallery:write` | *no tools in this release* |
+| `gallery:write` | `upload_image` (implies nothing — a gallery token sees this tool and no other) |
 
 `get_context` echoes the granted scopes back in `scopes[]`. If a tool the user
 expects is missing from the list, their token lacks its scope — a new token is
@@ -183,8 +183,38 @@ Use `width` / `height` against the slot's `frame` — a portrait photo in a
 landscape slot is cropped, not letterboxed.
 
 Deleted pictures sit in a trash bin for a few days and are **never** listed here;
-they also cannot be used in a fill. Nothing in the gallery can be created,
-deleted, moved or renamed from this connector.
+they also cannot be used in a fill. Nothing in the gallery can be deleted, moved
+or renamed from this connector — `upload_image` is the one way to change it, and
+it only ever adds.
+
+---
+
+## `upload_image(projectId, imageBase64, filename, directoryId?)`
+
+Adds a picture to the project's gallery. Scope `gallery:write`.
+
+```jsonc
+{
+  "imageId",         // ← the same value list_gallery reports and an images map takes
+  "url",
+  "width", "height"  // of the STORED bytes; null for SVG
+}
+```
+
+- **base64 only.** URLs are never fetched (fetching a caller-supplied address
+  from inside wboost's network would be an SSRF), so download the picture
+  yourself and send the bytes. A `data:` URI is accepted; its header is stripped.
+- **Keep it under ~3 MB.** base64 inflates bytes by a third and one MCP request
+  body is capped at 4 MiB, so a bigger photo fails at the transport with a bare
+  HTTP 413. wboost's own limit is 10 MB (10 000 000 bytes, decimal).
+- PNG / JPEG / GIF / WebP / SVG are stored as they are; a phone photo
+  (HEIC/HEIF) is converted to JPEG with its rotation baked in. Anything that is
+  not a picture is refused and nothing is stored. The stored object is named
+  after its own id with the extension its BYTES require — a file name cannot
+  make a picture something it is not.
+- Omit `directoryId` to file it at the gallery root (a real location). Each call
+  adds a new picture; nothing is ever overwritten, and nothing can be removed
+  from here.
 
 ---
 

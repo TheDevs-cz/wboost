@@ -11,6 +11,8 @@ use League\Bundle\OAuth2ServerBundle\Model\Client as OAuth2Client;
 use League\Bundle\OAuth2ServerBundle\OAuth2Grants;
 use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
 use Ramsey\Uuid\Uuid;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\PasswordHasher\PasswordHasherInterface;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Template;
@@ -134,6 +136,12 @@ final class TestDataFixture extends Fixture
     // that it drags `templates:read` in through the closure).
     public const string MCP_TOKEN_EXPORT_ONLY_ID = '00000000-0000-0000-0000-0000000000e9';
     public const string MCP_TOKEN_EXPORT_ONLY = 'wb_mcp_test-export-only-token-user1';
+
+    // `gallery:write` ONLY — the first scope that implies NOTHING, so this is
+    // also the token that proves the closure is an expansion and not a
+    // hierarchy: it reaches `upload_image` and not one read tool.
+    public const string MCP_TOKEN_GALLERY_ONLY_ID = '00000000-0000-0000-0000-0000000000ea';
+    public const string MCP_TOKEN_GALLERY_ONLY = 'wb_mcp_test-gallery-only-token-user1';
 
     // Belongs to SHARED_USER — a read token whose whole project list is one
     // project somebody else owns.
@@ -264,6 +272,13 @@ final class TestDataFixture extends Fixture
 
     public function __construct(
         private readonly TokenCrypto $tokenCrypto,
+        // Same reasoning as the MCP token generator below: hash through the
+        // very service the token endpoint verifies with, so the fixture can
+        // never drift from the format production expects. The constants stay
+        // CLEAR TEXT — that is what tests send to `/api/token`; only the
+        // stored column is hashed.
+        #[Autowire(service: 'league.oauth2_server.password_hasher')]
+        private readonly PasswordHasherInterface $passwordHasher,
     ) {
     }
 
@@ -1057,7 +1072,7 @@ final class TestDataFixture extends Fixture
         $manager->persist($orientationVariant);
 
         // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
-        $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, self::OAUTH2_CLIENT_SECRET);
+        $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, $this->passwordHasher->hash(self::OAUTH2_CLIENT_SECRET));
         $activeClient->setActive(true);
         $activeClient->setGrants(new Grant(OAuth2Grants::CLIENT_CREDENTIALS));
         $manager->persist($activeClient);
@@ -1066,7 +1081,7 @@ final class TestDataFixture extends Fixture
         $manager->persist($clientUserMapping);
 
         // OAuth2 client (inactive, no user mapping) — used to verify revocation rejects token requests
-        $inactiveClient = new OAuth2Client('test-inactive-client', self::OAUTH2_INACTIVE_CLIENT_ID, self::OAUTH2_INACTIVE_CLIENT_SECRET);
+        $inactiveClient = new OAuth2Client('test-inactive-client', self::OAUTH2_INACTIVE_CLIENT_ID, $this->passwordHasher->hash(self::OAUTH2_INACTIVE_CLIENT_SECRET));
         $inactiveClient->setActive(false);
         $inactiveClient->setGrants(new Grant(OAuth2Grants::CLIENT_CREDENTIALS));
         $manager->persist($inactiveClient);
@@ -1139,6 +1154,15 @@ final class TestDataFixture extends Fixture
             'Export-only agent',
             [McpScope::TemplatesExport->value],
             $mcpTokens->hash(self::MCP_TOKEN_EXPORT_ONLY),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_GALLERY_ONLY_ID),
+            $user1,
+            'Gallery-only agent',
+            [McpScope::GalleryWrite->value],
+            $mcpTokens->hash(self::MCP_TOKEN_GALLERY_ONLY),
             $date,
         ));
 

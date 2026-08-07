@@ -34,7 +34,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     /** Real, decodable 1×1 VP8 WebP (44 bytes): `RIFF` + `WEBP` + `VP8 `. */
     private const string FIXED_WEBP_BASE64 = 'UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=';
 
-    /** @var array<int, array{variantId: string, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string}> */
+    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string}> */
     public array $calls = [];
 
     /**
@@ -42,6 +42,14 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
      * container-overflow 400 contract without a real Gotenberg round-trip.
      */
     public null|\WBoost\Web\Exceptions\ContainerOverflow $throwContainerOverflow = null;
+
+    /**
+     * When set, EVERY render call throws this, strict or not — the hook for
+     * failure modes that are not about the fill at all
+     * ({@see \WBoost\Web\Exceptions\TemplateRenderUnavailable}, a broken asset),
+     * which callers are supposed to translate rather than swallow.
+     */
+    public null|\Throwable $throwOnRender = null;
 
     public function render(
         TemplateVariant $variant,
@@ -51,7 +59,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
     ): Response {
-        $this->record($variant, $overrides, $imageOverrides, 'render', $strictContainerOverflow, $format);
+        $this->record($variant, $overrides, $imageOverrides, 'render', $strictContainerOverflow, $slice, $format);
 
         return new Response($this->bytes($format), Response::HTTP_OK, ['Content-Type' => $format->contentType()]);
     }
@@ -64,7 +72,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
     ): string {
-        $this->record($variant, $overrides, $imageOverrides, 'renderToBytes', $strictContainerOverflow, $format);
+        $this->record($variant, $overrides, $imageOverrides, 'renderToBytes', $strictContainerOverflow, $slice, $format);
 
         return $this->bytes($format);
     }
@@ -75,8 +83,13 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         null|ResolvedImageOverrides $imageOverrides,
         string $mode,
         bool $strictContainerOverflow,
+        null|CanvasSlice $slice,
         RenderImageFormat $format,
     ): void {
+        if ($this->throwOnRender !== null) {
+            throw $this->throwOnRender;
+        }
+
         if ($this->throwContainerOverflow !== null && $strictContainerOverflow) {
             throw $this->throwContainerOverflow;
         }
@@ -108,6 +121,22 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
 
         $this->calls[] = [
             'variantId' => $variant->id->toString(),
+            // The DESIGN the renderer was handed, as opposed to the fill values
+            // below. Recorded because the MCP candidate-render seam
+            // (WBoost\Web\Mcp\Design\CandidateRenderer) hands over a variant
+            // that is NOT the persisted row, and a test has no other way to
+            // tell a working seam from a no-op that renders the stored canvas.
+            'canvas' => $variant->canvas,
+            'inputIds' => array_values(array_map(
+                static fn (\WBoost\Web\Value\EditorTextInput $input): string => $input->inputId,
+                $variant->inputs,
+            )),
+            'imageInputIds' => array_values(array_map(
+                static fn (\WBoost\Web\Value\EditorImageInput $input): string => $input->inputId,
+                $variant->imageInputs,
+            )),
+            'backgroundImage' => $variant->backgroundImage,
+            'slice' => $slice === null ? null : [$slice->fromIndex, $slice->toIndex, $slice->withBackground],
             'texts' => $overrides->texts,
             'richTexts' => $richTexts,
             'hidden' => $overrides->hidden,

@@ -140,6 +140,32 @@ final class ScopeFilteringTest extends WebTestCase
     }
 
     /**
+     * `gallery:write` is the first scope that implies NOTHING, and this is what
+     * that means end to end: its token sees EXACTLY one tool and cannot reach a
+     * read tool at all — not even the fixture probe every other token can call.
+     *
+     * Asserted as an exact set, for the same reason {@see READ_TOOLS} is: "it
+     * can see upload_image" would also pass against a gate that had quietly
+     * started handing out everything. The implication closure is an expansion,
+     * not a hierarchy — a scope only grants what {@see McpScope::grants()} says
+     * it does, and for this one that is itself.
+     */
+    public function testGalleryTokenSeesOnlyTheGalleryToolAndInheritsNoReads(): void
+    {
+        $client = self::createClient();
+
+        self::assertSame(
+            ['upload_image'],
+            self::listTools($client, TestDataFixture::MCP_TOKEN_GALLERY_ONLY),
+        );
+
+        $response = self::callTool($client, TestDataFixture::MCP_TOKEN_GALLERY_ONLY, 'scope_read_probe');
+
+        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode());
+        self::assertStringContainsString('scope="templates:read"', (string) $response->headers->get('WWW-Authenticate'));
+    }
+
+    /**
      * A tool whose class forgot `#[McpToolScope]` is denied to EVERYONE — the
      * token used here holds every scope there is. There is no default scope to
      * fall back to, so forgetting the attribute can only ever take a tool away,

@@ -56,7 +56,7 @@ bin/console app:mcp:token:revoke <id>   # kill one; idempotent
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` | the default when `--scopes` is omitted |
 | `templates:export` | `export_variant` — the full-size lossless PNG | **implies** `templates:read`; exports are counted in the usage report |
 | `templates:design` | *nothing in this release* | reserved for the authoring tools |
-| `gallery:write` | *nothing in this release* | reserved for uploads |
+| `gallery:write` | `upload_image` — add a picture to a project's gallery | implies **nothing**: grant it alongside `templates:read` if the agent should also browse |
 
 A tool the token lacks the scope for is **not listed** to the client at all, and
 is refused (403 `insufficient_scope`) if called anyway.

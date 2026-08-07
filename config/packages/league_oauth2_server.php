@@ -167,6 +167,35 @@ return App::config([
                 'entity_manager' => 'default',
             ],
         ],
+
+        'client' => [
+            /*
+             * Client secrets are stored HASHED, never in clear text.
+             *
+             * The bundle's own default is `true` — it registers a migrating
+             * hasher that also accepts a clear-text column value, so an
+             * installation predating bundle 1.2 keeps authenticating while its
+             * rows are still unhashed. That is a migration aid, and it is
+             * deprecated: leaving it on means the database keeps holding
+             * credentials that are directly replayable by anyone who can read
+             * the table (a dump, a backup, an Adminer session).
+             *
+             * Setting it to `false` is only safe once no clear-text row is
+             * left, because verification of one would simply start failing.
+             * That migration has been run on production (2026-08-07):
+             * `bin/console league:oauth2-server:rehash-client-secrets` hashes
+             * the EXISTING secret in place — the value a consumer sends is
+             * unchanged, so it is transparent to them, and both rows came back
+             * as `$2y$` bcrypt. The live `client_credentials` consumer was
+             * verified against `/api/token` before and after (200 both times).
+             *
+             * ORDER MATTERS if this ever runs against another environment:
+             * rehash FIRST, flip this SECOND. Flipping first breaks every
+             * client whose secret is still clear text.
+             */
+            'allow_plaintext_secrets' => false,
+        ],
+
         'role_prefix' => 'ROLE_OAUTH2_',
     ],
 ]);
