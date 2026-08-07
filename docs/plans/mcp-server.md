@@ -611,7 +611,9 @@ first — deploy semantics are non-obvious. Relevant facts:
 
 ### Infra tasks
 
-- [ ] **I-T1 — Gotenberg headroom (do before Milestone B).**
+- [x] **I-T1 — Gotenberg headroom (do before Milestone B).** ✅ *Verified 2026-08-07 — ALREADY DONE, no change needed.*
+  **Evidence:** `apps/wboost/compose.yaml` already carries `mem_limit: 5g` / `mem_reservation: 1g` (raised from 512m during the 2026-08-05 OOM fix, with the reasoning written into the file), plus a 1 GiB `/tmp` tmpfs to keep per-conversion Chromium profiles out of the RAID. `docker stats` on the box: **334 MiB / 5 GiB = 6.5 %** against a ~1.8 GB working set for 6 concurrent Chromium instances. That is ~15× headroom over today's load.
+  **Deliberately NOT set:** `--chromium-max-queue-size` — the 2026-08-05 failures were memory stalls, not queue depth (peak ~69 req/h against ~3.5 req/s capacity), so a cap would only add a new way to fail. It remains the documented lever if real load ever approaches capacity, which the design loop could eventually do.
   The design loop adds renders on top of the fill page's 2–3 per keystroke. Gotenberg already
   OOM-killed Chromium inside its 2 GiB cgroup once (Sentry WEB-2B). Before shipping design tools,
   review `apps/wboost/compose.yaml`'s `gotenberg` limits and either raise the memory ceiling or
@@ -686,3 +688,4 @@ first — deploy semantics are non-obvious. Relevant facts:
 - 2026-08-06 — I-T4 — production smoke green on https://wboost.cz (401 challenge, 6 tools, real PNG export, R1 holds on the real worker); PATs issued for j.mikes@me.com + lukasrejda@lukasrejda.cz; journal entry in ~/www/lily.srv.
 - 2026-08-06 — S4-T1…T4 — the DSL core: strict parser (85 tests, all violations at once), `GridResolver` (edges rounded not widths — no 1px seams), `TextMeasurer` (validated against real Chromium, error strictly one-sided), and `DesignCompiler` with one named test per §4 invariant + a live drift guard against the JS `CANVAS_CUSTOM_PROPERTIES`. Corrected §4.2-8 (`editorLocked` IS persisted), noted §4.1-3 vacuous in v1 and §4.5-22 unenforceable in the compiler.
 - 2026-08-06 — S4-T5 + S4-T6 — decompiler (lossy-but-reporting, idempotent to a lossless fixed point, 13 canvases incl. 5 anonymized production ones) and linter (9 codes, thresholds sanity-checked against real templates). **Stage 4 complete.** Found a data-loss hazard for S5-T3: form-uploaded backgrounds have no gallery row and would be blanked by a naive `set_design`.
+- 2026-08-07 — I-T1 — verified already satisfied: Gotenberg is on `mem_limit: 5g` (raised in the 2026-08-05 OOM fix), running at 334 MiB / 6.5%. No infra change needed before the design tools.
