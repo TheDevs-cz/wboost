@@ -124,8 +124,8 @@
         <div class="card mb-2" data-editor-header style="position: sticky;top: 0px;z-index: 1000;">
             <div class="card-body p-2">
                 <div class="mb-1">
-                    <button class="btn btn-sm btn-outline-secondary me-3" data-action="canvas-editor#showBackgroundModal" type="button" title="Pozadí aktivní varianty"><i class="mdi mdi-image"></i> Pozadí</button>
-
+                    {# "Pozadí" lives in the left panel with the other compose
+                       actions — editor/_editor_left_panel.html.twig. #}
                     <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-group-editor-target="undoButton" data-action="group-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
                     <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-group-editor-target="redoButton" data-action="group-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
 

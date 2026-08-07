@@ -1,9 +1,17 @@
-{# Left panel: add text / add image / layers list / highlight toggle. All actions
+{# Left panel: background / add text / add image / layers list. All actions
    target controllers present on both the single-variant and the group editor page. #}
 {# Sticky only below lg — in the app-shell layout the surrounding column is the
    scroll container, where a sticky card would offset itself as you scroll it. #}
 <div class="card editor-left-panel-card">
     <div class="card-body">
+        {# Picking a background is composing the canvas, not a global editor
+           control — it belongs with the other "put something on the stage"
+           actions rather than next to undo/zoom in the top bar. Outside the
+           fonts guard below: a project with no fonts can still set one. #}
+        <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button"
+                data-action="canvas-editor#showBackgroundModal"
+                {% if group_mode|default(false) %}title="Pozadí aktivní varianty"{% endif %}><i class="mdi mdi-image me-1"></i> Pozadí</button>
+
         {% if fonts|length == 0 %}
             <p class="text-danger">
                 <i class="text-danger uil-exclamation-triangle me-1"></i> Nejsou nahrány fonty
