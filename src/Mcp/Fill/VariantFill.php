@@ -69,14 +69,7 @@ readonly final class VariantFill
     public function variant(string $variantId): TemplateVariant
     {
         if (!Uuid::isValid($variantId)) {
-            // NOT folded into notFound(): a string that cannot be a variant id
-            // reveals nothing about which variants exist, and telling the agent
-            // it sent a template id (or a name) where a variant id belongs is
-            // the difference between a fixable mistake and a silent dead end.
-            throw new ToolCallException(sprintf(
-                '"%s" is not a valid template variant id. Variant ids are UUIDs; call find_templates to list the ones this account can reach.',
-                $variantId,
-            ));
+            throw self::notAVariantId($variantId);
         }
 
         try {
@@ -136,6 +129,28 @@ readonly final class VariantFill
             // "cannot be rotated", "is not available for this placeholder", …
             throw new ToolCallException($badRequest->getMessage());
         }
+    }
+
+    /**
+     * A string that cannot be a variant id at all.
+     *
+     * NOT folded into {@see notFound()}: it reveals nothing about which
+     * variants exist, and telling the agent it sent a template id (or a name)
+     * where a variant id belongs is the difference between a fixable mistake
+     * and a silent dead end.
+     *
+     * Static and public so the design tools — which resolve a variant through
+     * a different voter ({@see \WBoost\Web\Mcp\Design\DesignVariants}) — refuse
+     * a malformed id in the SAME words as the fill tools. One wording per
+     * failure mode across the whole server is the rule the class docblock
+     * states; this is the second failure mode it applies to.
+     */
+    public static function notAVariantId(string $variantId): ToolCallException
+    {
+        return new ToolCallException(sprintf(
+            '"%s" is not a valid template variant id. Variant ids are UUIDs; call find_templates to list the ones this account can reach.',
+            $variantId,
+        ));
     }
 
     /**
