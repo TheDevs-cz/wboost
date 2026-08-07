@@ -2690,8 +2690,9 @@ button.fill-layer-row__main:focus-visible {
 
 /* Canvas display-settings menu (the gear in the editor top bar). Wide enough
    that no switch label wraps, and above the sticky header's own stacking
-   context so it paints over the stage. */
-.editor-display-menu {
+   context so it paints over the stage. Qualified with .dropdown-menu to
+   outrank the theme's own min-width/z-index on that class. */
+.dropdown-menu.editor-display-menu {
     min-width: 17rem;
     z-index: 1010;
 }
@@ -2705,8 +2706,10 @@ button.fill-layer-row__main:focus-visible {
     align-items: center;
 }
 
-/* "Úprava více variant" mode switch — sits left of the chips it governs. */
-.group-variant-mode {
+/* "Úprava více variant" mode switch — sits left of the chips it governs.
+   Selector doubled up to outrank the theme's `.btn-sm` radius (see the
+   .group-variant-include note below for why order alone does not do it). */
+.group-variant-rail .group-variant-mode {
     border-radius: 2rem;
     margin-right: 0.25rem;
 }
@@ -2757,12 +2760,17 @@ button.fill-layer-row__main:focus-visible {
 /* The per-variant opt-in switches are chrome of the multi-variant mode:
    with the mode off there is nothing to opt into, so they are not rendered
    at all (never merely dimmed — a visible switch that changes nothing is
-   worse than no switch). */
-.group-variant-include {
+   worse than no switch).
+
+   Two class selectors, not one: the theme sheet (theme/css/app-saas.min.css)
+   loads AFTER this file, so its `.form-check {display: block}` wins every
+   single-class tie. Anything here that overrides a Bootstrap/theme utility
+   needs the same treatment. */
+.group-variant-chip .group-variant-include {
     display: none;
 }
 
-.group-variant-rail--multi .group-variant-include {
+.group-variant-rail--multi .group-variant-chip .group-variant-include {
     display: block;
 }
 
