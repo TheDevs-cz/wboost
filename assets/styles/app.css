@@ -2688,54 +2688,56 @@ button.fill-layer-row__main:focus-visible {
     background: var(--bs-warning, #ffbc00);
 }
 
-/* --- Template-group editor: variant rail + miniatures ------------------- */
+/* --- Template-group editor: variant rail (compact chips) ---------------- */
 
 .group-variant-rail {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: flex-start;
+    gap: 0.5rem;
+    align-items: center;
 }
 
-.group-variant-card {
+.group-variant-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     border: 2px solid transparent;
-    border-radius: 0.375rem;
-    padding: 0.375rem;
+    border-radius: 2rem;
+    padding: 0.125rem 0.5rem 0.125rem 0.25rem;
     background: var(--bs-light, #f8f9fa);
 }
 
-.group-variant-card.group-variant-active {
+.group-variant-chip.group-variant-active {
     border-color: var(--bs-primary, #727cf5);
 }
 
-.group-variant-card.group-variant-excluded {
-    opacity: 0.45;
-    filter: grayscale(0.8);
+.group-variant-chip.group-variant-excluded {
+    opacity: 0.5;
 }
 
-.group-variant-thumb {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    cursor: pointer;
+.group-variant-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 0;
+    background: transparent;
+    border-radius: 2rem;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: inherit;
+    white-space: nowrap;
 }
 
-.group-variant-thumb canvas {
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 0.25rem;
-    background: #fff;
-    max-width: 160px;
+.group-variant-chip.group-variant-active .group-variant-label {
+    font-weight: 600;
 }
 
 .group-variant-dirty {
-    position: absolute;
-    top: -0.3rem;
-    right: -0.3rem;
-    width: 0.6rem;
-    height: 0.6rem;
+    width: 0.45rem;
+    height: 0.45rem;
     border-radius: 50%;
     background: var(--bs-danger, #fa5c7c);
-    border: 1px solid #fff;
 }
 
 /* "Create group from existing template" picker tiles */

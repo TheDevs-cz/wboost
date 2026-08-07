@@ -2,8 +2,8 @@
     Group canvas editor: edits ALL member variants of a template group at
     once. Composes the regular `canvas-editor` controller stack (minus
     canvas-history — undo/redo is group-global here) with the `group-editor`
-    orchestrator that owns tabs, per-variant shadow canvases, miniatures,
-    delta propagation and the multi-variant save.
+    orchestrator that owns tabs, per-variant shadow canvases, delta
+    propagation and the multi-variant save.
 
     Controller vars: project, group, fonts, font_faces, gallery_directories,
     menu_item, save_url, and `variants` — ordered list of
@@ -151,39 +151,28 @@
             </div>
         </div>
 
-        {# Variant rail: live miniatures, tab switching, include toggles,
-           per-variant re-sync, overflow/off-canvas badges. #}
+        {# Variant rail: one compact chip per dimension — tab switching, include
+           toggles, dirty dot, overflow/off-canvas badges. Deliberately without
+           a preview: the rail is navigation, the stage is the preview. #}
         <div class="card mb-2">
             <div class="card-body p-2">
                 <div class="group-variant-rail">
                     {% for v in variants %}
-                        <div class="group-variant-card{{ loop.first ? ' group-variant-active' }}" data-group-editor-target="card" data-variant-id="{{ v.variant.id }}">
-                            <div class="group-variant-thumb" role="button" title="Přepnout na tuto variantu"
-                                 data-action="click->group-editor#activateVariant"
-                                 data-group-editor-id-param="{{ v.variant.id }}">
-                                <canvas data-group-editor-target="mini" data-variant-id="{{ v.variant.id }}"
-                                        width="{{ (120 * v.variant.dimension.width / v.variant.dimension.height)|round }}"
-                                        height="120"></canvas>
-                                <span class="group-variant-dirty d-none" title="Neuložené změny" data-group-editor-target="dirtyDot" data-variant-id="{{ v.variant.id }}"></span>
-                            </div>
-                            <div class="small text-center mt-1">
+                        <div class="group-variant-chip{{ loop.first ? ' group-variant-active' }}" data-group-editor-target="card" data-variant-id="{{ v.variant.id }}">
+                            <button type="button" class="group-variant-label" title="Přepnout na tuto variantu"
+                                    data-action="group-editor#activateVariant"
+                                    data-group-editor-id-param="{{ v.variant.id }}">
                                 {{ v.dimension_label }}
+                                <span class="group-variant-dirty d-none" title="Neuložené změny" data-group-editor-target="dirtyDot" data-variant-id="{{ v.variant.id }}"></span>
+                            </button>
+                            <div class="form-check form-switch mb-0" title="Zahrnout do skupinových úprav (neuložené změny se ukládají vždy)">
+                                <input type="checkbox" class="form-check-input" checked
+                                       data-group-editor-target="includeToggle"
+                                       data-variant-id="{{ v.variant.id }}"
+                                       data-group-editor-id-param="{{ v.variant.id }}"
+                                       data-action="change->group-editor#toggleInclude">
                             </div>
-                            <div class="d-flex align-items-center justify-content-center gap-2 mt-1">
-                                <div class="form-check form-switch mb-0" title="Zahrnout do skupinových úprav (neuložené změny se ukládají vždy)">
-                                    <input type="checkbox" class="form-check-input" checked
-                                           data-group-editor-target="includeToggle"
-                                           data-variant-id="{{ v.variant.id }}"
-                                           data-group-editor-id-param="{{ v.variant.id }}"
-                                           data-action="change->group-editor#toggleInclude">
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Srovnat celou variantu podle aktivní"
-                                        data-action="group-editor#resyncVariant"
-                                        data-group-editor-id-param="{{ v.variant.id }}"><i class="mdi mdi-sync"></i></button>
-                            </div>
-                            <div class="text-center">
-                                <span class="badge bg-danger-lighten text-danger d-none" data-group-editor-target="badge" data-variant-id="{{ v.variant.id }}"></span>
-                            </div>
+                            <span class="badge bg-danger-lighten text-danger d-none" data-group-editor-target="badge" data-variant-id="{{ v.variant.id }}"></span>
                         </div>
                     {% endfor %}
                 </div>

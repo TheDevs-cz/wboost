@@ -4,14 +4,13 @@ import { FabricImage, StaticCanvas } from "fabric";
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { GroupSync } from './group_sync.js';
 
-const MINI_REFRESH_DELAY = 120; // ms; setTimeout on purpose — rAF never fires in hidden tabs
 const SYNC_DEBOUNCE = 150;
 const HISTORY_DEBOUNCE = 400;
 const HISTORY_MAX = 15;
-// Offscreen per-variant canvases are thumbnail-sized: they only ever feed the
-// miniature rail, and a print variant at full size would cost hundreds of MB
-// across a group. The stored preview is re-rendered from them at a multiplier
-// (see _collectSave) rather than blitted, so it is not limited by this.
+// Offscreen per-variant canvases are thumbnail-sized: a print variant at full
+// size would cost hundreds of MB across a group. The stored preview is
+// re-rendered from them at a multiplier (see submitForm) rather than blitted,
+// so it is not limited by this.
 const SHADOW_WIDTH = 400;
 
 /**
@@ -23,13 +22,13 @@ const SHADOW_WIDTH = 400;
  *
  * Every member variant additionally owns an offscreen thumbnail-scale
  * StaticCanvas "shadow" (objects in full logical variant coordinates,
- * displayed via setZoom): the shadows are the propagation targets, the live
- * miniatures, and the source of each variant's save payload + preview PNG.
+ * displayed via setZoom): the shadows are the propagation targets and the
+ * source of each variant's save payload + preview PNG.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
 
-    static targets = ["variantsData", "mini", "card", "includeToggle", "dirtyDot", "badge", "undoButton", "redoButton"];
+    static targets = ["variantsData", "card", "includeToggle", "dirtyDot", "badge", "undoButton", "redoButton"];
 
     static values = {
         saveUrl: String,
@@ -45,8 +44,6 @@ export default class extends Controller {
         this._switching = false;
         this._restoring = false;
         this._booted = false;
-        this._miniTimers = {};
-        this._pendingResyncVariant = null;
     }
 
     canvasEditorOutletConnected(outlet) {
@@ -117,10 +114,6 @@ export default class extends Controller {
             this._scheduleHistoryPush();
         });
 
-        // Live miniature of the ACTIVE variant: blit from the interactive
-        // canvas whenever Fabric repaints it.
-        canvas.on('after:render', () => this._scheduleMiniRefresh(this.activeId));
-
         // Hydrate shadows once fonts are resident (same gate the interactive
         // canvas load awaits — measurement parity).
         try {
@@ -131,7 +124,6 @@ export default class extends Controller {
 
         for (const variant of this.variants) {
             await this._createShadow(variant);
-            this._scheduleMiniRefresh(variant.id);
         }
 
         this.sync.rebaseline();
@@ -150,7 +142,6 @@ export default class extends Controller {
                         }
                     });
                     variant.shadow.renderAll();
-                    this._scheduleMiniRefresh(variant.id);
                 });
             });
         }
@@ -180,7 +171,6 @@ export default class extends Controller {
         if (this.sync) {
             this.sync.rebaseline();
         }
-        this._scheduleMiniRefresh(this.activeId);
     }
 
     /** canvas-editor:background:changed — active variant picked a new background. */
@@ -261,7 +251,6 @@ export default class extends Controller {
             variant.overflowPx = GroupSync.reflowShadow(variant.shadow);
             variant.offCanvas = this._hasOffCanvasObjects(variant);
             variant.shadow.renderAll();
-            this._scheduleMiniRefresh(id);
         });
         this._refreshDirtyDots();
         this._refreshBadges();
@@ -347,7 +336,6 @@ export default class extends Controller {
         variant.overflowPx = GroupSync.reflowShadow(shadow);
         variant.offCanvas = this._hasOffCanvasObjects(variant);
         shadow.renderAll();
-        this._scheduleMiniRefresh(variant.id);
     }
 
     // ------------------------------------------------------------------ tabs
@@ -474,40 +462,6 @@ export default class extends Controller {
 
         this._afterPropagation(touched);
         this.sync.rebaseline();
-        this._scheduleHistoryPush();
-    }
-
-    /**
-     * Two-click confirm (no native confirm() — it freezes automation and is
-     * jarring): first click arms the button for 4s, second click executes.
-     */
-    resyncVariant(event) {
-        const variantId = event.params ? event.params.id : null;
-        const button = event.currentTarget;
-
-        if (!this.sync || !variantId || variantId === this.activeId) {
-            return;
-        }
-
-        if (this._pendingResyncVariant !== variantId) {
-            this._pendingResyncVariant = variantId;
-            button.classList.add('btn-danger');
-            button.title = 'Kliknutím potvrdíte: přepíše rozložení této varianty podle aktivní varianty.';
-            clearTimeout(this._resyncArmTimer);
-            this._resyncArmTimer = setTimeout(() => {
-                this._pendingResyncVariant = null;
-                button.classList.remove('btn-danger');
-                button.title = 'Srovnat celou variantu podle aktivní';
-            }, 4000);
-            return;
-        }
-
-        clearTimeout(this._resyncArmTimer);
-        this._pendingResyncVariant = null;
-        button.classList.remove('btn-danger');
-
-        const touched = this.sync.resync(null, variantId);
-        this._afterPropagation(touched);
         this._scheduleHistoryPush();
     }
 
@@ -703,33 +657,7 @@ export default class extends Controller {
         }
     }
 
-    // ------------------------------------------------------------------ miniatures + rail
-
-    _scheduleMiniRefresh(variantId) {
-        clearTimeout(this._miniTimers[variantId]);
-        this._miniTimers[variantId] = setTimeout(() => this._refreshMini(variantId), MINI_REFRESH_DELAY);
-    }
-
-    _refreshMini(variantId) {
-        const variant = this._variant(variantId);
-        const mini = this.miniTargets.find((el) => el.dataset.variantId === variantId);
-
-        if (!variant || !mini) {
-            return;
-        }
-
-        const source = variantId === this.activeId
-            ? this.canvasEditorOutlet.canvas.getElement()
-            : (variant.shadow ? variant.shadow.lowerCanvasEl : null);
-
-        if (!source || !source.width || !source.height) {
-            return;
-        }
-
-        const ctx = mini.getContext('2d');
-        ctx.clearRect(0, 0, mini.width, mini.height);
-        ctx.drawImage(source, 0, 0, mini.width, mini.height);
-    }
+    // ------------------------------------------------------------------ rail
 
     _refreshRail() {
         this.cardTargets.forEach((card) => {

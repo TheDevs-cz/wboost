@@ -375,73 +375,46 @@ export class GroupSync {
     }
 
     /**
-     * Explicit re-sync: overwrite matched targets' geometry with the absolute
-     * projection of the active object (clobbers per-variant fine-tunes — this
-     * is the user-invoked "Srovnat podle skupiny").
+     * Explicit re-sync of ONE active object: overwrite its match in every
+     * target with the absolute projection of the active geometry (clobbers
+     * per-variant fine-tunes — this is the user-invoked "Srovnat podle
+     * skupiny" on the mini-toolbar).
      *
-     * @param {Object|null} onlyObj  limit to one active object (per-element
-     *                               re-sync); null = every matched element
-     * @param {string|null} onlyTargetId limit to one variant (per-variant re-sync)
+     * @param {Object} obj the active object to project
      */
-    resync(onlyObj = null, onlyTargetId = null) {
-        const canvas = this.activeCanvas();
+    resync(obj) {
         const activeDims = this.activeDims();
-        const targets = this.targets().filter(
-            (target) => onlyTargetId === null || target.id === onlyTargetId,
-        );
-        const objects = onlyObj ? [onlyObj] : canvas.getObjects();
         const touched = new Set();
 
-        objects.forEach((obj) => {
-            if (!isSyncable(obj)) {
+        if (!isSyncable(obj)) {
+            return touched;
+        }
+
+        this.targets().forEach((target) => {
+            const match = target.shadow.getObjects().find((o) => o.inputId === obj.inputId);
+            if (!match) {
                 return;
             }
 
-            targets.forEach((target) => {
-                const match = target.shadow.getObjects().find((o) => o.inputId === obj.inputId);
-                if (!match) {
-                    return;
+            const { rx, ry } = ratios(activeDims, target);
+            match.set(projectGeometry(snapshotGeometry(obj), rx, ry, isTextboxObject(obj)));
+
+            // Styles + metadata follow absolutely on an explicit re-sync.
+            const props = snapshotProps(obj);
+            [...STYLE_KEYS, ...META_KEYS].forEach((key) => {
+                const value = props[key];
+                if (value !== undefined) {
+                    match.set(key, Array.isArray(value) ? value.slice() : value);
                 }
-
-                const { rx, ry } = ratios(activeDims, target);
-                match.set(projectGeometry(snapshotGeometry(obj), rx, ry, isTextboxObject(obj)));
-
-                // Styles + metadata follow absolutely on an explicit re-sync.
-                const props = snapshotProps(obj);
-                [...STYLE_KEYS, ...META_KEYS].forEach((key) => {
-                    const value = props[key];
-                    if (value !== undefined) {
-                        match.set(key, Array.isArray(value) ? value.slice() : value);
-                    }
-                });
-
-                if (isTextboxObject(match) && typeof match.initDimensions === 'function') {
-                    match.initDimensions();
-                }
-                match.setCoords();
-
-                touched.add(target.id);
             });
 
-            // Container maxHeight follows on a full-variant re-sync only
-            // (handled below, outside the per-object loop).
+            if (isTextboxObject(match) && typeof match.initDimensions === 'function') {
+                match.initDimensions();
+            }
+            match.setCoords();
+
+            touched.add(target.id);
         });
-
-        if (!onlyObj) {
-            const containers = Array.isArray(canvas.wboostContainers) ? canvas.wboostContainers : [];
-            targets.forEach((target) => {
-                const { ry } = ratios(activeDims, target);
-                target.shadow.wboostContainers = containers.map((container) => ({
-                    ...container,
-                    maxHeight: container.maxHeight * ry,
-                    gap: projectedSpacing(container.gap, ry),
-                    spaceAfter: projectedSpacing(container.spaceAfter, ry),
-                    memberInputIds: (container.memberInputIds || []).slice(),
-                    memberContainerIds: (container.memberContainerIds || []).slice(),
-                }));
-                touched.add(target.id);
-            });
-        }
 
         return touched;
     }
