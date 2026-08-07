@@ -521,7 +521,11 @@ the property controllers above only populate/mutate their (relocated) fields.
   bitmap, so it never leaks into the saved preview thumbnail or the server PNG).
 
 **Overlay chrome toggles** (`templates/editor/_editor_toggles.html.twig`, the
-top bar shared by the single-variant and the group editor). Element IDs are the
+top bar shared by the single-variant and the group editor). All five live
+behind ONE gear button ("Zobrazení") as a Bootstrap dropdown with
+`data-bs-auto-close="outside"` — they are set occasionally and were costing the
+widest row of editor chrome. The menu stays in the DOM while closed, which is
+what keeps the connect-time reads below working. Element IDs are the
 contract — each controller reads its switch's initial state with
 `querySelector('#…')` on connect, so a renamed id silently starts the chrome
 OFF with no error anywhere. None of them persist: every reload starts all-on.
@@ -838,6 +842,32 @@ next group save). Authorisation: `TemplateGroupVoter` — **`VIEW`** (fill,
 fill-preview, export, placeholder upload) delegates to `ProjectVoter::VIEW`
 (admin, owner, any shared user); **`EDIT`** (group editor, add-dimension)
 stays a designer/owner/admin tool.
+
+**Group editor propagation — two target sets (2026-08-07).** `GroupSync` is
+handed `targets()` AND `allTargets()`, and the split is what the rail's UI
+means:
+
+- **EDITS** (moves, resizes, styles, metadata, z-order, containers — i.e.
+  `syncPass`) go to `targets()`: EMPTY unless the designer turns on
+  **"Úprava více variant"** (the mode button in the variant rail, default
+  OFF), then the variants whose per-variant switch is on. Those switches are
+  chrome of the mode and only render with it (CSS `--multi` on the rail); the
+  ACTIVE variant's is forced on + disabled.
+- **STRUCTURE** (`projectNewObject`, `removeObject`, `projectBackgroundLayer`
+  and the explicit per-element "Srovnat podle skupiny" `resync`) goes to
+  `allTargets()` — every dimension, no opt-out, mode or not. The object set
+  MUST stay identical across dimensions: one silently missing an element (or
+  background) renders as a scrambled stack, the exact failure the group model
+  exists to prevent. Delete mirrors add so an always-fanned-out object stays
+  removable in one go; per-dimension "not shown here" is the layers-panel eye,
+  which travels as an ordinary (gated) edit.
+
+Flipping the mode settles the debounced pass under the OLD mode and then
+rebaselines — otherwise edits made while it was off would fan out
+retroactively on the next mutation. The rail carries NO per-variant preview
+and no whole-variant re-sync button (both retired 2026-08-07): it is
+navigation (chips: label, dirty dot, overflow badge), the stage is the
+preview.
 
 **Web routes** live under `/project/{projectId}/templates` (name `templates`),
 `/template/{templateId}/…`, `/template-variant/{variantId}/…` and

@@ -2688,6 +2688,14 @@ button.fill-layer-row__main:focus-visible {
     background: var(--bs-warning, #ffbc00);
 }
 
+/* Canvas display-settings menu (the gear in the editor top bar). Wide enough
+   that no switch label wraps, and above the sticky header's own stacking
+   context so it paints over the stage. */
+.editor-display-menu {
+    min-width: 17rem;
+    z-index: 1010;
+}
+
 /* --- Template-group editor: variant rail (compact chips) ---------------- */
 
 .group-variant-rail {

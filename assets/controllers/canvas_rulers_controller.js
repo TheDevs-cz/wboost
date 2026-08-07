@@ -13,7 +13,7 @@ import { Controller } from "@hotwired/stimulus";
  *   dragging, a dark badge shows the live position ("X: 204 px") and the
  *   guide magnetically snaps to object edges/centers and the canvas
  *   center/edges, so placing it exactly on an element is effortless.
- * - The left-panel switch (#ruler-enabled-control) toggles the whole
+ * - The display-menu switch (#ruler-enabled-control) toggles the whole
  *   feature; hidden guides also stop being snap targets
  *   (canvas.wboostGuidesHidden, read by canvas_snapping_controller).
  *

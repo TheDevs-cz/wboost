@@ -32,7 +32,7 @@ import { Controller } from "@hotwired/stimulus";
  * All radii are SCREEN px, divided by the live stage scale each gesture, so
  * the magnetism feels identical at every zoom (zoom is a CSS transform on
  * .canvas-wrapper, folded into `scale`). Holding ⌘/Ctrl bypasses snapping;
- * the left-panel switch (#snap-enabled-control) turns it off entirely.
+ * the display-menu switch (#snap-enabled-control) turns it off entirely.
  *
  * Guides are plain DOM in the UNSCALED `.canvas-stage` layer (the same place
  * canvas_floating_toolbar draws its `.editable-outline`s), POOLED and

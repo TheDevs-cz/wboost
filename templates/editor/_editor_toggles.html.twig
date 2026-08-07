@@ -1,38 +1,55 @@
-{# Compact editor toggle group in the TOP bar next to the zoom controls
-   (shared by the single-variant and the group editor). The element IDs are
-   load-bearing: canvas_floating_toolbar (#highlight-editable-control +
-   #caption-visible-control), canvas_container (#container-zones-control),
-   canvas_snapping (#snap-enabled-control on connect) and canvas_rulers
-   (#ruler-enabled-control) key off them. Both editor roots wrap the header,
+{# Canvas display settings, in the TOP bar next to the zoom controls (shared by
+   the single-variant and the group editor). Five switches that used to sit
+   spread across the bar; they are set once in a while and were costing the
+   widest row in the editor chrome, so they live behind one gear now.
+
+   The element IDs are load-bearing: canvas_floating_toolbar
+   (#highlight-editable-control + #caption-visible-control), canvas_container
+   (#container-zones-control), canvas_snapping (#snap-enabled-control on
+   connect) and canvas_rulers (#ruler-enabled-control) key off them. A
+   Bootstrap dropdown keeps its menu in the DOM while closed, so those
+   connect-time querySelector reads still find their switch.
+
+   auto-close="outside": flipping one switch must not dismiss the menu — these
+   are usually toggled in twos and threes. Both editor roots wrap the header,
    so the data-actions reach the same controllers as before the move. #}
-<div class="d-inline-block align-middle ms-3">
-    <div class="form-check form-switch form-check-inline my-0 me-3 align-middle">
-        <input class="form-check-input" type="checkbox" role="switch" id="highlight-editable-control" checked data-action="change->canvas-floating-toolbar#toggleHighlight">
-        <label class="form-check-label small" for="highlight-editable-control">Zobrazit editovatelné prvky</label>
+<div class="d-inline-block align-middle ms-3 dropdown">
+    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown"
+            data-bs-auto-close="outside" aria-expanded="false" title="Co se zobrazuje na plátně">
+        <i class="mdi mdi-cog-outline me-1"></i>Zobrazení
+    </button>
+
+    <div class="dropdown-menu editor-display-menu p-2">
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="highlight-editable-control" checked data-action="change->canvas-floating-toolbar#toggleHighlight">
+            <label class="form-check-label small" for="highlight-editable-control">Zobrazit editovatelné prvky</label>
+        </div>
+        {# Independent of the outline switch above: the two draw different halves of
+           the same overlay, and a designer reviewing the composition usually wants
+           the frames without the name tags covering the top of every element. #}
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="caption-visible-control" checked data-action="change->canvas-floating-toolbar#toggleCaptions">
+            <label class="form-check-label small" for="caption-visible-control" title="Jmenovky polí zobrazené v rohu každého editovatelného prvku">Popisky prvků</label>
+        </div>
+        {# Chrome only — hiding the frames never touches the container DEFINITIONS
+           (they keep reflowing the design and stay listed in the Kontejnery panel). #}
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="container-zones-control" checked data-action="change->canvas-container#toggleZones">
+            <label class="form-check-label small" for="container-zones-control" title="Přerušované rámečky kontejnerů na plátně. Kontejnery zůstávají funkční, jen je nevidíte.">Rámečky kontejnerů</label>
+        </div>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="snap-enabled-control" checked data-action="change->canvas-snapping#toggleSnapping">
+            <label class="form-check-label small" for="snap-enabled-control">Přichytávání k prvkům <span class="text-muted">(⌘ = vypnout)</span></label>
+        </div>
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="ruler-enabled-control" checked data-action="change->canvas-rulers#toggle">
+            <label class="form-check-label small" for="ruler-enabled-control">Pravítka a vodítka</label>
+        </div>
     </div>
-    {# Independent of the outline switch above: the two draw different halves of
-       the same overlay, and a designer reviewing the composition usually wants
-       the frames without the name tags covering the top of every element. #}
-    <div class="form-check form-switch form-check-inline my-0 me-3 align-middle">
-        <input class="form-check-input" type="checkbox" role="switch" id="caption-visible-control" checked data-action="change->canvas-floating-toolbar#toggleCaptions">
-        <label class="form-check-label small" for="caption-visible-control" title="Jmenovky polí zobrazené v rohu každého editovatelného prvku">Popisky prvků</label>
-    </div>
-    {# Chrome only — hiding the frames never touches the container DEFINITIONS
-       (they keep reflowing the design and stay listed in the Kontejnery panel). #}
-    <div class="form-check form-switch form-check-inline my-0 me-3 align-middle">
-        <input class="form-check-input" type="checkbox" role="switch" id="container-zones-control" checked data-action="change->canvas-container#toggleZones">
-        <label class="form-check-label small" for="container-zones-control" title="Přerušované rámečky kontejnerů na plátně. Kontejnery zůstávají funkční, jen je nevidíte.">Rámečky kontejnerů</label>
-    </div>
-    <div class="form-check form-switch form-check-inline my-0 me-3 align-middle">
-        <input class="form-check-input" type="checkbox" role="switch" id="snap-enabled-control" checked data-action="change->canvas-snapping#toggleSnapping">
-        <label class="form-check-label small" for="snap-enabled-control">Přichytávání k prvkům <span class="text-muted">(⌘ = vypnout)</span></label>
-    </div>
-    <div class="form-check form-switch form-check-inline my-0 me-3 align-middle">
-        <input class="form-check-input" type="checkbox" role="switch" id="ruler-enabled-control" checked data-action="change->canvas-rulers#toggle">
-        <label class="form-check-label small" for="ruler-enabled-control">Pravítka a vodítka</label>
-    </div>
-    {# Pointer-modifier cheatsheet — a modal rather than a line under the
-       canvas, which cost the stage vertical space on every screen. The modal
-       lives in the shared stage partial (#editorHelpModal). #}
-    <button type="button" class="btn btn-sm btn-outline-secondary align-middle" data-bs-toggle="modal" data-bs-target="#editorHelpModal" title="Nápověda k ovládání plátna"><i class="mdi mdi-help-circle-outline me-1"></i>Nápověda</button>
 </div>
+
+{# Pointer-modifier cheatsheet — a modal rather than a line under the canvas,
+   which cost the stage vertical space on every screen. An action, not a
+   setting, so it stays out of the menu above. The modal lives in the shared
+   stage partial (#editorHelpModal). #}
+<button type="button" class="btn btn-sm btn-outline-secondary align-middle ms-1" data-bs-toggle="modal" data-bs-target="#editorHelpModal" title="Nápověda k ovládání plátna"><i class="mdi mdi-help-circle-outline me-1"></i>Nápověda</button>
