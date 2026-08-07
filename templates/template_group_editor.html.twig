@@ -151,12 +151,25 @@
             </div>
         </div>
 
-        {# Variant rail: one compact chip per dimension — tab switching, include
-           toggles, dirty dot, overflow/off-canvas badges. Deliberately without
-           a preview: the rail is navigation, the stage is the preview. #}
+        {# Variant rail: the "Úprava více variant" mode switch, then one compact
+           chip per dimension — tab switching, per-variant opt-in, dirty dot,
+           overflow/off-canvas badges. Deliberately without a preview: the rail
+           is navigation, the stage is the preview.
+
+           The per-variant switches are chrome of the MODE and only render
+           (CSS, `--multi` on the rail) while it is on — with the mode off
+           there is nothing to opt into. The ACTIVE variant's switch is always
+           on + disabled: an edit you can see has to land somewhere. #}
         <div class="card mb-2">
             <div class="card-body p-2">
-                <div class="group-variant-rail">
+                <div class="group-variant-rail" data-group-editor-target="rail">
+                    <button type="button" class="btn btn-sm btn-outline-secondary group-variant-mode" aria-pressed="false"
+                            data-group-editor-target="multiEditButton"
+                            data-action="group-editor#toggleMultiEdit"
+                            title="Zapnuto: posuny, velikosti a vlastnosti se přenáší i do zaškrtnutých variant. Přidání a smazání prvku se přenáší vždy, bez ohledu na tento přepínač.">
+                        <i class="mdi mdi-select-multiple me-1"></i>Úprava více variant
+                    </button>
+
                     {% for v in variants %}
                         <div class="group-variant-chip{{ loop.first ? ' group-variant-active' }}" data-group-editor-target="card" data-variant-id="{{ v.variant.id }}">
                             <button type="button" class="group-variant-label" title="Přepnout na tuto variantu"
@@ -165,7 +178,7 @@
                                 {{ v.dimension_label }}
                                 <span class="group-variant-dirty d-none" title="Neuložené změny" data-group-editor-target="dirtyDot" data-variant-id="{{ v.variant.id }}"></span>
                             </button>
-                            <div class="form-check form-switch mb-0" title="Zahrnout do skupinových úprav (neuložené změny se ukládají vždy)">
+                            <div class="form-check form-switch mb-0 group-variant-include" title="Přenášet úpravy aktivní varianty i do této varianty">
                                 <input type="checkbox" class="form-check-input" checked
                                        data-group-editor-target="includeToggle"
                                        data-variant-id="{{ v.variant.id }}"

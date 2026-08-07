@@ -132,16 +132,33 @@ function propsEqual(a, b) {
 
 export class GroupSync {
     /**
+     * Two target sets, because two kinds of change travel differently.
+     *
+     * `targets` — the variants the user opted into with "Úprava více variant"
+     * + the per-variant switches. EDITS (moves, resizes, styles, metadata,
+     * z-order, containers) go here, so an un-toggled dimension keeps its own
+     * fine-tunes.
+     *
+     * `allTargets` — every non-active variant, no opt-out. STRUCTURE goes
+     * here: adding an object, deleting one, picking a background, and the
+     * explicit per-element "Srovnat podle skupiny". The object set must stay
+     * identical across dimensions — a dimension silently missing an element
+     * (or a background) renders as a scrambled stack, which is precisely the
+     * failure the group model exists to prevent.
+     *
      * @param {Object} options
      * @param {Function} options.activeCanvas  () => the interactive Fabric canvas
      * @param {Function} options.activeDims    () => {width, height} of the active variant
      * @param {Function} options.targets       () => [{id, shadow, width, height}] for
-     *                                         INCLUDED, non-active variants
+     *                                         the opted-in, non-active variants
+     * @param {Function} options.allTargets    () => the same shape for EVERY
+     *                                         non-active variant
      */
-    constructor({ activeCanvas, activeDims, targets }) {
+    constructor({ activeCanvas, activeDims, targets, allTargets }) {
         this.activeCanvas = activeCanvas;
         this.activeDims = activeDims;
         this.targets = targets;
+        this.allTargets = allTargets;
         this.baseline = new Map();
         this.baselineOrder = [];
         this.baselineContainers = [];
@@ -244,21 +261,22 @@ export class GroupSync {
     }
 
     /**
-     * Project a freshly added active-canvas object into every included target
-     * with the SAME inputId (absolute projection — there is nothing to be
-     * relative to yet).
+     * Project a freshly added active-canvas object into EVERY target with the
+     * SAME inputId (absolute projection — there is nothing to be relative to
+     * yet). Structural: never gated by the per-variant switches.
      */
     async projectNewObject(obj) {
         const touched = new Set();
 
-        // Background layers never fan out — every dimension keeps (or lacks)
-        // its own. Belt to the caller's event-gate suspenders.
+        // Background layers never fan out HERE — every dimension needs its own
+        // cover fit, which projectBackgroundLayer computes. Belt to the
+        // caller's event-gate suspenders.
         if (obj.isBackground === true) {
             return touched;
         }
 
         const activeDims = this.activeDims();
-        const targets = this.targets();
+        const targets = this.allTargets();
 
         for (const target of targets) {
             if (target.shadow.getObjects().some((o) => o.inputId === obj.inputId)) {
@@ -291,8 +309,8 @@ export class GroupSync {
     }
 
     /**
-     * Fan the background PICTURE out to every included target — the one thing
-     * about a background that IS shared across dimensions.
+     * Fan the background PICTURE out to every target — the one thing about a
+     * background that IS shared across dimensions.
      *
      * Everything else about it stays per-dimension: the layer is excluded from
      * the diffing engine (baseline, projectNewObject, resync, z-order) because
@@ -317,7 +335,7 @@ export class GroupSync {
             return touched;
         }
 
-        for (const target of this.targets()) {
+        for (const target of this.allTargets()) {
             const clone = await source.clone(CANVAS_CUSTOM_PROPERTIES);
             CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
                 if (source[prop] !== undefined) {
@@ -345,9 +363,14 @@ export class GroupSync {
         return touched;
     }
 
-    /** Propagate a deletion (matched by inputId) to every included target. */
+    /**
+     * Propagate a deletion (matched by inputId) to EVERY target. Structural,
+     * like the add it mirrors: an object that always fans out must always be
+     * removable in one go. Per-dimension "not shown here" is the layers
+     * panel's visibility eye, which travels as an ordinary (gated) edit.
+     */
     removeObject(inputId) {
-        const targets = this.targets();
+        const targets = this.allTargets();
         const touched = new Set();
 
         targets.forEach((target) => {
@@ -380,6 +403,9 @@ export class GroupSync {
      * per-variant fine-tunes — this is the user-invoked "Srovnat podle
      * skupiny" on the mini-toolbar).
      *
+     * Ungated on purpose: the button's whole point is "push THIS element
+     * everywhere", so it obeys the explicit click over the standing mode.
+     *
      * @param {Object} obj the active object to project
      */
     resync(obj) {
@@ -390,7 +416,7 @@ export class GroupSync {
             return touched;
         }
 
-        this.targets().forEach((target) => {
+        this.allTargets().forEach((target) => {
             const match = target.shadow.getObjects().find((o) => o.inputId === obj.inputId);
             if (!match) {
                 return;

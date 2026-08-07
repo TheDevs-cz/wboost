@@ -28,7 +28,10 @@ const SHADOW_WIDTH = 400;
 export default class extends Controller {
     static outlets = ["canvas-editor"];
 
-    static targets = ["variantsData", "card", "includeToggle", "dirtyDot", "badge", "undoButton", "redoButton"];
+    static targets = [
+        "variantsData", "rail", "multiEditButton", "card", "includeToggle",
+        "dirtyDot", "badge", "undoButton", "redoButton",
+    ];
 
     static values = {
         saveUrl: String,
@@ -38,6 +41,11 @@ export default class extends Controller {
     // Outlet callbacks can fire before connect() — initialize state here.
     initialize() {
         this.variants = [];
+        // "Úprava více variant" — OFF by default: an edit lands only in the
+        // variant the designer is looking at until they say otherwise.
+        // Structural changes (add / delete / background / explicit re-sync)
+        // ignore this flag entirely, see GroupSync's two target sets.
+        this.multiEdit = false;
         this.activeId = null;
         this.history = [];
         this.redoStack = [];
@@ -75,9 +83,10 @@ export default class extends Controller {
                 const active = this._variant(this.activeId);
                 return { width: active.width, height: active.height };
             },
-            targets: () => this.variants.filter(
-                (v) => v.id !== this.activeId && v.included && v.shadow,
-            ),
+            targets: () => (this.multiEdit
+                ? this.variants.filter((v) => v.id !== this.activeId && v.included && v.shadow)
+                : []),
+            allTargets: () => this.variants.filter((v) => v.id !== this.activeId && v.shadow),
         });
 
         // Fabric event hooks on the ONE interactive canvas. Guard everything
@@ -371,19 +380,12 @@ export default class extends Controller {
 
             const outgoing = this._variant(this.activeId);
 
-            if (!incoming.included) {
-                // Clicking an excluded card switches to it — the edited
-                // variant must be included. Mutate the flags AFTER the sync
-                // flush above so edits pending from before the switch never
-                // propagate into the newly included variant. If the outgoing
-                // variant was the ONLY included one, swap it off, so "edit
-                // one variant in isolation" survives tab switches.
-                const outgoingWasAlone = this.variants.filter((v) => v.included).length === 1;
-                incoming.included = true;
-                if (outgoing && outgoingWasAlone) {
-                    outgoing.included = false;
-                }
-            }
+            // Clicking an un-toggled chip switches to it — the variant being
+            // edited is always edited. Mutated AFTER the sync flush above so
+            // edits pending from before the switch never propagate into it.
+            // ("Edit one variant in isolation" is the mode switch now, not a
+            // tab-switch side effect.)
+            incoming.included = true;
 
             if (!skipSerialize && outgoing && outgoing.shadow) {
                 // Serialize the interactive canvas into the outgoing shadow so
@@ -422,7 +424,35 @@ export default class extends Controller {
         }
     }
 
-    // ------------------------------------------------------------------ include / exclude
+    // ------------------------------------------------------------------ multi-variant mode
+
+    /**
+     * "Úprava více variant" — the standing mode for EDITS (moves, resizes,
+     * styles, metadata, z-order, containers). Off = they stay in the variant
+     * the designer is looking at. Structural changes never consult it.
+     *
+     * Flipping rebaselines: whatever was changed while the mode was off must
+     * not fan out retroactively on the next mutation. The debounced pass is
+     * settled FIRST, under the old mode, for the same reason.
+     */
+    toggleMultiEdit() {
+        this._flushPendingSync();
+
+        this.multiEdit = !this.multiEdit;
+
+        if (this.multiEdit) {
+            const active = this._variant(this.activeId);
+            if (active) {
+                active.included = true;
+            }
+        }
+
+        if (this.sync) {
+            this.sync.rebaseline();
+        }
+
+        this._refreshRail();
+    }
 
     toggleInclude(event) {
         const variantId = event.params ? event.params.id : null;
@@ -660,6 +690,17 @@ export default class extends Controller {
     // ------------------------------------------------------------------ rail
 
     _refreshRail() {
+        if (this.hasRailTarget) {
+            this.railTarget.classList.toggle('group-variant-rail--multi', this.multiEdit);
+        }
+
+        if (this.hasMultiEditButtonTarget) {
+            const button = this.multiEditButtonTarget;
+            button.classList.toggle('btn-primary', this.multiEdit);
+            button.classList.toggle('btn-outline-secondary', !this.multiEdit);
+            button.setAttribute('aria-pressed', this.multiEdit ? 'true' : 'false');
+        }
+
         this.cardTargets.forEach((card) => {
             const id = card.dataset.variantId;
             const variant = this._variant(id);

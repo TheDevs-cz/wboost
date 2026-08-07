@@ -2697,6 +2697,12 @@ button.fill-layer-row__main:focus-visible {
     align-items: center;
 }
 
+/* "Úprava více variant" mode switch — sits left of the chips it governs. */
+.group-variant-mode {
+    border-radius: 2rem;
+    margin-right: 0.25rem;
+}
+
 .group-variant-chip {
     display: inline-flex;
     align-items: center;
@@ -2738,6 +2744,18 @@ button.fill-layer-row__main:focus-visible {
     height: 0.45rem;
     border-radius: 50%;
     background: var(--bs-danger, #fa5c7c);
+}
+
+/* The per-variant opt-in switches are chrome of the multi-variant mode:
+   with the mode off there is nothing to opt into, so they are not rendered
+   at all (never merely dimmed — a visible switch that changes nothing is
+   worse than no switch). */
+.group-variant-include {
+    display: none;
+}
+
+.group-variant-rail--multi .group-variant-include {
+    display: block;
 }
 
 /* "Create group from existing template" picker tiles */
