@@ -43,4 +43,14 @@ class TemplateGroup
         public string $name,
     ) {
     }
+
+    /**
+     * A group and its template are 1:1 and are born with ONE name
+     * (CreateTemplateGroupHandler passes the same string to both), so this is
+     * only ever called from {@see Template::edit()}.
+     */
+    public function rename(string $name): void
+    {
+        $this->name = $name;
+    }
 }

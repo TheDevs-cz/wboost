@@ -78,6 +78,12 @@ class Template
         $this->category = $category;
         $this->name = $name;
         $this->image = $imagePath;
+
+        // A grouped template and its group are 1:1 and are created with ONE
+        // name. The listing card shows the TEMPLATE's, while the group editor
+        // and the group fill page show the GROUP's — renaming only one would
+        // leave the same thing labelled two different ways.
+        $this->group?->rename($name);
     }
 
     /**

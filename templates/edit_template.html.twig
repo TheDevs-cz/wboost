@@ -15,6 +15,12 @@
 {% block content %}
     <div class="card">
         <div class="card-body">
+            {% if template.group is not null %}
+                <p class="text-muted small">
+                    <i class="uil-layer-group me-1"></i>Synchronizovaná šablona — název se propíše i do skupiny. Design jednotlivých rozměrů se upravuje ve <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}">skupinovém editoru</a>.
+                </p>
+            {% endif %}
+
             {{ form_start(form) }}
 
 

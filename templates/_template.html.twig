@@ -8,17 +8,27 @@
 <div class="col-md-6 col-xxl-3">
     <div class="card" data-entity-id="{{ template.id }}">
         {% if grouped %}
-            {% if can_group_edit %}
+            {# Name + card picture are edited through the ORDINARY template
+               form, exactly as on a plain card — being synchronized changes
+               how the DESIGN is edited, not how the template is labelled. So
+               the menu renders for anyone who may edit the template, and only
+               the group-design items are designer-gated. #}
+            {% if is_granted('template_edit', template) %}
                 <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
                     <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="ri-more-fill text-lighter"></i>
                     </a>
                     <div class="dropdown-menu dropdown-menu-end">
-                        <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
-                        <a href="{{ path('add_template_group_dimension', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-plus me-1"></i>Přidat rozměr</a>
-                        <a href="{{ path('template_group_fill', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-folder-zip-outline me-1"></i>Vyplnit a exportovat</a>
-                        <div class="dropdown-divider"></div>
-                        <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteGroupModal-{{ template.id }}"><i class="mdi mdi-delete me-1"></i>Smazat…</a>
+                        {% if can_group_edit %}
+                            <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
+                            <a href="{{ path('add_template_group_dimension', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-plus me-1"></i>Přidat rozměr</a>
+                            <a href="{{ path('template_group_fill', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-folder-zip-outline me-1"></i>Vyplnit a exportovat</a>
+                            <div class="dropdown-divider"></div>
+                        {% endif %}
+                        <a href="{{ path('edit_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit název a náhled</a>
+                        {% if can_group_edit %}
+                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteGroupModal-{{ template.id }}"><i class="mdi mdi-delete me-1"></i>Smazat…</a>
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}
