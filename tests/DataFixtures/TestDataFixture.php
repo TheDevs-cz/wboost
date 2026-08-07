@@ -270,6 +270,37 @@ final class TestDataFixture extends Fixture
     public const string ORIENTATION_ROOT_CONTAINER_ID = '00000000-0000-0000-0000-000000000108';
     public const string ORIENTATION_NESTED_CONTAINER_ID = '00000000-0000-0000-0000-000000000109';
 
+    // "Blank Canvas" (PROJECT_1) — the WRITE target for the MCP design tools
+    // (S5-T3). Deliberately EMPTY: a variant with no canvas has nothing the DSL
+    // cannot express, which is the only starting point where `set_design`
+    // writes without an acknowledgement. Layer background mode (every variant
+    // created since the background-as-layer rework) with NO background, which
+    // is legal and renders transparent. 1:1, so canvas pixels and designed
+    // coordinates are the same numbers.
+    public const string BLANK_TEMPLATE_ID = '00000000-0000-0000-0000-000000000110';
+    public const string BLANK_VARIANT_ID = '00000000-0000-0000-0000-000000000111';
+
+    // "Form Background" (PROJECT_1) — the DATA-LOSS fixture, shaped exactly
+    // like the production case S4-T5 found in 1 of 5 sampled canvases: a
+    // background uploaded through the add/edit-variant form, stored under
+    // `custom-templates/{variantId}/…` with NO `file_upload` row anywhere. The
+    // DSL addresses pictures by gallery id only, so this one cannot be named,
+    // and writing any design over it would leave the variant with no
+    // background at all.
+    //
+    // Two further details are copied from real stored canvases rather than from
+    // what the compiler emits: the `isBackground` object sits at stack index 1
+    // (NOT 0 — §4.3-11 is an invariant of the COMPILER's output, never of what
+    // is stored), and it carries a stale object-level `allowMove` mirror.
+    public const string FORM_BACKGROUND_TEMPLATE_ID = '00000000-0000-0000-0000-000000000112';
+    public const string FORM_BACKGROUND_VARIANT_ID = '00000000-0000-0000-0000-000000000113';
+    public const string FORM_BACKGROUND_INPUT_HEADLINE_ID = '00000000-0000-0000-0000-000000000114';
+    /**
+     * The unnameable key. `AddTemplateVariantHandler` writes exactly this
+     * shape: `custom-templates/{variantId}/background-{timestamp}.{ext}`.
+     */
+    public const string FORM_BACKGROUND_PATH = 'custom-templates/00000000-0000-0000-0000-000000000113/background-1704067200.png';
+
     public function __construct(
         private readonly TokenCrypto $tokenCrypto,
         // Same reasoning as the MCP token generator below: hash through the
@@ -1070,6 +1101,100 @@ final class TestDataFixture extends Fixture
             ],
         );
         $manager->persist($orientationVariant);
+
+        // "Blank Canvas" — an EMPTY layer-mode variant. The MCP design tools
+        // write here: a variant with no canvas has no design to destroy, which
+        // is the only starting point where `set_design` needs no
+        // acknowledgement. Constructed with a null background on purpose (legal
+        // since the background-as-layer rework; renders transparent).
+        $blankTemplate = new Template(
+            Uuid::fromString(self::BLANK_TEMPLATE_ID),
+            $project1,
+            null,
+            $date,
+            'Blank Canvas',
+            null,
+            0,
+        );
+        $manager->persist($blankTemplate);
+
+        $blankVariant = new TemplateVariant(
+            Uuid::fromString(self::BLANK_VARIANT_ID),
+            $blankTemplate,
+            TemplateDimension::fromPreset(DimensionPreset::InstagramPost),
+            null,
+            $date,
+            BackgroundMode::Layer,
+        );
+        $manager->persist($blankVariant);
+
+        // "Form Background" — the data-loss fixture. Its background layer points
+        // at a key written by the add-variant FORM, which creates no
+        // `file_upload` row: nothing in the gallery can name that picture, so
+        // the DSL cannot carry it and saving any design over this variant would
+        // blank the background. See the constants block for the two further
+        // details copied from real stored canvases (isBackground at index != 0,
+        // a stale object-level allowMove mirror).
+        $formBackgroundTemplate = new Template(
+            Uuid::fromString(self::FORM_BACKGROUND_TEMPLATE_ID),
+            $project1,
+            null,
+            $date,
+            'Form Background',
+            null,
+            0,
+        );
+        $manager->persist($formBackgroundTemplate);
+
+        $formBackgroundVariant = new TemplateVariant(
+            Uuid::fromString(self::FORM_BACKGROUND_VARIANT_ID),
+            $formBackgroundTemplate,
+            TemplateDimension::fromPreset(DimensionPreset::InstagramPost),
+            self::FORM_BACKGROUND_PATH,
+            $date,
+            BackgroundMode::Layer,
+        );
+        $formBackgroundVariant->editCanvas(
+            json_encode([
+                'version' => '5.2.4',
+                'objects' => [
+                    // 0 — inputs[0]. A stored canvas does NOT guarantee the
+                    // background sits at the bottom of the stack.
+                    [
+                        'type' => 'Textbox',
+                        'left' => 80, 'top' => 700, 'width' => 900, 'height' => 90,
+                        'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                        'fontFamily' => 'Rubik (Rubik Regular)', 'fontSize' => 48, 'lineHeight' => 1.16,
+                        'text' => 'Designed headline',
+                    ],
+                    // 1 — the unnameable background, cover-fit at the origin,
+                    // carrying the stale placement mirror the editor writes.
+                    [
+                        'type' => 'Image',
+                        'isBackground' => true,
+                        'left' => 0, 'top' => 0, 'width' => 1080, 'height' => 1080,
+                        'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+                        'allowMove' => true, 'allowResize' => true,
+                        'assetPath' => self::FORM_BACKGROUND_PATH,
+                        'src' => 'https://example.invalid/' . self::FORM_BACKGROUND_PATH,
+                    ],
+                ],
+                'backgroundImage' => null,
+            ], JSON_THROW_ON_ERROR),
+            [
+                new EditorTextInput(
+                    self::FORM_BACKGROUND_INPUT_HEADLINE_ID,
+                    'headline',
+                    null,
+                    false,
+                    false,
+                    null,
+                    false,
+                ),
+            ],
+            null,
+        );
+        $manager->persist($formBackgroundVariant);
 
         // OAuth2 client (active, linked to user1) — used by /api/projects auth flow tests
         $activeClient = new OAuth2Client('test-client', self::OAUTH2_CLIENT_ID, $this->passwordHasher->hash(self::OAUTH2_CLIENT_SECRET));

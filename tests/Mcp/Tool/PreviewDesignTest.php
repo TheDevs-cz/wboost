@@ -14,6 +14,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Mcp\Design\CandidateRenderer;
 use WBoost\Web\Mcp\Design\DesignPreflight;
 use WBoost\Web\Mcp\Design\DesignVariants;
@@ -456,7 +457,11 @@ final class PreviewDesignTest extends WebTestCase
             static fn (mixed $attribute): bool => $attribute === TemplateVariantVoter::VIEW,
         );
 
-        $variants = new DesignVariants($security, self::getContainer()->get(TemplateVariantRepository::class));
+        $variants = new DesignVariants(
+            $security,
+            self::getContainer()->get(TemplateVariantRepository::class),
+            self::getContainer()->get(UrlGeneratorInterface::class),
+        );
 
         try {
             $variants->editable(TestDataFixture::ORIENTATION_VARIANT_ID);
@@ -586,7 +591,11 @@ final class PreviewDesignTest extends WebTestCase
         $security->method('isGranted')->willReturn(true);
 
         $tool = new PreviewDesignTool(
-            new DesignVariants($security, $container->get(TemplateVariantRepository::class)),
+            new DesignVariants(
+                $security,
+                $container->get(TemplateVariantRepository::class),
+                $container->get(UrlGeneratorInterface::class),
+            ),
             $container->get(DesignPreflight::class),
             new CandidateRenderer(
                 // The CONCRETE renderer: the test env aliases the interface to

@@ -138,8 +138,8 @@ final class GetContextTest extends WebTestCase
     }
 
     /**
-     * PROJECT_1 holds 4 templates / 6 variants across 3 distinct dimensions:
-     * 1:1 three times, A4 twice, 9:16 once. Both faces of each size are
+     * PROJECT_1 holds 6 templates / 8 variants across 3 distinct dimensions:
+     * 1:1 five times, A4 twice, 9:16 once. Both faces of each size are
      * reported — the authored unit size and the canvas pixels (A4 rasterizes at
      * 300 DPI).
      */
@@ -147,8 +147,8 @@ final class GetContextTest extends WebTestCase
     {
         $project = self::projectsById($this->getContext(TestDataFixture::MCP_TOKEN_ACTIVE))[TestDataFixture::PROJECT_1_ID];
 
-        self::assertSame(4, $project['templateCount']);
-        self::assertSame(6, $project['variantCount']);
+        self::assertSame(6, $project['templateCount']);
+        self::assertSame(8, $project['variantCount']);
 
         $dimensions = $project['dimensions'];
         self::assertIsArray($dimensions);
@@ -167,7 +167,7 @@ final class GetContextTest extends WebTestCase
         // the encode flags. JSON has one number type, so this is a formatting
         // detail, not a contract change — but it is what a consumer sees.
         self::assertSame(
-            ['label' => '1:1', 'preset' => '1:1', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1080, 'width' => 1080, 'height' => 1080, 'variantCount' => 3],
+            ['label' => '1:1', 'preset' => '1:1', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1080, 'width' => 1080, 'height' => 1080, 'variantCount' => 5],
             $byLabel['1:1'],
         );
         self::assertSame(

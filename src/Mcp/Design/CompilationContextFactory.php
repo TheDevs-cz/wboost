@@ -60,7 +60,7 @@ readonly final class CompilationContextFactory
     {
         return new CompilationContext(
             allowedFonts: $this->allowedFonts($project),
-            assets: $this->assets($project, self::referencedAssetIds($document)),
+            assets: $this->assetsById($project, self::referencedAssetIds($document)),
         );
     }
 
@@ -88,10 +88,21 @@ readonly final class CompilationContextFactory
     }
 
     /**
+     * Gallery ids → resolved pictures, keyed by id; ids that resolve to nothing
+     * are simply absent (see the class note).
+     *
+     * Public because {@see DecompilationContextFactory} resolves the SAME ids
+     * through it. That is the property the round trip rests on: the decompiler
+     * calls a picture "unnameable" exactly when the compiler would refuse the
+     * id, because both ask this one method. A second resolver — with its own
+     * idea of project scoping, of the trash, of a readable header — would
+     * eventually report a picture the other cannot use, and `get_design` →
+     * `set_design` would blank an image while telling the agent nothing.
+     *
      * @param list<string> $assetIds
      * @return array<string, DesignAsset>
      */
-    private function assets(Project $project, array $assetIds): array
+    public function assetsById(Project $project, array $assetIds): array
     {
         $assets = [];
 

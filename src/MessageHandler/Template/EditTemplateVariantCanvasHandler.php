@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace WBoost\Web\MessageHandler\Template;
 
 use League\Flysystem\FilesystemOperator;
+use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use WBoost\Web\Exceptions\TemplateVariantNotFound;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
+use WBoost\Web\Message\Template\StoreTemplateVariantPreviewImage;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
@@ -39,7 +41,7 @@ readonly final class EditTemplateVariantCanvasHandler
         // not wipe the existing thumbnail — keep whatever is already stored.
         $previewImagePath = $message->previewImageDataUri === ''
             ? $variant->previewImagePath
-            : $this->persistPreviewImage($message->variantId->toString(), $message->previewImageDataUri);
+            : $this->persistPreviewImage($message->variantId, $message->previewImageDataUri);
 
         $variant->editCanvas($message->canvas, $message->inputs, $previewImagePath, $message->imageInputs);
 
@@ -64,7 +66,7 @@ readonly final class EditTemplateVariantCanvasHandler
      * the upload (Minio) filesystem. Returns the storage path, or null if the
      * client supplied no preview (or an unrecognized payload).
      */
-    private function persistPreviewImage(string $variantId, string $dataUri): null|string
+    private function persistPreviewImage(UuidInterface $variantId, string $dataUri): null|string
     {
         if ($dataUri === '') {
             return null;
@@ -86,7 +88,10 @@ readonly final class EditTemplateVariantCanvasHandler
             return null;
         }
 
-        $path = sprintf('custom-templates/preview/%s.png', $variantId);
+        // The key is spelled once, on the message that also exists to write it
+        // server-side — two `sprintf()`s of one storage key would drift, and a
+        // variant with two thumbnails would keep pointing at the stale one.
+        $path = StoreTemplateVariantPreviewImage::pathFor($variantId);
         $this->filesystem->write($path, $binary);
 
         return $path;

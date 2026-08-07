@@ -176,6 +176,28 @@ readonly final class DesignIssue
         );
     }
 
+    /**
+     * Something the variant's CURRENT design holds that the DSL cannot carry —
+     * i.e. what writing a document over it would destroy.
+     *
+     * The loss keeps its own code, path and sentence: {@see DesignLoss} already
+     * words each one as standalone English that says how to AVOID the loss
+     * ("upload the picture to the gallery first and reference it by id"), which
+     * is a better fix than accepting it. All this adds is the severity, and the
+     * severity is the whole gate — see {@see DesignOverwriteGuard}.
+     */
+    public static function fromDesignLoss(DesignLoss $loss, LintSeverity $severity): self
+    {
+        return new self(
+            $severity,
+            DesignStage::Overwrite,
+            $loss->code->value,
+            null,
+            $loss->path,
+            $loss->message,
+        );
+    }
+
     public function isBlocking(): bool
     {
         return $this->severity === LintSeverity::Error;

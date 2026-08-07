@@ -167,9 +167,10 @@ final class CanvasComparison
 
     /**
      * The gallery pictures a canvas references, as
-     * {@see \WBoost\Web\Mcp\Design\DecompilationContextFactory} would resolve
-     * them if it existed yet (S5-T3): storage path → row, with the row's
-     * NATURAL size.
+     * {@see \WBoost\Web\Mcp\Design\DecompilationContextFactory} resolves them
+     * against a real database: storage path → row, with the row's NATURAL size.
+     * Reproduced here so the round-trip tests stay pure unit tests — this file
+     * has no kernel and no gallery to look anything up in.
      *
      * Two things are taken from the canvas rather than invented. The gallery
      * id comes from the object's `assetId` when the editor stamped one and

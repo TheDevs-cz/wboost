@@ -7,6 +7,7 @@ namespace WBoost\Web\Mcp\Design;
 use Mcp\Exception\ToolCallException;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\TemplateVariantNotFound;
 use WBoost\Web\Mcp\Fill\VariantFill;
@@ -44,19 +45,53 @@ readonly final class DesignVariants
     public function __construct(
         private Security $security,
         private TemplateVariantRepository $templateVariantRepository,
+        private UrlGeneratorInterface $urlGenerator,
     ) {
+    }
+
+    /**
+     * The variant this account may WRITE a design to — {@see editable()} plus
+     * the one thing only a writer cares about.
+     *
+     * A group-created variant is refused here and nowhere else (plan §4.5-22,
+     * mirroring `TemplateVariantEditorController`'s redirect to the group
+     * editor): every variant of a template group shares one design, so a
+     * single-variant save would be silently clobbered by the next group save.
+     * Reading one, linting one or drawing one changes nothing, which is why
+     * `preview_design` and `get_design` take {@see editable()} instead and
+     * accept them.
+     *
+     * Note the wording names the group and links its editor. There is no MCP
+     * tool for group design yet, and "this is not supported" with no next step
+     * is the refusal that leaves an agent guessing — the browser is the answer
+     * today, and `find_templates` / `describe_variant` already publish the
+     * `grouped` flag that predicts this refusal before it happens.
+     */
+    public function writable(string $variantId): TemplateVariant
+    {
+        $variant = $this->editable($variantId);
+
+        if ($variant->group !== null) {
+            throw new ToolCallException(sprintf(
+                'Template variant %s belongs to the synchronized template group "%s" and cannot be designed on its own. Every variant of a group shares ONE design across its dimensions, so writing this variant alone would be overwritten by the next group save. There is no MCP tool for group design yet: open the group editor at %s to change it. describe_variant reports grouped: true for exactly these variants — and a grouped template can still hold hand-added variants, which carry grouped: false and are writable here.',
+                $variantId,
+                $variant->group->name,
+                $this->urlGenerator->generate(
+                    'template_group_editor',
+                    ['groupId' => $variant->group->id->toString()],
+                    UrlGeneratorInterface::ABSOLUTE_URL,
+                ),
+            ));
+        }
+
+        return $variant;
     }
 
     /**
      * The variant this account may DESIGN on, or the one refusal that fits.
      *
-     * Note what is deliberately absent: a `variant->group !== null` check.
-     * Group-created variants are refused by the WRITE (plan §4.5-22, mirroring
-     * `TemplateVariantEditorController`'s redirect) because a single-variant
-     * save would be clobbered by the next group save. Reading one, linting one
-     * or drawing one changes nothing, so `preview_design` and `get_design`
-     * accept them; S5-T3 adds the refusal at the boundary where it means
-     * something.
+     * Note what is deliberately absent: a `variant->group !== null` check —
+     * that is {@see writable()}, and only the writing tool asks for it.
      */
     public function editable(string $variantId): TemplateVariant
     {

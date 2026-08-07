@@ -104,6 +104,20 @@ final class DesignRoundTripTest extends KernelTestCase
         // (asset_unresolved).
         '00000000-0000-0000-0000-000000000102' => ['asset_unresolved', 'input_feature_dropped', 'object_dropped'],
 
+        // "Blank Canvas" — the MCP design tools' write target. An EMPTY
+        // layer-mode canvas with no inputs: nothing to express, nothing to
+        // lose. The one entry in this table that MUST stay empty, because it is
+        // the only starting point where `set_design` writes without an
+        // acknowledgement (see DesignOverwriteGuard).
+        '00000000-0000-0000-0000-000000000111' => [],
+
+        // "Form Background" — the data-loss fixture, shaped like the
+        // production case: a background uploaded through the add/edit-variant
+        // form (no `file_upload` row, so `asset_unresolved`), stored at stack
+        // index 1 rather than 0 (`object_restacked`) exactly as real canvases
+        // do it.
+        '00000000-0000-0000-0000-000000000113' => ['asset_unresolved', 'object_restacked'],
+
         // ---- real exported canvases (anonymized, see Fixtures/canvases) ----
 
         // Legacy canvas-mode designs whose every object IS expressible: the
@@ -165,7 +179,7 @@ final class DesignRoundTripTest extends KernelTestCase
         }
 
         self::assertSame(
-            8,
+            10,
             $checked,
             'The fixture database gained or lost a template variant; add it to the loss table.',
         );
@@ -212,14 +226,14 @@ final class DesignRoundTripTest extends KernelTestCase
             }
         }
 
-        self::assertCount(13, self::lossTable(), 'The loss table gained or lost a canvas.');
+        self::assertCount(15, self::lossTable(), 'The loss table gained or lost a canvas.');
         self::assertSame(
-            0,
+            1,
             $lossless,
-            'Not one canvas under test is fully expressible in DSL v1 — see the class docblock. Every one of them was authored in the browser, and the browser can author more than the DSL can say.',
+            'Exactly one canvas under test is fully expressible in DSL v1, and it is the EMPTY layer-mode write target ("Blank Canvas", …111) — a variant with no design has nothing the DSL cannot say. Not one canvas that was AUTHORED IN A BROWSER is lossless; see the class docblock.',
         );
         self::assertSame(5, $noteOnly, 'Canvases whose only entry is the non-destructive canvas-mode background note.');
-        self::assertSame(8, $destructive, 'Canvases that lose something a set_design would DESTROY.');
+        self::assertSame(9, $destructive, 'Canvases that lose something a set_design would DESTROY.');
     }
 
     /**

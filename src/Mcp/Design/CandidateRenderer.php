@@ -92,13 +92,13 @@ readonly final class CandidateRenderer
      * anything: no canvas write, no thumbnail, no cache entry, no export event.
      *
      * `$strictContainerOverflow` is a PARAMETER rather than a policy baked in
-     * here, because the two callers of this seam want opposite answers.
-     * `preview_design` renders LENIENT — the whole loop is "look at it, then fix
-     * it", and a refusal with no picture is the one reply that helps nobody.
-     * `set_design` will want STRICT for the same reason the API export does: a
-     * committed design whose text falls off the page is a broken deliverable,
-     * and overflow can only be measured inside headless Chromium (the strict
-     * path's console exception is the only channel a screenshot has for it).
+     * here, so the caller decides. Both callers today pass LENIENT, for the
+     * same reason: the linter already predicts overflow as a WARNING, and both
+     * `preview_design` and `set_design` promise that a warning never blocks —
+     * refusing the commit for a finding the preview called advisory would break
+     * {@see DesignPreflight}'s core guarantee in the most confusing way
+     * available. Strictness belongs to the DELIVERABLE, and that is
+     * `export_variant` (and the REST export), which still refuses.
      *
      * `$format` defaults to PNG, mirroring
      * {@see TemplateVariantImageRendererInterface::renderToBytes()} — screen

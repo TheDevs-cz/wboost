@@ -101,6 +101,23 @@ class TemplateVariant
         $this->previewImagePath = $previewImagePath;
     }
 
+    /**
+     * The stored thumbnail, on its own.
+     *
+     * `editCanvas()` also writes this field because the browser save carries
+     * canvas and thumbnail in one POST. A server-side renderer does not: it
+     * writes the canvas first (through `EditTemplateVariantCanvasEditor`, the
+     * single canvas chokepoint) and produces the picture afterwards, and going
+     * through `editCanvas()` for that would mean re-passing the canvas and the
+     * input collections just to reach one nullable string.
+     *
+     * @see \WBoost\Web\MessageHandler\Template\StoreTemplateVariantPreviewImageHandler
+     */
+    public function editPreviewImage(null|string $previewImagePath): void
+    {
+        $this->previewImagePath = $previewImagePath;
+    }
+
     public function edit(null|string $backgroundImagePath): void
     {
         $this->backgroundImage = $backgroundImagePath;
