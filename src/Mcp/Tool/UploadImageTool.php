@@ -279,7 +279,15 @@ readonly final class UploadImageTool
     ): void {
         $temporaryPath = tempnam(sys_get_temp_dir(), 'wboost-mcp-upload-');
 
-        if ($temporaryPath === false || file_put_contents($temporaryPath, $bytes) === false) {
+        if ($temporaryPath === false) {
+            throw new ToolCallException('The picture could not be staged for upload on the server. Nothing was uploaded; try again.');
+        }
+
+        if (file_put_contents($temporaryPath, $bytes) === false) {
+            // tempnam() already created the (empty) file, so it has to go even
+            // though nothing was written into it.
+            @unlink($temporaryPath);
+
             throw new ToolCallException('The picture could not be staged for upload on the server. Nothing was uploaded; try again.');
         }
 
