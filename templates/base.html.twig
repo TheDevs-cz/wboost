@@ -60,75 +60,6 @@
         <!-- Begin page -->
         <div class="wrapper">
 
-            <!-- ========== Topbar Start ========== -->
-            <div class="navbar-custom">
-                <div class="topbar container-fluid">
-                    <div class="d-flex align-items-center gap-lg-2 gap-1">
-
-                        <!-- Topbar Brand Logo -->
-                        <div class="logo-topbar">
-                            <!-- Logo light -->
-                            <a href="{{ path('homepage') }}" class="logo-light">
-                                <span class="logo-lg">
-                                    <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
-                                </span>
-                                <span class="logo-sm">
-                                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                                </span>
-                            </a>
-
-                            <!-- Logo Dark -->
-                            <a href="{{ path('homepage') }}" class="logo-dark">
-                                <span class="logo-lg">
-                                    <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
-                                </span>
-                                <span class="logo-sm">
-                                    <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                                </span>
-                            </a>
-                        </div>
-
-                        <!-- Sidebar Menu Toggle Button -->
-                        <button class="button-toggle-menu d-xl-none">
-                            <i class="mdi mdi-menu"></i>
-                        </button>
-                    </div>
-
-                    <ul class="topbar-menu d-flex align-items-center gap-3">
-                        <li class="dropdown">
-                            <a class="nav-link dropdown-toggle arrow-none nav-user px-2" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="false" aria-expanded="false">
-                                    <span class="account-user-avatar">
-                                        <img src="{{ asset('theme/images/users/avatar-1.jpg') }}" alt="user-image" width="32" class="rounded-circle">
-                                    </span>
-                                <span class="d-lg-flex flex-column gap-1 d-none">
-                                        <h5 class="my-0">{{ app.user.displayName }}</h5>
-                                    </span>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated profile-dropdown">
-                                <!-- item-->
-                                <a href="{{ path('user_profile') }}" class="dropdown-item">
-                                    <i class="mdi mdi-account-circle me-1"></i>
-                                    <span>Můj účet</span>
-                                </a>
-
-                                <!-- item-->
-                                <a href="{{ path('connected_apps') }}" class="dropdown-item">
-                                    <i class="mdi mdi-power-plug me-1"></i>
-                                    <span>Propojené aplikace</span>
-                                </a>
-
-                                <!-- item-->
-                                <a href="{{ path('logout') }}" class="dropdown-item">
-                                    <i class="mdi mdi-logout me-1"></i>
-                                    <span>Odhlásit se</span>
-                                </a>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            <!-- ========== Topbar End ========== -->
-
             <!-- ========== Left Sidebar Start ========== -->
             <div class="leftside-menu">
 
@@ -285,6 +216,39 @@
 
                     <div class="clearfix"></div>
                 </div>
+
+                {# Account menu — the topbar it used to live in is gone. It sits
+                   OUTSIDE #leftside-menu-container (so the drop-up is never
+                   clipped by simplebar) in the padding the sidebar reserves at
+                   its bottom edge. #}
+                <div class="leftbar-account dropup">
+                    {# offset = 12px skidding so the drop-up insets from the window
+                       edge instead of sitting flush against it. #}
+                    <a href="#" class="leftbar-account__toggle" data-bs-toggle="dropdown" data-bs-offset="12,6" role="button" aria-haspopup="true" aria-expanded="false">
+                        <img src="{{ asset('theme/images/users/avatar-1.jpg') }}" alt="" width="32" height="32" class="rounded-circle flex-shrink-0">
+                        <span class="leftbar-account__name text-truncate">{{ app.user.displayName }}</span>
+                        <i class="mdi mdi-chevron-up leftbar-account__caret"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-animated leftbar-account__menu">
+                        <!-- item-->
+                        <a href="{{ path('user_profile') }}" class="dropdown-item">
+                            <i class="mdi mdi-account-circle me-1"></i>
+                            <span>Můj účet</span>
+                        </a>
+
+                        <!-- item-->
+                        <a href="{{ path('connected_apps') }}" class="dropdown-item">
+                            <i class="mdi mdi-power-plug me-1"></i>
+                            <span>Propojené aplikace</span>
+                        </a>
+
+                        <!-- item-->
+                        <a href="{{ path('logout') }}" class="dropdown-item">
+                            <i class="mdi mdi-logout me-1"></i>
+                            <span>Odhlásit se</span>
+                        </a>
+                    </div>
+                </div>
             </div>
             <!-- ========== Left Sidebar End ========== -->
 
@@ -293,6 +257,19 @@
             <!-- ============================================================== -->
 
             <div class="content-page">
+
+                {# Below xl the sidebar collapses (off-canvas under 768px), so the
+                   drawer toggle needs a home now that the topbar is gone. The
+                   theme binds the FIRST .button-toggle-menu it finds. #}
+                <div class="mobile-topbar d-xl-none">
+                    <button class="button-toggle-menu" type="button" aria-label="Menu">
+                        <i class="mdi mdi-menu"></i>
+                    </button>
+                    <a href="{{ path('homepage') }}" class="mobile-topbar__logo">
+                        <img src="{{ asset('images/logo-lg.svg') }}" alt="logo" height="22">
+                    </a>
+                </div>
+
                 <div class="content">
 
                     <!-- Start Content-->

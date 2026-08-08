@@ -66,11 +66,13 @@
 }
 
 /* Below lg the columns stack and the page scrolls normally — the panel card
-   sticks to the top of the page instead of scrolling in its own pane. */
+   sticks to the top of the page instead of scrolling in its own pane, clearing
+   the sticky `.mobile-topbar` (56px, the only chrome above the content since
+   the theme topbar was removed). */
 @media (max-width: 991.98px) {
     .editor-left-panel-card {
         position: sticky;
-        top: 93px;
+        top: 64px;
         z-index: 999;
     }
 }
@@ -3075,4 +3077,123 @@ button.fill-layer-row__main:focus-visible {
     background-size: 80% 80%;
     background-position: center;
     background-repeat: no-repeat;
+}
+
+/* ======================================================================
+ * Navigation without a topbar
+ *
+ * The theme's `.navbar-custom` was removed from base.html.twig — the only
+ * things it carried (the account dropdown, the drawer toggle) moved into the
+ * left navigation. Nothing else depended on its height: `.leftside-menu` is
+ * `position: fixed; top: 0` and `.content-page` never had a top padding, so
+ * the page content simply starts at the window top now.
+ * ====================================================================== */
+
+/* SPECIFICITY: importmap() injects this stylesheet BEFORE the theme's
+   app-saas.min.css, so an equal-specificity rule of ours LOSES. Every rule
+   that competes with the theme (or with Bootstrap's `.dropup{position:
+   relative}`) is therefore scoped one level deeper than what it must beat. */
+
+/* Room for the account block at the bottom edge. Using the sidebar's own
+   padding (the theme already reserved footer height here) keeps
+   `#leftside-menu-container`'s `h-100` resolving to exactly the space ABOVE
+   the block — percentage heights resolve against the content box — so the
+   scrolling menu and the block can never overlap. */
+.leftside-menu {
+    --wb-leftbar-account-height: 64px;
+}
+
+.wrapper .leftside-menu {
+    padding-bottom: var(--wb-leftbar-account-height);
+}
+
+.leftside-menu .leftbar-account {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--wb-leftbar-account-height);
+    display: flex;
+    align-items: center;
+    background: var(--ct-menu-bg);
+    border-top: 1px solid var(--ct-border-color);
+}
+
+/* Padding-left 19px + a 32px avatar centers the picture on the 70px condensed
+   rail (35px), exactly where `.side-nav-link i` centers its icon. */
+.leftside-menu .leftbar-account__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.5rem 0.75rem 0.5rem 19px;
+    color: var(--ct-menu-item-color);
+    font-size: var(--ct-menu-item-font-size);
+    text-decoration: none;
+}
+
+.leftside-menu .leftbar-account__toggle:hover,
+.leftside-menu .leftbar-account__toggle:focus,
+.leftside-menu .leftbar-account__toggle.show {
+    color: var(--ct-menu-item-hover-color);
+}
+
+.leftside-menu .leftbar-account__name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+}
+
+.leftside-menu .leftbar-account__caret {
+    flex-shrink: 0;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.leftside-menu .leftbar-account__menu {
+    min-width: calc(var(--ct-leftbar-width) - 1.5rem);
+}
+
+/* Icon-only sidebar states: only the avatar survives (the same way
+   `.side-nav-link span` is hidden there). */
+html[data-sidenav-size=condensed]:not([data-layout=topnav]) .leftbar-account__name,
+html[data-sidenav-size=condensed]:not([data-layout=topnav]) .leftbar-account__caret,
+html[data-sidenav-size=compact]:not([data-layout=topnav]) .leftbar-account__name,
+html[data-sidenav-size=compact]:not([data-layout=topnav]) .leftbar-account__caret,
+html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:hover) .leftbar-account__name,
+html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:hover) .leftbar-account__caret {
+    display: none;
+}
+
+/* Slim bar carrying the drawer toggle below xl (`d-xl-none` in the markup
+   switches it off from 1200px up, where the sidebar is always visible). It
+   takes the SIDEBAR's colours, not the theme's topbar ones: the repo ships a
+   single logo asset whose wordmark is white (`assets/images/logo-lg.svg`, used
+   for both the light and the dark slot), so on a white bar only the coloured
+   "w" would be visible. */
+.content-page .mobile-topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 56px;
+    /* Cancel .content-page's horizontal padding so the bar spans the width. */
+    margin: 0 -0.75rem;
+    padding: 0 0.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--ct-menu-bg);
+}
+
+.content-page .mobile-topbar .button-toggle-menu {
+    width: auto;
+    line-height: 1;
+    padding: 0 0.5rem;
+    color: var(--ct-menu-item-color);
+}
+
+.content-page .mobile-topbar__logo {
+    display: inline-flex;
+    align-items: center;
 }
