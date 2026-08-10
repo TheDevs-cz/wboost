@@ -41,17 +41,22 @@ export default class extends Controller {
     // Outlet callbacks can fire before connect() — initialize state here.
     initialize() {
         this.variants = [];
-        // "Úprava více variant" — OFF by default: an edit lands only in the
-        // variant the designer is looking at until they say otherwise.
-        // Structural changes (add / delete / background / explicit re-sync)
-        // ignore this flag entirely, see GroupSync's two target sets.
-        this.multiEdit = false;
+        // "Úprava více variant" — ON by default (2026-08-10, was OFF): the
+        // group's point is variants that track each other, so edits fan out
+        // to every included variant until the designer opts out. Structural
+        // changes (add / delete / background / explicit re-sync) ignore this
+        // flag entirely, see GroupSync's two target sets. Keep the initial
+        // state in lockstep with the server-rendered rail chrome
+        // (template_group_editor.html.twig: --multi class, btn-primary,
+        // aria-pressed) — _refreshRail only syncs it after hydration.
+        this.multiEdit = true;
         this.activeId = null;
         this.history = [];
         this.redoStack = [];
         this._switching = false;
         this._restoring = false;
         this._booted = false;
+        this._shadowsHydrated = false;
         // Structural ops (add / remove / background / re-sync / reconcile)
         // run serialized on this chain, and never before every shadow exists
         // — see _enqueueStructural.
@@ -79,6 +84,7 @@ export default class extends Controller {
         }));
 
         if (this.variants.length === 0) {
+            this._shadowsHydrated = true;
             this._resolveShadowsReady();
             return;
         }
@@ -154,7 +160,18 @@ export default class extends Controller {
             }
         }
 
-        this.sync.rebaseline();
+        this._shadowsHydrated = true;
+
+        // An edit pass deferred during hydration fans out NOW that every
+        // shadow exists (syncPass rebaselines itself); otherwise just align
+        // the baseline. Order matters: a plain rebaseline first would consume
+        // the pending diff and the deferred pass would fan out nothing.
+        if (this._syncTimer) {
+            this._flushPendingSync();
+        } else {
+            this.sync.rebaseline();
+        }
+
         this._refreshRail();
         this._seedHistory();
         this._resolveShadowsReady();
@@ -322,6 +339,16 @@ export default class extends Controller {
         clearTimeout(this._syncTimer);
 
         const run = () => {
+            // Shadows still hydrating (multi-edit is on from the first
+            // paint): keep deferring instead of fanning the diff out to the
+            // subset of variants that happen to exist. The baseline keeps
+            // the pre-edit state, so the accumulated diff reaches EVERY
+            // variant once hydration completes (boot-end flush).
+            if (!this._shadowsHydrated) {
+                this._syncTimer = setTimeout(run, SYNC_DEBOUNCE);
+                return;
+            }
+            this._syncTimer = null;
             const touched = this.sync.syncPass();
             this._afterPropagation(touched);
             this._scheduleHistoryPush();
@@ -337,6 +364,11 @@ export default class extends Controller {
 
     _flushPendingSync() {
         if (this._syncTimer) {
+            // While shadows hydrate the deferred pass must stay pending —
+            // flushing now would fan the diff to a subset of variants.
+            if (!this._shadowsHydrated) {
+                return;
+            }
             clearTimeout(this._syncTimer);
             this._syncTimer = null;
             if (this.sync && !this._quiet(this.canvasEditorOutlet)) {

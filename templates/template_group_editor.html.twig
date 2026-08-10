@@ -160,12 +160,17 @@
 
            The per-variant switches are chrome of the MODE and only render
            (CSS, `--multi` on the rail) while it is on — with the mode off
-           there is nothing to opt into. The ACTIVE variant's switch is always
+           there is nothing to opt into. The mode starts ON with every variant
+           included (2026-08-10). The ACTIVE variant's switch is always
            on + disabled: an edit you can see has to land somewhere. #}
         <div class="card mb-2">
             <div class="card-body p-2">
-                <div class="group-variant-rail" data-group-editor-target="rail">
-                    <button type="button" class="btn btn-sm btn-outline-secondary group-variant-mode" aria-pressed="false"
+                {# Initial state must match group_editor_controller's
+                   `multiEdit = true` default — _refreshRail() only syncs the
+                   chrome after shadow hydration, so a mismatch would show the
+                   wrong mode for the first seconds. #}
+                <div class="group-variant-rail group-variant-rail--multi" data-group-editor-target="rail">
+                    <button type="button" class="btn btn-sm btn-primary group-variant-mode" aria-pressed="true"
                             data-group-editor-target="multiEditButton"
                             data-action="group-editor#toggleMultiEdit"
                             title="Zapnuto: posuny, velikosti a vlastnosti se přenáší i do zaškrtnutých variant. Přidání a smazání prvku se přenáší vždy, bez ohledu na tento přepínač.">
@@ -181,7 +186,7 @@
                                 <span class="group-variant-dirty d-none" title="Neuložené změny" data-group-editor-target="dirtyDot" data-variant-id="{{ v.variant.id }}"></span>
                             </button>
                             <div class="form-check form-switch mb-0 group-variant-include" title="Přenášet úpravy aktivní varianty i do této varianty">
-                                <input type="checkbox" class="form-check-input" checked
+                                <input type="checkbox" class="form-check-input" checked {{ loop.first ? 'disabled' }}
                                        data-group-editor-target="includeToggle"
                                        data-variant-id="{{ v.variant.id }}"
                                        data-group-editor-id-param="{{ v.variant.id }}"

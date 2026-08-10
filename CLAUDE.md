@@ -883,11 +883,18 @@ handed `targets()` AND `allTargets()`, and the split is what the rail's UI
 means:
 
 - **EDITS** (moves, resizes, styles, metadata, z-order, containers — i.e.
-  `syncPass`) go to `targets()`: EMPTY unless the designer turns on
-  **"Úprava více variant"** (the mode button in the variant rail, default
-  OFF), then the variants whose per-variant switch is on. Those switches are
+  `syncPass`) go to `targets()`: EMPTY when the designer turns off
+  **"Úprava více variant"** (the mode button in the variant rail — ON by
+  default with every variant included since 2026-08-10; was OFF by default),
+  otherwise the variants whose per-variant switch is on. Those switches are
   chrome of the mode and only render with it (CSS `--multi` on the rail); the
-  ACTIVE variant's is forced on + disabled.
+  ACTIVE variant's is forced on + disabled. The template's server-rendered
+  initial chrome must stay in lockstep with the controller's `multiEdit`
+  default (`_refreshRail` only syncs after hydration). Because the mode is
+  live from the first paint, the debounced edit pass DEFERS while shadows
+  hydrate (`_shadowsHydrated`) and fans out once at boot-end via
+  `_flushPendingSync` — flushing (or plain-rebaselining) earlier would fan
+  the diff to the hydrated subset only, or consume it entirely.
 - **STRUCTURE** (`projectNewObject`, `removeObject`, `projectBackgroundLayer`
   and the explicit per-element "Srovnat podle skupiny" `resync`) goes to
   `allTargets()` — every dimension, no opt-out, mode or not. The object set
