@@ -366,6 +366,16 @@ just swap `fontFamily`), brand-color swatches + free picker, underline.
   text; runs-snapshot undo; envelope→mirror sync + `rich-text-editor:changed`);
   the overlay measures with per-char styles applied to its offscreen Textboxes
   (a bold face wraps wider — container overflow gating must match the server).
+  **B/I reliability (2026-08-10):** face-axis detection is metadata-first with
+  a NAME fallback (`style` OR `faceName` matching /italic|oblique|kurz/ resp.
+  weight ≥ 600 OR /bold|tučn/ — FontLib subfamily metadata is best-effort and
+  real uploads miss it, which made the buttons silent no-ops); a toggle with
+  NO mappable face is DISABLED with the reason in its title instead of doing
+  nothing; and on connect the editor warns when a run references a family no
+  longer among the options (renamed/removed face) — it still renders here
+  (the page registers every project face) but export leniently strips it
+  (`RichText` whitelist nulls the family), the one place preview and PNG can
+  legitimately disagree.
 - **API**: `inputs[].richText` flag; export accepts `{runs, hide}` (strict:
   structured 400s `rich_text_not_allowed` / `invalid_rich_text` /
   `font_not_allowed` (+`allowedFonts`) / `invalid_color` via
@@ -489,7 +499,22 @@ uses (plain string or the `{"runs","lines"}` envelope — full rich feature
 set incl. lists). Render: `ResolveTextOverrides` falls back to it when the
 input key is ABSENT from providedValues (an explicit `""` suppresses it), and
 a sample is ALWAYS parsed leniently — a stale stored sample must never 400 an
-API consumer who merely omitted the input (per-input `$lenient` flag). Fill
+API consumer who merely omitted the input (per-input `$lenient` flag).
+**Sample ↔ canvas lockstep, generalized to every text input (2026-08-10;
+`canvas_checklist_sample.js` despite the name).** The sample is what exports,
+so a stand-in showing different text is an editor preview that lies (prod
+report). Modal save → `applySampleToCanvasText` points the canvas text at the
+sample's plain text (uppercased for display; rich styling stays invisible on
+the single-styled stand-in — the fill preview/export is where it shows) and
+fires `text:changed` so reflow + group propagation ride along. Inline canvas
+edit of a SAMPLED input → `syncTextSample` rewrites the sample: plain stays
+plain, an envelope keeps its LEAD run's whole-text style (a multi-run partial
+mapping has nothing to attach to after a rewrite), list line types carry by
+index 'p'-filled; blanking the text clears the sample. It no-ops when texts
+already agree (uppercase compared in DISPLAY form), which is what preserves
+multi-run styling right after a modal save. Deliberately NO canvas-load sweep
+— legacy samples routinely differ from the designed text and a sweep would
+bulk-rewrite admin-authored samples. Fill
 page: `postMount` seeds `textValues` from it, so field + preview + untouched
 export agree. Admin UX: "Vzorový text" button in the text popover opens
 `#sampleTextModal` — rich inputs get a FRESH fill-page WYSIWYG per open

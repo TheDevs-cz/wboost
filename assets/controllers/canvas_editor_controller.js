@@ -5,7 +5,7 @@ import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
-import { syncChecklistSample, sweepChecklistSamples } from './canvas_checklist_sample.js';
+import { syncChecklistSample, syncTextSample, sweepChecklistSamples } from './canvas_checklist_sample.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
@@ -136,7 +136,14 @@ export default class extends Controller {
         // ...and their sample envelope IS the exported value, so an inline
         // text edit has to be written into it (canvas_checklist_sample) —
         // otherwise the canvas shows the new items and the PNG keeps the old.
-        this.canvas.on('text:changed', (opt) => syncChecklistSample(opt.target));
+        // syncTextSample generalizes the same lockstep to every SAMPLED text
+        // input: the canvas text the designer just typed becomes the sample's
+        // text (lead-run styling kept), so the export can never keep quietly
+        // rendering the pre-edit sample.
+        this.canvas.on('text:changed', (opt) => {
+            syncChecklistSample(opt.target);
+            syncTextSample(opt.target);
+        });
         // Pointer modifiers (applyPointerModifiers): Alt/⌥+drag always
         // rubber-bands, Ctrl/⌘+drag always grabs the object under the cursor
         // (backdrops included). Must run BEFORE Fabric's target search.

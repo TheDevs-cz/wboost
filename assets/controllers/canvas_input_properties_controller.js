@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { applyChecklistItems, checklistItems, itemsFromValue } from './canvas_checklist_sample.js';
+import { applyChecklistItems, applySampleToCanvasText, checklistItems, itemsFromValue } from './canvas_checklist_sample.js';
 
 /**
  * Editor-side input metadata: name / description / locked / hidable /
@@ -416,6 +416,18 @@ export default class extends Controller {
             value = this.hasSamplePlainTarget ? this.samplePlainTarget.value : '';
         }
         obj.sampleValue = value.trim() === '' ? null : value;
+
+        // The sample is what the export renders (absent a user override) —
+        // the canvas stand-in follows it, or the editor shows one text and
+        // the PNG another. Clearing the sample keeps the designed text,
+        // which is then again exactly what renders. text:changed makes
+        // container reflow + group propagation treat it like typing (and
+        // syncTextSample sees equal texts, so styling survives untouched).
+        if (obj.sampleValue !== null && applySampleToCanvasText(obj) && this.hasCanvasEditorOutlet) {
+            this.canvasEditorOutlet.canvas.fire('text:changed', { target: obj });
+            this.canvasEditorOutlet.canvas.renderAll();
+        }
+
         this._syncSampleChrome(obj);
         if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.markUnsaved();
         this._hideSampleModal();

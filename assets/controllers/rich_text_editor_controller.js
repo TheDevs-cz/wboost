@@ -62,9 +62,31 @@ export default class extends Controller {
         this._render();
         this._updateCounter();
         this._updateToolbarState();
+        this._warnUnknownFonts();
 
         this._onSelectionChange = () => this._updateToolbarState();
         document.addEventListener("selectionchange", this._onSelectionChange);
+    }
+
+    /** A run whose face is no longer offered (font/face renamed or removed
+     *  after the value was authored) still LOOKS right in this editor — the
+     *  page registers every project face — but the export leniently STRIPS
+     *  the unknown family and falls back to the design font (RichText.php
+     *  whitelist). Say so up front instead of leaving the designer to diff
+     *  the preview against the PNG. */
+    _warnUnknownFonts() {
+        const known = new Set(this.fontsValue.map((option) => option.family));
+        const unknown = [...new Set(
+            this.runs
+                .map((run) => run.fontFamily)
+                .filter((family) => family && !known.has(family)),
+        )];
+        if (unknown.length === 0) return;
+
+        const note = document.createElement("div");
+        note.className = "text-warning small mt-1";
+        note.textContent = `Písmo „${unknown.join("“, „")}“ už není v nabídce šablony — export ho nahradí výchozím písmem. Vyberte pro zvýrazněný text písmo znovu.`;
+        this.editorTarget.insertAdjacentElement("afterend", note);
     }
 
     disconnect() {
@@ -427,9 +449,22 @@ export default class extends Controller {
     _faceMatches(family, axis) {
         const option = this._fontOption(family);
         if (!option) return false;
-        // `style` is FontLib-parsed subfamily metadata — loose strings like
-        // "Bold Italic" are common, so match by substring, never equality.
-        return axis === "bold" ? option.weight >= 600 : (option.style || "").toLowerCase().includes("italic");
+        return axis === "bold" ? this._optionIsBold(option) : this._optionIsItalic(option);
+    }
+
+    /** Face-axis detection is metadata-first with a NAME fallback: FontLib's
+     *  parsed subfamily (`style`) is best-effort and real uploads miss it,
+     *  which used to make the I/B buttons SILENT no-ops for those fonts —
+     *  "adding italic did nothing". The admin-visible face name ("Italic",
+     *  "Oblique", "Kurzíva", "Bold", "Tučné") counts too; the font name
+     *  itself does NOT (a font called "Gotham Bold" must not make every one
+     *  of its faces read as bold). */
+    _optionIsItalic(option) {
+        return /italic|oblique|kurz/i.test(`${option.style || ""} ${option.faceName || ""}`);
+    }
+
+    _optionIsBold(option) {
+        return option.weight >= 600 || /bold|tučn|tucn/i.test(`${option.style || ""} ${option.faceName || ""}`);
     }
 
     /**
@@ -440,14 +475,14 @@ export default class extends Controller {
         const current = this._fontOption(family);
         if (!current) return undefined;
 
-        const isItalic = (option) => (option.style || "").toLowerCase().includes("italic");
-        const isBold = (option) => option.weight >= 600;
         const siblings = this.fontsValue.filter((option) => option.fontName === current.fontName);
 
-        const wantBold = axis === "bold" ? enable : isBold(current);
-        const wantItalic = axis === "italic" ? enable : isItalic(current);
+        const wantBold = axis === "bold" ? enable : this._optionIsBold(current);
+        const wantItalic = axis === "italic" ? enable : this._optionIsItalic(current);
 
-        const candidates = siblings.filter((option) => isBold(option) === wantBold && isItalic(option) === wantItalic);
+        const candidates = siblings.filter(
+            (option) => this._optionIsBold(option) === wantBold && this._optionIsItalic(option) === wantItalic,
+        );
         if (candidates.length === 0) return undefined;
 
         // Closest weight to the canonical target (700 bold / 400 regular).
@@ -877,6 +912,35 @@ export default class extends Controller {
             : `${length} znaků`;
     }
 
+    /** Pressed state + AVAILABILITY for one face axis. A toggle that cannot
+     *  map any selected run to a matching face is DISABLED with the reason in
+     *  the title — a button that silently does nothing reads as "italic is
+     *  broken", not as "this font has no italic face" (the prod report). */
+    _updateFaceButton(button, axis, runs) {
+        const active = runs.length > 0 && runs.every((run) => this._faceMatches(this._effectiveFamily(run), axis));
+        button.classList.toggle("active", active);
+
+        // Empty value → leave the default (toggles are no-ops there anyway).
+        const available = runs.length === 0
+            || runs.some((run) => this._mappedFace(this._effectiveFamily(run), axis, !active) !== undefined);
+
+        if (button.dataset.defaultTitle === undefined) {
+            button.dataset.defaultTitle = button.title || "";
+        }
+        button.disabled = !available;
+        if (available) {
+            button.title = button.dataset.defaultTitle;
+        } else if (active) {
+            button.title = axis === "bold"
+                ? "Použité písmo nemá odpovídající netučný řez — tučnost nelze vypnout."
+                : "Použité písmo nemá odpovídající základní řez — kurzívu nelze vypnout.";
+        } else {
+            button.title = axis === "bold"
+                ? "Použité písmo nemá tučný řez — nahrajte ho v písmech projektu."
+                : "Použité písmo nemá kurzívní řez — nahrajte ho v písmech projektu.";
+        }
+    }
+
     /** Reflect the effective style at the selection in the toolbar (pressed
      *  B/I/U, face dropdown, color chips). */
     _updateToolbarState() {
@@ -887,10 +951,10 @@ export default class extends Controller {
         const runs = range ? this._rangeRuns(range) : [];
 
         if (this.hasBoldTarget) {
-            this.boldTarget.classList.toggle("active", runs.length > 0 && runs.every((run) => this._faceMatches(this._effectiveFamily(run), "bold")));
+            this._updateFaceButton(this.boldTarget, "bold", runs);
         }
         if (this.hasItalicTarget) {
-            this.italicTarget.classList.toggle("active", runs.length > 0 && runs.every((run) => this._faceMatches(this._effectiveFamily(run), "italic")));
+            this._updateFaceButton(this.italicTarget, "italic", runs);
         }
         if (this.hasUnderlineTarget) {
             this.underlineTarget.classList.toggle("active", runs.length > 0 && runs.every((run) => run.underline === true));
