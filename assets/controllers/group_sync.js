@@ -140,11 +140,13 @@ export class GroupSync {
      * fine-tunes.
      *
      * `allTargets` — every non-active variant, no opt-out. STRUCTURE goes
-     * here: adding an object, deleting one, picking a background, and the
-     * explicit per-element "Srovnat podle skupiny". The object set must stay
-     * identical across dimensions — a dimension silently missing an element
-     * (or a background) renders as a scrambled stack, which is precisely the
-     * failure the group model exists to prevent.
+     * here: adding an object, deleting one, and the explicit per-element
+     * "Srovnat podle skupiny". The object set must stay identical across
+     * dimensions — a dimension silently missing an element renders as a
+     * scrambled stack, which is precisely the failure the group model exists
+     * to prevent. The background PICTURE is the exception (2026-08-10): its
+     * pick is edit-class (`targets()`), so per-variant backgrounds stay
+     * authorable — see projectBackgroundLayer.
      *
      * @param {Object} options
      * @param {Function} options.activeCanvas  () => the interactive Fabric canvas
@@ -350,24 +352,25 @@ export class GroupSync {
     }
 
     /**
-     * Fan the background PICTURE out to every target — the one thing about a
-     * background that IS shared across dimensions.
+     * Fan the background PICTURE out to the OPTED-IN targets — an EDIT-class
+     * change since 2026-08-10: it respects "Úprava více variant" + the
+     * per-variant switches (`targets()`), so a designer can give one variant
+     * its own background by turning the mode off (or excluding variants).
+     * With the mode on and everything included — the default — a pick still
+     * reaches every dimension. (It used to be structural/ungated, which made
+     * per-variant backgrounds impossible to author at all.)
      *
-     * Everything else about it stays per-dimension: the layer is excluded from
-     * the diffing engine (baseline, projectNewObject, resync, z-order) because
-     * cover fit is an absolute function of (image, canvas size) and relative
-     * propagation would compound drift. But excluding the picture too left the
-     * designer with no way to give the other dimensions a background at all —
-     * they rendered transparent, and whatever full-canvas artwork sat lowest
-     * read as the background. So the picture travels and the FIT is recomputed
-     * from scratch for each target's own size (never scaled from the source),
-     * landing at the slot the target's own background occupied — index 0 when
-     * it had none.
+     * Everything else about the layer stays per-dimension: it is excluded
+     * from the diffing engine (baseline, projectNewObject, resync, z-order)
+     * because cover fit is an absolute function of (image, canvas size) and
+     * relative propagation would compound drift. The picture travels and the
+     * FIT is recomputed from scratch for each target's own size (never
+     * scaled from the source), landing at the slot the target's own
+     * background occupied — index 0 when it had none.
      *
      * Metadata (inputId, placeholder flags, name) is copied from the active
-     * layer rather than preserved per target: a group-level pick is a
-     * group-level decision, and the shared inputId is the same join key
-     * CanvasDesignProjector stamps when it seeds a dimension.
+     * layer rather than preserved per target: the shared inputId is the same
+     * join key CanvasDesignProjector stamps when it seeds a dimension.
      */
     async projectBackgroundLayer(source) {
         const touched = new Set();
@@ -376,7 +379,7 @@ export class GroupSync {
             return touched;
         }
 
-        for (const target of this.allTargets()) {
+        for (const target of this.targets()) {
             // Per-target try/catch, same reason as projectNewObject: one
             // failed image fetch must not leave the remaining dimensions
             // without the background. The existing layer is only removed

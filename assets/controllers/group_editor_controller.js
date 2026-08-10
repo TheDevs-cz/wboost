@@ -44,8 +44,9 @@ export default class extends Controller {
         // "Úprava více variant" — ON by default (2026-08-10, was OFF): the
         // group's point is variants that track each other, so edits fan out
         // to every included variant until the designer opts out. Structural
-        // changes (add / delete / background / explicit re-sync) ignore this
-        // flag entirely, see GroupSync's two target sets. Keep the initial
+        // changes (add / delete / explicit re-sync) ignore this flag
+        // entirely, see GroupSync's two target sets; a background pick
+        // FOLLOWS it (per-variant backgrounds must stay authorable). Keep the initial
         // state in lockstep with the server-rendered rail chrome
         // (template_group_editor.html.twig: --multi class, btn-primary,
         // aria-pressed) — _refreshRail only syncs it after hydration.
@@ -312,12 +313,15 @@ export default class extends Controller {
         active.dirty = true;
         this._refreshDirtyDots();
 
-        // A background pick is a group-level decision: the picture travels to
-        // every included dimension, cover-fitted for each one's own size
-        // (see GroupSync.projectBackgroundLayer). Canvas-mode groups keep the
-        // legacy per-variant background upload and are left alone. Queued so
-        // a pick made while the shadows are still hydrating reaches ALL of
-        // them, not the subset that happened to exist.
+        // A background pick follows the "Úprava více variant" mode + the
+        // per-variant switches (GroupSync.projectBackgroundLayer reads
+        // targets()): mode on = the picture travels to the opted-in
+        // dimensions, cover-fitted for each one's own size; mode off = it
+        // stays a single-variant change, which is how a designer authors
+        // per-variant backgrounds. Canvas-mode groups keep the legacy
+        // per-variant background upload and are left alone. Queued so a pick
+        // made while the shadows are still hydrating reaches every INCLUDED
+        // shadow, not the subset that happened to exist.
         if (event.detail.layerMode && this.sync && !this._quiet(this.canvasEditorOutlet)) {
             const source = this.canvasEditorOutlet.canvas.getObjects().find((o) => o.isBackground === true);
             await this._enqueueStructural(() => this.sync.projectBackgroundLayer(source));

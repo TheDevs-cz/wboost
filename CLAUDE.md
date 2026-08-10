@@ -145,7 +145,9 @@ Key facts:
   layer-mode sources. Editor-side the "Pozadí" pick calls `setBackgroundLayer`
   (ordinary dirty canvas edit, NO side-channel POST).
 - **Group editor**: background GEOMETRY is strictly per-dimension, the
-  background PICTURE is shared. `isBackground` objects are excluded from the
+  background PICTURE follows the "Úprava více variant" mode (2026-08-10 —
+  shared while the mode is on, single-variant while off, so per-variant
+  backgrounds are authorable). `isBackground` objects are excluded from the
   whole group_sync engine (baseline/diff, projectNewObject, removeObject,
   resync, z-order — `isSyncable()`), the `object:added/removed` handlers gate
   on the flag, and layer-mode variants get `backgroundUrl: null` in
@@ -895,9 +897,14 @@ means:
   hydrate (`_shadowsHydrated`) and fans out once at boot-end via
   `_flushPendingSync` — flushing (or plain-rebaselining) earlier would fan
   the diff to the hydrated subset only, or consume it entirely.
-- **STRUCTURE** (`projectNewObject`, `removeObject`, `projectBackgroundLayer`
-  and the explicit per-element "Srovnat podle skupiny" `resync`) goes to
-  `allTargets()` — every dimension, no opt-out, mode or not. The object set
+- **STRUCTURE** (`projectNewObject`, `removeObject` and the explicit
+  per-element "Srovnat podle skupiny" `resync`) goes to
+  `allTargets()` — every dimension, no opt-out, mode or not. The background
+  PICTURE is the exception since 2026-08-10: `projectBackgroundLayer` goes to
+  `targets()` (mode-gated) so per-variant backgrounds stay authorable — with
+  the mode on and everything included (the default) a pick still reaches
+  every dimension; turning the mode off makes it a single-variant change.
+  The object set
   MUST stay identical across dimensions: one silently missing an element (or
   background) renders as a scrambled stack, the exact failure the group model
   exists to prevent. Delete mirrors add so an always-fanned-out object stays
@@ -919,9 +926,9 @@ report): pre-2026-08-07 adds respected the include switches (divergence from
 then is persisted in the DB), the Fabric hooks were live before the sibling
 shadows hydrated (`allTargets()` silently filters shadow-less variants), and a
 failed `clone()` (image src fetch) aborted the fan-out loop mid-way with no
-catch. Now all structural ops (add / remove / background pick / "Srovnat podle
-skupiny") run through `_enqueueStructural` — ONE serialized promise chain
-gated on `_shadowsReady` — with per-target try/catch in
+catch. Now all propagation ops (add / remove / background pick / "Srovnat
+podle skupiny") run through `_enqueueStructural` — ONE serialized promise
+chain gated on `_shadowsReady` — with per-target try/catch in
 `projectNewObject`/`projectBackgroundLayer` (one failing variant never strands
 the rest). Tab switch, undo/redo and save first `_drainStructuralOps()` (a
 clone landing in a shadow after it was serialized would be clobbered on the
