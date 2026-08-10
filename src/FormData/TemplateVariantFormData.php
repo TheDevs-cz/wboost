@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormData;
 
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Positive;
@@ -43,7 +42,11 @@ final class TemplateVariantFormData
     #[Positive]
     public null|float $height = 297;
 
-    public null|UploadedFile $backgroundImage = null;
+    // Project-gallery FileUpload id from the background picker widget —
+    // backgrounds are picked from / uploaded into the gallery, never posted
+    // as raw files (an upload that bypassed the gallery was invisible there,
+    // and a gallery image was unpickable).
+    public null|string $backgroundImageId = null;
 
     #[Callback]
     public function validateCanvasSize(ExecutionContextInterface $context): void

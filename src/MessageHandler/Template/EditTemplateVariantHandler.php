@@ -6,12 +6,12 @@ namespace WBoost\Web\MessageHandler\Template;
 
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemException;
-use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\TemplateVariantNotFound;
 use WBoost\Web\Message\Template\EditTemplateVariant;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Services\Editor\ResolveGalleryBackground;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\BackgroundMode;
 
@@ -20,9 +20,9 @@ readonly final class EditTemplateVariantHandler
 {
     public function __construct(
         private TemplateVariantRepository $variantRepository,
-        private ClockInterface $clock,
         private Filesystem $filesystem,
         private BackgroundLayer $backgroundLayer,
+        private ResolveGalleryBackground $resolveGalleryBackground,
         private UploaderHelper $uploaderHelper,
     ) {
     }
@@ -34,22 +34,21 @@ readonly final class EditTemplateVariantHandler
     {
         $variant = $this->variantRepository->get($message->variantId);
 
-        $backgroundImage = $message->backgroundImage;
         $newBackgroundImagePath = null;
-        $bytes = null;
 
-        if ($backgroundImage !== null) {
-            // Raw-upload path: store the file alongside the variant.
-            $timestamp = $this->clock->now()->getTimestamp();
+        // Gallery pick by id (the edit form's picker): resolve into the
+        // gallery file's path — project + trash guarded; an id that fails to
+        // resolve degrades to "no change".
+        $background = $this->resolveGalleryBackground->resolve(
+            $message->backgroundImageId,
+            $variant->template->project->id,
+        );
 
-            $extension = $backgroundImage->guessExtension();
-            $newBackgroundImagePath = "custom-templates/$variant->id/background-$timestamp.$extension";
-            $bytes = $backgroundImage->getContent();
-            $this->filesystem->write($newBackgroundImagePath, $bytes);
+        if ($background !== null) {
+            $newBackgroundImagePath = $background->path;
         } elseif ($message->backgroundImagePath !== null) {
-            // Gallery path: the asset already lives in S3/Minio under
-            // file-upload/{projectId}/{fileId}.{ext} as a FileUpload row; just
-            // point the variant at it.
+            // Gallery path posted directly by the editor's "Pozadí" pick;
+            // just point the variant at it.
             $newBackgroundImagePath = $message->backgroundImagePath;
         }
 
@@ -63,7 +62,7 @@ readonly final class EditTemplateVariantHandler
             // the layer's picture in place (stack index + input metadata are
             // preserved by the helper), re-cover-fitted top-left.
             try {
-                $bytes ??= $this->filesystem->read($newBackgroundImagePath);
+                $bytes = $this->filesystem->read($newBackgroundImagePath);
             } catch (FilesystemException) {
                 $bytes = null;
             }

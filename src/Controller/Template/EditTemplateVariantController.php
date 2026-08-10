@@ -46,7 +46,7 @@ final class EditTemplateVariantController extends AbstractController
             $this->bus->dispatch(
                 new EditTemplateVariant(
                     $variant->id,
-                    backgroundImage: null,
+                    backgroundImageId: null,
                     backgroundImagePath: $backgroundImagePath,
                 ),
             );
@@ -64,7 +64,7 @@ final class EditTemplateVariantController extends AbstractController
             $this->bus->dispatch(
                 new EditTemplateVariant(
                     $variant->id,
-                    $data->backgroundImage,
+                    $data->backgroundImageId,
                 ),
             );
 

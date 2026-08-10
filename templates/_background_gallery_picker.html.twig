@@ -1,0 +1,20 @@
+{# Gallery-backed background field: a hidden input carrying the picked
+   gallery file's id + thumbnail + pick/clear buttons. Requires the shared
+   #backgroundGalleryModal on the page (_background_gallery_modal.html.twig).
+
+   Params:
+     field — the hidden `backgroundImageId`-style form field
+     label — optional field label (default "Obrázek pozadí") #}
+<div data-controller="background-picker">
+    <label class="form-label d-block">{{ label|default('Obrázek pozadí') }}</label>
+    <div class="d-flex align-items-center gap-2">
+        <span class="background-picker-thumb d-none" data-background-picker-target="preview"></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="background-picker#open">
+            <i class="mdi mdi-image-search-outline"></i> Vybrat z galerie
+        </button>
+        <button type="button" class="btn btn-sm btn-link text-danger p-0 d-none"
+                data-background-picker-target="clearButton"
+                data-action="background-picker#clear">Odebrat</button>
+    </div>
+    {{ form_widget(field, { attr: { 'data-background-picker-target': 'input' } }) }}
+</div>

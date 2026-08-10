@@ -68,7 +68,7 @@ final class AddTemplateController extends AbstractController
                     $templateId,
                     $variantId,
                     $data->variant->dimension(),
-                    $data->variant->backgroundImage,
+                    $data->variant->backgroundImageId,
                 ),
             );
 

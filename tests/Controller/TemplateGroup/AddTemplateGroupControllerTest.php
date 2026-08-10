@@ -6,13 +6,16 @@ namespace WBoost\Web\Tests\Controller\TemplateGroup;
 
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
+use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\FileSource;
 
 /**
  * @covers \WBoost\Web\Controller\TemplateGroup\AddTemplateGroupController
@@ -51,11 +54,10 @@ final class AddTemplateGroupControllerTest extends WebTestCase
             'template_group_form' => [
                 'name' => 'Wizard Group',
                 'presetDimensions' => ['1:1', '9:16'],
+                // The background picker widget posts the picked GALLERY
+                // file's id — never a raw file upload.
+                'commonBackground' => $this->seedGalleryFile(),
                 '_token' => $token,
-            ],
-        ], [
-            'template_group_form' => [
-                'commonBackground' => $this->pngUpload(),
             ],
         ]);
 
@@ -193,15 +195,30 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    private function pngUpload(): UploadedFile
+    /** Seeds a project-gallery FileUpload (row + object bytes) and returns
+     *  its id — the wire value the background picker submits. */
+    private function seedGalleryFile(): string
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'png');
-        self::assertIsString($tmp);
+        $id = Uuid::uuid4();
+        $path = "fixtures/gallery-bg-$id.png";
 
         $bytes = base64_decode(self::PNG_1X1_BASE64, true);
         self::assertIsString($bytes);
-        file_put_contents($tmp, $bytes);
+        self::getContainer()->get(Filesystem::class)->write($path, $bytes);
 
-        return new UploadedFile($tmp, 'background.png', 'image/png', null, true);
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $project = $em->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        self::assertNotNull($project);
+
+        $em->persist(new FileUpload(
+            $id,
+            $project,
+            new \DateTimeImmutable('2026-01-01 12:00:00'),
+            FileSource::ProjectImage,
+            $path,
+        ));
+        $em->flush();
+
+        return $id->toString();
     }
 }

@@ -8,12 +8,10 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
-use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\Image;
 use WBoost\Web\Entity\TemplateCategory;
 use WBoost\Web\FormData\TemplateGroupFormData;
 use WBoost\Web\Value\DimensionPreset;
@@ -63,26 +61,18 @@ final class TemplateGroupFormType extends AbstractType
             ),
         ]);
 
+        // Filled by the background gallery picker widgets (FileUpload ids);
+        // uploads happen through the gallery itself.
         foreach (DimensionPreset::cases() as $dimension) {
-            $builder->add('background' . $dimension->name, FileType::class, [
+            $builder->add('background' . $dimension->name, HiddenType::class, [
                 'label' => sprintf('Pozadí %s', $dimension->value),
                 'required' => false,
-                'constraints' => [
-                    new Image(
-                        maxSize: '10m',
-                    ),
-                ],
             ]);
         }
 
-        $builder->add('commonBackground', FileType::class, [
+        $builder->add('commonBackground', HiddenType::class, [
             'label' => 'Společné pozadí (použít pro všechny vybrané rozměry)',
             'required' => false,
-            'constraints' => [
-                new Image(
-                    maxSize: '10m',
-                ),
-            ],
         ]);
 
         // "Create from existing template" source, carried through submits as

@@ -8,7 +8,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Message\TemplateGroup\CreateTemplateGroup;
 use WBoost\Web\MessageHandler\TemplateGroup\CreateTemplateGroupHandler;
@@ -17,6 +18,7 @@ use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\GroupVariantSelection;
@@ -40,9 +42,9 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
             'Test Group',
             null,
             [
-                new GroupVariantSelection(TemplateDimension::fromPreset(DimensionPreset::InstagramPost), $this->pngUpload()),
-                new GroupVariantSelection(TemplateDimension::fromPreset(DimensionPreset::InstagramStory), $this->pngUpload()),
-                new GroupVariantSelection(new TemplateDimension(DimensionUnit::Mm, 210, 297), $this->pngUpload()),
+                new GroupVariantSelection(TemplateDimension::fromPreset(DimensionPreset::InstagramPost), $this->seedGalleryFile($postGalleryPath)),
+                new GroupVariantSelection(TemplateDimension::fromPreset(DimensionPreset::InstagramStory), $this->seedGalleryFile()),
+                new GroupVariantSelection(new TemplateDimension(DimensionUnit::Mm, 210, 297), $this->seedGalleryFile($freeformGalleryPath)),
             ],
         ));
         $this->em()->flush();
@@ -66,15 +68,13 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         self::assertNull($variants[2]->dimension->preset);
         self::assertSame(2480, $variants[2]->dimension->width());
 
-        // Fresh groups are layer-mode: the uploaded background is seeded as an
+        // Fresh groups are layer-mode: the picked gallery background is
+        // REFERENCED by its gallery path (never copied) and seeded as an
         // `isBackground` canvas object (cover-fit top-left), no canvas-level
         // backgroundImage, and the column keeps the denormalized pointer.
         $postVariant = $variants[0];
         self::assertSame(BackgroundMode::Layer, $postVariant->backgroundMode);
-        $postBackgroundPath = $postVariant->backgroundImage;
-        self::assertNotNull($postBackgroundPath);
-        self::assertStringStartsWith('custom-templates/', $postBackgroundPath);
-        self::assertStringContainsString('/background-', $postBackgroundPath);
+        self::assertSame($postGalleryPath, $postVariant->backgroundImage);
 
         $postCanvas = $this->decodeCanvas($postVariant->canvas);
         self::assertArrayNotHasKey('backgroundImage', $postCanvas);
@@ -82,13 +82,11 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         self::assertTrue($postLayer['isBackground'] ?? null);
         self::assertSame('left', $postLayer['originX']);
         self::assertSame('top', $postLayer['originY']);
-        // The 1×1 upload cover-fitted onto 1080×1080: scale = max ratio.
+        // The 1×1 picture cover-fitted onto 1080×1080: scale = max ratio.
         self::assertEqualsWithDelta(1080.0, $postLayer['scaleX'], 0.001);
-        self::assertSame($postBackgroundPath, $postLayer['assetPath']);
+        self::assertSame($postGalleryPath, $postLayer['assetPath']);
 
-        $freeformBackgroundPath = $variants[2]->backgroundImage;
-        self::assertNotNull($freeformBackgroundPath);
-        self::assertStringStartsWith('custom-templates/', $freeformBackgroundPath);
+        self::assertSame($freeformGalleryPath, $variants[2]->backgroundImage);
     }
 
     public function testSingleDimensionGroupCreatesOneTemplateWithOneVariant(): void
@@ -101,7 +99,7 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
             $groupId,
             'Preset Only',
             null,
-            [new GroupVariantSelection(TemplateDimension::fromPreset(DimensionPreset::InstagramPost), $this->pngUpload())],
+            [new GroupVariantSelection(TemplateDimension::fromPreset(DimensionPreset::InstagramPost), $this->seedGalleryFile())],
         ));
         $this->em()->flush();
         $this->em()->clear();
@@ -134,10 +132,10 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
             'Seeded Group',
             null,
             [
-                // No upload → background copied from the source variant.
+                // No pick → background copied from the source variant.
                 new GroupVariantSelection(TemplateDimension::fromPreset(DimensionPreset::InstagramStory), null),
-                // Own upload wins over the source background.
-                new GroupVariantSelection(new TemplateDimension(DimensionUnit::Mm, 210, 297), $this->pngUpload()),
+                // Own gallery pick wins over the source background.
+                new GroupVariantSelection(new TemplateDimension(DimensionUnit::Mm, 210, 297), $this->seedGalleryFile($ownGalleryPath)),
             ],
             sourceVariantId: Uuid::fromString(TestDataFixture::GROUPED_PRESET_VARIANT_ID),
         ));
@@ -195,12 +193,10 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         self::assertEqualsWithDelta(520 * $rx, $a4Textbox['width'], 0.001);
         self::assertSame(TestDataFixture::GROUP_SHARED_INPUT_ID, $a4Textbox['inputId']);
 
-        $a4BackgroundPath = $a4Variant->backgroundImage;
-        self::assertIsString($a4BackgroundPath);
-        self::assertNotSame(
-            $sourceBackgroundBytes,
-            $filesystem->read($a4BackgroundPath),
-            'a selection with its own upload keeps that upload',
+        self::assertSame(
+            $ownGalleryPath,
+            $a4Variant->backgroundImage,
+            'a selection with its own gallery pick references that file, not a copy of the source background',
         );
     }
 
@@ -231,17 +227,35 @@ final class CreateTemplateGroupHandlerTest extends KernelTestCase
         return $object;
     }
 
-    private function pngUpload(): UploadedFile
+    /**
+     * Seeds a project-gallery FileUpload (row + object bytes) the way the
+     * background picker's chosen file exists, and returns its id — the wire
+     * value the form submits.
+     *
+     * @param-out string $path
+     */
+    private function seedGalleryFile(null|string &$path = null): string
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'png');
-        self::assertIsString($tmp);
+        $id = Uuid::uuid4();
+        $path = "fixtures/gallery-bg-$id.png";
 
         $bytes = base64_decode(self::PNG_1X1_BASE64, true);
         self::assertIsString($bytes);
-        file_put_contents($tmp, $bytes);
+        self::getContainer()->get(Filesystem::class)->write($path, $bytes);
 
-        // test mode (5th arg) bypasses is_uploaded_file().
-        return new UploadedFile($tmp, 'background.png', 'image/png', null, true);
+        $project = $this->em()->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        self::assertNotNull($project);
+
+        $this->em()->persist(new FileUpload(
+            $id,
+            $project,
+            new \DateTimeImmutable('2026-01-01 12:00:00'),
+            FileSource::ProjectImage,
+            $path,
+        ));
+        $this->em()->flush();
+
+        return $id->toString();
     }
 
     private function em(): EntityManagerInterface

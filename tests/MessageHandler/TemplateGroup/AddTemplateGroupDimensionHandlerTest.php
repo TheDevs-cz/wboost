@@ -8,7 +8,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\Message\TemplateGroup\AddTemplateGroupDimension;
 use WBoost\Web\Message\TemplateGroup\CreateTemplateGroup;
 use WBoost\Web\MessageHandler\TemplateGroup\AddTemplateGroupDimensionHandler;
@@ -16,6 +17,7 @@ use WBoost\Web\MessageHandler\TemplateGroup\CreateTemplateGroupHandler;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\DimensionPreset;
@@ -32,12 +34,13 @@ final class AddTemplateGroupDimensionHandlerTest extends KernelTestCase
         $groupId = Uuid::fromString(TestDataFixture::TEMPLATE_GROUP_1_ID);
         $variantId = Uuid::uuid4();
 
+        $galleryPath = null;
         $handler = self::getContainer()->get(AddTemplateGroupDimensionHandler::class);
         $handler(new AddTemplateGroupDimension(
             $groupId,
             $variantId,
             TemplateDimension::fromPreset(DimensionPreset::InstagramPortrait),
-            $this->pngUpload(),
+            $this->seedGalleryFile($galleryPath),
         ));
         $this->em()->flush();
         $this->em()->clear();
@@ -58,11 +61,11 @@ final class AddTemplateGroupDimensionHandlerTest extends KernelTestCase
         self::assertSame(DimensionPreset::InstagramPortrait, $added->dimension->preset);
         self::assertSame(TestDataFixture::GROUPED_TEMPLATE_ID, $added->template->id->toString(), 'Variant lands on the group\'s existing template.');
 
-        // New dimensions are layer-mode: the uploaded background is seeded as
-        // an `isBackground` object, not left to render-time synthesis.
+        // New dimensions are layer-mode: the picked gallery background is
+        // REFERENCED by its gallery path (never copied) and seeded as an
+        // `isBackground` object, not left to render-time synthesis.
         self::assertSame(BackgroundMode::Layer, $added->backgroundMode);
-        self::assertNotNull($added->backgroundImage);
-        self::assertStringStartsWith('custom-templates/', $added->backgroundImage);
+        self::assertSame($galleryPath, $added->backgroundImage);
         $decoded = json_decode($added->canvas, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
         self::assertArrayNotHasKey('backgroundImage', $decoded);
@@ -155,7 +158,7 @@ final class AddTemplateGroupDimensionHandlerTest extends KernelTestCase
             $groupId,
             $variantId,
             new TemplateDimension(DimensionUnit::Mm, 148, 210),
-            $this->pngUpload(),
+            $this->seedGalleryFile(),
         ));
         $this->em()->flush();
         $this->em()->clear();
@@ -171,16 +174,35 @@ final class AddTemplateGroupDimensionHandlerTest extends KernelTestCase
         self::assertTrue($variants[0]->id->equals($variantId));
     }
 
-    private function pngUpload(): UploadedFile
+    /**
+     * Seeds a project-gallery FileUpload (row + object bytes) the way the
+     * background picker's chosen file exists, and returns its id — the wire
+     * value the form submits.
+     *
+     * @param-out string $path
+     */
+    private function seedGalleryFile(null|string &$path = null): string
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'png');
-        self::assertIsString($tmp);
+        $id = Uuid::uuid4();
+        $path = "fixtures/gallery-bg-$id.png";
 
         $bytes = base64_decode(self::PNG_1X1_BASE64, true);
         self::assertIsString($bytes);
-        file_put_contents($tmp, $bytes);
+        self::getContainer()->get(Filesystem::class)->write($path, $bytes);
 
-        return new UploadedFile($tmp, 'background.png', 'image/png', null, true);
+        $project = $this->em()->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        self::assertNotNull($project);
+
+        $this->em()->persist(new FileUpload(
+            $id,
+            $project,
+            new \DateTimeImmutable('2026-01-01 12:00:00'),
+            FileSource::ProjectImage,
+            $path,
+        ));
+        $this->em()->flush();
+
+        return $id->toString();
     }
 
     private function em(): EntityManagerInterface

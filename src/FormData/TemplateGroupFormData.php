@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormData;
 
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -22,19 +21,20 @@ final class TemplateGroupFormData
     /** @var list<DimensionPreset> */
     public array $presetDimensions = [];
 
-    // One optional upload per enum case. Field names use the case NAMES
-    // because enum values like "1:1" are not valid form field names.
-    public null|UploadedFile $backgroundInstagramPost = null;
+    // One optional gallery pick (FileUpload id) per enum case. Field names
+    // use the case NAMES because enum values like "1:1" are not valid form
+    // field names.
+    public null|string $backgroundInstagramPost = null;
 
-    public null|UploadedFile $backgroundInstagramPortrait = null;
+    public null|string $backgroundInstagramPortrait = null;
 
-    public null|UploadedFile $backgroundInstagramStory = null;
+    public null|string $backgroundInstagramStory = null;
 
     /**
      * Convenience fallback: fills every selected dimension that has no
-     * upload of its own.
+     * pick of its own.
      */
-    public null|UploadedFile $commonBackground = null;
+    public null|string $commonBackground = null;
 
     /** @var list<TemplateVariantFormData> */
     public array $customDimensions = [];
@@ -63,7 +63,7 @@ final class TemplateGroupFormData
         return $this->sourceVariantId !== null && $this->sourceVariantId !== '';
     }
 
-    public function backgroundFor(DimensionPreset $dimension): null|UploadedFile
+    public function backgroundFor(DimensionPreset $dimension): null|string
     {
         $own = match ($dimension) {
             DimensionPreset::InstagramPost => $this->backgroundInstagramPost,
@@ -71,7 +71,10 @@ final class TemplateGroupFormData
             DimensionPreset::InstagramStory => $this->backgroundInstagramStory,
         };
 
-        return $own ?? $this->commonBackground;
+        $own = $own !== '' ? $own : null;
+        $common = $this->commonBackground !== '' ? $this->commonBackground : null;
+
+        return $own ?? $common;
     }
 
     /**
@@ -86,7 +89,9 @@ final class TemplateGroupFormData
         }
 
         foreach ($this->customDimensions as $row) {
-            $selections[] = new GroupVariantSelection($row->dimension(), $row->backgroundImage ?? $this->commonBackground);
+            $own = $row->backgroundImageId !== null && $row->backgroundImageId !== '' ? $row->backgroundImageId : null;
+            $common = $this->commonBackground !== '' ? $this->commonBackground : null;
+            $selections[] = new GroupVariantSelection($row->dimension(), $own ?? $common);
         }
 
         return $selections;

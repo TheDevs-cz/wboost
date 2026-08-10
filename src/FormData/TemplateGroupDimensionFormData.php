@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\FormData;
 
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints\Callback;
-use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
@@ -32,8 +30,11 @@ final class TemplateGroupDimensionFormData
 
     public null|float $height = 297;
 
-    #[NotNull(message: 'Nahrajte pozadí varianty.')]
-    public null|UploadedFile $backgroundImage = null;
+    // Project-gallery FileUpload id from the background picker widget.
+    // Optional: a dimension without a pick of its own inherits the group's
+    // existing background picture, cover-fitted for its size (the handler's
+    // documented fallback).
+    public null|string $backgroundImageId = null;
 
     #[Callback]
     public function validate(ExecutionContextInterface $context): void

@@ -144,6 +144,29 @@ Key facts:
   rx-scales) the layer per dimension and stamps NO canvas-level block for
   layer-mode sources. Editor-side the "Pozadí" pick calls `setBackgroundLayer`
   (ordinary dirty canvas edit, NO side-channel POST).
+- **Form-picked backgrounds come from the PROJECT GALLERY (2026-08-10).** The
+  add-template / add-variant / add-group / add-group-dimension forms (and the
+  edit-variant AJAX form) carry NO raw background file input any more — a
+  classic upload bypassed the gallery (the user expected it there) and an
+  existing gallery image was unpickable. Each background field is the
+  `background-picker` Stimulus widget (`_background_gallery_picker.html.twig`
+  hidden `backgroundImageId` + thumb + buttons) opening ONE shared
+  `#backgroundGalleryModal` per page (`_background_gallery_modal.html.twig`
+  hosting `Project:ImageGallery`; only the picker that OPENED the modal
+  consumes `asset-selected` — armed flag). Uploads inside the modal go through
+  the regular gallery uploader → they land IN the gallery. The wire value is
+  the FileUpload id; handlers resolve it via
+  `Services/Editor/ResolveGalleryBackground` (project + not-trashed guarded,
+  invalid id degrades to "no background") and REFERENCE the gallery path —
+  the editor-"Pozadí" shape, no byte copy. Messages carry
+  `backgroundImageId: null|string` (`AddTemplateVariant`,
+  `AddTemplateGroupDimension`, `EditTemplateVariant` — which also keeps
+  `backgroundImagePath` for the editor side-channel — and
+  `GroupVariantSelection`). The group add-dimension pick is now OPTIONAL
+  (null = inherit the group background, the handler's documented fallback);
+  the create-from-source copy branch still copies bytes per variant. Note the
+  standing trash caveat now applies to these too: purging a gallery file used
+  as a background loses its bytes.
 - **Group editor**: background GEOMETRY is strictly per-dimension, the
   background PICTURE follows the "Úprava více variant" mode (2026-08-10 —
   shared while the mode is on, single-variant while off, so per-variant

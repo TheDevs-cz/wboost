@@ -77,7 +77,8 @@
 
             <p class="text-muted small">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480×3508 px.</p>
 
-            {{ form_row(form.backgroundImage) }}
+            {{ include('_background_gallery_picker.html.twig', { field: form.backgroundImageId }) }}
+            <p class="text-muted small mt-1">Bez vlastního výběru nový rozměr převezme stávající pozadí skupiny.</p>
 
             <p class="text-muted small">Nová varianta vznikne s prázdným plátnem — prvky do ní přenesete ve skupinovém editoru tlačítkem „Srovnat podle skupiny".</p>
 
@@ -88,4 +89,6 @@
             {{ form_end(form) }}
         </div>
     </div>
+
+    {{ include('_background_gallery_modal.html.twig') }}
 {% endblock %}

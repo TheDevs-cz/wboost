@@ -1,0 +1,12 @@
+{# The ONE shared gallery modal every background-picker field on the page
+   opens (include once per page; requires `project` in scope). Picking a
+   thumbnail dispatches the gallery's `asset-selected` event, which the
+   armed background-picker controller consumes. Uploads inside go through
+   the regular gallery uploader — they land in the project gallery. #}
+<div class="modal fade" id="backgroundGalleryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <twig:Project:ImageGallery :project="project" />
+        </div>
+    </div>
+</div>

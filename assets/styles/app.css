@@ -2817,6 +2817,18 @@ button.fill-layer-row__main:focus-visible {
     color: var(--ct-secondary-color, #8a969c);
 }
 
+/* Background gallery picker (add/edit template + group forms): thumbnail of
+   the picked gallery file next to the pick/clear buttons. */
+.background-picker-thumb {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    border-radius: 0.25rem;
+    background-size: cover;
+    background-position: center;
+}
+
 /* Per-dimension PNG download in the heading — a submit button riding the
    fill form via formaction, styled as a quiet inline link. */
 .group-fill-variant-download {

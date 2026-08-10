@@ -7,12 +7,10 @@ namespace WBoost\Web\FormType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
-use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\Image;
 use WBoost\Web\FormData\TemplateVariantFormData;
 use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\DimensionUnit;
@@ -60,14 +58,11 @@ final class TemplateVariantFormType extends AbstractType
             'attr' => ['min' => 0, 'step' => 'any'],
         ]);
 
-        $builder->add('backgroundImage', FileType::class, [
-            'label' => 'Obrázek pozadí',
+        // Filled by the background gallery picker widget
+        // (_background_gallery_picker.html.twig) with the picked gallery
+        // file's id; uploads happen through the gallery itself.
+        $builder->add('backgroundImageId', HiddenType::class, [
             'required' => false,
-            'constraints' => [
-                new Image(
-                    maxSize: '10m',
-                ),
-            ],
         ]);
     }
 

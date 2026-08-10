@@ -76,11 +76,15 @@
 
             <p class="text-muted small">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480×3508 px.</p>
 
+            {{ include('_background_gallery_picker.html.twig', { field: form.backgroundImageId }) }}
+
             {{ form_rest(form) }}
 
-            <button class="btn btn-primary" type="submit">Přidat</button>
+            <button class="btn btn-primary mt-3" type="submit">Přidat</button>
 
             {{ form_end(form) }}
         </div>
     </div>
+
+    {{ include('_background_gallery_modal.html.twig') }}
 {% endblock %}

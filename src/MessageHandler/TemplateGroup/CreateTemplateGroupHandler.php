@@ -6,7 +6,7 @@ namespace WBoost\Web\MessageHandler\TemplateGroup;
 
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\TemplateVariant;
@@ -19,6 +19,7 @@ use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Services\Editor\ResolveGalleryBackground;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\TemplateGroup\CanvasDesignProjector;
 use WBoost\Web\Services\UploaderHelper;
@@ -40,6 +41,7 @@ readonly final class CreateTemplateGroupHandler
         private CanvasDesignProjector $projector,
         private UploaderHelper $uploaderHelper,
         private BackgroundLayer $backgroundLayer,
+        private ResolveGalleryBackground $resolveGalleryBackground,
     ) {
     }
 
@@ -86,7 +88,7 @@ readonly final class CreateTemplateGroupHandler
         foreach ($message->variants as $selection) {
             $variantId = $this->provideIdentity->next();
 
-            $background = $this->resolveBackground("custom-templates/$variantId", $selection->backgroundImage, $sourceVariant);
+            $background = $this->resolveBackground("custom-templates/$variantId", $selection->backgroundImageId, $project->id, $sourceVariant);
 
             $variant = new TemplateVariant(
                 $variantId,
@@ -104,31 +106,36 @@ readonly final class CreateTemplateGroupHandler
     }
 
     /**
-     * A selection without an uploaded background copies the source variant's
-     * background when the group is created from an existing template (each
-     * variant owns its file, so changing one later never affects the others).
-     * No upload and no source background → null: the variant starts without a
-     * background (layer mode renders it transparent).
+     * A selection with a picked gallery background REFERENCES the gallery
+     * file's path (no copy — the same shape the editor's "Pozadí" pick
+     * writes; the cover fit is still computed per dimension). Without a pick,
+     * a group created from an existing template copies the source variant's
+     * background bytes per variant (each variant owns its file, so changing
+     * one later never affects the others). No pick and no source background
+     * → null: the variant starts without a background (layer mode renders it
+     * transparent).
      */
     private function resolveBackground(
         string $pathPrefix,
-        null|UploadedFile $backgroundImage,
+        null|string $backgroundImageId,
+        UuidInterface $projectId,
         null|TemplateVariant $sourceVariant,
     ): null|StoredBackgroundImage {
-        if ($backgroundImage !== null) {
-            $bytes = $backgroundImage->getContent();
-            $extension = $backgroundImage->guessExtension();
-        } else {
-            $sourcePath = $sourceVariant?->backgroundImage;
+        $picked = $this->resolveGalleryBackground->resolve($backgroundImageId, $projectId);
 
-            if ($sourcePath === null) {
-                return null;
-            }
-
-            $bytes = $this->filesystem->read($sourcePath);
-            $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
-            $extension = $extension !== '' ? $extension : 'png';
+        if ($picked !== null) {
+            return $picked;
         }
+
+        $sourcePath = $sourceVariant?->backgroundImage;
+
+        if ($sourcePath === null) {
+            return null;
+        }
+
+        $bytes = $this->filesystem->read($sourcePath);
+        $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);
+        $extension = $extension !== '' ? $extension : 'png';
 
         $timestamp = $this->clock->now()->getTimestamp();
         $backgroundImagePath = "$pathPrefix/background-$timestamp.$extension";

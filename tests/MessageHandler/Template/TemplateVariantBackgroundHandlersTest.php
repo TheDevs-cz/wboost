@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\MessageHandler\Template;
 
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\Message\Template\AddTemplateVariant;
 use WBoost\Web\Message\Template\CopyTemplateVariant;
 use WBoost\Web\Message\Template\EditTemplateVariant;
@@ -18,6 +20,7 @@ use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\DimensionPreset;
+use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\TemplateDimension;
 
 /**
@@ -69,7 +72,7 @@ final class TemplateVariantBackgroundHandlersTest extends KernelTestCase
             Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID),
             $variantId,
             TemplateDimension::fromPreset(DimensionPreset::InstagramStory),
-            $this->pngUpload(),
+            $this->seedGalleryFile($galleryPath),
         ));
         $this->em()->flush();
         $this->em()->clear();
@@ -77,9 +80,9 @@ final class TemplateVariantBackgroundHandlersTest extends KernelTestCase
         $variant = $this->variants()->get($variantId);
 
         self::assertSame(BackgroundMode::Layer, $variant->backgroundMode);
+        // The picked gallery file is REFERENCED, never copied.
         $backgroundPath = $variant->backgroundImage;
-        self::assertNotNull($backgroundPath);
-        self::assertStringStartsWith("custom-templates/$variantId/background-", $backgroundPath);
+        self::assertSame($galleryPath, $backgroundPath);
 
         $layer = $this->backgroundLayerOf($variant->canvas);
         self::assertSame($backgroundPath, $layer['assetPath']);
@@ -108,26 +111,21 @@ final class TemplateVariantBackgroundHandlersTest extends KernelTestCase
         self::assertSame($beforeCanvas, $after->canvas);
     }
 
-    public function testEditWithUploadReplacesTheLayerInPlace(): void
+    public function testEditWithGalleryPickReplacesTheLayerInPlace(): void
     {
         $variantId = $this->addVariantWithBackground();
         $before = $this->variants()->get($variantId);
         $beforeLayer = $this->backgroundLayerOf($before->canvas);
         $this->em()->clear();
 
-        // Marker suffix (ignored by image parsers) so the stored bytes prove
-        // the swap — the frozen test clock makes the timestamped PATH collide.
         $handler = self::getContainer()->get(EditTemplateVariantHandler::class);
-        $handler(new EditTemplateVariant($variantId, $this->pngUpload('new-marker')));
+        $handler(new EditTemplateVariant($variantId, $this->seedGalleryFile($newGalleryPath)));
         $this->em()->flush();
         $this->em()->clear();
 
         $after = $this->variants()->get($variantId);
         $afterPath = $after->backgroundImage;
-        self::assertNotNull($afterPath);
-
-        $filesystem = self::getContainer()->get(\League\Flysystem\Filesystem::class);
-        self::assertStringEndsWith('new-marker', $filesystem->read($afterPath), 'the column points at the new file');
+        self::assertSame($newGalleryPath, $afterPath, 'the column points at the newly picked gallery file');
 
         $decoded = json_decode($after->canvas, true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
@@ -171,7 +169,7 @@ final class TemplateVariantBackgroundHandlersTest extends KernelTestCase
             Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID),
             $variantId,
             TemplateDimension::fromPreset(DimensionPreset::InstagramStory),
-            $this->pngUpload(),
+            $this->seedGalleryFile(),
         ));
         $this->em()->flush();
         $this->em()->clear();
@@ -198,17 +196,35 @@ final class TemplateVariantBackgroundHandlersTest extends KernelTestCase
         self::fail('No background layer found in the canvas document.');
     }
 
-    private function pngUpload(string $markerSuffix = ''): UploadedFile
+    /**
+     * Seeds a project-gallery FileUpload (row + object bytes) the way the
+     * background picker's chosen file exists, and returns its id — the wire
+     * value the form submits.
+     *
+     * @param-out string $path
+     */
+    private function seedGalleryFile(null|string &$path = null): string
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'png');
-        self::assertIsString($tmp);
+        $id = Uuid::uuid4();
+        $path = "fixtures/gallery-bg-$id.png";
 
         $bytes = base64_decode(self::PNG_1X1_BASE64, true);
         self::assertIsString($bytes);
-        file_put_contents($tmp, $bytes . $markerSuffix);
+        self::getContainer()->get(Filesystem::class)->write($path, $bytes);
 
-        // test mode (5th arg) bypasses is_uploaded_file().
-        return new UploadedFile($tmp, 'background.png', 'image/png', null, true);
+        $project = $this->em()->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        self::assertNotNull($project);
+
+        $this->em()->persist(new FileUpload(
+            $id,
+            $project,
+            new \DateTimeImmutable('2026-01-01 12:00:00'),
+            FileSource::ProjectImage,
+            $path,
+        ));
+        $this->em()->flush();
+
+        return $id->toString();
     }
 
     private function variants(): TemplateVariantRepository

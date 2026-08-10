@@ -44,7 +44,7 @@ final class AddTemplateGroupDimensionController extends AbstractController
                     $group->id,
                     $this->provideIdentity->next(),
                     $data->dimension(),
-                    $data->backgroundImage,
+                    $data->backgroundImageId,
                 ),
             );
 

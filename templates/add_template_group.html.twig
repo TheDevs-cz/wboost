@@ -76,9 +76,9 @@
             </div>
 
             <div class="row g-3">
-                <div class="col-md-4">{{ form_row(form.backgroundInstagramPost, {row_attr: {class: 'mb-0'}}) }}</div>
-                <div class="col-md-4">{{ form_row(form.backgroundInstagramPortrait, {row_attr: {class: 'mb-0'}}) }}</div>
-                <div class="col-md-4">{{ form_row(form.backgroundInstagramStory, {row_attr: {class: 'mb-0'}}) }}</div>
+                <div class="col-md-4">{{ include('_background_gallery_picker.html.twig', { field: form.backgroundInstagramPost, label: 'Pozadí 1:1' }) }}</div>
+                <div class="col-md-4">{{ include('_background_gallery_picker.html.twig', { field: form.backgroundInstagramPortrait, label: 'Pozadí 4:5' }) }}</div>
+                <div class="col-md-4">{{ include('_background_gallery_picker.html.twig', { field: form.backgroundInstagramStory, label: 'Pozadí 9:16' }) }}</div>
             </div>
         </div>
     </div>
@@ -100,7 +100,7 @@
                             <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.unit, { attr: { 'data-template-dimension-target': 'unit' }, row_attr: { class: 'mb-0' } }) ~ '</div>
                             <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.width, { attr: { 'data-template-dimension-target': 'width' }, row_attr: { class: 'mb-0' } }) ~ '</div>
                             <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.height, { attr: { 'data-template-dimension-target': 'height' }, row_attr: { class: 'mb-0' } }) ~ '</div>
-                            <div class="col-md-4">' ~ form_row(form.customDimensions.vars.prototype.backgroundImage, { row_attr: { class: 'mb-0' } }) ~ '</div>
+                            <div class="col-md-4">' ~ include('_background_gallery_picker.html.twig', { field: form.customDimensions.vars.prototype.backgroundImageId }) ~ '</div>
                             <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
                         </div>
                     </div>
@@ -128,7 +128,7 @@
                             <div class="col-md-2">{{ form_row(dimensionForm.unit, { attr: { 'data-template-dimension-target': 'unit' }, row_attr: { class: 'mb-0' } }) }}</div>
                             <div class="col-md-2">{{ form_row(dimensionForm.width, { attr: { 'data-template-dimension-target': 'width' }, row_attr: { class: 'mb-0' } }) }}</div>
                             <div class="col-md-2">{{ form_row(dimensionForm.height, { attr: { 'data-template-dimension-target': 'height' }, row_attr: { class: 'mb-0' } }) }}</div>
-                            <div class="col-md-4">{{ form_row(dimensionForm.backgroundImage, { row_attr: { class: 'mb-0' } }) }}</div>
+                            <div class="col-md-4">{{ include('_background_gallery_picker.html.twig', { field: dimensionForm.backgroundImageId }) }}</div>
                             <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
                         </div>
                     </div>
@@ -147,12 +147,12 @@
         <div class="card-body">
             <h4 class="header-title mb-1">4. Společné pozadí</h4>
             {% if source_variant %}
-                <p class="text-muted">Nepovinné. Použije se pro každý vybraný rozměr, který nemá nahrané vlastní pozadí — bez něj se převezme pozadí výchozí šablony.</p>
+                <p class="text-muted">Nepovinné. Použije se pro každý vybraný rozměr, který nemá vybrané vlastní pozadí — bez něj se převezme pozadí výchozí šablony.</p>
             {% else %}
-                <p class="text-muted">Použije se pro každý vybraný rozměr, který nemá nahrané vlastní pozadí (ořízne se na střed).</p>
+                <p class="text-muted">Použije se pro každý vybraný rozměr, který nemá vybrané vlastní pozadí (ořízne se na střed).</p>
             {% endif %}
 
-            {{ form_row(form.commonBackground, {row_attr: {class: 'mb-0'}}) }}
+            {{ include('_background_gallery_picker.html.twig', { field: form.commonBackground, label: 'Společné pozadí' }) }}
         </div>
     </div>
 
@@ -161,4 +161,6 @@
     <button class="btn btn-primary mb-3" type="submit"><i class="uil-layer-group"></i> Vytvořit skupinu a otevřít editor</button>
 
     {{ form_end(form) }}
+
+    {{ include('_background_gallery_modal.html.twig') }}
 {% endblock %}

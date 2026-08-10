@@ -7,7 +7,6 @@ namespace WBoost\Web\MessageHandler\TemplateGroup;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\UuidInterface;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\TemplateVariant;
@@ -18,6 +17,7 @@ use WBoost\Web\Repository\TemplateRepository;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\TemplateGroupRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Services\Editor\ResolveGalleryBackground;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\BackgroundMode;
@@ -34,6 +34,7 @@ readonly final class AddTemplateGroupDimensionHandler
         private ClockInterface $clock,
         private Filesystem $filesystem,
         private BackgroundLayer $backgroundLayer,
+        private ResolveGalleryBackground $resolveGalleryBackground,
         private UploaderHelper $uploaderHelper,
     ) {
     }
@@ -69,24 +70,42 @@ readonly final class AddTemplateGroupDimensionHandler
         $backgroundImagePath = null;
         $canvas = null;
 
-        [$bytes, $extension] = $this->backgroundSource($message->backgroundImage, $group->id);
+        // A picked gallery background is REFERENCED by its gallery path (no
+        // copy — the editor's "Pozadí" shape); without a pick the dimension
+        // inherits a copy of the group's existing background (below).
+        $picked = $this->resolveGalleryBackground->resolve($message->backgroundImageId, $group->project->id);
 
-        if ($bytes !== null) {
-            $timestamp = $this->clock->now()->getTimestamp();
-
-            $backgroundImagePath = "custom-templates/$variantId/background-$timestamp.$extension";
-            $this->filesystem->write($backgroundImagePath, $bytes);
-
-            $size = getimagesizefromstring($bytes);
+        if ($picked !== null) {
+            $backgroundImagePath = $picked->path;
 
             $canvas = $this->backgroundLayer->applyToCanvas('{}', $this->backgroundLayer->buildObject(
                 $this->uploaderHelper->getPublicPath($backgroundImagePath),
                 $backgroundImagePath,
-                is_array($size) ? $size[0] : null,
-                is_array($size) ? $size[1] : null,
+                $picked->naturalWidth,
+                $picked->naturalHeight,
                 $message->dimension->width(),
                 $message->dimension->height(),
             ));
+        } else {
+            [$bytes, $extension] = $this->backgroundSource($group->id);
+
+            if ($bytes !== null) {
+                $timestamp = $this->clock->now()->getTimestamp();
+
+                $backgroundImagePath = "custom-templates/$variantId/background-$timestamp.$extension";
+                $this->filesystem->write($backgroundImagePath, $bytes);
+
+                $size = getimagesizefromstring($bytes);
+
+                $canvas = $this->backgroundLayer->applyToCanvas('{}', $this->backgroundLayer->buildObject(
+                    $this->uploaderHelper->getPublicPath($backgroundImagePath),
+                    $backgroundImagePath,
+                    is_array($size) ? $size[0] : null,
+                    is_array($size) ? $size[1] : null,
+                    $message->dimension->width(),
+                    $message->dimension->height(),
+                ));
+            }
         }
 
         $variant = new TemplateVariant(
@@ -107,26 +126,21 @@ readonly final class AddTemplateGroupDimensionHandler
     }
 
     /**
-     * The background bytes for a new dimension. Without an upload it INHERITS
-     * the group's existing background picture: a dimension that silently ends
-     * up with no background renders its design over transparency, and whatever
-     * full-canvas artwork sits lowest reads as the background — the layer
-     * stack looks scrambled even though the object order is identical to every
-     * other dimension.
+     * The INHERITED background bytes for a new dimension without a pick of
+     * its own: a dimension that silently ends up with no background renders
+     * its design over transparency, and whatever full-canvas artwork sits
+     * lowest reads as the background — the layer stack looks scrambled even
+     * though the object order is identical to every other dimension.
      *
-     * Only the PICTURE is shared. Each variant gets its own copy of the file
-     * (so a later change on one dimension never reaches the others) and the
-     * cover fit is computed from scratch for this dimension's canvas — cover
-     * is an absolute function of (image, canvas size), never a scaled copy.
+     * Only the PICTURE is shared. The inherited copy stays per-variant (so a
+     * later change on one dimension never reaches the others) and the cover
+     * fit is computed from scratch for this dimension's canvas — cover is an
+     * absolute function of (image, canvas size), never a scaled copy.
      *
      * @return array{null|string, string} bytes (null = no background), extension
      */
-    private function backgroundSource(null|UploadedFile $upload, UuidInterface $groupId): array
+    private function backgroundSource(UuidInterface $groupId): array
     {
-        if ($upload !== null) {
-            return [$upload->getContent(), $upload->guessExtension() ?? 'png'];
-        }
-
         foreach ($this->members->variants($groupId) as $member) {
             if ($member->backgroundImage === null) {
                 continue;

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\Template;
 
-use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\TemplateVariant;
@@ -13,6 +12,7 @@ use WBoost\Web\Message\Template\AddTemplateVariant;
 use WBoost\Web\Repository\TemplateRepository;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Services\Editor\ResolveGalleryBackground;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\BackgroundMode;
 
@@ -23,8 +23,8 @@ readonly final class AddTemplateVariantHandler
         private TemplateRepository $templateRepository,
         private TemplateVariantRepository $variantRepository,
         private ClockInterface $clock,
-        private Filesystem $filesystem,
         private BackgroundLayer $backgroundLayer,
+        private ResolveGalleryBackground $resolveGalleryBackground,
         private UploaderHelper $uploaderHelper,
     ) {
     }
@@ -36,28 +36,24 @@ readonly final class AddTemplateVariantHandler
     {
         $template = $this->templateRepository->get($message->templateId);
         $variantId = $message->variantId;
-        $backgroundImage = $message->backgroundImage;
 
         // New variants are layer-mode: the background (when provided at all)
         // is a regular canvas object, not the canvas-level backgroundImage.
+        // The picked GALLERY file is referenced by path, never copied — the
+        // same shape the editor's "Pozadí" pick writes.
         $backgroundImagePath = null;
         $canvas = null;
 
-        if ($backgroundImage !== null) {
-            $timestamp = $this->clock->now()->getTimestamp();
+        $background = $this->resolveGalleryBackground->resolve($message->backgroundImageId, $template->project->id);
 
-            $extension = $backgroundImage->guessExtension();
-            $backgroundImagePath = "custom-templates/$variantId/background-$timestamp.$extension";
-            $bytes = $backgroundImage->getContent();
-            $this->filesystem->write($backgroundImagePath, $bytes);
-
-            $size = getimagesizefromstring($bytes);
+        if ($background !== null) {
+            $backgroundImagePath = $background->path;
 
             $canvas = $this->backgroundLayer->applyToCanvas('{}', $this->backgroundLayer->buildObject(
                 $this->uploaderHelper->getPublicPath($backgroundImagePath),
                 $backgroundImagePath,
-                is_array($size) ? $size[0] : null,
-                is_array($size) ? $size[1] : null,
+                $background->naturalWidth,
+                $background->naturalHeight,
                 $message->dimension->width(),
                 $message->dimension->height(),
             ));
