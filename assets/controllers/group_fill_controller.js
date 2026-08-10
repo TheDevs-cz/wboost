@@ -198,7 +198,27 @@ export default class extends Controller {
     // The download itself is handled natively by the browser (Content-
     // Disposition: attachment), which gives no completion event — show
     // progress optimistically and re-enable after a generous window.
-    exportStarted() {
+    exportStarted(event) {
+        // A per-variant PNG button submits the SAME form through its
+        // formaction — the busy state belongs to the clicked button, not to
+        // the ZIP button (whose label must not flip to "Generuji ZIP…").
+        // Both mutations are deferred a tick so the form submission leaves
+        // with the submitter still enabled (a disabled submitter is dropped
+        // from the POST and its formaction would be ignored).
+        const submitter = event ? event.submitter : null;
+        if (submitter && submitter.hasAttribute('data-group-fill-variant-download')) {
+            const originalHtml = submitter.innerHTML;
+            setTimeout(() => {
+                submitter.disabled = true;
+                submitter.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+            }, 0);
+            setTimeout(() => {
+                submitter.disabled = false;
+                submitter.innerHTML = originalHtml;
+            }, 20000);
+            return;
+        }
+
         if (!this.hasExportButtonTarget) {
             return;
         }

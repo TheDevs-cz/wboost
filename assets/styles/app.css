@@ -2817,6 +2817,27 @@ button.fill-layer-row__main:focus-visible {
     color: var(--ct-secondary-color, #8a969c);
 }
 
+/* Per-dimension PNG download in the heading — a submit button riding the
+   fill form via formaction, styled as a quiet inline link. */
+.group-fill-variant-download {
+    border: 0;
+    background: none;
+    padding: 0;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: nowrap;
+    color: var(--ct-link-color, #3577f1);
+}
+
+.group-fill-variant-download:hover {
+    text-decoration: underline;
+}
+
+.group-fill-variant-download:disabled {
+    color: inherit;
+    opacity: 0.65;
+}
+
 .group-fill-preview-frame {
     position: relative;
     width: 100%;

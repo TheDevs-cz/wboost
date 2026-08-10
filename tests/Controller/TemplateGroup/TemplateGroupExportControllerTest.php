@@ -18,9 +18,24 @@ use ZipArchive;
  */
 final class TemplateGroupExportControllerTest extends WebTestCase
 {
+    private const string PNG_1X1_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=';
+
     private function exportUrl(): string
     {
         return '/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/export';
+    }
+
+    /**
+     * The resolver inlines the chosen image, so its bytes must exist in the
+     * store. Minio state is NOT rolled back between tests (only the DB is) —
+     * without self-seeding these tests pass or fail depending on whether a
+     * test class that writes this object happened to run first.
+     */
+    private function seedAllowedImage(): void
+    {
+        $bytes = base64_decode(self::PNG_1X1_BASE64, true);
+        self::assertIsString($bytes);
+        self::getContainer()->get('oneup_flysystem.minio_filesystem')->write('fixtures/in-allowed.png', $bytes);
     }
 
     private function previewUrl(string $variantId): string
@@ -94,6 +109,7 @@ final class TemplateGroupExportControllerTest extends WebTestCase
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+        $this->seedAllowedImage();
 
         $client->request('POST', $this->exportUrl(), [
             'images' => [
@@ -127,6 +143,7 @@ final class TemplateGroupExportControllerTest extends WebTestCase
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+        $this->seedAllowedImage();
 
         $client->request('POST', $this->exportUrl(), [
             'images' => [

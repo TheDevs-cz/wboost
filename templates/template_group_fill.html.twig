@@ -221,8 +221,18 @@
                                     {# Which dimension this is, ABOVE the image: a caption under a
                                        preview reads as belonging to whatever comes next, and there
                                        is nothing under it any more — every control for this
-                                       dimension lives in the left panel beside its picture. #}
-                                    <div class="group-fill-preview-heading">{{ v.dimension_label }}</div>
+                                       dimension lives in the left panel beside its picture.
+                                       The download button submits the SAME fill form (formaction),
+                                       so the PNG carries exactly what the ZIP entry would. #}
+                                    <div class="group-fill-preview-heading d-flex align-items-center justify-content-between gap-2">
+                                        <span>{{ v.dimension_label }}</span>
+                                        <button type="submit" class="group-fill-variant-download"
+                                                formaction="{{ v.export_variant_url }}"
+                                                data-group-fill-variant-download
+                                                title="Stáhnout tento rozměr jako PNG">
+                                            <i class="mdi mdi-download"></i> PNG
+                                        </button>
+                                    </div>
                                     <div class="group-fill-preview-frame" style="aspect-ratio: {{ v.width }} / {{ v.height }};">
                                         <img src="{{ (v.variant.previewImagePath ?: v.variant.backgroundImage) ? uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) : asset('images/manual-placeholder.png') }}"
                                              alt="{{ v.dimension_label }}"

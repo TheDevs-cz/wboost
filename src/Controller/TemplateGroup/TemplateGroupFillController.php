@@ -48,6 +48,12 @@ final class TemplateGroupFillController extends AbstractController
                     'groupId' => $group->id,
                     'variantId' => $variant->id,
                 ]),
+                // Per-dimension PNG download — the preview card's heading
+                // submits the same fill form here via `formaction`.
+                'export_variant_url' => $this->generateUrl('template_group_export_variant', [
+                    'groupId' => $group->id,
+                    'variantId' => $variant->id,
+                ]),
                 // Per-dimension placeholder geometry: the client resolves the
                 // shared relative placement into THIS dimension's pixels.
                 'image_frames' => $this->placeholders->imageFrames($variant),
