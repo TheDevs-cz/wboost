@@ -52,6 +52,13 @@ export default class extends Controller {
         this._switching = false;
         this._restoring = false;
         this._booted = false;
+        // Structural ops (add / remove / background / re-sync / reconcile)
+        // run serialized on this chain, and never before every shadow exists
+        // — see _enqueueStructural.
+        this._opChain = Promise.resolve();
+        this._shadowsReady = new Promise((resolve) => {
+            this._resolveShadowsReady = resolve;
+        });
     }
 
     canvasEditorOutletConnected(outlet) {
@@ -72,6 +79,7 @@ export default class extends Controller {
         }));
 
         if (this.variants.length === 0) {
+            this._resolveShadowsReady();
             return;
         }
 
@@ -79,10 +87,7 @@ export default class extends Controller {
 
         this.sync = new GroupSync({
             activeCanvas: () => editor.canvas,
-            activeDims: () => {
-                const active = this._variant(this.activeId);
-                return { width: active.width, height: active.height };
-            },
+            activeDims: () => this._activeDims(),
             targets: () => (this.multiEdit
                 ? this.variants.filter((v) => v.id !== this.activeId && v.included && v.shadow)
                 : []),
@@ -106,21 +111,21 @@ export default class extends Controller {
             if (this._quiet(editor) || !e.target || !e.target.inputId || e.target.isBackground === true) {
                 return;
             }
-            this.sync.projectNewObject(e.target).then((touched) => {
-                this._afterPropagation(touched);
-                this.sync.rebaseline();
-                this._scheduleHistoryPush();
-            });
+            // Capture the source object AND its variant's dimensions now —
+            // the op may run later (shadow hydration, a queued predecessor)
+            // and the projection ratios must be the ones of the variant the
+            // object was actually added on.
+            const obj = e.target;
+            const dims = this._activeDims();
+            this._enqueueStructural(() => this.sync.projectNewObject(obj, dims));
         });
 
         canvas.on('object:removed', (e) => {
             if (this._quiet(editor) || !e.target || !e.target.inputId || e.target.isBackground === true) {
                 return;
             }
-            const touched = this.sync.removeObject(e.target.inputId);
-            this._afterPropagation(touched);
-            this.sync.rebaseline();
-            this._scheduleHistoryPush();
+            const inputId = e.target.inputId;
+            this._enqueueStructural(() => this.sync.removeObject(inputId));
         });
 
         // Hydrate shadows once fonts are resident (same gate the interactive
@@ -132,12 +137,34 @@ export default class extends Controller {
         }
 
         for (const variant of this.variants) {
-            await this._createShadow(variant);
+            // Per-variant tolerance: one variant with a broken canvas/background
+            // must not abort hydration of the rest — and must never leave
+            // _shadowsReady pending, which would block every structural op
+            // (adds/deletes would then reach NO variant, ever).
+            try {
+                await this._createShadow(variant);
+            } catch (err) {
+                // Null the half-assigned shadow: a partially hydrated one
+                // would be included in propagation targets AND serialized
+                // over the variant's real saved canvas on save. A null
+                // shadow makes the variant fully inert instead (skipped by
+                // targets, save and tab switching).
+                variant.shadow = null;
+                console.error(`Hydratace varianty ${variant.id} selhala:`, err);
+            }
         }
 
         this.sync.rebaseline();
         this._refreshRail();
         this._seedHistory();
+        this._resolveShadowsReady();
+
+        // Heal divergence already persisted in the DB (adds used to respect
+        // the include switches; a failed clone or an add during hydration
+        // could also strand an object on a single variant): project every
+        // active-canvas object missing from a sibling. Runs again on every
+        // tab switch and before save. System pass — no undo point of its own.
+        this._enqueueStructural(() => this.sync.reconcileStructure(), { pushHistory: false });
 
         // Late safety net: re-measure shadow text after every face settles.
         if (document.fonts && document.fonts.ready) {
@@ -158,6 +185,74 @@ export default class extends Controller {
 
     _quiet(editor) {
         return editor.loadingCanvas || this._switching || this._restoring;
+    }
+
+    _activeDims() {
+        const active = this._variant(this.activeId);
+        return { width: active.width, height: active.height };
+    }
+
+    // ------------------------------------------------------------------ structural ops
+
+    /**
+     * Structural changes (add / remove / background / re-sync / reconcile)
+     * run serialized through ONE promise chain that first waits for every
+     * shadow to hydrate. Rationale:
+     *
+     * - Hydration window: the Fabric hooks are live the moment the editor
+     *   is, but the sibling shadows hydrate over the network — an add fanned
+     *   out immediately used to reach only the subset that already existed
+     *   (or none), stranding the object on a single variant forever.
+     * - Ordering: "add A, delete A" must apply in that order everywhere.
+     * - Failure isolation: one failing op logs and never wedges the chain,
+     *   and the rebaseline + history push run regardless.
+     *
+     * @param {Function} op  () => Set<variantId> | Promise<Set<variantId>>
+     * @param {boolean} pushHistory  false for system passes (reconcile) that
+     *        must not create undo points of their own
+     * @returns {Promise} settles when THIS op (and all before it) finished
+     */
+    _enqueueStructural(op, { pushHistory = true } = {}) {
+        const run = async () => {
+            await this._shadowsReady;
+            if (!this.sync) {
+                return;
+            }
+            try {
+                const touched = await op();
+                if (touched && touched.size > 0) {
+                    this._afterPropagation(touched);
+                }
+            } catch (err) {
+                console.error('Propagace do variant skupiny selhala:', err);
+            } finally {
+                // A pending debounced edit pass must settle BEFORE the
+                // rebaseline below, or its diff would be swallowed by the
+                // fresh baseline and the edit would never propagate.
+                this._flushPendingSync();
+                this.sync.rebaseline();
+                if (pushHistory) {
+                    this._scheduleHistoryPush();
+                }
+            }
+        };
+
+        this._opChain = this._opChain.then(run, run);
+        return this._opChain;
+    }
+
+    /**
+     * Await the structural chain INCLUDING ops enqueued while awaiting —
+     * tab switches, undo/redo and save must not proceed while a projection
+     * is still in flight (a clone landing in a shadow after that shadow was
+     * serialized would be silently clobbered on the next switch-away).
+     */
+    async _drainStructuralOps() {
+        let tail;
+        do {
+            tail = this._opChain;
+            await tail;
+        } while (tail !== this._opChain);
     }
 
     // ------------------------------------------------------------------ DOM events
@@ -203,11 +298,12 @@ export default class extends Controller {
         // A background pick is a group-level decision: the picture travels to
         // every included dimension, cover-fitted for each one's own size
         // (see GroupSync.projectBackgroundLayer). Canvas-mode groups keep the
-        // legacy per-variant background upload and are left alone.
+        // legacy per-variant background upload and are left alone. Queued so
+        // a pick made while the shadows are still hydrating reaches ALL of
+        // them, not the subset that happened to exist.
         if (event.detail.layerMode && this.sync && !this._quiet(this.canvasEditorOutlet)) {
             const source = this.canvasEditorOutlet.canvas.getObjects().find((o) => o.isBackground === true);
-            this._afterPropagation(await this.sync.projectBackgroundLayer(source));
-            this._scheduleHistoryPush();
+            await this._enqueueStructural(() => this.sync.projectBackgroundLayer(source));
         }
     }
 
@@ -358,18 +454,30 @@ export default class extends Controller {
         const editor = this.canvasEditorOutlet;
         const incoming = this._variant(variantId);
 
-        if (!incoming || this._switching || variantId === this.activeId) {
+        if (!incoming || this._switching || this._restoring || variantId === this.activeId) {
             return;
         }
         if (!incoming.shadow) {
             return; // still hydrating
         }
 
+        // Settle everything in flight BEFORE the switch starts: the debounced
+        // edit pass must run while the OLD variant is still active and NOT
+        // under the _switching flag (whose _quiet gate would silently drop
+        // it), and queued structural projections must land in the incoming
+        // shadow before it is serialized onto the interactive canvas — a
+        // clone arriving later would be clobbered by the next switch-away.
+        this._flushPendingSync();
+        await this._drainStructuralOps();
+
+        // The drain yielded to the event loop — re-check the guards.
+        if (this._switching || this._restoring || variantId === this.activeId || !incoming.shadow) {
+            return;
+        }
+
         this._switching = true;
 
         try {
-            this._flushPendingSync();
-
             // Commit inline text editing + drop selection so floating chrome hides.
             const activeObject = editor.canvas.getActiveObject();
             if (activeObject && activeObject.isEditing && typeof activeObject.exitEditing === 'function') {
@@ -422,6 +530,11 @@ export default class extends Controller {
         } finally {
             this._switching = false;
         }
+
+        // Heal from the freshly active variant's point of view: whatever it
+        // has that a sibling lacks (historic divergence included) fans out
+        // now. Add-only + idempotent, so a consistent group is a no-op.
+        this._enqueueStructural(() => this.sync.reconcileStructure(), { pushHistory: false });
     }
 
     // ------------------------------------------------------------------ multi-variant mode
@@ -482,17 +595,16 @@ export default class extends Controller {
             return;
         }
 
-        let touched = new Set();
-        objects.forEach((obj) => {
-            if (!obj.inputId) {
-                return;
-            }
-            this.sync.resync(obj).forEach((id) => touched.add(id));
+        this._enqueueStructural(() => {
+            const touched = new Set();
+            objects.forEach((obj) => {
+                if (!obj.inputId) {
+                    return;
+                }
+                this.sync.resync(obj).forEach((id) => touched.add(id));
+            });
+            return touched;
         });
-
-        this._afterPropagation(touched);
-        this.sync.rebaseline();
-        this._scheduleHistoryPush();
     }
 
     // ------------------------------------------------------------------ history (global)
@@ -543,6 +655,13 @@ export default class extends Controller {
         if (this.history.length <= 1) {
             return;
         }
+        // An in-flight structural projection landing in a shadow AFTER the
+        // snapshot restore re-loaded it would resurrect the very state being
+        // undone — settle the chain first.
+        await this._drainStructuralOps();
+        if (this._restoring || this._switching || this.history.length <= 1) {
+            return;
+        }
         this.redoStack.push(this.history.pop());
         await this._restoreSnapshot(this.history[this.history.length - 1]);
         this._refreshHistoryButtons();
@@ -550,6 +669,10 @@ export default class extends Controller {
 
     async redo() {
         if (this.redoStack.length === 0) {
+            return;
+        }
+        await this._drainStructuralOps();
+        if (this._restoring || this._switching || this.redoStack.length === 0) {
             return;
         }
         const snapshot = this.redoStack.pop();
@@ -607,6 +730,14 @@ export default class extends Controller {
         const editor = this.canvasEditorOutlet;
 
         this._flushPendingSync();
+
+        // What gets persisted must be structurally consistent: settle every
+        // queued projection, then run one reconcile pass so no variant is
+        // saved missing an object its siblings have — the divergence that
+        // made a placeholder fill (and its export) apply to one variant only.
+        if (this.sync) {
+            await this._enqueueStructural(() => this.sync.reconcileStructure(), { pushHistory: false });
+        }
 
         const formData = new FormData();
         formData.append('_token', this.csrfValue);

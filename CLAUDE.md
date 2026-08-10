@@ -904,6 +904,33 @@ and no whole-variant re-sync button (both retired 2026-08-07): it is
 navigation (chips: label, dirty dot, overflow badge), the stage is the
 preview.
 
+**Structural reliability (2026-08-10).** The "object set identical across
+dimensions" invariant used to be enforceable only at the moment of the action,
+and three windows let an add/delete land on a subset of variants (the prod
+"object added to one variant only" → "image fill exported on one variant only"
+report): pre-2026-08-07 adds respected the include switches (divergence from
+then is persisted in the DB), the Fabric hooks were live before the sibling
+shadows hydrated (`allTargets()` silently filters shadow-less variants), and a
+failed `clone()` (image src fetch) aborted the fan-out loop mid-way with no
+catch. Now all structural ops (add / remove / background pick / "Srovnat podle
+skupiny") run through `_enqueueStructural` — ONE serialized promise chain
+gated on `_shadowsReady` — with per-target try/catch in
+`projectNewObject`/`projectBackgroundLayer` (one failing variant never strands
+the rest). Tab switch, undo/redo and save first `_drainStructuralOps()` (a
+clone landing in a shadow after it was serialized would be clobbered on the
+next switch-away), and `_activate` settles the debounced edit pass BEFORE
+setting `_switching` (the old in-`try` flush was dead — `_quiet` blocked it).
+Persisted divergence is healed by `GroupSync.reconcileStructure()` — ADD-ONLY
+(an object missing on the active canvas but present on a sibling heals when
+THAT variant is activated; deleting would destroy work) — which runs after
+boot, after every tab switch and before save, so a divergent group repairs
+itself progressively as a designer opens tabs and saves. Reconcile passes are
+`pushHistory: false` (no undo points of their own) but DO mark healed variants
+dirty, so the heal rides the next save. A variant whose shadow hydration
+throws is nulled back to `shadow: null` — fully inert (excluded from targets,
+save and tab switching) — because a half-hydrated shadow would be serialized
+over the variant's real saved canvas on save.
+
 **Web routes** live under `/project/{projectId}/templates` (name `templates`),
 `/template/{templateId}/…`, `/template-variant/{variantId}/…` and
 `/template-group/{groupId}/…`. The old social/custom URL families are GONE

@@ -264,8 +264,13 @@ export class GroupSync {
      * Project a freshly added active-canvas object into EVERY target with the
      * SAME inputId (absolute projection — there is nothing to be relative to
      * yet). Structural: never gated by the per-variant switches.
+     *
+     * @param {Object} obj  the active-canvas object to fan out
+     * @param {Object|null} sourceDims  {width, height} of the variant the
+     *        object was added on — pass the dims captured at event time when
+     *        the call is deferred (the active variant may have changed since).
      */
-    async projectNewObject(obj) {
+    async projectNewObject(obj, sourceDims = null) {
         const touched = new Set();
 
         // Background layers never fan out HERE — every dimension needs its own
@@ -275,7 +280,7 @@ export class GroupSync {
             return touched;
         }
 
-        const activeDims = this.activeDims();
+        const activeDims = sourceDims || this.activeDims();
         const targets = this.allTargets();
 
         for (const target of targets) {
@@ -283,26 +288,62 @@ export class GroupSync {
                 continue; // already there (double event guard)
             }
 
-            const clone = await obj.clone(CANVAS_CUSTOM_PROPERTIES);
-            // Fabric's clone() suffers the same custom-property stripping as
-            // toJSON — re-stamp from the source object.
-            CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
-                if (obj[prop] !== undefined) {
-                    clone[prop] = obj[prop];
+            // Per-target try/catch: cloning an image re-fetches its src, and
+            // one failed fetch must not strand the REMAINING variants without
+            // the object — a partial fan-out is the exact divergence the
+            // structural rule exists to prevent. The skipped variant is healed
+            // by the next reconcileStructure pass (tab switch / save).
+            try {
+                const clone = await obj.clone(CANVAS_CUSTOM_PROPERTIES);
+                // Fabric's clone() suffers the same custom-property stripping as
+                // toJSON — re-stamp from the source object.
+                CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                    if (obj[prop] !== undefined) {
+                        clone[prop] = obj[prop];
+                    }
+                });
+
+                const { rx, ry } = ratios(activeDims, target);
+                const projected = projectGeometry(snapshotGeometry(obj), rx, ry, isTextboxObject(obj));
+                clone.set(projected);
+
+                if (isTextboxObject(clone) && typeof clone.initDimensions === 'function') {
+                    clone.initDimensions();
                 }
-            });
+                clone.setCoords();
 
-            const { rx, ry } = ratios(activeDims, target);
-            const projected = projectGeometry(snapshotGeometry(obj), rx, ry, isTextboxObject(obj));
-            clone.set(projected);
-
-            if (isTextboxObject(clone) && typeof clone.initDimensions === 'function') {
-                clone.initDimensions();
+                target.shadow.add(clone);
+                touched.add(target.id);
+            } catch (err) {
+                console.error(`Propagace nového prvku do varianty ${target.id} selhala:`, err);
             }
-            clone.setCoords();
+        }
 
-            target.shadow.add(clone);
-            touched.add(target.id);
+        return touched;
+    }
+
+    /**
+     * Structural healing: make sure every syncable active-canvas object exists
+     * (by inputId) on every sibling shadow — the "adds always fan out" rule
+     * enforced after the fact. Catches whatever slipped through live
+     * propagation (pre-2026-08-07 include-gated adds persisted in the DB, a
+     * failed clone, an add during shadow hydration) the next time the group
+     * is opened, a tab is switched, or a save runs.
+     *
+     * ADD-ONLY on purpose: an object present on a sibling but missing here is
+     * the same divergence seen from the other side, and deleting it would
+     * destroy the designer's work instead of healing it — it gets projected
+     * out when THAT variant becomes active. Deletions stay an explicit user
+     * action (which removeObject already fans out).
+     */
+    async reconcileStructure() {
+        const touched = new Set();
+
+        for (const obj of this.activeCanvas().getObjects()) {
+            if (!isSyncable(obj)) {
+                continue;
+            }
+            (await this.projectNewObject(obj)).forEach((id) => touched.add(id));
         }
 
         return touched;
@@ -336,28 +377,37 @@ export class GroupSync {
         }
 
         for (const target of this.allTargets()) {
-            const clone = await source.clone(CANVAS_CUSTOM_PROPERTIES);
-            CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
-                if (source[prop] !== undefined) {
-                    clone[prop] = source[prop];
+            // Per-target try/catch, same reason as projectNewObject: one
+            // failed image fetch must not leave the remaining dimensions
+            // without the background. The existing layer is only removed
+            // AFTER the clone succeeded, so a failure never strips a
+            // dimension's current background either.
+            try {
+                const clone = await source.clone(CANVAS_CUSTOM_PROPERTIES);
+                CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
+                    if (source[prop] !== undefined) {
+                        clone[prop] = source[prop];
+                    }
+                });
+
+                coverForDimensions(clone, target.width, target.height, 'top-left');
+                // Backgrounds are click-through on the canvas surface — the shadow
+                // is static, but the flags ride the save into the editor.
+                applyEditorLock(clone);
+
+                const existing = target.shadow.getObjects().find((o) => o.isBackground === true);
+                let index = 0;
+                if (existing) {
+                    index = target.shadow.getObjects().indexOf(existing);
+                    target.shadow.remove(existing);
                 }
-            });
 
-            coverForDimensions(clone, target.width, target.height, 'top-left');
-            // Backgrounds are click-through on the canvas surface — the shadow
-            // is static, but the flags ride the save into the editor.
-            applyEditorLock(clone);
-
-            const existing = target.shadow.getObjects().find((o) => o.isBackground === true);
-            let index = 0;
-            if (existing) {
-                index = target.shadow.getObjects().indexOf(existing);
-                target.shadow.remove(existing);
+                target.shadow.add(clone);
+                target.shadow.moveObjectTo(clone, index);
+                touched.add(target.id);
+            } catch (err) {
+                console.error(`Propagace pozadí do varianty ${target.id} selhala:`, err);
             }
-
-            target.shadow.add(clone);
-            target.shadow.moveObjectTo(clone, index);
-            touched.add(target.id);
         }
 
         return touched;
