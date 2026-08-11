@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
+import { isShapeObject } from "./canvas_shapes.js";
 
 /**
  * Floating, element-anchored editing chrome for the admin canvas editor.
@@ -28,7 +29,8 @@ export default class extends Controller {
     static targets = [
         "layer", "miniToolbar", "multiBar",
         "lockButton", "placeholderButton", "editorLockButton", "replaceImageButton",
-        "textPopover", "imagePopover",
+        "shapeLockButton",
+        "textPopover", "imagePopover", "shapePopover",
     ];
 
     connect() {
@@ -52,13 +54,21 @@ export default class extends Controller {
     /** Let the user drag each popover by its title grip; the drag flag makes
      *  reposition() leave the manually-placed popover alone (reset on close). */
     _setupPopoverDrag() {
-        [this.hasTextPopoverTarget ? this.textPopoverTarget : null,
-         this.hasImagePopoverTarget ? this.imagePopoverTarget : null]
-            .filter(Boolean)
+        this._popovers()
             .forEach((popover) => {
                 const handle = popover.querySelector('[data-popover-drag-handle]');
                 if (handle) makeDraggable(handle, popover);
             });
+    }
+
+    /** Every element popover, in one place — the three of them are opened,
+     *  closed, dragged and positioned by the same code paths. */
+    _popovers() {
+        return [
+            this.hasTextPopoverTarget ? this.textPopoverTarget : null,
+            this.hasImagePopoverTarget ? this.imagePopoverTarget : null,
+            this.hasShapePopoverTarget ? this.shapePopoverTarget : null,
+        ].filter(Boolean);
     }
 
     disconnect() {
@@ -156,10 +166,15 @@ export default class extends Controller {
 
             const isText = type === 'textbox';
             const isImage = type === 'image';
+            const isShape = isShapeObject(obj);
             if (this.hasLockButtonTarget) this.lockButtonTarget.classList.toggle('d-none', !isText);
             if (this.hasPlaceholderButtonTarget) this.placeholderButtonTarget.classList.toggle('d-none', !isImage);
             if (this.hasEditorLockButtonTarget) this.editorLockButtonTarget.classList.toggle('d-none', !isImage);
             if (this.hasReplaceImageButtonTarget) this.replaceImageButtonTarget.classList.toggle('d-none', !isImage);
+            // Shapes get their own padlock button rather than sharing the image
+            // one: both flip `editorLocked`, but the action has to reach the
+            // matching property controller so the popover checkbox follows.
+            if (this.hasShapeLockButtonTarget) this.shapeLockButtonTarget.classList.toggle('d-none', !isShape);
             this.refreshContextToggle();
         }
 
@@ -195,6 +210,7 @@ export default class extends Controller {
         let target = null;
         if (type === 'textbox' && this.hasTextPopoverTarget) target = this.textPopoverTarget;
         else if (type === 'image' && this.hasImagePopoverTarget) target = this.imagePopoverTarget;
+        else if (isShapeObject(obj) && this.hasShapePopoverTarget) target = this.shapePopoverTarget;
         if (!target) return;
 
         const isOpen = !target.classList.contains('d-none');
@@ -211,8 +227,10 @@ export default class extends Controller {
     }
 
     closePopovers() {
-        if (this.hasTextPopoverTarget) { this.textPopoverTarget.classList.add('d-none'); resetDrag(this.textPopoverTarget); }
-        if (this.hasImagePopoverTarget) { this.imagePopoverTarget.classList.add('d-none'); resetDrag(this.imagePopoverTarget); }
+        this._popovers().forEach((popover) => {
+            popover.classList.add('d-none');
+            resetDrag(popover);
+        });
         this._setPencilExpanded(false);
     }
 
@@ -267,6 +285,17 @@ export default class extends Controller {
             this.editorLockButtonTarget.setAttribute('aria-label', label);
             this.editorLockButtonTarget.setAttribute('aria-pressed', String(locked));
             const icon = this.editorLockButtonTarget.querySelector('i');
+            if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
+        }
+
+        if (isShapeObject(obj) && this.hasShapeLockButtonTarget) {
+            const locked = obj.editorLocked === true;
+            const label = locked ? 'Odemknout tvar v editoru' : 'Uzamknout tvar v editoru (proti posunutí)';
+            this.shapeLockButtonTarget.classList.toggle('active', locked);
+            this.shapeLockButtonTarget.title = label;
+            this.shapeLockButtonTarget.setAttribute('aria-label', label);
+            this.shapeLockButtonTarget.setAttribute('aria-pressed', String(locked));
+            const icon = this.shapeLockButtonTarget.querySelector('i');
             if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
         }
     }
@@ -396,20 +425,20 @@ export default class extends Controller {
 
         const popover = this._openPopoverEl();
         if (popover && !isDragged(popover)) {
-            // TEXT popover: place it BESIDE the element so font/size/colour changes
-            // stay visible live (it must never cover the text it edits). IMAGE
-            // popover: drop it straight down from the toolbar (placeholder settings
-            // don't change the picture, so overlapping the image is fine).
-            const isText = this.hasTextPopoverTarget && popover === this.textPopoverTarget;
-            if (isText || !barShown) this._placePopover(popover, box, g);
+            // TEXT + SHAPE popovers: place them BESIDE the element, so the
+            // font/size/colour/gradient change previews live and the popover
+            // never covers the thing it is restyling. IMAGE popover: drop it
+            // straight down from the toolbar (placeholder settings don't change
+            // the picture, so overlapping the image is fine).
+            const previewsLive = (this.hasTextPopoverTarget && popover === this.textPopoverTarget)
+                || (this.hasShapePopoverTarget && popover === this.shapePopoverTarget);
+            if (previewsLive || !barShown) this._placePopover(popover, box, g);
             else this._placePopoverUnder(popover, bar, g);
         }
     }
 
     _openPopoverEl() {
-        if (this.hasTextPopoverTarget && !this.textPopoverTarget.classList.contains('d-none')) return this.textPopoverTarget;
-        if (this.hasImagePopoverTarget && !this.imagePopoverTarget.classList.contains('d-none')) return this.imagePopoverTarget;
-        return null;
+        return this._popovers().find((popover) => !popover.classList.contains('d-none')) || null;
     }
 
     /** Popover dropped directly below the mini-toolbar, left-aligned to it. */

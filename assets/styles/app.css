@@ -149,6 +149,48 @@
     background: var(--ct-border-color, #e3e6ef);
 }
 
+/* "Přidat tvar" picker (left panel dropdown): an icon grid rather than a list
+   of menu items — a shape is recognised by its silhouette long before its
+   name is read, and three per row keeps the menu narrower than the panel. */
+.shape-picker {
+    min-width: 15rem;
+}
+
+.shape-picker__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.shape-picker__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 4px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ct-body-color, #4a4a5a);
+    font-size: .7rem;
+    line-height: 1.1;
+    text-align: center;
+    transition: background-color .12s ease, border-color .12s ease;
+}
+
+.shape-picker__item i {
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.shape-picker__item:hover,
+.shape-picker__item:focus-visible {
+    background: rgba(114, 124, 245, 0.12);
+    border-color: rgba(114, 124, 245, 0.35);
+    color: #727cf5;
+}
+
 /* Scoped under .canvas-stage so `position: absolute` outranks the Hyper theme's
    `.card { position: relative }` (the popover is also a .card, and the theme CSS
    loads AFTER app.css — equal specificity would let the theme win and drop the

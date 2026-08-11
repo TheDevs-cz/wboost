@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import Sortable from "sortablejs";
 
 import { applyEditorLock } from './canvas_custom_properties.js';
+import { SHAPE_KINDS, isShapeObject } from './canvas_shapes.js';
 
 /**
  * Photoshop-style layers panel for the admin canvas editor (left panel).
@@ -14,8 +15,8 @@ import { applyEditorLock } from './canvas_custom_properties.js';
  *   - click → selects the object and opens its floating property popover,
  *   - lock  → the SAME toggle the element's popover carries, which means two
  *             different things by type and each row says which in its title:
- *             an image (the background included) flips `editorLocked`, the
- *             EDITOR lock that makes it click-through and immovable; a text
+ *             an image or shape (the background included) flips `editorLocked`,
+ *             the EDITOR lock that makes it click-through and immovable; a text
  *             flips `locked`, the FILL-time flag that stops the end user
  *             overwriting it. Routed through the property controllers when
  *             the row is the active object so the popover checkbox and the
@@ -41,7 +42,7 @@ import { applyEditorLock } from './canvas_custom_properties.js';
 export default class extends Controller {
     static outlets = [
         "canvas-editor", "canvas-floating-toolbar",
-        "canvas-input-properties", "canvas-image-properties",
+        "canvas-input-properties", "canvas-image-properties", "canvas-shape-properties",
     ];
     static targets = ["list", "stage"];
 
@@ -230,11 +231,12 @@ export default class extends Controller {
     _buildRow(obj, index) {
         const type = (obj.type || '').toLowerCase();
         const isText = type === 'textbox';
-        const isPlaceholder = !isText && !!obj.imagePlaceholder;
+        const isShape = isShapeObject(obj);
+        const isPlaceholder = !isText && !isShape && !!obj.imagePlaceholder;
         // Background layer: visually distinct row so the designer always knows
         // which layer is the background — but still an ordinary, freely
         // reorderable row (no pinning).
-        const isBackground = !isText && obj.isBackground === true;
+        const isBackground = !isText && !isShape && obj.isBackground === true;
 
         const row = document.createElement('div');
         row.className = isBackground ? 'canvas-layer-row canvas-layer-row--background' : 'canvas-layer-row';
@@ -251,19 +253,25 @@ export default class extends Controller {
         // "Text" row/icon hides what the object actually is.
         const isChecklist = isText && obj.checklist === true;
 
-        const label = this._labelFor(obj, isText, isPlaceholder, isBackground);
+        const shapeKind = isShape ? SHAPE_KINDS[obj.shapeKind] : null;
+
+        const label = this._labelFor(obj, isText, isPlaceholder, isBackground, isShape);
         const typeLabel = isText
             ? (isChecklist ? 'Zaškrtávací seznam' : 'Text')
-            : (isBackground
-                ? (isPlaceholder ? 'Pozadí (placeholder)' : 'Pozadí')
-                : (isPlaceholder ? 'Obrázkový placeholder' : 'Obrázek'));
+            : (isShape
+                ? (shapeKind ? shapeKind.label : 'Tvar')
+                : (isBackground
+                    ? (isPlaceholder ? 'Pozadí (placeholder)' : 'Pozadí')
+                    : (isPlaceholder ? 'Obrázkový placeholder' : 'Obrázek')));
         main.title = `${label} — ${typeLabel} (kliknutím upravíte, tažením změníte pořadí)`;
         main.setAttribute('aria-label', `${typeLabel}: ${label}`);
 
         const icon = document.createElement('i');
         const iconGlyph = isText
             ? (isChecklist ? 'mdi-format-list-checks' : 'mdi-format-text')
-            : (isBackground ? 'mdi-wallpaper' : (isPlaceholder ? 'mdi-image-edit-outline' : 'mdi-image-outline'));
+            : (isShape
+                ? (shapeKind ? shapeKind.icon : 'mdi-shape-outline')
+                : (isBackground ? 'mdi-wallpaper' : (isPlaceholder ? 'mdi-image-edit-outline' : 'mdi-image-outline')));
         icon.className = `canvas-layer-row__icon mdi ${iconGlyph}`;
         icon.setAttribute('aria-hidden', 'true');
         main.appendChild(icon);
@@ -282,6 +290,8 @@ export default class extends Controller {
         if (locked) {
             row.classList.add('canvas-layer-row--locked');
         }
+        // Images and shapes share the EDITOR lock (and its wording); only a
+        // text's padlock is the fill-time one.
         const lockTitle = isText
             ? (locked ? 'Odemknout — uživatel bude moci text vyplnit' : 'Uzamknout — uživatel nebude moci text vyplnit')
             : (locked ? 'Odemknout — půjde vybrat, posouvat a měnit velikost' : 'Uzamknout v editoru — proti posunutí');
@@ -341,10 +351,16 @@ export default class extends Controller {
         const canvas = this.canvasEditorOutlet.canvas;
 
         const isText = (obj.type || '').toLowerCase() === 'textbox';
+        const isShape = isShapeObject(obj);
         const isActive = canvas.getActiveObject() === obj;
-        const outlet = isText
-            ? (this.hasCanvasInputPropertiesOutlet ? this.canvasInputPropertiesOutlet : null)
-            : (this.hasCanvasImagePropertiesOutlet ? this.canvasImagePropertiesOutlet : null);
+        let outlet = null;
+        if (isText) {
+            outlet = this.hasCanvasInputPropertiesOutlet ? this.canvasInputPropertiesOutlet : null;
+        } else if (isShape) {
+            outlet = this.hasCanvasShapePropertiesOutlet ? this.canvasShapePropertiesOutlet : null;
+        } else {
+            outlet = this.hasCanvasImagePropertiesOutlet ? this.canvasImagePropertiesOutlet : null;
+        }
 
         if (isActive && outlet) {
             if (isText) {
@@ -409,12 +425,16 @@ export default class extends Controller {
         this.rebuild();
     }
 
-    _labelFor(obj, isText, isPlaceholder, isBackground = false) {
+    _labelFor(obj, isText, isPlaceholder, isBackground = false, isShape = false) {
         const name = (obj.name || '').trim();
         if (name !== '') return name;
         if (isText) {
             const firstLine = (obj.text || '').split('\n')[0].trim();
             return firstLine !== '' ? firstLine : 'Text';
+        }
+        if (isShape) {
+            const kind = SHAPE_KINDS[obj.shapeKind];
+            return kind ? kind.label : 'Tvar';
         }
         if (isBackground) return 'Pozadí';
         return isPlaceholder ? 'Obrázek (placeholder)' : 'Obrázek';

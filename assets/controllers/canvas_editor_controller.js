@@ -4,6 +4,7 @@ import { Canvas, IText, Textbox, FabricImage, cache } from "fabric";
 import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
+import { createShapeObject, isShapeObject } from './canvas_shapes.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
 import { syncChecklistSample, syncTextSample, sweepChecklistSamples } from './canvas_checklist_sample.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
@@ -36,6 +37,11 @@ export default class extends Controller {
         backgroundMode: { type: String, default: 'canvas' },
         customFonts: Array,
         editVariantUrl: String,
+        // The project's manual colours (same list the text popover and the fill
+        // WYSIWYG offer). A new shape is painted with the first one, so it
+        // lands on-brand instead of in a placeholder grey the designer then has
+        // to correct on every single add.
+        brandColors: Array,
     };
 
     connect() {
@@ -182,11 +188,18 @@ export default class extends Controller {
     }
 
     /**
-     * Sweep every unlocked image and set its backdrop click-through state
-     * from current coverage + selection (see applyBackdropState). Idempotent
-     * and cheap — pure arithmetic per image, no DOM, no Fabric events fired —
-     * so it can run on every mutation/selection event without contributing to
-     * the layer-heavy-canvas lag this editor already had to shed.
+     * Sweep every unlocked image and SHAPE and set its backdrop click-through
+     * state from current coverage + selection (see applyBackdropState).
+     * Idempotent and cheap — pure arithmetic per object, no DOM, no Fabric
+     * events fired — so it can run on every mutation/selection event without
+     * contributing to the layer-heavy-canvas lag this editor already had to
+     * shed.
+     *
+     * Shapes are swept for exactly the reason images are: a full-bleed colour
+     * rectangle (a tint over a photo, a solid brand panel) is the same pointer
+     * trap as a full-canvas picture — evented, it would swallow every mousedown
+     * and there would be no empty spot left to start a rubber-band selection
+     * from anywhere on the canvas.
      */
     refreshBackdropStates() {
         if (!this.canvas) return;
@@ -194,7 +207,7 @@ export default class extends Controller {
         const height = this.canvas.getHeight();
         const active = new Set(this.canvas.getActiveObjects());
         this.canvas.getObjects().forEach((obj) => {
-            if ((obj.type || '').toLowerCase() !== 'image') return;
+            if ((obj.type || '').toLowerCase() !== 'image' && !isShapeObject(obj)) return;
             applyBackdropState(obj, isBackdropCovering(obj, width, height), active.has(obj));
         });
     }
@@ -225,15 +238,25 @@ export default class extends Controller {
         const objects = this.canvas.getObjects();
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
-            if ((obj.type || '').toLowerCase() !== 'image') continue;
-            if (obj.editorLocked === true) continue;
-            if (obj.visible === false) continue;
-            if (!isBackdropCovering(obj, width, height)) continue;
+            if (!this._backdropCandidate(obj, width, height)) continue;
             if (typeof obj.containsPoint === 'function' && !obj.containsPoint(up)) continue;
             this.canvas.setActiveObject(obj);
             this.canvas.requestRenderAll();
             return;
         }
+    }
+
+    /**
+     * Could this object be acting as a click-through backdrop right now?
+     * Shared by the click-to-select pass and the ⌘-drag promotion so the two
+     * can never disagree about what counts. Images AND shapes: a full-bleed
+     * rectangle behaves exactly like a full-bleed photo.
+     */
+    _backdropCandidate(obj, width, height) {
+        if ((obj.type || '').toLowerCase() !== 'image' && !isShapeObject(obj)) return false;
+        if (obj.editorLocked === true) return false;
+        if (obj.visible === false) return false;
+        return isBackdropCovering(obj, width, height);
     }
 
     _scenePoint(opt) {
@@ -291,10 +314,7 @@ export default class extends Controller {
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
             if (obj.evented !== false) continue; // only passthrough backdrops need promoting
-            if ((obj.type || '').toLowerCase() !== 'image') continue;
-            if (obj.editorLocked === true) continue;
-            if (obj.visible === false) continue;
-            if (!isBackdropCovering(obj, width, height)) continue;
+            if (!this._backdropCandidate(obj, width, height)) continue;
             if (typeof obj.containsPoint === 'function' && !obj.containsPoint(point)) continue;
             obj.evented = true;
             obj.selectable = true;
@@ -1023,6 +1043,45 @@ export default class extends Controller {
         modal.hide();
 
         form.reset();
+    }
+
+    /**
+     * "Přidat tvar" — drop a vector shape on the canvas. The kind rides as a
+     * Stimulus action param from the left-panel picker
+     * (`data-canvas-editor-kind-param="circle"`).
+     *
+     * Shapes are DECORATIVE: they carry no fillable-input metadata, so they
+     * never reach the textInputs / imageInputs payloads (canvas_payload filters
+     * both by type) nor the API. They do get an `inputId` — that is the join
+     * key the group editor fans structure out by and the container engine
+     * addresses members with — which is minted inside createShapeObject.
+     *
+     * Everything downstream is automatic: `object:added` marks the form dirty,
+     * pushes an undo snapshot, rebuilds the layers panel and, in the group
+     * editor, projects the shape into every sibling dimension.
+     */
+    addShape(event) {
+        const kind = event && event.params ? event.params.kind : null;
+        if (!kind || !this.canvas) return;
+
+        const brandColors = Array.isArray(this.brandColorsValue) ? this.brandColorsValue : [];
+        const shape = createShapeObject(kind, {
+            canvasWidth: this.canvas.getWidth(),
+            canvasHeight: this.canvas.getHeight(),
+            fill: brandColors.length > 0 ? brandColors[0] : null,
+            cascade: this._shapesAdded || 0,
+        });
+        if (!shape) return;
+
+        this._shapesAdded = (this._shapesAdded || 0) + 1;
+
+        this.canvas.add(shape);
+        this.canvas.setActiveObject(shape);
+        this.canvas.renderAll();
+        // setActiveObject fires no Fabric selection event — surface the shape
+        // popover straight away (same reason addImageToCanvas does it), so the
+        // designer can restyle without hunting for the freshly added object.
+        this.dispatchSelectionChanged();
     }
 
     async addImageToCanvas(imageUrl, assetPath = null, assetId = null) {

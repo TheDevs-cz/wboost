@@ -1,4 +1,5 @@
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
+import { applyShapeDefaults, isShapeObject } from './canvas_shapes.js';
 
 /**
  * Canvas (de)serialization helpers shared by the single-variant editor
@@ -44,22 +45,29 @@ export function restoreCustomProperties(canvas, sourceCanvas) {
             });
         }
 
-        // Defensive: if a textbox/image still has no inputId (legacy data,
-        // fresh-on-canvas object, etc.), mint one. Type match is
+        // Defensive: if a textbox/image/shape still has no inputId (legacy
+        // data, fresh-on-canvas object, etc.), mint one. Type match is
         // case-insensitive — v5 emitted 'textbox', v7 emits 'Textbox'.
+        // Shapes need it as badly as the others: it is the join key the group
+        // editor propagates by, so a shape without one would silently never
+        // fan out to the sibling dimensions.
         const t = (obj.type || '').toLowerCase();
-        if ((t === 'textbox' || t === 'image') && !obj.inputId) {
+        const isShape = isShapeObject(obj);
+        if ((t === 'textbox' || t === 'image' || isShape) && !obj.inputId) {
             obj.inputId = crypto.randomUUID();
         }
 
         // Custom props are restored above, but Fabric's interaction flags are
-        // not — re-derive them so a saved textbox / image behaves like a
-        // freshly created one the instant the canvas finishes loading. Images:
-        // honour editorLocked (can't be dragged when set). Textboxes: width-only
-        // resize (no glyph-stretching corner scale / rotation), matching
-        // submitAddText — otherwise Fabric's permissive defaults let the user
-        // stretch and shift a reloaded box.
-        if (t === 'image') {
+        // not — re-derive them so a saved textbox / image / shape behaves like
+        // a freshly created one the instant the canvas finishes loading.
+        // Images + shapes: honour editorLocked (can't be dragged when set).
+        // Textboxes: width-only resize (no glyph-stretching corner scale /
+        // rotation), matching submitAddText — otherwise Fabric's permissive
+        // defaults let the user stretch and shift a reloaded box.
+        if (isShape) {
+            applyShapeDefaults(obj);
+            applyEditorLock(obj);
+        } else if (t === 'image') {
             // Backgrounds saved before they became ordinary lockable layers
             // carry no editorLocked flag; they were force-locked, so default
             // them to locked rather than silently making every existing

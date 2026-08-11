@@ -21,7 +21,44 @@
             <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddChecklistModal"><i class="mdi mdi-format-list-checks me-1"></i> Přidat zaškrtávací seznam</button>
         {% endif %}
 
-        <button class="btn btn-sm btn-outline-secondary w-100 mb-2 text-start" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image me-1"></i> Přidat obrázek</button>
+        <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image me-1"></i> Přidat obrázek</button>
+
+        {# Vector shapes. A picker rather than a modal: unlike a text or an
+           image there is nothing to configure UP FRONT — the shape lands
+           centred in the first brand colour and everything about it (fill or
+           gradient, border, rounding, opacity) is edited on the canvas through
+           its floating popover, Canva-style.
+
+           The kind rides as a Stimulus action param. Labels + icons mirror
+           SHAPE_KINDS in assets/controllers/canvas_shapes.js, which names the
+           same shapes in the Vrstvy panel — keep the two in step. #}
+        <div class="dropdown mb-2">
+            <button class="btn btn-sm btn-outline-secondary w-100 text-start dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="mdi mdi-shape-outline me-1"></i> Přidat tvar
+            </button>
+            <div class="dropdown-menu shape-picker p-2">
+                <div class="shape-picker__grid">
+                    {% for shape in [
+                        {kind: 'rectangle', label: 'Obdélník', icon: 'mdi-rectangle-outline'},
+                        {kind: 'square', label: 'Čtverec', icon: 'mdi-square-outline'},
+                        {kind: 'circle', label: 'Kruh', icon: 'mdi-circle-outline'},
+                        {kind: 'ellipse', label: 'Elipsa', icon: 'mdi-ellipse-outline'},
+                        {kind: 'triangle', label: 'Trojúhelník', icon: 'mdi-triangle-outline'},
+                        {kind: 'line', label: 'Čára', icon: 'mdi-minus'},
+                        {kind: 'star', label: 'Hvězda', icon: 'mdi-star-outline'},
+                    ] %}
+                        <button type="button" class="shape-picker__item" title="{{ shape.label }}"
+                                data-action="canvas-editor#addShape"
+                                data-canvas-editor-kind-param="{{ shape.kind }}">
+                            <i class="mdi {{ shape.icon }}" aria-hidden="true"></i>
+                            <span>{{ shape.label }}</span>
+                        </button>
+                    {% endfor %}
+                </div>
+                <p class="text-muted small mb-0 mt-2">Barvu, přechod, obrys a zaoblení nastavíte po vložení v bublině u tvaru.</p>
+            </div>
+        </div>
 
         {# The highlight / snapping / rulers toggles live in the TOP bar next
            to the zoom controls — editor/_editor_toggles.html.twig. #}

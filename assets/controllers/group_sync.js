@@ -1,5 +1,6 @@
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_properties.js';
 import { coverForDimensions } from './canvas_payload.js';
+import { clonePaintValue, isShapeObject, serializePaintValue } from './canvas_shapes.js';
 import { applyGeometryDelta, projectGeometry, ratios } from './group_projection.js';
 
 /**
@@ -20,9 +21,19 @@ import { applyGeometryDelta, projectGeometry, ratios } from './group_projection.
  */
 
 // Non-geometry keys that propagate as absolute copies when they change.
+//
+// Shape styling rides here too. `fill` was already shared with text (a shape's
+// fill may be a Gradient object rather than a colour string — see
+// clonePaintValue). `rx`/`ry` are object-space radii: a rectangle's corner
+// radius AND an ellipse's own radii, both of which scale with the object's
+// scale, so an absolute copy is right in either reading. `strokeWidth` is
+// deliberately NOT here — shapes are strokeUniform, so their border does not
+// scale with the object and the projector has to scale it per dimension
+// (see snapshotGeometry / projectGeometry).
 const STYLE_KEYS = [
     'text', 'fontFamily', 'fill', 'textAlign', 'underline', 'linethrough',
     'overline', 'lineHeight', 'charSpacing',
+    'stroke', 'strokeDashArray', 'strokeLineCap', 'rx', 'ry', 'opacity',
 ];
 const META_KEYS = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable',
@@ -36,6 +47,9 @@ const META_KEYS = [
     'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
     'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
     'sampleValue',
+    // Shapes: cosmetic layers-panel label only, but it keeps a re-synced
+    // sibling from reading as a different element than the one it mirrors.
+    'shapeKind',
 ];
 
 function isTextboxObject(obj) {
@@ -109,6 +123,16 @@ function snapshotGeometry(obj) {
         geom.fontSize = obj.fontSize;
     }
 
+    // Shapes are `strokeUniform`: the border keeps a constant on-screen weight
+    // however the object is scaled, which is what makes resizing in the editor
+    // behave. The flip side is that scaling a shape into a bigger dimension
+    // would leave a hairline border that reads as thinner than designed — so
+    // the stroke travels as GEOMETRY (projected by the width ratio, exactly
+    // like a textbox's fontSize) rather than as an absolute style copy.
+    if (isShapeObject(obj)) {
+        geom.strokeWidth = obj.strokeWidth;
+    }
+
     return geom;
 }
 
@@ -116,16 +140,25 @@ function snapshotProps(obj) {
     const props = {};
 
     [...STYLE_KEYS, ...META_KEYS].forEach((key) => {
-        const value = obj[key];
-        props[key] = Array.isArray(value) ? value.slice() : value;
+        props[key] = clonePaintValue(obj[key]);
     });
 
     return props;
 }
 
+/**
+ * Value equality for a propagatable prop. Arrays (allowedDirectoryIds,
+ * strokeDashArray) and Fabric paint objects (a shape's gradient `fill`) have to
+ * be compared by CONTENT: a gradient is re-instantiated by every canvas load,
+ * so identity comparison would report a change on every pass after an undo and
+ * fan a no-op edit out to every dimension.
+ */
 function propsEqual(a, b) {
     if (Array.isArray(a) || Array.isArray(b)) {
         return JSON.stringify(a || []) === JSON.stringify(b || []);
+    }
+    if ((a && typeof a === 'object') || (b && typeof b === 'object')) {
+        return JSON.stringify(serializePaintValue(a) ?? null) === JSON.stringify(serializePaintValue(b) ?? null);
     }
     return a === b;
 }
@@ -241,8 +274,11 @@ export class GroupSync {
                 }
 
                 changedProps.forEach((key) => {
-                    const value = curProps[key];
-                    match.set(key, Array.isArray(value) ? value.slice() : value);
+                    // clonePaintValue, not a bare copy: a Fabric Gradient is a
+                    // live object, and handing the SAME instance to every
+                    // sibling's shadow canvas would alias state the engine
+                    // treats as per-canvas.
+                    match.set(key, clonePaintValue(curProps[key]));
                 });
 
                 if (isTextboxObject(match) && typeof match.initDimensions === 'function') {
@@ -479,11 +515,13 @@ export class GroupSync {
             match.set(projectGeometry(snapshotGeometry(obj), rx, ry, isTextboxObject(obj)));
 
             // Styles + metadata follow absolutely on an explicit re-sync.
+            // snapshotProps already deep-copies gradients, so each target gets
+            // its own paint object rather than a shared instance.
             const props = snapshotProps(obj);
             [...STYLE_KEYS, ...META_KEYS].forEach((key) => {
                 const value = props[key];
                 if (value !== undefined) {
-                    match.set(key, Array.isArray(value) ? value.slice() : value);
+                    match.set(key, clonePaintValue(value));
                 }
             });
 

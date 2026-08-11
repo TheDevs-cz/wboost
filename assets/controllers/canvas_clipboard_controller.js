@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { ActiveSelection } from "fabric";
 
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_properties.js';
+import { isShapeObject } from './canvas_shapes.js';
 
 /**
  * Copy / paste / duplicate for the canvas editor. The orchestrator dispatches
@@ -86,11 +87,11 @@ export default class extends Controller {
     }
 
     /**
-     * A pasted/duplicated image starts UNLOCKED: the editor-lock is a
-     * "leave this placed image alone" guard, and the fresh copy is exactly the
-     * thing the user now wants to drag into place. Clearing editorLocked also
-     * keeps the live Fabric flags in sync with the serialized prop (clone does
-     * not carry the interaction flags across).
+     * A pasted/duplicated image or SHAPE starts UNLOCKED: the editor-lock is a
+     * "leave this placed element alone" guard, and the fresh copy is exactly
+     * the thing the user now wants to drag into place. Clearing editorLocked
+     * also keeps the live Fabric flags in sync with the serialized prop (clone
+     * does not carry the interaction flags across).
      *
      * The `isBackground` marker is stripped too — there is only ever ONE
      * background layer, so a copy of it is just a normal image (otherwise the
@@ -98,7 +99,7 @@ export default class extends Controller {
      * would exclude the copy from propagation for no visible reason).
      */
     _unlockPasted(obj) {
-        if ((obj.type || '').toLowerCase() !== 'image') return;
+        if ((obj.type || '').toLowerCase() !== 'image' && !isShapeObject(obj)) return;
         obj.editorLocked = false;
         obj.isBackground = false;
         applyEditorLock(obj);

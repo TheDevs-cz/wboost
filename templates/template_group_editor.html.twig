@@ -50,12 +50,14 @@
     <div
         id="canvas-container"
         class="editor-shell"
-        data-controller="canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator group-editor"
+        data-controller="canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-shape-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator group-editor"
         {# Canvas-mode only: a layer-mode variant's background is an isBackground
            object inside its canvas JSON — a canvas-level override would shadow it. #}
         data-canvas-editor-background-image-value="{{ first.variant.backgroundMode.value == 'canvas' and first.variant.backgroundImage ? uploaded_asset(first.variant.backgroundImage) }}"
         data-canvas-editor-background-mode-value="{{ first.variant.backgroundMode.value }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
+        {# Brand palette for freshly added shapes (same list the text popover and the fill WYSIWYG offer). #}
+        data-canvas-editor-brand-colors-value='{{ (brand_colors|default([]))|json_encode }}'
         data-canvas-editor-canvas-json="{{ first.variant.canvas }}"
         data-canvas-editor-edit-variant-url-value="{{ first.edit_variant_url }}"
         data-group-editor-save-url-value="{{ save_url }}"
@@ -64,6 +66,7 @@
         data-canvas-text-toolbar-canvas-editor-outlet="#canvas-container"
         data-canvas-input-properties-canvas-editor-outlet="#canvas-container"
         data-canvas-image-properties-canvas-editor-outlet="#canvas-container"
+        data-canvas-shape-properties-canvas-editor-outlet="#canvas-container"
         data-canvas-alignment-canvas-editor-outlet="#canvas-container"
         data-canvas-floating-toolbar-canvas-editor-outlet="#canvas-container"
         data-canvas-container-canvas-editor-outlet="#canvas-container"
@@ -71,6 +74,7 @@
         data-canvas-layers-canvas-floating-toolbar-outlet="#canvas-container"
         data-canvas-layers-canvas-input-properties-outlet="#canvas-container"
         data-canvas-layers-canvas-image-properties-outlet="#canvas-container"
+        data-canvas-layers-canvas-shape-properties-outlet="#canvas-container"
         data-canvas-snapping-canvas-editor-outlet="#canvas-container"
         data-canvas-rulers-canvas-editor-outlet="#canvas-container"
         data-canvas-navigator-canvas-editor-outlet="#canvas-container"
@@ -80,6 +84,7 @@
             canvas-editor:selection:changed->canvas-text-toolbar#updateFromSelection
             canvas-editor:selection:changed->canvas-input-properties#updateFromSelection
             canvas-editor:selection:changed->canvas-image-properties#updateFromSelection
+            canvas-editor:selection:changed->canvas-shape-properties#updateFromSelection
             canvas-editor:selection:changed->canvas-alignment#onSelectionChanged
             canvas-editor:selection:changed->canvas-floating-toolbar#onSelectionChanged
             canvas-editor:selection:changed->canvas-container#onSelectionChanged

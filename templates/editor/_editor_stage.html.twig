@@ -31,6 +31,9 @@
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-image-edit-outline"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout obrázek v editoru (proti posunutí)" data-canvas-floating-toolbar-target="editorLockButton" data-action="canvas-image-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
+        {# Shapes carry the same EDITOR lock as images, but the action has to
+           reach canvas-shape-properties so its popover checkbox follows. #}
+        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout tvar v editoru (proti posunutí)" data-canvas-floating-toolbar-target="shapeLockButton" data-action="canvas-shape-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
         {% if group_mode|default(false) %}
             <button type="button" class="btn btn-sm btn-light" title="Srovnat podle skupiny (přenést pozici a velikost tohoto prvku do ostatních variant)" data-action="group-editor#resyncActiveObject"><i class="mdi mdi-sync"></i></button>
         {% endif %}
@@ -387,6 +390,159 @@
                 <hr class="my-2">
                 <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
                 <p class="text-muted small my-2">Obrázek se posouvá spolu s textem, který překrývá (ikona řádku); obrázek mimo texty tvoří vlastní řádek toku. Nastavení kontejneru najdete pod ⚙ na jeho rámečku.</p>
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
+            </div>
+        </div>
+    </div>
+
+    {# Floating full-options popover: SHAPE — fields driven by
+       canvas-shape-properties (visibility owned by canvas-floating-toolbar).
+       Everything here writes a NATIVE Fabric property, so it round-trips
+       through the canvas JSONB and renders identically in the export. #}
+    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="shapePopover">
+        <div class="card-body p-2">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small fw-bold d-inline-flex align-items-center">
+                    <i class="mdi mdi-drag canvas-popover-drag me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                    <i class="mdi mdi-shape-outline me-1"></i> <span data-canvas-shape-properties-target="kindLabel">Tvar</span>
+                </span>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="canvas-floating-toolbar#closePopovers"><i class="uil-check me-1"></i> Uložit</button>
+                    <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
+                </div>
+            </div>
+
+            {# --- Výplň: plná barva nebo přechod ------------------------- #}
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <label class="form-label small mb-0">Výplň</label>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Typ výplně">
+                    <button type="button" class="btn btn-outline-secondary active" data-canvas-shape-properties-target="solidButton" data-action="canvas-shape-properties#setFillMode" data-canvas-shape-properties-mode-param="solid">Barva</button>
+                    <button type="button" class="btn btn-outline-secondary" data-canvas-shape-properties-target="gradientButton" data-action="canvas-shape-properties#setFillMode" data-canvas-shape-properties-mode-param="gradient">Přechod</button>
+                </div>
+            </div>
+
+            <div data-canvas-shape-properties-target="solidSection">
+                {% if brand_colors is defined and brand_colors is not empty %}
+                    <div class="d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barvy z manuálu">
+                        {% for color in brand_colors %}
+                            <button
+                                type="button"
+                                class="fill-richtext-swatch"
+                                style="background-color: {{ color }}"
+                                title="{{ color }}"
+                                data-canvas-shape-properties-target="swatch"
+                                data-canvas-shape-properties-color-param="{{ color }}"
+                                data-action="canvas-shape-properties#pickFillColor"
+                            ></button>
+                        {% endfor %}
+                        <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Vlastní barva">
+                            <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-canvas-shape-properties-target="fillPicker" data-action="input->canvas-shape-properties#pickCustomFill">
+                        </label>
+                    </div>
+                {% else %}
+                    <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-1" title="Vlastní barva">
+                        <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-canvas-shape-properties-target="fillPicker" data-action="input->canvas-shape-properties#pickCustomFill">
+                    </label>
+                {% endif %}
+                <input type="text" id="shape-fill-control" class="form-control form-control-sm" placeholder="#000000" aria-label="Barva výplně" data-canvas-shape-properties-target="fillColor" data-action="input->canvas-shape-properties#updateFillHex">
+            </div>
+
+            <div class="d-none" data-canvas-shape-properties-target="gradientSection">
+                <div class="row g-1 align-items-end">
+                    <div class="col-4">
+                        <label for="shape-gradient-from-control" class="form-label small mb-1">Od</label>
+                        <input type="color" id="shape-gradient-from-control" class="form-control form-control-sm form-control-color w-100" data-canvas-shape-properties-target="gradientFrom" data-action="input->canvas-shape-properties#updateGradient">
+                    </div>
+                    <div class="col-auto pb-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Prohodit barvy" data-action="canvas-shape-properties#swapGradient"><i class="mdi mdi-swap-horizontal" aria-hidden="true"></i></button>
+                    </div>
+                    <div class="col-4">
+                        <label for="shape-gradient-to-control" class="form-label small mb-1">Do</label>
+                        <input type="color" id="shape-gradient-to-control" class="form-control form-control-sm form-control-color w-100" data-canvas-shape-properties-target="gradientTo" data-action="input->canvas-shape-properties#updateGradient">
+                    </div>
+                    <div class="col-12">
+                        <label for="shape-gradient-type-control" class="form-label small mb-1">Typ</label>
+                        <select id="shape-gradient-type-control" class="form-select form-select-sm" data-canvas-shape-properties-target="gradientType" data-action="change->canvas-shape-properties#updateGradient">
+                            <option value="linear">Lineární</option>
+                            <option value="radial">Radiální</option>
+                        </select>
+                    </div>
+                    <div class="col-12" data-canvas-shape-properties-target="gradientAngleRow">
+                        <label for="shape-gradient-angle-control" class="form-label small mb-1">
+                            Úhel <span class="text-muted" data-canvas-shape-properties-target="gradientAngleValue">90°</span>
+                        </label>
+                        <input type="range" id="shape-gradient-angle-control" class="form-range" min="0" max="359" step="1" data-canvas-shape-properties-target="gradientAngle" data-action="input->canvas-shape-properties#updateGradient">
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-2">
+
+            {# --- Obrys -------------------------------------------------- #}
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <label class="form-label small mb-0">Obrys</label>
+                <button type="button" class="btn btn-sm btn-link p-0 text-muted d-none" style="font-size: .75rem;" data-canvas-shape-properties-target="strokeClear" data-action="canvas-shape-properties#clearStroke">Bez obrysu</button>
+            </div>
+            <div class="row g-1 align-items-end">
+                <div class="col-auto">
+                    <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Barva obrysu">
+                        <input type="color" class="fill-richtext-swatch__input" aria-label="Barva obrysu" data-canvas-shape-properties-target="strokePicker" data-action="input->canvas-shape-properties#pickStrokeColor">
+                    </label>
+                </div>
+                <div class="col">
+                    <input type="text" id="shape-stroke-control" class="form-control form-control-sm" placeholder="bez obrysu" aria-label="Barva obrysu" data-canvas-shape-properties-target="strokeColor" data-action="input->canvas-shape-properties#updateStrokeHex">
+                </div>
+                <div class="col-4">
+                    <label for="shape-stroke-width-control" class="form-label small mb-1">Šířka</label>
+                    <input type="number" min="0" step="1" id="shape-stroke-width-control" class="form-control form-control-sm" placeholder="0" data-canvas-shape-properties-target="strokeWidth" data-action="input->canvas-shape-properties#updateStrokeWidth change->canvas-shape-properties#updateStrokeWidth">
+                </div>
+                <div class="col-8">
+                    <label for="shape-stroke-style-control" class="form-label small mb-1">Styl</label>
+                    <select id="shape-stroke-style-control" class="form-select form-select-sm" data-canvas-shape-properties-target="strokeStyle" data-action="change->canvas-shape-properties#updateStrokeStyle">
+                        <option value="solid">Plný</option>
+                        <option value="dashed">Čárkovaný</option>
+                        <option value="dotted">Tečkovaný</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr class="my-2">
+
+            <div class="row g-2">
+                {# Zaoblení = rx/ry, a rectangle affordance only: on an Ellipse
+                   the same two keys ARE the radii, so offering it there would
+                   silently resize the shape. #}
+                <div class="col-6 d-none" data-canvas-shape-properties-target="cornerRadiusRow">
+                    <label for="shape-corner-radius-control" class="form-label small mb-1">Zaoblení rohů</label>
+                    <input type="number" min="0" step="1" id="shape-corner-radius-control" class="form-control form-control-sm" data-canvas-shape-properties-target="cornerRadius" data-action="input->canvas-shape-properties#updateCornerRadius change->canvas-shape-properties#updateCornerRadius">
+                </div>
+                <div class="col-6">
+                    <label for="shape-opacity-control" class="form-label small mb-1">
+                        Průhlednost <span class="text-muted" data-canvas-shape-properties-target="opacityValue">100 %</span>
+                    </label>
+                    <input type="range" id="shape-opacity-control" class="form-range" min="0" max="100" step="1" data-canvas-shape-properties-target="opacity" data-action="input->canvas-shape-properties#updateOpacity change->canvas-shape-properties#updateOpacity">
+                </div>
+
+                <div class="col-12">
+                    <label for="shape-name-control" class="form-label small mb-1">Název vrstvy <i class="mdi mdi-information-outline text-muted" title="Jen pro orientaci v panelu Vrstvy — tvar není vyplňovací pole."></i></label>
+                    <input type="text" id="shape-name-control" class="form-control form-control-sm" placeholder="např. Podklad, Linka…" data-canvas-shape-properties-target="name" data-action="input->canvas-shape-properties#updateName">
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check mb-0">
+                        <input type="checkbox" id="shape-editor-locked-control" class="form-check-input" data-canvas-shape-properties-target="editorLocked" data-action="change->canvas-shape-properties#updateEditorLock">
+                        <label for="shape-editor-locked-control" class="form-check-label small">Zamknout v editoru <span class="text-muted">(chrání před náhodným posunutím — kliknutí prochází skrz, prvek pak vyberete v panelu Vrstvy; neovlivní export)</span></label>
+                    </div>
+                </div>
+            </div>
+
+            {# Container membership for a DECORATIVE shape member — mirrors the
+               textbox / image popovers (all three are plural `section`
+               targets). #}
+            <div class="d-none" data-canvas-container-target="section">
+                <hr class="my-2">
+                <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
+                <p class="text-muted small my-2">Tvar se posouvá spolu s textem, který překrývá (linka pod nadpisem); tvar mimo texty tvoří vlastní řádek toku. Nastavení kontejneru najdete pod ⚙ na jeho rámečku.</p>
                 <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
             </div>
         </div>

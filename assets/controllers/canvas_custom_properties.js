@@ -28,6 +28,10 @@
 // WYSIWYG; listBullet ('disc'|'dash'|'check'|'image'), listBulletImage
 // (gallery storage path), listIndent / listItemSpacing / listBlockSpacing
 // (px, null = derived default — see ResolvedListStyle).
+// shapeKind (vector shapes) records WHICH entry of the "Přidat tvar" picker
+// built the object — 'line' and 'square' are both a Fabric Rect, so the type
+// alone cannot label a layers-panel row honestly. Purely cosmetic: nothing
+// renders off it, and a shape without one still behaves like a shape.
 export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
@@ -35,7 +39,7 @@ export const CANVAS_CUSTOM_PROPERTIES = [
     'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
     'sampleValue',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
-    'assetPath', 'assetId', 'editorLocked', 'isBackground',
+    'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
 ];
 
 /**
@@ -62,9 +66,11 @@ export const CANVAS_CUSTOM_PROPERTIES = [
  * lockable layer: seeded LOCKED (see setBackgroundLayer /
  * BackgroundLayer::buildObject) and fully manipulable once unlocked.
  *
- * Reversible: unlocking restores the normal image affordances (movable, with
- * transform handles). Only ever called for image objects — textboxes carry
- * their own deliberate lock flags that this would clobber.
+ * Reversible: unlocking restores the normal affordances (movable, with
+ * transform handles). Called for IMAGES and SHAPES — both are free-transform
+ * objects whose only lock is this one. Never for textboxes: they carry their
+ * own deliberate lock flags (width-only resize, no rotation) that this would
+ * clobber, and their `locked` prop means something else entirely (fill-time).
  */
 export function applyEditorLock(obj) {
     if (!obj) return;
@@ -81,8 +87,8 @@ export function applyEditorLock(obj) {
     if (typeof obj.setCoords === 'function') obj.setCoords();
 }
 
-// An UNLOCKED image whose bounding box covers at least this share of the
-// canvas is treated as a "backdrop" for pointer targeting (see below).
+// An UNLOCKED image or shape whose bounding box covers at least this share of
+// the canvas is treated as a "backdrop" for pointer targeting (see below).
 export const BACKDROP_COVERAGE_RATIO = 0.9;
 
 /**
@@ -106,7 +112,7 @@ export function isBackdropCovering(obj, canvasWidth, canvasHeight) {
 
 /**
  * Third interaction state, between "normal" and applyEditorLock's full lock:
- * a canvas-covering UNLOCKED image ("backdrop") is skipped by pointer
+ * a canvas-covering UNLOCKED image or shape ("backdrop") is skipped by pointer
  * targeting while it is not selected — dragging over it draws Fabric's
  * rubber-band multi-select instead of moving the picture, and a marquee never
  * pulls it into the ActiveSelection (any rectangle you draw intersects a

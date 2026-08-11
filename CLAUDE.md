@@ -219,10 +219,86 @@ orchestrator dispatches on Fabric's selection lifecycle:
 | `canvas_text_toolbar_controller` | Font / size / colour / alignment / decoration / max-length controls for the active textbox (populate + mutate only — visibility is owned by the floating toolbar). |
 | `canvas_input_properties_controller` | Editor-side input metadata (name, description, locked, hidable, uppercase). Persists onto the canvas object as custom properties via `CANVAS_CUSTOM_PROPERTIES`. Exposes `toggleLocked` for the mini-toolbar. |
 | `canvas_image_properties_controller` | Image-placeholder metadata (placeholder flag, name/description, allowMove/Resize/Rotate, hidable, allowedDirectoryIds). Exposes `togglePlaceholder` for the mini-toolbar. |
+| `canvas_shape_properties_controller` | Vector-shape styling — fill (solid or gradient), stroke, corner radius, opacity, editor lock. See the dedicated section below. |
 | `canvas_alignment_controller` | Multi-object align ops, z-order, delete. `updateButtonStates` is `has*Target`-guarded since its buttons live in the floating chrome. |
 | `canvas_layers_controller` | Photoshop-style layers panel ("Vrstvy"): topmost-first rows, hover outline, click-select, SortableJS restack, and a per-layer **visibility eye**. The eye is PERSISTED (`visible: false` rides the canvas JSON): hidden layers vanish from renders/exports/thumbnails, are **excluded from fillable inputs** (`buildVariantPayload` + `TextInputObjectBinder` skip invisible objects — the positional textbox↔input contract counts only VISIBLE textboxes), drop out of container membership at layout time (`collectMembers` skips them; fill-time `hide` still collapses), are filtered from API `containers[].memberInputIds`, and propagate through group sync (`visible` ∈ META_KEYS). Also a per-layer **padlock**, which is the element's OWN popover lock and therefore means two different things (each row's title says which): an image — the background included — flips `editorLocked` (editor lock: click-through, immovable), a text flips `locked` (fill-time: the user can't overwrite it). When the row is the active object it delegates to `canvas-input-properties#toggleLocked` / `canvas-image-properties#toggleEditorLock` (+ `refreshContextToggle`) so the popover checkbox and mini-toolbar stay in step; otherwise it flips the flag directly. Selecting a row opens the popover WITHOUT focusing a field (`openPopoverKeepFocus`) — a focused input makes `handleKeydown` bail, which used to swallow Delete for anything selected from the panel. |
 | `canvas_floating_toolbar_controller` | The element-anchored floating UX (see below). |
 | `canvas_container_controller` | Containers ("smart text areas") — see the dedicated section below. |
+
+**Vector shapes ("Přidat tvar", 2026-08-11)**
+
+The third "put something on the stage" primitive next to text and images, in
+BOTH editors (the left panel is one shared partial). A picker dropdown — not a
+modal — drops a shape centred on the canvas; everything about it is then edited
+on the canvas through its own floating popover, Canva-style.
+
+- **Kinds** (`SHAPE_KINDS` in `assets/controllers/canvas_shapes.js`): obdélník,
+  čtverec, kruh, elipsa, trojúhelník, čára, hvězda → Fabric `Rect` / `Circle` /
+  `Ellipse` / `Triangle` / `Polygon`. **"Čára" is a thin Rect on purpose**: a
+  real Fabric `Line` has zero height on one axis, which makes it un-resizable
+  there and hands the snapping engine and the container flow a degenerate box.
+  As a Rect it snaps, scales, rounds its ends and projects like everything else.
+  `shapeKind` is a custom prop carried only so the layers panel can name the row
+  (a čára and a čtverec are both a `Rect`); nothing renders off it.
+- **Sizes are canvas-relative** (¼ of the short edge), because the same editor
+  serves 1080×1080 posts and A4-at-300dpi (2480×3508) — a fixed 300 px default
+  is half of one design and a speck in the other. New shapes take the project's
+  first brand colour, cascaded a few percent per add so the second one is not
+  hidden behind the first.
+- **Decorative by definition.** Shapes carry no fillable-input metadata, so the
+  `textInputs` / `imageInputs` filters in `buildVariantPayload` exclude them by
+  type and **the API contract is untouched**. They DO carry an `inputId` — the
+  join key group sync propagates on and containers address members by — minted
+  in `createShapeObject` and defensively in `restoreCustomProperties`.
+- **Nothing server-side has to know how to draw them.** The render template's
+  `canvas.loadFromJSON` enlivens every built-in Fabric type, and fill / stroke /
+  `rx` / `opacity` / `strokeDashArray` are native serialized props. The PHP that
+  does care reasons about an object's ROLE, not its pixels, and shares one type
+  list: `src/Value/CanvasShape.php` (mirrored by `SHAPE_FABRIC_TYPES` in
+  `canvas_shapes.js` and, again, by the dependency-free copy inside
+  `container_layout.js` — that module must stay a classic script).
+- **Gradients are `gradientUnits: 'percentage'`** (coords 0…1 of the object's
+  own box). A pixel-unit gradient would be baked to whatever size the shape had
+  when it was picked and would slide off under the designer's resize, the group
+  projector's rescale and the print-resolution export alike. Linear angle ⇒
+  coords via cos/sin; radial is centre-out at r2 = 0.5. Verified end-to-end
+  through Gotenberg.
+- **`strokeUniform: true`** — the border keeps a constant on-screen weight while
+  the designer resizes, as in every design tool. The cost is that stroke does
+  NOT ride the object's scale, so `strokeWidth` travels as GEOMETRY (projected
+  by the width ratio like a textbox's `fontSize`) in `snapshotGeometry` /
+  `projectGeometry` / `applyGeometryDelta` and in the PHP mirror
+  `CanvasDesignProjector::projectObject`. Everything else about a shape
+  (`stroke`, `strokeDashArray`, `strokeLineCap`, `rx`, `ry`, `opacity`) is an
+  absolute copy in `STYLE_KEYS`; `fill` was already there.
+  - **Gradient fills forced two group-sync fixes**: `snapshotProps` /
+    `syncPass` / `resync` now deep-copy paint values (`clonePaintValue` — a
+    Fabric `Gradient` is a live object, and sharing one instance across every
+    sibling's shadow canvas aliases state the engine treats as per-canvas), and
+    `propsEqual` compares objects by CONTENT (a gradient is re-instantiated by
+    every canvas load, so identity comparison reported a change on every pass
+    after an undo and fanned a no-op edit to every dimension).
+- **Backdrop targeting covers shapes**, not just images: a full-bleed colour
+  rectangle is the same pointer trap as a full-canvas photo — evented, it
+  swallows every mousedown and leaves nowhere to start a rubber-band from.
+  `refreshBackdropStates` and the click-to-select / ⌘-drag promotion loops share
+  `_backdropCandidate`. The editor padlock (`editorLocked` / `applyEditorLock`)
+  is the same flag images use, so the layers-panel row and the mini-toolbar mean
+  the same thing for both — but shapes get their OWN mini-toolbar lock button
+  and popover, because the action has to reach `canvas-shape-properties` for the
+  checkbox to follow.
+- **Shapes can be container members**, exactly like decorative images (a rule
+  under a heading rides along as an attachment; a standalone one is its own flow
+  item). `isMemberCandidate` = text ∪ `isDecorationObject` (image ∪ shape) in
+  `container_layout.js`, mirrored in `DesignCompiler::isMemberCandidate` and in
+  `AbstractVariantFiller::decorativeMemberFrames` (the fill overlay needs their
+  frames to reflow pixel-identically to the server render).
+- **Known gap — the MCP design DSL v1 has no shape element kind.** A
+  `set_design` round-trip over a variant containing shapes reports them as
+  `DesignLossCode::ObjectDropped` ("saving would DELETE it"). That is the
+  existing, deliberate guard for any unrepresentable object, so the loss is
+  surfaced rather than silent — but adding shapes to the DSL (parser, compiler,
+  decompiler, lint) is a separate piece of work.
 
 **Containers — smart text areas (document-like vertical reflow)**
 

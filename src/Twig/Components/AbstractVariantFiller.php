@@ -24,6 +24,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
@@ -841,12 +842,12 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
-     * Designed frames of DECORATIVE image members (checklist icons,
-     * separators) — the overlay feeds them to the shared layout engine as
-     * geometry POJOs so its client-side reflow sees exactly the members the
-     * server render does. Fillable placeholders and the background layer are
-     * never container members; design-hidden objects are skipped like the
-     * engine skips them.
+     * Designed frames of DECORATIVE members — images (checklist icons,
+     * separators) and vector shapes (rules, bullets, colour blocks) — which the
+     * overlay feeds to the shared layout engine as geometry POJOs so its
+     * client-side reflow sees exactly the members the server render does.
+     * Fillable placeholders and the background layer are never container
+     * members; design-hidden objects are skipped like the engine skips them.
      *
      * @param array<array-key, mixed> $canvas
      * @param list<CanvasContainer> $containers
@@ -879,10 +880,16 @@ abstract class AbstractVariantFiller extends AbstractController
             if (!is_string($inputId) || !isset($memberIds[$inputId]) || !is_string($type)) {
                 continue;
             }
-            if (strtolower($type) !== 'image') {
+            // Decorative container members: images and vector shapes. Shapes are
+            // decorative by definition, so only the image branch has anything to
+            // exclude (see isDecorationObject in container_layout.js).
+            $isShape = CanvasShape::isShapeType($type);
+            if (!$isShape && strtolower($type) !== 'image') {
                 continue;
             }
-            if (($object['imagePlaceholder'] ?? false) === true || ($object['isBackground'] ?? false) === true) {
+            if (!$isShape
+                && (($object['imagePlaceholder'] ?? false) === true || ($object['isBackground'] ?? false) === true)
+            ) {
                 continue;
             }
             if (($object['visible'] ?? true) === false) {

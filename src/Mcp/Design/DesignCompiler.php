@@ -13,6 +13,7 @@ use WBoost\Web\Mcp\Design\Dsl\Rect;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 
@@ -99,7 +100,7 @@ readonly final class DesignCompiler
         'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
         'sampleValue',
         'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
-        'assetPath', 'assetId', 'editorLocked', 'isBackground',
+        'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
     ];
 
     /**
@@ -796,8 +797,9 @@ readonly final class DesignCompiler
 
     /**
      * Mirrors `isMemberCandidate()` in `assets/editor/container_layout.js`:
-     * textboxes, and images that are neither fillable placeholders nor the
-     * background layer (§4.4-18 — their frames are load-bearing elsewhere).
+     * textboxes, images that are neither fillable placeholders nor the
+     * background layer (§4.4-18 — their frames are load-bearing elsewhere),
+     * and vector shapes (always decorative, so nothing to exclude).
      *
      * @param array<string, mixed> $object
      */
@@ -806,6 +808,10 @@ readonly final class DesignCompiler
         $type = strtolower(is_string($object['type'] ?? null) ? $object['type'] : '');
 
         if ($type === 'textbox') {
+            return true;
+        }
+
+        if (CanvasShape::isShapeType($type)) {
             return true;
         }
 

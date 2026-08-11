@@ -48,7 +48,7 @@ export default class extends Controller {
     static values = {
         canvasWidth: Number,
         // { inputs: { <inputId>: {frame, style, locked, uppercase, maxLength, hidable} },
-        //   decorations: { <inputId>: {frame} },   ← decorative image members
+        //   decorations: { <inputId>: {frame} },   ← decorative image/shape members
         //   containers: [ {id, maxHeight, memberInputIds, memberContainerIds, gap} ] }
         textLayout: Object,
         fonts: Array,

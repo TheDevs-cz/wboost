@@ -5,8 +5,9 @@
  * Conventions (the "1% left" contract):
  *  - horizontal positions scale by the WIDTH ratio, vertical by the HEIGHT
  *    ratio (each axis is percentage-preserving independently);
- *  - element SIZE (textbox wrap width, font size, image scale) scales by the
- *    WIDTH ratio only, so elements keep their aspect ratio;
+ *  - element SIZE (textbox wrap width, font size, image scale, shape stroke
+ *    weight) scales by the WIDTH ratio only, so elements keep their aspect
+ *    ratio;
  *  - rotation is absolute (an angle means the same thing at any size).
  */
 
@@ -51,6 +52,16 @@ export function applyGeometryDelta(base, cur, target, rx, ry) {
     ) {
         out.fontSize = target.fontSize * (cur.fontSize / base.fontSize);
     }
+    // Shape stroke weight — same relative treatment as fontSize, including the
+    // 0 guard: a shape can legitimately go from "no border" to a border, and
+    // a ratio against 0 is meaningless, so that step lands as an absolute set.
+    if (cur.strokeWidth !== undefined && base.strokeWidth !== undefined
+        && cur.strokeWidth !== base.strokeWidth
+    ) {
+        out.strokeWidth = base.strokeWidth
+            ? (target.strokeWidth || 0) * (cur.strokeWidth / base.strokeWidth)
+            : cur.strokeWidth * rx;
+    }
     if (cur.angle !== base.angle) {
         out.angle = cur.angle; // absolute per spec
     }
@@ -86,6 +97,14 @@ export function projectGeometry(geom, rx, ry, isTextbox) {
     } else {
         out.scaleX = geom.scaleX * rx;
         out.scaleY = geom.scaleY * rx;
+    }
+
+    // Shapes only (snapshotGeometry adds it for them alone). They are
+    // strokeUniform, so the border does NOT ride the scale above — without
+    // this a 6 px outline designed on a 1080 post would stay 6 px on an A4
+    // print canvas and read as a hairline.
+    if (geom.strokeWidth !== undefined) {
+        out.strokeWidth = geom.strokeWidth * rx;
     }
 
     return out;

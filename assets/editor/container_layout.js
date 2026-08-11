@@ -143,8 +143,36 @@
             && candidate.isBackground !== true;
     }
 
+    var SHAPE_TYPES = {
+        rect: true, circle: true, ellipse: true, triangle: true,
+        polygon: true, polyline: true, line: true, path: true,
+    };
+
+    /**
+     * Vector shape ("Přidat tvar"). Shapes are ALWAYS decorative — they carry
+     * no fillable-input metadata at all — so unlike images there is nothing to
+     * exclude here. Mirrors SHAPE_FABRIC_TYPES in canvas_shapes.js; kept as a
+     * local literal because this module is deliberately a dependency-free
+     * classic script (it is inlined verbatim into the headless render template
+     * and loaded via <script src> by the editor and the fill page).
+     */
+    function isShapeObject(candidate) {
+        return Boolean(candidate)
+            && SHAPE_TYPES[String(candidate.type || '').toLowerCase()] === true;
+    }
+
+    /**
+     * Non-text flow material: a decorative image or a shape. Both behave
+     * identically in the flow — riding along as an ATTACHMENT of the text they
+     * vertically overlap (a bullet icon next to its line, a rule under a
+     * heading) or standing alone as their own flow item (a separator).
+     */
+    function isDecorationObject(candidate) {
+        return isImageObject(candidate) || isShapeObject(candidate);
+    }
+
     function isMemberCandidate(candidate) {
-        return isTextboxObject(candidate) || isImageObject(candidate);
+        return isTextboxObject(candidate) || isDecorationObject(candidate);
     }
 
     /**
@@ -341,7 +369,7 @@
 
             const direct = collectMembersIndexed(memberIndex, def);
             const textObjects = direct.filter(isTextboxObject);
-            const imageObjects = direct.filter(isImageObject);
+            const decorationObjects = direct.filter(isDecorationObject);
 
             // Flow item candidates: every text + every child container.
             const items = [];
@@ -365,9 +393,9 @@
                 });
             });
 
-            // Images: attach to the item whose designed interval they overlap
-            // the most; no overlap → standalone flow item.
-            imageObjects.forEach((obj) => {
+            // Decorations (images + shapes): attach to the item whose designed
+            // interval they overlap the most; no overlap → standalone flow item.
+            decorationObjects.forEach((obj) => {
                 const top = getTop(obj);
                 const height = displayedHeight(obj);
                 let best = null;
@@ -384,7 +412,9 @@
                     best.attachments.push({ obj, offset: top - best.baseTop, height });
                 } else {
                     items.push({
-                        kind: 'image',
+                        // Everything the flow logic below treats as "neither a
+                        // text nor a child container" — an image or a shape.
+                        kind: 'decoration',
                         obj,
                         baseTop: top,
                         baseHeight: height,
@@ -701,6 +731,8 @@
         isMemberCandidate,
         isTextboxObject,
         isImageObject,
+        isShapeObject,
+        isDecorationObject,
         prepareFabricContainers,
         applyFabricLayout,
         sortMemberIdsByTop,

@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { ActiveSelection } from "fabric";
 
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
+import { applyShapeDefaults, isShapeObject } from './canvas_shapes.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -1038,7 +1039,10 @@ export default class extends Controller {
             // Clone drops the live interaction flags — re-derive them exactly
             // like the load path does.
             const type = (clone.type || '').toLowerCase();
-            if (type === 'image') {
+            if (isShapeObject(clone)) {
+                applyShapeDefaults(clone);
+                applyEditorLock(clone);
+            } else if (type === 'image') {
                 applyEditorLock(clone);
             } else if (type === 'textbox') {
                 applyTextboxDefaults(clone);

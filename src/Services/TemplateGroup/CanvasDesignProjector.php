@@ -6,6 +6,7 @@ namespace WBoost\Web\Services\TemplateGroup;
 
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\CanvasShape;
 
 /**
  * Projects a designer canvas document into a different dimension — the PHP
@@ -14,8 +15,9 @@ use WBoost\Web\Value\BackgroundMode;
  *
  *  - horizontal positions scale by the WIDTH ratio, vertical by the HEIGHT
  *    ratio (each axis is percentage-preserving independently);
- *  - element SIZE (textbox wrap width, font size, image scale) scales by the
- *    WIDTH ratio only, so elements keep their aspect ratio;
+ *  - element SIZE (textbox wrap width, font size, image scale, shape stroke
+ *    weight) scales by the WIDTH ratio only, so elements keep their aspect
+ *    ratio;
  *  - rotation is absolute (an angle means the same thing at any size);
  *  - container maxHeight scales by the height ratio.
  *
@@ -243,6 +245,14 @@ readonly final class CanvasDesignProjector
         } else {
             $this->scaleKey($object, 'scaleX', $rx);
             $this->scaleKey($object, 'scaleY', $rx);
+        }
+
+        // Vector shapes are authored `strokeUniform`, so their outline does not
+        // ride the scale above — it has to be projected on its own, the way a
+        // textbox's fontSize is. Mirrors projectGeometry in group_projection.js;
+        // images never carry a stroke, so the type guard keeps this off them.
+        if (CanvasShape::isShapeType($type)) {
+            $this->scaleKey($object, 'strokeWidth', $rx);
         }
 
         return $object;
