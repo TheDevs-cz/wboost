@@ -3272,3 +3272,96 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     display: inline-flex;
     align-items: center;
 }
+
+/* Variant grid on the template variants page (template_variants.html.twig).
+   One template's variants span wildly different aspect ratios — a 1:1 post, a
+   9:16 story, an A4 portrait — so every preview gets the SAME square stage and
+   is letterboxed inside it (`contain`). Sizing the card to the picture instead
+   gave every column a different height and the grid read as rubble. The stage
+   is also what the ⋯ menu anchors to, so the button lands ON the preview area
+   even when the picture itself is small (a variant with no preview yet falls
+   back to the placeholder asset, which is far narrower than the card). */
+   Note the `.variant-card` prefix on every selector below: app.css loads BEFORE
+   the theme, so an equal-specificity rule of ours loses — `.variant-card__menu`
+   alone is beaten by Bootstrap's `.dropdown {position: relative}` and the menu
+   lands in the card's top-LEFT corner, in flow. */
+.variant-card .variant-card__link {
+    display: block;
+}
+
+.variant-card .variant-card__thumb {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    padding: 1rem;
+    overflow: hidden;
+    background-color: #f6f7fb;
+    border-radius: var(--ct-card-inner-border-radius, var(--bs-card-inner-border-radius, 0.25rem)) var(--ct-card-inner-border-radius, var(--bs-card-inner-border-radius, 0.25rem)) 0 0;
+}
+
+/* Same checkerboard the editor and the fill preview use for layer-mode
+   variants, which may legitimately render onto full transparency. */
+.variant-card .variant-card__thumb--transparent img {
+    background-image:
+        linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%),
+        linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%);
+    background-color: #fff;
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+}
+
+.variant-card .variant-card__thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.18);
+}
+
+.variant-card .variant-card__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    color: var(--ct-text-muted, #98a6ad);
+}
+
+/* The whole card is one link, so it needs the affordance a button would have. */
+.variant-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.variant-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.12);
+}
+
+/* Floats over the preview's top-right corner (`.card` is already
+   position: relative). Kept out of the link so clicking it never navigates. */
+.variant-card .variant-card__menu {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 2;
+}
+
+.variant-card .variant-card__menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #6c757d;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.variant-card .variant-card__menu-toggle:hover,
+.variant-card .variant-card__menu-toggle:focus,
+.variant-card .variant-card__menu.show .variant-card__menu-toggle {
+    background: #fff;
+    color: #343a40;
+}
