@@ -416,6 +416,16 @@ export class GroupSync {
         }
 
         for (const target of this.targets()) {
+            // Mixed groups (a legacy canvas-mode group that gained layer-mode
+            // dimensions later): a CANVAS-mode sibling has no layer slot —
+            // its background is the canvas-level image fed by the
+            // background_image column, and an isBackground object dropped
+            // into it would render as a second background. The controller's
+            // _projectCanvasBackground owns those targets.
+            if ((target.backgroundMode || 'canvas') !== 'layer') {
+                continue;
+            }
+
             // Per-target try/catch, same reason as projectNewObject: one
             // failed image fetch must not leave the remaining dimensions
             // without the background. The existing layer is only removed

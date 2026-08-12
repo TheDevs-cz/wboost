@@ -182,15 +182,28 @@ Key facts:
   transparency and whatever full-canvas artwork sat lowest read as the
   background, so the stack looked scrambled even though its object order was
   identical to every other dimension (the 2026-08-06 "group export ignores
-  layer order" report). Two paths therefore fan the picture out, each
-  recomputing the cover fit from scratch for the target's own canvas and
-  giving it its OWN copy of the file (a later change on one dimension never
-  reaches the others): `GroupSync.projectBackgroundLayer` on a layer-mode
-  "Pozadí" pick (replacing each included target's background in place, at the
-  slot it occupied — index 0 when it had none, metadata copied from the active
-  layer so the shared inputId stays the join key), and
+  layer order" report). Three paths therefore fan the picture out, each
+  recomputing the cover fit from scratch for the target's own canvas:
+  `GroupSync.projectBackgroundLayer` on a layer-mode "Pozadí" pick (replacing
+  each included LAYER-mode target's background in place, at the slot it
+  occupied — index 0 when it had none, metadata copied from the active layer
+  so the shared inputId stays the join key; canvas-mode siblings of a mixed
+  group are skipped — an isBackground object next to their canvas-level slot
+  would render as a second background), the controller's
+  `_projectCanvasBackground` on a CANVAS-mode pick (2026-08-12: legacy groups
+  used to never propagate at all — each included canvas-mode target gets the
+  canvas-level cover on its shadow + a per-variant edit-endpoint POST, because
+  the background_image COLUMN is what renders), and
   `AddTemplateGroupDimensionHandler` when a new dimension is added with no
-  upload of its own.
+  pick of its own. **Dispatch-ordering contract (2026-08-12, browser-verified
+  root cause of "background ignores the mode"): `setBackgroundLayer` is async
+  (it awaits the image fetch BEFORE adding the layer), so
+  `canvas-editor:background:changed` must only be dispatched AFTER it
+  resolves** — `onAssetSelected` awaits it, and the group editor's handler
+  resolves the source layer lazily inside the queued op as the belt. An
+  un-awaited dispatch made the handler find the OLD layer (or none) and the
+  pick silently never propagated. The rail's "Prvky mimo plátno" badge
+  ignores `isBackground` objects — a cover fit always overflows one axis.
 - **Fillable (Phase B)**: the designer can mark the layer `imagePlaceholder` →
   it flows into `imageInputs` with `isBackground: true` (new `EditorImageInput`
   field; `allowMove/Resize/Rotate` forced false — the fill is a deterministic

@@ -857,10 +857,21 @@ export default class extends Controller {
      * picked background would only be set visually and would revert on
      * reload.
      */
-    onAssetSelected(event) {
+    async onAssetSelected(event) {
         const { url, path, id } = event.detail || {};
         if (!url) {
             return;
+        }
+
+        // Hide the modal FIRST — the background branch below awaits an image
+        // fetch, and a modal that stays open until the picture lands reads
+        // as a hang.
+        const galleryModalElement = document.getElementById('imageGalleryModal');
+        if (galleryModalElement) {
+            const galleryModal = bootstrap.Modal.getInstance(galleryModalElement);
+            if (galleryModal) {
+                galleryModal.hide();
+            }
         }
 
         const mode = this.galleryMode || 'addImage';
@@ -869,8 +880,13 @@ export default class extends Controller {
             if (this.backgroundModeValue === 'layer') {
                 // Layer mode: an ordinary (undoable, dirty-until-saved) canvas
                 // edit — no side-channel POST, the entity column follows the
-                // saved canvas server-side.
-                this.setBackgroundLayer(url, path, id);
+                // saved canvas server-side. AWAITED, and that await is
+                // load-bearing: the group editor's background:changed handler
+                // reads the fresh isBackground object off the canvas, and a
+                // dispatch fired before the layer landed found the OLD layer
+                // (or nothing) — the pick then never reached the sibling
+                // variants even with "Úprava více variant" on.
+                await this.setBackgroundLayer(url, path, id);
             } else {
                 this.setBackgroundImage(url);
                 if (path && this.hasEditVariantUrlValue) {
@@ -893,14 +909,6 @@ export default class extends Controller {
             this.dispatch('checkbox-image', { detail: { url, path, id } });
         } else {
             this.addImageToCanvas(url, path, id);
-        }
-
-        const modalElement = document.getElementById('imageGalleryModal');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) {
-                modal.hide();
-            }
         }
     }
 

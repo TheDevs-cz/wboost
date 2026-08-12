@@ -313,19 +313,86 @@ export default class extends Controller {
         active.dirty = true;
         this._refreshDirtyDots();
 
+        if (!this.sync || this._quiet(this.canvasEditorOutlet)) {
+            return;
+        }
+
         // A background pick follows the "Úprava více variant" mode + the
-        // per-variant switches (GroupSync.projectBackgroundLayer reads
-        // targets()): mode on = the picture travels to the opted-in
+        // per-variant switches: mode on = the picture travels to the opted-in
         // dimensions, cover-fitted for each one's own size; mode off = it
         // stays a single-variant change, which is how a designer authors
-        // per-variant backgrounds. Canvas-mode groups keep the legacy
-        // per-variant background upload and are left alone. Queued so a pick
-        // made while the shadows are still hydrating reaches every INCLUDED
-        // shadow, not the subset that happened to exist.
-        if (event.detail.layerMode && this.sync && !this._quiet(this.canvasEditorOutlet)) {
-            const source = this.canvasEditorOutlet.canvas.getObjects().find((o) => o.isBackground === true);
-            await this._enqueueStructural(() => this.sync.projectBackgroundLayer(source));
+        // per-variant backgrounds. BOTH background styles fan out — layer
+        // mode through GroupSync.projectBackgroundLayer, canvas mode through
+        // _projectCanvasBackground (legacy groups predate the layer rework
+        // and never propagated at all, the "background ignores the mode"
+        // report's second half). Queued so a pick made while the shadows are
+        // still hydrating reaches every INCLUDED shadow, not the subset that
+        // happened to exist.
+        if (event.detail.layerMode) {
+            // The source layer is resolved INSIDE the op, at run time — the
+            // editor's setBackgroundLayer is async, and a dispatch-time find
+            // used to grab the layer being REPLACED (or nothing at all when
+            // the variant had no background yet), so the freshly picked
+            // picture never reached the sibling variants. By op run time the
+            // new layer is on the canvas (onAssetSelected awaits the swap
+            // before dispatching; this lazy find is the belt to that).
+            await this._enqueueStructural(() => {
+                const source = this.canvasEditorOutlet.canvas.getObjects().find((o) => o.isBackground === true);
+                return this.sync.projectBackgroundLayer(source);
+            });
+        } else if (event.detail.path) {
+            const { url, path } = event.detail;
+            await this._enqueueStructural(() => this._projectCanvasBackground(url, path));
         }
+    }
+
+    /**
+     * Canvas-mode counterpart of GroupSync.projectBackgroundLayer: fan the
+     * picked picture to the opted-in CANVAS-mode siblings — as each shadow's
+     * canvas-level background (center-cover for its own size) plus the
+     * per-variant edit-endpoint POST, because a canvas-mode background lives
+     * in the background_image COLUMN (the render + every reload read it), not
+     * in the saved canvas JSON. Layer-mode siblings of a mixed group are
+     * skipped: they have no canvas-level slot, and an isBackground layer is
+     * projectBackgroundLayer's job.
+     *
+     * @returns {Promise<Set<string>>} touched variant ids
+     */
+    async _projectCanvasBackground(url, path) {
+        const touched = new Set();
+
+        for (const target of this.sync.targets()) {
+            if ((target.backgroundMode || 'canvas') === 'layer') {
+                continue;
+            }
+
+            try {
+                const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
+                coverForDimensions(img, target.width, target.height);
+                target.shadow.backgroundImage = img;
+                target.backgroundUrl = url;
+
+                // The same side-channel the active variant's pick used — the
+                // column is what the export renders from, so a fan-out that
+                // only painted the shadow would revert on reload.
+                const formData = new FormData();
+                formData.append('backgroundImagePath', path);
+                const response = await fetch(target.editVariantUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' },
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                touched.add(target.id);
+            } catch (err) {
+                console.error(`Propagace pozadí do varianty ${target.id} selhala:`, err);
+            }
+        }
+
+        return touched;
     }
 
     // ------------------------------------------------------------------ propagation
@@ -400,6 +467,12 @@ export default class extends Controller {
     _hasOffCanvasObjects(variant) {
         const TOLERANCE = 2;
         return variant.shadow.getObjects().some((obj) => {
+            // A cover-fitted background ALWAYS overflows one axis whenever
+            // the picture's aspect differs from the canvas — that is the
+            // fit working, not a stray element worth a warning badge.
+            if (obj.isBackground === true) {
+                return false;
+            }
             if (typeof obj.getCoords !== 'function') {
                 return false;
             }
