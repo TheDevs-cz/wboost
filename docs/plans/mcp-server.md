@@ -155,6 +155,14 @@ tests/Mcp/
                  "allowResize": true, "allowRotate": false, "hidable": true,
                  "allowedDirectories": [] } },
 
+    { "kind": "shape", "id": "panel",             // vector block; always decorative
+      "shape": "rectangle",                       // rectangle|square|circle|ellipse|triangle|line|star
+      "at": { "area": "middle", "col": [2, 11] }, "height": 300,
+      "fill": { "type": "linear", "angle": 45, "from": "#ff0000", "to": "#0000ff" },  // or "#c8102e"
+      "stroke": "#00aa00", "strokeWidth": 4, "strokeStyle": "dashed",  // solid|dashed|dotted
+      "cornerRadius": 18,                         // Rect-backed kinds only
+      "opacity": 0.6, "name": "Panel", "locked": false },
+
     { "kind": "background", "id": "bg", "asset": "<assetId>", "fillable": false },
 
     { "kind": "container", "id": "body",
@@ -168,6 +176,7 @@ Rules:
 - `id` is an agent-chosen slug, unique per document, stable across replacements. The compiler maps slug → the existing `inputId` UUID when the slug already exists on the variant, and mints a fresh UUID otherwise. **This is what makes editing safe.**
 - Missing optional keys take documented defaults (see §4.2). The DSL is deliberately small; anything not expressible in it is a Stage-6+ extension, not an ad-hoc Fabric escape.
 - `kind: "background"` is at most one per document and always compiles to stack index 0.
+- `kind: "shape"` (added 2026-08-12) is decorative by definition: no input block, never in `inputs[]` / `imageInputs[]`, so the fill and export contracts are untouched. It still carries an `inputId` — the container / group-sync join key — and may therefore be a container member, like a decorative image. Gradients are two-stop and compile in `gradientUnits: "percentage"`, so they survive every rescale (designer resize, cross-dimension projection, print-resolution export).
 - Element order in `elements[]` is the **stack order** (bottom → top).
 
 ---

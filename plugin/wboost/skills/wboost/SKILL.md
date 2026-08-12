@@ -304,7 +304,7 @@ Pictures (`images`, keyed by `imageInputs[].id`):
 
 A design document is `{"canvas": {...}, "elements": [...]}`, with `elements` in
 **stack order, bottom to top**. Each element has a `kind` (`text`, `image`,
-`background`, `container`) and a short slug `id` you choose
+`shape`, `background`, `container`) and a short slug `id` you choose
 (`^[a-z0-9][a-z0-9_-]*$`, ≤ 64 chars, unique in the document).
 
 **Unknown keys are rejected, not ignored** — a typo like `fontSize` for `size` is
@@ -321,12 +321,15 @@ optional `marginX` / `marginY` and `offsetX` / `offsetY` nudges.
 
 A `text` element with an `input` block becomes a fillable placeholder; without
 one it is fixed copy. An `image` element with an `input` block is a fillable
-picture slot; without one it is decorative. A `container` groups `members`
-(texts and decorative images) and `children` (nested containers) into one
-vertical flow — a **top-level container must carry `maxHeight`**, a nested one
-must not need it.
+picture slot; without one it is decorative. A `shape` element is a vector block —
+`rectangle`, `square`, `circle`, `ellipse`, `triangle`, `line` or `star` — filled
+with a flat colour or a two-stop gradient; it is always decorative, never
+fillable, and it is how you author panels, rules and scrims rather than uploading
+a picture of one. A `container` groups `members` (texts, shapes and decorative
+images) and `children` (nested containers) into one vertical flow — a **top-level
+container must carry `maxHeight`**, a nested one must not need it.
 
-This document parses, and exercises all four kinds:
+This document parses, and exercises all five kinds:
 
 ```json
 {
@@ -354,6 +357,16 @@ This document parses, and exercises all four kinds:
       "size": 42,
       "align": "left",
       "input": { "name": "Podnadpis", "richText": true }
+    },
+    {
+      "kind": "shape",
+      "id": "scrim",
+      "shape": "rectangle",
+      "at": { "area": "upper", "col": [1, 12] },
+      "height": 320,
+      "fill": { "type": "linear", "angle": 90, "from": "#111111", "to": "#c8102e" },
+      "cornerRadius": 24,
+      "opacity": 0.85
     },
     {
       "kind": "container",

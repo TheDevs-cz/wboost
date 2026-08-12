@@ -138,6 +138,15 @@ final class DesignRoundTripTest extends KernelTestCase
         // A layer-mode design whose background was uploaded through the
         // variant form: it has no `file_upload` row, so the DSL cannot name it.
         'layer-print-a4' => ['asset_unresolved'],
+
+        // Every shape kind the editor's picker makes, straight out of a real
+        // browser session: both gradient types, all three stroke styles, a
+        // corner radius, a partial opacity and an editor-locked layer — plus
+        // two texts, so the positional textbox binding has something to get
+        // wrong. Lossless, and the ONLY browser-authored canvas here that is:
+        // shapes were designed against what the editor already writes rather
+        // than the other way round.
+        'layer-shapes' => [],
     ];
 
     /**
@@ -226,11 +235,11 @@ final class DesignRoundTripTest extends KernelTestCase
             }
         }
 
-        self::assertCount(15, self::lossTable(), 'The loss table gained or lost a canvas.');
+        self::assertCount(16, self::lossTable(), 'The loss table gained or lost a canvas.');
         self::assertSame(
-            1,
+            2,
             $lossless,
-            'Exactly one canvas under test is fully expressible in DSL v1, and it is the EMPTY layer-mode write target ("Blank Canvas", …111) — a variant with no design has nothing the DSL cannot say. Not one canvas that was AUTHORED IN A BROWSER is lossless; see the class docblock.',
+            'Two canvases under test are fully expressible: the EMPTY layer-mode write target ("Blank Canvas", …111), which has no design to lose, and "layer-shapes" — a browser-authored canvas of vector shapes, whose grammar was written against what the editor already emits.',
         );
         self::assertSame(5, $noteOnly, 'Canvases whose only entry is the non-destructive canvas-mode background note.');
         self::assertSame(9, $destructive, 'Canvases that lose something a set_design would DESTROY.');

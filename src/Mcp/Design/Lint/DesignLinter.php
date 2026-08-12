@@ -12,6 +12,7 @@ use WBoost\Web\Mcp\Design\Dsl\DesignDocument;
 use WBoost\Web\Mcp\Design\Dsl\DesignElement;
 use WBoost\Web\Mcp\Design\Dsl\ImageElement;
 use WBoost\Web\Mcp\Design\Dsl\Rect;
+use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Mcp\Design\Measure\TextMeasurer;
@@ -173,6 +174,14 @@ readonly final class DesignLinter
                 foreach ($this->checkImage($element, $index, $rects[$element->id], $heights[$element->id], $canvas) as $finding) {
                     $findings[] = $finding;
                 }
+
+                continue;
+            }
+
+            if ($element instanceof ShapeElement) {
+                foreach (self::checkShape($element, $index, $rects[$element->id], $heights[$element->id], $canvas) as $finding) {
+                    $findings[] = $finding;
+                }
             }
         }
 
@@ -247,7 +256,10 @@ readonly final class DesignLinter
      * Text: {@see conservativeTextHeight()}. Image: the compiler's OWN frame
      * height ({@see DesignCompiler::imageFrameHeight()}), so the box this
      * warns about is the box that gets emitted — including the case where the
-     * author gave no height and the picture's own aspect ratio decides.
+     * author gave no height and the picture's own aspect ratio decides. Shape:
+     * likewise the compiler's own rule ({@see ShapeElement::frameHeight()}) —
+     * it must NOT fall through to the image branch, which would consult an
+     * `assetId` a shape does not have.
      *
      * @param array<string, Rect> $rects
      * @param array<string, null|int> $lineCounts
@@ -264,6 +276,12 @@ readonly final class DesignLinter
 
             if ($element instanceof TextElement) {
                 $heights[$element->id] = self::conservativeTextHeight($element, $lineCounts[$element->id] ?? null);
+
+                continue;
+            }
+
+            if ($element instanceof ShapeElement) {
+                $heights[$element->id] = ShapeElement::frameHeight($rects[$element->id]);
 
                 continue;
             }
@@ -360,6 +378,31 @@ readonly final class DesignLinter
         }
 
         $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, heightIsEstimated: true);
+
+        if ($bounds !== null) {
+            $findings[] = $bounds;
+        }
+
+        return $findings;
+    }
+
+    /**
+     * @return list<LintFinding>
+     */
+    private function checkShape(ShapeElement $element, int $index, Rect $rect, float $height, CanvasSpec $canvas): array
+    {
+        $path = sprintf('elements[%d]', $index);
+
+        /** @var list<LintFinding> $findings */
+        $findings = [];
+
+        // Bounds only. A shape has no font to whitelist, no asset to resolve
+        // and no input contract to second-guess — and its FILL is deliberately
+        // not palette-checked: unlike a text colour, a shape is routinely a
+        // deliberate off-brand device (a neutral panel, a scrim over a photo),
+        // so warning on every one would train the agent to ignore the code
+        // that matters on text.
+        $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, heightIsEstimated: false);
 
         if ($bounds !== null) {
             $findings[] = $bounds;
@@ -808,7 +851,7 @@ readonly final class DesignLinter
 
         $seen[$container->id] = true;
 
-        /** @var list<array{top: float, height: float, image: bool}> $items */
+        /** @var list<array{top: float, height: float, decoration: bool}> $items */
         $items = [];
 
         foreach ($container->memberIds as $memberId) {
@@ -819,13 +862,13 @@ readonly final class DesignLinter
                     return null;
                 }
 
-                $items[] = ['top' => $rects[$memberId]->y, 'height' => $heights[$memberId], 'image' => false];
+                $items[] = ['top' => $rects[$memberId]->y, 'height' => $heights[$memberId], 'decoration' => false];
 
                 continue;
             }
 
-            if (self::isDecorativeImage($member) && isset($rects[$memberId], $heights[$memberId])) {
-                $items[] = ['top' => $rects[$memberId]->y, 'height' => $heights[$memberId], 'image' => true];
+            if (self::isDecorationMember($member) && isset($rects[$memberId], $heights[$memberId])) {
+                $items[] = ['top' => $rects[$memberId]->y, 'height' => $heights[$memberId], 'decoration' => true];
             }
         }
 
@@ -842,7 +885,7 @@ readonly final class DesignLinter
                 return null;
             }
 
-            $items[] = ['top' => $childFlow['top'], 'height' => $childFlow['height'], 'image' => false];
+            $items[] = ['top' => $childFlow['top'], 'height' => $childFlow['height'], 'decoration' => false];
         }
 
         $items = self::withoutAttachments($items);
@@ -880,18 +923,18 @@ readonly final class DesignLinter
      * next to its line). An image that overlaps nothing is a standalone
      * separator and keeps its slot.
      *
-     * @param list<array{top: float, height: float, image: bool}> $items
-     * @return list<array{top: float, height: float, image: bool}>
+     * @param list<array{top: float, height: float, decoration: bool}> $items
+     * @return list<array{top: float, height: float, decoration: bool}>
      */
     private static function withoutAttachments(array $items): array
     {
         return array_values(array_filter($items, static function (array $item) use ($items): bool {
-            if (!$item['image']) {
+            if (!$item['decoration']) {
                 return true;
             }
 
             foreach ($items as $other) {
-                if ($other['image']) {
+                if ($other['decoration']) {
                     continue;
                 }
 
@@ -921,7 +964,7 @@ readonly final class DesignLinter
         foreach ($container->memberIds as $memberId) {
             $member = $document->element($memberId);
 
-            if ($member instanceof TextElement || self::isDecorativeImage($member)) {
+            if ($member instanceof TextElement || self::isDecorationMember($member)) {
                 $count++;
             }
         }
@@ -936,14 +979,20 @@ readonly final class DesignLinter
     }
 
     /**
-     * Mirrors `isMemberCandidate()` in `assets/editor/container_layout.js` for
-     * the image half: a fillable placeholder never flows (§4.4-18 — its frame
-     * is load-bearing for the API and the fill page), only a decorative image
-     * does. `DslParser` refuses a placeholder member outright, so this only
-     * ever bites on a document built without it — the decompiler's.
+     * Mirrors `isDecorationObject()` in `assets/editor/container_layout.js`:
+     * the non-text flow material is a DECORATIVE image or a shape. A fillable
+     * placeholder never flows (§4.4-18 — its frame is load-bearing for the API
+     * and the fill page); a shape has nothing to exclude, being decorative by
+     * definition. `DslParser` refuses a placeholder member outright, so the
+     * image half only ever bites on a document built without it — the
+     * decompiler's.
      */
-    private static function isDecorativeImage(null|DesignElement $element): bool
+    private static function isDecorationMember(null|DesignElement $element): bool
     {
+        if ($element instanceof ShapeElement) {
+            return true;
+        }
+
         return $element instanceof ImageElement && !$element->isPlaceholder();
     }
 

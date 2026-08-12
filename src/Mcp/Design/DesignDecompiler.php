@@ -17,12 +17,17 @@ use WBoost\Web\Mcp\Design\Dsl\ImageInputSpec;
 use WBoost\Web\Mcp\Design\Dsl\Placement;
 use WBoost\Web\Mcp\Design\Dsl\PlacementArea;
 use WBoost\Web\Mcp\Design\Dsl\SemanticPlacement;
+use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
 use WBoost\Web\Mcp\Design\Dsl\TextAlign;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Dsl\TextInputSpec;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\CanvasShape;
+use WBoost\Web\Value\CanvasShapeGradient;
+use WBoost\Web\Value\CanvasShapeKind;
+use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\RichText;
@@ -344,7 +349,7 @@ readonly final class DesignDecompiler
      * @param array<array-key, mixed> $canvas
      * @param list<EditorTextInput> $textInputs
      * @param list<DesignLoss> $losses
-     * @return list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'background', textInputIndex: null|int}>
+     * @return list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'shape'|'background', textInputIndex: null|int}>
      */
     private static function readSlots(array $canvas, array $textInputs, array &$losses): array
     {
@@ -355,7 +360,7 @@ readonly final class DesignDecompiler
             return [];
         }
 
-        /** @var list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'background', textInputIndex: null|int}> $slots */
+        /** @var list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'shape'|'background', textInputIndex: null|int}> $slots */
         $slots = [];
         $position = 0;
         $textboxIndex = 0;
@@ -432,8 +437,19 @@ readonly final class DesignDecompiler
                 continue;
             }
 
+            if (CanvasShape::isShapeType($type)) {
+                $slots[] = [
+                    'index' => $index,
+                    'object' => $object,
+                    'kind' => 'shape',
+                    'textInputIndex' => null,
+                ];
+
+                continue;
+            }
+
             $losses[] = new DesignLoss($path, DesignLossCode::ObjectDropped, sprintf(
-                '%s is a "%s" object. DSL v1 has element kinds for text, images and the background only, so it is not in the document and saving would DELETE it.',
+                '%s is a "%s" object. The DSL has element kinds for text, images, shapes and the background only, so it is not in the document and saving would DELETE it.',
                 $path,
                 self::string($object, 'type') ?? 'unknown',
             ));
@@ -462,7 +478,7 @@ readonly final class DesignDecompiler
      * `slot position → slug`, named through {@see DesignSlug} in
      * {@see DesignIdentity::fromInputs()}'s walk order.
      *
-     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'background', textInputIndex: null|int}> $slots
+     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'shape'|'background', textInputIndex: null|int}> $slots
      * @param list<EditorTextInput> $textInputs
      * @param list<EditorImageInput> $imageInputs
      * @param list<DesignLoss> $losses
@@ -537,6 +553,12 @@ readonly final class DesignDecompiler
                 'text' => 'text',
                 'background' => 'background',
                 'image' => 'image',
+                // The KIND, not the word "shape": a canvas of unnamed blocks
+                // decompiles to `rectangle`, `rectangle-2`, `circle` rather
+                // than `shape`, `shape-2`, `shape-3`, which is the difference
+                // between a document an agent can edit and one it has to
+                // re-read the geometry of.
+                'shape' => (CanvasShapeKind::fromCanvasObject($slot['object']) ?? CanvasShapeKind::Rectangle)->value,
             };
 
             $slug = DesignSlug::unique(
@@ -556,7 +578,7 @@ readonly final class DesignDecompiler
      * here so the agent is TOLD which element is about to lose its identity
      * rather than discovering it in a broken fill.
      *
-     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'background', textInputIndex: null|int}> $slots
+     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'shape'|'background', textInputIndex: null|int}> $slots
      * @param array<int, string> $slugs
      * @param list<EditorTextInput> $textInputs
      * @param list<DesignLoss> $losses
@@ -625,7 +647,7 @@ readonly final class DesignDecompiler
      * The drawable elements, background first (the compiler pins it to stack
      * index 0 regardless of where it was stored, so the document says so too).
      *
-     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'background', textInputIndex: null|int}> $slots
+     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'shape'|'background', textInputIndex: null|int}> $slots
      * @param array<int, string> $slugs
      * @param list<EditorTextInput> $textInputs
      * @param list<EditorImageInput> $imageInputs
@@ -676,7 +698,16 @@ readonly final class DesignDecompiler
             }
 
             self::reportSharedTransforms($path, $object, $losses);
-            self::reportSharedStyles($path, $object, $losses);
+            // A shape words its own opacity, stroke and editor lock.
+            $isShape = $slot['kind'] === 'shape';
+            self::reportSharedStyles(
+                $path,
+                $object,
+                $losses,
+                allowEditorLock: $isShape,
+                allowOpacity: $isShape,
+                allowStroke: $isShape,
+            );
 
             if ($slot['kind'] === 'text') {
                 $rest[] = self::textElement(
@@ -687,6 +718,12 @@ readonly final class DesignDecompiler
                     $canvas,
                     $losses,
                 );
+
+                continue;
+            }
+
+            if ($slot['kind'] === 'shape') {
+                $rest[] = self::shapeElement($slug, $object, $path, $canvas, $losses);
 
                 continue;
             }
@@ -710,7 +747,7 @@ readonly final class DesignDecompiler
      * `slot position → index in the emitted elements[]`, with the background
      * hoisted to 0.
      *
-     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'background', textInputIndex: null|int}> $slots
+     * @param list<array{index: int, object: array<array-key, mixed>, kind: 'text'|'image'|'shape'|'background', textInputIndex: null|int}> $slots
      * @return array<int, int>
      */
     private static function documentIndexes(array $slots): array
@@ -929,6 +966,85 @@ readonly final class DesignDecompiler
         );
 
         return new ImageElement($slug, $assetId, $placement, self::imageInputSpec($object, $input, $placeholder, $path, $losses));
+    }
+
+    /**
+     * A vector shape → {@see ShapeElement}.
+     *
+     * Geometry is read as the DISPLAYED box (`width × scaleX`), which is what
+     * the compiler re-emits at scale 1 — the same flattening
+     * {@see self::textElement()} does for a scaled textbox, and what makes a
+     * shape the designer dragged a corner handle on round-trip to the size it
+     * actually is on screen rather than to its base dimensions.
+     *
+     * `strokeWidth` is NOT scale-corrected on purpose: shapes are authored
+     * `strokeUniform`, so the stored number already is the on-screen weight.
+     *
+     * @param array<array-key, mixed> $object
+     * @param list<DesignLoss> $losses
+     */
+    private static function shapeElement(
+        string $slug,
+        array $object,
+        string $path,
+        CanvasSpec $canvas,
+        array &$losses,
+    ): ShapeElement {
+        $scaleX = self::number($object, 'scaleX') ?? 1.0;
+        $scaleY = self::number($object, 'scaleY') ?? 1.0;
+        $kind = CanvasShapeKind::fromCanvasObject($object) ?? CanvasShapeKind::Rectangle;
+
+        $width = self::positive((self::number($object, 'width') ?? 0.0) * $scaleX, 1.0);
+        $height = self::positive((self::number($object, 'height') ?? 0.0) * $scaleY, 1.0);
+
+        /** @var mixed $rawFill */
+        $rawFill = $object['fill'] ?? null;
+        $gradient = CanvasShapeGradient::fromFabric($rawFill);
+        $fill = ShapeElement::DEFAULT_FILL;
+
+        if ($gradient !== null) {
+            $fill = $gradient;
+        } elseif (is_string($rawFill)) {
+            $fill = self::normalizeColor($rawFill) ?? ShapeElement::DEFAULT_FILL;
+        } elseif ($rawFill !== null) {
+            // A pattern fill, or a gradient too exotic to name. The shape keeps
+            // its geometry; only the paint is lost.
+            $losses[] = new DesignLoss($path . '.fill', DesignLossCode::StyleDropped, sprintf(
+                '%s.fill is a fill the DSL cannot name (it words flat colours and two-stop gradients only), so saving repaints the shape %s.',
+                $path,
+                ShapeElement::DEFAULT_FILL,
+            ));
+        }
+
+        $strokeWidth = self::number($object, 'strokeWidth') ?? 0.0;
+        $rawStroke = self::string($object, 'stroke');
+        $stroke = $rawStroke === null ? null : self::normalizeColor($rawStroke);
+
+        // Corner radius lives in `rx`/`ry` — but on an Ellipse those very keys
+        // are the radii, i.e. the SIZE, which `width`/`height` already carry.
+        $cornerRadius = $kind->supportsCornerRadius()
+            ? max(0.0, self::number($object, 'rx') ?? 0.0)
+            : 0.0;
+
+        return new ShapeElement(
+            id: $slug,
+            shape: $kind,
+            fill: $fill,
+            stroke: $stroke,
+            strokeWidth: max(0.0, $strokeWidth),
+            strokeStyle: CanvasShapeStroke::fromDashArray($object['strokeDashArray'] ?? null),
+            cornerRadius: $cornerRadius,
+            opacity: min(1.0, max(0.0, self::number($object, 'opacity') ?? 1.0)),
+            name: self::string($object, 'name'),
+            locked: ($object['editorLocked'] ?? false) === true,
+            placement: self::placement(
+                self::number($object, 'left') ?? 0.0,
+                self::number($object, 'top') ?? 0.0,
+                $width,
+                $height,
+                $canvas,
+            ),
+        );
     }
 
     // -----------------------------------------------------------------
@@ -1523,14 +1639,26 @@ readonly final class DesignDecompiler
      * lock on any other object is lost — small, but exactly the kind of thing
      * that has to be said out loud rather than discovered.
      *
+     * The three `$allow*` flags exist because a loss is a statement about the
+     * GRAMMAR, not about the pixel: {@see ShapeElement} words opacity, stroke
+     * and the editor lock, so reporting them on a shape would tell the agent it
+     * is about to destroy something the very next `set_design` writes back
+     * unchanged — and a loss report nobody can trust is worse than none.
+     *
      * @param array<array-key, mixed> $object
      * @param list<DesignLoss> $losses
      */
-    private static function reportSharedStyles(string $path, array $object, array &$losses, bool $allowEditorLock = false): void
-    {
+    private static function reportSharedStyles(
+        string $path,
+        array $object,
+        array &$losses,
+        bool $allowEditorLock = false,
+        bool $allowOpacity = false,
+        bool $allowStroke = false,
+    ): void {
         $opacity = self::number($object, 'opacity');
 
-        if ($opacity !== null && abs($opacity - 1.0) > 1.0e-4) {
+        if (!$allowOpacity && $opacity !== null && abs($opacity - 1.0) > 1.0e-4) {
             $losses[] = new DesignLoss($path, DesignLossCode::StyleDropped, sprintf(
                 '%s has opacity %s; the DSL has no opacity and saving makes it fully opaque.',
                 $path,
@@ -1547,7 +1675,7 @@ readonly final class DesignDecompiler
 
         $stroke = self::string($object, 'stroke');
 
-        if ($stroke !== null && trim($stroke) !== '' && (self::number($object, 'strokeWidth') ?? 0.0) > 0.0) {
+        if (!$allowStroke && $stroke !== null && trim($stroke) !== '' && (self::number($object, 'strokeWidth') ?? 0.0) > 0.0) {
             $losses[] = new DesignLoss($path, DesignLossCode::StyleDropped, sprintf(
                 '%s has an outline stroke; the DSL has no word for it and saving removes it.',
                 $path,

@@ -404,6 +404,8 @@ within the document. Slugs carry input identity across saves.
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue` |
 | `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
+| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `at`, `x`, `y`, `width`, `height` |
+| `shape` gradient fill | `type`, `angle`, `from`, `to` |
 | `background` element | `kind`, `id`, `asset`, `fillable` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter` |
 
@@ -411,9 +413,12 @@ within the document. Slugs carry input identity across saves.
 
 | where | accepted values |
 |---|---|
-| `kind` | `text`, `image`, `background`, `container` |
+| `kind` | `text`, `image`, `shape`, `background`, `container` |
 | `at.area` | `top`, `upper`, `middle`, `lower`, `bottom`, `full` |
 | `align` | `left`, `center`, `right`, `justify` |
+| `shape` | `rectangle`, `square`, `circle`, `ellipse`, `triangle`, `line`, `star` |
+| `strokeStyle` | `solid`, `dashed`, `dotted` |
+| gradient `fill.type` | `linear`, `radial` |
 
 ### Required, and defaults
 
@@ -434,11 +439,26 @@ within the document. Slugs carry input identity across saves.
   decorative. Its input defaults: `placeholder` true, `allowMove` true,
   `allowResize` true, `allowRotate` false, `hidable` false,
   `allowedDirectories` `[]` (= the whole gallery, never "none").
+- **`shape`**: only `shape` is required, plus a placement (`height` included —
+  a shape is whatever size you author it at; omitted, it is square). Everything
+  else defaults to a plain black block: `fill` `#000000`, `stroke` `null`,
+  `strokeWidth` `0`, `strokeStyle` `solid`, `cornerRadius` `0`, `opacity` `1`,
+  `name` `null`, `locked` `false`. `fill` is either a colour string or a two-stop
+  gradient object `{"type": "linear", "angle": 45, "from": "#…", "to": "#…"}` —
+  `angle` is degrees clockwise, 0 = left to right, 90 = top to bottom, and is
+  ignored for a `radial` gradient, which is always centre-out. `cornerRadius`
+  applies to `rectangle` / `square` / `line` only; on the others it must stay
+  `0`, because those shapes' radii ARE their size. `opacity` is a fraction
+  (`0.6` = 60 % opaque), not a percentage. `locked` is the EDITOR lock — it makes
+  the shape click-through for the designer and never affects the export. A shape
+  is decorative: it is never a fillable input and adds nothing to
+  `describe_variant`, but it MAY be a container member.
 - **`background`**: at most **one** per document; it compiles to the single
   background layer pinned to the bottom of the stack. `fillable: true` makes it a
   fillable whole-canvas cover slot.
 - **`container`**: needs at least 2 referenced items counting `members` and
-  `children` together. `members` are texts and **decorative** images — never a
+  `children` together. `members` are texts, shapes and **decorative** images — never
+  a
   fillable image placeholder, never the background, never another container
   (nest via `children`). A container has exactly one parent and the graph must be
   a tree. **A top-level container must carry `maxHeight`**; a nested one may omit
@@ -449,7 +469,7 @@ within the document. Slugs carry input identity across saves.
 - **`asset` / `allowedDirectories[]`**: gallery UUIDs from `list_gallery` or
   `upload_image` — never a file name or a URL.
 
-A worked document that exercises all four kinds is in `SKILL.md`.
+A worked document that exercises all five kinds is in `SKILL.md`.
 
 ---
 

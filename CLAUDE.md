@@ -293,12 +293,30 @@ on the canvas through its own floating popover, Canva-style.
   `container_layout.js`, mirrored in `DesignCompiler::isMemberCandidate` and in
   `AbstractVariantFiller::decorativeMemberFrames` (the fill overlay needs their
   frames to reflow pixel-identically to the server render).
-- **Known gap — the MCP design DSL v1 has no shape element kind.** A
-  `set_design` round-trip over a variant containing shapes reports them as
-  `DesignLossCode::ObjectDropped` ("saving would DELETE it"). That is the
-  existing, deliberate guard for any unrepresentable object, so the loss is
-  surfaced rather than silent — but adding shapes to the DSL (parser, compiler,
-  decompiler, lint) is a separate piece of work.
+- **The MCP design DSL words shapes too** (`{"kind": "shape", …}`, 2026-08-12):
+  `ElementKind::Shape` + `Dsl/ShapeElement` + `DslParser::SHAPE_KEYS` /
+  `SHAPE_FILL_KEYS`, `DesignCompiler::compileShapeObject` (+
+  `SHAPE_CUSTOM_PROPERTIES`), a `shapeElement()` branch in the decompiler, and
+  bounds linting. The vocabulary is the EDITOR's, not a second model —
+  `src/Value/CanvasShapeKind` / `CanvasShapeStroke` / `CanvasShapeGradient`
+  mirror `canvas_shapes.js`, so `shape: "line"` in is `shape: "line"` out and a
+  compiled canvas is indistinguishable from an editor save. Notes:
+  - **Geometry is the DISPLAYED box.** The compiler emits base dimensions at
+    scale 1 and uses a scale only where the Fabric type forces it (a `Circle`
+    has ONE radius, so a non-square box — what a designer gets by dragging a
+    corner handle — needs `scaleY`). A star's `points` are normalised to span
+    the authored box exactly, which is what makes an editor-made star
+    recompile to itself.
+  - **`cornerRadius` is refused on non-Rect kinds**, not ignored: on an
+    `Ellipse` the very same `rx`/`ry` ARE the radii, so honouring it would
+    silently resize the shape.
+  - **Three shared-style losses became conditional.** `reportSharedStyles` used
+    to flag opacity / stroke / `editorLocked` on every object; a shape words all
+    three, and reporting them would tell the agent it is about to destroy
+    something the next `set_design` writes back unchanged.
+  - The `layer-shapes` round-trip fixture is a REAL browser-authored canvas and
+    is **lossless** — the only such one besides the empty write target, because
+    the grammar was written against what the editor already emits.
 
 **Containers — smart text areas (document-like vertical reflow)**
 

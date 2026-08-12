@@ -97,6 +97,17 @@ readonly final class DesignDocument
     }
 
     /**
+     * @return list<ShapeElement>
+     */
+    public function shapeElements(): array
+    {
+        return array_values(array_filter(
+            $this->elements,
+            static fn (DesignElement $element): bool => $element instanceof ShapeElement,
+        ));
+    }
+
+    /**
      * @return list<ContainerElement>
      */
     public function containerElements(): array
@@ -111,11 +122,11 @@ readonly final class DesignDocument
      * The elements that actually become Fabric objects, in stack order —
      * everything except container definitions.
      *
-     * @return list<TextElement|ImageElement|BackgroundElement>
+     * @return list<TextElement|ImageElement|ShapeElement|BackgroundElement>
      */
     public function drawableElements(): array
     {
-        /** @var list<TextElement|ImageElement|BackgroundElement> $drawable */
+        /** @var list<TextElement|ImageElement|ShapeElement|BackgroundElement> $drawable */
         $drawable = array_values(array_filter(
             $this->elements,
             static fn (DesignElement $element): bool => !$element instanceof ContainerElement,

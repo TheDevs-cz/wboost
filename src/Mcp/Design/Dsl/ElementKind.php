@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Mcp\Design\Dsl;
 
 /**
- * The four things a design document can contain (plan §3.4).
+ * The five things a design document can contain (plan §3.4, plus `shape`).
  *
  * The `kind` discriminator is what the parser branches on, so the allowed
  * values are also what an unknown-kind error message lists — that is the whole
@@ -15,6 +15,7 @@ enum ElementKind: string
 {
     case Text = 'text';
     case Image = 'image';
+    case Shape = 'shape';
     case Background = 'background';
     case Container = 'container';
 

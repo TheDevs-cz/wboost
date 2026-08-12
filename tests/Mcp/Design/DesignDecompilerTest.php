@@ -18,10 +18,14 @@ use WBoost\Web\Mcp\Design\Dsl\DslParser;
 use WBoost\Web\Mcp\Design\Dsl\Placement;
 use WBoost\Web\Mcp\Design\Dsl\PlacementArea;
 use WBoost\Web\Mcp\Design\Dsl\Rect;
+use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\CanvasShapeGradient;
+use WBoost\Web\Value\CanvasShapeKind;
+use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 
@@ -226,8 +230,10 @@ final class DesignDecompilerTest extends TestCase
 
     public function testAnObjectKindTheDslHasNoWordForIsDroppedAndReported(): void
     {
+        // A Group is the real remaining case: the render template builds one
+        // for a lists-bearing rich text, and there is no DSL word for it.
         $canvas = ['objects' => [
-            ['type' => 'Rect', 'left' => 0, 'top' => 0, 'width' => 100, 'height' => 100],
+            ['type' => 'Group', 'left' => 0, 'top' => 0, 'width' => 100, 'height' => 100],
             self::textbox([]),
         ]];
 
@@ -235,8 +241,105 @@ final class DesignDecompilerTest extends TestCase
 
         self::assertCount(1, $decompiled->document->elements);
         self::assertSame([DesignLossCode::ObjectDropped], self::codes($decompiled));
-        self::assertStringContainsString('"Rect"', $decompiled->losses[0]->message);
+        self::assertStringContainsString('"Group"', $decompiled->losses[0]->message);
         self::assertTrue($decompiled->losses[0]->destructive);
+    }
+
+    public function testAVectorShapeSurvivesWithItsKindFillAndBorder(): void
+    {
+        $canvas = ['objects' => [
+            [
+                'type' => 'Rect',
+                'shapeKind' => 'line',
+                'left' => 40, 'top' => 900, 'width' => 1000, 'height' => 6,
+                'scaleX' => 1, 'scaleY' => 1,
+                'fill' => '#C8102E',
+                'stroke' => '#000000', 'strokeWidth' => 2, 'strokeDashArray' => [6, 4],
+                'rx' => 3, 'ry' => 3,
+                'opacity' => 0.5,
+                'name' => 'Linka',
+                'editorLocked' => true,
+            ],
+        ]];
+
+        $decompiled = self::decompile($canvas, [], []);
+
+        self::assertSame([], $decompiled->losses, 'Everything on this shape has a DSL word; nothing is lost.');
+
+        $element = $decompiled->document->elements[0];
+        self::assertInstanceOf(ShapeElement::class, $element);
+        self::assertSame(CanvasShapeKind::Line, $element->shape);
+        self::assertSame('linka', $element->id, 'The layer name becomes the slug.');
+        self::assertSame('#c8102e', $element->fill);
+        self::assertSame('#000000', $element->stroke);
+        self::assertSame(2.0, $element->strokeWidth);
+        self::assertSame(CanvasShapeStroke::Dashed, $element->strokeStyle);
+        self::assertSame(3.0, $element->cornerRadius);
+        self::assertSame(0.5, $element->opacity);
+        self::assertTrue($element->locked);
+
+        $rect = self::rect($element->placement);
+        self::assertSame(1000.0, $rect->width);
+        self::assertSame(6.0, $rect->height);
+    }
+
+    public function testAShapeGradientRoundTripsAsTypeAngleAndTwoStops(): void
+    {
+        $canvas = ['objects' => [
+            [
+                'type' => 'Ellipse',
+                'shapeKind' => 'ellipse',
+                'left' => 0, 'top' => 0, 'width' => 400, 'height' => 200,
+                'rx' => 200, 'ry' => 100,
+                'fill' => [
+                    'type' => 'linear',
+                    'gradientUnits' => 'percentage',
+                    'coords' => ['x1' => 0.5, 'y1' => 0.0, 'x2' => 0.5, 'y2' => 1.0],
+                    'colorStops' => [
+                        ['offset' => 1, 'color' => '#0000FF'],
+                        ['offset' => 0, 'color' => '#FF0000'],
+                    ],
+                ],
+            ],
+        ]];
+
+        $decompiled = self::decompile($canvas, [], []);
+
+        self::assertSame([], $decompiled->losses);
+
+        $element = $decompiled->document->elements[0];
+        self::assertInstanceOf(ShapeElement::class, $element);
+        $fill = $element->fill;
+        self::assertInstanceOf(CanvasShapeGradient::class, $fill);
+        self::assertSame('linear', $fill->type);
+        // Stops arrive out of order; the reader sorts by offset.
+        self::assertSame('#ff0000', $fill->from);
+        self::assertSame('#0000ff', $fill->to);
+        self::assertSame(90.0, $fill->angle, '0,0 → 0,1 is top-to-bottom, i.e. 90°.');
+        self::assertSame(0.0, $element->cornerRadius, 'An ellipse\'s rx/ry are its radii, never a corner radius.');
+    }
+
+    public function testAShapeStretchedByItsScaleDecompilesToTheDisplayedBox(): void
+    {
+        $canvas = ['objects' => [
+            [
+                'type' => 'Circle',
+                'shapeKind' => 'circle',
+                'left' => 100, 'top' => 100, 'width' => 200, 'height' => 200, 'radius' => 100,
+                'scaleX' => 1.5, 'scaleY' => 0.5,
+                'fill' => '#000000',
+            ],
+        ]];
+
+        $decompiled = self::decompile($canvas, [], []);
+
+        $element = $decompiled->document->elements[0];
+        self::assertInstanceOf(ShapeElement::class, $element);
+
+        $rect = self::rect($element->placement);
+        self::assertSame(300.0, $rect->width);
+        self::assertSame(100.0, $rect->height);
+        self::assertSame([], $decompiled->losses, 'A scaled shape is expressible as its displayed box.');
     }
 
     public function testADesignHiddenLayerIsDroppedWithoutConsumingAnInputSlot(): void

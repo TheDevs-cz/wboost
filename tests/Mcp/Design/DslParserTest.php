@@ -16,8 +16,12 @@ use WBoost\Web\Mcp\Design\Dsl\ElementKind;
 use WBoost\Web\Mcp\Design\Dsl\ImageElement;
 use WBoost\Web\Mcp\Design\Dsl\PlacementArea;
 use WBoost\Web\Mcp\Design\Dsl\Rect;
+use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
 use WBoost\Web\Mcp\Design\Dsl\TextAlign;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
+use WBoost\Web\Value\CanvasShapeGradient;
+use WBoost\Web\Value\CanvasShapeKind;
+use WBoost\Web\Value\CanvasShapeStroke;
 
 /**
  * The strict DSL parser (S4-T1), tested as the pure function it is — no
@@ -56,8 +60,8 @@ final class DslParserTest extends TestCase
         self::assertNull($document->canvas->backgroundImageAssetId);
         self::assertSame('#111111', $document->canvas->backgroundFill);
 
-        self::assertCount(5, $document->elements);
-        self::assertSame(['bg', 'headline', 'subhead', 'photo', 'body'], $document->elementIds());
+        self::assertCount(6, $document->elements);
+        self::assertSame(['bg', 'headline', 'subhead', 'photo', 'scrim', 'body'], $document->elementIds());
     }
 
     public function testParsesTheBackgroundElement(): void
@@ -121,6 +125,85 @@ final class DslParserTest extends TestCase
         self::assertFalse($input->allowRotate);
         self::assertTrue($input->hidable);
         self::assertSame([self::DIRECTORY], $input->allowedDirectories);
+    }
+
+    public function testParsesAShapeElementWithEveryField(): void
+    {
+        $shape = DslParser::parse(self::fullDocument())->element('scrim');
+
+        self::assertInstanceOf(ShapeElement::class, $shape);
+        self::assertSame(ElementKind::Shape, $shape->kind());
+        self::assertSame(CanvasShapeKind::Rectangle, $shape->shape);
+        self::assertSame('#00aa00', $shape->stroke);
+        self::assertSame(4.0, $shape->strokeWidth);
+        self::assertSame(CanvasShapeStroke::Dashed, $shape->strokeStyle);
+        self::assertSame(18.0, $shape->cornerRadius);
+        self::assertSame(0.6, $shape->opacity);
+        self::assertSame('Scrim', $shape->name);
+        self::assertTrue($shape->locked);
+        self::assertSame(300.0, $shape->placement->height);
+
+        $fill = $shape->fill;
+        self::assertInstanceOf(CanvasShapeGradient::class, $fill);
+        self::assertSame('linear', $fill->type);
+        self::assertSame(45.0, $fill->angle);
+        self::assertSame('#ff0000', $fill->from);
+        self::assertSame('#0000ff', $fill->to);
+    }
+
+    /**
+     * The commonest shape an agent writes is a flat block, so everything except
+     * the kind and the placement has to have a defensible default.
+     */
+    public function testAShapeNeedsOnlyItsKindAndAPlacement(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            ['kind' => 'shape', 'id' => 'block', 'shape' => 'circle', 'x' => 10, 'y' => 20, 'width' => 200],
+        ));
+
+        $shape = $document->element('block');
+        self::assertInstanceOf(ShapeElement::class, $shape);
+        self::assertSame(CanvasShapeKind::Circle, $shape->shape);
+        self::assertSame(ShapeElement::DEFAULT_FILL, $shape->fill);
+        self::assertNull($shape->stroke);
+        self::assertSame(0.0, $shape->strokeWidth);
+        self::assertSame(CanvasShapeStroke::Solid, $shape->strokeStyle);
+        self::assertSame(0.0, $shape->cornerRadius);
+        self::assertSame(1.0, $shape->opacity);
+        self::assertNull($shape->name);
+        self::assertFalse($shape->locked);
+        // Unauthored height = square, the honest default when nothing implies
+        // a proportion (mirrors the compiler's no-asset image rule).
+        self::assertNull($shape->placement->height);
+        self::assertSame(200.0, ShapeElement::frameHeight($shape->placement->resolve(null)));
+    }
+
+    public function testARadialGradientIgnoresAnAuthoredAngleSoItsWireFormStaysStable(): void
+    {
+        $document = DslParser::parse(self::documentWith([
+            'kind' => 'shape', 'id' => 'glow', 'shape' => 'ellipse',
+            'x' => 0, 'y' => 0, 'width' => 400, 'height' => 400,
+            'fill' => ['type' => 'radial', 'angle' => 12, 'from' => '#ffcc00', 'to' => '#cc0033'],
+        ]));
+
+        $shape = $document->element('glow');
+        self::assertInstanceOf(ShapeElement::class, $shape);
+        $fill = $shape->fill;
+        self::assertInstanceOf(CanvasShapeGradient::class, $fill);
+        self::assertSame(90.0, $fill->angle, 'A radial gradient is centre-out; the angle is pinned so toArray() re-parses.');
+    }
+
+    public function testAShapeMayBeAContainerMemberLikeADecorativeImage(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'title']),
+            ['kind' => 'shape', 'id' => 'rule', 'shape' => 'line', 'x' => 0, 'y' => 200, 'width' => 600, 'height' => 4],
+            ['kind' => 'container', 'id' => 'head', 'members' => ['title', 'rule'], 'maxHeight' => 400],
+        ));
+
+        $container = $document->element('head');
+        self::assertInstanceOf(ContainerElement::class, $container);
+        self::assertSame(['title', 'rule'], $container->memberIds);
     }
 
     public function testParsesAContainerElementWithEveryField(): void
@@ -450,8 +533,64 @@ final class DslParserTest extends TestCase
             self::documentWith(['id' => 'headline']),
             'elements[0].kind',
             DslErrorCode::MissingKey,
-            'Allowed kinds: text, image, background, container.',
+            'Allowed kinds: text, image, shape, background, container.',
         ];
+        // --- shapes -------------------------------------------------
+        yield 'shape.shape missing' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].shape',
+            DslErrorCode::MissingKey,
+            'Which shape to draw: rectangle, square, circle, ellipse, triangle, line, star.',
+        ];
+        yield 'shape.shape not a known kind' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'hexagon', 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].shape',
+            DslErrorCode::InvalidValue,
+            'must be one of: rectangle, square, circle, ellipse, triangle, line, star.',
+        ];
+        yield 'shape.cornerRadius on a shape with no corners' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'dot', 'shape' => 'circle', 'cornerRadius' => 8, 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].cornerRadius',
+            DslErrorCode::InvalidValue,
+            'only applies to a rectangle / square / line',
+        ];
+        yield 'shape.opacity as a percentage' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'opacity' => 60, 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].opacity',
+            DslErrorCode::InvalidValue,
+            'is a fraction between 0 and 1',
+        ];
+        yield 'shape.strokeStyle not a known style' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'strokeStyle' => 'dotdash', 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].strokeStyle',
+            DslErrorCode::InvalidValue,
+            'must be one of: solid, dashed, dotted.',
+        ];
+        yield 'shape gradient without a type' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['from' => '#000000', 'to' => '#ffffff'], 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].fill.type',
+            DslErrorCode::InvalidValue,
+            'must be "linear" or "radial"',
+        ];
+        yield 'shape gradient with an unknown key' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'from' => '#000000', 'to' => '#ffffff', 'stops' => 3], 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].fill.stops',
+            DslErrorCode::UnknownKey,
+            'elements[0].fill.stops',
+        ];
+        yield 'shape gradient angle out of range' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'angle' => 360, 'from' => '#000000', 'to' => '#ffffff'], 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].fill.angle',
+            DslErrorCode::InvalidValue,
+            'up to but not including 360',
+        ];
+        yield 'shape with no placement at all' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square']),
+            'elements[0]',
+            DslErrorCode::MissingKey,
+            'x',
+        ];
+
         yield 'element id missing' => [
             self::documentWith(self::textElement(remove: ['id'])),
             'elements[0].id',
@@ -634,7 +773,7 @@ final class DslParserTest extends TestCase
             self::documentWith(['kind' => 'headline', 'id' => 'x']),
             'elements[0].kind',
             DslErrorCode::InvalidValue,
-            'must be one of: text, image, background, container.',
+            'must be one of: text, image, shape, background, container.',
         ];
         yield 'unknown align' => [
             self::documentWith(self::textElement(['align' => 'centre'])),
@@ -1048,6 +1187,21 @@ final class DslParserTest extends TestCase
                         'hidable' => true,
                         'allowedDirectories' => [self::DIRECTORY],
                     ],
+                ],
+                [
+                    'kind' => 'shape',
+                    'id' => 'scrim',
+                    'shape' => 'rectangle',
+                    'at' => ['area' => 'middle', 'col' => [2, 11]],
+                    'height' => 300,
+                    'fill' => ['type' => 'linear', 'angle' => 45, 'from' => '#ff0000', 'to' => '#0000ff'],
+                    'stroke' => '#00aa00',
+                    'strokeWidth' => 4,
+                    'strokeStyle' => 'dashed',
+                    'cornerRadius' => 18,
+                    'opacity' => 0.6,
+                    'name' => 'Scrim',
+                    'locked' => true,
                 ],
                 [
                     'kind' => 'container',

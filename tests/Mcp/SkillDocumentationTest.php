@@ -100,6 +100,8 @@ final class SkillDocumentationTest extends KernelTestCase
         '`text` input block' => DslParser::TEXT_INPUT_KEYS,
         '`image` element' => DslParser::IMAGE_KEYS,
         '`image` input block' => DslParser::IMAGE_INPUT_KEYS,
+        '`shape` element' => DslParser::SHAPE_KEYS,
+        '`shape` gradient fill' => DslParser::SHAPE_FILL_KEYS,
         '`background` element' => DslParser::BACKGROUND_KEYS,
         '`container` element' => DslParser::CONTAINER_KEYS,
     ];

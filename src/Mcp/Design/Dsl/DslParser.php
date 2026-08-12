@@ -6,6 +6,9 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Exceptions\InvalidDesignDocument;
+use WBoost\Web\Value\CanvasShapeGradient;
+use WBoost\Web\Value\CanvasShapeKind;
+use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\RichText;
 
 /**
@@ -75,6 +78,19 @@ final class DslParser
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
+
+    /** @var list<string> */
+    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'name', 'locked', 'at', 'x', 'y', 'width', 'height'];
+
+    /**
+     * A gradient `fill` object. `angle` is accepted (and ignored) for a radial
+     * gradient rather than refused: the canonical wire form emits every key
+     * with its resolved value, so a radial element's own `toArray()` has to
+     * re-parse.
+     *
+     * @var list<string>
+     */
+    public const array SHAPE_FILL_KEYS = ['type', 'angle', 'from', 'to'];
 
     /** @var list<string> */
     public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fillable'];
@@ -316,6 +332,7 @@ final class DslParser
         $allowedKeys = match ($kind) {
             ElementKind::Text => self::TEXT_KEYS,
             ElementKind::Image => self::IMAGE_KEYS,
+            ElementKind::Shape => self::SHAPE_KEYS,
             ElementKind::Background => self::BACKGROUND_KEYS,
             ElementKind::Container => self::CONTAINER_KEYS,
         };
@@ -327,6 +344,7 @@ final class DslParser
         $element = match ($kind) {
             ElementKind::Text => $this->parseTextElement($path, $raw, $id),
             ElementKind::Image => $this->parseImageElement($path, $raw, $id),
+            ElementKind::Shape => $this->parseShapeElement($path, $raw, $id),
             ElementKind::Background => $this->parseBackgroundElement($path, $raw, $id),
             ElementKind::Container => $this->parseContainerElement($path, $raw, $id),
         };
@@ -378,6 +396,247 @@ final class DslParser
         }
 
         return new ImageElement($id, $assetId, $placement, $input);
+    }
+
+    /**
+     * A vector shape. Only `shape` is required — everything else has a
+     * defensible default, because the commonest authored shape is a flat
+     * coloured block and making an agent spell out "no border, square corners,
+     * fully opaque" every time is grammar for its own sake.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function parseShapeElement(string $path, array $raw, null|string $id): null|ShapeElement
+    {
+        $shape = $this->requirePresent($path, $raw, 'shape', sprintf('Which shape to draw: %s.', implode(', ', CanvasShapeKind::values())))
+            ? $this->readShapeKind($path, $raw)
+            : null;
+
+        $fill = $this->readShapeFill($path, $raw) ?? ShapeElement::DEFAULT_FILL;
+        $stroke = $this->readHexColor($path, $raw, 'stroke');
+        $strokeWidth = $this->readNonNegativeNumber($path, $raw, 'strokeWidth') ?? 0.0;
+        $strokeStyle = $this->readShapeStroke($path, $raw);
+        $cornerRadius = $this->readNonNegativeNumber($path, $raw, 'cornerRadius') ?? 0.0;
+        $opacity = $this->readOpacity($path, $raw);
+        $name = $this->readString($path, $raw, 'name');
+        $locked = $this->readBool($path, $raw, 'locked', false);
+        $placement = $this->parsePlacement($path, $raw, allowHeight: true);
+
+        // Rounding is a rectangle affordance. On an Ellipse (and on the Circle
+        // and Polygon that carry no rx/ry at all) Fabric's `rx`/`ry` ARE the
+        // radii — honouring a corner radius there would silently resize the
+        // shape, so it is refused rather than ignored. Zero always passes: the
+        // canonical wire form emits the key for every kind.
+        if ($shape !== null && $cornerRadius > 0.0 && !$shape->supportsCornerRadius()) {
+            $this->violation(self::join($path, 'cornerRadius'), DslErrorCode::InvalidValue, sprintf(
+                '%s.cornerRadius only applies to a %s. A "%s" has no corners to round, so leave it at 0.',
+                $path,
+                implode(' / ', array_map(
+                    static fn (CanvasShapeKind $case): string => $case->value,
+                    array_filter(CanvasShapeKind::cases(), static fn (CanvasShapeKind $case): bool => $case->supportsCornerRadius()),
+                )),
+                $shape->value,
+            ));
+
+            return null;
+        }
+
+        if ($id === null || $shape === null || $placement === null) {
+            return null;
+        }
+
+        return new ShapeElement(
+            id: $id,
+            shape: $shape,
+            fill: $fill,
+            stroke: $stroke,
+            strokeWidth: $strokeWidth,
+            strokeStyle: $strokeStyle,
+            cornerRadius: $cornerRadius,
+            opacity: $opacity,
+            name: $name,
+            locked: $locked,
+            placement: $placement,
+        );
+    }
+
+    /**
+     * @param array<array-key, mixed> $raw
+     */
+    private function readShapeKind(string $path, array $raw): null|CanvasShapeKind
+    {
+        $value = $raw['shape'] ?? null;
+
+        if (!is_string($value)) {
+            $this->wrongType($path, 'shape', sprintf('one of: %s', implode(', ', CanvasShapeKind::values())), $value);
+
+            return null;
+        }
+
+        $kind = CanvasShapeKind::tryFrom($value);
+
+        if ($kind === null) {
+            $this->violation(self::join($path, 'shape'), DslErrorCode::InvalidValue, sprintf(
+                '%s.shape must be one of: %s. Got %s.',
+                $path,
+                implode(', ', CanvasShapeKind::values()),
+                self::describe($value),
+            ));
+        }
+
+        return $kind;
+    }
+
+    /**
+     * @param array<array-key, mixed> $raw
+     */
+    private function readShapeStroke(string $path, array $raw): CanvasShapeStroke
+    {
+        $value = $raw['strokeStyle'] ?? null;
+
+        if ($value === null) {
+            return CanvasShapeStroke::Solid;
+        }
+
+        if (!is_string($value)) {
+            $this->wrongType($path, 'strokeStyle', sprintf('one of: %s', implode(', ', CanvasShapeStroke::values())), $value);
+
+            return CanvasShapeStroke::Solid;
+        }
+
+        $style = CanvasShapeStroke::tryFrom($value);
+
+        if ($style === null) {
+            $this->violation(self::join($path, 'strokeStyle'), DslErrorCode::InvalidValue, sprintf(
+                '%s.strokeStyle must be one of: %s. Got %s.',
+                $path,
+                implode(', ', CanvasShapeStroke::values()),
+                self::describe($value),
+            ));
+
+            return CanvasShapeStroke::Solid;
+        }
+
+        return $style;
+    }
+
+    /**
+     * `opacity` is a fraction, not a percentage — the same 0…1 Fabric stores,
+     * so nothing has to convert on either side of the round-trip.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readOpacity(string $path, array $raw): float
+    {
+        $value = $this->readNonNegativeNumber($path, $raw, 'opacity');
+
+        if ($value === null) {
+            return 1.0;
+        }
+
+        if ($value > 1.0) {
+            $this->violation(self::join($path, 'opacity'), DslErrorCode::InvalidValue, sprintf(
+                '%s.opacity is a fraction between 0 and 1 (0.6 = 60 %% opaque), not a percentage. Got %s.',
+                $path,
+                self::number($value),
+            ));
+
+            return 1.0;
+        }
+
+        return $value;
+    }
+
+    /**
+     * A shape's fill: either a hex colour string or a two-stop gradient object.
+     *
+     * Deliberately NOT checked against the project's brand palette. The
+     * editor's own swatches are suggestions and its picker takes any colour, so
+     * a grammar that refused one would be stricter than the UI it describes —
+     * off-brand fills are a lint (`ColorNotInPalette`), not a parse error.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readShapeFill(string $path, array $raw): null|string|CanvasShapeGradient
+    {
+        $value = $raw['fill'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_string($value)) {
+            return $this->readHexColor($path, $raw, 'fill');
+        }
+
+        if (!self::isObject($value)) {
+            $this->wrongType($path, 'fill', 'a hex colour string like "#c8102e", or a gradient object {type, from, to, angle}', $value);
+
+            return null;
+        }
+
+        $fillPath = self::join($path, 'fill');
+        $this->checkKeys($fillPath, $value, self::SHAPE_FILL_KEYS, 'a gradient fill');
+
+        $type = $value['type'] ?? null;
+
+        if (!is_string($type) || !in_array($type, [CanvasShapeGradient::TYPE_LINEAR, CanvasShapeGradient::TYPE_RADIAL], true)) {
+            $this->violation(self::join($fillPath, 'type'), DslErrorCode::InvalidValue, sprintf(
+                '%s.type must be "%s" or "%s". Got %s.',
+                $fillPath,
+                CanvasShapeGradient::TYPE_LINEAR,
+                CanvasShapeGradient::TYPE_RADIAL,
+                self::describe($type),
+            ));
+
+            return null;
+        }
+
+        $from = $this->requirePresent($fillPath, $value, 'from', 'The gradient\'s first colour, as a hex string.')
+            ? $this->readHexColor($fillPath, $value, 'from')
+            : null;
+
+        $to = $this->requirePresent($fillPath, $value, 'to', 'The gradient\'s second colour, as a hex string.')
+            ? $this->readHexColor($fillPath, $value, 'to')
+            : null;
+
+        if ($from === null || $to === null) {
+            return null;
+        }
+
+        // A radial gradient is centre-out, so an authored angle would be a
+        // silent no-op. Pinning it keeps `toArray()` canonical.
+        $angle = $type === CanvasShapeGradient::TYPE_RADIAL
+            ? 90.0
+            : $this->readGradientAngle($fillPath, $value);
+
+        return new CanvasShapeGradient($type, $angle, $from, $to);
+    }
+
+    /**
+     * @param array<array-key, mixed> $raw
+     */
+    private function readGradientAngle(string $path, array $raw): float
+    {
+        $angle = $this->readNumber($path, $raw, 'angle');
+
+        if ($angle === null) {
+            // Top→bottom: the direction a reader's eye already travels, and the
+            // one the editor's own picker starts on.
+            return 90.0;
+        }
+
+        if ($angle < 0.0 || $angle >= 360.0) {
+            $this->violation(self::join($path, 'angle'), DslErrorCode::InvalidValue, sprintf(
+                '%s.angle is in degrees, 0 (left to right) up to but not including 360, clockwise. Got %s.',
+                $path,
+                self::number($angle),
+            ));
+
+            return 90.0;
+        }
+
+        return $angle;
     }
 
     /**
@@ -863,7 +1122,7 @@ final class DslParser
 
             if ($member instanceof ImageElement && $member->isPlaceholder()) {
                 $this->violation($memberPath, DslErrorCode::InvalidStructure, sprintf(
-                    '%s.members references "%s", which is a fillable image placeholder. Only texts and DECORATIVE images can flow in a container; drop its "input" block or move it out of the container.',
+                    '%s.members references "%s", which is a fillable image placeholder. Only texts, shapes and DECORATIVE images can flow in a container; drop its "input" block or move it out of the container.',
                     $path,
                     $memberId,
                 ));

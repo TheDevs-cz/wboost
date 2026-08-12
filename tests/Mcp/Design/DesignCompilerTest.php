@@ -30,6 +30,7 @@ use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 
@@ -96,6 +97,10 @@ final class DesignCompilerTest extends TestCase
         'scaleX', 'scaleY', 'angle', 'cropX', 'cropY',
         'text', 'fontFamily', 'fontSize', 'fill', 'textAlign', 'lineHeight', 'charSpacing', 'editable',
         'src', 'crossOrigin',
+        // Shape painting + per-type geometry. All native Fabric keys, which is
+        // exactly why a shape needs no custom property for any of them.
+        'opacity', 'stroke', 'strokeWidth', 'strokeUniform', 'strokeDashArray', 'strokeLineCap',
+        'rx', 'ry', 'radius', 'points',
     ];
 
     // =================================================================
@@ -339,7 +344,7 @@ final class DesignCompilerTest extends TestCase
         );
 
         // The subsets the compiler actually writes must be members of it.
-        foreach ([DesignCompiler::TEXT_CUSTOM_PROPERTIES, DesignCompiler::IMAGE_CUSTOM_PROPERTIES] as $subset) {
+        foreach ([DesignCompiler::TEXT_CUSTOM_PROPERTIES, DesignCompiler::IMAGE_CUSTOM_PROPERTIES, DesignCompiler::SHAPE_CUSTOM_PROPERTIES] as $subset) {
             self::assertSame([], array_diff($subset, DesignCompiler::CANVAS_CUSTOM_PROPERTIES));
         }
     }
@@ -377,7 +382,8 @@ final class DesignCompilerTest extends TestCase
      * image must be click-through or it swallows every rubber-band — and
      * §4.3-12 requires using that builder, so stripping it back off would be
      * precisely the hand-rolling §4.3-12 forbids. It therefore appears on the
-     * background layer and nowhere else.
+     * background layer and on SHAPES, whose `locked` key words the very same
+     * flag, and nowhere else.
      *
      * @param array<string, mixed> $design
      */
@@ -395,8 +401,189 @@ final class DesignCompilerTest extends TestCase
                 self::assertArrayNotHasKey($flag, $object);
             }
 
-            if (($object['isBackground'] ?? false) !== true) {
-                self::assertArrayNotHasKey('editorLocked', $object, 'only the background layer is seeded locked');
+            if (($object['isBackground'] ?? false) !== true && ($object['shapeKind'] ?? null) === null) {
+                self::assertArrayNotHasKey('editorLocked', $object, 'only the background layer and shapes carry the editor lock');
+            }
+        }
+    }
+
+    // =================================================================
+    // shapes
+    // =================================================================
+
+    /**
+     * Each shape kind compiles to the Fabric type the EDITOR would have made
+     * for it (`canvas_shapes.js` `createShapeObject`), carrying that type's own
+     * geometry model. Getting this wrong does not fail anywhere: the canvas
+     * saves, and the export simply draws a different shape.
+     */
+    public function testEveryShapeKindCompilesToItsEditorFabricType(): void
+    {
+        $shapes = $this->compiledShapes();
+
+        self::assertSame('Rect', $shapes['rectangle']['type']);
+        self::assertSame('Rect', $shapes['square']['type']);
+        self::assertSame('Rect', $shapes['line']['type'], 'A divider is a thin Rect, never a Fabric Line.');
+        self::assertSame('Circle', $shapes['circle']['type']);
+        self::assertSame('Ellipse', $shapes['ellipse']['type']);
+        self::assertSame('Triangle', $shapes['triangle']['type']);
+        self::assertSame('Polygon', $shapes['star']['type']);
+
+        // Per-type geometry models, all hitting the same authored 300 x 120 box.
+        self::assertSame(12.0, $shapes['rectangle']['rx']);
+        self::assertSame(150.0, $shapes['circle']['radius']);
+        self::assertSame(0.4, $shapes['circle']['scaleY'], 'A Circle has one radius, so a non-square box needs a scale.');
+        self::assertSame(150.0, $shapes['ellipse']['rx']);
+        self::assertSame(60.0, $shapes['ellipse']['ry']);
+
+        $points = $shapes['star']['points'];
+        self::assertIsArray($points);
+        self::assertCount(10, $points);
+    }
+
+    /**
+     * The star's points must span the authored box EXACTLY. That is what makes
+     * the round-trip stable: an editor-made star already fills its own bbox, so
+     * decompiling it to that box and regenerating here has to reproduce it.
+     */
+    public function testAStarPolygonSpansExactlyItsAuthoredBox(): void
+    {
+        $points = $this->compiledShapes()['star']['points'];
+        self::assertIsArray($points);
+
+        $xs = [];
+        $ys = [];
+
+        foreach ($points as $point) {
+            self::assertIsArray($point);
+            self::assertIsFloat($point['x']);
+            self::assertIsFloat($point['y']);
+            $xs[] = $point['x'];
+            $ys[] = $point['y'];
+        }
+
+        self::assertNotSame([], $xs);
+        self::assertSame(0.0, min($xs));
+        self::assertSame(300.0, max($xs));
+        self::assertSame(0.0, min($ys));
+        self::assertSame(120.0, max($ys));
+    }
+
+    /**
+     * A gradient fill compiles to PERCENTAGE units — coordinates as a fraction
+     * of the object's own box. In pixel units it would be baked to the size the
+     * shape happened to be compiled at and would slide off under the designer's
+     * resize, the group projector and the print-resolution export alike.
+     */
+    public function testAGradientFillCompilesInPercentageUnits(): void
+    {
+        $named = $this->compiledShapesByName();
+
+        $linear = $named['Panel']['fill'];
+        self::assertIsArray($linear);
+        self::assertSame('linear', $linear['type']);
+        self::assertSame('percentage', $linear['gradientUnits']);
+
+        $stops = $linear['colorStops'];
+        self::assertIsArray($stops);
+        self::assertSame(['#ff0000', '#0000ff'], array_column($stops, 'color'));
+
+        $coords = $linear['coords'];
+        self::assertIsArray($coords);
+        // 45 degrees: both axes travel the same distance from the centre.
+        self::assertEqualsWithDelta(0.5 - cos(M_PI / 4) / 2, $coords['x1'], 1.0e-9);
+        self::assertEqualsWithDelta(0.5 + sin(M_PI / 4) / 2, $coords['y2'], 1.0e-9);
+
+        $radial = $named['Glow']['fill'];
+        self::assertIsArray($radial);
+        self::assertSame('radial', $radial['type']);
+        self::assertSame('percentage', $radial['gradientUnits']);
+
+        $radialCoords = $radial['coords'];
+        self::assertIsArray($radialCoords);
+        self::assertSame(0.5, $radialCoords['r2']);
+    }
+
+    public function testADottedStrokeScalesItsDashPatternWithTheStrokeWidth(): void
+    {
+        // The gradient panel is the second `rectangle`; compiledShapes() keeps
+        // the first, so find it by its layer name.
+        foreach ($this->compile(self::shapeDesign())->objects() as $object) {
+            if (($object['name'] ?? null) !== 'Panel') {
+                continue;
+            }
+
+            // 'dotted' at width 6: zero-length dashes, round caps.
+            self::assertSame([0.0, 12.0], $object['strokeDashArray']);
+            self::assertSame('round', $object['strokeLineCap']);
+            self::assertTrue($object['strokeUniform']);
+            self::assertSame(0.5, $object['opacity']);
+            self::assertTrue($object['editorLocked']);
+
+            return;
+        }
+
+        self::fail('The gradient panel was not compiled.');
+    }
+
+    /**
+     * The compiled shape objects that carry a layer name, keyed by it — the way
+     * to reach a SPECIFIC one where the kind is ambiguous (the fixture has two
+     * rectangles and two ellipses).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function compiledShapesByName(): array
+    {
+        $shapes = [];
+
+        foreach ($this->compile(self::shapeDesign())->objects() as $object) {
+            $name = $object['name'] ?? null;
+
+            if (isset($object['shapeKind']) && is_string($name)) {
+                $shapes[$name] = $object;
+            }
+        }
+
+        return $shapes;
+    }
+
+    /**
+     * The compiled shape objects, keyed by `shapeKind` — first occurrence wins.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function compiledShapes(): array
+    {
+        $shapes = [];
+
+        foreach ($this->compile(self::shapeDesign())->objects() as $object) {
+            $kind = $object['shapeKind'] ?? null;
+
+            if (is_string($kind) && !isset($shapes[$kind])) {
+                $shapes[$kind] = $object;
+            }
+        }
+
+        return $shapes;
+    }
+
+    /**
+     * Shapes are decorative: they must never reach the input DTOs, or a
+     * `describe_variant` would offer the user a rectangle to type into and the
+     * positional textbox contract would shift under every text after it.
+     */
+    public function testShapesNeverBecomeTextOrImageInputs(): void
+    {
+        $compiled = $this->compile(self::shapeDesign());
+
+        self::assertCount(1, $compiled->textInputs, 'only the one text element');
+        self::assertSame([], $compiled->imageInputs);
+
+        // They still carry an inputId — the container/group join key.
+        foreach ($compiled->objects() as $object) {
+            if (isset($object['shapeKind'])) {
+                self::assertNotNull($object['inputId'] ?? null);
             }
         }
     }
@@ -1309,6 +1496,7 @@ final class DesignCompilerTest extends TestCase
                 ['kind' => 'text', 'id' => 'quote', 'text' => 'Bez pozadí', 'font' => self::FONT, 'size' => 64, 'at' => ['area' => 'middle', 'col' => [2, 11]]],
             ],
         ]];
+        yield 'shapes among texts' => [self::shapeDesign()];
         yield 'fillable background over a full-bleed photo' => [[
             'canvas' => ['width' => 2480, 'height' => 3508, 'background' => ['fill' => '#0a0a0a']],
             'elements' => [
@@ -1318,6 +1506,61 @@ final class DesignCompilerTest extends TestCase
                 ['kind' => 'text', 'id' => 'title', 'text' => 'A4', 'font' => self::FONT_BOLD, 'size' => 220, 'at' => ['area' => 'upper', 'col' => [1, 10], 'marginX' => 120, 'offsetY' => 200]],
             ],
         ]];
+    }
+
+    /**
+     * One of every shape kind, plus a text, so the cross-cutting invariants
+     * (stack order, no undeclared custom property, canonical re-parse) run over
+     * every Fabric type a shape compiles to.
+     *
+     * @return array{canvas: array<string, mixed>, elements: list<array<string, mixed>>}
+     */
+    private static function shapeDesign(): array
+    {
+        $elements = [];
+        $y = 0;
+
+        foreach (CanvasShapeKind::cases() as $kind) {
+            $element = [
+                'kind' => 'shape',
+                'id' => $kind->value,
+                'shape' => $kind->value,
+                'x' => 40,
+                'y' => $y,
+                'width' => 300,
+                'height' => 120,
+            ];
+
+            if ($kind->supportsCornerRadius()) {
+                $element['cornerRadius'] = 12;
+            }
+
+            $elements[] = $element;
+            $y += 140;
+        }
+
+        $elements[] = [
+            'kind' => 'shape', 'id' => 'gradient-panel', 'shape' => 'rectangle',
+            'x' => 400, 'y' => 40, 'width' => 500, 'height' => 400,
+            'fill' => ['type' => 'linear', 'angle' => 45, 'from' => '#ff0000', 'to' => '#0000ff'],
+            'stroke' => '#00aa00', 'strokeWidth' => 6, 'strokeStyle' => 'dotted',
+            'opacity' => 0.5, 'name' => 'Panel', 'locked' => true,
+        ];
+        $elements[] = [
+            'kind' => 'shape', 'id' => 'radial-glow', 'shape' => 'ellipse',
+            'x' => 400, 'y' => 500, 'width' => 500, 'height' => 250,
+            'fill' => ['type' => 'radial', 'from' => '#ffcc00', 'to' => '#cc0033'],
+            'name' => 'Glow',
+        ];
+        $elements[] = [
+            'kind' => 'text', 'id' => 'caption', 'text' => 'Popisek',
+            'font' => self::FONT, 'size' => 32, 'x' => 400, 'y' => 800, 'width' => 500,
+        ];
+
+        return [
+            'canvas' => ['width' => self::CANVAS, 'height' => 1350],
+            'elements' => $elements,
+        ];
     }
 
     /**

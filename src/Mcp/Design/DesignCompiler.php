@@ -10,10 +10,12 @@ use WBoost\Web\Mcp\Design\Dsl\BackgroundElement;
 use WBoost\Web\Mcp\Design\Dsl\DesignDocument;
 use WBoost\Web\Mcp\Design\Dsl\ImageElement;
 use WBoost\Web\Mcp\Design\Dsl\Rect;
+use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\CanvasShape;
+use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 
@@ -136,6 +138,21 @@ readonly final class DesignCompiler
     ];
 
     /**
+     * The custom properties a compiled SHAPE carries. Short by design: a shape
+     * is decorative, so none of the input machinery applies to it. `shapeKind`
+     * is what keeps a čtverec from decompiling as an obdélník (both are a
+     * `Rect`), and `editorLocked` is the same editor-only lock images use.
+     *
+     * Everything else about a shape — fill, stroke, dash, corner radius,
+     * opacity — is a NATIVE Fabric property and therefore not listed here.
+     *
+     * @var list<string>
+     */
+    public const array SHAPE_CUSTOM_PROPERTIES = [
+        'inputId', 'shapeKind', 'name', 'editorLocked',
+    ];
+
+    /**
      * Identity slot for a background declared through the `canvas.background.image`
      * shorthand rather than as an element, which therefore has no slug of its own.
      *
@@ -227,6 +244,19 @@ readonly final class DesignCompiler
                 // §4.1-1: this append and the object append above are the same
                 // walk, so `inputs[i]` is the i-th Textbox by construction.
                 $textInputs[] = $this->compileTextInput($element, $inputId);
+
+                continue;
+            }
+
+            if ($element instanceof ShapeElement) {
+                // Decorative by definition: an object and nothing else. No
+                // input DTO, so nothing is appended to $textInputs (which would
+                // break the positional textbox↔input contract) nor to
+                // $imageInputs. It still joins $objectByInputId, because a
+                // shape may be a container member.
+                $object = $this->compileShapeObject($element, $rect, $inputId);
+                $objects[] = $object;
+                $objectByInputId[$inputId] = $object;
 
                 continue;
             }
@@ -630,6 +660,111 @@ readonly final class DesignCompiler
         }
 
         return $object;
+    }
+
+    /**
+     * A vector shape. Every visual property is a NATIVE Fabric key, so nothing
+     * downstream needs teaching: `loadFromJSON` enlivens the built-in type and
+     * the headless render paints it.
+     *
+     * Geometry is expressed as base dimensions at scale 1 wherever Fabric lets
+     * it, and as a scale only where the type's own model forces it — a `Circle`
+     * is defined by ONE radius, so the only way to give it the authored
+     * non-square box (which is what a designer gets by dragging a corner
+     * handle) is `scaleY`. Emitting it any other way would make a decompiled
+     * circle un-representable and the round-trip lossy.
+     *
+     * @return array<string, mixed>
+     */
+    private function compileShapeObject(ShapeElement $element, Rect $rect, string $inputId): array
+    {
+        $width = $rect->width;
+        $height = ShapeElement::frameHeight($rect);
+
+        $object = [
+            'type' => $element->shape->fabricType(),
+            'version' => self::CANVAS_VERSION,
+            'originX' => 'left',
+            'originY' => 'top',
+            'left' => $rect->x,
+            'top' => $rect->y,
+            'width' => $width,
+            'height' => $height,
+            'scaleX' => 1.0,
+            'scaleY' => 1.0,
+            'angle' => 0,
+            'opacity' => $element->opacity,
+            'fill' => $element->fill instanceof CanvasShapeGradient
+                ? $element->fill->toFabric()
+                : $element->fill,
+            'stroke' => $element->stroke,
+            'strokeWidth' => $element->strokeWidth,
+            // The editor authors shapes strokeUniform, so the border keeps a
+            // constant weight under scaling — and the group projector scales
+            // `strokeWidth` itself to compensate. A compiled shape that said
+            // otherwise would drift from an editor-made one the first time the
+            // group fanned it out.
+            'strokeUniform' => true,
+            'strokeDashArray' => $element->strokeStyle->dashArray($element->strokeWidth),
+            'strokeLineCap' => $element->strokeStyle->lineCap(),
+            'inputId' => $inputId,
+            'shapeKind' => $element->shape->value,
+            'name' => $element->name,
+            'editorLocked' => $element->locked,
+        ];
+
+        return match ($element->shape->fabricType()) {
+            'Rect' => $object + ['rx' => $element->cornerRadius, 'ry' => $element->cornerRadius],
+            'Circle' => array_merge($object, [
+                'radius' => $width / 2,
+                'height' => $width,
+                'scaleY' => $width > 0.0 ? $height / $width : 1.0,
+            ]),
+            'Ellipse' => $object + ['rx' => $width / 2, 'ry' => $height / 2],
+            'Polygon' => $object + ['points' => self::starPoints($width, $height)],
+            default => $object,
+        };
+    }
+
+    /**
+     * A five-pointed star whose bounding box is exactly `$width × $height` —
+     * the same figure `starPoints()` in `assets/controllers/canvas_shapes.js`
+     * draws, normalised to the authored box instead of to a radius.
+     *
+     * Normalising is what makes the round-trip stable: the editor's star
+     * already fills its own bbox exactly, so decompiling it to that box and
+     * regenerating here reproduces the identical polygon (and a star the
+     * designer stretched comes back stretched the same way).
+     *
+     * @return list<array{x: float, y: float}>
+     */
+    private static function starPoints(float $width, float $height): array
+    {
+        $spikes = 5;
+        $innerRatio = 0.45;
+
+        $raw = [];
+
+        for ($i = 0; $i < $spikes * 2; $i++) {
+            $radius = $i % 2 === 0 ? 0.5 : 0.5 * $innerRatio;
+            $angle = (M_PI / $spikes) * $i - M_PI / 2;
+            $raw[] = ['x' => $radius * cos($angle), 'y' => $radius * sin($angle)];
+        }
+
+        $xs = array_column($raw, 'x');
+        $ys = array_column($raw, 'y');
+        $spanX = max($xs) - min($xs);
+        $spanY = max($ys) - min($ys);
+        $minX = min($xs);
+        $minY = min($ys);
+
+        return array_map(
+            static fn (array $point): array => [
+                'x' => round($spanX > 0.0 ? (($point['x'] - $minX) / $spanX) * $width : 0.0, 4),
+                'y' => round($spanY > 0.0 ? (($point['y'] - $minY) / $spanY) * $height : 0.0, 4),
+            ],
+            $raw,
+        );
     }
 
     /**
