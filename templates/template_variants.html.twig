@@ -63,15 +63,15 @@
                     {# A grouped template's design is edited ONLY in the group editor —
                        every tile goes to the export/fill page regardless of permissions. #}
                     <a href="{{ (template.group or not is_granted('template_variant_edit', variant)) ? path('template_variant_export', {'variantId': variant.id}) : path('template_variant_editor', {'variantId': variant.id}) }}" class="variant-card__link text-body">
-                        <div class="variant-card__thumb{{ variant.backgroundMode.value == 'layer' ? ' variant-card__thumb--transparent' }}">
-                            <img src="{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}" alt="Náhled varianty {{ variant.dimension.label }}">
+                        <div class="variant-card__header">
+                            <h5 class="variant-card__title">{{ variant.dimension.label }}</h5>
+                            {% if variant.group and is_granted('ROLE_DESIGNER') %}
+                                <span class="badge bg-info-lighten text-info flex-shrink-0" title="Součást skupiny {{ variant.group.name }}"><i class="uil-layer-group"></i> Skupina</span>
+                            {% endif %}
                         </div>
 
-                        <div class="variant-card__meta">
-                            <span class="text-truncate">{{ variant.dimension.label }}</span>
-                            {% if variant.group and is_granted('ROLE_DESIGNER') %}
-                                <span class="badge bg-info-lighten text-info ms-auto flex-shrink-0" title="Součást skupiny {{ variant.group.name }}"><i class="uil-layer-group"></i> Skupina</span>
-                            {% endif %}
+                        <div class="variant-card__thumb{{ variant.backgroundMode.value == 'layer' ? ' variant-card__thumb--transparent' }}">
+                            <img src="{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}" alt="Náhled varianty {{ variant.dimension.label }}">
                         </div>
                     </a>
                 </div>

@@ -3277,10 +3277,15 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
    One template's variants span wildly different aspect ratios — a 1:1 post, a
    9:16 story, an A4 portrait — so every preview gets the SAME square stage and
    is letterboxed inside it (`contain`). Sizing the card to the picture instead
-   gave every column a different height and the grid read as rubble. The stage
-   is also what the ⋯ menu anchors to, so the button lands ON the preview area
-   even when the picture itself is small (a variant with no preview yet falls
-   back to the placeholder asset, which is far narrower than the card). */
+   gave every column a different height and the grid read as rubble.
+
+   Label + ⋯ menu live in a HEADER above that stage, the way the manuals cards
+   do it. Both were tried below/over the picture first and both read as "beside
+   the image": a footer strip detaches the label from the card, and a chip
+   floated over the stage lands in the letterbox grey whenever the preview is
+   narrower than the card — which is most of them, since the stage is square and
+   the previews rarely are.
+
    Note the `.variant-card` prefix on every selector below: app.css loads BEFORE
    the theme, so an equal-specificity rule of ours loses — `.variant-card__menu`
    alone is beaten by Bootstrap's `.dropdown {position: relative}` and the menu
@@ -3289,16 +3294,42 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     display: block;
 }
 
+.variant-card .variant-card__header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    /* Right padding reserves the ⋯ button's lane so a long label never runs
+       under it. */
+    padding: 0.7rem 2.5rem 0.6rem 0.9rem;
+}
+
+.variant-card .variant-card__title {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .variant-card .variant-card__thumb {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     aspect-ratio: 1 / 1;
-    padding: 1rem;
+    padding: 0 0.9rem 0.9rem;
     overflow: hidden;
-    background-color: #f6f7fb;
-    border-radius: var(--ct-card-inner-border-radius, var(--bs-card-inner-border-radius, 0.25rem)) var(--ct-card-inner-border-radius, var(--bs-card-inner-border-radius, 0.25rem)) 0 0;
+}
+
+/* Soft shadow rather than a grey stage behind the picture: a variant preview
+   is full-bleed artwork and is often white at the edges, so on the card's white
+   body it would have no boundary at all. */
+.variant-card .variant-card__thumb img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14);
 }
 
 /* Same checkerboard the editor and the fill preview use for layer-mode
@@ -3312,22 +3343,6 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     background-position: 0 0, 8px 8px;
 }
 
-.variant-card .variant-card__thumb img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.18);
-}
-
-.variant-card .variant-card__meta {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.75rem;
-    color: var(--ct-text-muted, #98a6ad);
-}
-
 /* The whole card is one link, so it needs the affordance a button would have. */
 .variant-card {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -3338,12 +3353,12 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.12);
 }
 
-/* Floats over the preview's top-right corner (`.card` is already
-   position: relative). Kept out of the link so clicking it never navigates. */
+/* Sits in the header row's right lane (`.card` is already position: relative),
+   NOT inside the link, so clicking it never navigates. */
 .variant-card .variant-card__menu {
     position: absolute;
     top: 0.5rem;
-    right: 0.5rem;
+    right: 0.6rem;
     z-index: 2;
 }
 
@@ -3351,17 +3366,15 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.92);
-    color: #6c757d;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    color: var(--ct-text-muted, #98a6ad);
 }
 
 .variant-card .variant-card__menu-toggle:hover,
 .variant-card .variant-card__menu-toggle:focus,
 .variant-card .variant-card__menu.show .variant-card__menu-toggle {
-    background: #fff;
+    background: rgba(0, 0, 0, 0.05);
     color: #343a40;
 }
