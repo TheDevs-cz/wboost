@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Repository;
 
 use DateTimeImmutable;
+use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\PasswordResetToken;
 use Doctrine\ORM\EntityManagerInterface;
 use WBoost\Web\Exceptions\InvalidPasswordResetToken;
@@ -26,6 +27,16 @@ readonly final class PasswordResetTokenRepository
      */
     public function get(string $tokenId): PasswordResetToken
     {
+        // The token is a raw URL segment, so it is not necessarily a UUID at
+        // all — a mail client that truncates the link, or a scanner that
+        // rewrites it, hands us garbage. Doctrine's uuid type then throws
+        // ValueNotConvertible while BINDING the parameter (an uncaught 500)
+        // instead of simply matching no row, so unparseable ids are rejected
+        // before they reach the query: an unreadable token is an invalid one.
+        if (!Uuid::isValid($tokenId)) {
+            throw new InvalidPasswordResetToken();
+        }
+
         $token = $this->entityManager->find(PasswordResetToken::class, $tokenId);
 
         if ($token instanceof PasswordResetToken) {

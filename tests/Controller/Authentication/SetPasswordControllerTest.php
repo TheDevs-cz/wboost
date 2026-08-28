@@ -27,6 +27,20 @@ final class SetPasswordControllerTest extends WebTestCase
         $this->assertSelectorTextContains('h4', 'Odkaz vypršel');
     }
 
+    /**
+     * A truncated / rewritten link (Sentry: `/set-password/MDFhMDQ3Ym`) is not a
+     * UUID, and used to 500 on Doctrine's uuid parameter binding.
+     */
+    public function testMalformedTokenShowsExpiredPage(): void
+    {
+        $browser = self::createClient();
+
+        $browser->request('GET', '/set-password/MDFhMDQ3Ym');
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('h4', 'Odkaz vypršel');
+    }
+
     public function testExpiredTokenShowsExpiredPage(): void
     {
         $browser = self::createClient();
