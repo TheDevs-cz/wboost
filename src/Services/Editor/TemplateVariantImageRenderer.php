@@ -165,6 +165,21 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|CanvasSlice $slice,
         RenderImageFormat $format,
     ): string {
+        // Under FrankenPHP max_execution_time counts WALL time, so seconds
+        // spent waiting on Gotenberg burn the request's budget — and several
+        // legitimate passes make MULTIPLE sequential calls here (fill page:
+        // backdrop + one per overlay slice; group ZIP: one per member
+        // variant), which cannot fit a 30s budget even though each call is
+        // individually capped (timeout 20 / max_duration 25 on the scoped
+        // client). Resetting the timer per render turns "fatal mid-render at
+        // an arbitrary frame" (Sentry WEB-2B/2E) into the graceful
+        // TemplateRenderUnavailable path; the per-call caps plus the bounded
+        // number of renders per request still bound the total. CLI runs are
+        // exempt — their limit is 0 (unlimited) and 60 would REDUCE it.
+        if (\PHP_SAPI !== 'cli') {
+            set_time_limit(60);
+        }
+
         // The bundle's InMemoryProcessor drains the chunked HTTP response from
         // Gotenberg into a string. Unlike `stream()`, it never calls echo /
         // flush(), so it does not interfere with the outer HTTP response that
