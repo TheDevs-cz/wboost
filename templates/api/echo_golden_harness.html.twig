@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>echo golden harness</title>
+    <style>
+        html, body { margin: 0; padding: 0; background: transparent; }
+        .composite { position: relative; }
+        .composite img, .composite canvas { position: absolute; left: 0; top: 0; display: block; }
+    </style>
+    {# The exact bundles the fill page loads — the golden proof must execute
+       the very code the browser executes, not a re-implementation. Inlined so
+       headless Chromium needs no outbound network (the render-template rule). #}
+    <script>{{ fabric_inline_script|raw }}</script>
+    <script>{{ break_word_inline_script|raw }}</script>
+    <script>{{ container_layout_inline_script|raw }}</script>
+    <script>{{ rich_text_runs_inline_script|raw }}</script>
+    <script>{{ rich_text_blocks_inline_script|raw }}</script>
+    <script>{{ fill_text_echo_inline_script|raw }}</script>
+</head>
+<body>
+    {# The fill page's echo composite, reduced to its essence: the
+       text-transparent BASE render underneath, the echo canvas above. The
+       screenshot of this page must be pixel-equal to the full server render
+       of the same values — that equality IS the WYSIWYG guarantee. #}
+    <div class="composite" style="width: {{ width }}px; height: {{ height }}px;">
+        <img id="base" src="{{ base_data_uri }}" width="{{ width }}" height="{{ height }}" alt="">
+        <canvas id="echo" width="{{ width }}" height="{{ height }}"></canvas>
+    </div>
+
+    <script>
+        (async () => {
+            try {
+                const fontFaces = {{ font_faces|json_encode|raw }};
+                await Promise.all(fontFaces.map(async (face) => {
+                    try {
+                        const fontFace = new FontFace(face.family, 'url("' + face.src + '")');
+                        await fontFace.load();
+                        document.fonts.add(fontFace);
+                    } catch (fontErr) {
+                        console.error('Font load failed: ' + face.family, fontErr);
+                    }
+                }));
+                if (document.fonts && document.fonts.ready) {
+                    await document.fonts.ready;
+                }
+
+                const payload = {{ payload|json_encode|raw }};
+                // Raw values exactly as the fill page's mirror fields hold
+                // them — resolution (envelope detection, truncation,
+                // uppercase) runs through the SAME shared function the echo
+                // controller calls, so the golden covers the resolver mirror
+                // too, not just the painter.
+                const rawValues = {{ raw_values|json_encode|raw }};
+
+                await document.getElementById('base').decode();
+
+                const api = await WBoostFillTextEcho.create({
+                    fabric: window.fabric,
+                    canvasEl: document.getElementById('echo'),
+                    width: payload.width,
+                    height: payload.height,
+                    canvasHeight: payload.canvasHeight,
+                    objects: payload.objects,
+                    containers: payload.containers || [],
+                });
+
+                const values = {};
+                Object.keys(payload.inputs).forEach((inputId) => {
+                    const raw = rawValues[inputId] || {};
+                    values[inputId] = {
+                        resolved: WBoostFillTextEcho.resolveValue(
+                            typeof raw.value === 'string' ? raw.value : '',
+                            payload.inputs[inputId],
+                        ),
+                        hidden: Boolean(raw.hidden),
+                    };
+                });
+                api.update(values);
+
+                await new Promise((resolve) => {
+                    requestAnimationFrame(() => requestAnimationFrame(resolve));
+                });
+
+                window.echoRendered = true;
+            } catch (err) {
+                window.echoRenderError = String(err && err.stack || err);
+                window.echoRendered = true;
+            }
+        })();
+    </script>
+</body>
+</html>

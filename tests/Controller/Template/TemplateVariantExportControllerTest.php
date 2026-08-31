@@ -232,7 +232,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         }
         foreach ($payload['objects'] as $entry) {
             self::assertContains($entry['inputId'], $capableIds);
-            self::assertIsArray($entry['object']);
+            self::assertNotSame([], $entry['object'], 'the designed textbox JSON must ride along');
         }
     }
 
