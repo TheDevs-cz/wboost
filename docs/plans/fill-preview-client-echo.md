@@ -1,7 +1,23 @@
 # Fill preview: client-side echo, server truth at rest
 
-Status: **proposed** (Phase 0 shipped 2026-08-31; this document is Phase 1,
-awaiting review before implementation).
+Status: **DELIVERED 2026-09-01** (Phase 0 shipped 2026-08-31; Phases 1+2 —
+the echo on the single fill page and the group fill page — shipped the next
+day, golden-tested and browser-verified). The authoritative documentation now
+lives in CLAUDE.md ("Client-side text echo"); this file records the original
+reasoning plus the delivery deltas:
+
+- Value resolution needed no new mirror — the shared `WBoostRichTextRuns`
+  module + a small plain-path twin inside `fill_text_echo.js` cover it
+  (code-point truncation, locale-independent uppercase).
+- The settle/rest decision uses a djb2 state hash (PHP ↔ JS byte-identical
+  over UTF-8) on the single page, and an edit-sequence check on the group page
+  (its settle POSTs snapshot the form directly).
+- Lists/checklist inputs and container trees with baked members stay
+  settle-rendered (EchoCapableTextInputs), with the fast 600ms debounce kept
+  for them — no UX regression anywhere.
+- One browser-caught landmine: scripts inside a `loading="defer"` Live
+  component never execute (morph-inert) — the classic scripts load from the
+  page template.
 
 ## Why
 

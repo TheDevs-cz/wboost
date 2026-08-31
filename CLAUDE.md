@@ -793,6 +793,71 @@ consumer draws and the text the export substitutes can never disagree (textbox
 `inputId` props are unreliable post-v7-migration; image placeholders still key by
 their own reliable `inputId`).
 
+**Client-side text echo — instant typing, server truth at rest (2026-09-01)**
+
+Typing on the fill surfaces no longer waits for Gotenberg: the ECHO-CAPABLE
+text inputs are drawn locally on a transparent Fabric canvas layered over a
+text-transparent BASE render, and the lazily debounced server render (the
+"settle") remains the displayed truth at rest and the only exported pixels.
+The WYSIWYG contract is therefore untouched — the API and every export path
+never see any of this.
+
+- **`EchoCapableTextInputs`** (Services/Editor) is the single source of the
+  set that is BOTH drawn client-side and rendered transparent in the base:
+  non-locked, non-lists (a block stack cannot be blanked by opacity — its
+  replacement children are fresh objects), positionally locatable, minus a
+  z-guard (visible non-echo content stacked above and overlapping, rotated
+  AABBs, conservative) and a container guard (a tree with any baked member —
+  a decorative icon, a settle-only text — stays settle-rendered whole). Rules
+  run to a fixpoint; eligibility is PER DIMENSION on groups.
+- **Base renders** = the same render with `transparentTextInputIds` (opacity
+  0, layout influence kept — the sliceCanvas convention; applied in
+  `buildCanvasJson` after `alignTextboxInputIds`). The override-independence
+  proof generalizes (`renderIsOverrideIndependent`): a bound TEXT in the
+  transparent set cannot leak an override into the pixels, so base renders —
+  the full previewSources() render included — are Redis cache hits whenever
+  every bound object in range is a transparent text. Slices/backdrops whose
+  range holds no echoed text reuse the settle bytes outright.
+- **The painter** is `assets/editor/fill_text_echo.js` — a CLASSIC script
+  (the container_layout.js pattern) sharing the render template's exact
+  override pipeline: clear-styles-before-text, rich runs via
+  WBoostRichTextRuns, two-phase container reflow prepared ONCE over the
+  pristine designed state and re-applied per update (the snapshot anchors on
+  designed geometry, so repeated applies cannot drift). Value resolution
+  mirrors ResolveTextOverrides (code-point truncation via Array.from ≙
+  mb_substr, then locale-independent uppercase); `{designed: true}` restores
+  the pristine text + per-char styles (the group page's "empty keeps the
+  designed text" semantics, sample first).
+- **Single page** (`variant_text_echo_controller.js`): mirrors' edits flip
+  `fill-echo-active` (settle img hides under base img + echo canvas; on the
+  image branch `variant_image_fill` swaps its backdrop/overlay sources to
+  their `data-base-src` variants via the `variant-text-echo:mode` event).
+  Echo-capable mirrors debounce 2500ms, the rest keep 600ms. A settle whose
+  `data-state-hash` equals the client hash of the mirrors AS THEY ARE NOW
+  rests the echo; a stale settle keeps it up (Live guarantees a final
+  re-render). The hash is djb2 over the canonical UTF-8 fill state — PHP
+  (`AbstractVariantFiller::fillStateHash`) and JS (`_clientHash`) are pinned
+  byte-identical by test (Czech diacritics covered).
+- **Group page** (`group_fill_controller.js`): per-dimension activation (an
+  edit lights up dimensions where the input is capable), base fetched LAZILY
+  on first edit via `?base=1` on the fill-preview endpoint (page load stays at
+  one settle per dimension; image picks/placements invalidate cached bases),
+  rest via an edit-sequence check against the settle's POST snapshot. Settle
+  debounce relaxes to 1500ms when anything is echo-capable.
+- **The golden proof**: `tests/Golden/FillEchoParityGoldenTest.php` (group
+  `gotenberg`, real renderer — `vendor/bin/phpunit --group gotenberg --filter
+  FillEchoParity`) screenshots the echo composite through the REAL inlined
+  painter+resolver in Gotenberg's Chromium and asserts MSE < 1e-4 against the
+  full server render — truncate+uppercase, rich runs, container push and hide
+  in one scene, with a positive control (base ≠ full). What it cannot prove —
+  a non-Chromium glyph rasterizer — is exactly why the settle stays the
+  displayed truth at rest.
+- **Morph-inert scripts landmine**: the fill component mounts with
+  `loading="defer"`, and `<script>` elements inserted by a Live morph NEVER
+  execute — the classic scripts + @font-face block load from the PAGE
+  template (`template_variant_export.html.twig`), not the component. Anything
+  new the component needs as a window global must go there too.
+
 **Project image gallery — Live Component (Stage 7 → 8)**
 
 `Project:ImageGallery` (`src/Twig/Components/Project/ImageGallery.php`) is the
