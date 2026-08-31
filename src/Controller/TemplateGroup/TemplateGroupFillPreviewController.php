@@ -53,8 +53,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
         }
 
         // The debounced client fires one of these POSTs PER DIMENSION in
-        // parallel; without this they serialize on the session row lock and
-        // the last one burns its whole execution budget waiting.
+        // parallel; each is done with the session once the voter has run.
         $this->releaseSessionLock->release($request);
 
         $bytes = $this->groupFillRenderer->render(

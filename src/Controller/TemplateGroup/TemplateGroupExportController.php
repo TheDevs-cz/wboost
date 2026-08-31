@@ -74,7 +74,7 @@ final class TemplateGroupExportController extends AbstractController
         $groupSlug = $this->nonEmptySlug($group->name, 'export');
 
         // One render per member variant, sequentially — the longest request
-        // this app makes. It must not hold the session row lock throughout.
+        // this app makes; it must not sit on a stale session copy throughout.
         $this->releaseSessionLock->release($request);
 
         /** @var array<string, string> $files filename → PNG bytes */

@@ -62,6 +62,20 @@ return static function (ContainerConfigurator $container): void {
     $services->set(PdoSessionHandler::class)
         ->args([
             env('DATABASE_URL'),
+            // No session locking. The default (LOCK_TRANSACTIONAL) holds a
+            // SELECT ... FOR UPDATE row lock from the first session read to
+            // the end of the request, which SERIALIZES every request of one
+            // user — and this app legitimately runs seconds-long render
+            // requests in parallel (the group fill page POSTs one preview per
+            // dimension at once), so queued requests burned their whole 30s
+            // execution budget waiting for the lock (Sentry WEB-2C; under
+            // FrankenPHP the wait is wall-clock). The session only carries
+            // read-mostly state (auth token, CSRF tokens, flashes), so
+            // last-write-wins is the right trade — the same semantics
+            // Symfony's own RedisSessionHandler ships with. Long render
+            // requests additionally save+close the session up front
+            // (ReleaseSessionLock) to narrow their stale write-back window.
+            ['lock_mode' => PdoSessionHandler::LOCK_NONE],
         ]);
 
     $services->set(PsrLogMessageProcessor::class)

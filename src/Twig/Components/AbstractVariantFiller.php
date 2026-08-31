@@ -928,12 +928,11 @@ abstract class AbstractVariantFiller extends AbstractController
         $variant = $this->variantEntity();
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
 
-        // A re-render pass draws 2-3 Gotenberg renders; holding the session
-        // row lock through them would queue every other request of this user
-        // (uploads, gallery LiveActions, plain navigation) behind seconds of
-        // render wait. Auth already happened, and nothing in a Live re-render
-        // writes session state after this point. Idempotent across the 2-3
-        // calls of one pass (a closed session stays closed).
+        // A re-render pass draws 2-3 Gotenberg renders; auth already
+        // happened and nothing in a Live re-render writes session state
+        // after this point, so hand the session back before the slow work
+        // (see ReleaseSessionLock). Idempotent across the 2-3 calls of one
+        // pass (a closed session stays closed).
         $request = $this->requestStack->getCurrentRequest();
         if ($request !== null) {
             $this->releaseSessionLock->release($request);

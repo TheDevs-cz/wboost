@@ -95,7 +95,7 @@ final class TemplateVariantPublishController extends AbstractController
         }
 
         // Everything below is slow outbound work (Meta Graph calls + a
-        // Gotenberg render) that must not hold the session row lock.
+        // Gotenberg render); the session is done once the voter has run.
         $this->releaseSessionLock->release($request);
 
         $account = $this->destinations->connectedAccount($user);

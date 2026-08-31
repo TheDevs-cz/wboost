@@ -7,24 +7,24 @@ namespace WBoost\Web\Services;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Write + close the request's session BEFORE long render work starts.
+ * Write + close the request's session BEFORE long render work starts — the
+ * Symfony-documented courtesy for long-running requests.
  *
- * Sessions are stored via PdoSessionHandler, which holds a `SELECT … FOR
- * UPDATE` row lock from the first session read until the session is written
- * at the end of the request. Any request that renders through Gotenberg
- * therefore holds that lock for SECONDS — and every other request of the
- * same user (the group fill page fires one preview POST per dimension in
- * parallel; the fill page fires 2-3 renders per edit) queues behind it.
- * Under FrankenPHP the queue wait counts against max_execution_time
- * (wall-clock), so the pile-up ends in MaxExecutionTimeError fatals — the
- * Sentry WEB-2C events die literally inside PdoSessionHandler's SELECT.
+ * Session LOCKING is off app-wide (PdoSessionHandler LOCK_NONE, see
+ * config/services.php — the transactional row lock used to serialize every
+ * request of one user behind seconds-long Gotenberg renders, the Sentry
+ * WEB-2C fatals). What closing early still buys on a render route: the
+ * request writes its session back within milliseconds of auth instead of
+ * holding an in-memory copy through 25-150s of render work and clobbering
+ * whatever was written meanwhile (a logout in another tab must not be
+ * resurrected by a finishing render).
  *
- * Releasing the lock is safe on these routes because everything they need
- * the session FOR (authentication, the voter check) has already happened,
- * and nothing after the render writes session state — they answer with
- * image bytes, JSON, or a plain page. If later code does touch the session
- * again, Symfony transparently restarts it (a fresh, short-lived lock),
- * so this is an optimization boundary, not a correctness one.
+ * Safe on these routes because everything they need the session FOR
+ * (authentication, the voter check) has already happened, and nothing after
+ * the render writes session state — they answer with image bytes, JSON, or
+ * a plain page. If later code does touch the session again, Symfony
+ * transparently restarts it, so this is an optimization boundary, not a
+ * correctness one.
  */
 final class ReleaseSessionLock
 {
