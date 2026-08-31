@@ -13,6 +13,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
+use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Value\RenderImageFormat;
@@ -33,6 +34,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
     public function __construct(
         readonly private GetTemplateGroupMembers $members,
         readonly private GroupFillRenderer $groupFillRenderer,
+        readonly private ReleaseSessionLock $releaseSessionLock,
     ) {
     }
 
@@ -49,6 +51,11 @@ final class TemplateGroupFillPreviewController extends AbstractController
         if ($variant === null) {
             throw $this->createNotFoundException('Variant does not belong to this group.');
         }
+
+        // The debounced client fires one of these POSTs PER DIMENSION in
+        // parallel; without this they serialize on the session row lock and
+        // the last one burns its whole execution budget waiting.
+        $this->releaseSessionLock->release($request);
 
         $bytes = $this->groupFillRenderer->render(
             $variant,

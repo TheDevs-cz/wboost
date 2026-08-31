@@ -24,6 +24,7 @@ use WBoost\Web\Exceptions\MetaApiError;
 use WBoost\Web\Message\SocialAccount\MarkSocialAccountNeedsReconnect;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
+use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Meta\PublishToFacebookPage;
 use WBoost\Web\Services\Meta\PublishToInstagram;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
@@ -62,6 +63,7 @@ final class TemplateVariantPublishController extends AbstractController
         private readonly RecordExportUsage $recordExportUsage,
         private readonly MessageBusInterface $bus,
         private readonly LoggerInterface $logger,
+        private readonly ReleaseSessionLock $releaseSessionLock,
     ) {
     }
 
@@ -91,6 +93,10 @@ final class TemplateVariantPublishController extends AbstractController
         if (!in_array($platform, ['facebook', 'instagram'], true) || $targetId === '') {
             return new JsonResponse(['error' => 'Neplatný požadavek na publikování.'], Response::HTTP_BAD_REQUEST);
         }
+
+        // Everything below is slow outbound work (Meta Graph calls + a
+        // Gotenberg render) that must not hold the session row lock.
+        $this->releaseSessionLock->release($request);
 
         $account = $this->destinations->connectedAccount($user);
 

@@ -15,6 +15,7 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetTemplateGroupMembers;
+use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Slugify;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
@@ -34,6 +35,7 @@ final class TemplateGroupExportVariantController extends AbstractController
         readonly private GetTemplateGroupMembers $members,
         readonly private GroupFillRenderer $groupFillRenderer,
         readonly private RecordExportUsage $recordExportUsage,
+        readonly private ReleaseSessionLock $releaseSessionLock,
     ) {
     }
 
@@ -59,6 +61,8 @@ final class TemplateGroupExportVariantController extends AbstractController
         if ($variant === null) {
             throw $this->createNotFoundException('Variant does not belong to this group.');
         }
+
+        $this->releaseSessionLock->release($request);
 
         try {
             // No format argument: the download must stay lossless PNG, same

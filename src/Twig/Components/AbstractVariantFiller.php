@@ -6,6 +6,7 @@ namespace WBoost\Web\Twig\Components;
 
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\UX\LiveComponent\Attribute\LiveProp;
 use Symfony\UX\LiveComponent\Attribute\PostHydrate;
 use Symfony\UX\LiveComponent\DefaultActionTrait;
@@ -17,6 +18,7 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
@@ -113,6 +115,8 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly FileUploadRepository $fileUploadRepository,
         private readonly UploaderHelper $uploaderHelper,
         private readonly GetFonts $getFonts,
+        private readonly RequestStack $requestStack,
+        private readonly ReleaseSessionLock $releaseSessionLock,
     ) {
     }
 
@@ -923,6 +927,17 @@ abstract class AbstractVariantFiller extends AbstractController
     {
         $variant = $this->variantEntity();
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        // A re-render pass draws 2-3 Gotenberg renders; holding the session
+        // row lock through them would queue every other request of this user
+        // (uploads, gallery LiveActions, plain navigation) behind seconds of
+        // render wait. Auth already happened, and nothing in a Live re-render
+        // writes session state after this point. Idempotent across the 2-3
+        // calls of one pass (a closed session stays closed).
+        $request = $this->requestStack->getCurrentRequest();
+        if ($request !== null) {
+            $this->releaseSessionLock->release($request);
+        }
 
         $overrides = $this->resolveTextOverrides->resolve(
             $variant->inputs,

@@ -14,6 +14,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
@@ -36,6 +37,7 @@ final class TemplateVariantDownloadController extends AbstractController
         private readonly ResolveRichTextOptions $resolveRichTextOptions,
         private readonly ResolveImageOverrides $resolveImageOverrides,
         private readonly RecordExportUsage $recordExportUsage,
+        private readonly ReleaseSessionLock $releaseSessionLock,
     ) {
     }
 
@@ -78,6 +80,11 @@ final class TemplateVariantDownloadController extends AbstractController
             }
             $providedValues[$key]['hide'] = true;
         }
+
+        // Before the resolves, not just the render: ResolveImageOverrides
+        // already reads image bytes from Minio, and none of it needs the
+        // session.
+        $this->releaseSessionLock->release($request);
 
         try {
             $overrides = $this->resolveTextOverrides->resolve(

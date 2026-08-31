@@ -15,6 +15,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetTemplateGroupMembers;
+use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Slugify;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
@@ -36,6 +37,7 @@ final class TemplateGroupExportController extends AbstractController
         readonly private GetTemplateGroupMembers $members,
         readonly private GroupFillRenderer $groupFillRenderer,
         readonly private RecordExportUsage $recordExportUsage,
+        readonly private ReleaseSessionLock $releaseSessionLock,
     ) {
     }
 
@@ -70,6 +72,10 @@ final class TemplateGroupExportController extends AbstractController
         $rawPlacements = $request->request->all('imagePlacements');
 
         $groupSlug = $this->nonEmptySlug($group->name, 'export');
+
+        // One render per member variant, sequentially — the longest request
+        // this app makes. It must not hold the session row lock throughout.
+        $this->releaseSessionLock->release($request);
 
         /** @var array<string, string> $files filename → PNG bytes */
         $files = [];
