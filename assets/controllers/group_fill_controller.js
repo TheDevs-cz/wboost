@@ -92,6 +92,26 @@ export default class extends Controller {
         // they came back for looks impossible.
         this._onPageShow = (event) => event.persisted && this.exportFinished();
         window.addEventListener('pageshow', this._onPageShow);
+
+        // The <img> the server put in each frame is the stored ADMIN thumbnail
+        // (`preview_image_path`) — whatever the designer's canvas rasterized to
+        // at some past save, complete with that save's stand-in text and
+        // pictures. It is a fine instant placeholder and a terrible result:
+        // presented as the preview it makes dimensions disagree with each other
+        // (one thumbnail saved at 2–2, its sibling at 0–0) and with the current
+        // design (an old fill colour next to the editor's new one), which reads
+        // as an export bug rather than a stale picture. The single-variant fill
+        // page has never had this — it renders server-side on mount — so render
+        // for real here too, straight away, and let the thumbnail sit under the
+        // spinner until the truth lands.
+        this._refreshAllNow();
+    }
+
+    /** Render every dimension immediately (no debounce): the initial paint has
+     *  nothing to coalesce with. */
+    _refreshAllNow() {
+        this.previewTargets.forEach((img) => img.closest('.group-fill-preview-frame')?.classList.add('is-pending'));
+        this.refreshAll();
     }
 
     disconnect() {
