@@ -7,14 +7,34 @@ const ROTATION_MIN = -180;
 const ROTATION_MAX = 180;
 /** Keyboard nudge, as a fraction of the frame (arrow keys on a focused picture). */
 const NUDGE_RATIO = 0.01;
+/**
+ * How many preview renders may be in flight at once, across dimensions. Every
+ * render is a whole Gotenberg screenshot, and the renderer is a small shared
+ * container — a 6-dimension group slamming 6 renders per debounce tick (plus
+ * 6 more on page load) is what ballooned per-render latency for everyone.
+ * Two keeps a multi-dimension group feeling parallel without the pile-up.
+ */
+const MAX_CONCURRENT_RENDERS = 2;
 
 /**
  * Group fill & export page: one unified form per group whose values fan out
  * to every member variant. This controller owns the LIVE PREVIEWS — after
  * the user stops typing it POSTs the whole form to each variant's preview
- * endpoint in parallel and swaps the returned PNGs in via blob URLs — plus
- * the image-picker modals and small form UX (Enter must not submit; the
- * submit button shows progress while the browser downloads the ZIP).
+ * endpoint and swaps the returned images in via blob URLs — plus the
+ * image-picker modals and small form UX (Enter must not submit; the submit
+ * button shows progress while the browser downloads the ZIP).
+ *
+ * ## Render discipline: single-flight per dimension, bounded concurrency
+ *
+ * A render request cannot be usefully cancelled — aborting the fetch leaves
+ * the server rendering anyway (PHP only notices a gone client when it writes),
+ * so the old abort-and-refire pattern turned every typing burst into orphaned
+ * Gotenberg work that still occupied the renderer. Instead: at most ONE
+ * request in flight per dimension; edits arriving meanwhile only mark it
+ * dirty, and when the in-flight render lands it re-runs ONCE with the
+ * then-current form state (latest wins, intermediate states never rendered).
+ * Across dimensions at most MAX_CONCURRENT_RENDERS run at once; the rest
+ * wait in a queue. Aborts remain only for disconnect().
  *
  * The element this controller attaches to IS the <form>, so `new
  * FormData(this.element)` always carries the exact state the export POST
@@ -66,6 +86,21 @@ export default class extends Controller {
         this.aborters = new Map();
         this.objectUrls = new Map();
 
+        // --- Render discipline (see the class docblock) ---------------------
+        // Endpoints with a request in flight right now.
+        this._inFlight = new Set();
+        // Endpoints whose form state changed while their request was in
+        // flight — re-rendered once, with fresh values, when it lands.
+        this._dirty = new Set();
+        // endpoint → preview <img> waiting for a concurrency slot (a Map for
+        // both dedupe and FIFO order).
+        this._renderQueue = new Map();
+        this._activeRenders = 0;
+        // Identity of the current connect()..disconnect() span. A settling
+        // fetch from a PREVIOUS connection (Stimulus reuses controller
+        // instances across reconnects) must not touch the fresh state.
+        this._connectionToken = null;
+
         // --- Placement state ------------------------------------------------
         // Chosen picture per slot: {imageId, url, natural: {width, height}|null}.
         this.pictures = {};
@@ -77,6 +112,13 @@ export default class extends Controller {
     }
 
     connect() {
+        // Reset per-connection render state — reused instance, fresh page DOM.
+        this._connectionToken = {};
+        this._inFlight.clear();
+        this._dirty.clear();
+        this._renderQueue.clear();
+        this._activeRenders = 0;
+
         this.variantsValue.forEach((variant) => {
             this.placement[variant.variantId] = {};
             this.slotsValue.forEach((slot) => {
@@ -115,9 +157,12 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this._connectionToken = null;
         window.removeEventListener('pageshow', this._onPageShow);
         clearTimeout(this.refreshTimer);
         clearTimeout(this.exportTimer);
+        this._renderQueue.clear();
+        this._dirty.clear();
         this.aborters.forEach((aborter) => aborter.abort());
         this.aborters.clear();
         this.objectUrls.forEach((url) => URL.revokeObjectURL(url));
@@ -266,17 +311,46 @@ export default class extends Controller {
     }
 
     refreshAll(previews = null) {
-        const formData = new FormData(this.element);
-        (previews ?? this.previewTargets).forEach((img) => this.refreshOne(img, formData));
+        (previews ?? this.previewTargets).forEach((img) => this._enqueueRender(img));
     }
 
-    async refreshOne(img, formData) {
+    /**
+     * Request a (re-)render of one dimension. In flight already → just mark it
+     * dirty (it re-runs once with fresh values when the request lands);
+     * otherwise queue it behind the concurrency limit.
+     */
+    _enqueueRender(img) {
         const endpoint = img.dataset.previewEndpoint;
         if (!endpoint) {
             return;
         }
 
-        this.aborters.get(endpoint)?.abort();
+        if (this._inFlight.has(endpoint)) {
+            this._dirty.add(endpoint);
+            return;
+        }
+
+        if (!this._renderQueue.has(endpoint)) {
+            this._renderQueue.set(endpoint, img);
+        }
+        this._pumpRenders();
+    }
+
+    _pumpRenders() {
+        while (this._activeRenders < MAX_CONCURRENT_RENDERS && this._renderQueue.size > 0) {
+            const [endpoint, img] = this._renderQueue.entries().next().value;
+            this._renderQueue.delete(endpoint);
+            this._renderOne(img, endpoint);
+        }
+    }
+
+    async _renderOne(img, endpoint) {
+        const token = this._connectionToken;
+        this._inFlight.add(endpoint);
+        this._activeRenders += 1;
+
+        // Only disconnect() aborts — an in-flight render is never cancelled
+        // for a newer state (the server would keep rendering it anyway).
         const aborter = new AbortController();
         this.aborters.set(endpoint, aborter);
 
@@ -287,7 +361,9 @@ export default class extends Controller {
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',
-                body: formData,
+                // Snapshotted at SEND time, so a queued dimension renders the
+                // values current when its slot freed up, not when it was queued.
+                body: new FormData(this.element),
                 signal: aborter.signal,
             });
 
@@ -309,20 +385,32 @@ export default class extends Controller {
             // The fresh render now contains the placement the ghost was
             // standing in for — drop the stand-in so the PNG is what's on
             // screen. (Only if nothing was moved while it was rendering.)
-            if (this.aborters.get(endpoint) === aborter) {
+            if (!this._dirty.has(endpoint)) {
                 this._clearGhosts(img.dataset.variantId);
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
-                return;
+            if (error.name !== 'AbortError') {
+                frame?.classList.add('is-error');
             }
-            frame?.classList.add('is-error');
         } finally {
-            // A newer refresh may already own this endpoint — only the
-            // latest request clears the loading chrome.
-            if (this.aborters.get(endpoint) === aborter) {
+            // A settling fetch from a previous connection must leave the
+            // fresh connection's bookkeeping alone.
+            if (token === this._connectionToken) {
                 this.aborters.delete(endpoint);
-                frame?.classList.remove('is-loading', 'is-pending');
+                this._inFlight.delete(endpoint);
+                this._activeRenders -= 1;
+
+                if (this._dirty.delete(endpoint)) {
+                    // The form changed while this render was in flight: the
+                    // pixels on screen are already stale, so go again (once,
+                    // with the values as they are NOW). Keep the pending
+                    // chrome up — the user is still waiting for the truth.
+                    frame?.classList.remove('is-loading');
+                    this._renderQueue.set(endpoint, img);
+                } else {
+                    frame?.classList.remove('is-loading', 'is-pending');
+                }
+                this._pumpRenders();
             }
         }
     }
