@@ -1188,8 +1188,17 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 }
 
 @media (max-width: 767.98px) {
+    /* Stacked layout. `align-items: flex-start` above is what keeps the layers
+       panel from stretching to the preview's height in the ROW layout — but
+       once the direction flips it governs WIDTH instead, and shrink-to-fit
+       made .fill-viewport as wide as its UNSCALED content (1080 px inside a
+       382 px phone). The fit zoom measures that width, so it computed "already
+       fits" (~100 %) and never scaled the artwork down; the max-height cap
+       then sliced the bottom off the design. Stretch both children to the
+       screen width so the fit has something real to fit into. */
     .fill-body {
         flex-direction: column;
+        align-items: stretch;
     }
 
     .fill-layers {

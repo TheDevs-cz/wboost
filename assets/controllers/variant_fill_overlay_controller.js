@@ -181,12 +181,18 @@ export default class extends Controller {
     // live OUTSIDE the stage (position:fixed, viewport coords) so zoom/overflow
     // never clips them.
     //
-    // The initial zoom is auto-fit so the WHOLE canvas fits the visible part of
-    // the screen — width AND height — and the viewport's max-height is capped to
-    // that same visible area, so by default nothing scrolls anywhere (no page
-    // scroll, no inner scrollbar). Only a manual zoom-in past fit makes the
-    // viewport pan its content. We keep re-fitting on load/resize until the user
-    // zooms manually (_userZoomed); after that we leave it alone.
+    // On a WIDE screen the initial zoom is auto-fit so the WHOLE canvas fits the
+    // visible part of the screen — width AND height — and the viewport's
+    // max-height is capped to that same visible area, so by default nothing
+    // scrolls anywhere (no page scroll, no inner scrollbar). Only a manual
+    // zoom-in past fit makes the viewport pan its content.
+    //
+    // On a NARROW screen (the stacked layout) both of those are off: the fit is
+    // by width only and the viewport is uncapped, so the artwork is always fully
+    // visible by scrolling the PAGE. See _isNarrow for why.
+    //
+    // We keep re-fitting on load/resize until the user zooms manually
+    // (_userZoomed); after that we leave it alone.
 
     zoomIn() {
         this._applyZoom((this._zoom || 1) + 0.25);
@@ -217,33 +223,57 @@ export default class extends Controller {
         if (!this.hasPreviewTarget || !this.hasStageTarget) return this._zoom || 1;
         const container = this.stageTarget.parentElement;
         const availW = container ? container.clientWidth : window.innerWidth;
+        // null (narrow screens) = height is not a constraint: fit by width and
+        // let the page scroll, rather than shrinking the artwork into a sliver.
         const availH = container ? this._availableHeight(container) : window.innerHeight;
         const rect = this.previewTarget.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0 || availW <= 0 || availH <= 0) return this._zoom || 1;
+        if (rect.width <= 0 || rect.height <= 0 || availW <= 0) return this._zoom || 1;
+        if (availH !== null && availH <= 0) return this._zoom || 1;
 
         // rect already reflects the current zoom, so rescale it to the available
         // box. Floor (not round): erring a pixel small never creates a scrollbar.
-        const z = (this._zoom || 1) * Math.min(availW / rect.width, availH / rect.height);
+        const fitH = availH === null ? Infinity : availH / rect.height;
+        const z = (this._zoom || 1) * Math.min(availW / rect.width, fitH);
         return Math.min(1, Math.max(0.1, Math.floor(z * 100) / 100));
+    }
+
+    /** Narrow screens = the stacked layout (mirrors the `.fill-body` media
+     *  query in app.css). There the page scrolls by design: everything above
+     *  the preview — title, breadcrumb, the two toggles, the zoom row, publish
+     *  and export — stacks into several hundred px of chrome, so "the space
+     *  left below the preview's top" is a sliver of the screen and capping the
+     *  viewport to it CLIPS the artwork (the bottom of the design vanishing
+     *  behind the Vrstvy panel, and worse on every zoom step in). */
+    _isNarrow() {
+        return typeof window.matchMedia === "function"
+            && window.matchMedia("(max-width: 767.98px)").matches;
     }
 
     /** Visible height below the viewport's top edge (document-space, so the
      *  current scroll position doesn't skew it). The fixed reserve covers the
      *  theme's content padding below the preview, so fitting into this height
      *  leaves the PAGE itself scroll-free too; the floor keeps a usable
-     *  preview area on tiny windows. */
+     *  preview area on tiny windows.
+     *
+     *  `null` on narrow screens: there is no height to fit into — the preview
+     *  is sized by WIDTH and the page scrolls (see _isNarrow). */
     _availableHeight(viewport) {
+        if (this._isNarrow()) return null;
         const top = viewport.getBoundingClientRect().top + window.scrollY;
         return Math.max(220, Math.round(window.innerHeight - top - 72));
     }
 
     /** Cap the viewport to the visible area: at fit zoom nothing scrolls at
      *  all, and a manual zoom-in pans INSIDE this box instead of stretching
-     *  the page under the user. */
+     *  the page under the user. On narrow screens the cap is REMOVED (and an
+     *  earlier one cleared, so rotating a phone back to a wide layout heals):
+     *  the viewport grows with the artwork and the page scrolls, which is the
+     *  only way the whole canvas stays reachable once zoomed in. */
     _sizeViewport() {
         const viewport = this.hasStageTarget ? this.stageTarget.parentElement : null;
         if (!viewport) return;
-        viewport.style.maxHeight = `${this._availableHeight(viewport)}px`;
+        const available = this._availableHeight(viewport);
+        viewport.style.maxHeight = available === null ? "" : `${available}px`;
     }
 
     /** Set the auto zoom so the whole canvas fits the screen (until user zooms). */
