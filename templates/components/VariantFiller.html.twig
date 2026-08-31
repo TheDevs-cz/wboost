@@ -28,7 +28,22 @@
     Progressive enhancement: without JS the `.fill-overlay` is a plain stacked,
     editable list of the popovers and the boxes are hidden; the controller adds
     `.fill-js` on connect to switch to the floating overlay.
+
+    DEFERRED FIRST RENDER: the export page mounts this component with
+    `loading="defer"` — the page GET paints the shell + the placeholder macro
+    below instantly, and this template's expensive first render (1-3 Gotenberg
+    calls for the preview/backdrop/slices) happens in the follow-up Live
+    request. Rendering it inline used to burn the page request's whole
+    execution budget when the renderer was busy (the biggest single source of
+    the 30s MaxExecutionTimeError fatals). Note this makes the page hard-
+    require JS — which the Live-bound fill flow effectively already did.
 #}
+{% macro placeholder(props) %}
+    <div class="d-flex flex-column align-items-center justify-content-center text-muted py-5" style="min-height: 45vh;">
+        <span class="spinner-border mb-2" role="status" aria-hidden="true"></span>
+        Připravuji šablonu k vyplnění…
+    </div>
+{% endmacro %}
 {% set hasImages = this.hasImagePlaceholders() %}
 {% set textPlaceholders = this.textPlaceholders() %}
 {% set imagePlaceholders = hasImages ? this.imagePlaceholders() : [] %}

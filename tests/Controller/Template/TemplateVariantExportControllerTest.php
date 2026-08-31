@@ -6,6 +6,7 @@ namespace WBoost\Web\Tests\Controller\Template;
 
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Repository\TemplateVariantRepository;
@@ -76,6 +77,11 @@ final class TemplateVariantExportControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('[data-controller~="live"]');
+
+        // The component mounts with loading="defer": the page GET carries only
+        // the live stub + the loading placeholder, and the expensive first
+        // render (1-3 Gotenberg calls) happens in the follow-up Live request.
+        self::assertSelectorTextContains('[data-controller~="live"]', 'Připravuji šablonu k vyplnění');
     }
 
     public function testExportPageForbiddenForOtherUser(): void
@@ -202,13 +208,17 @@ final class TemplateVariantExportControllerTest extends WebTestCase
     }
 
     /**
-     * Regression for the production "Cannot modify header information"
-     * warning: the export page render must use `renderToBytes()` for the
-     * preview, NOT `render()` + `sendContent()`. The latter calls flush()
-     * inside the StreamedResponse callback, which commits response headers
-     * to the browser before Symfony has finished assembling the outer HTML
-     * response — so cookies / Content-Type / Content-Length are dropped
-     * and the browser content-sniffs a header-less body.
+     * Two render-path contracts of the fill page:
+     *
+     * - The page GET itself renders NOTHING through Gotenberg — the component
+     *   is deferred (`loading="defer"`), so the shell answers instantly and
+     *   the expensive first render happens in the follow-up Live request.
+     *   Rendering inline used to burn the page request's execution budget
+     *   whenever the renderer was busy (MaxExecutionTimeError fatals).
+     * - The component's preview must use `renderToBytes()`, NOT `render()` +
+     *   `sendContent()` — the StreamedResponse flush() would commit headers
+     *   before Symfony finished assembling the outer response (the production
+     *   "Cannot modify header information" regression).
      */
     public function testExportPageRenderUsesBytesPathForPreviewNotStreamedResponse(): void
     {
@@ -223,6 +233,20 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'text/html; charset=UTF-8');
 
+        self::assertSame(
+            [],
+            $this->getRendererFake()->calls,
+            'the deferred page GET must not render anything through Gotenberg',
+        );
+
+        // The deferred Live request is where the preview actually renders.
+        $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID)],
+            client: $client,
+        )->render();
+
+        // Re-fetched: the kernel reboots between requests, re-creating the fake.
         $fake = $this->getRendererFake();
         $previewCalls = array_filter($fake->calls, static fn (array $c): bool => $c['mode'] === 'renderToBytes');
         $streamCalls = array_filter($fake->calls, static fn (array $c): bool => $c['mode'] === 'render');
@@ -659,34 +683,36 @@ final class TemplateVariantExportControllerTest extends WebTestCase
     }
 
     /**
-     * The fill page for a variant WITH image placeholders renders the
+     * The fill component for a variant WITH image placeholders renders the
      * interactive `variant-image-fill` canvas: the controller wiring, the
      * per-slot hidden placement fields, the backdrop source element, and the
      * allowed-folder images as pickable thumbnails. The backdrop itself is
      * rendered with every placeholder hidden so the live Fabric objects are the
-     * only pictures shown in those slots.
+     * only pictures shown in those slots. (Asserted on the component render —
+     * the page GET carries only the deferred placeholder.)
      */
     public function testImageVariantRendersInteractiveFillCanvas(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
-        $client->request(
-            'GET',
-            '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
-        );
+        $rendered = (string) $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID)],
+            client: $client,
+        )->render();
 
-        self::assertResponseIsSuccessful();
-        self::assertSelectorExists('[data-controller~="variant-image-fill"]');
-        self::assertSelectorExists('[data-variant-image-fill-target="canvas"]');
-        self::assertSelectorExists('#variant-backdrop-source');
-        self::assertSelectorExists(
+        $crawler = new Crawler($rendered);
+        self::assertCount(1, $crawler->filter('[data-controller~="variant-image-fill"]'));
+        self::assertCount(1, $crawler->filter('[data-variant-image-fill-target="canvas"]'));
+        self::assertCount(1, $crawler->filter('#variant-backdrop-source'));
+        self::assertCount(1, $crawler->filter(
             'input[name="images[' . TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID . '][imageId]"]',
-        );
+        ));
         // The photo slot offers its allowed-folder image as a pickable thumbnail.
-        self::assertSelectorExists(
+        self::assertGreaterThan(0, $crawler->filter(
             '[data-variant-image-fill-imageid-param="' . TestDataFixture::FILE_IN_ALLOWED_ID . '"]',
-        );
+        )->count());
 
         // The backdrop render hides every placeholder.
         $fake = $this->getRendererFake();

@@ -23,6 +23,9 @@
 
 {% block content %}
     {# The fill UI is driven by a Live Component; it renders its own preview
-       server-side (Gotenberg PNG → base64 data URI). #}
-    <twig:Template:VariantFiller :variant="variant" :facebookConnected="facebookConnected" />
+       server-side (Gotenberg PNG → base64 data URI). `loading="defer"` keeps
+       those Gotenberg calls OUT of this page request — the shell paints
+       instantly and the component arrives via a follow-up Live request (see
+       the placeholder macro in the component template). #}
+    <twig:Template:VariantFiller :variant="variant" :facebookConnected="facebookConnected" loading="defer" />
 {% endblock %}

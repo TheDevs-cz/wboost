@@ -7,6 +7,8 @@ namespace WBoost\Web\Tests\Controller\Template;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
+use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
@@ -18,6 +20,8 @@ use WBoost\Web\Tests\TestingLogin;
  */
 final class TemplateVariantEditorControllerTest extends WebTestCase
 {
+    use InteractsWithLiveComponents;
+
     private function editorUrl(): string
     {
         return '/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/editor';
@@ -244,17 +248,30 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         $client->request('GET', '/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export');
 
         self::assertResponseIsSuccessful();
+        // The component is DEFERRED (loading="defer"): the page GET carries the
+        // live stub + loading placeholder, and the content below arrives via
+        // the follow-up Live request.
+        self::assertSelectorExists('[data-controller~="live"]');
+        self::assertSelectorTextContains('[data-controller~="live"]', 'Připravuji šablonu k vyplnění');
+
+        $rendered = (string) $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $this->loadVariant()],
+            client: $client,
+        )->render();
+        $crawler = new Crawler($rendered);
+
         // The variant has image placeholders → the hybrid fill canvas is rendered
         // and the form posts to the template download route.
-        self::assertSelectorExists('[data-controller~="variant-image-fill"]');
-        self::assertSelectorExists('form[action$="/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/download"]');
+        self::assertCount(1, $crawler->filter('[data-controller~="variant-image-fill"]'));
+        self::assertCount(1, $crawler->filter('form[action$="/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/download"]'));
 
         // Both overlay halves start on, each on its own switch — and the two
         // classes are what the CSS gates on, so the initial markup must carry
         // them or the page loads with the chrome invisible.
-        self::assertSelectorExists('form.fill-form.fill-highlight-on.fill-captions-on');
-        self::assertSelectorExists('#fill-highlight-toggle[checked]');
-        self::assertSelectorExists('#fill-captions-toggle[checked][data-action="change->variant-fill-overlay#toggleCaptions"]');
+        self::assertCount(1, $crawler->filter('form.fill-form.fill-highlight-on.fill-captions-on'));
+        self::assertCount(1, $crawler->filter('#fill-highlight-toggle[checked]'));
+        self::assertCount(1, $crawler->filter('#fill-captions-toggle[checked][data-action="change->variant-fill-overlay#toggleCaptions"]'));
     }
 
     private function loadVariant(): TemplateVariant
