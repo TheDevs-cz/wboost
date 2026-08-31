@@ -17,6 +17,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Services\Editor\EchoCapableTextInputs;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
@@ -117,8 +118,18 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly GetFonts $getFonts,
         private readonly RequestStack $requestStack,
         private readonly ReleaseSessionLock $releaseSessionLock,
+        private readonly EchoCapableTextInputs $echoCapableTextInputs,
     ) {
     }
+
+    /**
+     * Per-request memo of the echo-capable input ids (see
+     * {@see EchoCapableTextInputs}) — several render methods and the template
+     * consult the same set during one render pass.
+     *
+     * @var null|list<string>
+     */
+    private null|array $echoCapableIdsCache = null;
 
     /**
      * The hydrated variant, or null before hydration (see the subclass
@@ -250,13 +261,24 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
-     * The plain server preview (text + background + the designer's stand-in
-     * placeholders inlined) for variants WITHOUT fillable image slots. See
-     * {@see backdropDataUri()} for the image case.
+     * The plain server preview for variants WITHOUT fillable image slots —
+     * `src` is the settle render (text + background + stand-ins), `baseSrc`
+     * the echo base: the same render with the echo-capable texts transparent,
+     * shown UNDER the client-drawn text layer while the user types. When
+     * nothing is echo-capable the base is the settle bytes (no extra render).
+     * See {@see backdropSources()} for the image case.
+     *
+     * @return array{src: string, baseSrc: string}
      */
-    public function previewDataUri(): string
+    public function previewSources(): array
     {
-        return $this->renderToDataUri(ResolvedImageOverrides::none());
+        $src = $this->renderToDataUri(ResolvedImageOverrides::none());
+        $capable = $this->echoCapableIds();
+        $baseSrc = $capable === []
+            ? $src
+            : $this->renderToDataUri(ResolvedImageOverrides::none(), null, $capable);
+
+        return ['src' => $src, 'baseSrc' => $baseSrc];
     }
 
     /**
@@ -265,17 +287,26 @@ abstract class AbstractVariantFiller extends AbstractController
      * Content designed above a placeholder is deliberately NOT here — it comes
      * as {@see overlaySlices()} the fill controller stacks OVER the live
      * Fabric objects, so the designed z-order holds on the interactive
-     * preview too. Re-rendered on each text edit (Live re-render) and picked
-     * up by the fill controller.
+     * preview too. Re-rendered on each settle (Live re-render) and picked up
+     * by the fill controller. `baseSrc` follows the previewSources() contract:
+     * echo-capable texts transparent, or the settle bytes when the backdrop
+     * range holds none.
+     *
+     * @return array{src: string, baseSrc: string}
      */
-    public function backdropDataUri(): string
+    public function backdropSources(): array
     {
         $indexes = $this->placeholderStackIndexes();
         $slice = $indexes === []
             ? null
             : new CanvasSlice(0, min($indexes), withBackground: true);
 
-        return $this->renderToDataUri($this->allPlaceholdersHidden(), $slice);
+        $src = $this->renderToDataUri($this->allPlaceholdersHidden(), $slice);
+        $baseSrc = $this->rangeHoldsEchoText(0, $slice?->toIndex)
+            ? $this->renderToDataUri($this->allPlaceholdersHidden(), $slice, $this->echoCapableIds())
+            : $src;
+
+        return ['src' => $src, 'baseSrc' => $baseSrc];
     }
 
     /**
@@ -284,9 +315,10 @@ abstract class AbstractVariantFiller extends AbstractController
      * over a hero picture, …). The fill controller paints each one directly
      * above its placeholder's live object. Ordered bottom-up. Empty for the
      * typical "placeholders on top of the design" case — costs no extra
-     * renders then.
+     * renders then. `baseDataUri` = the echo base of the slice (equal to
+     * `dataUri` when the gap holds no echo-capable text).
      *
-     * @return list<array{aboveInputId: string, dataUri: string}>
+     * @return list<array{aboveInputId: string, dataUri: string, baseDataUri: string}>
      */
     public function overlaySlices(): array
     {
@@ -305,10 +337,44 @@ abstract class AbstractVariantFiller extends AbstractController
             if ($dataUri === '') {
                 continue;
             }
-            $result[] = ['aboveInputId' => $gap['aboveInputId'], 'dataUri' => $dataUri];
+            $baseDataUri = $this->rangeHoldsEchoText($gap['slice']->fromIndex, $gap['slice']->toIndex)
+                ? $this->renderToDataUri($this->allPlaceholdersHidden(), $gap['slice'], $this->echoCapableIds())
+                : $dataUri;
+            $result[] = [
+                'aboveInputId' => $gap['aboveInputId'],
+                'dataUri' => $dataUri,
+                'baseDataUri' => $baseDataUri,
+            ];
         }
 
         return $result;
+    }
+
+    /**
+     * Whether any echo-capable text's bound object sits inside the z-range
+     * [$from, $to) — decides whether a slice needs its own base render or can
+     * reuse the settle bytes verbatim.
+     */
+    private function rangeHoldsEchoText(int $from, null|int $to): bool
+    {
+        $capable = $this->echoCapableIds();
+        if ($capable === []) {
+            return false;
+        }
+
+        $variant = $this->variantEntity();
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $indexes = $this->textInputObjectBinder->layerIndexesByInputId($canvas, $variant->inputs);
+
+        foreach ($capable as $inputId) {
+            $index = $indexes[$inputId] ?? null;
+            if ($index !== null && $index >= $from && ($to === null || $index < $to)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function allPlaceholdersHidden(): ResolvedImageOverrides
@@ -474,7 +540,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     lines: null|list<string>,
      *     designFontFamily: null|string,
      *     textAlign: string,
-     *     hidden: bool
+     *     hidden: bool,
+     *     echoCapable: bool
      * }>
      */
     public function textPlaceholders(): array
@@ -529,6 +596,9 @@ abstract class AbstractVariantFiller extends AbstractController
                 'designFontFamily' => $styles[$input->inputId]['fontFamily'] ?? null,
                 'textAlign' => $styles[$input->inputId]['textAlign'] ?? 'left',
                 'hidden' => $this->hiddenValues[$input->inputId] ?? false,
+                // Echo-capable inputs get the LAZY settle debounce — the echo
+                // covers the gap; everything else keeps the fast one.
+                'echoCapable' => in_array($input->inputId, $this->echoCapableIds(), true),
             ];
         }
 
@@ -923,7 +993,134 @@ abstract class AbstractVariantFiller extends AbstractController
         return $decorations;
     }
 
-    private function renderToDataUri(ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null): string
+    /**
+     * The echo-capable input ids — the texts the client-side echo layer draws
+     * and the base renders blank. Memoized per request.
+     *
+     * @return list<string>
+     */
+    public function echoCapableIds(): array
+    {
+        if ($this->echoCapableIdsCache !== null) {
+            return $this->echoCapableIdsCache;
+        }
+
+        $variant = $this->variantEntity();
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+
+        return $this->echoCapableIdsCache = $this->echoCapableTextInputs->resolve($canvas, $variant->inputs);
+    }
+
+    /**
+     * Everything the client-side echo painter needs (see
+     * assets/editor/fill_text_echo.js): the designed textbox JSON per capable
+     * input (stack order — the echo canvas preserves their mutual z-order),
+     * the clean container trees it may reflow, and the per-input value
+     * resolution rules. Null when nothing is echo-capable — the template then
+     * skips the echo chrome entirely.
+     *
+     * @return null|array{
+     *     width: int,
+     *     height: int,
+     *     canvasHeight: int,
+     *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
+     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
+     * }
+     */
+    public function echoPayload(): null|array
+    {
+        $capable = $this->echoCapableIds();
+        if ($capable === []) {
+            return null;
+        }
+
+        $variant = $this->variantEntity();
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $rawObjects = is_array($canvas['objects'] ?? null) ? $canvas['objects'] : [];
+
+        $capableSet = array_flip($capable);
+        $objects = [];
+        foreach ($this->textInputObjectBinder->inputIdByObjectIndex($canvas, $variant->inputs) as $index => $inputId) {
+            if (!isset($capableSet[$inputId])) {
+                continue;
+            }
+            $object = $rawObjects[$index] ?? null;
+            if (!is_array($object)) {
+                continue;
+            }
+            // The echo enlivens the object verbatim; only the binding id must
+            // ride along explicitly (Fabric v7 drops custom props on load, the
+            // painter re-stamps it from this key).
+            $objects[] = ['inputId' => $inputId, 'object' => $object];
+            unset($capableSet[$inputId]);
+        }
+
+        $inputRules = [];
+        foreach ($variant->inputs as $input) {
+            if (in_array($input->inputId, $capable, true)) {
+                $inputRules[$input->inputId] = [
+                    'richText' => $input->richText,
+                    'lists' => $input->richText && $input->lists,
+                    'maxLength' => $input->maxLength,
+                    'uppercase' => $input->uppercase,
+                ];
+            }
+        }
+
+        return [
+            'width' => $variant->dimension->width(),
+            'height' => $variant->dimension->height(),
+            'canvasHeight' => $variant->dimension->height(),
+            'objects' => $objects,
+            'containers' => array_map(
+                static fn (CanvasContainer $container): array => $container->toArray(),
+                $this->echoCapableTextInputs->cleanContainers($canvas, $capable),
+            ),
+            'inputs' => $inputRules,
+        ];
+    }
+
+    /**
+     * Fingerprint of the fill state THIS render pass painted — stamped on the
+     * Live-updated source elements so the echo controller can tell a settle
+     * render that matches the current mirrors ("rest on server pixels") from a
+     * stale one that raced the user's typing ("stay on the echo"). djb2 over
+     * the canonical UTF-8 serialization; the JS twin lives in
+     * variant_text_echo_controller.js and must hash byte-identically.
+     */
+    public function fillStateHash(): string
+    {
+        $parts = [];
+
+        $texts = $this->textValues;
+        ksort($texts);
+        foreach ($texts as $inputId => $value) {
+            $parts[] = 'T:' . $inputId . '=' . $value;
+        }
+
+        $hidden = $this->hiddenValues;
+        ksort($hidden);
+        foreach ($hidden as $inputId => $hide) {
+            $parts[] = 'H:' . $inputId . '=' . ($hide ? '1' : '0');
+        }
+
+        $canonical = implode("\n", $parts);
+
+        $hash = 5381;
+        for ($i = 0, $length = strlen($canonical); $i < $length; $i++) {
+            $hash = (($hash * 33) ^ ord($canonical[$i])) & 0xFFFFFFFF;
+        }
+
+        return (string) $hash;
+    }
+
+    /**
+     * @param list<string> $transparentTextInputIds
+     */
+    private function renderToDataUri(ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = []): string
     {
         $variant = $this->variantEntity();
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
@@ -966,7 +1163,14 @@ abstract class AbstractVariantFiller extends AbstractController
             : RenderImageFormat::Webp;
 
         try {
-            $bytes = $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, slice: $slice, format: $format);
+            $bytes = $this->renderer->renderToBytes(
+                $variant,
+                $overrides,
+                $imageOverrides,
+                slice: $slice,
+                format: $format,
+                transparentTextInputIds: $transparentTextInputIds,
+            );
         } catch (TemplateRenderUnavailable) {
             // The renderer is overloaded. A fill page draws 2-3 renders (backdrop
             // + one per overlay slice) on EVERY edit, so letting this bubble

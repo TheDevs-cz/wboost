@@ -46,6 +46,14 @@ export default class extends Controller {
         this.placeholdersById = {};
         (this.placeholdersValue || []).forEach((ph) => { this.placeholdersById[ph.inputId] = ph; });
 
+        // Echo mode (see variant_text_echo_controller): while the user types,
+        // the backdrop + overlays swap to their `data-base-src` variants (the
+        // echo-capable texts transparent) so the client-drawn text layer above
+        // is the only place those texts appear. FabricImages are cached per
+        // src, so flipping modes is a repaint, not a reload.
+        this._echoMode = false;
+        this._backdropImages = new Map();
+
         this.canvas = new Canvas(this.canvasTarget, {
             width: this.widthValue,
             height: this.heightValue,
@@ -101,13 +109,34 @@ export default class extends Controller {
         return document.getElementById(this.backdropIdValue);
     }
 
+    /** The mode-appropriate src of a source span: the settle render, or its
+     *  text-transparent base in echo mode (equal strings when the range holds
+     *  no echoed text — the server reuses the bytes). */
+    _sourceSrcFor(element) {
+        if (!element) return '';
+        const settle = element.getAttribute('data-src') || '';
+        if (!this._echoMode) return settle;
+        return element.getAttribute('data-base-src') || settle;
+    }
+
     _applyBackdrop() {
-        const element = this._backdropElement();
-        const src = element ? element.getAttribute('data-src') : '';
+        const src = this._sourceSrcFor(this._backdropElement());
         if (!src) return;
+
+        const cached = this._backdropImages.get(src);
+        if (cached) {
+            this.canvas.backgroundImage = cached;
+            this.canvas.requestRenderAll();
+            return;
+        }
 
         FabricImage.fromURL(src, { crossOrigin: 'anonymous' }).then((img) => {
             img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+            // Bound the cache: only the freshest settle + base pair matters.
+            if (this._backdropImages.size > 4) this._backdropImages.clear();
+            this._backdropImages.set(src, img);
+            // The mode (or the sources) may have moved on while decoding.
+            if (this._sourceSrcFor(this._backdropElement()) !== src) return;
             this.canvas.backgroundImage = img;
             this.canvas.requestRenderAll();
         }).catch(() => {});
@@ -117,7 +146,16 @@ export default class extends Controller {
         const element = this._backdropElement();
         if (!element) return;
         this._backdropObserver = new MutationObserver(() => this._applyBackdrop());
-        this._backdropObserver.observe(element, { attributes: true, attributeFilter: ['data-src'] });
+        this._backdropObserver.observe(element, { attributes: true, attributeFilter: ['data-src', 'data-base-src'] });
+    }
+
+    /** variant-text-echo:mode (wired via data-action on the shared root). */
+    echoModeChanged(event) {
+        const echo = Boolean(event.detail && event.detail.echo);
+        if (echo === this._echoMode) return;
+        this._echoMode = echo;
+        this._applyBackdrop();
+        this._refreshOverlayVisibility();
     }
 
     // --- Overlay slices (design content ABOVE a placeholder) -----------------
@@ -128,29 +166,74 @@ export default class extends Controller {
 
     /** (Re)load each overlay slice — a transparent full-canvas PNG of the
      *  design content directly above one placeholder. Slices carrying text are
-     *  re-rendered by Live on text edits (new data-src), so loads are keyed by
-     *  src and stale in-flight loads are dropped. */
+     *  re-rendered by Live on settle (new data-src), so loads are keyed by src
+     *  and stale in-flight loads are dropped. Each slice keeps BOTH variants
+     *  decoded — the settle bytes and the text-transparent base — and shows
+     *  the one the current echo mode calls for. */
     _applyOverlays() {
         const wrapper = this._overlaysElement();
         if (!wrapper) return;
         wrapper.querySelectorAll('[data-overlay-above]').forEach((span) => {
             const aboveId = span.getAttribute('data-overlay-above');
-            const src = span.getAttribute('data-src') || '';
-            if (!aboveId || !src) return;
-            const existing = this.overlayObjects[aboveId];
-            if (existing && existing.src === src) return;
-            this.overlayObjects[aboveId] = { src, object: existing ? existing.object : null };
+            const settleSrc = span.getAttribute('data-src') || '';
+            if (!aboveId || !settleSrc) return;
+            const baseAttr = span.getAttribute('data-base-src') || '';
+            // Equal strings = the slice holds no echoed text; one object serves
+            // both modes.
+            const baseSrc = baseAttr !== '' && baseAttr !== settleSrc ? baseAttr : null;
 
-            FabricImage.fromURL(src, { crossOrigin: 'anonymous' }).then((img) => {
-                const entry = this.overlayObjects[aboveId];
-                if (!entry || entry.src !== src) return;
-                img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
-                if (entry.object) this.canvas.remove(entry.object);
-                entry.object = img;
-                this.canvas.add(img);
-                this._restack();
-            }).catch(() => {});
+            const entry = (this.overlayObjects[aboveId] ??= {
+                settleSrc: null, settleObject: null,
+                baseSrc: null, baseObject: null,
+                shown: null,
+            });
+
+            this._loadOverlayVariant(entry, 'settle', settleSrc, aboveId);
+            if (baseSrc !== null) {
+                this._loadOverlayVariant(entry, 'base', baseSrc, aboveId);
+            } else if (entry.baseSrc !== null) {
+                if (entry.shown === entry.baseObject && entry.baseObject) this.canvas.remove(entry.baseObject);
+                if (entry.shown === entry.baseObject) entry.shown = null;
+                entry.baseSrc = null;
+                entry.baseObject = null;
+            }
+            this._showOverlay(aboveId);
         });
+    }
+
+    _loadOverlayVariant(entry, kind, src, aboveId) {
+        const srcKey = `${kind}Src`;
+        const objKey = `${kind}Object`;
+        if (entry[srcKey] === src) return;
+        entry[srcKey] = src;
+
+        FabricImage.fromURL(src, { crossOrigin: 'anonymous' }).then((img) => {
+            const current = this.overlayObjects[aboveId];
+            if (!current || current[srcKey] !== src) return;
+            img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+            if (current.shown === current[objKey] && current[objKey]) {
+                this.canvas.remove(current[objKey]);
+                current.shown = null;
+            }
+            current[objKey] = img;
+            this._showOverlay(aboveId);
+        }).catch(() => {});
+    }
+
+    /** Put the mode-appropriate variant of one slice on the canvas. */
+    _showOverlay(aboveId) {
+        const entry = this.overlayObjects[aboveId];
+        if (!entry) return;
+        const desired = (this._echoMode && entry.baseObject) ? entry.baseObject : entry.settleObject;
+        if (entry.shown === desired) return;
+        if (entry.shown) this.canvas.remove(entry.shown);
+        entry.shown = desired;
+        if (desired) this.canvas.add(desired);
+        this._restack();
+    }
+
+    _refreshOverlayVisibility() {
+        Object.keys(this.overlayObjects).forEach((aboveId) => this._showOverlay(aboveId));
     }
 
     _observeOverlays() {
@@ -161,7 +244,7 @@ export default class extends Controller {
         // mutating data-src in place.
         this._overlaysObserver.observe(wrapper, {
             attributes: true,
-            attributeFilter: ['data-src'],
+            attributeFilter: ['data-src', 'data-base-src'],
             childList: true,
             subtree: true,
         });
@@ -184,7 +267,7 @@ export default class extends Controller {
             const slot = this.objects[ph.inputId];
             if (slot && slot.object) this.canvas.moveObjectTo(slot.object, index++);
             const overlay = this.overlayObjects[ph.inputId];
-            if (overlay && overlay.object) this.canvas.moveObjectTo(overlay.object, index++);
+            if (overlay && overlay.shown) this.canvas.moveObjectTo(overlay.shown, index++);
         });
         this.canvas.requestRenderAll();
     }

@@ -958,6 +958,44 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     max-width: none;
 }
 
+/* Client-side text echo: while the user types, the settle preview yields to
+   the text-transparent base + the echo canvas stacked over it (both sized to
+   the same displayed width, so the CSS zoom transform scales all three
+   together). Hidden by default — the settle render is the truth at rest. */
+.fill-echo-base,
+.fill-echo-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.fill-echo-base {
+    width: 100%;
+    height: auto;
+}
+
+.fill-echo-active .fill-echo-base,
+.fill-echo-active .fill-echo-canvas {
+    visibility: visible;
+}
+
+/* Text branch only: the settle img hides under the echo composite — the base
+   may legitimately be transparent (layer-mode variants), so the settle text
+   must not show through. The image branch keeps its fill canvas visible (it
+   IS the composite there; only its sources swap). */
+.fill-echo-active .fill-preview-img {
+    visibility: hidden;
+}
+
+/* While the echo covers the typing, the "rendering" veil is noise — the user
+   already sees their text; the settle lands silently underneath. */
+.fill-echo-active .fill-spinner {
+    display: none;
+}
+
 /* Base (no-JS) — the popovers render as a plain stacked, editable list under
    the preview. (The .fill-overlay itself only holds the boxes, hidden here.) */
 .fill-popovers {

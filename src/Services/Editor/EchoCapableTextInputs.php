@@ -48,7 +48,7 @@ final readonly class EchoCapableTextInputs
     }
 
     /**
-     * @param array<string, mixed> $canvas decoded canvas JSON
+     * @param array<array-key, mixed> $canvas decoded canvas JSON
      * @param array<EditorTextInput> $inputs
      * @return list<string> echo-capable inputIds, in inputs[] order
      */
@@ -97,9 +97,9 @@ final readonly class EchoCapableTextInputs
                 }
             }
 
-            foreach ($this->containerTrees($containers) as $treeMemberIds) {
+            foreach ($this->containerTrees($containers) as $tree) {
                 $treeIsClean = true;
-                foreach ($treeMemberIds as $memberId) {
+                foreach ($tree['memberIds'] as $memberId) {
                     if (!isset($candidates[$memberId])) {
                         $treeIsClean = false;
                         break;
@@ -108,7 +108,7 @@ final readonly class EchoCapableTextInputs
                 if ($treeIsClean) {
                     continue;
                 }
-                foreach ($treeMemberIds as $memberId) {
+                foreach ($tree['memberIds'] as $memberId) {
                     if (isset($candidates[$memberId])) {
                         unset($candidates[$memberId]);
                         $removed = true;
@@ -176,14 +176,44 @@ final readonly class EchoCapableTextInputs
     }
 
     /**
-     * Deep member-id sets per ROOT container tree. Sibling collision-push can
-     * chain any two vertically stacked roots, but only through their members —
-     * so per-tree cleanliness is the right granularity: a dirty tree's members
-     * simply stay settle-rendered and the base carries their (override-aware)
-     * pixels, while a clean tree reflows purely invisible objects.
+     * The container definitions the ECHO may reflow: every definition (root +
+     * descendants) of a tree whose deep members are ALL echo-capable. The echo
+     * canvas holds exactly the capable texts, so handing it only clean trees
+     * gives the layout engine a complete member set with nothing baked in it.
+     *
+     * @param array<array-key, mixed> $canvas decoded canvas JSON
+     * @param list<string> $capableIds output of {@see resolve()}
+     * @return list<CanvasContainer>
+     */
+    public function cleanContainers(array $canvas, array $capableIds): array
+    {
+        $capable = array_flip($capableIds);
+        $result = [];
+
+        foreach ($this->containerTrees(CanvasContainer::collectionFromCanvas($canvas)) as $tree) {
+            foreach ($tree['memberIds'] as $memberId) {
+                if (!isset($capable[$memberId])) {
+                    continue 2;
+                }
+            }
+            foreach ($tree['containers'] as $container) {
+                $result[] = $container;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Deep member-id sets (plus the involved definitions) per ROOT container
+     * tree. Sibling collision-push can chain any two vertically stacked roots,
+     * but only through their members — so per-tree cleanliness is the right
+     * granularity: a dirty tree's members simply stay settle-rendered and the
+     * base carries their (override-aware) pixels, while a clean tree reflows
+     * purely invisible objects.
      *
      * @param list<CanvasContainer> $containers
-     * @return list<list<string>>
+     * @return list<array{containers: list<CanvasContainer>, memberIds: list<string>}>
      */
     private function containerTrees(array $containers): array
     {
@@ -198,8 +228,12 @@ final readonly class EchoCapableTextInputs
                 continue;
             }
             $memberIds = [];
-            $this->collectTreeMembers($container, $byId, $memberIds, []);
-            $trees[] = array_values(array_unique($memberIds));
+            $treeContainers = [];
+            $this->collectTree($container, $byId, $memberIds, $treeContainers, []);
+            $trees[] = [
+                'containers' => $treeContainers,
+                'memberIds' => array_values(array_unique($memberIds)),
+            ];
         }
 
         return $trees;
@@ -208,21 +242,23 @@ final readonly class EchoCapableTextInputs
     /**
      * @param array<string, CanvasContainer> $byId
      * @param list<string> $memberIds
+     * @param list<CanvasContainer> $treeContainers
      * @param list<string> $visited guards defensively against cycles
      */
-    private function collectTreeMembers(CanvasContainer $container, array $byId, array &$memberIds, array $visited): void
+    private function collectTree(CanvasContainer $container, array $byId, array &$memberIds, array &$treeContainers, array $visited): void
     {
         if (in_array($container->id, $visited, true)) {
             return;
         }
         $visited[] = $container->id;
+        $treeContainers[] = $container;
 
         foreach ($container->memberInputIds as $memberId) {
             $memberIds[] = $memberId;
         }
         foreach ($container->memberContainerIds as $childId) {
             if (isset($byId[$childId])) {
-                $this->collectTreeMembers($byId[$childId], $byId, $memberIds, $visited);
+                $this->collectTree($byId[$childId], $byId, $memberIds, $treeContainers, $visited);
             }
         }
     }

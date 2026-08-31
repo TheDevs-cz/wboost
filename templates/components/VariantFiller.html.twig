@@ -16,7 +16,7 @@
       and carry the values on the plain form POST to the download route.
     - IMAGE (hybrid): when the variant has fillable image slots the preview is an
       interactive Fabric canvas (`variant-image-fill`) whose backgroundImage is
-      the server backdrop with the placeholders hidden (`backdropDataUri`); the
+      the server backdrop with the placeholders hidden (`backdropSources`); the
       user's chosen pictures float on top as live objects, mirrored into hidden
       `images[<uuid>][...]` fields. The image popover holds the gallery picker /
       upload / hide wired to that controller.
@@ -48,8 +48,15 @@
 {% set textPlaceholders = this.textPlaceholders() %}
 {% set imagePlaceholders = hasImages ? this.imagePlaceholders() : [] %}
 {# Render the (slow) server preview ONCE — reused by the preview source span and
-   the <img> below. Only the text-only branch has a server preview <img>. #}
-{% set previewSrc = hasImages ? null : this.previewDataUri() %}
+   the <img> below. Only the text-only branch has a server preview <img>.
+   `src` = the settle render (the on-screen truth at rest); `baseSrc` = the
+   echo base with the echo-capable texts transparent (equal to src when
+   nothing is echo-capable). #}
+{% set previewSources = hasImages ? null : this.previewSources() %}
+{# Client-side text echo: null when no input is echo-capable — no echo chrome
+   renders and every debounce stays fast. #}
+{% set echoPayload = this.echoPayload() %}
+{% set stateHash = this.fillStateHash() %}
 
 {% set fontFaces = this.fontFaces() %}
 {% set richToolbar = this.richTextToolbar() %}
@@ -66,6 +73,7 @@
         <script src="{{ asset('editor/container_layout.js') }}"></script>
         <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
         <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
+        <script src="{{ asset('editor/fill_text_echo.js') }}"></script>
         <style>
             {% for face in fontFaces %}
                 @font-face {
@@ -81,11 +89,16 @@
         action="{{ this.downloadPath() }}"
         data-turbo="false"
         class="fill-form fill-highlight-on fill-captions-on"
-        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
+        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if echoPayload %} variant-text-echo{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
         data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
         data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
-        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged"
+        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged{% if echoPayload and hasImages %} variant-text-echo:mode->variant-image-fill#echoModeChanged{% endif %}"
+        {% if echoPayload %}
+            data-variant-text-echo-payload-value="{{ echoPayload|json_encode }}"
+            data-variant-text-echo-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
+            data-variant-text-echo-has-images-value="{{ hasImages ? 'true' : 'false' }}"
+        {% endif %}
         {% if hasImages %}
             data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
             data-variant-image-fill-width-value="{{ variant.dimension.width }}"
@@ -171,8 +184,11 @@
            re-render and carry the values on the plain form POST. Kept out of the
            ignored subtree so Live can read/write them; visually hidden because
            the user edits via the popovers. #}
+        {% set echoIds = echoPayload ? echoPayload.inputs|keys : [] %}
         {% for input in variant.inputs %}
             {% if not input.locked %}
+                {# Echo-capable inputs settle LAZILY (the instant client echo
+                   covers the gap); everything else keeps the fast debounce. #}
                 <input
                     type="text"
                     class="visually-hidden"
@@ -180,7 +196,7 @@
                     aria-hidden="true"
                     name="textValues[{{ input.inputId }}]"
                     data-text-mirror="{{ input.inputId }}"
-                    data-model="on(input)|debounce(600)|textValues[{{ input.inputId }}]"
+                    data-model="on(input)|debounce({{ input.inputId in echoIds ? 2500 : 600 }})|textValues[{{ input.inputId }}]"
                     value="{{ this.textValues[input.inputId] ?? '' }}"
                 >
                 {% if input.hidable %}
@@ -200,20 +216,34 @@
         {% endfor %}
 
         {% if hasImages %}
-            {# Live-updated backdrop source — read by variant-image-fill by id. #}
-            <span id="variant-backdrop-source" data-src="{{ this.backdropDataUri() }}" hidden></span>
+            {# Live-updated backdrop source — read by variant-image-fill by id.
+               data-base-src = the echo base (capable texts transparent);
+               data-state-hash tells the echo controller whether this settle
+               matches the mirrors as they are NOW (rest) or raced the typing
+               (stay on the echo). #}
+            {% set backdropSources = this.backdropSources() %}
+            <span id="variant-backdrop-source"
+                  data-src="{{ backdropSources.src }}"
+                  data-base-src="{{ backdropSources.baseSrc }}"
+                  data-state-hash="{{ stateHash }}"
+                  hidden></span>
             {# Overlay slices: design content stacked ABOVE an image placeholder
                (transparent PNGs). The fill controller paints each directly over
                its placeholder's live object so the designed z-order holds. #}
             <span id="variant-overlay-sources" hidden>
                 {% for slice in this.overlaySlices() %}
-                    <span data-overlay-above="{{ slice.aboveInputId }}" data-src="{{ slice.dataUri }}"></span>
+                    <span data-overlay-above="{{ slice.aboveInputId }}" data-src="{{ slice.dataUri }}" data-base-src="{{ slice.baseDataUri }}"></span>
                 {% endfor %}
             </span>
         {% else %}
             {# Live-updated preview source — read by variant-fill-overlay to keep
-               the (ignored) preview <img> in sync without re-creating it. #}
-            <span data-variant-fill-overlay-target="previewSource" data-src="{{ previewSrc }}" hidden></span>
+               the (ignored) preview <img> in sync without re-creating it, and by
+               variant-text-echo for the base + the settle/rest decision. #}
+            <span data-variant-fill-overlay-target="previewSource"
+                  data-src="{{ previewSources.src }}"
+                  data-base-src="{{ previewSources.baseSrc }}"
+                  data-state-hash="{{ stateHash }}"
+                  hidden></span>
         {% endif %}
 
         {# Renderer overloaded: the sources above came back empty. Say so rather
@@ -254,17 +284,31 @@
                             width="{{ variant.dimension.width }}"
                             height="{{ variant.dimension.height }}"
                         ></canvas>
+                        {% if echoPayload %}
+                            {# The client-drawn text layer, above the fill canvas
+                               (the z-guard guarantees nothing may cover echoed
+                               text). Visible only in echo mode; the image-fill
+                               canvas swaps to the text-transparent base then. #}
+                            <canvas class="fill-echo-canvas" data-variant-text-echo-target="canvas" aria-hidden="true"></canvas>
+                        {% endif %}
                     </div>
                 </div>
             {% else %}
-                <div data-live-ignore>
-                    {% if previewSrc %}
+                <div data-live-ignore{% if echoPayload %} style="position: relative;"{% endif %}>
+                    {% if previewSources.src %}
                         <img
                             class="fill-preview-img{{ variant.backgroundMode.value == 'layer' ? ' fill-preview-img--transparent' }}"
                             data-variant-fill-overlay-target="preview"
-                            src="{{ previewSrc }}"
+                            src="{{ previewSources.src }}"
                             alt=""
                         >
+                        {% if echoPayload %}
+                            {# Echo composite (visible only in echo mode, above the
+                               settle img): the text-transparent base + the
+                               client-drawn text canvas. #}
+                            <img class="fill-echo-base" data-variant-text-echo-target="baseImage" src="{{ previewSources.baseSrc }}" alt="" aria-hidden="true">
+                            <canvas class="fill-echo-canvas" data-variant-text-echo-target="canvas" aria-hidden="true"></canvas>
+                        {% endif %}
                     {% else %}
                         <p class="text-muted">Náhled se generuje…</p>
                     {% endif %}

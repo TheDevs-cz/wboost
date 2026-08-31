@@ -159,7 +159,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         // This variant has image placeholders, so the interactive path is
         // backdrop + overlays rather than the single flat preview.
         self::assertTrue($component->hasImagePlaceholders());
-        self::assertStringStartsWith('data:image/webp;base64,', $component->backdropDataUri());
+        self::assertStringStartsWith('data:image/webp;base64,', $component->backdropSources()['src']);
 
         // Guard against this test quietly becoming vacuous: if a fixture change
         // ever removed the design content above the placeholders, the loop
@@ -178,6 +178,93 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         $formats = array_column($this->getRendererFake()->calls, 'format');
         self::assertNotEmpty($formats);
         self::assertContains('webp', $formats, 'the backdrop must have been rendered as WebP');
+    }
+
+    /**
+     * The echo contract on the rendered component: the Live-updated source
+     * span always carries the state hash + the base src, and the echo chrome
+     * (canvas + lazy debounce) appears exactly for the echo-capable inputs.
+     * Asserted against whatever eligibility the fixture actually resolves to,
+     * so the test guards CONSISTENCY between the payload and the markup rather
+     * than pinning fixture-specific capability.
+     */
+    public function testEchoSourcesHashAndAdaptiveDebounceAreConsistent(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $testComponent = $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID)],
+            client: $client,
+        );
+
+        /** @var VariantFiller $component */
+        $component = $testComponent->component();
+        $rendered = (string) $testComponent->render();
+        $crawler = new Crawler($rendered);
+
+        // Image branch → the backdrop span is the settle source element.
+        self::assertCount(1, $crawler->filter('#variant-backdrop-source[data-state-hash][data-base-src]'));
+
+        $payload = $component->echoPayload();
+        $capableIds = $component->echoCapableIds();
+
+        if ($payload === null) {
+            self::assertSame([], $capableIds);
+            self::assertCount(0, $crawler->filter('.fill-echo-canvas'));
+            self::assertStringNotContainsString('debounce(2500)', $rendered);
+
+            return;
+        }
+
+        self::assertNotSame([], $capableIds);
+        self::assertSame($capableIds, array_keys($payload['inputs']));
+        self::assertGreaterThan(0, $crawler->filter('.fill-echo-canvas')->count());
+        self::assertStringContainsString('data-controller="variant-fill-overlay variant-image-fill variant-text-echo"', $rendered);
+
+        foreach ($capableIds as $inputId) {
+            self::assertStringContainsString(
+                sprintf('data-model="on(input)|debounce(2500)|textValues[%s]"', $inputId),
+                $rendered,
+                'echo-capable inputs settle lazily',
+            );
+        }
+        foreach ($payload['objects'] as $entry) {
+            self::assertContains($entry['inputId'], $capableIds);
+            self::assertIsArray($entry['object']);
+        }
+    }
+
+    /**
+     * Pin the state-hash algorithm: djb2 over the canonical UTF-8 fill state.
+     * The JS twin (variant_text_echo_controller.js _clientHash) must produce
+     * these exact strings for the same values — Czech diacritics included,
+     * which is what makes the byte-domain (UTF-8, not UTF-16) load-bearing.
+     */
+    public function testFillStateHashIsStableAndByteDomainCorrect(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $testComponent = $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID)],
+            client: $client,
+        );
+
+        /** @var VariantFiller $component */
+        $component = $testComponent->component();
+        $component->textValues = ['b-id' => 'Žluťoučký kůň', 'a-id' => 'pěl'];
+        $component->hiddenValues = ['h-id' => true];
+
+        // Independently computed djb2 over
+        // "T:a-id=pěl\nT:b-id=Žluťoučký kůň\nH:h-id=1" (UTF-8 bytes, sorted keys).
+        self::assertSame('2821327736', $component->fillStateHash());
+
+        // Key order must not matter (ksort), value bytes must.
+        $component->textValues = ['a-id' => 'pěl', 'b-id' => 'Žluťoučký kůň'];
+        self::assertSame('2821327736', $component->fillStateHash());
     }
 
     public function testRenderedTemplateUsesBracketNotationForUuidKeys(): void
