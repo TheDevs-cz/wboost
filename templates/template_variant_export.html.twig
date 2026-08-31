@@ -22,6 +22,28 @@
 {% endblock %}
 
 {% block content %}
+    {# Shared editor modules (classic scripts, window globals) + the project
+       @font-face declarations — the fill overlay measures wrapped text with
+       the same Fabric patches and fonts the headless render uses, and the
+       text echo paints with them. Loaded HERE, on the page, because the
+       component below mounts with loading="defer" and scripts inserted by a
+       Live morph never execute. #}
+    <div hidden>
+        <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
+        <script src="{{ asset('editor/container_layout.js') }}"></script>
+        <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
+        <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
+        <script src="{{ asset('editor/fill_text_echo.js') }}"></script>
+        <style>
+            {% for face in font_faces %}
+                @font-face {
+                    font-family: '{{ face.family }}';
+                    src: url('{{ face.url }}');
+                }
+            {% endfor %}
+        </style>
+    </div>
+
     {# The fill UI is driven by a Live Component; it renders its own preview
        server-side (Gotenberg PNG → base64 data URI). `loading="defer"` keeps
        those Gotenberg calls OUT of this page request — the shell paints

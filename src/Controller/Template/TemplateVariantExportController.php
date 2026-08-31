@@ -12,13 +12,17 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
+use WBoost\Web\Services\UploaderHelper;
 
 final class TemplateVariantExportController extends AbstractController
 {
     public function __construct(
         readonly private GetFacebookDestinations $destinations,
+        readonly private GetFonts $getFonts,
+        readonly private UploaderHelper $uploaderHelper,
     ) {
     }
 
@@ -39,6 +43,27 @@ final class TemplateVariantExportController extends AbstractController
             'template' => $template,
             'variant' => $variant,
             'facebookConnected' => $this->destinations->connectedAccount($user) !== null,
+            // The shared classic scripts + @font-face declarations load on
+            // THIS page (the deferred Live component cannot execute scripts).
+            'font_faces' => $this->fontFaces($variant),
         ]);
+    }
+
+    /**
+     * @return list<array{family: string, url: string}>
+     */
+    private function fontFaces(TemplateVariant $variant): array
+    {
+        $result = [];
+        foreach ($this->getFonts->allForProject($variant->template->project->id) as $font) {
+            foreach ($font->faces as $fontFace) {
+                $result[] = [
+                    'family' => $font->faceFamily($fontFace),
+                    'url' => $this->uploaderHelper->getPublicPath($fontFace->filePath),
+                ];
+            }
+        }
+
+        return $result;
     }
 }
