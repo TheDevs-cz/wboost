@@ -76,6 +76,53 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         self::assertSelectorExists('[data-group-fill-target="imageOptions"][data-input-id="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
     }
 
+    /**
+     * The text-echo chrome must be CONSISTENT with the per-variant payload:
+     * exactly the dimensions with an echo payload get a base <img> + echo
+     * <canvas>, every text input carries its data-input-id handle, and the
+     * shared classic scripts load iff anything is echo-capable. Asserted
+     * against whatever eligibility the fixture actually resolves to.
+     */
+    public function testEchoChromeIsConsistentWithThePerVariantPayload(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $crawler = $client->request('GET', $this->fillUrl());
+        self::assertResponseIsSuccessful();
+
+        $variantsAttr = $crawler->filter('form[data-controller~="group-fill"]')->attr('data-group-fill-variants-value');
+        self::assertIsString($variantsAttr);
+        /** @var list<array{variantId: string, echo: null|array{objects: list<mixed>, inputs: array<string, mixed>}}> $variants */
+        $variants = json_decode($variantsAttr, true, 512, JSON_THROW_ON_ERROR);
+
+        $echoCount = 0;
+        foreach ($variants as $variant) {
+            $canvas = $crawler->filter(sprintf('canvas.group-fill-echo-canvas[data-variant-id="%s"]', $variant['variantId']));
+            $base = $crawler->filter(sprintf('img.group-fill-echo-base[data-variant-id="%s"]', $variant['variantId']));
+            if ($variant['echo'] !== null) {
+                $echoCount++;
+                self::assertCount(1, $canvas, 'an echo-capable dimension carries its echo canvas');
+                self::assertCount(1, $base, 'an echo-capable dimension carries its base img');
+                self::assertNotSame([], $variant['echo']['objects']);
+            } else {
+                self::assertCount(0, $canvas);
+                self::assertCount(0, $base);
+            }
+        }
+
+        self::assertCount(
+            $echoCount > 0 ? 1 : 0,
+            $crawler->filter('script[src*="fill_text_echo"]'),
+            'the painter loads iff anything is echo-capable',
+        );
+
+        // Every unified text input carries the echo's direct handle.
+        $crawler->filter('input[name^="textValues["]')->each(function ($node): void {
+            self::assertNotSame('', (string) $node->attr('data-input-id'));
+        });
+    }
+
     public function testFillPageIsAccessibleToSharedUser(): void
     {
         // The fill surfaces are project-VIEW gated: a user the project is

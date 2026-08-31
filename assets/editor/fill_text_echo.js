@@ -147,6 +147,11 @@
                     inputId: entry.inputId,
                     box: box,
                     designedVisible: box.visible !== false,
+                    // The pristine designed state, restorable per update — the
+                    // group page's "empty value keeps the designed text"
+                    // semantics need it (values: { designed: true }).
+                    designedText: box.text,
+                    designedStylesJson: JSON.stringify(box.styles || {}),
                 });
                 canvas.add(box);
             });
@@ -182,11 +187,21 @@
                     // value entry (mirrors are seeded), so every box is set.
                     boxes.forEach(function (entry) {
                         const value = values ? values[entry.inputId] : null;
-                        if (!value || !value.resolved) {
+                        if (!value || (!value.resolved && !value.designed)) {
                             entry.box.set({ visible: false });
                             return;
                         }
-                        if (value.resolved.runs && runsModule) {
+                        if (value.designed) {
+                            // "Keep the designed text" (group page, empty
+                            // field, no sample): restore the pristine text +
+                            // per-char styles — styles before text, the
+                            // applyToTextbox ordering contract.
+                            entry.box.styles = JSON.parse(entry.designedStylesJson);
+                            entry.box.set({ text: entry.designedText });
+                            if (typeof entry.box.initDimensions === 'function') {
+                                entry.box.initDimensions();
+                            }
+                        } else if (value.resolved.runs && runsModule) {
                             runsModule.applyToTextbox(entry.box, value.resolved.runs, fabric.util.stylesFromArray);
                         } else {
                             if (runsModule) runsModule.clearStyles(entry.box);

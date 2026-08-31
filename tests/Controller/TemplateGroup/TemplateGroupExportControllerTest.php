@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Controller\TemplateGroup;
 
+use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use WBoost\Web\Entity\TemplateVariant;
+use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -306,6 +309,44 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         self::assertSame('webp', $calls[0]['format']);
     }
 
+    /**
+     * `?base=1` — the text-echo BASE: the same preview render with this
+     * dimension's echo-capable texts transparent, keyed by whatever
+     * EchoCapableTextInputs resolves for the fixture canvas. A normal preview
+     * must never pass a transparent set (and exports never take this path at
+     * all — covered by the ZIP test's calls carrying an empty set).
+     */
+    public function testPreviewBaseModeRendersEchoCapableTextsTransparent(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('POST', $this->previewUrl(TestDataFixture::GROUPED_PRESET_VARIANT_ID) . '?base=1', [
+            'textValues' => [
+                TestDataFixture::GROUP_SHARED_INPUT_ID => 'Náhled',
+            ],
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $capable = self::getContainer()
+            ->get(\WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders::class)
+            ->echoCapableIds($this->loadVariant(TestDataFixture::GROUPED_PRESET_VARIANT_ID));
+
+        $calls = $this->getRendererFake()->calls;
+        self::assertCount(1, $calls);
+        self::assertSame($capable, $calls[0]['transparentTextInputIds'], 'base mode blanks exactly the echo-capable set');
+
+        // And without the flag: a normal, fully painted preview.
+        $client->request('POST', $this->previewUrl(TestDataFixture::GROUPED_PRESET_VARIANT_ID), [
+            'textValues' => [
+                TestDataFixture::GROUP_SHARED_INPUT_ID => 'Náhled',
+            ],
+        ]);
+        $calls = $this->getRendererFake()->calls;
+        self::assertSame([], $calls[count($calls) - 1]['transparentTextInputIds']);
+    }
+
     public function testPreviewRejectsVariantOutsideTheGroup(): void
     {
         $client = self::createClient();
@@ -344,6 +385,11 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         unlink($path);
 
         return $entries;
+    }
+
+    private function loadVariant(string $id): TemplateVariant
+    {
+        return self::getContainer()->get(TemplateVariantRepository::class)->get(Uuid::fromString($id));
     }
 
     private function getRendererFake(): FakeTemplateVariantImageRenderer

@@ -9,9 +9,12 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Services\Editor\EchoCapableTextInputs;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
+use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
@@ -36,7 +39,92 @@ readonly final class GroupFillPlaceholders
         private FileUploadRepository $fileUploadRepository,
         private UploaderHelper $uploaderHelper,
         private CanvasPlaceholderGeometry $placeholderGeometry,
+        private EchoCapableTextInputs $echoCapableTextInputs,
+        private TextInputObjectBinder $textInputObjectBinder,
     ) {
+    }
+
+    /**
+     * The echo-capable input ids of ONE member variant — eligibility is
+     * per-dimension (a text guarded by artwork in 9:16 may be free in 1:1).
+     *
+     * @return list<string>
+     */
+    public function echoCapableIds(TemplateVariant $variant): array
+    {
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+
+        return $this->echoCapableTextInputs->resolve($canvas, $variant->inputs);
+    }
+
+    /**
+     * Per-variant payload for the client-side text echo (see
+     * assets/editor/fill_text_echo.js) — the group-page sibling of
+     * AbstractVariantFiller::echoPayload(), with one extra rule carried in
+     * `inputs`: the group's "empty value keeps the designed text" semantics
+     * need the sample value client-side (`sampleValue`; null = fall back to
+     * the designed textbox text the echo objects already carry). Null when
+     * nothing is echo-capable in this dimension.
+     *
+     * @return null|array{
+     *     width: int,
+     *     height: int,
+     *     canvasHeight: int,
+     *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
+     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool, sampleValue: null|string}>
+     * }
+     */
+    public function echoData(TemplateVariant $variant): null|array
+    {
+        $capable = $this->echoCapableIds($variant);
+        if ($capable === []) {
+            return null;
+        }
+
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $rawObjects = is_array($canvas['objects'] ?? null) ? $canvas['objects'] : [];
+
+        $capableSet = array_flip($capable);
+        $objects = [];
+        foreach ($this->textInputObjectBinder->inputIdByObjectIndex($canvas, $variant->inputs) as $index => $inputId) {
+            if (!isset($capableSet[$inputId])) {
+                continue;
+            }
+            $object = $rawObjects[$index] ?? null;
+            if (!is_array($object)) {
+                continue;
+            }
+            $objects[] = ['inputId' => $inputId, 'object' => $object];
+            unset($capableSet[$inputId]);
+        }
+
+        $inputRules = [];
+        foreach ($variant->inputs as $input) {
+            if (in_array($input->inputId, $capable, true)) {
+                $inputRules[$input->inputId] = [
+                    'richText' => $input->richText,
+                    'lists' => $input->richText && $input->lists,
+                    'maxLength' => $input->maxLength,
+                    'uppercase' => $input->uppercase,
+                    'sampleValue' => $input->sampleValue,
+                ];
+            }
+        }
+
+        return [
+            'width' => $variant->dimension->width(),
+            'height' => $variant->dimension->height(),
+            'canvasHeight' => $variant->dimension->height(),
+            'objects' => $objects,
+            'containers' => array_map(
+                static fn (CanvasContainer $container): array => $container->toArray(),
+                $this->echoCapableTextInputs->cleanContainers($canvas, $capable),
+            ),
+            'inputs' => $inputRules,
+        ];
     }
 
     /**

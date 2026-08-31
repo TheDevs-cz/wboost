@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import * as fabric from 'fabric';
 import { NEUTRAL_PLACEMENT, clamp, frameBox, ghostStyle } from './image_placement.js';
 
 const ZOOM_MIN = 1;
@@ -67,12 +68,14 @@ export default class extends Controller {
         'preview', 'imageThumb', 'imageValue', 'imageOptions', 'exportButton',
         'placementLayer', 'placementControls', 'overrideField',
         'variantZoomRange', 'variantZoomLabel', 'variantRotationRange', 'variantRotationLabel',
+        'echoBase', 'echoCanvas',
     ];
 
     static values = {
         debounce: { type: Number, default: 900 },
         slots: { type: Array, default: [] },
         variants: { type: Array, default: [] },
+        fonts: { type: Array, default: [] },
     };
 
     initialize() {
@@ -100,6 +103,16 @@ export default class extends Controller {
         // fetch from a PREVIOUS connection (Stimulus reuses controller
         // instances across reconnects) must not touch the fresh state.
         this._connectionToken = null;
+
+        // --- Text echo state (see _initEcho) --------------------------------
+        // variantId → { payload, frame, canvasEl, baseImg, painter,
+        //               basePending, baseLoaded, baseUrl, resting }.
+        this._echo = new Map();
+        // Monotonic edit counter: a settle render "rests" a dimension's echo
+        // only when nothing was edited after its POST body was snapshotted.
+        this._editSeq = 0;
+        this._echoActive = false;
+        this._echoRepaintQueued = false;
 
         // --- Placement state ------------------------------------------------
         // Chosen picture per slot: {imageId, url, natural: {width, height}|null}.
@@ -147,6 +160,8 @@ export default class extends Controller {
         // for real here too, straight away, and let the thumbnail sit under the
         // spinner until the truth lands.
         this._refreshAllNow();
+
+        this._initEcho();
     }
 
     /** Render every dimension immediately (no debounce): the initial paint has
@@ -167,11 +182,34 @@ export default class extends Controller {
         this.aborters.clear();
         this.objectUrls.forEach((url) => URL.revokeObjectURL(url));
         this.objectUrls.clear();
+        this._echo.forEach((entry) => {
+            if (entry.painter) entry.painter.dispose();
+            if (entry.baseUrl) URL.revokeObjectURL(entry.baseUrl);
+        });
+        this._echo.clear();
+        this._echoActive = false;
         this._endDrag();
     }
 
-    /** A text / picture / hide change — it lands in every dimension. */
-    changed() {
+    /** A text / picture / hide change — it lands in every dimension. Text and
+     *  hide edits additionally light up the instant echo (per dimension where
+     *  the edited input is echo-capable); anything else — an image pick —
+     *  changes the pixels UNDER the echo, so the cached bases go stale. */
+    changed(event) {
+        this._editSeq += 1;
+
+        const target = event ? event.target : null;
+        const inputId = target && target.getAttribute ? target.getAttribute('data-input-id') : null;
+        const hiddenFor = target && typeof target.name === 'string' && target.name.startsWith('hiddenValues[')
+            ? target.name.slice('hiddenValues['.length, -1)
+            : null;
+
+        if (inputId || hiddenFor) {
+            this._echoEditedInput(inputId || hiddenFor);
+        } else {
+            this._invalidateEchoBases(null);
+        }
+
         this._scheduleRefresh(null);
     }
 
@@ -183,6 +221,8 @@ export default class extends Controller {
      * which is a hard dependency of this page, not a background job.
      */
     changedFor(variantId) {
+        this._editSeq += 1;
+        this._invalidateEchoBases(variantId);
         this._scheduleRefresh(variantId);
     }
 
@@ -346,6 +386,10 @@ export default class extends Controller {
 
     async _renderOne(img, endpoint) {
         const token = this._connectionToken;
+        // The edit state this render's POST body is about to capture: if it is
+        // still current when the pixels land, the settle reflects everything
+        // the user typed and the dimension's echo can rest on server truth.
+        const seqAtSend = this._editSeq;
         this._inFlight.add(endpoint);
         this._activeRenders += 1;
 
@@ -388,6 +432,14 @@ export default class extends Controller {
             if (!this._dirty.has(endpoint)) {
                 this._clearGhosts(img.dataset.variantId);
             }
+
+            // Settle-vs-echo: this render reflects the state at seqAtSend; if
+            // nothing was edited since, the server pixels ARE the typed state
+            // and the dimension rests. A stale settle keeps the echo up — a
+            // fresher render is queued (dirty) or coming with the next edit.
+            if (seqAtSend === this._editSeq && !this._dirty.has(endpoint)) {
+                this._restEchoFor(img.dataset.variantId);
+            }
         } catch (error) {
             if (error.name !== 'AbortError') {
                 frame?.classList.add('is-error');
@@ -413,6 +465,197 @@ export default class extends Controller {
                 this._pumpRenders();
             }
         }
+    }
+
+    // ======================================================================
+    // Text echo (per dimension)
+    // ======================================================================
+    //
+    // While the user types, each dimension whose edited input is echo-capable
+    // shows its text drawn CLIENT-SIDE (the shared fill_text_echo.js painter,
+    // proven pixel-equal to the server render by the golden tests) over a
+    // lazily fetched text-transparent BASE render; the frame flips to the
+    // settle render as soon as one lands that reflects the current edit state.
+    // Group semantics: an empty field keeps the designed text (sample first).
+
+    _initEcho() {
+        (this.variantsValue || []).forEach((variant) => {
+            if (!variant.echo || !variant.echo.objects) return;
+            const canvasEl = this.echoCanvasTargets.find((el) => el.dataset.variantId === variant.variantId);
+            const baseImg = this.echoBaseTargets.find((el) => el.dataset.variantId === variant.variantId);
+            if (!canvasEl || !baseImg) return;
+            this._echo.set(variant.variantId, {
+                payload: variant.echo,
+                canvasEl,
+                baseImg,
+                frame: canvasEl.closest('.group-fill-preview-frame'),
+                painter: null,
+                painterPending: false,
+                basePending: false,
+                baseLoaded: false,
+                baseUrl: null,
+                active: false,
+            });
+        });
+
+        if (this._echo.size === 0) return;
+
+        // Glyph parity for the echo canvases (the single fill page's pattern).
+        const families = this.hasFontsValue ? this.fontsValue : [];
+        Promise.all(families.map((family) => document.fonts.load(`16px "${family}"`).catch(() => {})))
+            .then(() => (document.fonts && document.fonts.ready) || null)
+            .then(() => {
+                try {
+                    fabric.cache.clearFontCache();
+                } catch (err) { /* non-fatal */ }
+                if (this._echoActive) this._scheduleEchoRepaint();
+            });
+    }
+
+    /** A text/hide edit on `inputId`: light up every dimension where it is
+     *  echo-capable (fetching that dimension's base on first use). */
+    _echoEditedInput(inputId) {
+        if (this._echo.size === 0 || !window.WBoostFillTextEcho) return;
+        this._echo.forEach((entry, variantId) => {
+            if (!entry.payload.inputs[inputId]) return;
+            this._activateEcho(variantId, entry);
+        });
+        this._scheduleEchoRepaint();
+    }
+
+    _activateEcho(variantId, entry) {
+        this._echoActive = true;
+        entry.active = true;
+        this._ensureEchoBase(variantId, entry);
+        this._ensureEchoPainter(entry);
+        // The frame flips only once the base is there — until then the settle
+        // preview (+ its spinner) keeps covering, exactly as without echo.
+        if (entry.baseLoaded && entry.frame) {
+            entry.frame.classList.add('is-echo');
+        }
+    }
+
+    _restEchoFor(variantId) {
+        const entry = this._echo.get(variantId);
+        if (!entry || !entry.active) return;
+        entry.active = false;
+        if (entry.frame) entry.frame.classList.remove('is-echo');
+        let anyActive = false;
+        this._echo.forEach((other) => { if (other.active) anyActive = true; });
+        this._echoActive = anyActive;
+    }
+
+    /** An image pick / placement change redraws the pixels UNDER the echo —
+     *  the cached bases are stale. Deactivate (the settle spinner takes over,
+     *  as before echo existed) and refetch on the next text edit. */
+    _invalidateEchoBases(variantId) {
+        this._echo.forEach((entry, id) => {
+            if (variantId !== null && id !== variantId) return;
+            entry.baseLoaded = false;
+            entry.basePending = false;
+            if (entry.baseUrl) {
+                URL.revokeObjectURL(entry.baseUrl);
+                entry.baseUrl = null;
+            }
+            this._restEchoFor(id);
+        });
+    }
+
+    _ensureEchoBase(variantId, entry) {
+        if (entry.baseLoaded || entry.basePending) return;
+        const preview = this.previewTargets.find((img) => img.dataset.variantId === variantId);
+        const endpoint = preview ? preview.dataset.previewEndpoint : null;
+        if (!endpoint) return;
+
+        entry.basePending = true;
+        const separator = endpoint.includes('?') ? '&' : '?';
+        fetch(endpoint + separator + 'base=1', { method: 'POST', body: new FormData(this.element) })
+            .then((response) => {
+                if (!response.ok) throw new Error(`base render failed with HTTP ${response.status}`);
+                return response.blob();
+            })
+            .then((blob) => {
+                if (!entry.basePending) return; // invalidated while rendering
+                entry.basePending = false;
+                entry.baseLoaded = true;
+                if (entry.baseUrl) URL.revokeObjectURL(entry.baseUrl);
+                entry.baseUrl = URL.createObjectURL(blob);
+                entry.baseImg.src = entry.baseUrl;
+                if (entry.active && entry.frame) {
+                    entry.frame.classList.add('is-echo');
+                    this._scheduleEchoRepaint();
+                }
+            })
+            .catch(() => {
+                entry.basePending = false; // next edit retries
+            });
+    }
+
+    _ensureEchoPainter(entry) {
+        if (entry.painter || entry.painterPending || !window.WBoostFillTextEcho) return;
+        entry.painterPending = true;
+        window.WBoostFillTextEcho.create({
+            fabric,
+            canvasEl: entry.canvasEl,
+            width: entry.payload.width,
+            height: entry.payload.height,
+            canvasHeight: entry.payload.canvasHeight,
+            objects: entry.payload.objects,
+            containers: entry.payload.containers || [],
+        }).then((painter) => {
+            entry.painterPending = false;
+            if (this._connectionToken === null) {
+                painter.dispose();
+                return;
+            }
+            entry.painter = painter;
+            this._fitEchoCanvas(entry);
+            if (entry.active) this._scheduleEchoRepaint();
+        }).catch(() => {
+            entry.painterPending = false;
+        });
+    }
+
+    _fitEchoCanvas(entry) {
+        if (!entry.painter || !entry.frame) return;
+        const width = entry.frame.clientWidth;
+        if (width > 0) entry.painter.setDisplayWidth(width);
+    }
+
+    _scheduleEchoRepaint() {
+        if (this._echoRepaintQueued) return;
+        this._echoRepaintQueued = true;
+        setTimeout(() => {
+            this._echoRepaintQueued = false;
+            this._repaintEcho();
+        }, 30);
+    }
+
+    _repaintEcho() {
+        const module = window.WBoostFillTextEcho;
+        if (!module) return;
+        this._echo.forEach((entry) => {
+            if (!entry.active || !entry.painter) return;
+            const values = {};
+            Object.keys(entry.payload.inputs).forEach((inputId) => {
+                const def = entry.payload.inputs[inputId];
+                const field = this.element.querySelector(`[data-input-id="${inputId}"]`);
+                const raw = field ? field.value : '';
+                const hideBox = this.element.querySelector(`input[name="hiddenValues[${inputId}]"]`);
+                const hidden = Boolean(hideBox && hideBox.checked);
+                if (raw !== '') {
+                    values[inputId] = { resolved: module.resolveValue(raw, def), hidden };
+                } else if (typeof def.sampleValue === 'string' && def.sampleValue !== '') {
+                    // Empty keeps the designed content: the sample renders
+                    // (through the same lenient pipeline the server applies).
+                    values[inputId] = { resolved: module.resolveValue(def.sampleValue, def), hidden };
+                } else {
+                    values[inputId] = { designed: true, hidden };
+                }
+            });
+            this._fitEchoCanvas(entry);
+            entry.painter.update(values);
+        });
     }
 
     // ======================================================================

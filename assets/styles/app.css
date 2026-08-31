@@ -3055,6 +3055,46 @@ button.fill-layer-row__main:focus-visible {
     opacity: 1;
 }
 
+/* Text echo composite (mirrors the single fill page's fill-echo-* pair):
+   while the user types, the settle preview yields to the text-transparent
+   base render + the client-drawn text canvas stacked above it. Placed after
+   the is-pending/is-loading dim rules on purpose — the echo layers must
+   never be veiled or dimmed while a settle render is on its way. */
+.group-fill-echo-base,
+.group-fill-echo-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.group-fill-echo-base {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.group-fill-preview-frame.is-echo .group-fill-echo-base,
+.group-fill-preview-frame.is-echo .group-fill-echo-canvas {
+    visibility: visible;
+}
+
+.group-fill-preview-frame.is-echo > img[data-group-fill-target="preview"] {
+    visibility: hidden;
+}
+
+/* The echo IS the feedback — no veil, no dimming over it. */
+.group-fill-preview-frame.is-echo .group-fill-preview-spinner {
+    display: none;
+}
+
+.group-fill-preview-frame.is-echo.is-pending .group-fill-echo-base,
+.group-fill-preview-frame.is-echo.is-loading .group-fill-echo-base {
+    opacity: 1;
+}
+
 .group-fill-placement-controls {
     padding: 0.5rem 0.6rem;
     border: 1px solid rgba(0, 0, 0, 0.08);

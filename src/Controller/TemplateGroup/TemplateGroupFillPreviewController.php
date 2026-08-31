@@ -15,6 +15,7 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
+use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Value\RenderImageFormat;
 
@@ -35,6 +36,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
         readonly private GetTemplateGroupMembers $members,
         readonly private GroupFillRenderer $groupFillRenderer,
         readonly private ReleaseSessionLock $releaseSessionLock,
+        readonly private GroupFillPlaceholders $placeholders,
     ) {
     }
 
@@ -56,6 +58,14 @@ final class TemplateGroupFillPreviewController extends AbstractController
         // parallel; each is done with the session once the voter has run.
         $this->releaseSessionLock->release($request);
 
+        // ?base=1 — the echo BASE: the same render with this dimension's
+        // echo-capable texts transparent, fetched lazily by the client the
+        // first time the user types so the local text layer has something to
+        // paint over. Exports never take this path.
+        $transparentTextInputIds = $request->query->getBoolean('base')
+            ? $this->placeholders->echoCapableIds($variant)
+            : [];
+
         $bytes = $this->groupFillRenderer->render(
             $variant,
             $request->request->all('textValues'),
@@ -63,6 +73,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
             $request->request->all('images'),
             $request->request->all('imagePlacements'),
             format: RenderImageFormat::Webp,
+            transparentTextInputIds: $transparentTextInputIds,
         );
 
         return new Response($bytes, Response::HTTP_OK, [

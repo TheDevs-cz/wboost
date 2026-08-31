@@ -49,6 +49,12 @@ readonly final class GroupFillRenderer
      * `$format` defaults to lossless PNG because this method serves BOTH the
      * on-screen fill preview and the ZIP export the user downloads. Only the
      * preview controller opts into WebP; the export must stay PNG.
+     *
+     * `$transparentTextInputIds` renders those bound texts at opacity 0 — the
+     * echo BASE the group page's client-drawn text layer paints over. Only
+     * the preview controller's base mode passes it; exports never do.
+     *
+     * @param list<string> $transparentTextInputIds
      */
     public function render(
         TemplateVariant $variant,
@@ -57,6 +63,7 @@ readonly final class GroupFillRenderer
         array $rawImages,
         array $rawPlacements = [],
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): string {
         /** @var array<string, array{value?: string, hide?: bool}> $providedValues */
         $providedValues = [];
@@ -94,7 +101,13 @@ readonly final class GroupFillRenderer
             $this->parseImageValues($rawImages, is_array($variantPlacements) ? $variantPlacements : []),
         );
 
-        return $this->renderer->renderToBytes($variant, $overrides, $imageOverrides, format: $format);
+        return $this->renderer->renderToBytes(
+            $variant,
+            $overrides,
+            $imageOverrides,
+            format: $format,
+            transparentTextInputIds: $transparentTextInputIds,
+        );
     }
 
     /**
