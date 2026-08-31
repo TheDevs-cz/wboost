@@ -30,7 +30,7 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  * The fill page renders 2-3 times per keystroke, and the transparent overlay
  * slices are usually byte-identical every time (they hold design content above
  * the placeholders, which no typed text can alter — see
- * {@see TemplateVariantImageRendererTest::testSliceIsOverrideIndependentOnlyWhenProvable()}
+ * {@see TemplateVariantImageRendererTest::testRenderIsOverrideIndependentOnlyWhenProvable()}
  * for that reasoning and its guard rails).
  *
  * This test proves the consequence the other one cannot: that `renderToBytes()`

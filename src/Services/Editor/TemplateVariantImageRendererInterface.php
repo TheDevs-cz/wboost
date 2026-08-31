@@ -63,6 +63,13 @@ interface TemplateVariantImageRendererInterface
      * `$format` defaults to lossless PNG — see the class docblock before
      * changing a caller to WebP.
      *
+     * `$transparentTextInputIds` renders the bound textboxes of those inputs at
+     * opacity 0 while keeping their exact layout influence — the "base" the
+     * fill page's client-side text echo paints over. Empty (the default) means
+     * a normal render.
+     *
+     * @param list<string> $transparentTextInputIds
+     *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable when the renderer is overloaded / unreachable
      */
@@ -73,6 +80,7 @@ interface TemplateVariantImageRendererInterface
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): Response;
 
     /**
@@ -84,6 +92,8 @@ interface TemplateVariantImageRendererInterface
      * export, the Meta publish path — must leave `$format` at its PNG default;
      * see the class docblock.
      *
+     * @param list<string> $transparentTextInputIds see {@see render()}
+     *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable when the renderer is overloaded / unreachable
      */
@@ -94,5 +104,6 @@ interface TemplateVariantImageRendererInterface
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): string;
 }

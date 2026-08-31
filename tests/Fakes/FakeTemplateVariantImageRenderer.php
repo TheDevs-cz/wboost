@@ -34,7 +34,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     /** Real, decodable 1×1 VP8 WebP (44 bytes): `RIFF` + `WEBP` + `VP8 `. */
     private const string FIXED_WEBP_BASE64 = 'UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=';
 
-    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string}> */
+    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string}> */
     public array $calls = [];
 
     /**
@@ -58,8 +58,9 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): Response {
-        $this->record($variant, $overrides, $imageOverrides, 'render', $strictContainerOverflow, $slice, $format);
+        $this->record($variant, $overrides, $imageOverrides, 'render', $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
 
         return new Response($this->bytes($format), Response::HTTP_OK, ['Content-Type' => $format->contentType()]);
     }
@@ -71,12 +72,16 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): string {
-        $this->record($variant, $overrides, $imageOverrides, 'renderToBytes', $strictContainerOverflow, $slice, $format);
+        $this->record($variant, $overrides, $imageOverrides, 'renderToBytes', $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
 
         return $this->bytes($format);
     }
 
+    /**
+     * @param list<string> $transparentTextInputIds
+     */
     private function record(
         TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
@@ -85,6 +90,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         bool $strictContainerOverflow,
         null|CanvasSlice $slice,
         RenderImageFormat $format,
+        array $transparentTextInputIds = [],
     ): void {
         if ($this->throwOnRender !== null) {
             throw $this->throwOnRender;
@@ -145,6 +151,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
             'mode' => $mode,
             'strictContainerOverflow' => $strictContainerOverflow,
             'format' => $format->value,
+            'transparentTextInputIds' => $transparentTextInputIds,
         ];
     }
 

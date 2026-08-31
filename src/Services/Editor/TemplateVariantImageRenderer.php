@@ -104,6 +104,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): Response {
         // Return a BUFFERED Response, NOT Gotenberg's StreamedResponse. The
         // streamed response echoes + flush()es each chunk to the SAPI. Under
@@ -115,7 +116,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // images are small, so buffering the bytes in memory is cheap and the
         // controllers (download / API export) layer their own headers on top.
         return new Response(
-            $this->renderToBytes($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format),
+            $this->renderToBytes($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds),
             Response::HTTP_OK,
             // Derived from the enum, never a literal: the header and the bytes
             // are then incapable of disagreeing.
@@ -130,19 +131,20 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         bool $strictContainerOverflow = false,
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): string {
-        $cacheKey = $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format);
+        $cacheKey = $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
 
         if ($cacheKey === null) {
-            return $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format);
+            return $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
         }
 
         return $this->previewCache->get(
             $cacheKey,
-            function (ItemInterface $item) use ($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format): string {
+            function (ItemInterface $item) use ($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds): string {
                 $item->tag([self::variantCacheTag($variant->id)]);
 
-                $bytes = $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format);
+                $bytes = $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
 
                 // Never let one pathological variant dominate the pool. The
                 // canvas cap allows 10000x10000, which can render far larger
@@ -157,6 +159,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         );
     }
 
+    /**
+     * @param list<string> $transparentTextInputIds
+     */
     private function renderBytesUncached(
         TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
@@ -164,6 +169,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         bool $strictContainerOverflow,
         null|CanvasSlice $slice,
         RenderImageFormat $format,
+        array $transparentTextInputIds = [],
     ): string {
         // Under FrankenPHP max_execution_time counts WALL time, so seconds
         // spent waiting on Gotenberg burn the request's budget — and several
@@ -185,7 +191,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // flush(), so it does not interfere with the outer HTTP response that
         // is still being assembled (headers, cookies, content-type).
         try {
-            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format)
+            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds)
                 ->generate()
                 ->processor(new InMemoryProcessor())
                 ->process();
@@ -249,10 +255,21 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * decorative-overlay case (a logo locked above a photo slot), which is
      * exactly the render that repeats unchanged on every keystroke.
      *
-     * Anything else — a full render (`$slice === null`), a slice containing a
-     * bound input, or a canvas we cannot decode — returns null and is rendered
-     * fresh, mirroring the "couldn't determine safely → do what we do today"
-     * rule the font narrowing above already follows.
+     * Anything else — a slice or full render containing a VISIBLE bound input,
+     * or a canvas we cannot decode — returns null and is rendered fresh,
+     * mirroring the "couldn't determine safely → do what we do today" rule the
+     * font narrowing above already follows.
+     *
+     * **Transparent-text base renders extend the same proof.** A render whose
+     * bound textboxes are ALL in `$transparentTextInputIds` (opacity 0) shows
+     * no override-dependent pixel either: the transparent texts are invisible
+     * whatever they say, and the only mechanism by which their text could move
+     * something VISIBLE is container reflow — whose members are addressed by
+     * inputId, i.e. are bound objects themselves, so a visible member would
+     * have already failed the per-object check. This is what makes the fill
+     * page's echo BASE (full render included, `$slice === null`) cacheable.
+     *
+     * @param list<string> $transparentTextInputIds
      */
     private function overrideIndependentCacheKey(
         TemplateVariant $variant,
@@ -260,9 +277,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         bool $strictContainerOverflow,
         null|CanvasSlice $slice,
         RenderImageFormat $format,
+        array $transparentTextInputIds = [],
     ): null|string {
-        // A full render always paints the user's text.
-        if ($slice === null || !self::sliceIsOverrideIndependent($variant->canvas, $slice)) {
+        if (!self::renderIsOverrideIndependent($variant->canvas, $slice, $transparentTextInputIds)) {
             return null;
         }
 
@@ -283,25 +300,50 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             'inputs' => array_map(static fn (EditorTextInput $i): string => serialize($i), $variant->inputs),
             'imageInputs' => array_map(static fn (object $i): string => serialize($i), $variant->imageInputs),
             'imageOverrides' => $imageOverrides === null ? null : serialize($imageOverrides),
-            'slice' => [$slice->fromIndex, $slice->toIndex, $slice->withBackground],
+            'slice' => $slice === null ? null : [$slice->fromIndex, $slice->toIndex, $slice->withBackground],
             'strict' => $strictContainerOverflow,
             'format' => $format->value,
+            'transparent' => self::sortedIds($transparentTextInputIds),
             'fonts' => $this->fontFingerprint($variant),
             'assets' => $this->assetFingerprint(),
         ]));
     }
 
     /**
-     * True when NO object inside the slice is bound to an input, which is what
-     * makes the slice's pixels independent of every text / rich-text / hide
-     * override. Conservative by design: any shape it cannot reason about
+     * @param list<string> $ids
+     * @return list<string>
+     */
+    private static function sortedIds(array $ids): array
+    {
+        $sorted = array_values(array_unique($ids));
+        sort($sorted);
+
+        return $sorted;
+    }
+
+    /**
+     * True when no VISIBLE object inside the rendered range is bound to an
+     * input — which is what makes the range's pixels independent of every
+     * text / rich-text / hide override. A bound object is acceptable only when
+     * it is a TEXT object listed in `$transparentTextInputIds` (rendered at
+     * opacity 0, so its pixels never change no matter what the user types; and
+     * anything its reflow could move is itself a bound object, checked by the
+     * same rule). Conservative by design: any shape it cannot reason about
      * returns false, i.e. "render it fresh, like we always did".
+     *
+     * `$slice === null` (a full render) checks every object — cacheable only
+     * for the fill page's echo base, where all fillable texts are transparent.
      *
      * Kept pure (canvas string in, bool out) so the one piece of reasoning this
      * cache rests on is directly unit-testable without an entity or a container.
+     *
+     * @param list<string> $transparentTextInputIds
      */
-    private static function sliceIsOverrideIndependent(string $canvasJson, CanvasSlice $slice): bool
-    {
+    public static function renderIsOverrideIndependent(
+        string $canvasJson,
+        null|CanvasSlice $slice,
+        array $transparentTextInputIds = [],
+    ): bool {
         $decoded = json_decode($canvasJson, true);
 
         if (!is_array($decoded) || !is_array($decoded['objects'] ?? null)) {
@@ -310,15 +352,20 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
 
         /** @var array<array-key, mixed> $objects */
         $objects = $decoded['objects'];
-        $to = $slice->toIndex ?? count($objects);
+        $from = $slice === null ? 0 : $slice->fromIndex;
+        $to = $slice === null || $slice->toIndex === null ? count($objects) : min($slice->toIndex, count($objects));
 
         // An empty range paints nothing; treat it as unknown rather than
         // inventing a cache entry for a render that should not be happening.
-        if ($to <= $slice->fromIndex) {
+        // (A full render of an empty canvas is legitimately empty though —
+        // background only — so the guard applies to explicit slices.)
+        if ($slice !== null && $to <= $from) {
             return false;
         }
 
-        for ($i = $slice->fromIndex; $i < $to; $i++) {
+        $transparent = array_flip($transparentTextInputIds);
+
+        for ($i = $from; $i < $to; $i++) {
             $object = $objects[$i] ?? null;
 
             if (!is_array($object)) {
@@ -327,8 +374,15 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
 
             $inputId = $object['inputId'] ?? null;
 
-            if (is_string($inputId) && $inputId !== '') {
-                return false; // bound to an input ⇒ the user can change it
+            if (!is_string($inputId) || $inputId === '') {
+                continue; // unbound ⇒ the user cannot change or move it
+            }
+
+            $type = $object['type'] ?? null;
+            $isText = is_string($type) && in_array(strtolower($type), ['textbox', 'text', 'i-text', 'itext'], true);
+
+            if (!$isText || !isset($transparent[$inputId])) {
+                return false; // bound and visible ⇒ the user can change it
             }
         }
 
@@ -376,6 +430,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         return hash('xxh128', implode("\n", $parts));
     }
 
+    /**
+     * @param list<string> $transparentTextInputIds
+     */
     private function buildScreenshot(
         TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
@@ -383,6 +440,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         bool $strictContainerOverflow,
         null|CanvasSlice $slice,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $transparentTextInputIds = [],
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
@@ -430,7 +488,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             }
         }
 
-        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice);
+        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice, $transparentTextInputIds);
 
         // Disjoint override maps for the template: a rich input's plain
         // concatenation lives in overrides->texts too (for every plain-text
@@ -568,8 +626,10 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * inlined by {@see applyImagePlaceholders} like every other image — and a
      * layer-mode variant without a background legitimately renders nothing
      * behind its objects (transparent export).
+     *
+     * @param list<string> $transparentTextInputIds
      */
-    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null): string
+    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = []): string
     {
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
@@ -612,6 +672,13 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         }
 
         $canvas = $this->alignTextboxInputIds($canvas, $variant->inputs);
+        // Echo base: the fillable texts the client draws itself render at
+        // opacity 0 — invisible but with their exact layout influence, the
+        // sliceCanvas convention. Applied AFTER alignTextboxInputIds so the
+        // ids match the positional binding the override map uses.
+        if ($transparentTextInputIds !== []) {
+            $canvas = self::applyTransparentTexts($canvas, $transparentTextInputIds);
+        }
         // Slice BEFORE placeholder processing: sliced-out image objects get a
         // stub src (and lose their assetPath), so applyImagePlaceholders never
         // wastes a Minio read inlining a picture that renders at opacity 0.
@@ -909,6 +976,57 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             }
 
             $objects[$index] = $object;
+        }
+
+        $canvas['objects'] = $objects;
+
+        return $canvas;
+    }
+
+    /**
+     * Force the bound textboxes of the given inputs to `opacity: 0` — the
+     * "echo base" the fill page's client-side text layer paints over. Opacity,
+     * NOT `visible: false`, for the same reason {@see sliceCanvas} uses it:
+     * an invisible object falls out of the positional textbox↔input binding
+     * and out of container membership, which would reflow everything else
+     * differently than the settle render. Only TEXT objects are touched; the
+     * echo never covers images, and a lists-bearing rich input must never be
+     * in the set (its block-stack replacement is built from fresh objects that
+     * would not inherit the opacity — {@see \WBoost\Web\Services\Editor\EchoCapableTextInputs}
+     * excludes lists-enabled inputs for exactly that reason).
+     *
+     * Pure + static so the base's contract is unit-testable in isolation.
+     *
+     * @param array<string, mixed> $canvas
+     * @param list<string> $transparentTextInputIds
+     * @return array<string, mixed>
+     */
+    public static function applyTransparentTexts(array $canvas, array $transparentTextInputIds): array
+    {
+        $objects = $canvas['objects'] ?? null;
+        if (!is_array($objects)) {
+            return $canvas;
+        }
+
+        $transparent = array_flip($transparentTextInputIds);
+
+        foreach ($objects as $index => $object) {
+            if (!is_array($object)) {
+                continue;
+            }
+
+            $type = $object['type'] ?? null;
+            $inputId = $object['inputId'] ?? null;
+
+            if (
+                is_string($type)
+                && in_array(strtolower($type), ['textbox', 'text', 'i-text', 'itext'], true)
+                && is_string($inputId)
+                && isset($transparent[$inputId])
+            ) {
+                $object['opacity'] = 0;
+                $objects[$index] = $object;
+            }
         }
 
         $canvas['objects'] = $objects;

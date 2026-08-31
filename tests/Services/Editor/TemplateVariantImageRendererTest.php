@@ -133,12 +133,15 @@ final class TemplateVariantImageRendererTest extends TestCase
     }
 
     /**
-     * The slice cache rests on ONE piece of reasoning: an object with no
+     * The preview cache rests on ONE piece of reasoning: an object with no
      * `inputId` cannot be a CanvasContainer member (containers address members
      * by inputId), and suppression outside a slice is `opacity: 0` rather than
-     * `visible: false` so nothing else reflows. Therefore a slice containing no
-     * input-bound object cannot be changed by anything the user types, and is
-     * safe to reuse across keystrokes.
+     * `visible: false` so nothing else reflows. Therefore a range containing no
+     * VISIBLE input-bound object cannot be changed by anything the user types,
+     * and is safe to reuse across keystrokes. A bound TEXT rendered at
+     * opacity 0 (the echo base's `transparentTextInputIds`) counts as
+     * invisible: whatever the user types into it paints nothing, and anything
+     * its reflow could move is itself a bound object caught by the same rule.
      *
      * Everything this rule cannot prove must fall back to "render fresh".
      * These cases are the guard on that.
@@ -146,29 +149,35 @@ final class TemplateVariantImageRendererTest extends TestCase
      * @param list<mixed> $objects deliberately loose: one case feeds a
      *     malformed entry, which is exactly what the rule must refuse to
      *     reason about
+     * @param list<string> $transparentIds
      */
     #[DataProvider('sliceIndependenceCases')]
-    public function testSliceIsOverrideIndependentOnlyWhenProvable(
+    public function testRenderIsOverrideIndependentOnlyWhenProvable(
         array $objects,
-        CanvasSlice $slice,
+        null|CanvasSlice $slice,
         bool $expected,
         string $because,
+        array $transparentIds = [],
     ): void {
         $canvas = json_encode(['objects' => $objects], JSON_THROW_ON_ERROR);
 
-        $method = new ReflectionMethod(TemplateVariantImageRenderer::class, 'sliceIsOverrideIndependent');
-
-        self::assertSame($expected, $method->invoke(null, $canvas, $slice), $because);
+        self::assertSame(
+            $expected,
+            TemplateVariantImageRenderer::renderIsOverrideIndependent($canvas, $slice, $transparentIds),
+            $because,
+        );
     }
 
     /**
-     * @return iterable<string, array{list<mixed>, CanvasSlice, bool, string}>
+     * @return iterable<string, array{list<mixed>, null|CanvasSlice, bool, string, 4?: list<string>}>
      */
     public static function sliceIndependenceCases(): iterable
     {
+        $boundId = '11111111-1111-4111-8111-111111111111';
+        $otherId = '22222222-2222-4222-8222-222222222222';
         $logo = ['type' => 'Image', 'src' => 'logo.png'];
         $decor = ['type' => 'Rect'];
-        $bound = ['type' => 'Textbox', 'inputId' => '11111111-1111-4111-8111-111111111111'];
+        $bound = ['type' => 'Textbox', 'inputId' => $boundId];
 
         yield 'decorative overlay is cacheable' => [
             [$bound, $logo, $decor],
@@ -218,6 +227,77 @@ final class TemplateVariantImageRendererTest extends TestCase
             true,
             'the bound input sits at index 2, outside [0,2)',
         ];
+
+        yield 'full render with a visible bound text is NOT cacheable' => [
+            [$logo, $bound],
+            null,
+            false,
+            'a full render paints the text the user is typing',
+        ];
+
+        yield 'full render is cacheable when every bound text is transparent' => [
+            [$logo, $bound, $decor],
+            null,
+            true,
+            'transparent texts paint nothing whatever the user types — the echo base',
+            [$boundId],
+        ];
+
+        yield 'a transparent id does not whitelist a bound IMAGE' => [
+            [['type' => 'Image', 'inputId' => $boundId]],
+            null,
+            false,
+            'only a TEXT object is rendered at opacity 0 by the transparent set',
+            [$boundId],
+        ];
+
+        yield 'a visible bound text next to a transparent one still blocks caching' => [
+            [$bound, ['type' => 'Textbox', 'inputId' => $otherId]],
+            null,
+            false,
+            'the settle-only text is visible and the user can change it',
+            [$boundId],
+        ];
+
+        yield 'transparent text inside a slice is cacheable' => [
+            [$logo, $bound, $decor],
+            new CanvasSlice(1, null, withBackground: false),
+            true,
+            'the sliced overlay contains the text only as invisible pixels',
+            [$boundId],
+        ];
+
+        yield 'full render of an empty canvas is cacheable' => [
+            [],
+            null,
+            true,
+            'background-only base render depends only on keyed inputs',
+        ];
+    }
+
+    public function testApplyTransparentTextsBlanksOnlyListedBoundTexts(): void
+    {
+        $boundId = '11111111-1111-4111-8111-111111111111';
+        $canvas = [
+            'objects' => [
+                ['type' => 'Textbox', 'inputId' => $boundId, 'text' => 'Headline'],
+                ['type' => 'Textbox', 'inputId' => '22222222-2222-4222-8222-222222222222', 'text' => 'Other'],
+                ['type' => 'Image', 'inputId' => $boundId, 'src' => 'x.png'],
+                ['type' => 'Rect'],
+            ],
+        ];
+
+        $result = TemplateVariantImageRenderer::applyTransparentTexts($canvas, [$boundId]);
+
+        /** @var list<array<string, mixed>> $objects */
+        $objects = $result['objects'];
+        self::assertSame(0, $objects[0]['opacity'] ?? null, 'the listed bound text renders invisible');
+        self::assertArrayNotHasKey('opacity', $objects[1], 'an unlisted text keeps its designed opacity');
+        self::assertArrayNotHasKey('opacity', $objects[2], 'an image sharing the id is never blanked');
+        self::assertArrayNotHasKey('opacity', $objects[3], 'decor untouched');
+        // Layout influence preserved: the object is still there, still a
+        // Textbox, still bound — only its paint changed.
+        self::assertSame('Headline', $objects[0]['text'] ?? null);
     }
 
     public function testReferencedFontFamiliesCollectsObjectAndOverrideFaces(): void
