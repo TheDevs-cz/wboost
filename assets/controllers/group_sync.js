@@ -83,9 +83,23 @@ function projectedSpacing(value, ry) {
  * an absolute function of (image, canvas size), so relative deltas would
  * compound into drift across variants, and group-seeded siblings share the
  * background's inputId, so a resync would clobber every sibling's own cover.
+ *
+ * Exported for the group editor's save-time consistency check — the two must
+ * agree on what "belongs on every variant" means.
  */
-function isSyncable(obj) {
+export function isSyncable(obj) {
     return !!obj.inputId && obj.isBackground !== true;
+}
+
+// One retry for per-target projections whose clone re-fetches an image src —
+// a transient network flake was the dominant way an object landed in a subset
+// of variants (console-only, so it read as a random bug). The delay gives the
+// flake a moment to clear; a second failure is left to reconcileStructure and
+// the save-time warning.
+const CLONE_RETRY_DELAY = 400;
+
+function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -322,16 +336,14 @@ export class GroupSync {
         const targets = this.allTargets();
 
         for (const target of targets) {
-            if (target.shadow.getObjects().some((o) => o.inputId === obj.inputId)) {
-                continue; // already there (double event guard)
-            }
+            // Idempotent per-target attempt: the leading presence check makes
+            // it safe to re-run (double event guard AND partial-failure guard
+            // for the retry below).
+            const attempt = async () => {
+                if (target.shadow.getObjects().some((o) => o.inputId === obj.inputId)) {
+                    return; // already there
+                }
 
-            // Per-target try/catch: cloning an image re-fetches its src, and
-            // one failed fetch must not strand the REMAINING variants without
-            // the object — a partial fan-out is the exact divergence the
-            // structural rule exists to prevent. The skipped variant is healed
-            // by the next reconcileStructure pass (tab switch / save).
-            try {
                 const clone = await obj.clone(CANVAS_CUSTOM_PROPERTIES);
                 // Fabric's clone() suffers the same custom-property stripping as
                 // toJSON — re-stamp from the source object.
@@ -352,8 +364,24 @@ export class GroupSync {
 
                 target.shadow.add(clone);
                 touched.add(target.id);
+            };
+
+            // Per-target try/catch: cloning an image re-fetches its src, and
+            // one failed fetch must not strand the REMAINING variants without
+            // the object — a partial fan-out is the exact divergence the
+            // structural rule exists to prevent. Retry once (transient network
+            // flakes dominate); a variant that still fails is healed by the
+            // next reconcileStructure pass (tab switch / save) and surfaced by
+            // the save-time consistency warning.
+            try {
+                await attempt();
             } catch (err) {
-                console.error(`Propagace nového prvku do varianty ${target.id} selhala:`, err);
+                try {
+                    await wait(CLONE_RETRY_DELAY);
+                    await attempt();
+                } catch (retryErr) {
+                    console.error(`Propagace nového prvku do varianty ${target.id} selhala:`, retryErr);
+                }
             }
         }
 
@@ -426,12 +454,7 @@ export class GroupSync {
                 continue;
             }
 
-            // Per-target try/catch, same reason as projectNewObject: one
-            // failed image fetch must not leave the remaining dimensions
-            // without the background. The existing layer is only removed
-            // AFTER the clone succeeded, so a failure never strips a
-            // dimension's current background either.
-            try {
+            const attempt = async () => {
                 const clone = await source.clone(CANVAS_CUSTOM_PROPERTIES);
                 CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
                     if (source[prop] !== undefined) {
@@ -454,8 +477,23 @@ export class GroupSync {
                 target.shadow.add(clone);
                 target.shadow.moveObjectTo(clone, index);
                 touched.add(target.id);
+            };
+
+            // Per-target try/catch, same reason as projectNewObject: one
+            // failed image fetch must not leave the remaining dimensions
+            // without the background. The existing layer is only removed
+            // AFTER the clone succeeded, so a failure never strips a
+            // dimension's current background either — which also makes the
+            // one-shot retry below safe (the clone fetch is the first step).
+            try {
+                await attempt();
             } catch (err) {
-                console.error(`Propagace pozadí do varianty ${target.id} selhala:`, err);
+                try {
+                    await wait(CLONE_RETRY_DELAY);
+                    await attempt();
+                } catch (retryErr) {
+                    console.error(`Propagace pozadí do varianty ${target.id} selhala:`, retryErr);
+                }
             }
         }
 

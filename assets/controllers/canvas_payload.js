@@ -31,12 +31,48 @@ export const PREVIEW_MAX_WIDTH = 1000;
  * custom annotation property (inputId, name, locked, …) from the source
  * document by positional index (Fabric preserves object order through
  * loadFromJSON), and mint an inputId for any textbox/image lacking one.
+ *
+ * DROP AWARENESS: loadFromJSON silently OMITS an object it cannot enliven —
+ * an image whose src fails to fetch resolves the load with that object simply
+ * missing, no rejection (verified against the committed 7.3.1 build). A pure
+ * positional map would then stamp every object above the gap with the
+ * PREVIOUS source entry's identity — wrong inputId — and the group editor's
+ * inputId-keyed propagation would scramble that variant. The positional map
+ * is kept for the healthy equal-count case; on a count mismatch the map
+ * aligns source→loaded as an ordered subsequence on type + position, so a
+ * dropped source entry just doesn't consume a loaded object.
  */
+function sourceMatchesLoaded(source, obj) {
+    if (String(source.type || '').toLowerCase() !== String(obj.type || '').toLowerCase()) {
+        return false;
+    }
+    const close = (a, b) => typeof a !== 'number' || typeof b !== 'number' || Math.abs(a - b) < 1;
+    return close(source.left, obj.left) && close(source.top, obj.top);
+}
+
 export function restoreCustomProperties(canvas, sourceCanvas) {
     const sourceObjects = Array.isArray(sourceCanvas.objects) ? sourceCanvas.objects : [];
+    const loadedObjects = canvas.getObjects();
 
-    canvas.getObjects().forEach((obj, idx) => {
-        const source = sourceObjects[idx];
+    const dropped = sourceObjects.length - loadedObjects.length;
+    if (dropped > 0) {
+        console.error(`Plátno se nenačetlo celé: dokument má ${sourceObjects.length} objektů, načteno ${loadedObjects.length} (pravděpodobně nedostupný obrázek).`);
+    }
+
+    let cursor = 0;
+    loadedObjects.forEach((obj, idx) => {
+        let source = null;
+        if (dropped <= 0) {
+            source = sourceObjects[idx] || null;
+        } else {
+            while (cursor < sourceObjects.length && !sourceMatchesLoaded(sourceObjects[cursor], obj)) {
+                cursor += 1;
+            }
+            if (cursor < sourceObjects.length) {
+                source = sourceObjects[cursor];
+                cursor += 1;
+            }
+        }
         if (source) {
             CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
                 if (source[prop] !== undefined) {

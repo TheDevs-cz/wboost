@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { FabricImage, StaticCanvas } from "fabric";
 
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
-import { GroupSync } from './group_sync.js';
+import { GroupSync, isSyncable } from './group_sync.js';
 
 const SYNC_DEBOUNCE = 150;
 const HISTORY_DEBOUNCE = 400;
@@ -82,6 +82,7 @@ export default class extends Controller {
             shadow: null,
             included: true,
             dirty: false,
+            loadFailed: false,
         }));
 
         if (this.variants.length === 0) {
@@ -148,20 +149,19 @@ export default class extends Controller {
             // must not abort hydration of the rest — and must never leave
             // _shadowsReady pending, which would block every structural op
             // (adds/deletes would then reach NO variant, ever).
-            try {
-                await this._createShadow(variant);
-            } catch (err) {
-                // Null the half-assigned shadow: a partially hydrated one
-                // would be included in propagation targets AND serialized
-                // over the variant's real saved canvas on save. A null
-                // shadow makes the variant fully inert instead (skipped by
-                // targets, save and tab switching).
-                variant.shadow = null;
-                console.error(`Hydratace varianty ${variant.id} selhala:`, err);
-            }
+            await this._hydrateShadowWithRetry(variant);
         }
 
         this._shadowsHydrated = true;
+
+        // The INTERACTIVE canvas booted from the same document the active
+        // variant's shadow hydrated from — but its own load can silently drop
+        // an object (image fetch flake, same Fabric behavior the shadow count
+        // check guards). A lossy active canvas would serialize the loss back
+        // over the variant on the first switch-away/save. When the healthy
+        // shadow holds more objects, reload the canvas from it now, before
+        // the history seed and the boot reconcile read the canvas.
+        await this._healActiveCanvasDrop(editor);
 
         // An edit pass deferred during hydration fans out NOW that every
         // shadow exists (syncPass rebaselines itself); otherwise just align
@@ -203,6 +203,33 @@ export default class extends Controller {
 
     _quiet(editor) {
         return editor.loadingCanvas || this._switching || this._restoring;
+    }
+
+    /**
+     * Boot-time counterpart of the shadow count check: when the interactive
+     * canvas lost an object to a silent load drop but the active variant's
+     * shadow hydrated intact, the shadow is the fuller truth — reload the
+     * canvas from it. No-op when counts already agree (or the shadow itself
+     * failed — its badge handles that case).
+     */
+    async _healActiveCanvasDrop(editor) {
+        const active = this._variant(this.activeId);
+        if (!active || !active.shadow || editor.loadingCanvas) {
+            return;
+        }
+        if (editor.canvas.getObjects().length >= active.shadow.getObjects().length) {
+            return;
+        }
+
+        console.warn('Aktivní plátno se nenačetlo celé — obnovuji ze stínové kopie.');
+        try {
+            await editor.loadCanvasWithoutHistory(buildVariantPayload(active.shadow).canvas);
+            if (active.backgroundUrl) {
+                await editor.setBackgroundImage(active.backgroundUrl);
+            }
+        } catch (err) {
+            console.error('Obnovení aktivního plátna ze stínové kopie selhalo:', err);
+        }
     }
 
     _activeDims() {
@@ -486,6 +513,43 @@ export default class extends Controller {
 
     // ------------------------------------------------------------------ shadows
 
+    /**
+     * Shadow hydration with retries. A shadow hydrates over the network —
+     * loadFromJSON re-fetches every image src — so ONE transient fetch flake
+     * used to make the variant silently inert for the whole session: every
+     * add/delete fanned out to the OTHER variants and the divergence landed
+     * in the DB on save (the "prvek se nepřidal do všech variant" reports;
+     * the only trace was a browser console line, so it read as a random bug).
+     *
+     * Retries absorb the flake. A variant that still fails is marked
+     * `loadFailed` — VISIBLE on its rail chip ("Nenačteno" badge) instead of
+     * silent, recoverable by clicking the chip (_activate retries), and
+     * called out by the save-time consistency warning.
+     *
+     * @returns {Promise<boolean>} whether the variant ended up hydrated
+     */
+    async _hydrateShadowWithRetry(variant, attempts = 3) {
+        const RETRY_DELAYS = [500, 1500];
+
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+            try {
+                await this._createShadow(variant);
+                variant.loadFailed = false;
+                return true;
+            } catch (err) {
+                console.error(`Hydratace varianty ${variant.id} selhala (pokus ${attempt + 1}/${attempts}):`, err);
+                if (attempt < attempts - 1) {
+                    const delay = RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)];
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        variant.shadow = null;
+        variant.loadFailed = true;
+        return false;
+    }
+
     async _createShadow(variant) {
         const el = document.createElement('canvas');
         const scale = SHADOW_WIDTH / variant.width;
@@ -495,8 +559,18 @@ export default class extends Controller {
         const shadow = new StaticCanvas(el, { enableRetinaScaling: false });
         shadow.setZoom(scale);
 
+        const previous = variant.shadow;
         variant.shadow = shadow;
-        await this._loadShadow(variant, variant.canvas);
+        try {
+            await this._loadShadow(variant, variant.canvas);
+        } catch (err) {
+            // Never leave a half-hydrated shadow exposed: it would be included
+            // in propagation targets AND serialized over the variant's real
+            // saved canvas on save. (Mid-session re-hydration restores the
+            // previous state; at boot `previous` is null = fully inert.)
+            variant.shadow = previous;
+            throw err;
+        }
 
         return shadow;
     }
@@ -518,6 +592,19 @@ export default class extends Controller {
         }
 
         await shadow.loadFromJSON(source);
+
+        // Fabric resolves loadFromJSON even when it DROPPED an object whose
+        // image src failed to fetch (no rejection — verified). A shadow
+        // missing an object would propagate wrong and, worse, be saved over
+        // the variant's real canvas, silently deleting the object. Treat a
+        // drop as the load failure it is — callers retry / mark the variant
+        // "Nenačteno" instead of proceeding lossy.
+        const expectedObjects = Array.isArray(source.objects) ? source.objects.length : 0;
+        const lost = expectedObjects - shadow.getObjects().length;
+        if (lost > 0) {
+            throw new Error(`Varianta se nenačetla celá: chybí ${lost} objekt(ů) — pravděpodobně nedostupný obrázek.`);
+        }
+
         restoreCustomProperties(shadow, source);
 
         shadow.wboostContainers = Array.isArray(source.containers)
@@ -567,7 +654,30 @@ export default class extends Controller {
             return;
         }
         if (!incoming.shadow) {
-            return; // still hydrating
+            // Still hydrating (boot) — unless hydration FAILED, in which case
+            // clicking the chip is the retry. The re-hydration runs on the
+            // structural chain (serialized with pending ops) and is followed
+            // by a reconcile FROM THE CURRENT ACTIVE variant, so everything
+            // added while this variant was inert reaches its fresh shadow
+            // BEFORE it becomes active (reconcile heals add-only from the
+            // active side — activating the stale variant first would not
+            // pull the missing objects in).
+            if (incoming.loadFailed && !incoming.rehydrating) {
+                incoming.rehydrating = true;
+                try {
+                    await this._enqueueStructural(async () => {
+                        const ok = await this._hydrateShadowWithRetry(incoming, 2);
+                        this._refreshBadges();
+                        return ok ? this.sync.reconcileStructure() : new Set();
+                    }, { pushHistory: false });
+                } finally {
+                    incoming.rehydrating = false;
+                }
+                if (incoming.shadow) {
+                    return this._activate(variantId, { skipSerialize });
+                }
+            }
+            return;
         }
 
         // Settle everything in flight BEFORE the switch starts: the debounced
@@ -609,7 +719,19 @@ export default class extends Controller {
                 // nothing is lost; the shadow becomes authoritative again.
                 const payload = buildVariantPayload(editor.canvas);
                 outgoing.canvas = payload.canvas;
-                await this._loadShadow(outgoing, payload.canvas);
+                try {
+                    await this._loadShadow(outgoing, payload.canvas);
+                } catch (err) {
+                    // The shadow reload re-fetches image srcs; a flake here
+                    // must not crash the switch OR leave a lossy shadow to be
+                    // propagated into and saved. variant.canvas above already
+                    // holds the serialized truth — take the shadow out of
+                    // play; the chip's "Nenačteno" badge offers re-hydration
+                    // from that very canvas.
+                    outgoing.shadow = null;
+                    outgoing.loadFailed = true;
+                    console.error(`Obnovení stínové kopie varianty ${outgoing.id} selhalo:`, err);
+                }
             }
 
             this.activeId = variantId;
@@ -625,6 +747,16 @@ export default class extends Controller {
 
             const incomingPayload = buildVariantPayload(incoming.shadow);
             await editor.loadCanvasWithoutHistory(incomingPayload.canvas);
+
+            // The interactive load can silently drop an object the same way a
+            // shadow load can (image fetch flake) — and a lossy active canvas
+            // would serialize the loss back over the variant on the next
+            // switch-away. The shadow is the payload's source, so its object
+            // count is the expected count; one retry absorbs the flake.
+            if (editor.canvas.getObjects().length < incoming.shadow.getObjects().length) {
+                console.warn('Aktivní plátno se nenačetlo celé — zkouším znovu.');
+                await editor.loadCanvasWithoutHistory(incomingPayload.canvas);
+            }
 
             // The shadow JSON carries the background baked with the SHADOW's
             // cover transform (logical coords — identical), but a fresh empty
@@ -805,7 +937,18 @@ export default class extends Controller {
                     continue;
                 }
                 variant.canvas = state;
-                await this._loadShadow(variant, state);
+                try {
+                    await this._loadShadow(variant, state);
+                } catch (err) {
+                    // One variant's image flake must not abort restoring the
+                    // rest — and a lossy shadow must not stay in play (it
+                    // would save over the variant). variant.canvas holds the
+                    // restored state for the badge's re-hydration.
+                    variant.shadow = null;
+                    variant.loadFailed = true;
+                    console.error(`Obnovení varianty ${variant.id} z historie selhalo:`, err);
+                    continue;
+                }
                 variant.dirty = true;
             }
 
@@ -846,6 +989,26 @@ export default class extends Controller {
         // made a placeholder fill (and its export) apply to one variant only.
         if (this.sync) {
             await this._enqueueStructural(() => this.sync.reconcileStructure(), { pushHistory: false });
+            // Ops enqueued WHILE the reconcile ran (an add fired mid-await)
+            // must land in the shadows before they are serialized below —
+            // everything from here to the fetch is synchronous, so a drained
+            // chain means a consistent snapshot.
+            await this._drainStructuralOps();
+
+            // Post-reconcile verification: a variant STILL missing objects
+            // (repeated clone failures, a variant that never hydrated) would
+            // save exactly the divergence the reconcile exists to prevent.
+            // Saving proceeds anyway — blocking would hold the healthy
+            // variants' work hostage — but the designer is told which
+            // variants are affected instead of finding out on the fill page.
+            const gaps = this._structuralGaps();
+            if (gaps.length > 0) {
+                console.error('Skupina není strukturálně konzistentní, ukládá se s rozdíly:', gaps);
+                alert(
+                    `Pozor: do těchto variant se nepodařilo promítnout všechny prvky: ${gaps.join(', ')}. `
+                    + 'Šablona se uloží v aktuálním stavu — obnovte prosím stránku a uložte znovu, aby se chybějící prvky doplnily.',
+                );
+            }
         }
 
         const formData = new FormData();
@@ -927,6 +1090,37 @@ export default class extends Controller {
         }
     }
 
+    /**
+     * Structural gaps the reconcile could not close: variant labels for every
+     * non-active variant that is either inert (hydration failed) or whose
+     * shadow is missing a syncable object the active canvas has. Empty on a
+     * healthy group.
+     */
+    _structuralGaps() {
+        const activeIds = this.canvasEditorOutlet.canvas.getObjects()
+            .filter((obj) => isSyncable(obj))
+            .map((obj) => obj.inputId);
+        const gaps = [];
+
+        this.variants.forEach((variant) => {
+            if (variant.id === this.activeId) {
+                return;
+            }
+            if (!variant.shadow) {
+                gaps.push(`${variant.label} (nenačtena)`);
+                return;
+            }
+            const shadowIds = new Set(
+                variant.shadow.getObjects().map((obj) => obj.inputId).filter(Boolean),
+            );
+            if (activeIds.some((id) => !shadowIds.has(id))) {
+                gaps.push(variant.label);
+            }
+        });
+
+        return gaps;
+    }
+
     // ------------------------------------------------------------------ rail
 
     _refreshRail() {
@@ -979,11 +1173,21 @@ export default class extends Controller {
                 return;
             }
 
-            if (variant.overflowPx > 0) {
+            if (variant.loadFailed) {
+                // A failed variant is INERT (no propagation, no save) — that
+                // must be visible, not a console-only fact: silently inert
+                // variants are how "the added element is missing in one
+                // variant" divergence used to reach the DB.
+                badge.textContent = 'Nenačteno';
+                badge.title = 'Variantu se nepodařilo načíst — úpravy se do ní nyní nepromítají. Kliknutím na variantu zkusíte načtení znovu.';
+                badge.classList.remove('d-none');
+            } else if (variant.overflowPx > 0) {
                 badge.textContent = `Přesah ${Math.ceil(variant.overflowPx)} px`;
+                badge.title = '';
                 badge.classList.remove('d-none');
             } else if (variant.offCanvas) {
                 badge.textContent = 'Prvky mimo plátno';
+                badge.title = '';
                 badge.classList.remove('d-none');
             } else {
                 badge.classList.add('d-none');

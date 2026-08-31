@@ -1100,6 +1100,50 @@ throws is nulled back to `shadow: null` — fully inert (excluded from targets,
 save and tab switching) — because a half-hydrated shadow would be serialized
 over the variant's real saved canvas on save.
 
+**Network-flake hardening (2026-08-31, the "add sometimes misses a variant"
+report).** Root mechanism, verified against the committed Fabric 7.3.1 build
+in headless Chrome: **`loadFromJSON` does NOT reject when an image src fails
+to fetch — it resolves with that object silently DROPPED from the canvas.**
+Every canvas (re)load re-fetches its image srcs over the network, so one
+transient flake during shadow hydration / tab-switch reload / history restore
+produced a shadow missing an object with only a console line as evidence (no
+JS Sentry exists — hence "nothing in Sentry, seems random"), and the next
+save persisted the loss. Worse, `restoreCustomProperties` mapped source→
+loaded objects by POSITIONAL INDEX, so a mid-stack drop re-stamped every
+object above the gap with the previous entry's `inputId` and scrambled the
+inputId-keyed propagation for that variant. A prod audit found real persisted
+divergence (group `019fd23a-ac3b…`: two image placeholders in one variant
+only, the sibling's canvas empty). Hardening, all browser-verified via the
+same-origin static-harness recipe with an injected broken-src image:
+
+- `restoreCustomProperties` is **drop-aware**: pure index map only when the
+  counts agree; on mismatch it console.errors and aligns source→loaded as an
+  ordered subsequence on type + position, so the scramble is impossible.
+- `_loadShadow` **throws when the loaded object count falls short** of the
+  document's, turning the silent drop into a real failure; a lossy shadow is
+  never left in play (it would propagate wrong AND save over the variant).
+- `_hydrateShadowWithRetry` (boot) retries 3× with 500/1500 ms backoff; a
+  variant that still fails is `loadFailed` → visible **"Nenačteno" rail
+  badge** (precedence over overflow/off-canvas), excluded from targets and
+  save (its stored canvas stays intact). Clicking the chip re-hydrates
+  through the structural chain and reconciles FROM the current active variant
+  BEFORE activating (reconcile is add-only from the active side). The
+  `_loadShadow` calls in `_activate` (switch-away reserialization) and
+  `_restoreSnapshot` catch per-variant: `variant.canvas` keeps the serialized
+  truth, the shadow is nulled + `loadFailed` for the badge's re-hydration.
+- The INTERACTIVE canvas load gets the mirrored guard: `_activate` retries
+  the incoming load once when it comes up short of the shadow's count, and
+  boot runs `_healActiveCanvasDrop` (reload from the intact shadow) — a lossy
+  active canvas would otherwise serialize the loss back over the variant.
+- The per-target clone in `projectNewObject`/`projectBackgroundLayer` retries
+  once after 400 ms behind an idempotent `attempt()` (presence check inside).
+- `submitForm` drains the op chain after its reconcile (everything to the
+  fetch is then synchronous) and runs `_structuralGaps()` — active-canvas
+  syncable inputIds vs each sibling shadow (`isSyncable` is exported from
+  group_sync.js for this) — and ALERTS with the affected variant labels
+  instead of silently saving divergence; the save still proceeds (blocking
+  would hold the healthy variants' work hostage).
+
 **Web routes** live under `/project/{projectId}/templates` (name `templates`),
 `/template/{templateId}/…`, `/template-variant/{variantId}/…` and
 `/template-group/{groupId}/…`. The old social/custom URL families are GONE
