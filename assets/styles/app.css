@@ -1056,11 +1056,22 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     color: #fff;
 }
 
-/* JS-enhanced floating overlay. */
+/* JS-enhanced floating overlay.
+   `overflow: clip` (NOT hidden, NOT visible): a placeholder whose designed
+   frame runs off the canvas — the editor's "Prvky mimo plátno" case — gets a
+   box that wide too, and an unclipped one inflates .fill-viewport's scrollable
+   width, so the user could pan hundreds of px into empty space past the edge
+   of the artwork. `hidden` would fix that but also eats the tool clusters,
+   which hang 14 px outside the canvas by design; `clip` + a clip margin keeps
+   them visible while contributing nothing to any ancestor's scroll extent
+   (clip, unlike hidden, is not a scroll container). Old browsers fall back to
+   `visible`, i.e. today's behaviour. */
 .fill-form.fill-js .fill-overlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    overflow: clip;
+    overflow-clip-margin: 20px;
 }
 
 .fill-form.fill-js .fill-popovers {
