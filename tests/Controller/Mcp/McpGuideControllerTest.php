@@ -203,16 +203,17 @@ final class McpGuideControllerTest extends WebTestCase
         $browser->request('GET', self::PAGE);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.side-nav a[href="/ai"]');
-        self::assertSelectorTextContains('.side-nav', 'AI (MCP server)');
+        self::assertSelectorExists('.leftbar-account__menu a[href="/ai"]');
+        self::assertSelectorTextContains('.leftbar-account__menu', 'AI (MCP server)');
     }
 
     /**
-     * The entry lives in the SHARED left navigation, directly under "Projekty"
-     * — so it is reachable from anywhere in the app, not only from itself. The
-     * page it is asserted on is deliberately somebody else's.
+     * The entry lives in the SHARED account drop-up at the sidebar's bottom
+     * edge, above "Odhlásit se" — so it is reachable from anywhere in the app,
+     * not only from itself. The page it is asserted on is deliberately
+     * somebody else's.
      */
-    public function testTheNavigationEntrySitsDirectlyUnderProjects(): void
+    public function testTheNavigationEntrySitsInTheAccountMenu(): void
     {
         $browser = self::createClient();
         TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
@@ -221,16 +222,16 @@ final class McpGuideControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $links = $crawler->filter('.side-nav .side-nav-link')->each(
+        $items = $crawler->filter('.leftbar-account__menu .dropdown-item')->each(
             static fn (Crawler $node): string => trim($node->text()),
         );
 
-        $projects = array_search('Projekty', $links, true);
-        $ai = array_search('AI (MCP server)', $links, true);
+        $ai = array_search('AI (MCP server)', $items, true);
+        $logout = array_search('Odhlásit se', $items, true);
 
-        self::assertIsInt($projects);
         self::assertIsInt($ai);
-        self::assertSame($projects + 1, $ai, 'The AI entry must sit directly under "Projekty".');
+        self::assertIsInt($logout);
+        self::assertLessThan($logout, $ai, 'The AI entry must sit above "Odhlásit se" in the account menu.');
     }
 
     /**
