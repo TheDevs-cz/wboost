@@ -104,13 +104,6 @@
                             </a>
                         </li>
 
-                        <li class="side-nav-item {{ active_menu_item|default == 'mcp_guide' ? 'menuitem-active' }}">
-                            <a href="{{ path('mcp_guide') }}" class="side-nav-link">
-                                <i class="uil-robot"></i>
-                                <span> AI (MCP server) </span>
-                            </a>
-                        </li>
-
                         {% if is_granted('ROLE_ADMIN') %}
                             <li class="side-nav-title">Administrace</li>
 
@@ -240,6 +233,12 @@
                         <a href="{{ path('connected_apps') }}" class="dropdown-item">
                             <i class="mdi mdi-power-plug me-1"></i>
                             <span>Propojené aplikace</span>
+                        </a>
+
+                        <!-- item-->
+                        <a href="{{ path('mcp_guide') }}" class="dropdown-item">
+                            <i class="mdi mdi-robot-outline me-1"></i>
+                            <span>AI (MCP server)</span>
                         </a>
 
                         <!-- item-->
