@@ -1,0 +1,13 @@
+{# Info banner shown while a stored export version is loaded into the fill
+   form ("?version=<id>"). Expects: loaded_version (TemplateExportVersion),
+   clear_url (the same page without the version param). #}
+<div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2" role="alert">
+    <span>
+        <i class="mdi mdi-history"></i>
+        Formulář je předvyplněný hodnotami exportu z
+        <strong>{{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}</strong>{% if loaded_version.exportedBy %}
+            ({{ loaded_version.exportedBy.displayName }}){% endif %}.
+        Hodnoty můžete dál upravit a znovu exportovat.
+    </span>
+    <a href="{{ clear_url }}" class="alert-link text-nowrap">Zpět na výchozí hodnoty</a>
+</div>

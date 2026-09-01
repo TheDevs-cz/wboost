@@ -70,7 +70,23 @@ export default class extends Controller {
         this._applyOverlays();
         this._observeOverlays();
 
-        (this.placeholdersValue || []).forEach((ph) => this._addStandIn(ph));
+        // A loaded export version ships a per-slot `seed` (picked image +
+        // transform, or an explicit hide) — restore it instead of the designed
+        // stand-in. The hidden form fields are already server-rendered from
+        // the same seed, so this only redraws; a slot whose seed fails to
+        // load still EXPORTS the seeded image (the server render is the truth).
+        (this.placeholdersValue || []).forEach((ph) => {
+            const seed = ph.seed || null;
+            if (seed && seed.hide) {
+                this._broadcastFrame(ph.inputId, null, null);
+                return;
+            }
+            if (seed && seed.imageId && seed.url) {
+                this._restoreSeed(ph, seed);
+                return;
+            }
+            this._addStandIn(ph);
+        });
 
         this.canvas.on('object:modified', (event) => this._onObjectModified(event));
 
@@ -328,15 +344,44 @@ export default class extends Controller {
         await this._fillPlaceholder(inputid, imageid, url);
     }
 
-    async _fillPlaceholder(inputId, imageId, url) {
+    /**
+     * Redraw one slot from a loaded version's seed: the picked picture with
+     * its stored transform applied on top of the contain fit — the exact
+     * inverse of _writeTransform, so an untouched slot re-posts the version's
+     * values verbatim (the server-rendered fields are left alone). No
+     * activation: restoring must not steal focus slot by slot.
+     */
+    async _restoreSeed(placeholder, seed) {
+        const filled = await this._fillPlaceholder(placeholder.inputId, seed.imageId, seed.url, { activate: false, writeFields: false });
+        if (!filled || placeholder.isBackground) return;
+
+        const img = this.objects[placeholder.inputId] && this.objects[placeholder.inputId].object;
+        const frame = placeholder.frame;
+        if (!img || !frame) return;
+
+        const containScale = img._containScale || 1;
+        const scale = containScale * (Number(seed.scale) || 1);
+        img.set({
+            scaleX: scale,
+            scaleY: scale,
+            left: frame.x + frame.width / 2 + (Number(seed.offsetX) || 0),
+            top: frame.y + frame.height / 2 + (Number(seed.offsetY) || 0),
+            angle: Number(seed.rotation) || 0,
+        });
+        img.setCoords();
+        this.canvas.requestRenderAll();
+        this._broadcastFrame(placeholder.inputId, img, frame);
+    }
+
+    async _fillPlaceholder(inputId, imageId, url, { activate = true, writeFields = true } = {}) {
         const placeholder = this.placeholdersById[inputId];
-        if (!placeholder || !placeholder.frame) return;
+        if (!placeholder || !placeholder.frame) return false;
 
         let img;
         try {
             img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
         } catch (error) {
-            return;
+            return false;
         }
 
         const frame = placeholder.frame;
@@ -359,9 +404,11 @@ export default class extends Controller {
             this._replaceObject(inputId, img);
             this._broadcastFrame(inputId, img, frame);
 
-            this._setField(inputId, 'hide', '');
-            this._setField(inputId, 'imageId', imageId);
-            return;
+            if (writeFields) {
+                this._setField(inputId, 'hide', '');
+                this._setField(inputId, 'imageId', imageId);
+            }
+            return true;
         }
 
         const containScale = Math.min(frame.width / naturalWidth, frame.height / naturalHeight) || 1;
@@ -394,15 +441,18 @@ export default class extends Controller {
         img.setControlsVisibility({ ml: false, mt: false, mr: false, mb: false });
 
         this._replaceObject(inputId, img);
-        if (adjustable) {
+        if (adjustable && activate) {
             this.canvas.setActiveObject(img);
         }
         this.canvas.requestRenderAll();
         this._broadcastFrame(inputId, img, frame);
 
-        this._setField(inputId, 'hide', '');
-        this._setField(inputId, 'imageId', imageId);
-        this._writeTransform(inputId, img, frame);
+        if (writeFields) {
+            this._setField(inputId, 'hide', '');
+            this._setField(inputId, 'imageId', imageId);
+            this._writeTransform(inputId, img, frame);
+        }
+        return true;
     }
 
     _frameClip(frame) {

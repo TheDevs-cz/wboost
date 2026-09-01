@@ -19,8 +19,10 @@ use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFillValues;
 
 /**
  * The user-fill page is the `Template:VariantFiller` Live Component; its export
@@ -37,6 +39,7 @@ final class TemplateVariantDownloadController extends AbstractController
         private readonly ResolveRichTextOptions $resolveRichTextOptions,
         private readonly ResolveImageOverrides $resolveImageOverrides,
         private readonly RecordExportUsage $recordExportUsage,
+        private readonly RecordExportVersion $recordExportVersion,
         private readonly ReleaseSessionLock $releaseSessionLock,
     ) {
     }
@@ -121,6 +124,11 @@ final class TemplateVariantDownloadController extends AbstractController
         ));
 
         $this->recordExportUsage->record($variant, ExportChannel::Web);
+        $this->recordExportVersion->recordVariant($variant, ExportChannel::Web, ExportFillValues::fromVariantWebForm(
+            $rawTextValues,
+            $rawHiddenValues,
+            $request->request->all('images'),
+        ));
 
         return $response;
     }

@@ -22,8 +22,10 @@ use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFillValues;
 
 /**
  * @implements ProcessorInterface<ExportRequest, Response>
@@ -38,6 +40,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         private ResolveRichTextOptions $resolveRichTextOptions,
         private ResolveImageOverrides $resolveImageOverrides,
         private RecordExportUsage $recordExportUsage,
+        private RecordExportVersion $recordExportVersion,
     ) {
     }
 
@@ -106,6 +109,11 @@ final readonly class ExportProcessor implements ProcessorInterface
         $response->headers->set('Content-Disposition', sprintf('inline; filename="%s.png"', $variant->id->toString()));
 
         $this->recordExportUsage->record($variant, ExportChannel::Api);
+        $this->recordExportVersion->recordVariant(
+            $variant,
+            ExportChannel::Api,
+            ExportFillValues::fromApiRequest($data->inputs, $data->images),
+        );
 
         return $response;
     }

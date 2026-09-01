@@ -4,11 +4,17 @@
 {% set active_menu_item = 'templates' %}
 
 {% block title_actions %}
-    {% if is_granted('template_variant_edit', variant) %}
-        <div class="text-sm-end mb-3">
+    <div class="text-sm-end mb-3 d-flex justify-content-sm-end gap-2">
+        {{ include('_export_history_menu.html.twig', {
+            versions: export_versions,
+            loaded_version: loaded_version,
+            route_name: 'template_variant_export',
+            route_params: {'variantId': variant.id},
+        }) }}
+        {% if is_granted('template_variant_edit', variant) %}
             <a href="{{ path('template_variant_editor', {'variantId': variant.id}) }}" class="btn btn-primary"><i class="mdi mdi-pencil"></i> Zpět na editor</a>
-        </div>
-    {% endif %}
+        {% endif %}
+    </div>
 {% endblock %}
 
 {% block breadcrumb %}
@@ -44,10 +50,26 @@
         </style>
     </div>
 
+    {% if loaded_version %}
+        {{ include('_export_history_banner.html.twig', {
+            loaded_version: loaded_version,
+            clear_url: path('template_variant_export', {'variantId': variant.id}),
+        }) }}
+    {% endif %}
+
     {# The fill UI is driven by a Live Component; it renders its own preview
        server-side (Gotenberg PNG → base64 data URI). `loading="defer"` keeps
        those Gotenberg calls OUT of this page request — the shell paints
        instantly and the component arrives via a follow-up Live request (see
-       the placeholder macro in the component template). #}
-    <twig:Template:VariantFiller :variant="variant" :facebookConnected="facebookConnected" loading="defer" />
+       the placeholder macro in the component template). The seed props carry
+       a loaded export version's fill state (empty otherwise) — postMount's
+       `??=` sample-seeding fills only what the version left blank. #}
+    <twig:Template:VariantFiller
+        :variant="variant"
+        :facebookConnected="facebookConnected"
+        :textValues="seed_text_values"
+        :hiddenValues="seed_hidden_values"
+        :seedImageValues="seed_image_values"
+        loading="defer"
+    />
 {% endblock %}

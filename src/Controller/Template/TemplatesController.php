@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Query\GetTemplates;
 use WBoost\Web\Services\Security\ProjectVoter;
@@ -19,6 +20,7 @@ final class TemplatesController extends AbstractController
     public function __construct(
         readonly private GetTemplates $getTemplates,
         readonly private GetTemplateCategories $getTemplateCategories,
+        readonly private GetExportVersions $getExportVersions,
     ) {
     }
 
@@ -32,6 +34,9 @@ final class TemplatesController extends AbstractController
             'project' => $project,
             'categories' => $this->getTemplateCategories->allForProject($project->id),
             'templates_without_category' => $this->getTemplates->withoutCategoryForProject($project->id),
+            // templateId → latest export version summary, for the cards'
+            // "naposledy exportováno" line.
+            'last_exports' => $this->getExportVersions->latestForProjectTemplates($project->id),
         ]);
     }
 }

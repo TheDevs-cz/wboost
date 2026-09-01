@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\TemplateGroup;
 
+use Ramsey\Uuid\Uuid;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use WBoost\Web\Entity\TemplateExportVersion;
 use WBoost\Web\Entity\TemplateGroup;
+use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetTemplateGroupMembers;
+use WBoost\Web\Repository\TemplateExportVersionRepository;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
+use WBoost\Web\Services\Template\ExportVersionSeeder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
 use WBoost\Web\Services\UploaderHelper;
 
@@ -29,6 +35,9 @@ final class TemplateGroupFillController extends AbstractController
         readonly private GroupFillPlaceholders $placeholders,
         readonly private GetFonts $getFonts,
         readonly private UploaderHelper $uploaderHelper,
+        readonly private GetExportVersions $getExportVersions,
+        readonly private TemplateExportVersionRepository $versionRepository,
+        readonly private ExportVersionSeeder $versionSeeder,
     ) {
     }
 
@@ -37,6 +46,7 @@ final class TemplateGroupFillController extends AbstractController
     public function __invoke(
         #[MapEntity(id: 'groupId')]
         TemplateGroup $group,
+        Request $request,
     ): Response {
         $memberVariants = $this->members->variants($group->id);
 
@@ -77,13 +87,32 @@ final class TemplateGroupFillController extends AbstractController
             static fn (array $slot): bool => $slot['input']->allowMove || $slot['input']->allowResize || $slot['input']->allowRotate,
         ));
 
+        $textInputs = $this->placeholders->textInputs($memberVariants);
+
+        // `?version=<id>` seeds the whole form from a stored export version
+        // ("Historie exportů") — invalid / foreign / pruned ids are silently
+        // ignored so stale history links still land on a working page.
+        $loadedVersion = $this->resolveVersion($request, $group);
+        $seed = $loadedVersion !== null
+            ? $this->versionSeeder->forGroup(
+                $loadedVersion,
+                $group->project->id,
+                $textInputs,
+                array_map(static fn (array $slot) => $slot['input'], $imageInputs),
+                $memberVariants,
+            )
+            : ['texts' => [], 'hidden' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
+
         return $this->render('template_group_fill.html.twig', [
             'project' => $group->project,
             'group' => $group,
             'menu_item' => 'templates',
             'variants' => $variants,
-            'text_inputs' => $this->placeholders->textInputs($memberVariants),
+            'text_inputs' => $textInputs,
             'image_inputs' => $imageInputs,
+            'export_versions' => $this->getExportVersions->forGroup($group->id),
+            'loaded_version' => $loadedVersion,
+            'seed' => $seed,
             'placement_slots' => array_map(
                 static fn (array $slot): array => [
                     'inputId' => $slot['input']->inputId,
@@ -112,6 +141,23 @@ final class TemplateGroupFillController extends AbstractController
             'has_echo' => array_reduce($variants, static fn (bool $carry, array $entry): bool => $carry || $entry['echo'] !== null, false),
             'export_url' => $this->generateUrl('template_group_export', ['groupId' => $group->id]),
         ]);
+    }
+
+    private function resolveVersion(Request $request, TemplateGroup $group): null|TemplateExportVersion
+    {
+        $versionId = $request->query->getString('version');
+
+        if ($versionId === '' || !Uuid::isValid($versionId)) {
+            return null;
+        }
+
+        $version = $this->versionRepository->find(Uuid::fromString($versionId));
+
+        if ($version === null || $version->group === null || !$version->group->id->equals($group->id)) {
+            return null;
+        }
+
+        return $version;
     }
 
     /**

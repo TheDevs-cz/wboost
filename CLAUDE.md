@@ -1030,6 +1030,58 @@ the fill component degrades to "no preview this round"
 (`AbstractVariantFiller::renderUnavailable()`) rather than 503-ing the Live
 re-render, which would strand the page on its spinner.
 
+**Export versioning — "Historie exportů" (2026-09-01).** Every SUCCESSFUL
+export snapshots its fill values as a re-usable version so users can re-load
+what they exported before. Entity `TemplateExportVersion` (table
+`template_export_version`, JSONB `fill_values` via
+`ExportFillValuesDoctrineType` → the `ExportFillValues` VO) — LIVE functional
+data with real FKs, unlike the denormalised `ExportEvent` analytics row that
+is written right next to it: variant/group/template deletion CASCADEs the
+history away, a deleted user only SET-NULLs `exported_by`. Exactly one of
+`variant`/`group` is set — the ZIP export AND the per-dimension group
+download both snapshot the same group fill form onto ONE group-scoped
+version.
+
+- **Recording**: `Services/Template/RecordExportVersion` (the
+  RecordExportUsage twin — swallow+log, dispatched AFTER a successful render)
+  is called at all six chokepoints with the surface's raw values;
+  `ExportFillValues::fromVariantWebForm/fromGroupWebForm/fromApiRequest`
+  normalise them into the WEB WIRE SHAPE (API rich `runs` re-encode as the
+  envelope STRING the mirrors carry) with per-surface semantics: the variant
+  form KEEPS empty strings (= "blank the text"), the group form DROPS them
+  (= "keep designed"). `toArray()` is canonical (recursive ksort, floats
+  rounded to 4 decimals) and `hash()` (sha256 over it) is the dedup key: the
+  handler (`RecordTemplateExportVersionHandler`) bumps
+  `lastExportedAt`/`exportCount`/`exportedBy`/`channel` on a same-(subject,
+  hash) row instead of inserting, and prunes each subject to
+  `MAX_VERSIONS` (30). No unique constraint on purpose — a lost race merely
+  duplicates a history row, a violation would abort the export's transaction.
+  An all-defaults export still records (dedup collapses the repeats).
+- **Re-loading** (`?version=<id>` on both fill pages; invalid/foreign/pruned
+  ids silently ignored): `Services/Template/ExportVersionSeeder` is LENIENT
+  where the render resolvers 400 — deleted inputs drop, a rich envelope on a
+  now-plain input degrades to its text concat, a trashed/purged/other-project
+  picture or one moved out of the slot's allowed folders falls back to the
+  designed stand-in, and transform fields the slot no longer permits are
+  stripped (a seeded page must always be exportable again). Single-variant
+  page: texts/hides seed as `:textValues`/`:hiddenValues` mount props
+  (postMount's `??=` fills only what the version left blank) and image state
+  as `:seedImageValues`, folded into the `imagePlaceholders()` payload —
+  the twig pre-fills the hidden `images[…]` fields + hide checkbox and
+  `variant_image_fill_controller._restoreSeed()` redraws the picked pictures
+  with their transforms on connect (no activation, fields left as
+  server-rendered). Group page: server-rendered form values + a
+  `data-group-fill-seed-value` JSON that `group_fill_controller._applySeed()`
+  replays AFTER connect()'s neutral-placement reset (server-rendered
+  placement fields alone would be wiped by it).
+- **UI**: shared partials `_export_history_menu.html.twig` (dropdown on both
+  fill pages: freshest first, user, non-web channel badge, ×N export count,
+  "Zpět na výchozí hodnoty") + `_export_history_banner.html.twig` (loaded
+  state). Listing surfaces read `Query/GetExportVersions`
+  (`latestForProjectTemplates` / `latestForTemplateVariants`, Postgres
+  DISTINCT ON): template cards show "Naposledy exportováno", variant tiles
+  add a "Načíst poslední export" menu item.
+
 ### One "Šablony" module — merge history + dimension model
 
 Until 2026-08 the app had three sibling sections: "Sociální sítě" (fixed-format

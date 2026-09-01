@@ -38,6 +38,7 @@
                    line never wraps, so cards are already equal height — and
                    `h-100` inside a flex column makes the card stretch over its
                    own bottom margin, leaving a dead 24px strip under the meta. #}
+                {% set last_export = last_exports[variant.id.toString]|default(null) %}
                 <div class="card variant-card">
                     {% if is_granted('project_edit', project) %}
                         <div class="dropdown variant-card__menu">
@@ -50,6 +51,9 @@
                                 {% endif %}
                                 <a href="{{ path('copy_template_variant', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
                                 <a href="{{ path('template_variant_export', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-export me-1"></i>Export</a>
+                                {% if last_export %}
+                                    <a href="{{ path('template_variant_export', {'variantId': variant.id, 'version': last_export.versionId}) }}" class="dropdown-item"><i class="mdi mdi-history me-1"></i>Načíst poslední export</a>
+                                {% endif %}
                                 <a href="#"
                                    class="dropdown-item"
                                    data-modal-id="{{ variant.id }}"
@@ -73,6 +77,12 @@
                         <div class="variant-card__thumb{{ variant.backgroundMode.value == 'layer' ? ' variant-card__thumb--transparent' }}">
                             <img src="{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}" alt="Náhled varianty {{ variant.dimension.label }}">
                         </div>
+
+                        {% if last_export %}
+                            <div class="px-2 pb-2">
+                                <small class="text-muted"><i class="mdi mdi-history"></i> Naposledy exportováno {{ last_export.lastExportedAt|date('d.m.Y H:i') }}</small>
+                            </div>
+                        {% endif %}
                     </a>
                 </div>
 

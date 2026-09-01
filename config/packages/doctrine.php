@@ -9,6 +9,7 @@ use WBoost\Web\Doctrine\CanvasJsonbType;
 use WBoost\Web\Doctrine\EditorImageInputsDoctrineType;
 use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Doctrine\EmailTextInputsDoctrineType;
+use WBoost\Web\Doctrine\ExportFillValuesDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Doctrine\ManualColorsDoctrineType;
@@ -28,6 +29,7 @@ return App::config([
                 ManualColorsDoctrineType::NAME => ManualColorsDoctrineType::class,
                 EmailTextInputsDoctrineType::NAME => EmailTextInputsDoctrineType::class,
                 CanvasJsonbType::NAME => CanvasJsonbType::class,
+                ExportFillValuesDoctrineType::NAME => ExportFillValuesDoctrineType::class,
             ],
         ],
         'orm' => [

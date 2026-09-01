@@ -78,6 +78,15 @@
 
             <img class="p-3 card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
 
+            {% set last_export = last_exports[template.id.toString]|default(null) %}
+            {% if last_export %}
+                <div class="card-body pt-0 pb-0">
+                    <small class="text-muted" title="Historii exportů najdete na stránce vyplnění">
+                        <i class="mdi mdi-history"></i> Naposledy exportováno {{ last_export.lastExportedAt|date('d.m.Y H:i') }}
+                    </small>
+                </div>
+            {% endif %}
+
             {% if template.variants|length %}
                 <div class="card-body pt-0 pb-2">
                     {% for variant in template.variants %}

@@ -1,0 +1,47 @@
+{# "Historie exportů" dropdown, shared by the single-variant fill page and the
+   group fill page. Each item re-opens the SAME page with `?version=<id>` — the
+   controller then seeds the whole fill state from that version's snapshot.
+
+   Expects:
+   - versions:        list<TemplateExportVersion>, freshest first
+   - loaded_version:  null|TemplateExportVersion currently loaded
+   - route_name:      the fill page's route
+   - route_params:    the fill page's route params (version id gets merged in) #}
+{% if versions|length > 0 %}
+    <div class="dropdown d-inline-block">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="mdi mdi-history"></i> Historie exportů
+        </button>
+        <div class="dropdown-menu dropdown-menu-end shadow" style="min-width: 21rem; max-height: 24rem; overflow-y: auto;">
+            <h6 class="dropdown-header">Dříve exportované verze</h6>
+            {% for version in versions %}
+                <a class="dropdown-item py-2{{ loaded_version and loaded_version.id.equals(version.id) ? ' active' }}"
+                   href="{{ path(route_name, route_params|merge({'version': version.id})) }}"
+                   title="Načíst hodnoty této verze do formuláře">
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <span class="text-truncate">
+                            {{ version.lastExportedAt|date('d.m.Y H:i') }}<br>
+                            <small class="{{ loaded_version and loaded_version.id.equals(version.id) ? '' : 'text-muted' }}">
+                                {{ version.exportedBy ? version.exportedBy.displayName : 'Neznámý uživatel' }}
+                            </small>
+                        </span>
+                        <span class="text-nowrap">
+                            {% if version.channel.value != 'web' %}
+                                <span class="badge bg-secondary-lighten text-secondary">{{ version.channel.label }}</span>
+                            {% endif %}
+                            {% if version.exportCount > 1 %}
+                                <span class="badge bg-secondary-lighten text-secondary" title="Exportováno {{ version.exportCount }}×">{{ version.exportCount }}×</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </a>
+            {% endfor %}
+            {% if loaded_version %}
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="{{ path(route_name, route_params) }}">
+                    <i class="mdi mdi-restore"></i> Zpět na výchozí hodnoty
+                </a>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}

@@ -24,6 +24,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -454,6 +455,7 @@ final class ExportVariantTest extends WebTestCase
             ),
             $container->get(TemplateVariantImageRenderer::class),
             $container->get(RecordExportUsage::class),
+            $container->get(RecordExportVersion::class),
         );
 
         $result = $tool(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, [

@@ -76,6 +76,11 @@ export default class extends Controller {
         slots: { type: Array, default: [] },
         variants: { type: Array, default: [] },
         fonts: { type: Array, default: [] },
+        // Loaded export version ("Historie exportů"): {pictures: {inputId:
+        // {imageId, url}}, placements: {variantId: {inputId: {…}}}}. Applied
+        // in connect() AFTER the neutral reset — the server-rendered hidden
+        // fields alone would be wiped by it.
+        seed: { type: Object, default: {} },
     };
 
     initialize() {
@@ -138,8 +143,10 @@ export default class extends Controller {
                 this.placement[variant.variantId][slot.inputId] = { ...NEUTRAL_PLACEMENT };
             });
         });
+        this._applySeed();
         this.slotsValue.forEach((slot) => this._writePlacementFields(slot.inputId));
         this.renderGhosts();
+        this._syncPlacementControls();
 
         // Coming BACK to this page (the export failed and the user pressed
         // Back) restores the DOM exactly as it was left — mid-export, i.e. with
@@ -683,8 +690,14 @@ export default class extends Controller {
             return;
         }
 
-        this.pictures[inputId] = { imageId, url: imageUrl, natural: null };
+        this._registerPicture(inputId, imageId, imageUrl);
         this._syncPlacementControls();
+    }
+
+    /** Record a slot's picture + probe its natural size (the ghost math needs
+     *  it) — WITHOUT touching placement, so a seeded placement survives. */
+    _registerPicture(inputId, imageId, imageUrl) {
+        this.pictures[inputId] = { imageId, url: imageUrl, natural: null };
 
         const probe = new Image();
         probe.crossOrigin = 'anonymous';
@@ -696,6 +709,31 @@ export default class extends Controller {
             }
         };
         probe.src = imageUrl;
+    }
+
+    /**
+     * Restore a loaded export version (see the `seed` value): the picked
+     * pictures re-enter the placement state machine as if the user had picked
+     * them, and each dimension's stored placement replaces its neutral
+     * default. The hidden imageId fields + thumbs are already server-rendered
+     * from the same seed — this only rebuilds the client state that connect()
+     * resets (the placement fields are re-written right after).
+     */
+    _applySeed() {
+        const seed = this.seedValue || {};
+
+        Object.entries(seed.pictures || {}).forEach(([inputId, pick]) => {
+            if (!pick || !pick.imageId || !pick.url || !this._slot(inputId)) return;
+            this._registerPicture(inputId, pick.imageId, pick.url);
+        });
+
+        Object.entries(seed.placements || {}).forEach(([variantId, slots]) => {
+            if (!this.placement[variantId]) return;
+            Object.entries(slots || {}).forEach(([inputId, placement]) => {
+                if (!this._slot(inputId) || !placement) return;
+                this.placement[variantId][inputId] = { ...NEUTRAL_PLACEMENT, ...placement };
+            });
+        });
     }
 
     _slot(inputId) {

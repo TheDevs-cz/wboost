@@ -18,8 +18,10 @@ use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
+use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFillValues;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
@@ -91,6 +93,7 @@ readonly final class ExportVariantTool
         private VariantFill $fill,
         private TemplateVariantImageRendererInterface $renderer,
         private RecordExportUsage $recordExportUsage,
+        private RecordExportVersion $recordExportVersion,
     ) {
     }
 
@@ -149,6 +152,11 @@ readonly final class ExportVariantTool
         // Last step before the reply, and only on the success path — see the
         // class docblock.
         $this->recordExportUsage->record($variant, ExportChannel::Mcp);
+        $this->recordExportVersion->recordVariant(
+            $variant,
+            ExportChannel::Mcp,
+            ExportFillValues::fromApiRequest($providedInputs, $providedImages),
+        );
 
         $summary = new ExportVariantResponse(
             variantId: $variant->id->toString(),

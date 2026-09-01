@@ -100,6 +100,20 @@ abstract class AbstractVariantFiller extends AbstractController
     public array $hiddenValues = [];
 
     /**
+     * Image-slot seed from a loaded export version (`?version=` on the fill
+     * page): inputId UUID → `{imageId, url, scale?, offsetX?, offsetY?,
+     * rotation?}` or `{hide: true}`, produced (and already validated) by
+     * {@see \WBoost\Web\Services\Template\ExportVersionSeeder}. Folded into
+     * {@see imagePlaceholders()} so the template pre-fills the hidden
+     * `images[…]` form fields and `variant_image_fill_controller` restores the
+     * live objects on connect. Empty on a normal visit.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    #[LiveProp]
+    public array $seedImageValues = [];
+
+    /**
      * Per-request cache of the variant's rich-text options (fonts + colors) —
      * the resolver hits the fonts + manuals queries, and several render
      * methods need the same options during one request.
@@ -421,7 +435,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     includesRoot: bool,
      *     canUpload: bool,
      *     isBackground: bool,
-     *     layerIndex: int
+     *     layerIndex: int,
+     *     seed: null|array<string, mixed>
      * }>
      */
     public function imagePlaceholders(): array
@@ -503,6 +518,8 @@ abstract class AbstractVariantFiller extends AbstractController
                 // Designed z-position — the fill controller restacks the live
                 // objects (and the overlay slices above them) by this.
                 'layerIndex' => $stackIndexes[$input->inputId] ?? 0,
+                // Loaded-version state for this slot (see the LiveProp).
+                'seed' => $this->seedImageValues[$input->inputId] ?? null,
             ];
         }
 

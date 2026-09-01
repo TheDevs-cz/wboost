@@ -56,6 +56,11 @@
               data-group-fill-slots-value="{{ placement_slots|json_encode }}"
               data-group-fill-variants-value="{{ placement_variants|json_encode }}"
               data-group-fill-fonts-value="{{ font_faces|map(face => face.family)|json_encode }}"
+              {# Loaded export version ("Historie exportů"): the picked pictures +
+                 per-dimension placements the controller restores on connect —
+                 connect() resets placement state to neutral, so server-rendered
+                 field values alone would be wiped. #}
+              data-group-fill-seed-value="{{ {'pictures': seed.images, 'placements': seed.placements}|json_encode }}"
               data-action="keydown->group-fill#blockEnter submit->group-fill#exportStarted">
 
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -64,6 +69,12 @@
                     <p class="text-muted my-0">Vyplňte obsah jednou — propíše se do všech rozměrů najednou. Prázdné pole ponechá text ze šablony.</p>
                 </div>
                 <div class="d-flex align-items-center gap-2">
+                    {{ include('_export_history_menu.html.twig', {
+                        versions: export_versions,
+                        loaded_version: loaded_version,
+                        route_name: 'template_group_fill',
+                        route_params: {'groupId': group.id},
+                    }) }}
                     {% if is_granted('template_group_edit', group) %}
                         <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit design</a>
                     {% endif %}
@@ -72,6 +83,13 @@
                     </button>
                 </div>
             </div>
+
+            {% if loaded_version %}
+                {{ include('_export_history_banner.html.twig', {
+                    loaded_version: loaded_version,
+                    clear_url: path('template_group_fill', {'groupId': group.id}),
+                }) }}
+            {% endif %}
 
             <div class="row">
                 <div class="col-lg-4 col-xxl-3">
@@ -89,6 +107,7 @@
                                                     <input class="form-check-input" type="checkbox" value="1"
                                                            name="hiddenValues[{{ input.inputId }}]"
                                                            id="group-fill-hide-{{ input.inputId }}"
+                                                           {{ seed.hidden[input.inputId] is defined ? 'checked' }}
                                                            data-action="group-fill#changed">
                                                     <label class="form-check-label font-12 text-muted" for="group-fill-hide-{{ input.inputId }}">Skrýt</label>
                                                 </div>
@@ -99,7 +118,7 @@
                                                id="group-fill-text-{{ input.inputId }}"
                                                name="textValues[{{ input.inputId }}]"
                                                data-input-id="{{ input.inputId }}"
-                                               value=""
+                                               value="{{ seed.texts[input.inputId]|default('') }}"
                                                {% if input.maxLength %}maxlength="{{ input.maxLength }}"{% endif %}
                                                placeholder="Ponechat text ze šablony"
                                                autocomplete="off"
@@ -128,16 +147,19 @@
                                                     <input class="form-check-input" type="checkbox" value="1"
                                                            name="images[{{ input.inputId }}][hide]"
                                                            id="group-fill-image-hide-{{ input.inputId }}"
+                                                           {{ seed.imageHidden[input.inputId] is defined ? 'checked' }}
                                                            data-action="group-fill#changed">
                                                     <label class="form-check-label font-12 text-muted" for="group-fill-image-hide-{{ input.inputId }}">Skrýt</label>
                                                 </div>
                                             {% endif %}
                                         </div>
                                         <div class="d-flex align-items-center gap-2">
+                                            {% set seededImage = seed.images[input.inputId]|default(null) %}
                                             <span class="group-fill-image-thumb"
                                                   data-group-fill-target="imageThumb"
                                                   data-input-id="{{ input.inputId }}"
-                                                  {% if slot.defaultImageUrl %}style="background-image: url('{{ slot.defaultImageUrl }}');"{% endif %}></span>
+                                                  {% if seededImage %}style="background-image: url('{{ seededImage.url }}');"
+                                                  {% elseif slot.defaultImageUrl %}style="background-image: url('{{ slot.defaultImageUrl }}');"{% endif %}></span>
                                             {% if slot.images|length > 0 or slot.canUpload %}
                                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#groupFillImageModal-{{ input.inputId }}">
                                                     <i class="mdi mdi-image-search-outline"></i> {{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
@@ -149,7 +171,7 @@
                                         {% if input.description %}
                                             <div class="form-text">{{ input.description }}</div>
                                         {% endif %}
-                                        <input type="hidden" name="images[{{ input.inputId }}][imageId]" value=""
+                                        <input type="hidden" name="images[{{ input.inputId }}][imageId]" value="{{ seededImage ? seededImage.imageId : '' }}"
                                                data-group-fill-target="imageValue" data-input-id="{{ input.inputId }}">
 
                                         {# Placement is ALWAYS per dimension. The PICTURE is picked once

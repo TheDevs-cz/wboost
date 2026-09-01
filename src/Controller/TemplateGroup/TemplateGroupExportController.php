@@ -18,9 +18,11 @@ use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Slugify;
+use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFillValues;
 use ZipArchive;
 
 /**
@@ -37,6 +39,7 @@ final class TemplateGroupExportController extends AbstractController
         readonly private GetTemplateGroupMembers $members,
         readonly private GroupFillRenderer $groupFillRenderer,
         readonly private RecordExportUsage $recordExportUsage,
+        readonly private RecordExportVersion $recordExportVersion,
         readonly private ReleaseSessionLock $releaseSessionLock,
     ) {
     }
@@ -117,6 +120,13 @@ final class TemplateGroupExportController extends AbstractController
         foreach ($variants as $variant) {
             $this->recordExportUsage->record($variant, ExportChannel::Web);
         }
+
+        $this->recordExportVersion->recordGroup($group, ExportChannel::Web, ExportFillValues::fromGroupWebForm(
+            $rawTextValues,
+            $rawHiddenValues,
+            $rawImages,
+            $rawPlacements,
+        ));
 
         return new Response($zipBytes, Response::HTTP_OK, [
             'Content-Type' => 'application/zip',

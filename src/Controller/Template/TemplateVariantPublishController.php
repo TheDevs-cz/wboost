@@ -32,8 +32,10 @@ use WBoost\Web\Services\SocialNetwork\FillFormRequestParser;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFillValues;
 
 /**
  * Direct publish of a filled variant to a Facebook Page or the Instagram
@@ -61,6 +63,7 @@ final class TemplateVariantPublishController extends AbstractController
         private readonly PublishToFacebookPage $publishToFacebookPage,
         private readonly PublishToInstagram $publishToInstagram,
         private readonly RecordExportUsage $recordExportUsage,
+        private readonly RecordExportVersion $recordExportVersion,
         private readonly MessageBusInterface $bus,
         private readonly LoggerInterface $logger,
         private readonly ReleaseSessionLock $releaseSessionLock,
@@ -150,10 +153,14 @@ final class TemplateVariantPublishController extends AbstractController
             return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_BAD_GATEWAY);
         }
 
-        $this->recordExportUsage->record(
-            $variant,
-            $platform === 'facebook' ? ExportChannel::Facebook : ExportChannel::Instagram,
-        );
+        $channel = $platform === 'facebook' ? ExportChannel::Facebook : ExportChannel::Instagram;
+
+        $this->recordExportUsage->record($variant, $channel);
+        $this->recordExportVersion->recordVariant($variant, $channel, ExportFillValues::fromVariantWebForm(
+            $request->request->all('textValues'),
+            $request->request->all('hiddenValues'),
+            $request->request->all('images'),
+        ));
 
         return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);
     }

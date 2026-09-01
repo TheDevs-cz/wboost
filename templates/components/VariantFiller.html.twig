@@ -251,15 +251,17 @@
             {% if hasImages %}
                 <div data-live-ignore>
                     {# Controller mirrors each placement here, so the plain form
-                       POST carries them. Pre-rendered empty; data-live-ignore
-                       keeps the controller-set values across Live re-renders. #}
+                       POST carries them. Pre-rendered from the loaded version's
+                       seed (empty otherwise); data-live-ignore keeps the
+                       controller-set values across Live re-renders. #}
                     {% for ph in imagePlaceholders %}
-                        <input type="hidden" name="images[{{ ph.inputId }}][imageId]" data-placeholder="{{ ph.inputId }}" data-field="imageId" value="">
-                        <input type="hidden" name="images[{{ ph.inputId }}][scale]" data-placeholder="{{ ph.inputId }}" data-field="scale" value="">
-                        <input type="hidden" name="images[{{ ph.inputId }}][offsetX]" data-placeholder="{{ ph.inputId }}" data-field="offsetX" value="">
-                        <input type="hidden" name="images[{{ ph.inputId }}][offsetY]" data-placeholder="{{ ph.inputId }}" data-field="offsetY" value="">
-                        <input type="hidden" name="images[{{ ph.inputId }}][rotation]" data-placeholder="{{ ph.inputId }}" data-field="rotation" value="">
-                        <input type="hidden" name="images[{{ ph.inputId }}][hide]" data-placeholder="{{ ph.inputId }}" data-field="hide" value="">
+                        {% set seed = ph.seed ?? null %}
+                        <input type="hidden" name="images[{{ ph.inputId }}][imageId]" data-placeholder="{{ ph.inputId }}" data-field="imageId" value="{{ seed.imageId|default('') }}">
+                        <input type="hidden" name="images[{{ ph.inputId }}][scale]" data-placeholder="{{ ph.inputId }}" data-field="scale" value="{{ seed.scale|default('') }}">
+                        <input type="hidden" name="images[{{ ph.inputId }}][offsetX]" data-placeholder="{{ ph.inputId }}" data-field="offsetX" value="{{ seed.offsetX|default('') }}">
+                        <input type="hidden" name="images[{{ ph.inputId }}][offsetY]" data-placeholder="{{ ph.inputId }}" data-field="offsetY" value="{{ seed.offsetY|default('') }}">
+                        <input type="hidden" name="images[{{ ph.inputId }}][rotation]" data-placeholder="{{ ph.inputId }}" data-field="rotation" value="{{ seed.rotation|default('') }}">
+                        <input type="hidden" name="images[{{ ph.inputId }}][hide]" data-placeholder="{{ ph.inputId }}" data-field="hide" value="{{ seed.hide|default(false) ? '1' : '' }}">
                     {% endfor %}
 
                     {# Layer-mode variants may render transparent (no background) —
@@ -368,22 +370,25 @@
                                     data-action="variant-fill-overlay#openImageModal"
                                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                                 ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
+                                {% set seedHidden = ph.seed is defined and ph.seed and ph.seed.hide|default(false) %}
                                 {% if ph.hidable %}
                                     <button type="button" class="fill-box__tool fill-box__tool--hide"
                                         data-hide-toggle="{{ ph.inputId }}"
-                                        aria-pressed="false"
+                                        aria-pressed="{{ seedHidden ? 'true' : 'false' }}"
                                         title="Schovat prvek"
                                         aria-label="Schovat prvek"
                                         data-action="variant-fill-overlay#toggleHide"
                                         data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                    ><i class="mdi mdi-eye-outline" aria-hidden="true"></i></button>
+                                    ><i class="mdi {{ seedHidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
                                 {% endif %}
                             </div>
                             {% if ph.hidable %}
                                 {# Hidden checkbox the eye toggles; wired to the image
-                                   controller's hide handler. #}
+                                   controller's hide handler. Starts checked when a
+                                   loaded version hid this slot. #}
                                 <input type="checkbox" class="visually-hidden" tabindex="-1" aria-hidden="true"
                                     data-image-hide="{{ ph.inputId }}"
+                                    {{ seedHidden ? 'checked' }}
                                     data-action="change->variant-image-fill#toggleHide"
                                     data-variant-image-fill-inputid-param="{{ ph.inputId }}">
                             {% endif %}

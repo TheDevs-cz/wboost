@@ -18,9 +18,11 @@ use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Slugify;
+use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFillValues;
 
 /**
  * Download ONE member variant of the group as a PNG — the per-dimension
@@ -35,6 +37,7 @@ final class TemplateGroupExportVariantController extends AbstractController
         readonly private GetTemplateGroupMembers $members,
         readonly private GroupFillRenderer $groupFillRenderer,
         readonly private RecordExportUsage $recordExportUsage,
+        readonly private RecordExportVersion $recordExportVersion,
         readonly private ReleaseSessionLock $releaseSessionLock,
     ) {
     }
@@ -88,6 +91,16 @@ final class TemplateGroupExportVariantController extends AbstractController
         }
 
         $this->recordExportUsage->record($variant, ExportChannel::Web);
+
+        // The per-dimension download runs on the SAME group fill form as the
+        // ZIP, so the version lands on the group (and dedupes against a later
+        // ZIP export of the identical fill).
+        $this->recordExportVersion->recordGroup($group, ExportChannel::Web, ExportFillValues::fromGroupWebForm(
+            $request->request->all('textValues'),
+            $request->request->all('hiddenValues'),
+            $request->request->all('images'),
+            $request->request->all('imagePlacements'),
+        ));
 
         $fileName = sprintf(
             '%s-%s.png',
