@@ -8,6 +8,9 @@ fixing.
 
 $ARGUMENTS
 
+If no task follows this line, this invocation is loading context only: acknowledge in one line and
+wait for the task — do not start exploring, reading files or proposing work.
+
 ## Context
 
 CLAUDE.md is already in your context and is accurate + load-bearing. The sections that matter
