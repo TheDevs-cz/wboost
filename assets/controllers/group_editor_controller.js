@@ -29,7 +29,7 @@ export default class extends Controller {
     static outlets = ["canvas-editor"];
 
     static targets = [
-        "variantsData", "rail", "multiEditButton", "card", "includeToggle",
+        "variantsData", "rail", "railCard", "multiEditButton", "card", "includeToggle",
         "dirtyDot", "badge", "undoButton", "redoButton",
     ];
 
@@ -1193,6 +1193,33 @@ export default class extends Controller {
                 badge.classList.add('d-none');
             }
         });
+
+        this._refreshScope();
+    }
+
+    /**
+     * Rail-card scope indicator: a primary border while the NEXT edit will
+     * reach every variant, plain otherwise. "Every" is what `targets()`
+     * would actually fan out to — mode on, every switch on and no variant
+     * inert (`loadFailed` excludes it from targets no matter the switch, so
+     * a highlighted rail over a "Nenačteno" chip would be a lie). Called
+     * from _refreshBadges because loadFailed flips there without a full
+     * rail refresh; _refreshRail reaches it through the same call.
+     */
+    _refreshScope() {
+        if (!this.hasRailCardTarget) {
+            return;
+        }
+
+        const all = this.multiEdit
+            && this.variants.every((v) => v.included && !v.loadFailed);
+
+        this.railCardTarget.classList.toggle('group-variant-rail-card--all', all);
+        this.railCardTarget.title = all
+            ? 'Úpravy se přenáší do všech variant'
+            : (this.multiEdit
+                ? 'Úpravy se přenáší jen do zaškrtnutých variant'
+                : 'Úpravy zůstávají jen v aktivní variantě');
     }
 
     _refreshHistoryButtons() {

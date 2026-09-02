@@ -2879,6 +2879,23 @@ button.fill-layer-row__main:focus-visible {
 
 /* --- Template-group editor: variant rail (compact chips) ---------------- */
 
+/* The rail card doubles as the propagation-scope indicator: a primary border
+   while an edit reaches EVERY variant (mode on, every switch on, nothing
+   "Nenačteno"), plain otherwise. The border is always present (transparent)
+   so toggling it never shifts the stage below by its width. Two classes so
+   the rule outranks the theme's `.card` border (that sheet loads after this
+   one — see the .group-variant-include note). */
+.card.group-variant-rail-card {
+    border: 2px solid transparent;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card.group-variant-rail-card--all {
+    border-color: var(--bs-primary, #727cf5);
+    /* Ring ON TOP of the theme's card shadow, not instead of it. */
+    box-shadow: 0 0 0 0.2rem rgba(114, 124, 245, 0.15), var(--ct-box-shadow);
+}
+
 .group-variant-rail {
     display: flex;
     flex-wrap: wrap;

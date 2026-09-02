@@ -167,13 +167,21 @@
            (CSS, `--multi` on the rail) while it is on — with the mode off
            there is nothing to opt into. The mode starts ON with every variant
            included (2026-08-10). The ACTIVE variant's switch is always
-           on + disabled: an edit you can see has to land somewhere. #}
-        <div class="card mb-2">
+           on + disabled: an edit you can see has to land somewhere.
+
+           The rail CARD is the scope indicator: a primary border while an edit
+           reaches EVERY variant (mode on + every switch on + nothing
+           "Nenačteno"), plain otherwise — so "2 of 3" and "3 of 3" no longer
+           look alike at a glance (`group-variant-rail-card--all`). #}
+        <div class="card mb-2 group-variant-rail-card group-variant-rail-card--all"
+             data-group-editor-target="railCard"
+             title="Úpravy se přenáší do všech variant">
             <div class="card-body p-2">
                 {# Initial state must match group_editor_controller's
-                   `multiEdit = true` default — _refreshRail() only syncs the
-                   chrome after shadow hydration, so a mismatch would show the
-                   wrong mode for the first seconds. #}
+                   `multiEdit = true` default (+ every variant included, hence
+                   `--all`) — _refreshRail() only syncs the chrome after shadow
+                   hydration, so a mismatch would show the wrong mode for the
+                   first seconds. #}
                 <div class="group-variant-rail group-variant-rail--multi" data-group-editor-target="rail">
                     <button type="button" class="btn btn-sm btn-primary group-variant-mode" aria-pressed="true"
                             data-group-editor-target="multiEditButton"
