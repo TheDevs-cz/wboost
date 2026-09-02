@@ -7,7 +7,7 @@ import { Controller } from "@hotwired/stimulus";
  * Two responsibilities:
  *   1. Translate a "click on a thumbnail" into a single semantic
  *      `asset-selected` CustomEvent on the modal root, carrying the asset's
- *      public URL and id. The host editor's controller (canvas-editor) listens
+ *      public URL and id (plus its file name and pixel size when known). The host editor's controller (canvas-editor) listens
  *      for this event on the modal element and routes the URL to either
  *      setBackgroundImage or addImageToCanvas based on the mode it opened the
  *      modal in.
@@ -44,7 +44,13 @@ export default class extends Controller {
         if (!url) {
             return;
         }
-        this.dispatchSelected({ url, path, id });
+        // Tile metadata rides along for hosts that want it (a layer name, a
+        // size check); consumers that only read url/path/id are unaffected.
+        // Stimulus casts a numeric param to a Number and leaves '' as ''.
+        const name = event.params.name || null;
+        const width = Number.isFinite(event.params.width) ? event.params.width : null;
+        const height = Number.isFinite(event.params.height) ? event.params.height : null;
+        this.dispatchSelected({ url, path, id, name, width, height });
     }
 
     /**
@@ -125,7 +131,7 @@ export default class extends Controller {
         }
     }
 
-    dispatchSelected({ url, path, id }) {
+    dispatchSelected({ url, path, id, name = null, width = null, height = null }) {
         // Fire on the modal's root element so the host page can listen via
         // `@window` or by binding directly to the modal element. We use a
         // raw CustomEvent (not Stimulus' this.dispatch) because Stimulus
@@ -133,7 +139,7 @@ export default class extends Controller {
         // orchestrator subscribes to the literal "asset-selected" name so
         // this stays decoupled from the controller identifier.
         this.element.dispatchEvent(new CustomEvent('asset-selected', {
-            detail: { url, path, id },
+            detail: { url, path, id, name, width, height },
             bubbles: true,
         }));
     }

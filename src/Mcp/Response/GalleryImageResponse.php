@@ -14,22 +14,24 @@ namespace WBoost\Web\Mcp\Response;
  * a tool call.
  *
  * `name` is the STORED file name, which is this image's own id plus the
- * extension describing its bytes. wboost deliberately does not keep the name a
- * file was uploaded under (the upload handler re-encodes what it must and names
- * the object after the row), so this says what FORMAT the picture is, and is
- * not a caption worth showing to a user.
+ * extension describing its bytes (the upload handler re-encodes what it must
+ * and names the object after the row), so it says what FORMAT the picture is.
+ * `originalName` is the name the file was uploaded under — the caption a user
+ * recognises a picture by, and what the web gallery shows on its tiles. It is
+ * null for uploads from before it was recorded (2026-09).
  *
- * `width` / `height` are the picture's own pixel size, read from the file. They
- * are null for an SVG — a vector has no pixel size, it scales to whatever box
- * it is placed in — and for a file whose bytes could not be read. Null is
- * reported rather than guessed: a wrong aspect ratio silently mis-crops every
- * placement made from it.
+ * `width` / `height` are the picture's own pixel size, recorded at upload (or
+ * read from the file once for older rows). They are null for an SVG — a vector
+ * has no pixel size, it scales to whatever box it is placed in — and for a file
+ * whose bytes could not be read. Null is reported rather than guessed: a wrong
+ * aspect ratio silently mis-crops every placement made from it.
  */
 readonly final class GalleryImageResponse
 {
     public function __construct(
         public string $id,
         public string $name,
+        public null|string $originalName,
         public string $url,
         public null|int $width,
         public null|int $height,

@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Tool;
 
-use League\Flysystem\FilesystemException;
-use League\Flysystem\FilesystemReader;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Project;
@@ -24,6 +21,7 @@ use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\FileSource;
@@ -67,37 +65,25 @@ use WBoost\Web\Value\FileSource;
  * `ownedDirectory()` guard), and a folder belonging to somebody else is
  * indistinguishable from one that does not exist.
  *
- * ## Pixel sizes are read, not stored
+ * ## Pixel sizes come from the row, read from the file once
  *
- * Nothing in the database records an image's dimensions, and the aspect ratio is
- * the one property an agent must have to place a picture sensibly. They are
- * therefore read from the files — but only a bounded PREFIX of each
- * ({@see HEADER_BYTES}), since every raster format wboost stores declares its
- * size in a header near the start. A picture whose header does not decode (an
- * SVG, a vanished object) reports null rather than a guess.
+ * The aspect ratio is the one property an agent must have to place a picture
+ * sensibly. Since 2026-09 the upload handler records `width`/`height` on the
+ * row; rows from before that are healed on first sight through
+ * {@see FileUploadPixelSizeBackfill} (a bounded header read, persisted, never
+ * repeated) — the same path the web gallery takes. A picture whose bytes do not
+ * decode (an SVG, a vanished object) reports null rather than a guess.
  */
 #[McpToolScope(McpScope::TemplatesRead)]
 readonly final class ListGalleryTool
 {
-    /**
-     * How much of each image is read to recover its pixel size.
-     *
-     * PNG (IHDR), GIF and WebP declare their dimensions in the first few dozen
-     * bytes; JPEG puts its SOF marker after the APPn segments, which an EXIF
-     * block plus a split ICC profile can push out by a few hundred KB in the
-     * worst case. 256 KiB covers every real file while keeping a listing of a
-     * hundred pictures from transferring their full weight.
-     */
-    private const int HEADER_BYTES = 262144;
-
     public function __construct(
         private Security $security,
         private ProjectRepository $projectRepository,
         private FileDirectoryRepository $fileDirectoryRepository,
         private FileUploadRepository $fileUploadRepository,
         private UploaderHelper $uploaderHelper,
-        #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
-        private FilesystemReader $filesystem,
+        private FileUploadPixelSizeBackfill $pixelSizeBackfill,
     ) {
     }
 
@@ -121,9 +107,11 @@ readonly final class ListGalleryTool
      * into a landscape slot gets cropped, not letterboxed. Both are null for an
      * SVG, which is a vector and scales to whatever box it is placed in, and
      * for a file whose bytes could not be read. name is the stored file name
-     * (the image's id plus its format extension) — wboost does not keep the
-     * name a file was uploaded under, so treat it as the format, not as a
-     * caption.
+     * (the image's id plus its format extension) — treat it as the format.
+     * originalName is the name the file was uploaded under ("pozadi-modre.png"),
+     * the label a user would recognise the picture by; it is null for older
+     * uploads, so fall back to name when you need to say which picture you
+     * mean.
      *
      * Images the user has deleted sit in a trash bin for a few days; they are
      * never listed here and cannot be used. This tool only reads: nothing in
@@ -160,6 +148,10 @@ readonly final class ListGalleryTool
             FileSource::ProjectImage,
             $directory,
         );
+
+        // Rows from before the size was recorded heal here exactly as they do
+        // in the web gallery: one bounded header read, persisted, never again.
+        $this->pixelSizeBackfill->backfill($files);
 
         usort($files, static fn (FileUpload $a, FileUpload $b): int =>
             [self::fileName($a), $a->id->toString()] <=> [self::fileName($b), $b->id->toString()]);
@@ -275,75 +267,16 @@ readonly final class ListGalleryTool
 
     private function image(FileUpload $file): GalleryImageResponse
     {
-        $size = $this->pixelSize($file->path);
-
         return new GalleryImageResponse(
             id: $file->id->toString(),
             name: self::fileName($file),
+            originalName: $file->originalName,
             url: $this->uploaderHelper->getPublicPath($file->path),
-            width: $size['width'],
-            height: $size['height'],
+            width: $file->width,
+            height: $file->height,
         );
     }
 
-    /**
-     * The picture's own pixel size, or nulls when there is no honest answer.
-     *
-     * @return array{width: null|int, height: null|int}
-     */
-    private function pixelSize(string $path): array
-    {
-        $none = ['width' => null, 'height' => null];
-
-        // An SVG is stored untouched and stays vector everywhere; it has no
-        // pixel size to report, and the raster reader below would only produce
-        // a false negative for it.
-        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'svg') {
-            return $none;
-        }
-
-        $header = $this->readHeader($path);
-
-        if ($header === null) {
-            return $none;
-        }
-
-        // Suppressed: a header too short to decode (a truncated JPEG prefix, a
-        // format PHP cannot read at all) is an expected outcome here, answered
-        // with nulls rather than a warning in the log.
-        $size = @getimagesizefromstring($header);
-
-        if ($size === false || $size[0] <= 0 || $size[1] <= 0) {
-            return $none;
-        }
-
-        return ['width' => $size[0], 'height' => $size[1]];
-    }
-
-    /**
-     * A bounded prefix of a stored file, or null when it cannot be read. The
-     * stream is closed immediately, so the rest of a large object is never
-     * transferred.
-     */
-    private function readHeader(string $path): null|string
-    {
-        try {
-            $stream = $this->filesystem->readStream($path);
-        } catch (FilesystemException) {
-            return null;
-        }
-
-        $header = stream_get_contents($stream, self::HEADER_BYTES);
-        fclose($stream);
-
-        return $header === false || $header === '' ? null : $header;
-    }
-
-    /**
-     * The stored object's file name. Uploads are named after the row's id plus
-     * the extension describing the BYTES (the upload handler corrects a client
-     * extension that contradicts them), so this is a format hint, not a label.
-     */
     private static function fileName(FileUpload $file): string
     {
         return basename($file->path);

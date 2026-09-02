@@ -104,7 +104,7 @@ them (only how they are *designed*).
 > plakátu dej tu s keramikou.
 
 `list_gallery` walks the folder tree one level at a time; each picture reports
-its id, URL and pixel size. The image slot says which folders it accepts and
+its id, URL, pixel size and the file name it was uploaded under (when known). The image slot says which folders it accepts and
 whether the picture may be moved, resized or rotated. Match the aspect ratio to
 the slot's frame — a portrait photo in a landscape slot gets cropped, not
 letterboxed.

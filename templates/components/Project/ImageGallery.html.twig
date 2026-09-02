@@ -22,7 +22,32 @@
     the canvas-editor orchestrator routes the URL to setBackgroundImage or
     addImageToCanvas. Each image also has a "move to folder" menu and a delete
     button (deleteFile, which also removes the file from storage).
+
+    Every tile carries an always-visible CAPTION (`tile.caption` below): the
+    uploaded file name — base and extension in separate spans so a long name
+    truncates in the middle and "…1350.png" still reads — and a meta line with
+    the pixel size ("1080 × 1350 px", "Vektor" for an SVG) plus a format
+    badge. It is what tells two look-alike thumbnails of different sizes
+    apart; the same information repeats in the tile's title tooltip together
+    with the upload date. "Bez názvu" marks uploads from before the name was
+    recorded (2026-09) — there is nothing to backfill it from.
 #}
+{% macro caption(asset) %}
+    <div class="gallery-asset__caption">
+        <div class="gallery-asset__name">
+            {% if asset.name is not null %}
+                <span class="gallery-asset__name-base">{{ asset.nameBase }}</span><span class="gallery-asset__name-ext">{{ asset.nameExt }}</span>
+            {% else %}
+                <span class="gallery-asset__name-missing">Bez názvu</span>
+            {% endif %}
+        </div>
+        <div class="gallery-asset__meta">
+            <span class="gallery-asset__size">{{ asset.sizeLabel ?? '' }}</span>
+            <span class="gallery-asset__format">{{ asset.format }}</span>
+        </div>
+    </div>
+{% endmacro %}
+{% import _self as tile %}
 <div {{ attributes.defaults({'data-controller': 'image-gallery'}) }}>
     {#
         Hidden trigger for the LiveAction that re-fetches the asset list. The
@@ -298,37 +323,46 @@
         {# Images. data-storage-path lets the image-gallery controller pulse
            freshly-uploaded thumbnails after the Live re-render. #}
         {% if gallery_assets is not empty %}
-            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));"{% endif %}>
+            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));"{% endif %}>
                 {% for asset in gallery_assets %}
                     <div class="{{ cell_class }}">
                         <div class="position-relative border rounded gallery-asset" data-storage-path="{{ asset.path }}">
                             {% if modal %}
                                 <button
                                     type="button"
-                                    class="btn p-1 w-100"
+                                    class="btn p-0 w-100 text-start gallery-asset__select"
                                     data-action="click->image-gallery#select"
                                     data-image-gallery-url-param="{{ asset.url }}"
                                     data-image-gallery-path-param="{{ asset.path }}"
                                     data-image-gallery-id-param="{{ asset.id }}"
-                                    title="Nahráno {{ asset.uploadedAt }}"
+                                    data-image-gallery-name-param="{{ asset.name ?? '' }}"
+                                    data-image-gallery-width-param="{{ asset.width ?? '' }}"
+                                    data-image-gallery-height-param="{{ asset.height ?? '' }}"
+                                    title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}"
                                 >
-                                    <img
-                                        crossorigin="anonymous"
-                                        src="{{ asset.url }}"
-                                        alt=""
-                                        class="img-fluid"
-                                        style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
-                                    >
+                                    <div class="p-1">
+                                        <img
+                                            crossorigin="anonymous"
+                                            src="{{ asset.url }}"
+                                            alt=""
+                                            class="img-fluid"
+                                            style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                        >
+                                    </div>
+                                    {{ tile.caption(asset) }}
                                 </button>
                             {% else %}
-                                <div class="p-1" title="Nahráno {{ asset.uploadedAt }}">
-                                    <img
-                                        crossorigin="anonymous"
-                                        src="{{ asset.url }}"
-                                        alt=""
-                                        class="img-fluid"
-                                        style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
-                                    >
+                                <div title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}">
+                                    <div class="p-1">
+                                        <img
+                                            crossorigin="anonymous"
+                                            src="{{ asset.url }}"
+                                            alt=""
+                                            class="img-fluid"
+                                            style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                                        >
+                                    </div>
+                                    {{ tile.caption(asset) }}
                                 </div>
                             {% endif %}
                             {# No confirm: the delete is reversible (Koš + 7-day retention);
@@ -394,11 +428,11 @@
         {% if trashed_assets is empty %}
             <p class="text-muted small mb-0">Koš je prázdný.</p>
         {% else %}
-            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));"{% endif %}>
+            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));"{% endif %}>
                 {% for asset in trashed_assets %}
                     <div class="{{ cell_class }}">
-                        <div class="border rounded gallery-asset gallery-asset--trashed">
-                            <div class="p-1" title="Do koše {{ asset.deletedAt }}">
+                        <div class="border rounded gallery-asset gallery-asset--trashed" title="{{ asset.tooltip }} · Do koše {{ asset.deletedAt }}">
+                            <div class="p-1">
                                 <img
                                     crossorigin="anonymous"
                                     src="{{ asset.url }}"
@@ -407,6 +441,7 @@
                                     style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
                                 >
                             </div>
+                            {{ tile.caption(asset) }}
                             <div class="small text-danger px-1">{{ asset.purgeLabel }}</div>
                             <div class="d-flex gap-1 p-1">
                                 <button

@@ -2342,6 +2342,84 @@ button.fill-layer-row__main:focus-visible {
     filter: grayscale(0.25);
 }
 
+/* Tile caption: the uploaded file name + pixel size / format, always visible
+   under the thumbnail — the only way to tell two look-alike pictures of
+   different sizes apart. Base and extension are separate spans so a long name
+   truncates in the MIDDLE ("pozadi-tmave-mo… 1350.png" keeps its tail). */
+.gallery-asset__select {
+    /* The modal tile is a <button class="btn">: undo the button's centring,
+       font sizing and focus/hover chrome so the caption reads like text. */
+    font-size: inherit;
+    line-height: inherit;
+    border-radius: inherit;
+}
+
+.gallery-asset__select:hover,
+.gallery-asset__select:focus-visible {
+    background: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.06);
+}
+
+.gallery-asset__caption {
+    padding: 0.3rem 0.5rem 0.4rem;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    font-size: 0.75rem;
+    line-height: 1.3;
+    min-width: 0;
+}
+
+.gallery-asset__name {
+    display: flex;
+    min-width: 0;
+    font-weight: 500;
+    color: var(--bs-body-color, #212529);
+}
+
+.gallery-asset__name-base {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gallery-asset__name-ext {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.gallery-asset__name-missing {
+    color: var(--bs-secondary-color, #6c757d);
+    font-weight: 400;
+}
+
+.gallery-asset__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin-top: 0.1rem;
+    color: var(--bs-secondary-color, #6c757d);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.gallery-asset__size {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gallery-asset__format {
+    flex: 0 0 auto;
+    padding: 0 0.3rem;
+    border-radius: 0.25rem;
+    background: var(--bs-tertiary-bg, #f1f3fa);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+}
+
 /* Freshly uploaded thumbnail: a short highlight pulse so the user sees the
    file land in the folder they are looking at. */
 .gallery-asset--new {

@@ -863,9 +863,31 @@ never see any of this.
 `Project:ImageGallery` (`src/Twig/Components/Project/ImageGallery.php`) is the
 per-project, per-`FileSource` asset library shown in the admin editor's "Add
 image" / "Set background" modal. Image **selection** stays a DOM
-`CustomEvent("asset-selected")` (with `{ url, path, id }`) so the host Stimulus
-controller routes the chosen URL to `addImageToCanvas` or `setBackgroundImage`
-without a server round-trip.
+`CustomEvent("asset-selected")` (with `{ url, path, id, name, width, height }`
+— the last three nullable, added 2026-09-03) so the host Stimulus controller
+routes the chosen URL to `addImageToCanvas` or `setBackgroundImage` without a
+server round-trip.
+
+**Tile caption — file name + pixel size (2026-09-03).** Every tile (modal,
+standalone, Koš) carries an always-visible caption under the thumbnail: the
+uploaded file name (base + extension in separate spans, so a long name
+truncates in the middle and keeps its tail) and `1080 × 1350 px` with a format
+badge (`PNG`/`JPG`/…; an SVG reads "Vektor"); the tooltip repeats it with the
+upload date. Two look-alike pictures of different sizes were otherwise
+indistinguishable. Backed by three nullable `file_upload` columns:
+`original_name` (the client name, sanitised in `UploadFileHandler`; NULL for
+uploads before the column — nothing to backfill it from, the tile says "Bez
+názvu") and `width`/`height` (recorded at upload from the normalised bytes, so
+a transcoded HEIC reports its JPEG size). Old rows get their size **backfilled
+lazily on first sight** — `Services/Image/FileUploadPixelSizeBackfill` (a
+bounded header read via `ReadStoredImagePixelSize`, persisted, never repeated;
+an unreadable object stays NULL and is retried, no marker column) is called by
+the gallery listings AND the MCP `list_gallery` tool (which no longer reads
+headers itself) — plus `app:gallery:backfill-image-size` for a one-shot sweep
+(run once after deploy; non-zero exit lists unreadable rows). The MCP
+`GalleryImageResponse` gained `originalName`; `name` stays the stored basename
+(= format). The caption fields are computed once in `ImageGallery::describe()`
+(`name`, `nameBase`, `nameExt`, `sizeLabel`, `format`, `tooltip`).
 
 Stage 8 added a **filesystem-like nested folder tree** on top:
 

@@ -57,6 +57,11 @@ final class UploadFileHandlerTest extends KernelTestCase
         self::assertNotFalse($size, 'The stored bytes must be readable by the export path.');
         self::assertSame(IMAGETYPE_JPEG, $size[2]);
         self::assertSame([80, 40], [$size[0], $size[1]]);
+
+        // The label stays the name the user knows the photo by; the recorded
+        // size is that of the STORED (transcoded) picture.
+        self::assertSame('IMG_4821.HEIC', $file->originalName);
+        self::assertSame([80, 40], [$file->width, $file->height]);
     }
 
     public function testStoresPngUntouched(): void
@@ -66,6 +71,8 @@ final class UploadFileHandlerTest extends KernelTestCase
 
         self::assertStringEndsWith('.png', $file->path);
         self::assertSame($png, $this->filesystem()->read($file->path), 'A web-safe format is never re-encoded.');
+        self::assertSame('logo.png', $file->originalName);
+        self::assertSame([24, 12], [$file->width, $file->height], 'Recorded at upload so the gallery never has to read the file for it.');
     }
 
     /**
@@ -87,6 +94,20 @@ final class UploadFileHandlerTest extends KernelTestCase
 
         self::assertStringEndsWith('.svg', $file->path);
         self::assertSame($svg, $this->filesystem()->read($file->path));
+        self::assertSame('logo.svg', $file->originalName);
+        self::assertFalse($file->hasPixelSize(), 'A vector has no pixel size.');
+    }
+
+    /**
+     * The original name is a client-controlled string kept as a LABEL: path
+     * parts and control characters are dropped, and an empty name is null
+     * rather than an empty caption.
+     */
+    public function testOriginalNameIsSanitised(): void
+    {
+        $file = $this->upload($this->image('png', 4, 4), "..\\evil\x00dir/pozadí modré.png");
+
+        self::assertSame('pozadí modré.png', $file->originalName);
     }
 
     private function upload(string $contents, string $clientName): \WBoost\Web\Entity\FileUpload

@@ -335,12 +335,32 @@ final class ListGalleryTest extends WebTestCase
             [
                 'id' => $fileId,
                 'name' => 'mcp-gallery-wide.png',
+                'originalName' => null,
                 'url' => self::getContainer()->get(UploaderHelper::class)->getPublicPath($path),
                 'width' => 24,
                 'height' => 12,
             ],
             $image,
         );
+    }
+
+    /**
+     * What the row knows wins over reading the file: a size recorded at upload
+     * (and the uploaded file name) are reported without touching storage — the
+     * object behind this row is deliberately absent.
+     */
+    public function testRecordedNameAndSizeAreReportedWithoutReadingTheFile(): void
+    {
+        $browser = $this->browser();
+
+        $fileId = $this->persistRootImage('fixtures/mcp-gallery-recorded.png', 'pozadi-modre.png', 100, 50);
+
+        $image = self::imagesById(
+            $this->listGallery(TestDataFixture::MCP_TOKEN_ACTIVE, TestDataFixture::PROJECT_1_ID, browser: $browser),
+        )[$fileId];
+
+        self::assertSame('pozadi-modre.png', $image['originalName']);
+        self::assertSame([100, 50], [$image['width'], $image['height']]);
     }
 
     /**
@@ -508,7 +528,7 @@ final class ListGalleryTest extends WebTestCase
      * shared fixtures: these rows exist to exercise one field each, and the
      * fixture gallery is read by half a dozen other suites.
      */
-    private function persistRootImage(string $path): string
+    private function persistRootImage(string $path, null|string $originalName = null, null|int $width = null, null|int $height = null): string
     {
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
 
@@ -518,6 +538,10 @@ final class ListGalleryTest extends WebTestCase
             new DateTimeImmutable(),
             FileSource::ProjectImage,
             $path,
+            null,
+            $originalName,
+            $width,
+            $height,
         );
 
         $entityManager->persist($file);

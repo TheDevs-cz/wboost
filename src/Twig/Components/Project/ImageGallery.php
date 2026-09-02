@@ -30,6 +30,7 @@ use WBoost\Web\Message\Image\RenameFileDirectory;
 use WBoost\Web\Message\Image\RestoreFileUpload;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\UploaderHelper;
@@ -153,6 +154,7 @@ final class ImageGallery extends AbstractController
         private readonly MessageBusInterface $bus,
         private readonly ProvideIdentity $provideIdentity,
         private readonly ClockInterface $clock,
+        private readonly FileUploadPixelSizeBackfill $pixelSizeBackfill,
     ) {
     }
 
@@ -165,13 +167,20 @@ final class ImageGallery extends AbstractController
     /**
      * Files that live directly inside the currently-open folder. Each entry
      * carries both the public URL (for Fabric / <img>) and the raw storage
-     * path (for background-persistence flows that store the path, not the URL).
+     * path (for background-persistence flows that store the path, not the URL),
+     * plus the tile caption fields (see {@see describe()}).
      *
-     * @return list<array{id: string, url: string, path: string, uploadedAt: string}>
+     * @return list<array{id: string, url: string, path: string, uploadedAt: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
      */
     public function assets(): array
     {
         $project = $this->guard();
+
+        $files = $this->fileUploadRepository->listByProjectSourceAndDirectory($project->id, $this->source, $this->currentDirectory());
+
+        // Uploads from before the size was recorded heal on first sight —
+        // one bounded header read per picture, persisted, never repeated.
+        $this->pixelSizeBackfill->backfill($files);
 
         return array_map(
             fn (FileUpload $f): array => [
@@ -179,9 +188,65 @@ final class ImageGallery extends AbstractController
                 'url' => $this->uploaderHelper->getPublicPath($f->path),
                 'path' => $f->path,
                 'uploadedAt' => $f->uploadedAt->format('Y-m-d H:i'),
+                ...$this->describe($f),
             ],
-            $this->fileUploadRepository->listByProjectSourceAndDirectory($project->id, $this->source, $this->currentDirectory()),
+            $files,
         );
+    }
+
+    /**
+     * The caption a tile shows so that two look-alike thumbnails can be told
+     * apart: the uploaded file name (split so the extension survives a
+     * truncated middle) and the picture's own pixel size, plus the stored
+     * format. `name` is null for uploads older than the column (nothing to
+     * backfill it from — the tile says "Bez názvu"); `sizeLabel` is null while
+     * the size is unknown (an unreadable object) and reads "Vektor" for an SVG.
+     *
+     * @return array{name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}
+     */
+    private function describe(FileUpload $file): array
+    {
+        $name = $file->originalName;
+        $nameBase = $name ?? '';
+        $nameExt = '';
+
+        if ($name !== null) {
+            $dot = mb_strrpos($name, '.');
+
+            // "archive.tar.gz" splits as "archive.tar" + ".gz"; a leading dot
+            // (".hidden") or no dot at all keeps the whole name as the base.
+            if ($dot !== false && $dot > 0) {
+                $nameBase = mb_substr($name, 0, $dot);
+                $nameExt = mb_substr($name, $dot);
+            }
+        }
+
+        $sizeLabel = match (true) {
+            $file->isSvg() => 'Vektor',
+            $file->hasPixelSize() => sprintf('%d × %d px', $file->width, $file->height),
+            default => null,
+        };
+
+        $format = strtoupper($file->extension());
+        if ($format === 'JPEG') {
+            $format = 'JPG';
+        }
+
+        $tooltipParts = array_filter([
+            $name ?? 'Bez názvu',
+            $sizeLabel !== null ? $sizeLabel . ' · ' . $format : $format,
+        ]);
+
+        return [
+            'name' => $name,
+            'nameBase' => $nameBase,
+            'nameExt' => $nameExt,
+            'width' => $file->width,
+            'height' => $file->height,
+            'sizeLabel' => $sizeLabel,
+            'format' => $format,
+            'tooltip' => implode(' · ', $tooltipParts),
+        ];
     }
 
     /**
@@ -260,12 +325,15 @@ final class ImageGallery extends AbstractController
      * only by the read-only Koš view — no select/move/delete affordances,
      * just Obnovit / Smazat ihned.
      *
-     * @return list<array{id: string, url: string, deletedAt: string, purgeLabel: string}>
+     * @return list<array{id: string, url: string, deletedAt: string, purgeLabel: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
      */
     public function trashedAssets(): array
     {
         $project = $this->guard();
         $now = $this->clock->now();
+
+        $files = $this->fileUploadRepository->listTrashed($project->id, $this->source);
+        $this->pixelSizeBackfill->backfill($files);
 
         return array_map(
             fn (FileUpload $f): array => [
@@ -273,8 +341,9 @@ final class ImageGallery extends AbstractController
                 'url' => $this->uploaderHelper->getPublicPath($f->path),
                 'deletedAt' => $f->deletedAt?->format('Y-m-d H:i') ?? '',
                 'purgeLabel' => $this->purgeLabel($f, $now),
+                ...$this->describe($f),
             ],
-            $this->fileUploadRepository->listTrashed($project->id, $this->source),
+            $files,
         );
     }
 

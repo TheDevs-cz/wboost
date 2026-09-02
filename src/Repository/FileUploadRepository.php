@@ -234,6 +234,28 @@ readonly final class FileUploadRepository
     }
 
     /**
+     * Rows (across ALL projects, bin included) that have no recorded pixel size
+     * and are not SVGs — the `app:gallery:backfill-image-size` work list. An SVG
+     * never gets a size, so listing it would make every sweep report it again.
+     *
+     * @return list<FileUpload>
+     */
+    public function listMissingPixelSize(): array
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+        $qb->select('f')
+            ->from(FileUpload::class, 'f')
+            ->where('f.width IS NULL')
+            ->andWhere("LOWER(f.path) NOT LIKE '%.svg'")
+            ->orderBy('f.uploadedAt', 'ASC');
+
+        /** @var list<FileUpload> $result */
+        $result = $qb->getQuery()->getResult();
+
+        return $result;
+    }
+
+    /**
      * Bin entries (across ALL projects) trashed on or before the given moment
      * — the purge cron's work list. Pass `now - FileUpload::TRASH_RETENTION_DAYS`.
      *

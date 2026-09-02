@@ -40,6 +40,21 @@ class FileUpload
     #[JoinColumn(nullable: true, onDelete: 'SET NULL')]
     public null|FileDirectory $restoreDirectory = null;
 
+    /**
+     * Pixel size of the stored picture — both set or both null. Null means
+     * "unknown": an upload from before 2026-09 (backfilled lazily by the
+     * gallery listing / `app:gallery:backfill-image-size` on first sight), an
+     * SVG (a vector has no pixel size), or bytes that could not be read.
+     * Recorded at upload from the normalized bytes, so it describes what is
+     * actually stored (an iPhone HEIC transcoded to JPEG reports the JPEG's
+     * size, EXIF orientation already baked in).
+     */
+    #[Column(nullable: true)]
+    public null|int $width = null;
+
+    #[Column(nullable: true)]
+    public null|int $height = null;
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -73,7 +88,52 @@ class FileUpload
         #[ManyToOne]
         #[JoinColumn(nullable: true, onDelete: 'SET NULL')]
         public null|FileDirectory $directory = null,
+
+        /**
+         * The file name the picture was uploaded under ("pozadi-modre.png"),
+         * the one thing a user recognises a picture by when two thumbnails
+         * look alike. Purely a label: the stored object is named after the
+         * row (`path`), and the extension here may disagree with the stored
+         * format (an "IMG_4821.HEIC" is stored as a JPEG). Null for uploads
+         * from before it was recorded (2026-09) — there is nothing to
+         * backfill it from.
+         */
+        #[Immutable]
+        #[Column(nullable: true)]
+        readonly public null|string $originalName = null,
+        null|int $width = null,
+        null|int $height = null,
     ) {
+        if ($width !== null && $height !== null) {
+            $this->recordPixelSize($width, $height);
+        }
+    }
+
+    /** Both dimensions are recorded together; a lone axis is not a size. */
+    public function recordPixelSize(int $width, int $height): void
+    {
+        if ($width < 1 || $height < 1) {
+            return;
+        }
+
+        $this->width = $width;
+        $this->height = $height;
+    }
+
+    public function hasPixelSize(): bool
+    {
+        return $this->width !== null && $this->height !== null;
+    }
+
+    /** Lower-case extension of the STORED object — the format of the bytes. */
+    public function extension(): string
+    {
+        return strtolower(pathinfo($this->path, PATHINFO_EXTENSION));
+    }
+
+    public function isSvg(): bool
+    {
+        return $this->extension() === 'svg';
     }
 
     public function moveToDirectory(null|FileDirectory $directory): void
