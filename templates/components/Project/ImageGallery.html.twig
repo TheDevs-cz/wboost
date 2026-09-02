@@ -94,13 +94,12 @@
                 data-action="live#action"
                 data-live-action-param="openRoot"
             ><i class="mdi mdi-folder-home"></i> Galerie</button>
-            {% if this.showingTrash %}
-                <span class="text-muted">/</span>
-                <span class="fw-bold"><i class="mdi mdi-trash-can-outline"></i> Koš</span>
-            {% endif %}
+            {# The Koš is opened FROM a folder and keeps that folder as its
+               return path: the crumbs stay clickable (the last one included)
+               and the bin hangs off the end — "Galerie / Fotky / Koš". #}
             {% for crumb in breadcrumbs %}
                 <span class="text-muted">/</span>
-                {% if loop.last %}
+                {% if loop.last and not this.showingTrash %}
                     <span class="fw-bold">{{ crumb.name }}</span>
                 {% else %}
                     <button
@@ -112,6 +111,10 @@
                     >{{ crumb.name }}</button>
                 {% endif %}
             {% endfor %}
+            {% if this.showingTrash %}
+                <span class="text-muted">/</span>
+                <span class="fw-bold"><i class="mdi mdi-trash-can-outline"></i> Koš</span>
+            {% endif %}
         </nav>
 
         {% if this.fileActionNotice %}
@@ -221,25 +224,26 @@
             </p>
         {% endif %}
 
-        {# Koš — read-only special directory, shown at the gallery root only. #}
-        {% if breadcrumbs is empty %}
-            {% set trash_count = this.trashedCount() %}
-            <div class="mb-3">
-                <button
-                    type="button"
-                    class="gallery-trash-card border rounded p-2 d-inline-flex align-items-center gap-2"
-                    data-action="live#action"
-                    data-live-action-param="openTrash"
-                    title="Koš — smazané obrázky ({{ this.trashRetentionDays() }} dní do trvalého smazání)"
-                >
-                    <i class="mdi mdi-trash-can-outline fs-4 text-muted"></i>
-                    <span>Koš</span>
-                    {% if trash_count > 0 %}
-                        <span class="badge bg-secondary-lighten text-secondary">{{ trash_count }}</span>
-                    {% endif %}
-                </button>
-            </div>
-        {% endif %}
+        {# Koš — read-only special directory, listed in EVERY folder (it used
+           to show at the root only, which read as "this folder has no bin" —
+           users deleting inside a folder could not find where the picture
+           went). The bin is project-wide, so the card is the same everywhere. #}
+        {% set trash_count = this.trashedCount() %}
+        <div class="mb-3">
+            <button
+                type="button"
+                class="gallery-trash-card border rounded p-2 d-inline-flex align-items-center gap-2"
+                data-action="live#action"
+                data-live-action-param="openTrash"
+                title="Koš — smazané obrázky ({{ this.trashRetentionDays() }} dní do trvalého smazání)"
+            >
+                <i class="mdi mdi-trash-can-outline fs-4 text-muted"></i>
+                <span>Koš</span>
+                {% if trash_count > 0 %}
+                    <span class="badge bg-secondary-lighten text-secondary">{{ trash_count }}</span>
+                {% endif %}
+            </button>
+        </div>
 
         {# Folders #}
         {% if directories is not empty %}

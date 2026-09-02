@@ -907,7 +907,9 @@ Stage 8 added a **filesystem-like nested folder tree** on top:
   it to the Koš (trash bin)** — `deleteFile` → `DeleteFileUpload` sets
   `deleted_at`, DETACHES the file from its folder (remembered in
   `restore_directory_id`, SET NULL) and needs no confirm; the bin is a
-  read-only special directory at the gallery root (both hosts) showing a
+  read-only special directory listed in EVERY folder, not just the root
+  (2026-09-03 — a root-only card read as "this folder has no bin"; opening
+  it keeps `currentDirectoryId` so the breadcrumb leads back), showing a
   per-file purge countdown with only Obnovit (`RestoreFileUpload` — back to
   the original folder, root when it's gone) and Smazat ihned
   (`PurgeFileUpload`, confirmed). Trashed images are invisible/unusable

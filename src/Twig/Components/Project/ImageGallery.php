@@ -124,7 +124,9 @@ final class ImageGallery extends AbstractController
     /**
      * Whether the special read-only "Koš" (trash bin) view is open instead of
      * a regular folder. Server-set by openTrash()/openRoot()/openDirectory()
-     * only, mirroring the `$currentDirectoryId` trust model.
+     * only, mirroring the `$currentDirectoryId` trust model. The bin is
+     * reachable from EVERY folder and keeps `$currentDirectoryId` while open,
+     * so the breadcrumb leads back to the folder it was opened from.
      */
     #[LiveProp]
     public bool $showingTrash = false;
@@ -420,7 +422,9 @@ final class ImageGallery extends AbstractController
         $this->guard();
         $this->cancelRenameState();
         $this->showingTrash = true;
-        $this->currentDirectoryId = null;
+        // `$currentDirectoryId` is deliberately KEPT: the bin is project-wide
+        // (its listing ignores the folder), but the folder is the return path
+        // the breadcrumb offers — resetting it dumped the user at the root.
     }
 
     #[LiveAction]

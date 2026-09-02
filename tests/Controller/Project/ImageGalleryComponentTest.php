@@ -152,6 +152,39 @@ final class ImageGalleryComponentTest extends WebTestCase
         );
     }
 
+    /**
+     * The Koš used to be listed at the gallery root only, which read as "this
+     * folder has no bin" — a user who deleted a picture inside a folder could
+     * not find where it went. The card now renders in every folder, and
+     * opening the bin keeps the folder as the breadcrumb's way back.
+     */
+    public function testTrashIsListedInsideAFolderAndKeepsItAsReturnPath(): void
+    {
+        $client = self::createClient();
+
+        $folder = $this->persistDirectory(null, 'Fotky');
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+        $component->call('openDirectory', ['directoryid' => $folder->id->toString()]);
+
+        $html = (string) $component->render();
+        self::assertStringContainsString(
+            'data-live-action-param="openTrash"',
+            $html,
+            'The Koš card is listed inside a folder, not only at the root.',
+        );
+
+        $component->call('openTrash');
+
+        $html = (string) $component->render();
+        self::assertStringContainsString('Obrázky v koši se po', $html, 'The bin view is open.');
+        self::assertStringContainsString(
+            'data-live-directoryid-param="' . $folder->id->toString() . '"',
+            $html,
+            'The folder the bin was opened from stays in the breadcrumb as a clickable way back.',
+        );
+    }
+
     public function testNonOwnerIsDeniedByGuard(): void
     {
         $client = self::createClient();
