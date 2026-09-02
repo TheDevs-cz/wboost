@@ -6,8 +6,14 @@ const ZOOM_MIN = 1;
 const ZOOM_MAX = 4;
 const ROTATION_MIN = -180;
 const ROTATION_MAX = 180;
-/** Keyboard nudge, as a fraction of the frame (arrow keys on a focused picture). */
-const NUDGE_RATIO = 0.01;
+/**
+ * Keyboard nudge step in CANVAS px (arrow keys on a focused picture) — the
+ * same 1 px the admin editor moves a selected object by. The stored pan is a
+ * fraction of the frame, so the step is converted against the frame of the
+ * dimension being nudged (see _nudge): one canvas px is a different ratio in
+ * every dimension.
+ */
+const NUDGE_PX = 1;
 /**
  * How many preview renders may be in flight at once, across dimensions. Every
  * render is a whole Gotenberg screenshot, and the renderer is a small shared
@@ -842,8 +848,8 @@ export default class extends Controller {
         box.dataset.ghost = slot.inputId;
         box.tabIndex = 0;
         box.setAttribute('role', 'application');
-        box.setAttribute('aria-label', `${slot.name || 'Obrázek'} — umístění (táhněte myší, šipky posunou, kolečko přiblíží)`);
-        box.title = slot.allowMove ? 'Táhněte obrázkem' : 'Kolečkem přiblížíte';
+        box.setAttribute('aria-label', `${slot.name || 'Obrázek'} — umístění (táhněte myší, šipky posunou o 1 px, kolečko přiblíží)`);
+        box.title = slot.allowMove ? 'Táhněte obrázkem, šipky posunou o 1 px' : 'Kolečkem přiblížíte';
 
         const img = document.createElement('img');
         img.alt = '';
@@ -903,6 +909,10 @@ export default class extends Controller {
             return;
         }
 
+        // Cancelling pointerdown also cancels the browser's focus-on-press, so
+        // without this the box was only reachable by Tab and the arrow keys
+        // scrolled the page right after the user had clicked the picture.
+        event.currentTarget.focus?.({ preventScroll: true });
         event.preventDefault();
         event.currentTarget.setPointerCapture?.(event.pointerId);
 
@@ -979,10 +989,10 @@ export default class extends Controller {
 
     _nudge(event, variantId, slot) {
         const deltas = {
-            ArrowLeft: [-NUDGE_RATIO, 0],
-            ArrowRight: [NUDGE_RATIO, 0],
-            ArrowUp: [0, -NUDGE_RATIO],
-            ArrowDown: [0, NUDGE_RATIO],
+            ArrowLeft: [-NUDGE_PX, 0],
+            ArrowRight: [NUDGE_PX, 0],
+            ArrowUp: [0, -NUDGE_PX],
+            ArrowDown: [0, NUDGE_PX],
         };
         const delta = deltas[event.key];
 
@@ -990,11 +1000,19 @@ export default class extends Controller {
             return;
         }
 
+        const frame = this._variant(variantId)?.frames?.[slot.inputId];
+        if (!frame || !(frame.width > 0) || !(frame.height > 0)) {
+            return;
+        }
+
         event.preventDefault();
         this._activateGhosts(variantId);
+        // Canvas px → fraction of THIS dimension's frame, the inverse of
+        // offsetFromRatio — so the picture moves by exactly one export pixel
+        // here, whatever ratio that is elsewhere.
         this._mutatePlacement(variantId, slot.inputId, (placement) => {
-            placement.offsetXRatio = (placement.offsetXRatio ?? 0) + delta[0];
-            placement.offsetYRatio = (placement.offsetYRatio ?? 0) + delta[1];
+            placement.offsetXRatio = (placement.offsetXRatio ?? 0) + delta[0] / frame.width;
+            placement.offsetYRatio = (placement.offsetYRatio ?? 0) + delta[1] / frame.height;
         });
     }
 

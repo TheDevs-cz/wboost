@@ -96,9 +96,16 @@ export default class extends Controller {
         this.canvas.on('object:moving', track);
         this.canvas.on('object:scaling', track);
         this.canvas.on('object:rotating', track);
+
+        // Arrow keys nudge the selected picture by 1 canvas px, as in the admin
+        // editor. Document-level like the editor's handler: Fabric's upper
+        // canvas is not focusable, so there is no element to hang it on.
+        this._boundKeydown = (event) => this._onKeydown(event);
+        document.addEventListener('keydown', this._boundKeydown);
     }
 
     disconnect() {
+        if (this._boundKeydown) document.removeEventListener('keydown', this._boundKeydown);
         if (this._boundFit) window.removeEventListener('resize', this._boundFit);
         if (this._backdropObserver) this._backdropObserver.disconnect();
         if (this._overlaysObserver) this._overlaysObserver.disconnect();
@@ -495,6 +502,40 @@ export default class extends Controller {
         if (!placeholder || !placeholder.frame) return;
         this._writeTransform(object._placeholderId, object, placeholder.frame);
         this._broadcastFrame(object._placeholderId, object, placeholder.frame);
+    }
+
+    // --- Keyboard nudge ------------------------------------------------------
+
+    _onKeydown(event) {
+        const step = {
+            ArrowLeft: [-1, 0],
+            ArrowRight: [1, 0],
+            ArrowUp: [0, -1],
+            ArrowDown: [0, 1],
+        }[event.key];
+        if (!step || event.altKey || event.ctrlKey || event.metaKey) return;
+
+        // Typing in a fill field (popover input, WYSIWYG, checklist row), or
+        // moving through an open picker modal, must keep its own arrow keys.
+        const active = document.activeElement;
+        const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable);
+        if (typing || this.element.querySelector('.fill-modal.is-open')) return;
+
+        const object = this.canvas.getActiveObject();
+        if (!object || !object._placeholderId || !object._containScale) return;
+
+        // Same per-axis locks the drag respects — a slot without allowMove sets
+        // both, so all four arrows are inert on it (mirrors the editor).
+        if (step[0] !== 0 && object.lockMovementX) return;
+        if (step[1] !== 0 && object.lockMovementY) return;
+
+        event.preventDefault();
+        object.set({ left: object.left + step[0], top: object.top + step[1] });
+        object.setCoords();
+        this.canvas.requestRenderAll();
+        // set() fires no Fabric events — announce the move so the hidden
+        // placement fields and the overlay's box follow (_onObjectModified).
+        this.canvas.fire('object:modified', { target: object });
     }
 
     // --- Overlay frame broadcast ---------------------------------------------

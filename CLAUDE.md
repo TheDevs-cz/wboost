@@ -1672,7 +1672,16 @@ response's `directoryId` is null for root uploads.
   the design BELOW the lowest image placeholder as the server **backdrop**
   (placeholders hidden, background included) and floats the chosen pictures as
   live Fabric objects (`variant_image_fill_controller.js`) the user moves/resizes/
-  rotates within the limits, clipped to the frame. Design content the admin stacked
+  rotates within the limits, clipped to the frame. **Arrow keys nudge the selected
+  picture by 1 canvas px** on BOTH fill pages (2026-09-03, the editor's
+  `moveSelectedObject` semantics: per-axis `lockMovement*` respected, inert while
+  a fill field / WYSIWYG has focus or a picker modal is open). The single page
+  listens on `document` (Fabric's upper canvas is not focusable) and fires
+  `object:modified` so the hidden fields + overlay box follow; the group page's
+  ghost box converts the px step to a ratio of THAT dimension's frame and takes
+  focus on pointerdown — cancelling pointerdown cancels focus-on-press, so
+  before that the box was Tab-only and arrows scrolled the page after a click.
+  Design content the admin stacked
   ABOVE a placeholder (locked image, title over a photo) renders as transparent
   **overlay slices** — one per placeholder gap that actually holds content
   (`AbstractVariantFiller::overlaySlices()` → `CanvasSlice` → the renderer's
