@@ -318,6 +318,15 @@
                 </div>
             </div>
 
+            {# Name for EVERY image, placeholder or not: it labels the row in
+               the "Vrstvy" panel (unnamed images fall back to a numbered
+               "Obrázek N" there) and, once the image is a placeholder, doubles
+               as the field tag the user sees while filling. #}
+            <div class="mb-2">
+                <label for="image-name-control" class="form-label small mb-1">Název <i class="mdi mdi-information-outline text-muted" title="Zobrazí se v panelu Vrstvy. U placeholderu je to zároveň označení pole pro uživatele při vyplňování. Prázdný název = „Obrázek“ s pořadovým číslem."></i></label>
+                <input type="text" id="image-name-control" class="form-control form-control-sm" placeholder="např. Fotka, Logo…" data-canvas-image-properties-target="name" data-action="input->canvas-image-properties#updateName">
+            </div>
+
             <div class="mb-2 form-check">
                 <input type="checkbox" id="image-editor-locked-control" class="form-check-input" data-canvas-image-properties-target="editorLocked" data-action="change->canvas-image-properties#updateEditorLock">
                 <label for="image-editor-locked-control" class="form-check-label small">Zamknout v editoru <span class="text-muted">(chrání před náhodným posunutím — kliknutí prochází skrz, prvek pak vyberete v panelu Vrstvy; neovlivní export)</span></label>
@@ -329,11 +338,6 @@
             </div>
 
             <div data-canvas-image-properties-target="details" style="display: none;">
-                <div class="mb-2">
-                    <label for="image-name-control" class="form-label small mb-1">Název pole <i class="mdi mdi-information-outline text-muted" title="Označení pole pro uživatele při vyplňování."></i></label>
-                    <input type="text" id="image-name-control" class="form-control form-control-sm" placeholder="např. Fotka, Logo…" data-canvas-image-properties-target="name" data-action="input->canvas-image-properties#updateName">
-                </div>
-
                 <div class="mb-2">
                     <label for="image-description-control" class="form-label small mb-1">Nápověda</label>
                     <input type="text" id="image-description-control" class="form-control form-control-sm" data-canvas-image-properties-target="description" data-action="input->canvas-image-properties#updateDescription">

@@ -3,6 +3,7 @@ import Sortable from "sortablejs";
 
 import { applyEditorLock } from './canvas_custom_properties.js';
 import { SHAPE_KINDS, isShapeObject } from './canvas_shapes.js';
+import { labelLayers } from './canvas_layer_labels.js';
 
 /**
  * Photoshop-style layers panel for the admin canvas editor (left panel).
@@ -32,6 +33,11 @@ import { SHAPE_KINDS, isShapeObject } from './canvas_shapes.js';
  *             order reversed = the new Fabric stack; same announce
  *             convention as canvas-alignment: fire object:modified so the
  *             form goes dirty and the history controller snapshots it).
+ *
+ * Row labels: the object's own `name` (every popover has a "Název" field —
+ * text, image and shape alike), else a per-type fallback NUMBERED in stack
+ * order ("Obrázek 1", "Obrázek 2", "Obdélník 1") so unnamed layers can be
+ * told apart — see canvas_layer_labels.js for the rules.
  *
  * The list rebuilds off the orchestrator's events: `canvas-editor:dirty`
  * fires on every mutation (add / remove / modify / restack / typing) and
@@ -126,9 +132,13 @@ export default class extends Controller {
             return;
         }
 
+        // Labels are computed for the WHOLE stack (bottom-up) so unnamed
+        // rows get their per-type ordinal — see canvas_layer_labels.js.
+        const labels = labelLayers(objects.map((obj) => this._labelEntry(obj)));
+
         // Topmost layer first (Photoshop convention).
         for (let index = objects.length - 1; index >= 0; index--) {
-            this.listTarget.appendChild(this._buildRow(objects[index], index));
+            this.listTarget.appendChild(this._buildRow(objects[index], index, labels[index]));
         }
         this._syncActive();
     }
@@ -228,7 +238,7 @@ export default class extends Controller {
 
     // --- row construction -----------------------------------------------------
 
-    _buildRow(obj, index) {
+    _buildRow(obj, index, label) {
         const type = (obj.type || '').toLowerCase();
         const isText = type === 'textbox';
         const isShape = isShapeObject(obj);
@@ -255,7 +265,6 @@ export default class extends Controller {
 
         const shapeKind = isShape ? SHAPE_KINDS[obj.shapeKind] : null;
 
-        const label = this._labelFor(obj, isText, isPlaceholder, isBackground, isShape);
         const typeLabel = isText
             ? (isChecklist ? 'Zaškrtávací seznam' : 'Text')
             : (isShape
@@ -425,19 +434,36 @@ export default class extends Controller {
         this.rebuild();
     }
 
-    _labelFor(obj, isText, isPlaceholder, isBackground = false, isShape = false) {
-        const name = (obj.name || '').trim();
-        if (name !== '') return name;
+    /**
+     * What labelLayers() needs to know about one object: its own name (wins
+     * when set — the popover's "Název" field, images included since 2026-09)
+     * and the type fallback with its numbering rule. Type classification
+     * mirrors _buildRow's.
+     */
+    _labelEntry(obj) {
+        const type = (obj.type || '').toLowerCase();
+        const isText = type === 'textbox';
+        const isShape = isShapeObject(obj);
+        const isPlaceholder = !isText && !isShape && !!obj.imagePlaceholder;
+        const isBackground = !isText && !isShape && obj.isBackground === true;
+        const name = obj.name || '';
+
         if (isText) {
+            // A text's first line is specific enough on its own; only an
+            // EMPTY text falls back to a numbered "Text".
             const firstLine = (obj.text || '').split('\n')[0].trim();
-            return firstLine !== '' ? firstLine : 'Text';
+            return firstLine !== ''
+                ? { name, fallback: firstLine, numbered: false }
+                : { name, fallback: 'Text', numbered: true };
         }
         if (isShape) {
             const kind = SHAPE_KINDS[obj.shapeKind];
-            return kind ? kind.label : 'Tvar';
+            return { name, fallback: kind ? kind.label : 'Tvar', numbered: true };
         }
-        if (isBackground) return 'Pozadí';
-        return isPlaceholder ? 'Obrázek (placeholder)' : 'Obrázek';
+        // Exactly one background per canvas — no ordinal needed.
+        if (isBackground) return { name, fallback: 'Pozadí', numbered: false };
+
+        return { name, fallback: 'Obrázek', numbered: true, qualifier: isPlaceholder ? '(placeholder)' : null };
     }
 
     // --- selection + geometry helpers ------------------------------------------

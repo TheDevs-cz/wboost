@@ -12,8 +12,11 @@ import { applyEditorLock } from "./canvas_custom_properties.js";
  *
  * These fields live inside the floating image popover; the popover's visibility
  * is owned by canvas-floating-toolbar, so this controller only populates the
- * fields when an image is selected. The placeholder-only details (name, limits,
- * folders) are still shown only once the image is marked a placeholder.
+ * fields when an image is selected. The name is offered for EVERY image — it is
+ * the row label in the layers panel (an unnamed image shows as a numbered
+ * "Obrázek N" there) and, for a placeholder, also the fill-page field tag. The
+ * placeholder-only details (description, limits, folders) are still shown only
+ * once the image is marked a placeholder.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
