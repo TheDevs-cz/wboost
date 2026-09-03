@@ -34,10 +34,16 @@
         {% if is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
             {# Uploading here files the faces under the PROJECT's fonts (the one
                library the editor and the fill pages read); "Přidat font do
-               manuálu" then offers the new family with a role. #}
-            <div class="card mb-3">
-                <div class="card-body">
-                    {{ include('_font_uploader.html.twig', {'project': project, 'compact': true, 'hint': 'TTF, OTF nebo WOFF · nahraje se mezi písma projektu, poté ho přidejte do manuálu tlačítkem výše.'}) }}
+               manuálu" then offers the new family with a role. Folded until
+               asked for, like on the fonts page. #}
+            <div class="mb-3">
+                <button type="button" class="btn btn-outline-secondary rounded-pill btn-sm" data-bs-toggle="collapse" data-bs-target="#fontUploadPanel" aria-expanded="false" aria-controls="fontUploadPanel"><i class="mdi mdi-upload"></i> Nahrát soubory písem</button>
+            </div>
+            <div class="collapse" id="fontUploadPanel">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        {{ include('_font_uploader.html.twig', {'project': project, 'compact': true, 'hint': 'TTF, OTF nebo WOFF · nahraje se mezi písma projektu, poté ho přidejte do manuálu tlačítkem výše.'}) }}
+                    </div>
                 </div>
             </div>
         {% endif %}
@@ -93,8 +99,8 @@
                                             <label class="mb-0 me-1" for="{{ manual_font.id }}font-switch-{{ loop.index }}" data-on-label="On" data-off-label="Off"></label>
                                         </span>
                                         <span class="flex-grow-1 min-w-0">
-                                            <span class="d-block font-specimen" style="font-size: 22px; font-family: '{{ family }}', sans-serif; color: {{ '#' ~ (manual_font.color ?? '212529') }};" data-font-specimen-target="specimen">Příliš žluťoučký kůň úpěl ďábelské ódy 0123</span>
                                             <span class="d-block small text-muted">{{ font_face.name }} <span class="badge bg-light text-secondary ms-1">{{ font_face.weight }}</span> <span class="badge bg-light text-secondary">{{ font_face.style }}</span></span>
+                                            <span class="d-block font-specimen" style="font-size: 18px; font-family: '{{ family }}', sans-serif; color: {{ '#' ~ (manual_font.color ?? '212529') }};" data-font-specimen-target="specimen">Příliš žluťoučký kůň úpěl ďábelské ódy 0123</span>
                                         </span>
                                     </div>
                                 {% endfor %}

@@ -18,11 +18,15 @@
 
     <div data-controller="font-specimen">
         {% if is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
-            <div class="card mb-3">
-                <div class="card-body">
-                    {{ include('_font_uploader.html.twig', {'project': project}) }}
-                    <div class="text-muted small mt-2">
-                        Bez JavaScriptu: <a href="{{ path('add_font_face', {'id': project.id}) }}">klasický formulář pro nahrání</a>.
+            {# The dropzone stays folded until asked for — the page is mostly
+               read, and the specimens deserve the first screen. #}
+            <div class="mb-3">
+                <button type="button" class="btn btn-outline-primary rounded-pill" data-bs-toggle="collapse" data-bs-target="#fontUploadPanel" aria-expanded="false" aria-controls="fontUploadPanel"><i class="mdi mdi-plus"></i> Nahrát písma</button>
+            </div>
+            <div class="collapse" id="fontUploadPanel">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        {{ include('_font_uploader.html.twig', {'project': project}) }}
                     </div>
                 </div>
             </div>
@@ -66,7 +70,7 @@
                         </div>
                         <div class="col-lg-4 d-flex align-items-center gap-2">
                             <label class="small text-muted text-nowrap mb-0" for="font-specimen-size">Velikost</label>
-                            <input type="range" class="form-range" id="font-specimen-size" min="14" max="72" value="28" data-font-specimen-target="size" data-action="input->font-specimen#resize">
+                            <input type="range" class="form-range" id="font-specimen-size" min="12" max="72" value="20" data-font-specimen-target="size" data-action="input->font-specimen#resize">
                         </div>
                     </div>
                 </div>
@@ -136,7 +140,6 @@
                                     {% endif %}
 
                                     <div class="font-face-row__body">
-                                        <div class="font-specimen" style="font-family: '{{ family }}', sans-serif;" data-font-specimen-target="specimen" title="{{ font_face.name }}">Příliš žluťoučký kůň úpěl ďábelské ódy 0123456789</div>
                                         <div class="font-face-row__meta small text-muted">
                                             <span class="fw-semibold text-body">{{ font_face.name }}</span>
                                             <span class="badge bg-light text-secondary" title="Tloušťka (usWeightClass)">{{ font_face.weight }}</span>
@@ -152,6 +155,7 @@
                                             <span class="font-wire text-muted" title="Přesný název písma pro API, MCP a JSON plátna">{{ family }}</span>
                                             <button type="button" class="btn btn-link btn-sm p-0 text-muted" title="Zkopírovat název písma pro API / MCP" aria-label="Zkopírovat název písma" data-action="font-specimen#copy" data-font-specimen-family-param="{{ family }}"><i class="mdi mdi-content-copy"></i></button>
                                         </div>
+                                        <div class="font-specimen" style="font-family: '{{ family }}', sans-serif;" data-font-specimen-target="specimen" title="{{ font_face.name }}">Příliš žluťoučký kůň úpěl ďábelské ódy 0123456789</div>
                                     </div>
 
                                     {% if is_granted('font_edit', font) %}

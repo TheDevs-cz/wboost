@@ -3652,8 +3652,8 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
 }
 
 .font-specimen {
-    font-size: 28px;
-    line-height: 1.2;
+    font-size: 20px;
+    line-height: 1.25;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3665,7 +3665,7 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     flex-wrap: wrap;
     align-items: center;
     gap: 0.35rem 0.5rem;
-    margin-top: 0.15rem;
+    margin-bottom: 0.15rem;
 }
 
 .font-face-row__meta .badge {
