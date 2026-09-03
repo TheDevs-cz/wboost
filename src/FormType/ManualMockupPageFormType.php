@@ -12,6 +12,7 @@ use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\Validator\Constraints\Image;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\NotNull;
@@ -23,6 +24,14 @@ use WBoost\Web\Value\MockupPageLayout;
  */
 final class ManualMockupPageFormType extends AbstractType
 {
+    /**
+     * Symfony reads the `m` suffix as DECIMAL megabytes, so this is
+     * 20 000 000 bytes. Mirrored client-side by the mockup page editor.
+     */
+    public const string DOWNLOAD_MAX_SIZE = '20m';
+
+    public const int DOWNLOAD_MAX_SIZE_BYTES = 20000000;
+
     /**
      * @param mixed[] $options
      */
@@ -70,6 +79,50 @@ final class ManualMockupPageFormType extends AbstractType
             'allow_add' => false,
             'allow_delete' => false,
             'by_reference' => false,
+        ]);
+
+        // Downloadable attachments are any file type on purpose — the point is
+        // handing the reader the source behind a mockup (print PDF, packaged
+        // ZIP, vector original). The cap is bigger than the 10 MB images take
+        // because those are what such files weigh, and it is still far inside
+        // the 50 MB `post_max_size` the whole form has to fit in.
+        $builder->add('downloadFile', FileType::class, [
+            'label' => false,
+            'required' => false,
+            'constraints' => [
+                new File(
+                    maxSize: self::DOWNLOAD_MAX_SIZE,
+                ),
+            ],
+        ]);
+
+        $builder->add('removeDownloadFile', HiddenType::class, [
+            'label' => false,
+        ]);
+
+        $builder->add('imageDownloads', CollectionType::class, [
+            'entry_type' => FileType::class,
+            'entry_options' => [
+                'label' => false,
+                'required' => false,
+                'constraints' => [
+                    new File(
+                        maxSize: self::DOWNLOAD_MAX_SIZE,
+                    ),
+                ],
+            ],
+            'allow_add' => false,
+            'allow_delete' => false,
+            'by_reference' => false,
+        ]);
+
+        $builder->add('removeImageDownloads', CollectionType::class, [
+            'entry_type' => HiddenType::class,
+            'entry_options' => [
+                'label' => false,
+            ],
+            'allow_add' => false,
+            'allow_delete' => false,
         ]);
     }
 

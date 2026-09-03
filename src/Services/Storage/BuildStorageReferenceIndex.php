@@ -15,10 +15,11 @@ use WBoost\Web\Value\StorageReferenceIndex;
  *
  * Every place the app persists a path is enumerated here — plain string columns
  * (`manual.intro_image`, `*.background_image`, `*.preview_image_path`, …), JSON
- * documents holding paths (`manual.logo`, `manual_mockup_page.images`,
- * `font.faces`) and the canvas JSONB, which embeds gallery images as full
- * public URLs. **A path missing from this list makes a live file look like an
- * orphan**, so any new writer must be added here as well.
+ * documents holding paths (`manual.logo`, `manual_mockup_page.images`, its
+ * `download_file` / `image_downloads` attachments, `font.faces`) and the canvas
+ * JSONB, which embeds gallery images as full public URLs. **A path missing
+ * from this list makes a live file look like an orphan**, so any new writer
+ * must be added here as well.
  *
  * Raw DBAL on purpose: it must see rows the ORM would filter or fail to hydrate,
  * and it has to stay cheap enough to run over the whole database in one pass.
@@ -141,6 +142,33 @@ readonly final class BuildStorageReferenceIndex
                  CROSS JOIN LATERAL json_array_elements(
                      CASE WHEN json_typeof(mp.images) = 'array' THEN mp.images ELSE '[]'::json END
                  ) AS img(value)",
+                $ownerColumns,
+                sprintf($ownerJoin, 'm.project_id'),
+            ),
+
+            // The files an admin attaches to a mockup page for download: one
+            // JSONB object for the whole page, one nullable entry per image
+            // slot. Both carry the key under `path`.
+            'manual_mockup_page.download_file' => sprintf(
+                "SELECT mp.download_file->>'path' AS path, %s
+                 FROM manual_mockup_page mp
+                 JOIN manual m ON m.id = mp.manual_id
+                 %s
+                 WHERE jsonb_typeof(mp.download_file) = 'object'
+                   AND mp.download_file->>'path' IS NOT NULL",
+                $ownerColumns,
+                sprintf($ownerJoin, 'm.project_id'),
+            ),
+
+            'manual_mockup_page.image_downloads' => sprintf(
+                "SELECT dl.value->>'path' AS path, %s
+                 FROM manual_mockup_page mp
+                 JOIN manual m ON m.id = mp.manual_id
+                 %s
+                 CROSS JOIN LATERAL jsonb_array_elements(
+                     CASE WHEN jsonb_typeof(mp.image_downloads) = 'array' THEN mp.image_downloads ELSE '[]'::jsonb END
+                 ) AS dl(value)
+                 WHERE jsonb_typeof(dl.value) = 'object' AND dl.value->>'path' IS NOT NULL",
                 $ownerColumns,
                 sprintf($ownerJoin, 'm.project_id'),
             ),

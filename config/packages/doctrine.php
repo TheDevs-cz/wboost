@@ -13,6 +13,8 @@ use WBoost\Web\Doctrine\ExportFillValuesDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Doctrine\ManualColorsDoctrineType;
+use WBoost\Web\Doctrine\MockupPageDownloadDoctrineType;
+use WBoost\Web\Doctrine\MockupPageDownloadsDoctrineType;
 use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
 
 return App::config([
@@ -27,6 +29,8 @@ return App::config([
                 EditorTextInputsDoctrineType::NAME => EditorTextInputsDoctrineType::class,
                 EditorImageInputsDoctrineType::NAME => EditorImageInputsDoctrineType::class,
                 ManualColorsDoctrineType::NAME => ManualColorsDoctrineType::class,
+                MockupPageDownloadDoctrineType::NAME => MockupPageDownloadDoctrineType::class,
+                MockupPageDownloadsDoctrineType::NAME => MockupPageDownloadsDoctrineType::class,
                 EmailTextInputsDoctrineType::NAME => EmailTextInputsDoctrineType::class,
                 CanvasJsonbType::NAME => CanvasJsonbType::class,
                 ExportFillValuesDoctrineType::NAME => ExportFillValuesDoctrineType::class,

@@ -194,7 +194,7 @@ return App::config([
                 'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],
             ],
             [
-                'path' => '^/(login|registration|forgotten-password|set-password/.*|.*/preview|nahled-manualu/.*|stahnout-logo/.*|email-signature-variant/.*/vcard-qr-code\.png|email-signature-demo/vcard-qr-code\.png|weekly-menu/.*/public|weekly-menu/.*/approval/.*)',
+                'path' => '^/(login|registration|forgotten-password|set-password/.*|.*/preview|nahled-manualu/.*|stahnout-logo/.*|stahnout-mockup/.*|email-signature-variant/.*/vcard-qr-code\.png|email-signature-demo/vcard-qr-code\.png|weekly-menu/.*/public|weekly-menu/.*/approval/.*)',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             // Facebook OAuth: login start/callback for anonymous users + Meta's

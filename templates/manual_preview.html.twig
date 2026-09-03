@@ -764,6 +764,7 @@
                         <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
                         <span class="d-inline-block pe-4 fs-4 fw-bold">{{ mockup_page.name }}</span>
                         <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                        {{ include('_mockup_page_download_button.html.twig', {'extra_class': 'float-end me-3'}) }}
                     </div>
 
                     <div class="page-content py-4 gx-5 row">

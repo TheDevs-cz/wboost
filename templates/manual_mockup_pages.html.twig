@@ -75,6 +75,12 @@
                                     <span class="ps-3 d-inline-block">{{ page.name }}</span>
                                 </h4>
 
+                                {% if page.downloadFile %}
+                                    <div class="mb-2">
+                                        {{ include('_mockup_page_download_button.html.twig', {'mockup_page': page}) }}
+                                    </div>
+                                {% endif %}
+
                                 {{ include('_mockup_page.html.twig', {
                                     'mockup_page': page,
                                     'show_placeholders': true,

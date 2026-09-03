@@ -5,18 +5,26 @@
    - layouts_geometry: MockupPageLayout::exportGeometry()
    - fixed_layout: MockupPageLayout|null — set on edit (layout locked)
    - existing_images: list<string|null> — per-slot uploaded_asset URLs (edit)
+   - existing_downloads: list<{name, size}|null> — per-slot attached files (edit)
+   - existing_page_download: {name, size}|null — the whole page's attached file (edit)
    - submit_label: string
 #}
 {% set existing_images = existing_images|default([]) %}
+{% set existing_downloads = existing_downloads|default([]) %}
+{% set existing_page_download = existing_page_download|default(null) %}
 {% set fixed_layout = fixed_layout|default(null) %}
 
-{# max-file-size mirrors ManualMockupPageFormType's `maxSize: '10m'` — Symfony reads that suffix as DECIMAL MB. #}
+{# The two size caps mirror ManualMockupPageFormType — Symfony reads the `m`
+   suffix as DECIMAL MB, so these are the very same byte counts. #}
 {{ form_start(form, {'attr': {
     'data-controller': 'mockup-page-editor',
     'data-mockup-page-editor-geometry-value': layouts_geometry|json_encode,
     'data-mockup-page-editor-existing-images-value': existing_images|json_encode,
+    'data-mockup-page-editor-existing-downloads-value': existing_downloads|json_encode,
+    'data-mockup-page-editor-existing-page-download-value': (existing_page_download ?? {})|json_encode,
     'data-mockup-page-editor-fixed-layout-value': fixed_layout ? fixed_layout.value : '',
     'data-mockup-page-editor-max-file-size-value': 10000000,
+    'data-mockup-page-editor-max-download-size-value': 20000000,
     'data-action': 'submit->mockup-page-editor#formSubmitted',
 }}) }}
 
@@ -82,7 +90,7 @@
             {% endfor %}
 
             <div class="alert alert-warning py-2 d-none" data-mockup-page-editor-target="extraNotice">
-                <i class="ri-alert-line me-1"></i>Zvolené rozložení má méně polí — obrázky navíc se neuloží. Přepnutím zpět na větší rozložení o ně nepřijdete.
+                <i class="ri-alert-line me-1"></i>Zvolené rozložení má méně polí — obrázky a soubory navíc se neuloží. Přepnutím zpět na větší rozložení o ně nepřijdete.
             </div>
 
             <div class="mockup-editor-desk">
@@ -95,6 +103,27 @@
                 </div>
             </div>
 
+            <h4 class="header-title mt-3 mb-1">Soubory ke stažení</h4>
+            <p class="text-muted mb-2">
+                Nepovinné. Přiložte podklad, který si čtenář manuálu stáhne — tiskové PDF, zdrojová data, balíček.
+                Soubor můžete přidat k celé stránce i k jednotlivým obrázkům; u každého se pak v manuálu objeví tlačítko ke stažení.
+            </p>
+
+            {% if form.downloadFile.vars.errors|length > 0 %}
+                <div class="alert alert-danger py-2">
+                    <strong>Soubor stránky:</strong> {{ form_errors(form.downloadFile) }}
+                </div>
+            {% endif %}
+            {% for downloadField in form.imageDownloads %}
+                {% if downloadField.vars.errors|length > 0 %}
+                    <div class="alert alert-danger py-2">
+                        <strong>Soubor u obrázku {{ loop.index }}:</strong> {{ form_errors(downloadField) }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="mockup-download-list" data-mockup-page-editor-target="downloadList"></div>
+
             <div class="d-none">
                 {% for imageField in form.images %}
                     {{ form_widget(imageField, {'attr': {
@@ -106,6 +135,25 @@
                 {% for removeField in form.removeImages %}
                     {{ form_widget(removeField, {'attr': {
                         'data-mockup-page-editor-target': 'removeFlag',
+                    }}) }}
+                {% endfor %}
+
+                {{ form_widget(form.downloadFile, {'attr': {
+                    'data-mockup-page-editor-target': 'pageDownloadInput',
+                    'data-action': 'change->mockup-page-editor#downloadChanged',
+                }}) }}
+                {{ form_widget(form.removeDownloadFile, {'attr': {
+                    'data-mockup-page-editor-target': 'pageDownloadRemoveFlag',
+                }}) }}
+                {% for downloadField in form.imageDownloads %}
+                    {{ form_widget(downloadField, {'attr': {
+                        'data-mockup-page-editor-target': 'downloadInput',
+                        'data-action': 'change->mockup-page-editor#downloadChanged',
+                    }}) }}
+                {% endfor %}
+                {% for removeField in form.removeImageDownloads %}
+                    {{ form_widget(removeField, {'attr': {
+                        'data-mockup-page-editor-target': 'downloadRemoveFlag',
                     }}) }}
                 {% endfor %}
             </div>

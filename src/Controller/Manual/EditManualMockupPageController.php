@@ -48,6 +48,13 @@ final class EditManualMockupPageController extends AbstractController
                         static fn (string $flag): bool => $flag === '1',
                         array_slice($formData->removeImages, 0, $page->layout->uploadInputsCount()),
                     ),
+                    $formData->downloadFile,
+                    $formData->removeDownloadFile === '1',
+                    array_slice($formData->imageDownloads, 0, $page->layout->uploadInputsCount()),
+                    array_map(
+                        static fn (string $flag): bool => $flag === '1',
+                        array_slice($formData->removeImageDownloads, 0, $page->layout->uploadInputsCount()),
+                    ),
                 ),
             );
 

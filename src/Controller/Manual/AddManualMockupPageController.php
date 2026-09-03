@@ -53,6 +53,8 @@ final class AddManualMockupPageController extends AbstractController
                     $formData->name,
                     $formData->layout,
                     array_slice($formData->images, 0, $formData->layout->uploadInputsCount()),
+                    $formData->downloadFile,
+                    array_slice($formData->imageDownloads, 0, $formData->layout->uploadInputsCount()),
                 ),
             );
 

@@ -1501,6 +1501,27 @@ picker mini-previews, and the interactive add/edit editor
 `assets/controllers/mockup_page_editor_controller.js`). Geometry reaches JS
 via `MockupPageLayout::exportGeometry()` serialized into a Stimulus value.
 
+**Downloadable attachments (2026-09-03).** A page can carry files the manual
+reader takes away — the print-ready PDF behind a mockup, packaged assets. Two
+independent levels, both optional: `download_file` (JSONB, the WHOLE page) and
+`image_downloads` (JSONB list, positionally aligned with `images`, null holes
+kept). Both hold the `MockupPageDownload` VO — `path` + the `fileName` the
+admin uploaded under + `size` + `mimeType` — because the stored key is
+timestamped and the point of the feature is handing the file back under its
+own name. `DownloadMockupPageFileController`
+(`/stahnout-mockup/{pageId}/{slot}`, slot = `stranka` or the slot index) is
+PUBLIC like the manual it hangs off and serves the bytes BUFFERED through PHP
+(a `Content-Disposition` is the only way to restore the name; a flushing
+StreamedResponse would corrupt the next request on resident FrankenPHP). The
+manual render shows a corner button on each slot that carries a file and a
+"Stáhnout" button in the page heading for the page-level one; the editor's
+"Soubory ke stažení" rows (page + one per slot of the chosen layout) mirror
+the images' pick/remove/restore flags, and an attached slot gets a paperclip
+badge on the stage. Attachments are NOT images, so the cap is
+`ManualMockupPageFormType::DOWNLOAD_MAX_SIZE` = 20 MB decimal (mirrored
+client-side), and any file type is accepted. Both columns are enumerated in
+`BuildStorageReferenceIndex` — without that the files read as orphans.
+
 The editor: click/drop a segment → instant local preview + fit verdict
 (ratio crop %, low-resolution vs `recommendedWidth/Height` = 2× unit size,
 over the upload limit rejected client-side to match the server `Image`
@@ -1531,6 +1552,11 @@ gap is accepted by one layer and rejected by the next:
 `mockup_page_editor_controller.js` (fed by
 `_mockup_page_form_editor.html.twig`), and
 `PlaceholderImageUploader::MAX_FILE_SIZE_BYTES`.
+
+A mockup page's downloadable ATTACHMENT is deliberately outside this limit —
+it is not an image and a print PDF routinely exceeds 10 MB. It has its own
+20 MB decimal cap (`ManualMockupPageFormType::DOWNLOAD_MAX_SIZE`), mirrored by
+`_mockup_page_form_editor.html.twig` into `mockup_page_editor_controller.js`.
 
 The placeholder upload endpoints (web + API + group fill, 3 controllers —
 `TemplateVariantPlaceholderUploadController` (API),

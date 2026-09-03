@@ -2,10 +2,14 @@
    gap, fixed page aspect ratio). The same geometry drives the admin layout
    picker and the interactive uploader, so admin preview and manual render
    always match. Params: mockup_page (required), show_placeholders (optional,
-   renders a placeholder in empty slots — admin surfaces only). #}
+   renders a placeholder in empty slots — admin surfaces only), show_downloads
+   (optional, default true — the corner button of a slot that carries a file
+   the admin attached for download). #}
+{% set show_downloads = show_downloads|default(true) %}
 <div class="mockup-grid-container">
     <div class="mockup-grid">
         {% for slot in mockup_page.layout.slots %}
+            {% set slot_download = mockup_page.imageDownload(loop.index0) %}
             <div class="mockup-slot"
                  style="grid-column: {{ slot.column }} / span {{ slot.columnSpan }}; grid-row: {{ slot.row }} / span {{ slot.rowSpan }};">
                 {% if mockup_page.images[loop.index0] ?? null %}
@@ -14,6 +18,15 @@
                     <div class="mockup-slot-placeholder">
                         <i class="ri-image-line"></i>
                     </div>
+                {% endif %}
+
+                {% if show_downloads and slot_download %}
+                    <a class="mockup-slot-download"
+                       href="{{ path('download_mockup_page_file', {'pageId': mockup_page.id, 'slot': loop.index0}) }}"
+                       title="Stáhnout {{ slot_download.fileName }}{% if slot_download.size %} ({{ slot_download.size|file_size }}){% endif %}">
+                        <i class="mdi mdi-download"></i>
+                        {% if slot_download.format %}<span class="mockup-slot-download-format">{{ slot_download.format }}</span>{% endif %}
+                    </a>
                 {% endif %}
             </div>
         {% endfor %}

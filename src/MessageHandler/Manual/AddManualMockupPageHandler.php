@@ -12,6 +12,7 @@ use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\AddManualMockupPage;
 use WBoost\Web\Repository\ManualMockupPageRepository;
 use WBoost\Web\Repository\ManualRepository;
+use WBoost\Web\Services\Manual\StoreMockupPageDownload;
 use WBoost\Web\Services\ProvideIdentity;
 
 #[AsMessageHandler]
@@ -23,6 +24,7 @@ readonly final class AddManualMockupPageHandler
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
         private Filesystem $filesystem,
+        private StoreMockupPageDownload $storeMockupPageDownload,
     ) {
     }
 
@@ -51,6 +53,26 @@ readonly final class AddManualMockupPageHandler
             $images[] = $path;
         }
 
+        $downloadFile = $message->downloadFile === null ? null : ($this->storeMockupPageDownload)(
+            $message->downloadFile,
+            $manual->id,
+            $pageId,
+            'page',
+            $timestamp,
+        );
+
+        $imageDownloads = [];
+
+        foreach ($message->imageDownloads as $index => $download) {
+            $imageDownloads[] = $download === null ? null : ($this->storeMockupPageDownload)(
+                $download,
+                $manual->id,
+                $pageId,
+                'image-' . ($index + 1),
+                $timestamp,
+            );
+        }
+
         $nextPosition = $this->manualMockupPageRepository->count($manual->id);
 
         $page = new ManualMockupPage(
@@ -61,6 +83,8 @@ readonly final class AddManualMockupPageHandler
             $message->name,
             $images,
             $nextPosition,
+            $downloadFile,
+            $imageDownloads,
         );
 
         $this->manualMockupPageRepository->add($page);

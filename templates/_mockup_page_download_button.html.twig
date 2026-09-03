@@ -1,0 +1,11 @@
+{# The button for the file an admin attached to a WHOLE mockup page.
+   Params: mockup_page (required), extra_class (optional). #}
+{% if mockup_page.downloadFile %}
+    {% set page_download = mockup_page.downloadFile %}
+    <a class="btn btn-sm btn-soft-primary {{ extra_class|default('') }}"
+       href="{{ path('download_mockup_page_file', {'pageId': mockup_page.id, 'slot': 'stranka'}) }}"
+       title="{{ page_download.fileName }}{% if page_download.size %} · {{ page_download.size|file_size }}{% endif %}">
+        <i class="mdi mdi-download"></i>
+        Stáhnout{% if page_download.format %} {{ page_download.format }}{% endif %}
+    </a>
+{% endif %}

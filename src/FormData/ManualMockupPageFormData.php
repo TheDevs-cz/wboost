@@ -29,9 +29,36 @@ final class ManualMockupPageFormData
      */
     public array $removeImages;
 
+    /**
+     * The downloadable file offered next to the whole page.
+     */
+    public null|UploadedFile $downloadFile = null;
+
+    /**
+     * '1' removes the page's existing downloadable file (edit only).
+     */
+    public string $removeDownloadFile = '0';
+
+    /**
+     * Downloadable files offered next to individual images — one input per
+     * possible slot, sliced like $images.
+     *
+     * @var array<UploadedFile|null>
+     */
+    public array $imageDownloads;
+
+    /**
+     * '1' flags a slot whose existing downloadable file should be removed.
+     *
+     * @var array<string>
+     */
+    public array $removeImageDownloads;
+
     public function __construct()
     {
         $this->images = array_fill(0, MockupPageLayout::maxUploadInputsCount(), null);
         $this->removeImages = array_fill(0, MockupPageLayout::maxUploadInputsCount(), '0');
+        $this->imageDownloads = array_fill(0, MockupPageLayout::maxUploadInputsCount(), null);
+        $this->removeImageDownloads = array_fill(0, MockupPageLayout::maxUploadInputsCount(), '0');
     }
 }

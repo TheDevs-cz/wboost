@@ -16,6 +16,10 @@ readonly final class AddManualMockupPage
         public MockupPageLayout $layout,
         /** @var array<null|UploadedFile> */
         public array $images,
+        /** The file offered for download next to the whole page. */
+        public null|UploadedFile $downloadFile = null,
+        /** @var array<null|UploadedFile> Per-slot download files, aligned with $images. */
+        public array $imageDownloads = [],
     ) {
     }
 }
