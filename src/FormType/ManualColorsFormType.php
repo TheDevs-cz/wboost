@@ -74,7 +74,7 @@ final class ManualColorsFormType extends AbstractType
      */
     private static function isBlankColor(ManualColorFormData $color): bool
     {
-        foreach ([$color->color, $color->type, $color->c, $color->m, $color->y, $color->k, $color->pantone] as $value) {
+        foreach ([$color->color, $color->type, $color->c, $color->m, $color->y, $color->k, $color->pantone, $color->ral] as $value) {
             if ($value !== null && trim($value) !== '') {
                 return false;
             }

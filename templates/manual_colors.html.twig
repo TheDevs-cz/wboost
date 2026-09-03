@@ -43,6 +43,11 @@
                                                 {{ form_label(detectedColorForm.pantone) }}
                                             </div>
 
+                                            <div class="form-floating ms-1" style="width: 90px;">
+                                                {{ form_widget(detectedColorForm.ral) }}
+                                                {{ form_label(detectedColorForm.ral) }}
+                                            </div>
+
                                             <div class="form-floating">
                                                 {{ form_widget(detectedColorForm.type) }}
                                                 {{ form_label(detectedColorForm.type) }}
@@ -99,6 +104,7 @@
                                         <div class="d-flex align-items-center justify-content-between">
                                             <div class="form-floating" style="width: 100px;">' ~ form_widget(form.customColors.vars.prototype.color, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) ~ form_label(form.customColors.vars.prototype.color) ~ '</div>
                                             <div class="form-floating ms-1" style="width: 90px;">' ~ form_widget(form.customColors.vars.prototype.pantone) ~ form_label(form.customColors.vars.prototype.pantone) ~ '</div>
+                                            <div class="form-floating ms-1" style="width: 90px;">' ~ form_widget(form.customColors.vars.prototype.ral) ~ form_label(form.customColors.vars.prototype.ral) ~ '</div>
                                             <div class="form-floating ms-1">' ~ form_widget(form.customColors.vars.prototype.type) ~ form_label(form.customColors.vars.prototype.type) ~ '</div>
                                         </div>
                                         <div class="d-flex align-items-center justify-content-between mt-1">
@@ -126,6 +132,10 @@
                                                 <div class="form-floating ms-1" style="width: 90px;">
                                                     {{ form_widget(customColorForm.pantone) }}
                                                     {{ form_label(customColorForm.pantone) }}
+                                                </div>
+                                                <div class="form-floating ms-1" style="width: 90px;">
+                                                    {{ form_widget(customColorForm.ral) }}
+                                                    {{ form_label(customColorForm.ral) }}
                                                 </div>
                                                 <div class="form-floating ms-1">
                                                     {{ form_widget(customColorForm.type) }}

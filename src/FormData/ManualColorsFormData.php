@@ -35,6 +35,7 @@ final class ManualColorsFormData
                 y: $detectedColor->cmyk[2] ?? null,
                 k: $detectedColor->cmyk[3] ?? null,
                 pantone: $detectedColor->pantone,
+                ral: $detectedColor->ral,
             );
         }
 
@@ -48,6 +49,7 @@ final class ManualColorsFormData
                 y: $customColor->cmyk[2] ?? null,
                 k: $customColor->cmyk[3] ?? null,
                 pantone: $customColor->pantone,
+                ral: $customColor->ral,
             );
         }
 
@@ -73,6 +75,7 @@ final class ManualColorsFormData
                 $detectedColor->type ? ManualColorType::tryFrom($detectedColor->type) : null,
                 $detectedColor->pantone,
                 [$detectedColor->c, $detectedColor->m, $detectedColor->y, $detectedColor->k],
+                $detectedColor->ral,
             );
 
             if ($order !== null) {
@@ -106,6 +109,7 @@ final class ManualColorsFormData
                 $customColor->type ? ManualColorType::tryFrom($customColor->type) : null,
                 $customColor->pantone,
                 [$customColor->c, $customColor->m, $customColor->y, $customColor->k],
+                $customColor->ral,
             );
 
             if ($order !== null) {

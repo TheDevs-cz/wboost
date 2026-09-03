@@ -25,6 +25,7 @@ final class ManualColorFormData
         public null|string $y = null,
         public null|string $k = null,
         public null|string $pantone = null,
+        public null|string $ral = null,
     ) {
     }
 }

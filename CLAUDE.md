@@ -1536,6 +1536,17 @@ a new upload for the same slot wins over the flag). Slot order == persisted
 `images` array indexes. NOTE: Stimulus reuses controller instances on
 reconnect — slot state is reset in `connect()`, not `initialize()`.
 
+### Manual colours — HEX, CMYK, Pantone, RAL
+
+`ManualColor` (in the JSONB `manual.detected_colors` / `.custom_colors` via
+`ManualColorsDoctrineType`) carries `ral` alongside `pantone`. No migration:
+the key is simply absent on older rows and reads back as null. Every code is
+printed by `_manual_color_swatch.html.twig` — extracted from the two
+copy-pasted palette blocks — and only when the designer filled it, so a manual
+with no RAL looks exactly as before. `ManualColorsFormType::isBlankColor()`
+counts `ral` too, otherwise a row holding nothing but a RAL code would be
+dropped on save.
+
 ### Manual logo width — a three-level cascade
 
 How big a logo renders inside one manual card resolves through

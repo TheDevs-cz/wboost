@@ -75,6 +75,14 @@ final class ManualColorFormType extends AbstractType
             'required' => false,
         ]);
 
+        $builder->add('ral', TextType::class, [
+            'label' => 'RAL',
+            'attr' => [
+                'placeholder' => 'RAL',
+            ],
+            'required' => false,
+        ]);
+
         $builder->add('type', ChoiceType::class, [
             'label' => 'Mapování',
             'required' => false,

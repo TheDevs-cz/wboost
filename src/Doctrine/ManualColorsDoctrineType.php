@@ -37,13 +37,14 @@ final class ManualColorsDoctrineType extends JsonType
         $colors = [];
 
         foreach ($jsonData as $color) {
-            /** @var array{color: string, type: null|string, pantone?: null|string, cmyk?: array{null|string, null|string, null|string, null|string}} $color */
+            /** @var array{color: string, type: null|string, pantone?: null|string, ral?: null|string, cmyk?: array{null|string, null|string, null|string, null|string}} $color */
 
             $colors[] = new ManualColor(
                 color: new Color($color['color']),
                 type: $color['type'] === null ? null : ManualColorType::from($color['type']),
                 pantone: $color['pantone'] ?? null,
                 cmyk: $color['cmyk'] ?? null,
+                ral: $color['ral'] ?? null,
             );
         }
 
@@ -67,6 +68,7 @@ final class ManualColorsDoctrineType extends JsonType
                 'color' => (string) $color->color,
                 'type' => $color->type?->value,
                 'pantone' => $color->pantone,
+                'ral' => $color->ral,
                 'cmyk' => $color->cmyk,
             ];
         }

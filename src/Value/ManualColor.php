@@ -15,6 +15,8 @@ readonly final class ManualColor
         public null|ManualColorType $type,
         public null|string $pantone,
         null|array $cmyk,
+        /** RAL code, shown in the manual only when the designer filled it. */
+        public null|string $ral = null,
     ) {
         if ($cmyk === [null, null, null, null]) {
             $this->cmyk = null;

@@ -67,6 +67,48 @@ final class ManualColorsControllerTest extends WebTestCase
     }
 
     /**
+     * RAL is stored per colour and shown in the manual only once filled.
+     */
+    public function testRalIsSavedAndRenderedInTheManual(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        $crawler = $browser->request('GET', '/manual/' . TestDataFixture::MANUAL_1_ID . '/colors');
+        self::assertResponseIsSuccessful();
+
+        // Nothing filled yet — the manual prints no RAL line.
+        $browser->request('GET', '/nahled-manualu/project-1/manual-1');
+        self::assertStringNotContainsString('RAL:', (string) $browser->getResponse()->getContent());
+
+        $crawler = $browser->request('GET', '/manual/' . TestDataFixture::MANUAL_1_ID . '/colors');
+        $form = $crawler->selectButton('Uložit')->form();
+        $values = $form->getPhpValues();
+
+        /** @var array{customColors: array<int, array<string, string>>} $formValues */
+        $formValues = $values['manual_colors_form'];
+        $formValues['customColors'][0]['ral'] = 'RAL 3020';
+        $values['manual_colors_form'] = $formValues;
+
+        $browser->request('POST', $form->getUri(), $values);
+        self::assertResponseRedirects();
+
+        // Round-trips into the form…
+        $crawler = $browser->request('GET', '/manual/' . TestDataFixture::MANUAL_1_ID . '/colors');
+        self::assertSame(
+            'RAL 3020',
+            $crawler->filter('input[name="manual_colors_form[customColors][0][ral]"]')->attr('value'),
+        );
+
+        // …and reaches the manual, next to the other codes.
+        $browser->request('GET', '/nahled-manualu/project-1/manual-1');
+        self::assertResponseIsSuccessful();
+        $content = (string) $browser->getResponse()->getContent();
+        self::assertStringContainsString('RAL:', $content);
+        self::assertStringContainsString('RAL 3020', $content);
+    }
+
+    /**
      * Appends one custom colour row, ordered like the drag&drop controller stamps it.
      *
      * @param mixed[] $values
@@ -83,6 +125,7 @@ final class ManualColorsControllerTest extends WebTestCase
             'order' => (string) count($formValues['customColors']),
             'color' => '',
             'pantone' => '',
+            'ral' => '',
             'type' => '',
             'c' => '',
             'm' => '',
