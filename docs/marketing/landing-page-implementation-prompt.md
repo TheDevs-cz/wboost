@@ -58,9 +58,10 @@ Three sources, in decreasing authority:
 |---|---|
 | `~/pencil/wboost.pen` (Pencil MCP) | Exact geometry, spacing, colours, font sizes. `Get(nodeId, {depth: N})` reads any node; `ctx.bounds` gives resolved boxes. This is the spec. |
 | `designs/exports/sections/*.png` (2×) | The visual target. One PNG per section; the id → name map is in the notes. |
-| `designs/wboost-landing-notes.md` | Every decision, the type system, the motion hints, the complete **[POTVRDIT]** list. |
+| `designs/wboost-landing-notes.md` | Every decision, the type system, the motion hints, the complete **[POTVRDIT]** list. **§6b lists the revision round — read it, it changes the nav, the footer and the final CTA.** |
 
-Frames: `hgMNG` Components · `gCoLB` Desktop 1440 · `VZfy3` Mobile 390.
+Frames: `hgMNG` Components · `gCoLB` Desktop 1440 · `VZfy3` Mobile 390 ·
+`icEU7` Legal 1440 · `IwrPI` Legal 390.
 
 **A useful trick, not a shortcut.** `Export(["<sectionId>"], "html-css", "/tmp/x.html")` from
 the Pencil MCP dumps every computed value in a section — read it to pull exact px and colour
@@ -135,6 +136,11 @@ landing/
       img/logo.svg
       img/og-cover.png
 ```
+
+The two legal pages are **one template used twice** (`icEU7` / `IwrPI`): nav, eyebrow, 52 px
+serif H1, a "Poslední aktualizace" line, hairline, perex, nine numbered sections with
+`[DOPLNIT]` placeholder paragraphs, footer. Build one page shell and swap the heading, the
+section list and the body copy. The privacy skeleton is a real Czech one — keep the headings.
 
 **This is a multi-page site, not one page.** `src/*.html` is the page set and the filesystem
 is its source of truth: `index.html` serves `/`, every other `<slug>.html` serves `/<slug>`
@@ -268,11 +274,21 @@ anchors expect. Fourteen sections in the fixed order of §5 of the design brief:
 proof strip, problém, jak to funguje, showcase, moduly (`#funkce`), AI asistenti (`#ai`),
 pro koho (`#pro-koho`), příběh (`#pribeh`), cena (`#cena`), FAQ, final CTA, footer.
 
+### 4.1b The Reference section ships hidden
+
+`JXdwa` / `k0oMjU` — three testimonial cards plus a six-slot logo row, on ink, between *Pro
+koho* and *Příběh*. **Every field is an explicit placeholder** and §6 of the design brief
+forbids invented testimonials, so: build the markup, then wrap the whole `<section>` in an
+HTML comment (or `hidden`) and leave it that way. It is one self-contained block precisely so
+this is a one-line change when real quotes arrive. Do not fill it with plausible-sounding
+fake content to "see how it looks".
+
 ### 4.2 The two things that carry the page
 
 **The signature motif** — the dashed indigo editable outline with its field tag and pencil+eye
-cluster — appears exactly three times: hero, the "Vyplnění a export" bento tile, and the
-footer. In CSS it is a plain `border: 1.5px dashed var(--lp-primary)` with a 2–3 px radius —
+cluster — appears exactly **twice**: the hero and the "Vyplnění a export" bento tile. It was
+removed from the footer in the revision round: inside the product a dashed box means "editable
+field", but to a first-time visitor it reads as a rendering bug. In CSS it is a plain `border: 1.5px dashed var(--lp-primary)` with a 2–3 px radius —
 **not** the baked dash paths Pencil had to use because it has no stroke-dash property. The tag
 is a small indigo pill absolutely positioned at the box's top-left, the cluster at its
 top-right. The hero's "Datum" box is the *active* state: solid 1.5 px border plus
@@ -432,6 +448,16 @@ Two workflow changes, both specified in full in the infra plan (§4 Phase B):
 > overwriting it would break the application's deploys. Do not run
 > `lily.srv/deploy/add-app.sh --apply` against this repo; it hard-codes the shared name.
 
+### 5.3b Nav and footer changed in the revision round
+
+- **The header carries only *Přihlásit se*, in the primary (indigo) style.** *Vyzkoušet
+  zdarma* is not in the nav. The signup CTA still sits above the fold in the hero.
+- **The footer has one link column and no column heading.** The *Pro vývojáře* column
+  (Dokumentace API · AI a MCP server · GitHub) is gone, and with a single column left the
+  *Produkt* heading went with it. Consequence for §7: `/api/docs` is no longer linked from the
+  page at all, so the link test will see only `/registration`, `/login` and `/ai`. That is
+  correct, not a regression — derive the list from the HTML, never hard-code it.
+
 ### 5.4 Favicons — the one deliberate exception
 
 The landing links `/favicon.ico` and friends root-relative. Those paths are not in the landing
@@ -455,6 +481,10 @@ mistake and produces three duplicate-title pages.
 | `/` | *WBoost — brand manuály, šablony a export pro grafiky a marketingové týmy* | `https://wboost.cz/` |
 | `/ochrana-osobnich-udaju` | *Ochrana osobních údajů — WBoost* | `https://wboost.cz/ochrana-osobnich-udaju` |
 | `/obchodni-podminky` | *Obchodní podmínky — WBoost* | `https://wboost.cz/obchodni-podminky` |
+
+The legal pages carry a real `<time>`-style "Poslední aktualizace" line. Set it to the date the
+text is actually written, not the deploy date, and do not leave `[DOPLNIT DATUM]` on a live
+page.
 
 Also on every page: `<html lang="cs">`, Open Graph + Twitter card (`og:title`,
 `og:description`, `og:url`, `og:type=website`, `og:locale=cs_CZ`, `og:image` — **absolute

@@ -12,8 +12,10 @@ The document root holds exactly three frames, nothing else:
 | Node id | Frame | Size |
 |---|---|---|
 | `hgMNG` | **Components** | 1440 × 1600 |
-| `gCoLB` | **Desktop 1440** | 1440 × 10 960 |
-| `VZfy3` | **Mobile 390** | 390 × 15 999 |
+| `gCoLB` | **Desktop 1440** | 1440 × 11 970 |
+| `VZfy3` | **Mobile 390** | 390 × 17 255 |
+| `icEU7` | **Legal 1440** | 1440 × 2 585 |
+| `IwrPI` | **Legal 390** | 390 × 2 753 |
 
 Pencil names exported files by node id, so:
 
@@ -35,13 +37,13 @@ anything printed or zoomed.
 
 **Desktop 1440** — `u4Zjn` Nav · `n6Aw5` Hero · `zqEXF` Proof Strip · `P1Eg7` Problém ·
 `Bk0P9` Jak to funguje · `QhocG` Showcase · `bUQEv` Moduly (id `funkce`) ·
-`kMamX` AI asistenti (id `ai`) · `w6cZ86` Pro koho · `ykKvW` Příběh · `pDzy2` Cena ·
-`UrO4h` FAQ · `PvjiT` Final CTA · `Z3W59c` Footer
+`kMamX` AI asistenti (id `ai`) · `w6cZ86` Pro koho · **`JXdwa` Reference [SKRYTELNÉ]** ·
+`ykKvW` Příběh · `pDzy2` Cena · `UrO4h` FAQ · `PvjiT` Final CTA · `Z3W59c` Footer
 
 **Mobile 390** — `mIYAE` Nav · `t8tOB3` Hero · `Zxu2U` Proof · `D6XJwl` Problém ·
 `NxSDs` Jak to funguje · `L5YCyc` Showcase · `GxfFi` Moduly · `uNcik` AI ·
-`ejuJR` Pro koho · `xkdEQ` Příběh · `rnP46` Cena · `rbX7q` FAQ · `NMVqe` Final CTA ·
-`L7H4v` Footer
+`ejuJR` Pro koho · **`k0oMjU` Reference [SKRYTELNÉ]** · `xkdEQ` Příběh · `rnP46` Cena ·
+`rbX7q` FAQ · `NMVqe` Final CTA · `L7H4v` Footer
 
 ---
 
@@ -225,6 +227,58 @@ at 52 px tall (≥ 44 px touch target).
 
 ---
 
+## 6b. Revision round — 2026-09-03, after the first review
+
+Seven changes, all requested by Jan after seeing the first build:
+
+1. **Nav CTA swapped.** *Vyzkoušet zdarma* is gone from the header; **only *Přihlásit se*
+   remains, in the primary (indigo) style**. The signup CTA still sits above the fold in the
+   hero, so §7's "primary CTA visible without scrolling" still holds. It does soften §7's
+   "the primary button style is used only for *Vyzkoušet zdarma*" — two different actions now
+   share it. That is the conventional SaaS split (header serves people who already have an
+   account, hero serves people who do not) and it was a deliberate call, not an oversight.
+
+2. **New section: `Reference [SKRYTELNÉ]`** — desktop `JXdwa`, mobile `k0oMjU`, on ink,
+   between *Pro koho* and *Příběh*. Three testimonial cards plus a six-slot logo row. **Every
+   word in it is an explicit placeholder** ("Sem přijde citace klienta – dvě až tři věty…",
+   "Jméno Příjmení", "role · organizace") rather than a plausible-sounding fake quote, because
+   §6 forbids invented testimonials and logos. It is built as one self-contained section so it
+   can be commented out of the HTML until there is real content — hence the layer name.
+   Placing it on ink also fixed a rhythm problem: *Pro koho* (paper) → *Příběh* (warm paper)
+   were two light sections back to back.
+
+3. **Legal page templates** — new artboards `icEU7` (1440) and `IwrPI` (390). Nav, eyebrow,
+   52 px serif H1, a "Poslední aktualizace" line, hairline, perex, then **nine numbered
+   sections** with placeholder paragraphs and two bulleted lists, then the footer. The section
+   headings are a real Czech privacy-policy skeleton (Správce · Jaké údaje · Proč · Právní
+   základ · Jak dlouho · Komu předáváme · Cookies · Vaše práva · Kontakt), so the founders can
+   fill prose into a structure instead of starting from a blank page. *Obchodní podmínky*
+   reuses the identical shell with its own headings — one template, two pages.
+
+4. **Timeline removed from *Příběh*.** The 2023 / 2023–2026 / 2026 rows were restating the
+   copy beside them.
+
+5. **The three facts under the pull-quote were rebuilt.** They were three small columns under
+   2 px rules; they are now a **full-width stacked list** — mono index, 26 px serif statement,
+   and a supporting sentence — which reads as a manifesto rather than a caption row and takes
+   a fourth or fifth item without redesign. Each fact gained a second line of copy.
+
+6. **Final CTA differentiated from *Cena*.** They were both ink bands with a left-aligned
+   serif headline and buttons, and read as the same section twice. The close is now
+   **centred, 78 px (the largest type on the page), on the deeper ink `#28303a`, with a lot of
+   air** and a short indigo rule above it. Four axes of difference — alignment, scale, surface
+   and density — and it delivers §6's "let one section be almost empty around a single big
+   line". The deeper ink also lets the CTA and the footer read as one closing block.
+
+7. **Footer simplified.** The dashed `Popisek` motif around the description is gone — inside
+   the product it means "editable field", but to a first-time visitor it reads as a rendering
+   bug. The signature motif therefore now appears **twice** (hero, *Vyplnění a export* tile)
+   rather than three times; two placements still read as a system. The whole **Pro vývojáře**
+   column (Dokumentace API · AI a MCP server · GitHub) was removed, and with one link column
+   left the **Produkt** heading became noise and went too. Consequence for §11: `/api/docs` is
+   no longer linked from anywhere on the page — `/ai` still is, from the AI section's
+   *Průvodce připojením →*.
+
 ## 7. Motion hints (annotated, not animated)
 
 - On hero load the three dashed outlines fade in one by one (≈ 80 ms apart), the popover
@@ -281,10 +335,13 @@ else.
 
 From the brief:
 
-1. **Customer names and logos.** May any existing customer (the Moravian-Silesian
-   municipalities, the football club, the local companies) be named or shown? Until
-   confirmed, §5.2 carries six neutral placeholder slots captioned *"Používají obce,
-   sportovní kluby i firmy"* and no logo is invented.
+1. **Customer names, logos and testimonials.** May any existing customer (the
+   Moravian-Silesian municipalities, the football club, the local companies) be named, shown
+   or quoted? Two places wait on this: the proof strip's six placeholder slots (§5.2) and the
+   whole new **Reference** section (§6b.2) — three quote cards and a logo row, every field an
+   explicit placeholder. Nothing is invented. **The Reference section ships hidden**; reveal
+   it only when there is at least one real, approved quote. Collecting them is the ask: a name,
+   a role, an organisation and two or three sentences about what WBoost saved them.
 2. **Registration response time.** The hero, Moduly, Cena and Final CTA microcopy says
    *"Zdarma a bez platební karty. Přístup vám pošleme e-mailem."* — no speed promise.
    Confirm before adding anything like *"do 24 hodin"*.
@@ -299,8 +356,12 @@ From the brief:
 6. **Facebook / Instagram wording at launch.** The page carries a `Dokončujeme` chip on
    the module tile and in the step-3 fragment, and the FAQ answer says the integration is
    finished and in Meta review. Update both the moment review clears — or if it does not.
-7. **Privacy and terms pages do not exist.** `Ochrana osobních údajů` and `Obchodní
-   podmínky` are placeholder links in the footer. The commercial-register line belongs on
+7. **Privacy and terms pages: the design exists, the text does not.** Artboards `icEU7` /
+   `IwrPI` give a nine-section skeleton with `[DOPLNIT]` placeholders throughout; the footer
+   links point at `/ochrana-osobnich-udaju` and `/obchodni-podminky`. Someone has to write the
+   actual wording, including the "Poslední aktualizace" date, and confirm whether a separate
+   cookie policy is needed (there is no analytics or consent banner today, so probably not
+   yet). The commercial-register line belongs on
    the terms page, not the footer, and is not on the page.
 8. **No hosting, GDPR or data-location claim** is made anywhere. Do not add one without
    checking it.
@@ -333,8 +394,13 @@ Added by this build, also worth a look:
 
 - Sticky nav, accordions and the horizontal scroll strip are drawn in their resting
   states; the artboards are static.
-- All primary CTAs carry `https://wboost.cz/registration`; *Přihlásit se* carries
-  `https://wboost.cz/login`; *Dokumentace API* → `https://wboost.cz/api/docs`;
+- The **Reference** section is designed to be shipped hidden — build it, then comment it out
+  until real quotes exist. Do not fill it with invented content to "see how it looks".
+- The two legal artboards are **one template used twice**; build a single page shell and
+  swap the heading, the section list and the body copy.
+- The header now carries **only** *Přihlásit se*, in the primary style. All *Vyzkoušet
+  zdarma* buttons (hero, modules, pricing, final CTA) carry
+  `https://wboost.cz/registration`; every *Přihlásit se* carries `https://wboost.cz/login`; *Dokumentace API* → `https://wboost.cz/api/docs`;
   *AI a MCP server* → `https://wboost.cz/ai`; the footer e-mail is a `mailto:`; nav links
   are anchors to `#funkce`, `#jak-to-funguje`, `#pro-koho`, `#ai`, `#pribeh`, `#cena`.
 - The `Jídelníčky` and `Kalendáře` modules are deliberately absent, per §1.
