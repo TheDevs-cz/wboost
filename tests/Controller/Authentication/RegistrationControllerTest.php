@@ -23,7 +23,7 @@ final class RegistrationControllerTest extends WebTestCase
         $this->assertResponseIsSuccessful();
     }
 
-    public function testRedirectLoggedUsersToHomepage(): void
+    public function testRedirectLoggedUsersToDashboard(): void
     {
         $browser = self::createClient();
 
@@ -31,7 +31,7 @@ final class RegistrationControllerTest extends WebTestCase
 
         $browser->request('GET', '/registration');
 
-        $this->assertResponseRedirects('/');
+        $this->assertResponseRedirects('/dashboard');
     }
 
     public function testNewRequestIsPersistedAndAdminsNotified(): void

@@ -53,7 +53,7 @@ final class SetPasswordController extends AbstractController
                     ? 'Účet byl aktivován a jste přihlášeni.'
                     : 'Vaše heslo bylo změněno a jste přihlášeni.');
 
-                return $this->redirectToRoute('homepage');
+                return $this->redirectToRoute('dashboard');
             } catch (HandlerFailedException $failedException) {
                 $realException = $failedException->getPrevious();
 

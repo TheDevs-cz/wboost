@@ -28,7 +28,7 @@ final class RegistrationController extends AbstractController
     public function __invoke(Request $request, #[CurrentUser] null|UserInterface $user = null): Response
     {
         if ($user !== null) {
-            return $this->redirectToRoute('homepage');
+            return $this->redirectToRoute('dashboard');
         }
 
         $formData = new RequestAccessFormData();

@@ -30,6 +30,6 @@ final class DeleteProjectController extends AbstractController
 
         $this->addFlash('success', 'Projekt smazán');
 
-        return $this->redirectToRoute('homepage');
+        return $this->redirectToRoute('dashboard');
     }
 }

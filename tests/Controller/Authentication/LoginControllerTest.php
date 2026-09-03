@@ -20,7 +20,7 @@ final class LoginControllerTest extends WebTestCase
     }
 
 
-    public function testRedirectLoggedUsersToHomepage(): void
+    public function testRedirectLoggedUsersToDashboard(): void
     {
         $browser = self::createClient();
         
@@ -28,7 +28,7 @@ final class LoginControllerTest extends WebTestCase
 
         $browser->request('GET', '/login');
 
-        $this->assertResponseRedirects('/');
+        $this->assertResponseRedirects('/dashboard');
     }
 
 

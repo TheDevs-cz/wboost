@@ -70,7 +70,7 @@ final class ConsentController extends AbstractController
         if ($pending === null) {
             $this->addFlash('warning', 'Požadavek na propojení aplikace už neplatí. Zkuste propojení spustit znovu z dané aplikace.');
 
-            return $this->redirectToRoute('homepage');
+            return $this->redirectToRoute('dashboard');
         }
 
         if ($request->isMethod(Request::METHOD_POST)) {

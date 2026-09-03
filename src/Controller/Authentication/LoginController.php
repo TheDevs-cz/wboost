@@ -21,7 +21,7 @@ final class LoginController extends AbstractController
     public function __invoke(#[CurrentUser] null|User $user = null): Response
     {
         if ($user !== null) {
-            return $this->redirectToRoute('homepage');
+            return $this->redirectToRoute('dashboard');
         }
 
         $error = $this->authenticationUtils->getLastAuthenticationError();

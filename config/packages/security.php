@@ -196,6 +196,24 @@ return App::config([
                 'path' => '^/_mcp',
                 'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],
             ],
+            // The apex and the static pages belong to nginx (D61), not to
+            // Symfony — but if the landing container is down or a router rule
+            // is wrong they fall through to here, and a clean 404 is a far
+            // easier thing to debug than a silent redirect to /login. Anchor
+            // every one with `$`: a bare `^/` would open the entire app.
+            // Extend the second rule whenever a static page is added.
+            [
+                'path' => '^/$',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
+            [
+                'path' => '^/(ochrana-osobnich-udaju|obchodni-podminky)/?$',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
+            [
+                'path' => '^/(robots\\.txt|sitemap\\.xml)$',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
             [
                 'path' => '^/(login|registration|forgotten-password|set-password/.*|.*/preview|nahled-manualu/.*|stahnout-logo/.*|stahnout-mockup/.*|email-signature-variant/.*/vcard-qr-code\.png|email-signature-demo/vcard-qr-code\.png|weekly-menu/.*/public|weekly-menu/.*/approval/.*)',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],

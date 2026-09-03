@@ -27,7 +27,7 @@ final class ForgottenPasswordController extends AbstractController
     public function __invoke(Request $request, #[CurrentUser] null|UserInterface $user): Response
     {
         if ($user !== null) {
-            return $this->redirectToRoute('homepage');
+            return $this->redirectToRoute('dashboard');
         }
 
         $formData = new RequestPasswordResetFormData();
@@ -43,7 +43,7 @@ final class ForgottenPasswordController extends AbstractController
 
                 $this->addFlash('success', 'Poslali jsme vám e-mail s instrukcemi pro obnovu vašeho zapomenutého hesla. Pokud Vám zpráva nedorazí, zkontrolujte pro jistotu složku SPAM.');
 
-                return $this->redirectToRoute('homepage');
+                return $this->redirectToRoute('dashboard');
             } catch (HandlerFailedException $failedException) {
                 $realException = $failedException->getPrevious();
 

@@ -17,7 +17,7 @@ final class UserActivityListenerTest extends WebTestCase
         $browser = self::createClient();
         TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
 
-        $browser->request('GET', '/');
+        $browser->request('GET', '/dashboard');
 
         $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
 

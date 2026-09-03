@@ -26,7 +26,7 @@ final class FacebookLoginStartController extends AbstractController
     public function __invoke(#[CurrentUser] null|UserInterface $user = null): Response
     {
         if ($user !== null) {
-            return $this->redirectToRoute('homepage');
+            return $this->redirectToRoute('dashboard');
         }
 
         return $this->clientRegistry->getClient('facebook_login')->redirect(['public_profile', 'email'], []);

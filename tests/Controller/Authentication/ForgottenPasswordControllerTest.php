@@ -19,7 +19,7 @@ final class ForgottenPasswordControllerTest extends WebTestCase
     }
 
 
-    public function testRedirectLoggedUsersToHomepage(): void
+    public function testRedirectLoggedUsersToDashboard(): void
     {
         $browser = self::createClient();
 
@@ -27,6 +27,6 @@ final class ForgottenPasswordControllerTest extends WebTestCase
 
         $browser->request('GET', '/forgotten-password');
 
-        $this->assertResponseRedirects('/');
+        $this->assertResponseRedirects('/dashboard');
     }
 }

@@ -74,7 +74,7 @@ final class SetPasswordControllerTest extends WebTestCase
         $form['set_password_form[password][second]'] = 'secret123';
         $browser->submit($form);
 
-        $this->assertResponseRedirects('/');
+        $this->assertResponseRedirects('/dashboard');
 
         // The invitee is now activated and persisted.
         $container = self::getContainer();
@@ -98,7 +98,7 @@ final class SetPasswordControllerTest extends WebTestCase
         $form['set_password_form[password][first]'] = 'secret123';
         $form['set_password_form[password][second]'] = 'secret123';
         $browser->submit($form);
-        $this->assertResponseRedirects('/');
+        $this->assertResponseRedirects('/dashboard');
 
         // The token is consumed: visiting the same link again shows the expired page.
         $browser->request('GET', '/set-password/' . $token);

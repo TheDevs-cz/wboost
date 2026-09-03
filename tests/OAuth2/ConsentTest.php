@@ -282,7 +282,7 @@ final class ConsentTest extends WebTestCase
 
         $client->request('GET', self::CONSENT_PATH);
 
-        self::assertResponseRedirects('/');
+        self::assertResponseRedirects('/dashboard');
     }
 
     /**
