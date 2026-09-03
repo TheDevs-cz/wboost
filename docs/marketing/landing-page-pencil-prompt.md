@@ -54,7 +54,7 @@ WBoost is a Czech SaaS for graphic designers and the marketing teams they serve.
 - **Roles and sharing** — Uživatel → Designer → Administrátor. A designer owns projects and shares them read-only with the client's people, who can fill, export and publish but never redesign. Registration is invite-gated: the public `/registration` page collects an e-mail, the founders approve and send an invitation link.
 - Also in the app: a "Jídelníčky" weekly-menu module (restaurants/canteens, with an approval workflow and PDF) and a "Kalendáře" module that is announced as coming soon. Neither belongs on this landing page.
 
-Founders' stance, to be felt across the page: the two co-founders built WBoost for their own daily work and still use it every day on their own clients. They see dogfooding as the only way to keep the product genuinely good — the story section carries this explicitly (§5.9); the rest of the page should feel like it was made by people who use the tool, not by a marketing agency.
+Founders' stance, to be felt across the page: the two co-founders built WBoost for their own daily work and used and tuned it **for three years, only for themselves**, before deciding to open it to other designers. They still use it every day on their own clients and see dogfooding as the only way to keep the product genuinely good — the story section carries this explicitly (§5.9); the rest of the page should feel like it was made by people who use the tool, not by a marketing agency.
 
 Everything is in Czech. There is no dark mode in the app. The app shell is a dark left sidebar (`#313a46`) with indigo accents.
 
@@ -131,7 +131,7 @@ Purpose: say what it is, who it is for, and get the click.
 
 A single quiet row under the hero, hairline above and below.
 
-Left: **Vzniklo pro jednoho grafika. Šetří mu desítky hodin měsíčně.**
+Left: **Tři roky jsme ho ladili jen pro sebe. Grafikovi šetří desítky hodin měsíčně.**
 Right: four chips: **1 návrh → 1:1 · 4:5 · 9:16 · A4 · A5 · A3** · **Tisk ve 300 DPI** · **Historie posledních 30 exportů** · **Ovládání z Claude, ChatGPT i Codexu**
 
 Below it a reference row: six equal grey placeholder slots captioned **Používají obce, sportovní kluby i firmy** — **[POTVRDIT]** real names/logos before launch; do not invent any.
@@ -209,11 +209,12 @@ Three cards with a strong title, an outcome sentence and a 3-item "co dostanete"
 
 A calmer, editorial section on paper (or a warm paper tint), two columns: copy left, two founder cards right with photo placeholders (square, 1:1, grey) captioned with name and role.
 
-- Title: **Vzniklo z jedné konkrétní potřeby.**
-- Copy: **Jan Mikeš postavil WBoost pro Lukáše Rejdu – grafika, který spravuje značky svých klientů a každý týden řešil ty samé drobné úpravy: nové datum, jiná fotka, stejný plakát. Dnes mu WBoost šetří desítky hodin měsíčně a jeho klienti si grafiku vyplňují sami. Fungovalo to tak dobře, že jsme z něj udělali produkt a sdílíme ho s každým, kdo řeší totéž. Pořád ho ale stavíme hlavně pro sebe – a to je jediný způsob, jak ho udržet opravdu dobrý.**
+- Title: **Tři roky jen pro nás. Teď i pro vás.**
+- Copy: **Jan Mikeš postavil WBoost pro Lukáše Rejdu – grafika, který spravuje značky svých klientů a každý týden řešil ty samé drobné úpravy: nové datum, jiná fotka, stejný plakát. Tři roky jsme ho používali a ladili jen pro vlastní práci, bez ceníku a bez uživatelů zvenčí. Dnes Lukášovi šetří desítky hodin měsíčně a jeho klienti si grafiku vyplňují sami. Fungovalo to tak dobře, že jsme se rozhodli ho otevřít dalším grafikům a týmům, které řeší totéž. Pořád ho ale stavíme hlavně pro sebe – a to je jediný způsob, jak ho udržet opravdu dobrý.**
+- Optional timeline detail next to the copy, three quiet rows with a hairline: **2023 · první verze pro jednoho grafika** → **2023–2026 · tři roky ladění na vlastních klientech** → **2026 · otevřeno pro další grafiky a týmy**. **[POTVRDIT]** the years.
 - Founder cards: **Lukáš Rejda** — grafik, spoluzakladatel · **Jan Mikeš** — vývojář, spoluzakladatel. **[POTVRDIT]** photos and exact titles.
 - Pull-quote block under the copy, set large in the headline face, with a hairline and the two names as attribution. This is the "why we love it" message and must be kept: **„Postavili jsme WBoost pro sebe a používáme ho každý den při vlastní práci. Jen tak jsme si jistí, že děláme produkt, který opravdu funguje – protože každou chybu potkáme dřív než vy."**
-- Under the quote, three short facts in a row: **Používáme ho denně na vlastní klienty** · **Každou funkci nejdřív zkoušíme na sobě** · **Co nás štve, opravíme – nečekáme na tiket**
+- Under the quote, three short facts in a row: **Tři roky používání jen pro sebe** · **Každou funkci nejdřív zkoušíme na vlastních klientech** · **Co nás štve, opravíme – nečekáme na tiket**
 
 ### 5.10 Cena — "Žádný ceník. Nejdřív vyzkoušejte." (id: cena)
 
@@ -293,7 +294,7 @@ Don't:
 
 ## 8. Facts you may state, and facts you must not invent
 
-Safe to state (true in the product today): public manual URL without login; logo download in SVG/PNG/JPG per colour variant; HEX/CMYK/Pantone/RAL; 11 mockup layouts; 1:1, 4:5, 9:16 presets; mm/cm at 300 DPI, A4 = 2480×3508 px; one-click A5/A4/A3; synchronized templates propagate edits and structure to every format; preview = export render; PNG and ZIP export; history of the last 30 exports; gallery folders, trash with 7-day retention, HEIC conversion, 10 MB per upload; custom fonts with usage scan; e-mail signatures with vCard QR and test mail to 5 recipients; OAuth2 REST API with OpenAPI docs; MCP server with 9 tools and 4 scopes, OAuth 2.1 + PKCE, Claude Code plugin install in two commands; Czech-only UI; roles Uživatel/Designer/Administrátor; read-only sharing with clients; invite-gated registration.
+Safe to state (true in the product today): three years of internal use before opening up (founders' statement); public manual URL without login; logo download in SVG/PNG/JPG per colour variant; HEX/CMYK/Pantone/RAL; 11 mockup layouts; 1:1, 4:5, 9:16 presets; mm/cm at 300 DPI, A4 = 2480×3508 px; one-click A5/A4/A3; synchronized templates propagate edits and structure to every format; preview = export render; PNG and ZIP export; history of the last 30 exports; gallery folders, trash with 7-day retention, HEIC conversion, 10 MB per upload; custom fonts with usage scan; e-mail signatures with vCard QR and test mail to 5 recipients; OAuth2 REST API with OpenAPI docs; MCP server with 9 tools and 4 scopes, OAuth 2.1 + PKCE, Claude Code plugin install in two commands; Czech-only UI; roles Uživatel/Designer/Administrátor; read-only sharing with clients; invite-gated registration.
 
 Must be marked **[POTVRDIT]**, never asserted: customer names or logos; any response-time promise on registration; the exact founder titles and photos; "není to drahé" is fine, any number is not; Facebook/Instagram as "live" (it is "Dokončujeme"); a contact e-mail; a legal entity, address, terms and privacy pages; any hosting/GDPR/data-location claim.
 
