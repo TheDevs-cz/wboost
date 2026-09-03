@@ -130,7 +130,10 @@ return App::config([
                 'form_login' => [
                     'login_path' => 'login',
                     'check_path' => 'login',
-                    'default_target_path' => '/',
+                    // NOT '/': the apex is the static marketing site (D61 in
+                    // the infra repo), so a successful login must land on the
+                    // app's own entry point instead of the landing page.
+                    'default_target_path' => '/dashboard',
                     'enable_csrf' => true,
                 ],
                 'logout' => [

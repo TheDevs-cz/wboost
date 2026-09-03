@@ -28,8 +28,34 @@ permissions:
     packages: write
 
 jobs:
-    ship-production:
+    # A landing-only change must not rebuild and roll the PHP app (D61). This
+    # preflight FAILS OPEN: on any doubt about what changed, ship. Never skip a
+    # real deploy to save a build.
+    changed:
+        runs-on: ubuntu-latest
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        outputs:
+            app: ${{ steps.f.outputs.app }}
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 2
+                  ref: ${{ github.event.workflow_run.head_sha }}
+            - id: f
+              shell: bash
+              run: |
+                  if ! files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) || [ -z "$files" ]; then
+                    echo "app=true" >> "$GITHUB_OUTPUT"; exit 0
+                  fi
+                  if echo "$files" | grep -qvE '^(landing|designs|docs)/'; then
+                    echo "app=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "app=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+    ship-production:
+        needs: changed
+        if: ${{ needs.changed.outputs.app == 'true' }}
         uses: TheDevs-cz/ci/.github/workflows/_ship.yml@v1
         secrets:
             DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}

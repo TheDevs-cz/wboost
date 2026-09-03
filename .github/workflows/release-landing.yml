@@ -1,0 +1,39 @@
+# Release landing — build the static marketing site's own nginx image and deploy
+# it to lily, independently of the PHP app (D61 in the infra repo).
+#
+# Triggers on a push to main that touches `landing/**` and NOTHING else gates
+# it: the whole point of the split is that a copy change deploys in seconds
+# without touching PHP. The link-integrity test
+# (tests/Controller/LandingContractTest.php) still runs on the same push in the
+# `Tests` workflow and turns that run red if a link breaks — a broken link is a
+# bug, not an outage.
+#
+# ⚠️ The repo secret is LANDING_DEPLOY_WEBHOOK_SECRET, NOT
+# DEPLOY_WEBHOOK_SECRET — that name is already taken by the `wboost` app's
+# deploy hook and overwriting it would break the application's deploys. Set it
+# by hand (`gh secret set`); do NOT run lily.srv/deploy/add-app.sh --apply
+# against this repo, it hard-codes the shared name.
+
+name: Release landing
+
+on:
+    push:
+        branches: [main]
+        paths: ['landing/**']
+
+permissions:
+    contents: read
+    packages: write
+
+jobs:
+    ship:
+        uses: TheDevs-cz/ci/.github/workflows/_ship.yml@v1
+        secrets:
+            DEPLOY_WEBHOOK_SECRET: ${{ secrets.LANDING_DEPLOY_WEBHOOK_SECRET }}
+        with:
+            app: wboost-landing
+            image: ghcr.io/thedevs-cz/wboost-landing
+            context: landing
+            dockerfile: Dockerfile
+            deploy_host: lily.srv.thedevs.cz
+            await_deploy: false
