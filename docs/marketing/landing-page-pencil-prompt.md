@@ -244,7 +244,16 @@ Full-bleed ink band. **Přestaňte dělat stejný plakát podesáté.** Subline:
 
 ### 5.13 Footer
 
-Ink. Wordmark (white version), one-line description **Brand manuály, šablony a export pro grafiky a marketingové týmy.** Columns: **Produkt** (Funkce, Jak to funguje, Cena, Přihlásit se, Registrace) · **Pro vývojáře** (Dokumentace API, AI a MCP server, GitHub: TheDevs-cz/wboost) · **Kontakt** (**[POTVRDIT]** contact e-mail, company legal name and address — none exists in the codebase; use `kontakt@wboost.cz` as a placeholder and mark it). Bottom line: **© 2026 TheDevs · wboost.cz** and placeholder links **Ochrana osobních údajů · Obchodní podmínky** **[POTVRDIT]**.
+Ink. Wordmark (white version), one-line description **Brand manuály, šablony a export pro grafiky a marketingové týmy.** Columns: **Produkt** (Funkce, Jak to funguje, Cena, Přihlásit se, Registrace) · **Pro vývojáře** (Dokumentace API, AI a MCP server, GitHub: TheDevs-cz/wboost) · **Kontakt** with the real company block, set small in Nunito:
+
+```
+Wantoo Design s. r. o.
+Zámecké nám. 24, 738 01 Frýdek-Místek
+IČ: 11971193 · DIČ: CZ11971193
+info@wantoo.cz
+```
+
+The e-mail is a `mailto:` link. Bottom line: **© 2026 Wantoo Design s. r. o. · wboost.cz** and placeholder links **Ochrana osobních údajů · Obchodní podmínky** **[POTVRDIT]** (the pages do not exist yet). The commercial-register line (*Společnost je zapsána v obchodním rejstříku vedeném Krajským soudem v Ostravě, oddíl C, vložka 87377.*) goes on the terms page, not in the footer. Bank details never appear on the landing page.
 
 ## 6. Visual direction — how to not look stock
 
@@ -296,7 +305,9 @@ Don't:
 
 Safe to state (true in the product today): three years of internal use before opening up (founders' statement); public manual URL without login; logo download in SVG/PNG/JPG per colour variant; HEX/CMYK/Pantone/RAL; 11 mockup layouts; 1:1, 4:5, 9:16 presets; mm/cm at 300 DPI, A4 = 2480×3508 px; one-click A5/A4/A3; synchronized templates propagate edits and structure to every format; preview = export render; PNG and ZIP export; history of the last 30 exports; gallery folders, trash with 7-day retention, HEIC conversion, 10 MB per upload; custom fonts with usage scan; e-mail signatures with vCard QR and test mail to 5 recipients; OAuth2 REST API with OpenAPI docs; MCP server with 9 tools and 4 scopes, OAuth 2.1 + PKCE, Claude Code plugin install in two commands; Czech-only UI; roles Uživatel/Designer/Administrátor; read-only sharing with clients; invite-gated registration.
 
-Must be marked **[POTVRDIT]**, never asserted: customer names or logos; any response-time promise on registration; the exact founder titles and photos; "není to drahé" is fine, any number is not; Facebook/Instagram as "live" (it is "Dokončujeme"); a contact e-mail; a legal entity, address, terms and privacy pages; any hosting/GDPR/data-location claim.
+Must be marked **[POTVRDIT]**, never asserted: customer names or logos; any response-time promise on registration; the exact founder titles and photos; "není to drahé" is fine, any number is not; Facebook/Instagram as "live" (it is "Dokončujeme"); terms and privacy pages (they do not exist yet); any hosting/GDPR/data-location claim.
+
+Confirmed and safe to use: the legal entity is **Wantoo Design s. r. o.**, Zámecké nám. 24, 738 01 Frýdek-Místek, IČ 11971193, DIČ CZ11971193, contact **info@wantoo.cz**. The GitHub organisation stays TheDevs-cz.
 
 ## 9. Definition of done
 
