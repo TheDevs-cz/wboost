@@ -280,10 +280,31 @@ pro koho (`#pro-koho`), příběh (`#pribeh`), cena (`#cena`), FAQ, final CTA, f
 
 **Never let two dark sections touch.** Two bands of the same ink meeting produce no boundary
 at all — the break vanishes and they read as one enormous block with a hole where the two
-paddings meet. It happened twice during design and was invisible until someone scrolled the
-real thing. The footer is the single permitted dark→dark boundary, and it earns it with both
-a tonal step (`#313a46` → `#20262f`) **and** `border-top: 1px solid #ffffff1a`. If you ever
-reorder or add a section, re-check this first.
+paddings meet. It happened twice during design and was invisible until the page was scrolled
+end to end. The footer is the single permitted dark→dark boundary, and it earns it with both
+a tonal step (`#313a46` → `#20262f`) **and** `border-top: 1px solid #ffffff1a`.
+
+**And check the sequence in BOTH states, because Reference ships hidden (§4.1b).** With it
+removed the order becomes … Pro koho (paper) → Příběh (warm) → Cena (ink) …: no dark pair,
+but it does put the two lightest surfaces (`#fafbfe` → `#f4f1ea`) against each other. That is
+why **Příběh carries a permanent `border-top: 1px solid #e3ddd0`** — invisible when Reference
+is shown, load-bearing when it is not. Do not "clean it up" as a redundant rule.
+
+Two seams are marked; every other boundary is a paper↔ink contrast change and needs nothing:
+
+| Seam | Treatment |
+|---|---|
+| Final CTA → Footer | tonal step + `border-top: 1px solid #ffffff1a` |
+| Pro koho → Příběh (whenever Reference is hidden) | `border-top: 1px solid #e3ddd0` on Příběh |
+
+The light opening run (Problém → Jak to funguje) is deliberately unmarked — each section
+leads with an eyebrow and a large serif title and the content is dense enough to chunk on its
+own. Hairlines there would over-segment an editorial page.
+
+**The real rule, stated generally:** a section boundary needs either a contrast change or an
+explicit marker. Two tonally-close surfaces meeting across ~250 px of combined padding is what
+kills it — that is the failure mode, not "dark" specifically. Re-check whenever you reorder,
+add, or toggle a section.
 
 ### 4.1b The Reference section ships hidden
 

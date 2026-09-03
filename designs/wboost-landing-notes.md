@@ -99,13 +99,30 @@ Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #20262f
 - **Rhythm**: paper ×5 → **ink** (Showcase) → paper (Moduly) → **ink** (AI) → paper
   (Pro koho) → **ink** (Reference) → **warm paper `#f4f1ea`** (Příběh) → **ink** (Cena) →
   paper (FAQ) → **ink** (Final CTA) → **deeper ink `#20262f`** (Footer).
-  **No two dark sections are ever adjacent** — that is a hard rule, not a preference. Two
-  bands of the same ink meeting have no visible boundary at all, so a section break simply
-  disappears and the two read as one enormous block with a hole in the middle (both
-  paddings meeting). It bit twice: the Reference section was first inserted one index too
-  low and landed against *Cena*, and the Final CTA and Footer were both put on `#28303a`.
-  The footer is the one permitted dark→dark boundary, and it carries **both** a real tonal
-  step (`#313a46` → `#20262f`) **and** a `#ffffff1a` top hairline.
+  **No two dark sections are ever adjacent** — a hard rule, not a preference. Two bands of
+  the same ink meeting have no visible boundary at all: the break disappears and they read as
+  one enormous block with a hole in the middle (the two paddings meeting). It bit twice — the
+  Reference section was first inserted one index too low and landed against *Cena*, and the
+  Final CTA and Footer were both put on `#28303a`.
+
+  **The order must be valid in BOTH states**, because *Reference* ships hidden. Verified with
+  it disabled: the sequence becomes … Pro koho (paper) → **Příběh (warm)** → Cena (ink) …, so
+  no dark pair appears — but it does put the page's two lightest surfaces next to each other
+  (`#fafbfe` → `#f4f1ea`), which is the softest seam on the page. *Příběh* therefore carries a
+  permanent `#e3ddd0` top hairline: irrelevant when Reference is shown (ink above it already
+  does the work), and the thing that keeps the boundary legible when it is not.
+
+  Two seams are marked rather than relying on contrast alone:
+
+  | Seam | Treatment |
+  |---|---|
+  | Final CTA → Footer | tonal step `#313a46` → `#20262f` **and** `#ffffff1a` top hairline |
+  | Pro koho → Příběh (whenever Reference is hidden) | `#e3ddd0` top hairline on *Příběh* |
+
+  Every other boundary is a paper↔ink contrast change and needs nothing. The light opening
+  run (Problém → Jak to funguje) is deliberately left unmarked: each section leads with an
+  eyebrow and a 44 px serif title, and the content blocks are dense enough to chunk on their
+  own — adding hairlines there would over-segment an editorial page.
 - **Asymmetry**: the hero composition overlaps the right edge (the "Publikováno na
   Facebook" toast is cut by it on purpose); the showcase format row bleeds off-canvas
   at the 9:16; the Final CTA is a single big line in an almost empty band.
