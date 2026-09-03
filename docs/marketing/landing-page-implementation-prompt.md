@@ -23,9 +23,9 @@ no Node, no build step, no framework.** It never imports from `assets/`, never r
 never links to its stylesheet. You could delete the whole Symfony app and the landing page
 would still open in a browser.
 
-The two systems share exactly **one** thing: a handful of URLs the landing links to
-(`/registration`, `/login`, `/api/docs`, `/ai`). That is the only coupling, and §7 puts a
-test on it.
+The two systems share a domain and nothing else. That creates exactly two couplings — the
+URLs the landing links into the app, and the paths the app must never claim back — and §7
+puts one test file on both.
 
 ### Two axes of independence — be honest about which one you get
 
@@ -93,11 +93,17 @@ controllers `redirectToRoute('homepage')`.
 4. **`config/packages/security.php`** — two edits:
    - `firewalls.main.form_login.default_target_path`: `'/'` → `'/dashboard'`. Without this,
      every successful login lands on the marketing page.
-   - Add `['path' => '^/$', 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS]]` **above** the
-     `^/` catch-all. Anchor it with `$` — `^/` alone would open the entire app. This is
-     belt-and-braces: if the static file is ever missing or the serving rule is wrong, `/`
-     falls through to Symfony and you get a clean 404 instead of a silent redirect to
-     `/login`, which is a far more confusing thing to debug.
+   - Add two PUBLIC_ACCESS rules **above** the `^/` catch-all, one per shape:
+
+     ```php
+     ['path' => '^/$',                                        'roles' => [AuthenticatedVoter::PUBLIC_ACCESS]],
+     ['path' => '^/(ochrana-osobnich-udaju|obchodni-podminky)$', 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS]],
+     ```
+
+     Anchor both with `$` — `^/` alone would open the entire app. This is belt-and-braces:
+     these paths belong to nginx, but if the container is down or a router rule is wrong they
+     fall through to Symfony, and a clean 404 is a far easier thing to debug than a silent
+     redirect to `/login`. Extend the second rule whenever a static page is added.
    - `firewalls.main.logout.target` stays `'/'` — logging out onto the landing page is right.
 5. **Tests.** Rename `tests/Controller/HomepageControllerTest.php` →
    `DashboardControllerTest.php` and retarget both cases at `/dashboard` (anonymous →
@@ -114,15 +120,26 @@ landing/
   README.md                  ← how to open it, how it is served, where the design lives
   Dockerfile                 ← §5.1 (nginx:alpine)
   nginx.conf                 ← §5.1 (caching + gzip only)
+  traefik-rule.txt           ← §7 golden file: the router rule the pages below imply
   src/
-    index.html
-    _lp/
-      landing.css
-      landing.js
+    index.html                       →  /
+    ochrana-osobnich-udaju.html      →  /ochrana-osobnich-udaju
+    obchodni-podminky.html           →  /obchodni-podminky
+    landing/
+      style.css
+      script.js
       fonts/*.woff2
       img/logo.svg
       img/og-cover.png
 ```
+
+**This is a multi-page site, not one page.** `src/*.html` is the page set and the filesystem
+is its source of truth: `index.html` serves `/`, every other `<slug>.html` serves `/<slug>`
+extensionless. Shared assets live under `src/landing/` and are served at `/landing/…`.
+
+The two legal pages are **required before launch** — the footer links to them today as
+placeholders. Their content is a legal question, not a design one; ship the routing and the
+page shell now and let Jan and Lukáš supply the text.
 
 `landing/src/` is the document root of the site and the only thing that ends up inside the
 image. That layout is host-agnostic: it works unchanged in the nginx container, from the
@@ -130,9 +147,11 @@ filesystem, or on any static host if the deployment ever moves.
 
 ### 3.1 Path rules — the one thing to get right
 
-- **Own assets: relative.** `_lp/landing.css`, `_lp/img/logo.svg`. Relative paths mean
-  `open landing/src/index.html` renders the finished page straight off the filesystem with no
-  server at all, which is the whole point of having no build step.
+- **Own assets: root-relative.** `/landing/style.css`, `/landing/img/logo.svg`. Root-relative
+  (not `landing/style.css`) because the site is now multi-page and `/ochrana-osobnich-udaju`
+  sits at a different depth than `/` — a relative path would resolve differently per page.
+  The cost is that `open landing/src/index.html` no longer works off the filesystem; use the
+  dev container on `:8090` (§5.2), which is one command.
 - **App links: root-relative.** `/registration`, `/login`, `/api/docs`, `/ai`. Never
   hard-code `https://wboost.cz/...` — root-relative keeps dev, prod and any future host
   working, and §7's test can verify them.
@@ -141,18 +160,26 @@ filesystem, or on any static host if the deployment ever moves.
 
 ### 3.2 No build step
 
-One page, two people. Plain `index.html` + one CSS + one JS: nothing to install, nothing to
-audit, nothing to rot. The cost is that the client artworks repeat in the markup (the match
-graphic appears four times in the showcase, the water notice three times) — that is fine and
-reviewable, and §4.2's `em`-scaling means each copy differs by one class. If the duplication
-ever becomes painful, 11ty can be added later without changing a single output path.
+Three pages, two people. Plain HTML + one CSS + one JS: nothing to install, nothing to audit,
+nothing to rot. Two kinds of duplication are accepted:
+
+- **Within the landing page**, the client artworks repeat (the match graphic four times in the
+  showcase, the water notice three) — §4.2's `em`-scaling means each copy differs by one class.
+- **Across pages**, the nav and footer are copied into the two legal pages. At three pages that
+  is ~60 duplicated lines and entirely reviewable.
+
+**Know where the line is.** Past roughly four or five pages with shared chrome, that second
+duplication stops being cheap and a tiny generator (11ty) earns its place. It can be added
+later without changing a single output path, so this is a threshold to watch, not a decision
+to pre-empt. The legal pages are deliberately minimal — nav, a prose column, footer — so they
+add almost nothing to maintain.
 
 **Budget: CSS under 40 KB uncompressed, JS under 3 KB, zero images except the logo SVG and
 the OG cover.** If you are past the CSS budget you are repeating yourself.
 
 ### 3.3 CSS architecture
 
-One hand-written file, `landing/src/_lp/landing.css`. No Tailwind, no Bootstrap, no
+One hand-written file, `landing/src/landing/style.css`, shared by every page. No Tailwind, no Bootstrap, no
 preprocessor, no utility soup.
 
 - Every class prefixed `lp-` — for greppability, not isolation; there is nothing to isolate
@@ -187,7 +214,7 @@ preprocessor, no utility soup.
 ### 3.4 Fonts — self-hosted, three families
 
 Instrument Serif 400; Nunito 400/600/700/800; IBM Plex Mono 400. **woff2 only**, in
-`landing/src/_lp/fonts/`, declared with `@font-face` and `font-display: swap`.
+`landing/src/landing/fonts/`, declared with `@font-face` and `font-display: swap`.
 
 Do not link Google Fonts: this page sells to Czech designers and agencies, a third-party font
 request is a GDPR conversation nobody needs, and self-hosting removes a render-blocking DNS
@@ -199,7 +226,7 @@ Preload the two faces used above the fold (Instrument Serif 400, Nunito 700).
 
 ### 3.5 The logo, and the light lockup
 
-Copy `assets/images/logo-lg.svg` to `landing/src/_lp/img/logo.svg` — one duplicated file
+Copy `assets/images/logo-lg.svg` to `landing/src/landing/img/logo.svg` — one duplicated file
 keeps the site self-contained, and the wordmark has not changed in years.
 
 Inline it in the HTML rather than using `<img>`, put a class on each path, and drive both
@@ -333,15 +360,16 @@ server {
     gzip_types text/html text/css application/javascript image/svg+xml;
     # woff2 is already compressed — deliberately not in gzip_types.
 
-    location = / {
+    # Extensionless page URLs: /ochrana-osobnich-udaju -> ochrana-osobnich-udaju.html
+    location / {
         add_header Cache-Control "no-cache";
-        try_files /index.html =404;
+        try_files $uri $uri.html /index.html =404;
     }
 
     # Filenames are NOT fingerprinted (no build step), so only the fonts — which
     # genuinely never change — may be cached immutably.
-    location /_lp/fonts/ { add_header Cache-Control "public, max-age=31536000, immutable"; }
-    location /_lp/       { add_header Cache-Control "public, max-age=600"; }
+    location /landing/fonts/ { add_header Cache-Control "public, max-age=31536000, immutable"; }
+    location /landing/       { add_header Cache-Control "public, max-age=600"; }
 }
 ```
 
@@ -401,7 +429,7 @@ marketingové týmy"*. Meta description from the hero subhead. `<html lang="cs">
 `SoftwareApplication`. Invent nothing — check §8 of the design brief first.
 
 **The OG image does not exist.** Export a 1200×630 crop of the hero composition from Pencil
-into `landing/src/_lp/img/og-cover.png`, or ship without `og:image` and flag it as a follow-up.
+into `landing/src/landing/img/og-cover.png`, or ship without `og:image` and flag it as a follow-up.
 Do not link a placeholder.
 
 **`public/robots.txt` already exists** (`User-agent: * / Disallow:` — allow everything) and
@@ -427,28 +455,54 @@ wrong.
 
 ---
 
-## 7. The one permitted coupling, and its test
+## 7. The contract between the two systems — one test file, three assertions
 
-The landing links into the app. That is the only dependency, and it is the one that will
-silently rot the day someone renames a route.
+The landing and the app are independent code, but they share a domain, and that creates
+exactly two ways for them to drift apart. Both go in
+`tests/Controller/LandingContractTest.php` — the **only** file in `tests/` that knows the
+landing exists. Skip the whole test with a clear message if `landing/src/` is absent, so the
+app's suite still runs in a checkout that has not built the landing.
 
-Add `tests/Controller/LandingLinkTargetsTest.php` — the only file in `tests/` that knows the
-landing exists:
+**Derive everything from the filesystem.** `landing/src/*.html` is the page set:
+`index.html` → `/`, every other `<slug>.html` → `/<slug>`. Nothing is hard-coded, so adding a
+page is picked up automatically.
 
-- read `landing/src/index.html` (skip the test with a clear message if the file is absent, so
-  the app's suite still runs in a checkout that has not built the landing yet);
-- extract every `href` starting with `/` and **not** with `/_lp/`;
-- assert each one resolves against the real router
-  (`self::getContainer()->get('router')`, `UrlMatcherInterface::match()`), so a renamed or
-  deleted route fails the build with the offending href in the message.
+**1. Landing → app links resolve.** Extract every `href` starting with `/` that is not a
+landing-owned path, and assert each resolves against the real router
+(`self::getContainer()->get('router')`, `UrlMatcherInterface::match()`). Today that is
+`/registration`, `/login`, `/api/docs`, `/ai`. A renamed route fails the build with the
+offending href in the message.
 
-Today that set is `/registration`, `/login`, `/api/docs`, `/ai`. Do not hard-code the list —
-derive it from the HTML, so a link added later is covered automatically.
+**2. The app never shadows a landing path.** For `/`, each page URL, and a representative
+`/landing/style.css`, assert the router does **not** match (expect
+`ResourceNotFoundException`). This is the assertion that makes `/landing/` safe without the
+underscore: the day someone adds a Symfony route under it, or re-adds a `/` route, this fails
+loudly instead of silently shadowing the static site.
 
-That is the whole contract. No other test may read anything under `landing/`, and nothing
-under `landing/` may read anything from the app.
+**3. The Traefik rule is in sync.** Generate the router rule the page set implies and assert
+it equals the committed `landing/traefik-rule.txt`:
 
----
+```
+Host(`wboost.cz`) && (Path(`/`) || Path(`/index.html`) || PathPrefix(`/landing/`) || Path(`/obchodni-podminky`) || Path(`/ochrana-osobnich-udaju`))
+```
+
+Sort the page paths so the output is deterministic. On mismatch, fail with the **new rule
+printed verbatim** and the instruction to paste it into
+`apps/wboost-landing/compose.yaml` in the infra repo. That turns the one unavoidable
+cross-repo duplication into a build failure with the fix in the message, instead of a
+convention nobody remembers.
+
+### Adding a static page later — the whole checklist
+
+1. `landing/src/<slug>.html` (copy a legal page for the nav/footer chrome).
+2. Run the tests; assertion 3 fails and prints the new rule. Commit the regenerated
+   `landing/traefik-rule.txt`.
+3. Infra repo: paste the rule into `apps/wboost-landing/compose.yaml`, **push that first**.
+4. App repo: add the slug to the `security.php` PUBLIC_ACCESS rule, push `landing/**`.
+
+Step 4's push builds and deploys the nginx image, and that deploy applies the compose.yaml the
+reconciler already delivered in step 3 — so the new route goes live on the landing's own
+deploy. **No separate infra window, as long as step 3 lands before step 4.**
 
 ## 8. Commands
 
@@ -469,11 +523,14 @@ should be essentially instant; check the network panel shows **nothing** from `/
 
 ## 9. Definition of done
 
-- `landing/src/index.html` opens correctly straight from the filesystem, with no server.
+- `docker compose up -d landing` serves all three pages correctly on `:8090`.
 - Nothing under `landing/` references the app's code; nothing in `src/`, `templates/` or
-  `assets/` references the landing. `tests/Controller/LandingLinkTargetsTest.php` is the
-  single exception and it only reads URLs.
-- All 14 sections present in order, copy verbatim, at all four widths.
+  `assets/` references the landing. `tests/Controller/LandingContractTest.php` is the single
+  exception and it only reads URLs and page filenames.
+- `/`, `/ochrana-osobnich-udaju` and `/obchodni-podminky` serve from nginx;
+  `landing/traefik-rule.txt` matches the rule deployed in `apps/wboost-landing/compose.yaml`.
+- All 14 sections present in order, copy verbatim, at all four widths; both legal pages exist
+  as shells with the shared nav and footer.
 - CSS under 40 KB, JS under 3 KB, fonts self-hosted as woff2.
 - `GET /dashboard` behaves like the old `/`; login lands on `/dashboard`; logout lands on `/`.
 - No reference to `homepage` remains in `src/`, `templates/` or `tests/`.
@@ -488,6 +545,7 @@ should be essentially instant; check the network panel shows **nothing** from `/
 ## 10. Out of scope
 
 Analytics and any cookie/consent banner (there is none in the app today; adding one is a
-separate decision). A CMS or editable copy. A/B testing. A blog. The privacy and terms pages
-themselves. Any change to the app behind the login beyond the route move. Moving the app to a
+separate decision). A CMS or editable copy. A/B testing. A blog. **The legal text itself** —
+build the two pages as shells with the shared chrome and a prose column; Jan and Lukáš supply
+the wording. Any change to the app behind the login beyond the route move. Moving the app to a
 subdomain — see §0.
