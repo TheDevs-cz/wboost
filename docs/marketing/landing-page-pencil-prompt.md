@@ -17,6 +17,8 @@
 
 Design the public marketing landing page for **WBoost** (https://wboost.cz) in Pencil.
 
+**The bar.** The audience is graphic designers and marketers — people who judge design for a living and close a templated page in the first scroll. The page has to be beautiful in the way a design studio's own site is beautiful: confident typography, deliberate whitespace, a visual signature that belongs only to this product, craft in the details. Treat "looks like a SaaS template" as a failed build, not a style choice. If a section could be dropped into any other startup's site unchanged, redo it.
+
 Deliverables:
 
 - `designs/wboost-landing.pen` with three top-level frames: **Desktop 1440** (the full page, every section in §5), **Mobile 390** (the same content, single column, same components) and **Components** (buttons, chips, cards, the product-UI fragments you build).
@@ -28,7 +30,8 @@ Workflow in Pencil:
 1. `get_app_state({ include_schema: true, include_canvas_design: true, include_scripts_and_shaders: false })`.
 2. `get_guidelines()` — load the guide for marketing websites / landing pages. Browse the styles and load the ONE closest to "editorial, typographic, product-led SaaS". Then override its colours and fonts with the tokens in §3. Do not ship the style's stock palette or stock font pairing.
 3. Build the desktop page section by section in the order of §5, as auto-layout frames on an 8 px grid. After every section validate and screenshot it; fix overflow, overlap and contrast before moving on. Only then build mobile from the same components.
-4. Write the notes file last.
+4. **Self-critique pass, mandatory.** Screenshot the finished desktop page and review it against §6 as a hostile art director would: Which sections could be from a template? Where is the visual signature missing? Where does the type hierarchy go flat? Which product fragment looks like a wireframe? Fix every finding, then re-screenshot. Do this twice.
+5. Write the notes file last, including what the critique pass changed.
 
 What is fixed: the Czech copy, the brand tokens, the section list and order, the link targets, the "not stock" rules in §6. What is yours: composition, grid, type scale, spacing rhythm, how you draw the product-UI fragments, motion hints. Treat §6 and §7 as direction, not as a pixel spec.
 
@@ -245,6 +248,18 @@ Ink. Wordmark (white version), one-line description **Brand manuály, šablony a
 ## 6. Visual direction — how to not look stock
 
 Aim: a page that could only be WBoost's, read as designed by a designer for designers. The product's own UI gives you the motifs; use them instead of generic SaaS decoration.
+
+Reference points for tone only, never for copying: the product-led restraint of Linear and Vercel, the typographic confidence of Pitch and Raycast, the editorial rhythm of a good studio portfolio. WBoost should sit next to those, in its own palette and with its own motifs.
+
+Craft details the audience will notice:
+
+- Optical alignment over mathematical — hang punctuation and the Czech quotation marks „ " on large quotes, align icons to the x-height, balance headline line breaks by hand.
+- Tabular figures in chips and numbers (1080 × 1080, 300 DPI, 2480 × 3508 px), the multiplication sign ×, real en dashes –, non-breaking spaces after one-letter Czech prepositions (v, k, s, z, a, i, o, u).
+- Icons drawn in one consistent stroke weight (1.5 px at 20 px), from one set, or none at all; never mixed sets, never filled-blob icons.
+- Product fragments at true UI density: 13–14 px labels, 32 px controls, 1 px hairlines, states shown (one selected layer, one focused field, one disabled toggle).
+- A single signature element repeated with intent — recommended: the dashed editable outline with its icon cluster, appearing in the hero, once in the modules grid and once as a tiny detail in the footer.
+- Whitespace as a design element: section paddings of 120–160 px on desktop, not 64; let one section be almost empty around a single big line.
+- Consistent corner radii, one shadow, one hairline colour per surface — no visual noise from mixed tokens.
 
 Do:
 
