@@ -258,7 +258,13 @@ lockups from CSS:
 ```
 
 The path data and `viewBox="0 0 1099.07 298.68"` are in the file; the `boost` letters are the
-five paths carrying `fil2`/`fil3`. Size with `width` + `height:auto`. Do not redraw anything.
+five paths carrying `fil2`/`fil3`. Do not redraw anything.
+
+**Size the `<svg>` itself** — `width: 118px; height: auto` on the element, letting the viewBox
+scale the paths. Do not size a wrapper and expect the artwork to follow: that exact mistake in
+the design file left every lockup rendering at its native 176 × 48 inside a 118 × 32 frame, so
+the glyphs overflowed downward and the nav logo sat almost on the bottom border. Sizes: nav
+118 px wide, footer 150, mobile nav 104, mobile footer 138.
 
 The ink-on-paper lockup is **[POTVRDIT]** — flag it in the PR description.
 
