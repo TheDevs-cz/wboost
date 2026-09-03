@@ -81,9 +81,9 @@ Mobile: H1 40 / section titles 34 / body 16–17.
 - One idea borrowed from *Editorial Landscape Stack*: the three typographic voices above.
 
 Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #20262f` (footer only),
-`paper #fafbfe`, `paper-warm #f4f1ea`, `primary #727cf5`, `primary-hover #5b66e0`,
+`paper #fafbfe`, `paper-alt #f1f3f7`, `primary #727cf5`, `primary-hover #5b66e0`,
 `primary-tint #eef0fe`, `slate #8491a0`, `logo-accent #7075b5`, `text-head #313a46`,
-`text-body #6c757d`, `border #dee2e6`, `border-ink #8491a03d`, `success #0acf97`,
+`text-body #6c757d`, `border #dee2e6`, `border-alt #dde2e9`, `border-ink #8491a03d`, `success #0acf97`,
 `danger #fa5c7c`, `demo-green #1e4a3b`, `demo-brick #9c3a24`, plus the three font names.
 
 ---
@@ -97,7 +97,7 @@ Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #20262f
   tiles; one hairline per surface (`#dee2e6` on paper, `#8491a03d` on ink). One soft
   ambient shadow, used only on floating popovers, the hero artwork and the toast.
 - **Rhythm**: paper ×5 → **ink** (Showcase) → paper (Moduly) → **ink** (AI) → paper
-  (Pro koho) → **ink** (Reference) → **warm paper `#f4f1ea`** (Příběh) → **ink** (Cena) →
+  (Pro koho) → **ink** (Reference) → **recessed grey `#f1f3f7`** (Příběh) → **ink** (Cena) →
   paper (FAQ) → **ink** (Final CTA) → **deeper ink `#20262f`** (Footer).
   **No two dark sections are ever adjacent** — a hard rule, not a preference. Two bands of
   the same ink meeting have no visible boundary at all: the break disappears and they read as
@@ -108,8 +108,8 @@ Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #20262f
   **The order must be valid in BOTH states**, because *Reference* ships hidden. Verified with
   it disabled: the sequence becomes … Pro koho (paper) → **Příběh (warm)** → Cena (ink) …, so
   no dark pair appears — but it does put the page's two lightest surfaces next to each other
-  (`#fafbfe` → `#f4f1ea`), which is the softest seam on the page. *Příběh* therefore carries a
-  permanent `#e3ddd0` top hairline: irrelevant when Reference is shown (ink above it already
+  (`#fafbfe` → `#f1f3f7`), which is the softest seam on the page. *Příběh* therefore carries a
+  permanent `#dde2e9` top hairline: irrelevant when Reference is shown (ink above it already
   does the work), and the thing that keeps the boundary legible when it is not.
 
   Two seams are marked rather than relying on contrast alone:
@@ -117,7 +117,7 @@ Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #20262f
   | Seam | Treatment |
   |---|---|
   | Final CTA → Footer | tonal step `#313a46` → `#20262f` **and** `#ffffff1a` top hairline |
-  | Pro koho → Příběh (whenever Reference is hidden) | `#e3ddd0` top hairline on *Příběh* |
+  | Pro koho → Příběh (whenever Reference is hidden) | `#dde2e9` top hairline on *Příběh* |
 
   Every other boundary is a paper↔ink contrast change and needs nothing. The light opening
   run (Problém → Jak to funguje) is deliberately left unmarked: each section leads with an
@@ -191,7 +191,7 @@ brand colour, never stock photography (§6).
   command block and the guide link on the right.
 - **Pro koho** — three cards, the developer card inverted to ink. Titles and outcome
   sentences are height-locked so the three "CO DOSTANETE" lists align.
-- **Příběh (warm paper)** — copy left, founder cards + timeline right, then the pull-quote
+- **Příběh (recessed grey)** — copy left, founder cards right, then the pull-quote
   set at 38 px in the display face with the opening `„` optically hung into the left
   margin, then three facts under 2 px rules.
 - **Cena (ink)** — no table, no tiers. Big statement left, three checked facts and the CTA
@@ -301,6 +301,32 @@ Seven changes, all requested by Jan after seeing the first build:
    left the **Produkt** heading became noise and went too. Consequence for §11: `/api/docs` is
    no longer linked from anywhere on the page — `/ai` still is, from the AI section's
    *Průvodce připojením →*.
+
+## 6c. Second revision — 2026-09-03, later the same evening
+
+8. **The warm cream on *Příběh* is gone.** §6 of the design brief explicitly permits "one
+   optional warm tint … the story section on `#f4f1ea`", and it did stop the page feeling
+   clinical — but on a page whose entire colour story is *one* accent plus an ink/paper
+   system, a cream surface reads as a fourth colour with no reason, and the first question it
+   provokes is "why is this yellow?". A colour that needs explaining is the wrong colour.
+   Replaced with a **neutral recessed grey `#f1f3f7`** — a tone, not a hue — and everything
+   inside the section was remapped off the warm greys (`#e4dfd4` photo placeholders,
+   `#6f6a5e` captions, `#d8d1c1` rules) onto neutral equivalents. Tokens: `paper-warm` →
+   **`paper-alt #f1f3f7`**, plus a new **`border-alt #dde2e9`** for its hairlines.
+
+   Inner shadows on the section were tried as an alternative and rejected: Pencil's inner
+   shadow has no usable spread, so it vignettes the left and right edges of a full-bleed
+   band, and a section shadow breaks the page's own rule of **one shadow, floating popovers
+   only**. A flat tone plus a hairline is both cleaner and in-system.
+
+9. **The wordmark was rendering 50 % too large everywhere.** Symptom: in the nav the logo
+   nearly touched the bottom border. Cause: every lockup is a `Copy` of the component with a
+   `descendants` map resizing the seven paths, and **that override silently did not apply** —
+   the paths kept the component's native 176 × 48 while their frame was 118 × 32, so the
+   glyphs overflowed the frame downward. Fixed by setting each path's `width`/`height`
+   explicitly after the copy, on all eight lockups (two navs, two footers, and the same pair
+   on both legal artboards). Worth knowing when coding: **size the inlined SVG by its own
+   `width` + `height:auto`**, never by a wrapper the paths do not inherit from.
 
 ## 7. Motion hints (annotated, not animated)
 

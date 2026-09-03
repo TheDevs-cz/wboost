@@ -209,11 +209,11 @@ preprocessor, no utility soup.
 ```css
 :root {
   --lp-ink:#313a46; --lp-ink-deep:#20262f; --lp-ink-soft:#3a4453;
-  --lp-paper:#fafbfe; --lp-paper-warm:#f4f1ea; --lp-white:#fff;
+  --lp-paper:#fafbfe; --lp-paper-alt:#f1f3f7; --lp-white:#fff;
   --lp-primary:#727cf5; --lp-primary-hover:#5b66e0; --lp-primary-tint:#eef0fe;
   --lp-slate:#8491a0; --lp-logo-accent:#7075b5;
   --lp-text-head:#313a46; --lp-text-body:#6c757d;
-  --lp-border:#dee2e6; --lp-border-ink:#8491a03d;
+  --lp-border:#dee2e6; --lp-border-alt:#dde2e9; --lp-border-ink:#8491a03d;
   --lp-success:#0acf97; --lp-danger:#fa5c7c;
   --lp-demo-green:#1e4a3b; --lp-demo-brick:#9c3a24;
   --lp-font-display:"Instrument Serif",Georgia,serif;
@@ -275,7 +275,7 @@ proof strip, problém, jak to funguje, showcase, moduly (`#funkce`), AI asistent
 pro koho (`#pro-koho`), příběh (`#pribeh`), cena (`#cena`), FAQ, final CTA, footer.
 
 **Section surfaces — one hard rule.** In order: paper ×5 → **ink** (Showcase) → paper
-(Moduly) → **ink** (AI) → paper (Pro koho) → **ink** (Reference) → **warm paper** (Příběh) →
+(Moduly) → **ink** (AI) → paper (Pro koho) → **ink** (Reference) → **recessed grey `#f1f3f7`** (Příběh) →
 **ink** (Cena) → paper (FAQ) → **ink** (Final CTA) → **deeper ink `#20262f`** (Footer).
 
 **Never let two dark sections touch.** Two bands of the same ink meeting produce no boundary
@@ -286,8 +286,8 @@ a tonal step (`#313a46` → `#20262f`) **and** `border-top: 1px solid #ffffff1a`
 
 **And check the sequence in BOTH states, because Reference ships hidden (§4.1b).** With it
 removed the order becomes … Pro koho (paper) → Příběh (warm) → Cena (ink) …: no dark pair,
-but it does put the two lightest surfaces (`#fafbfe` → `#f4f1ea`) against each other. That is
-why **Příběh carries a permanent `border-top: 1px solid #e3ddd0`** — invisible when Reference
+but it does put the two lightest surfaces (`#fafbfe` → `#f1f3f7`) against each other. That is
+why **Příběh carries a permanent `border-top: 1px solid #dde2e9`** — invisible when Reference
 is shown, load-bearing when it is not. Do not "clean it up" as a redundant rule.
 
 Two seams are marked; every other boundary is a paper↔ink contrast change and needs nothing:
@@ -295,7 +295,7 @@ Two seams are marked; every other boundary is a paper↔ink contrast change and 
 | Seam | Treatment |
 |---|---|
 | Final CTA → Footer | tonal step + `border-top: 1px solid #ffffff1a` |
-| Pro koho → Příběh (whenever Reference is hidden) | `border-top: 1px solid #e3ddd0` on Příběh |
+| Pro koho → Příběh (whenever Reference is hidden) | `border-top: 1px solid #dde2e9` on Příběh |
 
 The light opening run (Problém → Jak to funguje) is deliberately unmarked — each section
 leads with an eyebrow and a large serif title and the content is dense enough to chunk on its
