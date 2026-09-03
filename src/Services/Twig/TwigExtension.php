@@ -38,6 +38,8 @@ final class TwigExtension extends AbstractExtension
             // The manual pages address their own texts by key; the enum carries
             // the defaults, so the template needs the case, not the string.
             new TwigFunction('manual_page', ManualPage::from(...)),
+            // The page a logo variant gets when it is shown on its own.
+            new TwigFunction('manual_logo_page', ManualPage::forLogoVariant(...)),
         ];
     }
 

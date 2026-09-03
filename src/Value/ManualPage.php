@@ -36,6 +36,25 @@ enum ManualPage: string
     case PrimaryFont = 'primary_font';
     case SecondaryFont = 'secondary_font';
 
+    // One page per logo variant, used only when the admin ticked
+    // "Zobrazovat variantu na samostatné stránce" for that variant.
+    case HorizontalPage = 'horizontal_page';
+    case HorizontalWithClaimPage = 'horizontal_with_claim_page';
+    case VerticalPage = 'vertical_page';
+    case VerticalWithClaimPage = 'vertical_with_claim_page';
+    case SymbolPage = 'symbol_page';
+
+    public static function forLogoVariant(LogoTypeVariant $variant): self
+    {
+        return match ($variant) {
+            LogoTypeVariant::Horizontal => self::HorizontalPage,
+            LogoTypeVariant::HorizontalWithClaim => self::HorizontalWithClaimPage,
+            LogoTypeVariant::Vertical => self::VerticalPage,
+            LogoTypeVariant::VerticalWithClaim => self::VerticalWithClaimPage,
+            LogoTypeVariant::Symbol => self::SymbolPage,
+        };
+    }
+
     public static function forFontType(ManualFontType $type): self
     {
         return match ($type) {
@@ -73,6 +92,11 @@ enum ManualPage: string
             self::SecondaryColors => 'Sekundární barevná paleta',
             self::PrimaryFont => 'Primární písmo',
             self::SecondaryFont => 'Sekundární písmo',
+            self::HorizontalPage => 'Horizontální logotyp',
+            self::HorizontalWithClaimPage => 'Horizontální logotyp se sloganem',
+            self::VerticalPage => 'Vertikální logotyp',
+            self::VerticalWithClaimPage => 'Vertikální logotyp se sloganem',
+            self::SymbolPage => 'Symbol',
         };
     }
 
@@ -96,6 +120,11 @@ enum ManualPage: string
             self::SecondaryColors => 'Sekundární barvy doplňují primární paletu a jsou určeny k použití ve vedlejších grafických prvcích, ikonách, tlačítkách a dalších podpůrných elementech. Jejich cílem je rozšířit barevný rozsah značky a umožnit flexibilnější aplikace, aniž by byla narušena vizuální soudržnost.',
             self::PrimaryFont => 'Je základním písmem vizuální identity značky a hraje klíčovou roli při vytváření konzistentního a profesionálního vzhledu napříč všemi komunikačními materiály. Pokud písmo obsahuje další řezy (např. Light, Medium, Semi-Bold), lze je použít pro specifické účely, vždy však v souladu s celkovou vizuální identitou značky.',
             self::SecondaryFont => 'Sekundární písmo slouží jako doplněk k primárnímu písmu a poskytuje značce větší flexibilitu při komunikaci. Obvykle je vybráno z písem, která jsou standardně dostupná na stolních počítačích. To je zvláště užitečné při jednoduché korespondenci, kdy materiály vytváří širší okruh lidí na různých zařízeních.',
+            self::HorizontalPage,
+            self::HorizontalWithClaimPage,
+            self::VerticalPage,
+            self::VerticalWithClaimPage,
+            self::SymbolPage => 'Přehled všech barevných variant logotypu. Variantu je nutné zvolit tak, aby logotyp na zvoleném pozadí měl vždy správný kontrast a zůstal plně čitelný.',
         };
     }
 

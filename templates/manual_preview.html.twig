@@ -42,7 +42,7 @@
 
             {% set colorsMapping = {} %}
 
-            {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
+            {% if manual.logoOnSharedPage('horizontal') or manual.logoOnSharedPage('vertical') or manual.logoOnSharedPage('symbol') %}
                 {% set page = page+1 %}
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                     {{ include('_manual_page_heading.html.twig', {'page': manual_page('basic_logos'), 'number': page}) }}
@@ -51,7 +51,7 @@
                         {{ include('_manual_page_description.html.twig', {'page': manual_page('basic_logos')}) }}
                         <div class="page-designs col-9">
 
-                            {% if manual.logo.horizontal %}
+                            {% if manual.logoOnSharedPage('horizontal') %}
                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
                                     <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
 
@@ -59,9 +59,9 @@
                                 </div>
                             {% endif %}
 
-                            {% if manual.logo.vertical or manual.logo.symbol %}
+                            {% if manual.logoOnSharedPage('vertical') or manual.logoOnSharedPage('symbol') %}
                                 <div class="row">
-                                    {% if manual.logo.vertical %}
+                                    {% if manual.logoOnSharedPage('vertical') %}
                                         <div class="col-6">
                                             <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
                                                 <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
@@ -70,7 +70,7 @@
                                         </div>
                                     {% endif %}
 
-                                    {% if manual.logo.symbol %}
+                                    {% if manual.logoOnSharedPage('symbol') %}
                                         <div class="col-6">
                                             <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
                                                 <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
@@ -85,7 +85,7 @@
                 </div>
             {% endif %}
 
-            {% if manual.logo.horizontalWithClaim or manual.logo.verticalWithClaim %}
+            {% if manual.logoOnSharedPage('horizontalWithClaim') or manual.logoOnSharedPage('verticalWithClaim') %}
                 {% set page = page+1 %}
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                     {{ include('_manual_page_heading.html.twig', {'page': manual_page('logos_with_claim'), 'number': page}) }}
@@ -93,7 +93,7 @@
                     <div class="page-content py-4 gx-5 row">
                         {{ include('_manual_page_description.html.twig', {'page': manual_page('logos_with_claim')}) }}
                         <div class="page-designs col-9">
-                            {% if manual.logo.horizontalWithClaim %}
+                            {% if manual.logoOnSharedPage('horizontalWithClaim') %}
                                 {% set colorsMapping = {} %}
 
                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
@@ -102,7 +102,7 @@
                                 </div>
                             {% endif %}
 
-                            {% if manual.logo.verticalWithClaim %}
+                            {% if manual.logoOnSharedPage('verticalWithClaim') %}
                                 <div class="row">
                                     <div class="col-6">
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
@@ -117,7 +117,7 @@
                 </div>
             {% endif %}
 
-            {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
+            {% if manual.logoOnSharedPage('horizontal') or manual.logoOnSharedPage('horizontalWithClaim') %}
                 {% set page = page+1 %}
 
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -128,7 +128,7 @@
                         <div class="page-designs col-9">
 
                             <div class="row">
-                                {% if manual.logo.horizontal %}
+                                {% if manual.logoOnSharedPage('horizontal') %}
                                     <div class="col-sm-6">
                                         {% set colorsMapping = manual.logoColorMapping('horizontal', 'darkBackground') %}
 
@@ -156,7 +156,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.horizontalWithClaim %}
+                                {% if manual.logoOnSharedPage('horizontalWithClaim') %}
                                     <div class="col-sm-6">
                                         {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'darkBackground') %}
 
@@ -190,7 +190,7 @@
                 </div>
             {% endif %}
 
-            {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
+            {% if manual.logoOnSharedPage('vertical') or manual.logoOnSharedPage('verticalWithClaim') %}
                 {% set page = page+1 %}
 
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -201,7 +201,7 @@
                         <div class="page-designs col-9">
 
                             <div class="row">
-                                {% if manual.logo.vertical %}
+                                {% if manual.logoOnSharedPage('vertical') %}
                                     <div class="col-sm-6">
                                         {% set colorsMapping = manual.logoColorMapping('vertical', 'darkBackground') %}
 
@@ -229,7 +229,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.verticalWithClaim %}
+                                {% if manual.logoOnSharedPage('verticalWithClaim') %}
                                     <div class="col-sm-6">
                                         {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'darkBackground') %}
 
@@ -262,7 +262,7 @@
                 </div>
             {% endif %}
 
-            {% if manual.logo.horizontal or manual.logo.horizontalWithClaim %}
+            {% if manual.logoOnSharedPage('horizontal') or manual.logoOnSharedPage('horizontalWithClaim') %}
                 {% set page = page+1 %}
 
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -273,7 +273,7 @@
                         <div class="page-designs col-9">
 
                             <div class="row">
-                                {% if manual.logo.horizontal %}
+                                {% if manual.logoOnSharedPage('horizontal') %}
                                     {% set colorsMapping = manual.logoColorMapping('horizontal', 'whiteBackground') %}
 
                                     <div class="col-6">
@@ -285,7 +285,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.horizontalWithClaim %}
+                                {% if manual.logoOnSharedPage('horizontalWithClaim') %}
                                     {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'whiteBackground') %}
 
                                     <div class="col-6">
@@ -297,7 +297,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.horizontal %}
+                                {% if manual.logoOnSharedPage('horizontal') %}
                                     {% set colorsMapping = manual.logoColorMapping('horizontal', 'blackBackground') %}
 
                                     <div class="col-6">
@@ -309,7 +309,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.horizontalWithClaim %}
+                                {% if manual.logoOnSharedPage('horizontalWithClaim') %}
                                     {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'blackBackground') %}
 
                                     <div class="col-6">
@@ -327,7 +327,7 @@
                 </div>
             {% endif %}
 
-            {% if manual.logo.vertical or manual.logo.verticalWithClaim %}
+            {% if manual.logoOnSharedPage('vertical') or manual.logoOnSharedPage('verticalWithClaim') %}
                 {% set page = page+1 %}
 
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -340,7 +340,7 @@
                             {% set colorsMapping = manual.logoColorMapping('vertical', 'whiteBackground') %}
 
                             <div class="row">
-                                {% if manual.logo.vertical %}
+                                {% if manual.logoOnSharedPage('vertical') %}
                                     <div class="col-6">
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'whiteBackground') }};">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="whiteBackground" />
@@ -350,7 +350,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.verticalWithClaim %}
+                                {% if manual.logoOnSharedPage('verticalWithClaim') %}
                                     {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'whiteBackground') %}
 
                                     <div class="col-6">
@@ -362,7 +362,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.vertical %}
+                                {% if manual.logoOnSharedPage('vertical') %}
                                     {% set colorsMapping = manual.logoColorMapping('vertical', 'blackBackground') %}
 
                                     <div class="col-6">
@@ -374,7 +374,7 @@
                                     </div>
                                 {% endif %}
 
-                                {% if manual.logo.verticalWithClaim %}
+                                {% if manual.logoOnSharedPage('verticalWithClaim') %}
                                     {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'blackBackground') %}
                                     <div class="col-6">
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'blackBackground') }}">
@@ -391,7 +391,7 @@
                 </div>
             {% endif %}
 
-            {% if manual.logo.symbol %}
+            {% if manual.logoOnSharedPage('symbol') %}
                 {% set page = page+1 %}
 
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
@@ -453,6 +453,14 @@
                     </div>
                 </div>
             {% endif %}
+
+            {# Variants the admin promoted to a page of their own. They were removed
+               from the shared pages above, so this is where they show up. #}
+            {% for own_page_variant in manual.logoOwnPageVariants %}
+                {% set page = page+1 %}
+
+                {{ include('_manual_logo_variant_page.html.twig', {'variant': own_page_variant, 'number': page}) }}
+            {% endfor %}
 
             {% if manual.logo.horizontal or manual.logo.vertical or manual.logo.symbol %}
                 {% set page = page+1 %}

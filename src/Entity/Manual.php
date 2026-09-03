@@ -429,4 +429,38 @@ class Manual
         // Reassigned, not mutated: Doctrine compares a JSON column by value.
         $this->logoSlotWidths = $widths;
     }
+
+    /**
+     * The logo variants the admin gave a page of their own — they render one
+     * page each (all of their colour variants) and drop out of the pages that
+     * otherwise mix two variants.
+     *
+     * @return list<LogoTypeVariant>
+     */
+    public function logoOwnPageVariants(): array
+    {
+        $variants = [];
+
+        foreach (LogoTypeVariant::cases() as $variant) {
+            $image = $this->logo->variant($variant);
+
+            if ($image !== null && $image->ownPage === true) {
+                $variants[] = $variant;
+            }
+        }
+
+        return $variants;
+    }
+
+    /**
+     * Whether a variant still belongs on the SHARED logo pages: it has to be
+     * uploaded and not promoted to a page of its own. This is the guard every
+     * shared page uses, so a promoted variant is never rendered twice.
+     */
+    public function logoOnSharedPage(string $logoVariant): bool
+    {
+        $image = $this->logo->variant(LogoTypeVariant::from($logoVariant));
+
+        return $image !== null && $image->ownPage === false;
+    }
 }

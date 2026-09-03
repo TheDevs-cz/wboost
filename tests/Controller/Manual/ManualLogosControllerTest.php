@@ -38,4 +38,28 @@ final class ManualLogosControllerTest extends WebTestCase
             );
         }
     }
+
+    public function testRendersPerVariantOwnPageCheckboxes(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        $crawler = $browser->request('GET', '/manual/' . TestDataFixture::MANUAL_1_ID . '/logos');
+
+        $this->assertResponseIsSuccessful();
+
+        foreach ([
+            'logoHorizontalOwnPage',
+            'logoVerticalOwnPage',
+            'logoHorizontalWithClaimOwnPage',
+            'logoVerticalWithClaimOwnPage',
+            'logoSymbolOwnPage',
+        ] as $field) {
+            self::assertCount(
+                1,
+                $crawler->filter('input[type="checkbox"][name="manual_images_form[' . $field . ']"]'),
+                sprintf('Missing per-variant own-page checkbox for "%s".', $field),
+            );
+        }
+    }
 }

@@ -8,6 +8,7 @@ use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use WBoost\Web\FormData\ManualImagesFormData;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -48,6 +49,8 @@ final class ManualImagesFormType extends AbstractType
 
         $builder->add('logoHorizontalDisplayWidth', IntegerType::class, $this->displayWidthOptions());
 
+        $builder->add('logoHorizontalOwnPage', CheckboxType::class, $this->ownPageOptions());
+
         $builder->add('logoVertical', FileType::class, [
             'label' => 'Logo vertikální',
             'required' => false,
@@ -71,6 +74,8 @@ final class ManualImagesFormType extends AbstractType
         ]);
 
         $builder->add('logoVerticalDisplayWidth', IntegerType::class, $this->displayWidthOptions());
+
+        $builder->add('logoVerticalOwnPage', CheckboxType::class, $this->ownPageOptions());
 
         $builder->add('logoHorizontalWithClaim', FileType::class, [
             'label' => 'Logo horizontální se sloganem',
@@ -96,6 +101,8 @@ final class ManualImagesFormType extends AbstractType
 
         $builder->add('logoHorizontalWithClaimDisplayWidth', IntegerType::class, $this->displayWidthOptions());
 
+        $builder->add('logoHorizontalWithClaimOwnPage', CheckboxType::class, $this->ownPageOptions());
+
         $builder->add('logoVerticalWithClaim', FileType::class, [
             'label' => 'Logo vertikální se sloganem',
             'required' => false,
@@ -120,6 +127,8 @@ final class ManualImagesFormType extends AbstractType
 
         $builder->add('logoVerticalWithClaimDisplayWidth', IntegerType::class, $this->displayWidthOptions());
 
+        $builder->add('logoVerticalWithClaimOwnPage', CheckboxType::class, $this->ownPageOptions());
+
         $builder->add('logoSymbol', FileType::class, [
             'label' => 'Symbol',
             'required' => false,
@@ -143,6 +152,8 @@ final class ManualImagesFormType extends AbstractType
         ]);
 
         $builder->add('logoSymbolDisplayWidth', IntegerType::class, $this->displayWidthOptions());
+
+        $builder->add('logoSymbolOwnPage', CheckboxType::class, $this->ownPageOptions());
     }
 
     /**
@@ -169,6 +180,20 @@ final class ManualImagesFormType extends AbstractType
                 'step' => 1,
                 'placeholder' => 'výchozí',
             ],
+        ];
+    }
+
+    /**
+     * Shared options for the "show this variant on a page of its own" boxes.
+     *
+     * @return array<string, mixed>
+     */
+    private function ownPageOptions(): array
+    {
+        return [
+            'label' => 'Zobrazovat variantu na samostatné stránce',
+            'required' => false,
+            'help' => 'Varianta dostane v manuálu vlastní stránku se všemi svými barevnými variantami a zmizí ze společných stránek.',
         ];
     }
 

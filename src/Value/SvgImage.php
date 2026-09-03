@@ -19,6 +19,11 @@ final class SvgImage
         public null|string $heightInfo = null,
         /** Logo width in the manual preview, as a percentage of the card (1-100); null = default. */
         public null|int $displayWidth = null,
+        /**
+         * The variant gets a page of its OWN in the manual, showing all of its
+         * colour variants, instead of sharing a page with another variant.
+         */
+        public bool $ownPage = false,
     ) {
     }
 
@@ -30,6 +35,7 @@ final class SvgImage
      *     widthInfo?: null|string,
      *     heightInfo?: null|string,
      *     displayWidth?: null|int,
+     *     ownPage?: null|bool,
      * } $data
      */
     public static function fromArray(array $data): self
@@ -47,6 +53,7 @@ final class SvgImage
             widthInfo: $data['widthInfo'] ?? null,
             heightInfo: $data['heightInfo'] ?? null,
             displayWidth: $data['displayWidth'] ?? null,
+            ownPage: ($data['ownPage'] ?? false) === true,
         );
     }
 
@@ -58,6 +65,7 @@ final class SvgImage
      *     widthInfo: null|string,
      *     heightInfo: null|string,
      *     displayWidth: null|int,
+     *     ownPage: bool,
      *   }
      */
     public function toArray(): array
@@ -75,6 +83,7 @@ final class SvgImage
             'widthInfo' => $this->widthInfo,
             'heightInfo' => $this->heightInfo,
             'displayWidth' => $this->displayWidth,
+            'ownPage' => $this->ownPage,
         ];
     }
 
@@ -106,5 +115,10 @@ final class SvgImage
         $this->displayWidth = ($displayWidth !== null && $displayWidth > 0)
             ? min($displayWidth, 100)
             : null;
+    }
+
+    public function updateOwnPage(bool $ownPage): void
+    {
+        $this->ownPage = $ownPage;
     }
 }

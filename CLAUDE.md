@@ -1536,6 +1536,34 @@ a new upload for the same slot wins over the flag). Slot order == persisted
 `images` array indexes. NOTE: Stimulus reuses controller instances on
 reconnect — slot state is reset in `connect()`, not `initialize()`.
 
+### Manual logo variants — "Zobrazovat variantu na samostatné stránce"
+
+Per logo TYPE variant (`SvgImage::$ownPage`, a key in the `manual.logo` JSONB
+document — no migration, absent reads as false) the admin can promote a variant
+out of the pages that mix two variants onto **a page of its own**, showing that
+variant in every colour variant it has (plain + all five `LogoColorVariant`
+cases, `_manual_logo_variant_page.html.twig`).
+
+The two halves are one invariant: `Manual::logoOwnPageVariants()` drives the
+dedicated pages and **`Manual::logoOnSharedPage()` is the guard every shared
+page uses**, so a promoted variant is rendered exactly once. Both the
+page-level `{% if %}` and the per-variant inner guards of the shared pages
+(basic_logos, logos_with_claim, the two *_backgrounds, the two *_monochrome and
+the symbol page) go through it; a shared page whose every variant was promoted
+disappears.
+
+**`protection_zone` and `minimum_dimensions` deliberately keep guarding on
+`manual.logo.<variant>`**: they are not colour-variant pages (every card there
+is the plain logo, annotated with zones or dimensions), so promoting a variant
+must not strip it from them.
+
+Each dedicated page has its own `ManualPage` case (`horizontal_page`,
+`horizontal_with_claim_page`, `vertical_page`, `vertical_with_claim_page`,
+`symbol_page`, reached from Twig via `manual_logo_page(variant)`), so its
+heading and description are admin-editable like any other page's, and its cards
+carry `<page_key>.<variant>.<colorVariant|base>` slot ids for the width
+cascade.
+
 ### Manual colours — HEX, CMYK, Pantone, RAL
 
 `ManualColor` (in the JSONB `manual.detected_colors` / `.custom_colors` via

@@ -45,6 +45,8 @@
 
                                     {{ form_row(form.logoHorizontalDisplayWidth) }}
 
+                                    {{ form_row(form.logoHorizontalOwnPage) }}
+
                                     {% if manual.logo.horizontal %}
                                         {% for detectedColor in manual.logo.horizontal.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -76,6 +78,8 @@
                                     </div>
 
                                     {{ form_row(form.logoVerticalDisplayWidth) }}
+
+                                    {{ form_row(form.logoVerticalOwnPage) }}
 
                                     {% if manual.logo.vertical %}
                                         {% for detectedColor in manual.logo.vertical.detectedColors %}
@@ -109,6 +113,8 @@
 
                                     {{ form_row(form.logoHorizontalWithClaimDisplayWidth) }}
 
+                                    {{ form_row(form.logoHorizontalWithClaimOwnPage) }}
+
                                     {% if manual.logo.horizontalWithClaim %}
                                         {% for detectedColor in manual.logo.horizontalWithClaim.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -141,6 +147,8 @@
 
                                     {{ form_row(form.logoVerticalWithClaimDisplayWidth) }}
 
+                                    {{ form_row(form.logoVerticalWithClaimOwnPage) }}
+
                                     {% if manual.logo.verticalWithClaim %}
                                         {% for detectedColor in manual.logo.verticalWithClaim.detectedColors %}
                                             <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
@@ -172,6 +180,8 @@
                                     </div>
 
                                     {{ form_row(form.logoSymbolDisplayWidth) }}
+
+                                    {{ form_row(form.logoSymbolOwnPage) }}
 
                                     {% if manual.logo.symbol %}
                                         {% for detectedColor in manual.logo.symbol.detectedColors %}

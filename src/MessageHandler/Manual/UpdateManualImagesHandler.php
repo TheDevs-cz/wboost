@@ -74,6 +74,12 @@ readonly final class UpdateManualImagesHandler
         $logoVerticalWithClaim?->updateDisplayWidth($message->logoVerticalWithClaimDisplayWidth);
         $logoSymbol?->updateDisplayWidth($message->logoSymbolDisplayWidth);
 
+        $logoHorizontal?->updateOwnPage($message->logoHorizontalOwnPage);
+        $logoVertical?->updateOwnPage($message->logoVerticalOwnPage);
+        $logoHorizontalWithClaim?->updateOwnPage($message->logoHorizontalWithClaimOwnPage);
+        $logoVerticalWithClaim?->updateOwnPage($message->logoVerticalWithClaimOwnPage);
+        $logoSymbol?->updateOwnPage($message->logoSymbolOwnPage);
+
         $manual->editLogo(
             new Logo(
                 horizontal: $logoHorizontal,

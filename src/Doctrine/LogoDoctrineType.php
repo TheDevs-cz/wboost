@@ -21,6 +21,7 @@ use WBoost\Web\Value\SvgImage;
  *     widthInfo?: null|string,
  *     heightInfo?: null|string,
  *     displayWidth?: null|int,
+ *     ownPage?: null|bool,
  *  }
  */
 final class LogoDoctrineType extends JsonType

@@ -1,0 +1,58 @@
+{# One logo variant's OWN page: that variant in every colour variant it has.
+
+   Rendered only for variants the admin ticked "Zobrazovat variantu na
+   samostatné stránce" — those variants also drop out of the pages that mix two
+   variants, so nothing is shown twice.
+
+   Params: manual, variant (LogoTypeVariant), number (int). #}
+{% set logo_page = manual_logo_page(variant) %}
+{% set logo = manual.logo.variant(variant) %}
+{% set wrapper_class = {
+    'horizontal': 'manual-image-horizontal',
+    'horizontalWithClaim': 'manual-image-horizontal',
+    'vertical': 'manual-image-square',
+    'verticalWithClaim': 'manual-image-square',
+    'symbol': 'manual-image-square-symbol',
+}[variant.value]|default('manual-image-square') %}
+
+<div class="manual-page border-bottom border-2" id="page-{{ number }}">
+    {{ include('_manual_page_heading.html.twig', {'page': logo_page, 'number': number}) }}
+
+    <div class="page-content py-4 gx-5 row">
+        {{ include('_manual_page_description.html.twig', {'page': logo_page}) }}
+
+        <div class="page-designs col-9">
+            <div class="row">
+                {# The plain card first — the logo as designed, on white. #}
+                <div class="col-6">
+                    <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper {{ wrapper_class }} d-flex align-items-center justify-content-center" style="background: #ffffff;">
+                        <twig:DownloadManualImage logoVariant="{{ variant.value }}" background="ffffff" colorsMapping="{{ {} }}" manualId="{{ manual.id }}" />
+                        {{ include('_manual_logo_image.html.twig', {
+                            'logo': logo,
+                            'colorsMapping': {},
+                            'slot': logo_page.value ~ '.' ~ variant.value ~ '.base',
+                            'logo_variant': variant.value,
+                        }) }}
+                    </div>
+                </div>
+
+                {% for color_variant in ['darkBackground', 'lightBackground', 'oneColor', 'whiteBackground', 'blackBackground'] %}
+                    {% set colorsMapping = manual.logoColorMapping(variant.value, color_variant) %}
+
+                    <div class="col-6">
+                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper {{ wrapper_class }} d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground(variant.value, color_variant) }};">
+                            <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="{{ variant.value }}" colorVariant="{{ color_variant }}" />
+                            <twig:DownloadManualImage logoVariant="{{ variant.value }}" background="{{ manual.logoBackground(variant.value, color_variant) }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
+                            {{ include('_manual_logo_image.html.twig', {
+                                'logo': logo,
+                                'colorsMapping': colorsMapping,
+                                'slot': logo_page.value ~ '.' ~ variant.value ~ '.' ~ color_variant,
+                                'logo_variant': variant.value,
+                            }) }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
