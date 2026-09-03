@@ -50,6 +50,17 @@ class Font
     }
 
     /**
+     * Renaming the family changes every face's wire string
+     * ({@see faceFamily()}); the handler rewrites the stored references
+     * ({@see \WBoost\Web\Services\Font\RewriteFontReferences}) in the same
+     * transaction — never call this without it.
+     */
+    public function rename(string $name): void
+    {
+        $this->name = $name;
+    }
+
+    /**
      * The exact `fontFamily` string one of this font's faces is addressed by
      * everywhere outside the font management screen: `"Rubik (Rubik Bold)"`.
      *

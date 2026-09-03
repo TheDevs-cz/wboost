@@ -548,6 +548,17 @@ font" to the designed family unless the designer ticks more.
   the "Písma mimo projekt" card linking to the editors) and the project
   dashboard (the Fonty card's "N chybí" badge). Deleting a face/font also
   removes the storage object(s) since the fonts rework.
+- **Family rename with propagation (2026-09-03).** `RenameFont` →
+  `RenameFontHandler` renames `Font::name` (refusing a name another font of
+  the project has — `FontNameTaken`) and `Services/Font/RewriteFontReferences`
+  rewrites every stored reference in the same transaction: text replacement
+  over the JSONB columns `template_variant.canvas` / `.inputs` and
+  `template_export_version.fill_values`, scoped to the project — the quoted
+  face strings `"Old (Face)"` → `"New (Face)"` in both their direct
+  (`"key": "value"`, jsonb's text form) and envelope-nested (`\"…\"`)
+  spellings, the bare family name only in a `"fontFamily": …` position
+  (it is ordinary text otherwise). Face NAMES never change. Page:
+  `/font/{id}/rename` from the family card's menu.
 - **Admin editor**: `canvas_font_choice.js` (pure planner + checklist DOM:
   fonts as tri-state group headers, faces previewed in their own face, the
   designed row locked-checked with a "výchozí" badge — the designed font is
