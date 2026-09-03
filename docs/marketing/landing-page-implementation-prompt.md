@@ -351,28 +351,104 @@ export-history list, e-mail signature, API code block, QR grid — is flexbox pl
 plus 11–14 px type. No screenshots, no device mockups, no icon fonts. Icons are inline SVG at
 a single 1.5 px stroke weight from one set (Lucide, matching the design).
 
-### 4.3 Responsive
+### 4.3 Responsive — fully fluid, and why there is no tablet artboard
 
-The design gives you 1440 and 390. Three breakpoints between them:
+**Two artboards, four ranges.** 1440 and 390 are designed; everything between is specified
+here rather than drawn. That is deliberate. The page is built from patterns whose intermediate
+states are determined by their endpoints — text columns clamp, card rows drop columns,
+two-column sections stack — so a 768 artboard would mostly redraw the same components at a
+third width and then need maintaining alongside the other two on every copy change. And it
+would not remove a single browser check: a drawn tablet view still has to be verified against
+the real thing. The browser is the better place to settle the middle.
+
+The exception is the hero composition, which is the one piece of bespoke absolute positioning
+on the page. Its degradation is written out below in full. **If, once built, the 960–1199 band
+looks wrong, say so and we will design that one section at 1024** — informed by what actually
+broke rather than by guesswork.
+
+Everything below is a rule, not a suggestion. Where a rule is missing, ask rather than improvise.
+
+#### Container and type
+
+```css
+--lp-gutter: clamp(20px, 5vw, 120px);
+.lp-container { width: min(1200px, 100% - 2 * var(--lp-gutter)); margin-inline: auto; }
+```
+
+Fluid type with `clamp()` between the mobile and desktop values, viewport-interpolated:
+
+| Role | Mobile → Desktop |
+|---|---|
+| H1 (hero) | 40 → 62 |
+| Final CTA headline | 44 → 78 |
+| Section titles | 34 → 46 |
+| Showcase / AI / Cena titles | 40 → 52 |
+| Legal H1 | 36 → 52 |
+| Tile + card titles | 20 → 26 |
+| Body | 16 → 18 |
+| Mono labels | 10.5 → 12 |
+
+Section padding: `clamp(76px, 9vw, 150px)` vertical. Touch targets ≥ 44 px everywhere; below
+640 the buttons are full width at 52 px.
+
+#### The four ranges
 
 | Range | Behaviour |
 |---|---|
-| ≥ 1200 | The Desktop 1440 artboard. Content `min(1200px, 100% - 240px)`, centred. |
-| 960–1199 | Same structure, content `100% - 96px`; the hero composition shrinks via its `font-size` token. |
-| 640–959 | Hero stacks (copy, then composition). Bento: the full-width tile stays, `740+436` stacks, the 3-column row becomes 2, the 2-column row stacks. Showcase becomes the horizontal scroll strip. AI section stacks. FAQ single column. Story: copy, then founders side by side. |
-| < 640 | The Mobile 390 artboard. Single column, 20 px gutters (16 px for the AI section so the chat panel keeps its width). |
+| **≥ 1200** | The Desktop 1440 artboard exactly. |
+| **960–1199** | Same structure and section order; container narrows by the gutter formula. Hero composition scales (below). Bento `740+436` row keeps two columns but both shrink. |
+| **640–959** | Everything two-column stacks; three-column rows become two; the showcase becomes a scroll strip. Nav collapses to the toggle. |
+| **< 640** | The Mobile 390 artboard. Single column, 20 px gutters (16 px for the AI section so the chat panel keeps its width). |
 
-The hero composition is one `position: relative` block with absolutely positioned children.
-Below 960 the format rail, the toast, the open popover and the "Datum" active box are
-`display: none` — the mobile artboard keeps **two** dashed boxes (Nadpis, Fotografie). Do not
-build two copies of the markup.
+#### Per section, at 640–959 unless stated
 
-The showcase strip below 960 is `overflow-x:auto; scroll-snap-type:x mandatory` with the
-`posuňte prstem →` hint; hide the hint on `(pointer: fine)`.
+- **Nav** — the six anchor links fit down to ~960 and no further (they measure ~510 px plus a
+  118 px wordmark and a 150 px button inside a 864 px container). **Below 960 the links are
+  replaced by the menu toggle** from the mobile artboard. If they crowd before that, collapse
+  earlier; do not shrink the type to buy room.
+- **Hero** — copy above, composition below, both full width; the CTA pair stays side by side
+  until 640, then stacks full-width.
+- **Hero composition** — one `position: relative` block, children absolutely positioned in px
+  against an intrinsic 720 × 600. Scale it, do not re-lay it out:
+  - ≥ 1200: as designed, bleeding past the right container edge.
+  - 960–1199: `transform: scale()` from 1 → ~0.78 with `transform-origin: top left`, and a
+    wrapper whose height tracks the scale (a transform does not affect layout).
+  - < 960: switch to the **mobile treatment** — poster plus the two dashed boxes (Nadpis,
+    Fotografie), centred, `max-width: 420px`. The format rail, the toast, the open popover and
+    the active "Datum" box are `display: none`. **One set of markup, hidden selectively** —
+    never a second copy.
+- **Proof strip** — statement above, chips below as a wrapping row; the six logo slots become
+  3 × 2.
+- **Problém / Jak to funguje / Pro koho** — 3 columns → 2 → 1. In *Jak to funguje* the
+  fragment card stays above its copy at every width.
+- **Showcase** — below 960 becomes `overflow-x: auto; scroll-snap-type: x mandatory` with the
+  `posuňte prstem →` hint (hidden on `(pointer: fine)`). **The indigo connector line is
+  dropped in the scroll strip** — it only means something when all four formats are visible at
+  once.
+- **Moduly** — the header's title/note pair stacks below 960. Rows: the full-width tile stays;
+  `740+436` stacks; the 3-column row → 2 → 1; the 2-column row stacks. Fragments inside tiles
+  move below their copy when the tile is narrower than ~520 px.
+- **AI** — header pair stacks below 960; then chat panel above, bullets + install block below.
+  The chat panel never goes narrower than its 16 px gutters.
+- **Reference** — header pair stacks below 960; testimonials 3 → 2 → 1; the caption/logo row
+  stacks with the slots at 3 × 2.
+- **Příběh** — copy above, then the two founder cards side by side (they stay paired down to
+  640, then stack); the facts list is full width at every size.
+- **Cena** — two columns stack: statement, then the checked facts, then the CTA.
+- **FAQ** — two columns → one below 960.
+- **Final CTA** — already centred; only the type clamps.
+- **Footer** — 3 columns → 2 → 1; the bottom row stacks below 640.
+- **Legal pages** — a single 760 px prose column that becomes `100% - 2 × gutter`; the
+  numbered section headings keep their hanging index down to 640, then the index moves above
+  the heading (as on the Legal 390 artboard).
 
-Fluid type via `clamp()` between the mobile and desktop values in the notes (H1 40→62, section
-titles 34→46, the three 52 px sections 40→52, body 16→18). Touch targets ≥ 44 px; on mobile
-the buttons are full width at 52 px.
+#### Verify
+
+Build, then check in a real browser at **1440, 1280, 1024, 900, 768, 640, 480 and 390** —
+including the two off-breakpoint widths, which is where reflow bugs actually live. At each:
+no horizontal scrollbar, no text touching an edge, no card narrower than its content, the nav
+in the right mode, and the hero composition intact rather than clipped. Compare 1440 and 390
+against `designs/exports/sections/*.png`.
 
 ### 4.4 Copy
 
@@ -699,8 +775,9 @@ docker compose exec web vendor/bin/phpunit        # must pass
 docker compose exec web bin/console debug:router | grep -E ' / | /dashboard '
 ```
 
-Verify in a real browser at 1440, 1024, 768 and 390. Compare each section side by side with
-`designs/exports/sections/*.png`. The page has no images beyond the logo, so first paint
+Verify in a real browser at **1440, 1280, 1024, 900, 768, 640, 480 and 390** — the
+off-breakpoint widths are where reflow bugs live. Compare 1440 and 390 side by side with
+`designs/exports/sections/*.png`; the widths between are governed by §4.3, not by an artboard. The page has no images beyond the logo, so first paint
 should be essentially instant; check the network panel shows **nothing** from `/theme/`,
 `/assets/` or `/bundles/`.
 
@@ -717,8 +794,11 @@ should be essentially instant; check the network panel shows **nothing** from `/
   `apps/wboost-landing/compose.yaml`; the app's `public/robots.txt` is deleted; `/index.html`
   is not routed; a trailing slash 301s to the canonical URL.
 - Every page has its own title, meta description and canonical, and a `<loc>` in the sitemap.
-- All 14 sections present in order, copy verbatim, at all four widths; both legal pages exist
-  as shells with the shared nav and footer.
+- All 15 sections present in order, copy verbatim; both legal pages exist as shells with the
+  shared nav and footer.
+- **Fully responsive and verified at 1440, 1280, 1024, 900, 768, 640, 480 and 390** — every
+  rule in §4.3 applied, no horizontal scrollbar at any width, nav in the correct mode either
+  side of 960, hero composition scaled rather than clipped.
 - CSS under 40 KB, JS under 3 KB, fonts self-hosted as woff2.
 - `GET /dashboard` behaves like the old `/`; login lands on `/dashboard`; logout lands on `/`.
 - No reference to `homepage` remains in `src/`, `templates/` or `tests/`.
