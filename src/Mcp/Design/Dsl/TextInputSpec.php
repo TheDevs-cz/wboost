@@ -55,11 +55,26 @@ readonly final class TextInputSpec
          * @var list<string>
          */
         public array $allowedFonts = [],
+        /**
+         * Rich inputs: restrict the WYSIWYG's faces to the designed face
+         * plus `allowedFonts` (default false = every face of the designed
+         * family, so bold / italic work). Implied by a non-empty
+         * `allowedFonts`.
+         */
+        public bool $fontChoice = false,
+        /**
+         * Rich inputs: the colour allowlist for the runs — null = any
+         * colour (brand swatches + free picker), `[]` = colour locked, a
+         * list of `#rrggbb` = only these swatches.
+         *
+         * @var null|list<string>
+         */
+        public null|array $allowedColors = null,
     ) {
     }
 
     /**
-     * @return array{name: null|string, maxLength: null|int, uppercase: bool, hidable: bool, locked: bool, richText: bool, sampleValue: null|string, allowedFonts: list<string>}
+     * @return array{name: null|string, maxLength: null|int, uppercase: bool, hidable: bool, locked: bool, richText: bool, sampleValue: null|string, allowedFonts: list<string>, fontChoice: bool, allowedColors: null|list<string>}
      */
     public function toArray(): array
     {
@@ -72,6 +87,8 @@ readonly final class TextInputSpec
             'richText' => $this->richText,
             'sampleValue' => $this->sampleValue,
             'allowedFonts' => $this->allowedFonts,
+            'fontChoice' => $this->fontChoice,
+            'allowedColors' => $this->allowedColors,
         ];
     }
 }

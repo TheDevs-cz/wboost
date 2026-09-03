@@ -100,7 +100,7 @@ readonly final class DesignCompiler
         'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
         'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
         'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
-        'sampleValue', 'allowedFonts',
+        'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
         'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
         'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
     ];
@@ -118,7 +118,7 @@ readonly final class DesignCompiler
      * @var list<string>
      */
     public const array TEXT_CUSTOM_PROPERTIES = [
-        'inputId', 'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'sampleValue', 'allowedFonts',
+        'inputId', 'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
     ];
 
     /**
@@ -537,6 +537,8 @@ readonly final class DesignCompiler
             'richText' => $element->input->richText,
             'sampleValue' => $element->input->sampleValue,
             'allowedFonts' => $element->input->allowedFonts,
+            'fontChoice' => $element->input->fontChoice,
+            'allowedColors' => $element->input->allowedColors,
         ];
     }
 
@@ -558,6 +560,8 @@ readonly final class DesignCompiler
             richText: $element->input->richText,
             sampleValue: $element->input->sampleValue,
             allowedFonts: $element->input->allowedFonts,
+            fontChoice: $element->input->fontChoice,
+            allowedColors: $element->input->allowedColors,
         );
     }
 

@@ -4,6 +4,7 @@ import {
     buildFontOptgroups,
     collectAllowedFonts,
     effectiveFontOptions,
+    familyFacesOf,
     planFontChoice,
     renderFontChoiceList,
 } from './canvas_font_choice.js';
@@ -23,13 +24,20 @@ import {
  * never for our programmatic set), after which renaming never touches the
  * designed text again.
  *
- * Font choice ("Uživatel může přepínat písmo"): `allowedFonts` on the
- * textbox = the EXTRA faces the end user may switch to. The checklist
- * (canvas_font_choice.js) shows every project face grouped by font with the
- * designed one locked-checked — never persisted, it follows the canvas font
- * — and the popover's toggle is derived from the pick (empty = off). The
- * same checklist backs the "Přidat text" modal (`#addTextFontChoiceList`)
- * and narrows the "Vzorový text" WYSIWYG's face menu per input.
+ * Font choice ("Uživatel může přepínat písmo"): `fontChoice` on the textbox
+ * = the admin CONFIGURED the offer, `allowedFonts` = the EXTRA faces the end
+ * user may switch to. The checklist (canvas_font_choice.js) shows every
+ * project face grouped by font with the designed one locked-checked — never
+ * persisted, it follows the canvas font. Opening the toggle on a RICH input
+ * pre-ticks the rest of its family (what it offered unconfigured) so the
+ * designer only ever narrows down; unticking everything leaves the designed
+ * face alone — "if only one is allowed, that one is always used". The same
+ * checklist backs the "Přidat text" modal (`#addTextFontChoiceList`) and
+ * narrows the "Vzorový text" WYSIWYG's face menu per input.
+ *
+ * Colour choice (rich inputs, `allowedColors`): any colour (null), only the
+ * ticked swatches (list) or no colour change at all ([]) — the same three
+ * states the fill-page WYSIWYG renders from.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
@@ -40,6 +48,7 @@ export default class extends Controller {
     static targets = [
         "name", "description", "locked", "hidable", "uppercase", "richText",
         "fontChoice", "fontChoiceList", "fontChoiceHint", "fontChoiceEmpty",
+        "colorChoiceWrapper", "colorChoiceMode", "colorChoiceList", "colorChoiceSwatches", "colorChoiceCustom", "colorChoiceEmpty",
         "lists", "listConfig", "listBullet", "listBulletPreview", "listBulletPick",
         "listIndent", "listItemSpacing", "listBlockSpacing",
         "listCheckboxes", "checkboxConfig",
@@ -148,53 +157,63 @@ export default class extends Controller {
         this._syncListControls(activeObject);
         this._syncChecklistControls(activeObject);
         this._syncSampleChrome(activeObject);
-        this._fontChoiceOpenFor = null;
         this._syncFontChoice(activeObject);
+        this._syncColorChoice(activeObject);
     }
 
     // --- Font choice ("Uživatel může přepínat písmo") -----------------------
 
-    /** Populate the toggle + checklist for the active textbox. The toggle
-     *  reflects a NON-EMPTY pick (or a just-opened, still-empty list — the
-     *  transient state between ticking the box and ticking a face). */
+    /** Is the face offer configured? The flag, or picks made before the flag
+     *  existed (a non-empty pick always meant a configured plain input). */
+    _fontChoiceOn(activeObject) {
+        return activeObject.fontChoice === true
+            || (Array.isArray(activeObject.allowedFonts) && activeObject.allowedFonts.length > 0);
+    }
+
+    /** Populate the toggle + checklist for the active textbox. */
     _syncFontChoice(activeObject) {
         if (!this.hasFontChoiceTarget || !this.hasFontChoiceListTarget) return;
         const allowed = Array.isArray(activeObject.allowedFonts) ? activeObject.allowedFonts : [];
-        const open = allowed.length > 0 || this._fontChoiceOpenFor === activeObject;
+        const open = this._fontChoiceOn(activeObject);
         this.fontChoiceTarget.checked = open;
         this.fontChoiceTarget.disabled = activeObject.locked === true;
         if (this.hasFontChoiceHintTarget) {
             this.fontChoiceHintTarget.title = activeObject.richText
-                ? 'Editor textu nabízí řezy použitého písma (tučné, kurzíva) vždy; zaškrtnutá písma přibudou do nabídky.'
+                ? 'Vypnuto: editor textu nabízí všechny řezy použitého písma (tučné, kurzíva). Zapnuto: jen použitý řez + zaškrtnuté — je-li povolen jen jeden, uživatel písmo nemění.'
                 : 'Při vyplňování se u pole zobrazí výběr písma: použité písmo + zaškrtnutá.';
         }
         this.fontChoiceListTarget.classList.toggle('d-none', !open);
         if (open) {
             renderFontChoiceList(this.fontChoiceListTarget, planFontChoice(this.fontFacesValue, {
                 designedFamily: activeObject.fontFamily || '',
-                richText: activeObject.richText === true,
                 allowedFonts: allowed,
             }));
         }
         if (this.hasFontChoiceEmptyTarget) {
-            this.fontChoiceEmptyTarget.classList.toggle('d-none', !open || allowed.length > 0);
+            // A plain input with nothing ticked offers no switch; a rich one
+            // legitimately means "designed face only".
+            this.fontChoiceEmptyTarget.classList.toggle('d-none', !open || allowed.length > 0 || activeObject.richText === true);
         }
     }
 
-    /** The popover toggle: on opens the (empty) checklist, off clears the
-     *  pick — an empty pick IS "no choice", nothing else to persist. */
+    /** The popover toggle. ON configures the offer: a rich input starts with
+     *  the rest of its family ticked (exactly what it offered unconfigured),
+     *  a plain one with nothing. OFF drops the configuration and the picks. */
     toggleFontChoice(event) {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         if (event.target.checked) {
-            this._fontChoiceOpenFor = activeObject;
-        } else {
-            this._fontChoiceOpenFor = null;
-            if (Array.isArray(activeObject.allowedFonts) && activeObject.allowedFonts.length > 0) {
-                activeObject.allowedFonts = [];
-                this.canvasEditorOutlet.markUnsaved();
+            activeObject.fontChoice = true;
+            if (!Array.isArray(activeObject.allowedFonts) || activeObject.allowedFonts.length === 0) {
+                activeObject.allowedFonts = activeObject.richText === true
+                    ? familyFacesOf(this.fontFacesValue, activeObject.fontFamily || '')
+                    : [];
             }
+        } else {
+            activeObject.fontChoice = false;
+            activeObject.allowedFonts = [];
         }
+        this.canvasEditorOutlet.markUnsaved();
         this._syncFontChoice(activeObject);
     }
 
@@ -206,33 +225,140 @@ export default class extends Controller {
         const before = Array.isArray(activeObject.allowedFonts) ? activeObject.allowedFonts : [];
         if (JSON.stringify(picked) === JSON.stringify(before)) return;
         activeObject.allowedFonts = picked;
-        if (picked.length > 0) this._fontChoiceOpenFor = null;
+        activeObject.fontChoice = true;
         if (this.hasFontChoiceEmptyTarget) {
-            this.fontChoiceEmptyTarget.classList.toggle('d-none', picked.length > 0);
+            this.fontChoiceEmptyTarget.classList.toggle('d-none', picked.length > 0 || activeObject.richText === true);
         }
         this.canvasEditorOutlet.markUnsaved();
     }
 
-    /** The designed font changed (popover font select) — the locked "výchozí"
-     *  row moves with it; the same after a rich toggle flips whole-family vs
-     *  single-face locking. */
+    /** The designed font changed (popover font select) or the rich toggle
+     *  flipped — the locked "výchozí" row moves with the canvas font, and a
+     *  face that just became the designed one is implied, not a pick. */
     refreshFontChoice() {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
-        // A face that just became the designed one is implied, not a pick.
         if (Array.isArray(activeObject.allowedFonts) && activeObject.allowedFonts.length > 0) {
-            const implied = new Set(effectiveFontOptions(this.fontFacesValue, {
-                designedFamily: activeObject.fontFamily || '',
-                richText: activeObject.richText === true,
-                allowedFonts: [],
-            }).map((face) => face.family));
-            const kept = activeObject.allowedFonts.filter((family) => !implied.has(family));
+            const designed = activeObject.fontFamily || '';
+            const kept = activeObject.allowedFonts.filter((family) => family !== designed);
             if (kept.length !== activeObject.allowedFonts.length) {
                 activeObject.allowedFonts = kept;
                 this.canvasEditorOutlet.markUnsaved();
             }
         }
         this._syncFontChoice(activeObject);
+        this._syncColorChoice(activeObject);
+    }
+
+    // --- Colour choice (rich inputs) ------------------------------------------
+
+    _brandColors() {
+        const colors = this.hasCanvasEditorOutlet && Array.isArray(this.canvasEditorOutlet.brandColorsValue)
+            ? this.canvasEditorOutlet.brandColorsValue
+            : [];
+        return colors.map((color) => String(color).toLowerCase());
+    }
+
+    _colorMode(activeObject) {
+        if (!Array.isArray(activeObject.allowedColors)) return 'any';
+        return activeObject.allowedColors.length === 0 ? 'none' : 'list';
+    }
+
+    /** Populate the mode select + swatch chips; the whole section shows for
+     *  rich inputs only (colour is a WYSIWYG feature). */
+    _syncColorChoice(activeObject) {
+        if (!this.hasColorChoiceWrapperTarget) return;
+        const rich = activeObject.richText === true && activeObject.locked !== true;
+        this.colorChoiceWrapperTarget.classList.toggle('d-none', !rich);
+        if (!rich) return;
+        const mode = this._colorMode(activeObject);
+        if (this.hasColorChoiceModeTarget) this.colorChoiceModeTarget.value = mode;
+        if (this.hasColorChoiceListTarget) this.colorChoiceListTarget.classList.toggle('d-none', mode !== 'list');
+        if (mode === 'list') this._renderColorSwatches(activeObject);
+    }
+
+    _renderColorSwatches(activeObject) {
+        if (!this.hasColorChoiceSwatchesTarget) return;
+        const allowed = Array.isArray(activeObject.allowedColors) ? activeObject.allowedColors : [];
+        const brand = this._brandColors();
+        // Brand swatches first (toggleable), then any custom colour the admin
+        // added that the manual does not carry.
+        const palette = [...brand, ...allowed.filter((color) => !brand.includes(color))];
+        this.colorChoiceSwatchesTarget.textContent = '';
+        palette.forEach((color) => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'color-choice-swatch' + (allowed.includes(color) ? ' color-choice-swatch--on' : '');
+            chip.style.backgroundColor = color;
+            chip.title = color + (allowed.includes(color) ? ' — povoleno (kliknutím odeberete)' : ' — kliknutím povolíte');
+            chip.setAttribute('aria-pressed', allowed.includes(color) ? 'true' : 'false');
+            chip.addEventListener('click', () => this._toggleAllowedColor(color));
+            this.colorChoiceSwatchesTarget.appendChild(chip);
+        });
+        if (this.hasColorChoiceEmptyTarget) {
+            this.colorChoiceEmptyTarget.classList.toggle('d-none', allowed.length > 0);
+        }
+    }
+
+    _toggleAllowedColor(color) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        const allowed = Array.isArray(activeObject.allowedColors) ? activeObject.allowedColors.slice() : [];
+        const index = allowed.indexOf(color);
+        if (index === -1) {
+            allowed.push(color);
+        } else {
+            allowed.splice(index, 1);
+        }
+        activeObject.allowedColors = allowed;
+        this.canvasEditorOutlet.markUnsaved();
+        this._renderColorSwatches(activeObject);
+    }
+
+    updateColorChoiceMode(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        const mode = event.target.value;
+        if (mode === 'any') {
+            activeObject.allowedColors = null;
+        } else if (mode === 'none') {
+            activeObject.allowedColors = [];
+        } else {
+            // "Jen vybrané": start from the brand palette — the designer then
+            // unticks what the input must not use.
+            const current = Array.isArray(activeObject.allowedColors) ? activeObject.allowedColors : [];
+            activeObject.allowedColors = current.length > 0 ? current : this._brandColors();
+        }
+        this.canvasEditorOutlet.markUnsaved();
+        this._syncColorChoice(activeObject);
+    }
+
+    customColorKeydown(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.addCustomColor();
+        }
+    }
+
+    /** "#rrggbb" typed by the admin — normalized like the server does. */
+    addCustomColor() {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject || !this.hasColorChoiceCustomTarget) return;
+        const raw = this.colorChoiceCustomTarget.value.trim().replace(/^#/, '').toLowerCase();
+        const match = /^([0-9a-f]{3}|[0-9a-f]{6})$/.exec(raw);
+        if (!match) {
+            this.colorChoiceCustomTarget.classList.add('is-invalid');
+            return;
+        }
+        const hex = raw.length === 3 ? raw.split('').map((c) => c + c).join('') : raw;
+        const color = '#' + hex;
+        this.colorChoiceCustomTarget.classList.remove('is-invalid');
+        this.colorChoiceCustomTarget.value = '';
+        const allowed = Array.isArray(activeObject.allowedColors) ? activeObject.allowedColors.slice() : [];
+        if (!allowed.includes(color)) allowed.push(color);
+        activeObject.allowedColors = allowed;
+        this.canvasEditorOutlet.markUnsaved();
+        this._renderColorSwatches(activeObject);
     }
 
     // "Přidat text" modal: the same checklist against the modal's own font
@@ -265,7 +391,6 @@ export default class extends Controller {
         const previous = collectAllowedFonts(list);
         renderFontChoiceList(list, planFontChoice(this.fontFacesValue, {
             designedFamily: select ? select.value : '',
-            richText: false,
             allowedFonts: previous,
         }));
     }
@@ -525,10 +650,31 @@ export default class extends Controller {
             const inputFonts = effectiveFontOptions(this.fontFacesValue, {
                 designedFamily: activeObject.fontFamily || '',
                 richText: true,
+                fontChoice: activeObject.fontChoice === true,
                 allowedFonts: Array.isArray(activeObject.allowedFonts) ? activeObject.allowedFonts : [],
             });
             clone.dataset.richTextEditorFontsValue = JSON.stringify(inputFonts);
             buildFontOptgroups(clone.querySelector('[data-rich-text-editor-target="fontSelect"]'), inputFonts, { defaultLabel: 'Výchozí písmo' });
+            // Colours the same way the fill page renders them: the allowlist
+            // only (no free picker), or no swatch row at all when locked.
+            const swatchRow = clone.querySelector('.fill-richtext-toolbar__swatches');
+            if (swatchRow && Array.isArray(activeObject.allowedColors)) {
+                if (activeObject.allowedColors.length === 0) {
+                    swatchRow.remove();
+                } else {
+                    swatchRow.querySelectorAll('.fill-richtext-swatch:not(.fill-richtext-swatch--auto), .fill-richtext-swatch--custom').forEach((el) => el.remove());
+                    activeObject.allowedColors.forEach((color) => {
+                        const chip = document.createElement('button');
+                        chip.type = 'button';
+                        chip.className = 'fill-richtext-swatch';
+                        chip.style.backgroundColor = color;
+                        chip.title = color;
+                        chip.dataset.action = 'rich-text-editor#pickColor';
+                        chip.dataset.richTextEditorColorParam = color;
+                        swatchRow.appendChild(chip);
+                    });
+                }
+            }
             const listButtons = clone.querySelector('[data-sample-lists]');
             if (listButtons) listButtons.classList.toggle('d-none', !activeObject.lists);
             const checkboxButton = clone.querySelector('[data-sample-checkboxes]');

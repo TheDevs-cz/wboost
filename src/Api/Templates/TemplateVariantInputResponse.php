@@ -87,6 +87,17 @@ final readonly class TemplateVariantInputResponse
          * @var null|list<RichTextFontOptionResponse>
          */
         public null|array $fontOptions = null,
+        /**
+         * Rich inputs: the colours a run may carry. `null` = any hex (offer
+         * `richTextOptions.colors` as suggestions plus a free picker), an
+         * EMPTY list = the colour cannot be changed (offer no colour UI), a
+         * list = only these swatches (lowercase `#rrggbb`). A colour outside
+         * it is a 400 `color_not_allowed` with `allowedColors`. Always null
+         * for plain inputs.
+         *
+         * @var null|list<string>
+         */
+        public null|array $colorOptions = null,
     ) {
     }
 }

@@ -31,7 +31,7 @@ use WBoost\Web\Value\RichText;
  * | `left`, `top`, displayed width/height | the pixels |
  * | `angle` | rotation is not expressible; a rotated fixture MUST fail here |
  * | `text`, `fontFamily`, effective `fontSize`, `fill`, `textAlign`, `lineHeight` | what the text looks like |
- * | `inputId`, `name`, `maxLength`, `locked`, `uppercase`, `hidable`, `richText`, `sampleValue`, `allowedFonts` | the fill contract |
+ * | `inputId`, `name`, `maxLength`, `locked`, `uppercase`, `hidable`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` | the fill contract |
  * | `imagePlaceholder`, `isBackground`, `allowMove/Resize/Rotate`, `allowedDirectoryIds` | the slot contract |
  * | resolved `assetId` | WHICH gallery picture the object shows |
  *
@@ -466,6 +466,8 @@ final class CanvasComparison
                 'richText' => $input !== null ? $input->richText : ($object['richText'] ?? false) === true,
                 'sampleValue' => self::blankToNull($input !== null ? $input->sampleValue : self::string($object, 'sampleValue')),
                 'allowedFonts' => $input !== null ? $input->allowedFonts : (is_array($object['allowedFonts'] ?? null) ? array_values($object['allowedFonts']) : []),
+                'fontChoice' => $input !== null ? $input->fontChoice : ($object['fontChoice'] ?? false) === true,
+                'allowedColors' => $input !== null ? $input->allowedColors : (is_array($object['allowedColors'] ?? null) ? array_values($object['allowedColors']) : null),
             ];
         }
 
@@ -552,6 +554,8 @@ final class CanvasComparison
                 'richText' => $input->richText,
                 'sampleValue' => self::blankToNull($input->sampleValue),
                 'allowedFonts' => $input->allowedFonts,
+                'fontChoice' => $input->fontChoice,
+                'allowedColors' => $input->allowedColors,
             ];
         }
 

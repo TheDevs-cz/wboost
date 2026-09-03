@@ -102,6 +102,26 @@
                     <div class="form-text small d-none" data-canvas-input-properties-target="fontChoiceEmpty">Zaškrtněte alespoň jedno další písmo — jinak uživatel nemá z čeho vybírat.</div>
                 </div>
 
+                {# Colour allowlist for RICH inputs: what the WYSIWYG's swatch
+                   row offers — any colour (brand swatches + free picker),
+                   only the ticked swatches, or no colour change at all. #}
+                <div class="col-12 d-none" data-canvas-input-properties-target="colorChoiceWrapper">
+                    <label for="color-choice-mode-control" class="form-label small mb-1">Barvy pro uživatele <i class="mdi mdi-information-outline text-muted" title="Které barvy může uživatel v editoru textu použít. Výchozí barva (barva na plátně) je k dispozici vždy."></i></label>
+                    <select id="color-choice-mode-control" class="form-select form-select-sm" data-canvas-input-properties-target="colorChoiceMode" data-action="change->canvas-input-properties#updateColorChoiceMode">
+                        <option value="any">Libovolná barva (vzorník + vlastní)</option>
+                        <option value="list">Jen vybrané barvy</option>
+                        <option value="none">Barvu nelze měnit</option>
+                    </select>
+                    <div class="d-none mt-1" data-canvas-input-properties-target="colorChoiceList">
+                        <div class="d-flex align-items-center flex-wrap gap-1" role="group" aria-label="Povolené barvy" data-canvas-input-properties-target="colorChoiceSwatches"></div>
+                        <div class="input-group input-group-sm mt-1" style="max-width: 12rem;">
+                            <input type="text" class="form-control" placeholder="#rrggbb" aria-label="Přidat vlastní barvu" data-canvas-input-properties-target="colorChoiceCustom" data-action="keydown->canvas-input-properties#customColorKeydown">
+                            <button type="button" class="btn btn-outline-secondary" title="Přidat barvu do výběru" data-action="canvas-input-properties#addCustomColor"><i class="mdi mdi-plus"></i></button>
+                        </div>
+                        <div class="form-text small d-none" data-canvas-input-properties-target="colorChoiceEmpty">Zaškrtněte alespoň jednu barvu — jinak uživatel nemůže barvu měnit vůbec.</div>
+                    </div>
+                </div>
+
                 <!-- Font Size Control -->
                 <div class="col-6">
                     <label for="font-size-control" class="form-label small mb-1">Velikost</label>

@@ -33,15 +33,18 @@
 // alone cannot label a layers-panel row honestly. Purely cosmetic: nothing
 // renders off it, and a shape without one still behaves like a shape.
 // allowedFonts (textboxes): the EXTRA font faces ("<Font> (<Face>)" strings)
-// the end user may switch the input to — "Uživatel může přepínat písmo".
-// Empty = no choice (a rich input still offers the designed font's own
-// faces). Resolved per input server-side (ResolveRichTextOptions).
+// the end user may switch the input to — "Uživatel může přepínat písmo";
+// fontChoice marks the offer as admin-CONFIGURED (a rich input then offers
+// the designed face + the picks only, instead of its whole family);
+// allowedColors is the rich input's colour allowlist (null = any colour,
+// [] = colour locked, list = only those swatches). All resolved per input
+// server-side (ResolveRichTextOptions).
 export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
     'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
     'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
-    'sampleValue', 'allowedFonts',
+    'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
     'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
 ];

@@ -297,6 +297,7 @@ final readonly class TemplatesProvider implements ProviderInterface
                         : null,
                     containerId: $containerIdByInputId[$input->inputId] ?? null,
                     fontOptions: $inputFontOptions,
+                    colorOptions: $input->richText && !$input->locked ? $input->allowedColors : null,
                     textStyle: $textStyle !== null
                         ? new TemplateVariantInputTextStyleResponse(
                             fontFamily: $textStyle['fontFamily'],

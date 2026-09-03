@@ -47,4 +47,36 @@ final class EditorTextInputTest extends TestCase
 
         self::assertSame([], $notAList->allowedFonts);
     }
+
+    public function testConfiguredFacesAreTheFlagOrTheirPicks(): void
+    {
+        $legacy = EditorTextInput::fromArray(['inputId' => self::ID, 'name' => 'x', 'maxLength' => null, 'locked' => false, 'richText' => true]);
+        self::assertFalse($legacy->fontChoice);
+        self::assertFalse($legacy->restrictsFaces(), 'an unconfigured rich input keeps its whole-family offer');
+
+        $designedOnly = EditorTextInput::fromArray(['inputId' => self::ID, 'name' => 'x', 'maxLength' => null, 'locked' => false, 'richText' => true, 'fontChoice' => true]);
+        self::assertTrue($designedOnly->restrictsFaces());
+        self::assertFalse($designedOnly->offersFontChoice(), 'no picks = nothing to switch to');
+
+        $picked = EditorTextInput::fromArray(['inputId' => self::ID, 'name' => 'x', 'maxLength' => null, 'locked' => false, 'allowedFonts' => ['Rubik (Rubik Bold)']]);
+        self::assertTrue($picked->restrictsFaces(), 'picks made before the flag existed still configure the offer');
+        self::assertTrue($picked->toArray()['fontChoice'] === false && $picked->offersFontChoice());
+    }
+
+    public function testColourAllowlistIsTriStateAndNormalized(): void
+    {
+        $any = EditorTextInput::fromArray(['inputId' => self::ID, 'name' => 'x', 'maxLength' => null, 'locked' => false]);
+        self::assertNull($any->allowedColors);
+        self::assertNull($any->toArray()['allowedColors']);
+
+        $locked = EditorTextInput::fromArray(['inputId' => self::ID, 'name' => 'x', 'maxLength' => null, 'locked' => false, 'allowedColors' => []]);
+        self::assertSame([], $locked->allowedColors);
+
+        $list = EditorTextInput::fromArray(['inputId' => self::ID, 'name' => 'x', 'maxLength' => null, 'locked' => false, 'allowedColors' => ['#C8102E', 'abc', 'not-a-colour', '#c8102e', 12]]);
+        self::assertSame(['#c8102e', '#aabbcc'], $list->allowedColors);
+        self::assertSame(['#c8102e', '#aabbcc'], EditorTextInput::fromArray($list->toArray())->allowedColors);
+
+        $garbage = EditorTextInput::fromArray(['inputId' => self::ID, 'name' => 'x', 'maxLength' => null, 'locked' => false, 'allowedColors' => 'red']);
+        self::assertNull($garbage->allowedColors);
+    }
 }

@@ -669,7 +669,9 @@ final class TestDataFixture extends Fixture
         $socialVariant1->editCanvas(
             $variant1Canvas,
             [
-                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false, richText: true),
+                // The rich headline's colours are restricted to the brand red
+                // (the fixture manual's primary) — the allowlist tests hang off it.
+                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false, richText: true, allowedColors: ['#c8102e']),
                 // Font choice: the plain tagline (Fabric's default font on the
                 // canvas — no project face) may be switched to Rubik Bold.
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false, allowedFonts: ['Rubik (Rubik Bold)']),

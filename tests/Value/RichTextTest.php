@@ -152,6 +152,36 @@ final class RichTextTest extends TestCase
         self::assertSame('Anything Goes (Face)', $rich->runs[0]->fontFamily);
     }
 
+    public function testColourAllowlistStrictThrowsWithCodeAndLenientStrips(): void
+    {
+        $raw = [['text' => 'Hi', 'color' => '#C8102E'], ['text' => '!', 'color' => '#00ff00']];
+
+        try {
+            RichText::fromRaw($raw, strict: true, inputLabel: 'headline', allowedColors: ['#c8102e']);
+            self::fail('Expected color_not_allowed');
+        } catch (InvalidRichTextValue $exception) {
+            self::assertSame('color_not_allowed', $exception->errorCode);
+            self::assertSame(['allowedColors' => ['#c8102e']], $exception->context);
+        }
+
+        // Locked colours refuse every colour, with an empty list to say so.
+        try {
+            RichText::fromRaw([['text' => 'Hi', 'color' => '#c8102e']], strict: true, inputLabel: 'headline', allowedColors: []);
+            self::fail('Expected color_not_allowed');
+        } catch (InvalidRichTextValue $exception) {
+            self::assertSame('color_not_allowed', $exception->errorCode);
+            self::assertSame(['allowedColors' => []], $exception->context);
+        }
+
+        // Lenient: the disallowed colour is stripped, the allowed one (case-normalized) survives.
+        $lenient = RichText::fromRaw($raw, strict: false, inputLabel: 'headline', allowedColors: ['#c8102e']);
+        self::assertSame('#c8102e', $lenient->runs[0]->color);
+        self::assertNull($lenient->runs[1]->color);
+
+        // Null = any colour, exactly as before the allowlist.
+        self::assertSame('#00ff00', RichText::fromRaw($raw, strict: true, inputLabel: 'headline')->runs[1]->color);
+    }
+
     public function testColorNormalization(): void
     {
         self::assertSame('#c8102e', RichText::normalizeHexColor('#C8102E'));

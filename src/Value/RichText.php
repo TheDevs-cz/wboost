@@ -107,6 +107,10 @@ readonly final class RichText
      *   CHECKBOX lists ('cb'/'cbx' lines) — without it those lines are a
      *   structured 400 in strict mode and degrade to plain 'ul' bullets
      *   leniently (the list structure survives, only the checkboxes don't).
+     * @param null|list<string> $allowedColors The input's colour allowlist
+     *   (lowercase `#rrggbb`): null = any colour, [] = no colour at all. A
+     *   run colour outside it is a structured 400 `color_not_allowed` in
+     *   strict mode and stripped leniently.
      * @throws InvalidRichTextValue in strict mode only
      */
     public static function fromRaw(
@@ -117,6 +121,7 @@ readonly final class RichText
         null|array $rawLines = null,
         bool $listsAllowed = false,
         bool $checkboxesAllowed = false,
+        null|array $allowedColors = null,
     ): self {
         if (count($rawRuns) > self::MAX_RUNS) {
             if ($strict) {
@@ -129,7 +134,7 @@ readonly final class RichText
         $runs = [];
 
         foreach ($rawRuns as $rawRun) {
-            $run = self::parseRun($rawRun, $strict, $inputLabel, $allowedFontFamilies);
+            $run = self::parseRun($rawRun, $strict, $inputLabel, $allowedFontFamilies, $allowedColors);
 
             if ($run !== null) {
                 $runs[] = $run;
@@ -393,6 +398,7 @@ readonly final class RichText
 
     /**
      * @param null|list<string> $allowedFontFamilies
+     * @param null|list<string> $allowedColors
      * @throws InvalidRichTextValue in strict mode only
      */
     private static function parseRun(
@@ -400,6 +406,7 @@ readonly final class RichText
         bool $strict,
         string $inputLabel,
         null|array $allowedFontFamilies,
+        null|array $allowedColors = null,
     ): null|RichTextRun {
         if (!is_array($rawRun)) {
             if ($strict) {
@@ -477,6 +484,14 @@ readonly final class RichText
                 }
 
                 $color = $normalizedColor;
+
+                if ($color !== null && $allowedColors !== null && !in_array($color, $allowedColors, true)) {
+                    if ($strict) {
+                        throw InvalidRichTextValue::colorNotAllowed($inputLabel, $color, $allowedColors);
+                    }
+
+                    $color = null;
+                }
             }
         }
 

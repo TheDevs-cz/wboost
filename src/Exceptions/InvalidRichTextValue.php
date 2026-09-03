@@ -79,6 +79,22 @@ final class InvalidRichTextValue extends \Exception
         );
     }
 
+    /**
+     * The admin restricted this input's colours ({@see \WBoost\Web\Value\EditorTextInput::$allowedColors}).
+     *
+     * @param list<string> $allowedColors lowercase `#rrggbb`; empty = the colour cannot be changed at all
+     */
+    public static function colorNotAllowed(string $inputLabel, string $color, array $allowedColors): self
+    {
+        return new self(
+            'color_not_allowed',
+            $allowedColors === []
+                ? sprintf('Input "%s" does not allow changing the text colour; send the runs without "color".', $inputLabel)
+                : sprintf('Input "%s" uses colour "%s" which is not allowed for this input.', $inputLabel, $color),
+            ['allowedColors' => $allowedColors],
+        );
+    }
+
     public static function invalidColor(string $inputLabel, string $color): self
     {
         return new self(

@@ -95,6 +95,46 @@ final class ResolveRichTextOptionsTest extends TestCase
         );
     }
 
+    public function testConfiguredRichInputOffersTheDesignedFaceAndItsPicksOnly(): void
+    {
+        $faces = $this->faces();
+
+        // "If only one face is allowed, that one is always used": configured
+        // with no picks → the designed face alone, no family, no fallback.
+        self::assertSame(
+            ['Roboto (Roboto Bold)'],
+            self::families(ResolveRichTextOptions::computeInputFonts($faces, 'Roboto (Roboto Bold)', $this->input(self::RICH_ID, richText: true, fontChoice: true))),
+        );
+        self::assertSame(
+            [],
+            self::families(ResolveRichTextOptions::computeInputFonts($faces, 'Times New Roman', $this->input(self::RICH_ID, richText: true, fontChoice: true))),
+        );
+        // Picks are exact faces, from another family included.
+        self::assertSame(
+            ['Roboto (Roboto Bold)', 'Lato (Lato Italic)'],
+            self::families(ResolveRichTextOptions::computeInputFonts($faces, 'Roboto (Roboto Bold)', $this->input(self::RICH_ID, richText: true, allowedFonts: ['Lato (Lato Italic)']))),
+        );
+    }
+
+    public function testColourAllowlistRidesAlongPerInput(): void
+    {
+        $options = ResolveRichTextOptions::compute(
+            $this->faces(),
+            [
+                $this->input(self::RICH_ID, richText: true, allowedColors: ['#c8102e']),
+                $this->input(self::PLAIN_ID),
+            ],
+            [self::RICH_ID => 'Roboto (Roboto Bold)', self::PLAIN_ID => 'Roboto (Roboto Bold)'],
+            ['#c8102e', '#004e7c'],
+        );
+
+        self::assertSame(['#c8102e'], $options->allowedColorsFor(self::RICH_ID));
+        self::assertSame(['#c8102e'], $options->colorOptionsFor(self::RICH_ID));
+        self::assertNull($options->allowedColorsFor(self::PLAIN_ID));
+        self::assertSame(['#c8102e', '#004e7c'], $options->colorOptionsFor(self::PLAIN_ID));
+        self::assertNull($options->allowedColorsFor('unknown'));
+    }
+
     public function testBareFontNameOnTheCanvasOffersTheWholeFont(): void
     {
         self::assertSame(
@@ -196,10 +236,11 @@ final class ResolveRichTextOptionsTest extends TestCase
 
     /**
      * @param list<string> $allowedFonts
+     * @param null|list<string> $allowedColors
      */
-    private function input(string $id, bool $richText = false, bool $locked = false, array $allowedFonts = []): EditorTextInput
+    private function input(string $id, bool $richText = false, bool $locked = false, array $allowedFonts = [], bool $fontChoice = false, null|array $allowedColors = null): EditorTextInput
     {
-        return new EditorTextInput($id, 'field', null, $locked, false, null, false, richText: $richText, allowedFonts: $allowedFonts);
+        return new EditorTextInput($id, 'field', null, $locked, false, null, false, richText: $richText, allowedFonts: $allowedFonts, fontChoice: $fontChoice, allowedColors: $allowedColors);
     }
 
     /**

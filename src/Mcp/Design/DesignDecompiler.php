@@ -1071,6 +1071,8 @@ readonly final class DesignDecompiler
                 $input->richText,
                 self::blankToNull($input->sampleValue),
                 $input->allowedFonts,
+                $input->fontChoice,
+                $input->allowedColors,
             );
         }
 
@@ -1085,6 +1087,8 @@ readonly final class DesignDecompiler
             ($object['richText'] ?? false) === true,
             self::blankToNull(self::string($object, 'sampleValue')),
             self::stringList($object, 'allowedFonts'),
+            ($object['fontChoice'] ?? false) === true,
+            is_array($object['allowedColors'] ?? null) ? self::stringList($object, 'allowedColors') : null,
         );
     }
 

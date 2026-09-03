@@ -26,15 +26,21 @@ use WBoost\Web\Value\RichTextOptions;
  * the surfaces can never disagree.
  *
  * Fonts, PER INPUT ({@see computeInputFonts()}):
- *  - the DESIGNED font comes first and is always offered: a rich input gets
- *    every uploaded face of its family (bold / italic are separate faces here
- *    — the B/I buttons switch between them), a plain input its exact face;
+ *  - the DESIGNED font comes first and is always offered: a plain input its
+ *    exact face; a rich input its exact face once the admin CONFIGURED the
+ *    offer ({@see EditorTextInput::restrictsFaces()} — "if only one face is
+ *    allowed, that one is always used"), else every uploaded face of its
+ *    family (bold / italic are separate faces here — the B/I buttons switch
+ *    between them);
  *  - then the faces the designer opened up in `EditorTextInput::$allowedFonts`
  *    ("Uživatel může přepínat písmo"), in project-font order — a pick that no
  *    longer matches an uploaded face (renamed / deleted font) is dropped;
- *  - a rich input whose designed font is not a project font and that has no
- *    extra picks falls back to ALL project fonts (the pre-choice behaviour —
- *    without it the WYSIWYG's face buttons would have nothing to switch to).
+ *  - an UNCONFIGURED rich input whose designed font is not a project font
+ *    falls back to ALL project fonts (the pre-choice behaviour — without it
+ *    the WYSIWYG's face buttons would have nothing to switch to).
+ *
+ * Colours, per input: the admin's allowlist ({@see EditorTextInput::$allowedColors})
+ * rides along unchanged — null means the brand palette + free picker.
  *
  * Colors: the union of brand manual colors across all project manuals,
  * primary first, then secondary, then untyped, deduped by normalized hex.
@@ -97,6 +103,7 @@ readonly final class ResolveRichTextOptions
     {
         $fontsByInput = [];
         $designedByInput = [];
+        $colorsByInput = [];
         /** @var array<string, RichTextFontOption> $union family → option, project order */
         $union = [];
 
@@ -109,6 +116,7 @@ readonly final class ResolveRichTextOptions
             $options = self::computeInputFonts($faces, $designedFamily, $input);
             $fontsByInput[$input->inputId] = $options;
             $designedByInput[$input->inputId] = $designedFamily !== '' ? $designedFamily : null;
+            $colorsByInput[$input->inputId] = $input->allowedColors;
 
             if ($input->richText) {
                 foreach ($options as $option) {
@@ -124,7 +132,7 @@ readonly final class ResolveRichTextOptions
             static fn (RichTextFontOption $face): bool => isset($union[$face->family]),
         ));
 
-        return new RichTextOptions($fonts, $colors, $fontsByInput, $designedByInput);
+        return new RichTextOptions($fonts, $colors, $fontsByInput, $designedByInput, $colorsByInput);
     }
 
     /**
@@ -161,10 +169,15 @@ readonly final class ResolveRichTextOptions
             }
         }
 
+        // The whole designed family is the offer only for an UNCONFIGURED
+        // rich input; a configured one (and every plain input) locks the
+        // exact designed face and adds the picks.
+        $wholeFamily = $input->richText && !$input->restrictsFaces();
+
         $base = [];
         foreach ($faces as $face) {
             $isDesigned = $designedFace !== null
-                ? ($input->richText ? $face->fontName === $designedFontName : $face->family === $designedFace->family)
+                ? ($wholeFamily ? $face->fontName === $designedFontName : $face->family === $designedFace->family)
                 : ($designedFontName !== null && $face->fontName === $designedFontName);
 
             if ($isDesigned) {
@@ -181,7 +194,7 @@ readonly final class ResolveRichTextOptions
 
         $options = [...$base, ...$extras];
 
-        if ($options === [] && $input->richText) {
+        if ($options === [] && $wholeFamily) {
             return $faces;
         }
 

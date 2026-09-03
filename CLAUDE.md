@@ -504,6 +504,24 @@ font" to the designed family unless the designer ticks more.
   always, plain only when `RichTextOptions::offersFontSwitch()`), MCP
   `describe_variant` mirrors it as family strings; DSL `input.allowedFonts`
   (validated like `font`, path `elements[i].input.allowedFonts[j]`).
+- **Configured faces + colour allowlist (2026-09-03, the "admin decides
+  which cuts/styles and colours the user may use" follow-up).** `fontChoice`
+  (bool) on `EditorTextInput` marks the face offer as admin-CONFIGURED: a
+  rich input then offers the designed face + `allowedFonts` ONLY (with no
+  picks = the user cannot change the face, B/I disabled) instead of its
+  whole family; unconfigured rich inputs keep the whole-family offer
+  (`restrictsFaces()` = flag OR non-empty picks, so rows saved before the
+  flag keep their meaning). The popover toggle pre-ticks the rest of the
+  family on a rich input so the designer only narrows down.
+  `allowedColors` (null|list) is the rich input's colour allowlist: null =
+  brand swatches + free picker (legacy), `[]` = colour locked (no swatch row
+  at all), list = only those swatches (no picker); enforced per run in
+  `RichText::fromRaw` (strict 400 `color_not_allowed` with `allowedColors`,
+  lenient strip) via `RichTextOptions::allowedColorsFor()`. Surfaces: the
+  popover's "Barvy pro uživatele" mode select (libovolná / jen vybrané /
+  nelze měnit, brand + custom hex chips), the fill WYSIWYG + admin sample
+  modal render per input, API/MCP `inputs[].colorOptions`, DSL
+  `input.fontChoice` / `input.allowedColors`.
 - **Admin editor**: `canvas_font_choice.js` (pure planner + checklist DOM:
   fonts as tri-state group headers, faces previewed in their own face, the
   designed row locked-checked with a "výchozí" badge — the designed font is

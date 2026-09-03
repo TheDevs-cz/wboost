@@ -583,6 +583,40 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         self::assertSame([], $body['allowedFonts'] ?? null);
     }
 
+    public function testRichColourOutsideTheInputsAllowlistIs400WithAllowedColors(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        // The fixture headline allows the brand red only.
+        $response = $client->request(
+            'POST',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID => ['runs' => [
+                            ['text' => 'x', 'color' => '#00ff00'],
+                        ]],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('color_not_allowed', $body['code'] ?? null);
+        self::assertSame(['#c8102e'], $body['allowedColors'] ?? null);
+    }
+
     public function testRichInvalidColorIs400WithCode(): void
     {
         $client = self::createClient();

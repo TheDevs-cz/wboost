@@ -264,6 +264,11 @@ export function buildVariantPayload(canvas) {
                 allowedFonts: Array.isArray(textbox.allowedFonts)
                     ? textbox.allowedFonts.filter((family) => typeof family === 'string' && family !== '')
                     : [],
+                fontChoice: textbox.fontChoice === true,
+                // null = any colour; a list (possibly empty = locked) = the allowlist.
+                allowedColors: Array.isArray(textbox.allowedColors)
+                    ? textbox.allowedColors.filter((color) => typeof color === 'string' && color !== '')
+                    : null,
             };
         });
 

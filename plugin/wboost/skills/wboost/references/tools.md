@@ -138,8 +138,10 @@ of the canvas size a design must be authored at.
     "sampleValue",         // designer default; omit the id to render it
     "frame": { "x", "y", "width", "height" },   // nullable
     "containerId",         // nullable — which flow this text is in
-    "fontOptions"          // nullable — faces this input may be filled in
+    "fontOptions",         // nullable — faces this input may be filled in
                            //   (designed first); {"fontFamily": …} accepted
+    "colorOptions"         // rich inputs: null = any hex, [] = colour locked,
+                           //   a list = the only "#rrggbb" a run may carry
   }],
 
   "imageInputs": [{
@@ -406,7 +408,7 @@ within the document. Slugs carry input identity across saves.
 | `canvas.background` | `image`, `fill` |
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
 | `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `at`, `x`, `y`, `width`, `input` |
-| `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts` |
+| `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
 | `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
 | `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `at`, `x`, `y`, `width`, `height` |

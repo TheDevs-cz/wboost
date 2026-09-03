@@ -254,6 +254,11 @@ final class TemplatesTest extends ApiTestCase
         self::assertArrayHasKey('fontOptions', $byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID]);
         self::assertNull($byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID]['fontOptions']);
         self::assertNull($byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID]['fontOptions']);
+
+        // Colour allowlist: the rich headline carries its list, plain inputs null.
+        self::assertSame(['#c8102e'], $byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID]['colorOptions'] ?? null);
+        self::assertArrayHasKey('colorOptions', $byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID]);
+        self::assertNull($byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID]['colorOptions']);
     }
 
     /**

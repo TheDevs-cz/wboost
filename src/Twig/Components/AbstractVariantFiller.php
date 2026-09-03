@@ -578,6 +578,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     fontChoice: bool,
      *     fontDefaultLabel: string,
      *     fontValue: string,
+     *     colorOptions: null|list<string>,
      *     textAlign: string,
      *     hidden: bool,
      *     echoCapable: bool
@@ -650,6 +651,9 @@ abstract class AbstractVariantFiller extends AbstractController
                 'fontChoice' => $fontChoice,
                 'fontDefaultLabel' => $designedFace !== null ? sprintf('%s (výchozí)', $designedFace->faceName) : 'Výchozí písmo',
                 'fontValue' => $fontChoice ? ($this->fontValues[$input->inputId] ?? '') : '',
+                // Rich inputs: the admin's colour allowlist (null = brand
+                // swatches + free picker, [] = colour locked, list = only those).
+                'colorOptions' => $input->richText ? $input->allowedColors : null,
                 'textAlign' => $styles[$input->inputId]['textAlign'] ?? 'left',
                 'hidden' => $this->hiddenValues[$input->inputId] ?? false,
                 // Echo-capable inputs get the LAZY settle debounce — the echo

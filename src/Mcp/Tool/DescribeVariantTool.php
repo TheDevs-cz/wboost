@@ -297,6 +297,7 @@ readonly final class DescribeVariantTool
                     frame: self::frame($frame),
                     containerId: $containerIdByInputId[$input->inputId] ?? null,
                     fontOptions: $inputFontOptions,
+                    colorOptions: $input->richText && !$input->locked ? $input->allowedColors : null,
                 );
             },
             $variant->inputs,

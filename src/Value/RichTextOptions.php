@@ -36,13 +36,40 @@ readonly final class RichTextOptions
      *   inputs: the designed face plus the admin's extra picks)
      * @param array<string, null|string> $designedByInput inputId → the canvas
      *   textbox's designed `fontFamily` (null = not locatable)
+     * @param array<string, null|list<string>> $colorsByInput inputId → the
+     *   colour allowlist for its runs (null = any colour, [] = colour locked,
+     *   a list = only these swatches) — {@see EditorTextInput::$allowedColors}
      */
     public function __construct(
         public array $fonts,
         public array $colors,
         public array $fontsByInput = [],
         public array $designedByInput = [],
+        public array $colorsByInput = [],
     ) {
+    }
+
+    /**
+     * The colour whitelist for ONE input's runs; null = any colour (also for
+     * an input this options object does not know — colours were never
+     * restricted before the allowlist existed).
+     *
+     * @return null|list<string>
+     */
+    public function allowedColorsFor(string $inputId): null|array
+    {
+        return $this->colorsByInput[$inputId] ?? null;
+    }
+
+    /**
+     * The swatches to OFFER for one input: its allowlist when restricted,
+     * the brand palette otherwise.
+     *
+     * @return list<string>
+     */
+    public function colorOptionsFor(string $inputId): array
+    {
+        return $this->colorsByInput[$inputId] ?? $this->colors;
     }
 
     /**

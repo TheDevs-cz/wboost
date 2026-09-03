@@ -1464,7 +1464,29 @@ final class DesignCompilerTest extends TestCase
         self::assertSame('SLEVA 50 %', $input->sampleValue);
         self::assertSame([], $input->allowedFonts);
         self::assertSame([], $object['allowedFonts']);
+        self::assertFalse($object['fontChoice']);
+        self::assertNull($object['allowedColors']);
         self::assertSame($object['inputId'], $input->inputId);
+    }
+
+    public function testFaceConfigurationAndColourAllowlistReachBothFaces(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                [
+                    'kind' => 'text', 'id' => 'headline', 'text' => 'SLEVA', 'font' => self::FONT_BOLD,
+                    'size' => 96, 'color' => '#ffffff', 'x' => 80, 'y' => 120, 'width' => 920,
+                    'input' => ['richText' => true, 'fontChoice' => true, 'allowedColors' => ['#C8102E', '#fff']],
+                ],
+            ],
+        ]);
+
+        $object = $compiled->objects()[0];
+        self::assertTrue($object['fontChoice']);
+        self::assertSame(['#c8102e', '#ffffff'], $object['allowedColors']);
+        self::assertTrue($compiled->textInputs[0]->fontChoice);
+        self::assertSame(['#c8102e', '#ffffff'], $compiled->textInputs[0]->allowedColors);
     }
 
     /**

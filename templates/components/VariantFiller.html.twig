@@ -567,15 +567,23 @@
                                         {% endif %}
                                         <button type="button" class="btn btn-sm btn-outline-secondary" title="Výchozí styl — odstraní veškeré formátování" data-action="rich-text-editor#clearFormatting"><i class="mdi mdi-format-clear" aria-hidden="true"></i></button>
                                     </div>
-                                    <div class="fill-richtext-toolbar__swatches d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barva textu">
-                                        <button type="button" class="fill-richtext-swatch fill-richtext-swatch--auto" title="Výchozí barva" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param=""></button>
-                                        {% for color in richToolbar.colors %}
-                                            <button type="button" class="fill-richtext-swatch" style="background-color: {{ color }}" title="{{ color }}" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param="{{ color }}"></button>
-                                        {% endfor %}
-                                        <label class="fill-richtext-swatch fill-richtext-swatch--custom" title="Vlastní barva">
-                                            <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
-                                        </label>
-                                    </div>
+                                    {# Colours PER INPUT: the admin's allowlist (only those
+                                       swatches, no free picker), the brand palette + free
+                                       picker when unrestricted, nothing at all when the
+                                       colour is locked. #}
+                                    {% if ph.colorOptions is null or ph.colorOptions|length > 0 %}
+                                        <div class="fill-richtext-toolbar__swatches d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barva textu">
+                                            <button type="button" class="fill-richtext-swatch fill-richtext-swatch--auto" title="Výchozí barva" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param=""></button>
+                                            {% for color in (ph.colorOptions ?? richToolbar.colors) %}
+                                                <button type="button" class="fill-richtext-swatch" style="background-color: {{ color }}" title="{{ color }}" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param="{{ color }}"></button>
+                                            {% endfor %}
+                                            {% if ph.colorOptions is null %}
+                                                <label class="fill-richtext-swatch fill-richtext-swatch--custom" title="Vlastní barva">
+                                                    <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
+                                                </label>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
                                     <div
                                         id="fill-text-{{ ph.inputId }}"
                                         class="form-control form-control-sm fill-richtext-editor{% if ph.uppercase %} text-uppercase{% endif %}"

@@ -150,6 +150,7 @@ final class DescribeVariantTest extends WebTestCase
                 'frame' => ['x' => 80, 'y' => 100, 'width' => 520, 'height' => 80],
                 'containerId' => TestDataFixture::ORIENTATION_ROOT_CONTAINER_ID,
                 'fontOptions' => null,
+                'colorOptions' => null,
             ],
             $inputs[TestDataFixture::ORIENTATION_INPUT_INTRO_ID],
         );

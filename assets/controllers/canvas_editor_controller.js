@@ -984,6 +984,7 @@ export default class extends Controller {
             description: description,
             hidable: hidable,
             allowedFonts: allowedFonts,
+            fontChoice: Boolean(fontChoiceToggle && fontChoiceToggle.checked),
         });
 
         this.canvas.add(textBox);

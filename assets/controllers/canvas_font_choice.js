@@ -2,12 +2,14 @@
  * "Uživatel může přepínat písmo" — the admin's per-input font choice.
  *
  * The pure half (`planFontChoice`, `effectiveFontOptions`,
- * `designedFontOf`) mirrors ResolveRichTextOptions::computeInputFonts so the
- * checklist the designer sees and the offer the fill page renders agree: the
- * DESIGNED font is always offered and therefore shown locked-checked — a rich
- * input's whole family (bold / italic are separate faces the WYSIWYG's B/I
- * buttons switch between), a plain input's exact face — and `allowedFonts`
- * adds faces on top. The DOM half renders that plan as a grouped checklist
+ * `designedFontOf`, `familyFacesOf`) mirrors
+ * ResolveRichTextOptions::computeInputFonts so the checklist the designer
+ * sees and the offer the fill page renders agree: the DESIGNED face is always
+ * offered and therefore shown locked-checked, `allowedFonts` adds faces on
+ * top, and an UNCONFIGURED rich input (`fontChoice` off, no picks) offers its
+ * whole family so the WYSIWYG's B/I buttons have faces to switch between —
+ * "if only one face is allowed, that one is always used" is the configured
+ * state with no picks. The DOM half renders the plan as a grouped checklist
  * (font name header with a tri-state group checkbox, faces beneath, each
  * previewed in its own face) and reads the picks back.
  *
@@ -33,22 +35,36 @@ export function designedFontOf(faces, designedFamily) {
 }
 
 /**
- * Is this face part of the always-offered designed set for the input?
+ * Is this face the always-offered designed one? Exact face when the canvas
+ * names one; the whole font when it names a bare family. `wholeFamily`
+ * widens it to every face of the font (the unconfigured rich offer).
  */
-function isLockedFace(face, designed, richText) {
+function isLockedFace(face, designed, wholeFamily) {
     if (designed.face) {
-        return richText ? face.fontName === designed.fontName : face.family === designed.face.family;
+        return wholeFamily ? face.fontName === designed.fontName : face.family === designed.face.family;
     }
     return designed.fontName !== null && face.fontName === designed.fontName;
 }
 
+/** Every face of the designed font EXCEPT the designed face itself — the
+ *  picks a rich input starts with when the admin opens the checklist. */
+export function familyFacesOf(faces, designedFamily) {
+    const designed = designedFontOf(faces, designedFamily);
+    if (designed.fontName === null) return [];
+    return faces
+        .filter((face) => face.fontName === designed.fontName && !(designed.face && face.family === designed.face.family))
+        .map((face) => face.family);
+}
+
 /**
  * The checklist plan: every project face grouped by font, with `locked`
- * (designed — always offered) and `checked` (locked or picked) per row.
+ * (the designed face — always offered) and `checked` (locked or picked)
+ * per row. The checklist is only ever shown for a CONFIGURED input, so the
+ * designed face is the single locked row for plain and rich alike.
  *
  * @returns {{ groups: Array<{ name: string, faces: Array<{ family, faceName, checked, locked }> }>, extras: number }}
  */
-export function planFontChoice(faces, { designedFamily, richText = false, allowedFonts = [] }) {
+export function planFontChoice(faces, { designedFamily, allowedFonts = [] }) {
     const designed = designedFontOf(faces, designedFamily);
     const picked = new Set(Array.isArray(allowedFonts) ? allowedFonts : []);
     const groups = [];
@@ -56,7 +72,7 @@ export function planFontChoice(faces, { designedFamily, richText = false, allowe
     let extras = 0;
 
     faces.forEach((face) => {
-        const locked = isLockedFace(face, designed, richText);
+        const locked = isLockedFace(face, designed, false);
         const checked = locked || picked.has(face.family);
         if (checked && !locked) extras += 1;
         let group = byName.get(face.fontName);
@@ -74,16 +90,19 @@ export function planFontChoice(faces, { designedFamily, richText = false, allowe
 /**
  * The faces the FILL surfaces will offer for this input — the JS twin of
  * ResolveRichTextOptions::computeInputFonts (designed font first, then the
- * picks in project order; a rich input with nothing resolvable falls back
- * to every project face so the WYSIWYG's face buttons keep a target).
+ * picks in project order; an unconfigured rich input offers its whole family
+ * and, with nothing resolvable, every project face so the WYSIWYG's face
+ * buttons keep a target).
  */
-export function effectiveFontOptions(faces, { designedFamily, richText = false, allowedFonts = [] }) {
+export function effectiveFontOptions(faces, { designedFamily, richText = false, fontChoice = false, allowedFonts = [] }) {
     const designed = designedFontOf(faces, designedFamily);
-    const picked = new Set(Array.isArray(allowedFonts) ? allowedFonts : []);
-    const base = faces.filter((face) => isLockedFace(face, designed, richText));
+    const picks = Array.isArray(allowedFonts) ? allowedFonts : [];
+    const picked = new Set(picks);
+    const wholeFamily = richText && !fontChoice && picks.length === 0;
+    const base = faces.filter((face) => isLockedFace(face, designed, wholeFamily));
     const extras = faces.filter((face) => picked.has(face.family) && !base.includes(face));
     const options = [...base, ...extras];
-    if (options.length === 0 && richText) return faces.slice();
+    if (options.length === 0 && wholeFamily) return faces.slice();
     return options;
 }
 

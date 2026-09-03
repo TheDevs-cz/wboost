@@ -62,6 +62,15 @@ readonly final class VariantTextInputResponse
         public null|string $containerId,
         /** @var null|list<string> */
         public null|array $fontOptions = null,
+        /**
+         * Rich inputs: the colour allowlist for the runs — null = any hex, an
+         * EMPTY list = the colour cannot be changed, a list = only these
+         * `#rrggbb` swatches; outside it a run's colour is refused
+         * (`color_not_allowed`).
+         *
+         * @var null|list<string>
+         */
+        public null|array $colorOptions = null,
     ) {
     }
 }

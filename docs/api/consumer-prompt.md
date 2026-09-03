@@ -369,7 +369,8 @@ structured `400` `{ "error": "...", "code": "..." }` with one of these codes:
 | `rich_text_not_allowed` | You sent `{ runs }` for an input whose `richText` is `false`. Send a plain string instead. |
 | `invalid_rich_text` | Malformed runs (non-object run, missing/non-string `text`, unknown run key, `runs` + `value` together, > 200 runs, > 10 000 chars total). |
 | `font_not_allowed` | A run's `fontFamily` — or the value-level `fontFamily` (font choice) — is not in THAT input's `fontOptions[].family`. The body includes `allowedFonts` (the input's valid family list; empty when the input offers no choice at all). |
-| `invalid_color` | A run's `color` isn't a hex color. Use `#rrggbb` (or `#rgb`); **no alpha**. Colors are otherwise free-form — `richTextOptions.colors` are suggested brand swatches, NOT a whitelist. |
+| `invalid_color` | A run's `color` isn't a hex color. Use `#rrggbb` (or `#rgb`); **no alpha**. |
+| `color_not_allowed` | A run's `color` is outside that input's `colorOptions` (or the input has `colorOptions: []` and cannot change colour at all). The body includes `allowedColors`. Inputs with `colorOptions: null` accept any hex — `richTextOptions.colors` are then suggested brand swatches, NOT a whitelist. |
 | `lists_not_allowed` | You sent `lines` list types (`ul`/`ol`/`cb`/`cbx`) for an input whose `lists` is `false`. Drop the `lines` key or send only `"p"` entries. |
 | `checkbox_lists_not_allowed` | You sent checkbox line types (`cb`/`cbx`) for an input whose `listCheckboxes` is `false`. Use `ul`/`ol` items instead. |
 
@@ -391,7 +392,8 @@ For each entry in `variant.inputs`:
 | `containerId` | Nullable. When set, this input is a member of `variants[].containers[]` entry with that id and reflows at render time. |
 | `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing, textAlign}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow, or to anchor a name tag by `textAlign` (`left`\|`center`\|`right`\|`justify`). |
 | `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
-| `fontOptions` | Nullable list of font faces (same shape as `richTextOptions.fonts[]`, designed font FIRST). Non-null → the user may switch this input's font: render a font select (plain inputs) or use it as the WYSIWYG's face menu (rich inputs) and send the pick as the value's `fontFamily` (see "Font choice"). `null` → no choice, render in the designed font only. |
+| `fontOptions` | Nullable list of font faces (same shape as `richTextOptions.fonts[]`, designed font FIRST). Non-null → the user may switch this input's font: render a font select (plain inputs) or use it as the WYSIWYG's face menu (rich inputs) and send the pick as the value's `fontFamily` (see "Font choice"). `null` → no choice, render in the designed font only. A rich input may list exactly ONE face — then there is nothing to switch; hide the face menu and the B/I buttons. |
+| `colorOptions` | Rich inputs only (null for plain). `null` → any hex colour: offer `richTextOptions.colors` as swatches plus a free picker. An EMPTY list → the colour is locked: offer no colour UI at all. A list → only these `#rrggbb` swatches (no free picker). A run colour outside the list is a `400 color_not_allowed`. |
 | `lists` / `listStyle` | When `lists` is `true`, offer bullet/numbered-list buttons in the WYSIWYG and send per-line types via the envelope's `lines` key (see "Lists inside rich text"). `listStyle` carries the RESOLVED bullet + spacing geometry for local preview mirroring. |
 | `listCheckboxes` | When `true` (implies `lists`), additionally offer a CHECKBOX-list button and per-item check toggles — `lines` may then carry `"cb"` (unchecked) / `"cbx"` (checked) item types (see "Checkbox lists"). |
 | `checklist` | Nullable object. Non-null → this input is a DEDICATED checklist component: render a fixed per-item editor instead of a WYSIWYG (see "Checklist components"). |
@@ -455,8 +457,10 @@ Contract details:
 - Load `richTextOptions.fonts[].url` via `@font-face` to preview faces in your
   editor/dropdown (proxy the font through your backend if the store host lacks
   CORS headers for fonts).
-- Show `richTextOptions.colors` as swatches (primary brand colors first) plus a
-  free color picker — the server accepts any well-formed hex.
+- Show the input's `colorOptions` as swatches when it carries a list (and no
+  free picker), nothing when it is `[]`; with `colorOptions: null` show
+  `richTextOptions.colors` (primary brand colors first) plus a free color
+  picker — the server then accepts any well-formed hex.
 - `maxLength` counts the concatenated plain text; `uppercase` inputs uppercase
   each run server-side (styling survives).
 - The rendered PNG is authoritative: styled wrapping (a bold face is wider!)

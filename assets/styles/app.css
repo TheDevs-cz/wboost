@@ -3687,3 +3687,34 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     font-family: var(--bs-font-monospace, monospace);
     font-size: 0.75rem;
 }
+
+/* Admin colour allowlist chips (text popover): a swatch with a check mark
+   when allowed, dimmed otherwise. */
+.color-choice-swatch {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-radius: 50%;
+    position: relative;
+    opacity: 0.45;
+    cursor: pointer;
+}
+
+.color-choice-swatch--on {
+    opacity: 1;
+    border-color: var(--bs-primary, #0d6efd);
+    box-shadow: 0 0 0 2px #fff inset;
+}
+
+.color-choice-swatch--on::after {
+    content: "\2713";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #fff;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}

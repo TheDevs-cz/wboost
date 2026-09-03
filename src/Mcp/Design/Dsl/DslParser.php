@@ -71,7 +71,7 @@ final class DslParser
     public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'at', 'x', 'y', 'width', 'input'];
 
     /** @var list<string> */
-    public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts'];
+    public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
     public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input'];
@@ -884,7 +884,60 @@ final class DslParser
             $this->readBool($inputPath, $raw, 'richText', false),
             $this->readString($inputPath, $raw, 'sampleValue'),
             $this->readFontList($inputPath, $raw, 'allowedFonts'),
+            $this->readBool($inputPath, $raw, 'fontChoice', false),
+            $this->readColorList($inputPath, $raw, 'allowedColors'),
         );
+    }
+
+    /**
+     * The colour allowlist: absent / null = any colour, a list of hex colours
+     * (normalized to lowercase `#rrggbb`; an empty list = colour locked).
+     *
+     * @param array<array-key, mixed> $raw
+     * @return null|list<string>
+     */
+    private function readColorList(string $path, array $raw, string $key): null|array
+    {
+        $value = $raw[$key] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_array($value) || ($value !== [] && !array_is_list($value))) {
+            $this->violation(self::join($path, $key), DslErrorCode::InvalidType, sprintf(
+                '%s.%s must be an array of hex colours (or null for any colour), got %s.',
+                $path,
+                $key,
+                self::describe($value),
+            ));
+
+            return null;
+        }
+
+        $colors = [];
+
+        foreach ($value as $position => $entry) {
+            $normalized = is_string($entry) ? RichText::normalizeHexColor($entry) : null;
+
+            if ($normalized === null) {
+                $this->violation(sprintf('%s.%s[%d]', $path, $key, $position), DslErrorCode::InvalidValue, sprintf(
+                    '%s.%s[%d] must be a hex colour like "#c8102e", got %s.',
+                    $path,
+                    $key,
+                    $position,
+                    self::describe($entry),
+                ));
+
+                continue;
+            }
+
+            if (!in_array($normalized, $colors, true)) {
+                $colors[] = $normalized;
+            }
+        }
+
+        return $colors;
     }
 
     /**
