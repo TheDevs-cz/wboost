@@ -1,0 +1,50 @@
+{# The admin pencil that sizes ONE logo card. Top-LEFT corner on purpose: the
+   download and colour-mapping buttons already own the right-hand corner, and
+   not every card carries both, so a shared corner would collide unevenly. #}
+{% if is_granted('manual_edit', manual) %}
+    <div {{ attributes.defaults({'class': 'manual-logo-width'}) }}>
+        <button type="button"
+                class="btn btn-sm btn-soft-primary p-1 px-2 manual-logo-width-edit"
+                title="Šířka loga v tomto rámečku"
+                data-bs-toggle="modal"
+                data-bs-target="#{{ this.modalId }}">
+            <i class="mdi mdi-arrow-expand-horizontal"></i>
+        </button>
+
+        <div class="modal fade" id="{{ this.modalId }}" tabindex="-1" data-controller="modal">
+            <div class="modal-dialog">
+                {{ form_start(form, {
+                    attr: {
+                        'data-action': 'live#action:prevent',
+                        'data-live-action-param': 'save',
+                        'data-bs-dismiss': isSuccessful ? 'modal' : ''
+                    }
+                }) }}
+
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Šířka loga – tento rámeček</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body text-start">
+                        <p class="text-muted">
+                            Nastavení platí pouze pro tento jeden rámeček a má přednost před šířkou
+                            nastavenou pro celou variantu loga v sekci Loga.
+                        </p>
+
+                        {{ form_row(form.displayWidth) }}
+                        {{ form_widget(form) }}
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zavřít</button>
+                        <button type="submit" class="btn btn-primary">Uložit</button>
+                    </div>
+                </div>
+
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+{% endif %}

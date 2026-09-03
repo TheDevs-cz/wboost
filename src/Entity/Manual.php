@@ -64,6 +64,17 @@ class Manual
     public string $slug;
 
     /**
+     * Per-CARD logo width overrides, keyed by the slot id the manual template
+     * gives each logo card (`<page>.<logoVariant>.<colorVariant|base>`). This
+     * is the top of the width cascade — see `logoDisplayWidth()`.
+     *
+     * @var array<string, int>
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::JSON, options: ['default' => '{}'])]
+    public array $logoSlotWidths = [];
+
+    /**
      * Per-page heading / description overrides, keyed by `ManualPage` value.
      * A page absent from the map renders the wording the enum carries — that
      * is what makes every manual read the same until an admin edits one.
@@ -362,5 +373,60 @@ class Manual
         // property by value for a JSON column, and an in-place write on the
         // same array instance is not always seen as a change.
         $this->pageTexts = $texts;
+    }
+
+    /**
+     * How wide a single logo card renders its logo, as a percentage of the
+     * card. Highest priority first:
+     *
+     *   1. the width set on THIS card (the pencil on the card itself),
+     *   2. the width set for the logo VARIANT ("Šířka loga v manuálu"),
+     *   3. null — no override, the stylesheet decides.
+     *
+     * Every logo card in the manual resolves its width through here, which is
+     * what makes the variant-level setting reach all of them.
+     */
+    public function logoDisplayWidth(string $slot, string $logoVariant): null|int
+    {
+        $slotWidth = $this->logoSlotWidths[$slot] ?? null;
+
+        if ($slotWidth !== null) {
+            return $slotWidth;
+        }
+
+        return $this->logo->variant(LogoTypeVariant::from($logoVariant))?->displayWidth;
+    }
+
+    /**
+     * The width THIS card carries on its own, ignoring the variant fallback —
+     * what the card's own edit form is editing.
+     */
+    public function logoSlotWidth(string $slot): null|int
+    {
+        return $this->logoSlotWidths[$slot] ?? null;
+    }
+
+    public function logoVariantWidth(string $logoVariant): null|int
+    {
+        return $this->logo->variant(LogoTypeVariant::from($logoVariant))?->displayWidth;
+    }
+
+    /**
+     * Null, 0 or an out-of-range value clears the card's own width, so the
+     * card falls back to its variant — the same normalization
+     * SvgImage::updateDisplayWidth does for the variant level.
+     */
+    public function editLogoSlotWidth(string $slot, null|int $displayWidth): void
+    {
+        $widths = $this->logoSlotWidths;
+
+        if ($displayWidth === null || $displayWidth <= 0) {
+            unset($widths[$slot]);
+        } else {
+            $widths[$slot] = min($displayWidth, 100);
+        }
+
+        // Reassigned, not mutated: Doctrine compares a JSON column by value.
+        $this->logoSlotWidths = $widths;
     }
 }

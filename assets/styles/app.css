@@ -2663,6 +2663,19 @@ button.fill-layer-row__main:focus-visible {
  * surfaces show identical proportions. Gap/radius use cqw so they scale with
  * the rendered size (36 / 1380 page units and 20 / 1380 respectively).
  */
+/*
+ * The admin pencil that sizes ONE logo card. Top-LEFT on purpose: the download
+ * and colour-mapping buttons already own the right-hand corner and not every
+ * card carries both, so sharing that side would collide unevenly.
+ */
+.manual-logo-width {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    z-index: 2;
+    line-height: 1;
+}
+
 .mockup-grid-container {
     container-type: inline-size;
 }

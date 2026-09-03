@@ -1536,6 +1536,44 @@ a new upload for the same slot wins over the flag). Slot order == persisted
 `images` array indexes. NOTE: Stimulus reuses controller instances on
 reconnect — slot state is reset in `connect()`, not `initialize()`.
 
+### Manual logo width — a three-level cascade
+
+How big a logo renders inside one manual card resolves through
+`Manual::logoDisplayWidth($slot, $logoVariant)`, highest priority first:
+
+1. the width set on **that card** (`manual.logo_slot_widths`, a JSON map keyed
+   by slot id) — edited by a pencil on the card itself;
+2. the width of the **logo variant** (`manual.logo -> <variant> ->
+   displayWidth`, the "Šířka loga v manuálu (%)" field on the Loga page);
+3. nothing — the stylesheet decides.
+
+**Slot ids** are `<manualPage>.<logoVariant>.<colorVariant|base>`
+(`protection_zone.vertical.base`, `symbol.symbol.darkBackground`) — stable
+under adding or removing logos, unlike an ordinal. They are literals in
+`manual_preview.html.twig`; changing one orphans its stored override.
+
+Every logo card renders through **`_manual_logo_image.html.twig`** (which
+replaced the file's `logo_image` macro) — that is what makes the variant-level
+setting reach all of them. Before, three sites emitted a raw `<img>` and
+ignored the width entirely: the vertical + symbol cards of the
+protected-zone page and every card of `_logo_min_dimensions.html.twig`.
+
+Two things in that partial's inline style are load-bearing, both verified in
+real Chromium against a live manual:
+
+- **`!important`** — a few manuals carry per-slug `width: … !important` hacks
+  in `app.css` from before this control existed (e.g.
+  `.manual-kozelsky-koupelny-logomanual .manual-image-vertical-big
+  .protected-zone-wrapper img`), and an admin's explicit number has to win
+  over them. Those hacks still apply where no width is set.
+- **`max-height: none`** — `.manual-image-wrapper img` caps the height
+  (120/200px) while the stylesheet also sets `width: 100%`. With an explicit
+  width that cap does NOT scale the picture down, it SQUASHES it (the browser
+  clamps the height and keeps the width — measured: a 100×125 logo in a 500px
+  card renders 500×120), so an admin asking for a wide logo would get a
+  distorted one. Lifting the cap lets a card grow, which is the honest reading
+  of "width = N % of the frame".
+
 ### Manual page texts — admin-overridable, code-authored defaults
 
 Every fixed page of a manual (`manual_preview.html.twig`) used to carry its

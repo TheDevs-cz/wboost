@@ -3,14 +3,6 @@
 {% block title %}{{ manual.name }}{% endblock %}
 {% set active_menu_item = 'manuals' %}
 
-{#
-    Renders a logo <img>, applying the per-variant display width (% of the card)
-    when the designer set one. Height is unaffected: the card keeps its fixed
-    height (flex-centered), the logo just gets narrower/wider. displayWidth null
-    or 0 => no override => default width:100% from CSS.
-#}
-{% macro logo_image(logo, colorsMapping) %}<img src="{{ remap_svg_colors(logo.filePath, colorsMapping) }}"{% if logo.displayWidth %} style="width: {{ logo.displayWidth }}%;"{% endif %}>{% endmacro %}
-
 {% block meta_viewport %}
     <meta name="viewport" content="width=1400, initial-scale=0.25, maximum-scale=1">
 {% endblock %}
@@ -29,7 +21,6 @@
 {% endblock %}
 
 {% block full_content %}
-    {% import _self as logo_helpers %}
     <div style="min-width: 1400px;" class="manual-{{ manual.slug }}">
         <div class="container-fluid" style="max-width: 1320px;">
             {% set page = 0 %}
@@ -64,7 +55,7 @@
                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
                                     <twig:DownloadManualImage logoVariant="horizontal" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
 
-                                    {{ logo_helpers.logo_image(manual.logo.horizontal, colorsMapping) }}
+                                    {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontal, 'slot': 'basic_logos.horizontal.base', 'logo_variant': 'horizontal'}) }}
                                 </div>
                             {% endif %}
 
@@ -74,7 +65,7 @@
                                         <div class="col-6">
                                             <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
                                                 <twig:DownloadManualImage logoVariant="vertical" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                {{ logo_helpers.logo_image(manual.logo.vertical, colorsMapping) }}
+                                                {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.vertical, 'slot': 'basic_logos.vertical.base', 'logo_variant': 'vertical'}) }}
                                             </div>
                                         </div>
                                     {% endif %}
@@ -83,7 +74,7 @@
                                         <div class="col-6">
                                             <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
                                                 <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                                {{ logo_helpers.logo_image(manual.logo.symbol, colorsMapping) }}
+                                                {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.symbol, 'slot': 'basic_logos.symbol.base', 'logo_variant': 'symbol'}) }}
                                             </div>
                                         </div>
                                     {% endif %}
@@ -107,7 +98,7 @@
 
                                 <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
                                     <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                    {{ logo_helpers.logo_image(manual.logo.horizontalWithClaim, colorsMapping) }}
+                                    {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontalWithClaim, 'slot': 'logos_with_claim.horizontalWithClaim.base', 'logo_variant': 'horizontalWithClaim'}) }}
                                 </div>
                             {% endif %}
 
@@ -116,7 +107,7 @@
                                     <div class="col-6">
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: #ffffff;">
                                             <twig:DownloadManualImage logoVariant="verticalWithClaim" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.verticalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.verticalWithClaim, 'slot': 'logos_with_claim.verticalWithClaim.base', 'logo_variant': 'verticalWithClaim'}) }}
                                         </div>
                                     </div>
                                 </div>
@@ -144,7 +135,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'darkBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="darkBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontal, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontal, 'slot': 'horizontal_backgrounds.horizontal.darkBackground', 'logo_variant': 'horizontal'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('horizontal', 'lightBackground') %}
@@ -152,7 +143,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="lightBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontal, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontal, 'slot': 'horizontal_backgrounds.horizontal.lightBackground', 'logo_variant': 'horizontal'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('horizontal', 'oneColor') %}
@@ -160,7 +151,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="oneColor" />
                                             <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontal, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontal, 'slot': 'horizontal_backgrounds.horizontal.oneColor', 'logo_variant': 'horizontal'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -172,7 +163,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="darkBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontalWithClaim, 'slot': 'horizontal_backgrounds.horizontalWithClaim.darkBackground', 'logo_variant': 'horizontalWithClaim'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'lightBackground') %}
@@ -180,7 +171,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'lightBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="lightBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontalWithClaim, 'slot': 'horizontal_backgrounds.horizontalWithClaim.lightBackground', 'logo_variant': 'horizontalWithClaim'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('horizontalWithClaim', 'oneColor') %}
@@ -188,7 +179,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'oneColor') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="oneColor" />
                                             <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontalWithClaim, 'slot': 'horizontal_backgrounds.horizontalWithClaim.oneColor', 'logo_variant': 'horizontalWithClaim'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -217,7 +208,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'darkBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="darkBackground" />
                                             <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.vertical, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.vertical, 'slot': 'vertical_backgrounds.vertical.darkBackground', 'logo_variant': 'vertical'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('vertical', 'lightBackground') %}
@@ -225,7 +216,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'lightBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="lightBackground" />
                                             <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.vertical, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.vertical, 'slot': 'vertical_backgrounds.vertical.lightBackground', 'logo_variant': 'vertical'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('vertical', 'oneColor') %}
@@ -233,7 +224,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'oneColor') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="oneColor" />
                                             <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.vertical, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.vertical, 'slot': 'vertical_backgrounds.vertical.oneColor', 'logo_variant': 'vertical'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -245,7 +236,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'darkBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="darkBackground" />
                                             <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.verticalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.verticalWithClaim, 'slot': 'vertical_backgrounds.verticalWithClaim.darkBackground', 'logo_variant': 'verticalWithClaim'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'lightBackground') %}
@@ -253,7 +244,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'lightBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="lightBackground" />
                                             <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.verticalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.verticalWithClaim, 'slot': 'vertical_backgrounds.verticalWithClaim.lightBackground', 'logo_variant': 'verticalWithClaim'}) }}
                                         </div>
 
                                         {% set colorsMapping = manual.logoColorMapping('verticalWithClaim', 'oneColor') %}
@@ -261,7 +252,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'oneColor') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="oneColor" />
                                             <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'oneColor') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.verticalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.verticalWithClaim, 'slot': 'vertical_backgrounds.verticalWithClaim.oneColor', 'logo_variant': 'verticalWithClaim'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -289,7 +280,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'whiteBackground') }};">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="whiteBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontal, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontal, 'slot': 'horizontal_monochrome.horizontal.whiteBackground', 'logo_variant': 'horizontal'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -301,7 +292,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="whiteBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontalWithClaim, 'slot': 'horizontal_monochrome.horizontalWithClaim.whiteBackground', 'logo_variant': 'horizontalWithClaim'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -313,7 +304,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontal', 'blackBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontal" colorVariant="blackBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontal" background="{{ manual.logoBackground('horizontal', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontal, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontal, 'slot': 'horizontal_monochrome.horizontal.blackBackground', 'logo_variant': 'horizontal'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -325,7 +316,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-horizontal" style="background: {{ '#' ~ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="horizontalWithClaim" colorVariant="blackBackground" />
                                             <twig:DownloadManualImage logoVariant="horizontalWithClaim" background="{{ manual.logoBackground('horizontalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.horizontalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontalWithClaim, 'slot': 'horizontal_monochrome.horizontalWithClaim.blackBackground', 'logo_variant': 'horizontalWithClaim'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -354,7 +345,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'whiteBackground') }};">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="whiteBackground" />
                                             <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.vertical, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.vertical, 'slot': 'vertical_monochrome.vertical.whiteBackground', 'logo_variant': 'vertical'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -366,7 +357,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="{{ '#' ~ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="whiteBackground" />
                                             <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.verticalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.verticalWithClaim, 'slot': 'vertical_monochrome.verticalWithClaim.whiteBackground', 'logo_variant': 'verticalWithClaim'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -378,7 +369,7 @@
                                         <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('vertical', 'blackBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="vertical" colorVariant="blackBackground" />
                                             <twig:DownloadManualImage logoVariant="vertical" background="{{ manual.logoBackground('vertical', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.vertical, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.vertical, 'slot': 'vertical_monochrome.vertical.blackBackground', 'logo_variant': 'vertical'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -389,7 +380,7 @@
                                         <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square" style="background: {{ '#' ~ manual.logoBackground('verticalWithClaim', 'blackBackground') }}">
                                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="verticalWithClaim" colorVariant="blackBackground" />
                                             <twig:DownloadManualImage logoVariant="verticalWithClaim" background="{{ manual.logoBackground('verticalWithClaim', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                            {{ logo_helpers.logo_image(manual.logo.verticalWithClaim, colorsMapping) }}
+                                            {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.verticalWithClaim, 'slot': 'vertical_monochrome.verticalWithClaim.blackBackground', 'logo_variant': 'verticalWithClaim'}) }}
                                         </div>
                                     </div>
                                 {% endif %}
@@ -414,7 +405,7 @@
                                 <div class="col-6">
                                     <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: #ffffff">
                                         <twig:DownloadManualImage logoVariant="symbol" background="ffffff" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                        {{ logo_helpers.logo_image(manual.logo.symbol, colorsMapping) }}
+                                        {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.symbol, 'slot': 'symbol.symbol.base', 'logo_variant': 'symbol'}) }}
                                     </div>
                                 </div>
 
@@ -424,7 +415,7 @@
                                     <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'darkBackground') }}">
                                         <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="darkBackground" />
                                         <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'darkBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                        {{ logo_helpers.logo_image(manual.logo.symbol, colorsMapping) }}
+                                        {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.symbol, 'slot': 'symbol.symbol.darkBackground', 'logo_variant': 'symbol'}) }}
                                     </div>
                                 </div>
                             </div>
@@ -438,7 +429,7 @@
                             <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'lightBackground') }}">
                                 <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="lightBackground" />
                                 <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'lightBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                {{ logo_helpers.logo_image(manual.logo.symbol, colorsMapping) }}
+                                {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.symbol, 'slot': 'symbol.symbol.lightBackground', 'logo_variant': 'symbol'}) }}
                             </div>
                         </div>
 
@@ -447,7 +438,7 @@
                             <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'whiteBackground') }}">
                                 <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="whiteBackground" />
                                 <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'whiteBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                {{ logo_helpers.logo_image(manual.logo.symbol, colorsMapping) }}
+                                {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.symbol, 'slot': 'symbol.symbol.whiteBackground', 'logo_variant': 'symbol'}) }}
                             </div>
                         </div>
 
@@ -456,7 +447,7 @@
                             <div class="border border-1 p-5 rounded-4 manual-image-wrapper manual-image-square-symbol d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground('symbol', 'blackBackground') }}">
                                 <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="symbol" colorVariant="blackBackground" />
                                 <twig:DownloadManualImage logoVariant="symbol" background="{{ manual.logoBackground('symbol', 'blackBackground') }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
-                                {{ logo_helpers.logo_image(manual.logo.symbol, colorsMapping) }}
+                                {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.symbol, 'slot': 'symbol.symbol.blackBackground', 'logo_variant': 'symbol'}) }}
                             </div>
                         </div>
                     </div>
@@ -486,7 +477,7 @@
                                                     <span class="protected-zone-bottom">1/3</span>
                                                     <span class="protected-zone-left">1/3</span>
                                                     <span class="protected-zone-right">1/3</span>
-                                                    {{ logo_helpers.logo_image(manual.logo.horizontal, colorsMapping) }}
+                                                    {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.horizontal, 'slot': 'protection_zone.horizontal.base', 'logo_variant': 'horizontal'}) }}
                                                 </div>
                                             </div>
                                         </div>
@@ -503,7 +494,7 @@
                                                     <span class="protected-zone-bottom">1/3</span>
                                                     <span class="protected-zone-left">1/3</span>
                                                     <span class="protected-zone-right">1/3</span>
-                                                    <img src="{{ remap_svg_colors(manual.logo.vertical.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                    {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.vertical, 'slot': 'protection_zone.vertical.base', 'logo_variant': 'vertical'}) }}
                                                 </div>
                                             </div>
                                         </div>
@@ -520,7 +511,7 @@
                                                     <span class="protected-zone-bottom">1/3</span>
                                                     <span class="protected-zone-left">1/3</span>
                                                     <span class="protected-zone-right">1/3</span>
-                                                    <img src="{{ remap_svg_colors(manual.logo.symbol.filePath, colorsMapping) }}" style="background: #ffffff;">
+                                                    {{ include('_manual_logo_image.html.twig', {'logo': manual.logo.symbol, 'slot': 'protection_zone.symbol.base', 'logo_variant': 'symbol'}) }}
                                                 </div>
                                             </div>
                                         </div>
@@ -551,23 +542,23 @@
                         <div class="page-designs col-9">
                             <div class="row">
                                 {% if manual.logo.symbol and (manual.logo.symbol.widthInfo or manual.logo.symbol.heightInfo) %}
-                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.symbol}) }}
+                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.symbol, 'slot': 'minimum_dimensions.symbol.base', 'logo_variant': 'symbol'}) }}
                                 {% endif %}
 
                                 {% if manual.logo.horizontal and (manual.logo.horizontal.widthInfo or manual.logo.horizontal.heightInfo) %}
-                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.horizontal}) }}
+                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.horizontal, 'slot': 'minimum_dimensions.horizontal.base', 'logo_variant': 'horizontal'}) }}
                                 {% endif %}
 
                                 {% if manual.logo.vertical and (manual.logo.vertical.widthInfo or manual.logo.vertical.heightInfo) %}
-                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.vertical}) }}
+                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.vertical, 'slot': 'minimum_dimensions.vertical.base', 'logo_variant': 'vertical'}) }}
                                 {% endif %}
 
                                 {% if manual.logo.horizontalWithClaim and (manual.logo.horizontalWithClaim.widthInfo or manual.logo.horizontalWithClaim.heightInfo) %}
-                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.horizontalWithClaim}) }}
+                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.horizontalWithClaim, 'slot': 'minimum_dimensions.horizontalWithClaim.base', 'logo_variant': 'horizontalWithClaim'}) }}
                                 {% endif %}
 
                                 {% if manual.logo.verticalWithClaim and (manual.logo.verticalWithClaim.widthInfo or manual.logo.verticalWithClaim.heightInfo) %}
-                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.verticalWithClaim}) }}
+                                    {{ include('_logo_min_dimensions.html.twig', {'logo': manual.logo.verticalWithClaim, 'slot': 'minimum_dimensions.verticalWithClaim.base', 'logo_variant': 'verticalWithClaim'}) }}
                                 {% endif %}
                             </div>
                         </div>

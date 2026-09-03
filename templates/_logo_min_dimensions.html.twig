@@ -1,3 +1,6 @@
+{# One card of the "minimální rozměry" page — the logo with its width/height
+   annotations. Params: logo (SvgImage), slot (string), logo_variant (string);
+   the last two size the card through the shared logo-image partial. #}
 <div class="col-12">
     <div class="border border-1 p-4 rounded-4 mb-4 manual-image-wrapper manual-image-vertical-big" style="background: #ffffff;">
         {% set colorsMapping = {} %}
@@ -18,7 +21,7 @@
                     </div>
                 {% endif %}
 
-                <img src="{{ remap_svg_colors(logo.filePath, colorsMapping) }}">
+                {{ include('_manual_logo_image.html.twig', {'logo': logo, 'slot': slot, 'logo_variant': logo_variant}) }}
             </div>
         </div>
     </div>

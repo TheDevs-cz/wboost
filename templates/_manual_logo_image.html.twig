@@ -1,0 +1,23 @@
+{# One logo inside a manual card: the picture plus the admin pencil that sizes
+   THIS card.
+
+   The width comes from `Manual::logoDisplayWidth()` — the card's own override
+   first, then the logo variant's "Šířka loga v manuálu", then nothing. Every
+   logo card in the manual goes through here, which is what makes the
+   variant-level setting reach all of them.
+
+   `!important` and `max-height: none` are both load-bearing:
+   - a handful of manuals carry per-slug `width: … !important` hacks in app.css
+     from before this control existed, and an admin's explicit number has to
+     win over them;
+   - `.manual-image-wrapper img` caps the height (120/200px). With an explicit
+     `width` that cap does not scale the picture down, it SQUASHES it (the
+     browser clamps the height and keeps the width), so an admin asking for a
+     wide logo would get a distorted one.
+
+   Params: manual, logo (SvgImage), colorsMapping, slot (string),
+           logo_variant (string). #}
+{% set display_width = manual.logoDisplayWidth(slot, logo_variant) %}
+<twig:ManualLogoWidth manual="{{ manual }}" slot="{{ slot }}" logoVariant="{{ logo_variant }}" />
+<img src="{{ remap_svg_colors(logo.filePath, colorsMapping) }}"
+     {%- if display_width %} style="width: {{ display_width }}% !important; max-height: none !important;"{% endif %}>
