@@ -29,13 +29,13 @@ test on it.
 
 ### Two axes of independence — be honest about which one you get
 
-| | Cost | When |
+| | How | Where |
 |---|---|---|
-| **Code independence** — nothing shared, no way for the app's CSS/JS/theme to leak in | Free. Entirely inside this repo. | Now, this task. |
-| **Deploy independence** — change the landing without deploying the app | One web-server rule. The Caddyfile lives inside `ghcr.io/thedevs-cz/php:8.5-wboost` / the infra repo, **not here**, so this task cannot finish it. | §5 documents both paths; pick one with Jan. |
+| **Code independence** — nothing shared, no way for the app's CSS/JS/theme to leak in | Nothing imported, nothing rendered by Symfony. | This repo, this task. |
+| **Deploy independence** — change the landing without deploying the app | Its own nginx image (`ghcr.io/thedevs-cz/wboost-landing`, built from `landing/`), its own app stack on lily, claimed at the apex by a priority-100 Traefik router in front of the app's priority-1 `Host()` router. | Half here (§5), half in `~/www/lily.srv/docs/wboost-landing-plan.md`. |
 
-Do the code split now — it is the part that protects the design and costs nothing. The deploy
-split is a one-line infra change afterwards, because the artifact is a plain folder either way.
+Both are decided (2026-09-03) — you get the full split. A change to `landing/**` builds and
+rolls only the nginx container; a change outside it deploys only the app.
 
 **Do not move the app to a subdomain.** `app.wboost.cz` looks tempting and is the wrong call
 right now: it breaks every public manual URL a designer has already sent a client
@@ -112,6 +112,8 @@ Done when the app behaves exactly as before behind the login and `/` is no longe
 ```
 landing/
   README.md                  ← how to open it, how it is served, where the design lives
+  Dockerfile                 ← §5.1 (nginx:alpine)
+  nginx.conf                 ← §5.1 (caching + gzip only)
   src/
     index.html
     _lp/
@@ -122,8 +124,9 @@ landing/
       img/og-cover.png
 ```
 
-`landing/src/` is the document root of the site. That layout works unchanged whether the
-files are copied into `public/`, served by a static container, or uploaded to a bucket.
+`landing/src/` is the document root of the site and the only thing that ends up inside the
+image. That layout is host-agnostic: it works unchanged in the nginx container, from the
+filesystem, or on any static host if the deployment ever moves.
 
 ### 3.1 Path rules — the one thing to get right
 
@@ -295,64 +298,98 @@ systems for a cosmetic gain — don't. This is what most SaaS marketing pages do
 
 ## 5. Commit 4 — serving it
 
-### 5.1 Development
+**Decided (2026-09-03).** The landing runs as its **own stock-nginx container**, deployed as
+a separate app on lily, and is claimed at the apex by a **higher-priority Traefik router** in
+front of the app. Every existing URL stays exactly where it is. The full infra plan — router
+labels, cutover order, webhook wiring, verification, rollback — is
+`~/www/lily.srv/docs/wboost-landing-plan.md`; **read it before doing this commit**, and do
+the infra half from there.
 
-Add a static service to `compose.yaml` so dev matches prod topology and the landing has its
-own origin:
+This commit only adds the two files that make the folder buildable, plus the dev service.
+
+### 5.1 The image
+
+`landing/Dockerfile` — build context is `landing/`:
+
+```dockerfile
+FROM nginx:alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY src/ /usr/share/nginx/html/
+```
+
+`landing/nginx.conf` — caching and compression only. Security headers come from
+`sec-headers@file` inside Traefik's `public-edge@file` chain; do **not** duplicate them.
+
+```nginx
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 512;
+    gzip_types text/html text/css application/javascript image/svg+xml;
+    # woff2 is already compressed — deliberately not in gzip_types.
+
+    location = / {
+        add_header Cache-Control "no-cache";
+        try_files /index.html =404;
+    }
+
+    # Filenames are NOT fingerprinted (no build step), so only the fonts — which
+    # genuinely never change — may be cached immutably.
+    location /_lp/fonts/ { add_header Cache-Control "public, max-age=31536000, immutable"; }
+    location /_lp/       { add_header Cache-Control "public, max-age=600"; }
+}
+```
+
+### 5.2 Development
+
+Add a static service to `compose.yaml` so dev mirrors prod:
 
 ```yaml
     landing:
-        image: caddy:2-alpine
+        image: nginx:alpine
         restart: unless-stopped
-        command: caddy file-server --root /srv --listen :80 --browse
         volumes:
-            - ./landing/src:/srv:ro
+            - ./landing/src:/usr/share/nginx/html:ro
+            - ./landing/nginx.conf:/etc/nginx/conf.d/default.conf:ro
         ports:
             - "${LANDING_PORT:-8090}:80"
 ```
 
-App at `:8080`, landing at `:8090`. The app links (`/registration` etc.) 404 on `:8090` —
-expected in dev; that is what §7's test is for. `open landing/src/index.html` also works for
-pure design work.
+App on `:8080`, landing on `:8090`. The bind mount means edits are live with no rebuild — the
+image build is production-only. `open landing/src/index.html` also works, which is why the
+site's own assets use **relative** paths and only the app links are root-relative.
 
-Remember `WEB_PORT` / `POSTGRES_PORT` already exist because the defaults collide with other
-projects on this machine — `LANDING_PORT` follows the same pattern.
+`WEB_PORT` / `POSTGRES_PORT` already exist because the defaults collide with other projects on
+this machine; `LANDING_PORT` follows the same pattern.
 
-### 5.2 Production — two paths, pick one with Jan
+The app links (`/registration`, `/login`, `/api/docs`, `/ai`) 404 on `:8090` in dev — expected.
+§7's test is what proves they are real.
 
-**Path A — bundled into the app image (no infra change, one deploy).** Add to the `Dockerfile`,
-after `asset-map:compile`:
+### 5.3 CI
 
-```dockerfile
-COPY landing/src/ ./public/
-```
+Two workflow changes, both specified in full in the infra plan (§4 Phase B):
 
-`landing/src/index.html` → `public/index.html` and `_lp/` → `public/_lp/`. Neither collides
-with anything under `public/` today (verified: no `index.html`, no `_lp`). Static files under
-`public/` are served by Caddy before PHP runs.
+- **New** `.github/workflows/release-landing.yml` — triggers on `push` to `main` filtered to
+  `paths: ['landing/**']`, calls `TheDevs-cz/ci/.github/workflows/_ship.yml@v1` with
+  `app: wboost-landing`, `image: ghcr.io/thedevs-cz/wboost-landing`, `context: landing`.
+- **Amend** `.github/workflows/release.yml` with a fail-open preflight job so a landing-only
+  change does not rebuild and roll the PHP app.
 
-**Verify before relying on it:** the Caddyfile lives inside `ghcr.io/thedevs-cz/php:8.5-wboost`,
-not in this repo, so you cannot read it here. Confirm that a request for `/` resolves to
-`public/index.html` rather than falling through to `index.php` —
-`docker compose exec web cat /etc/caddy/Caddyfile` (or wherever the image puts it) and check
-the `try_files` / `file_server index` directives. If it falls through, the fix is one rule in
-the infra repo:
+> ⚠️ The new workflow's repo secret is **`LANDING_DEPLOY_WEBHOOK_SECRET`**, not
+> `DEPLOY_WEBHOOK_SECRET` — that name is already taken by the `wboost` app's deploy hook, and
+> overwriting it would break the application's deploys. Do not run
+> `lily.srv/deploy/add-app.sh --apply` against this repo; it hard-codes the shared name.
 
-```caddyfile
-handle / { rewrite * /index.html; file_server }
-```
+### 5.4 Favicons — the one deliberate exception
 
-This path gives code independence but **not** deploy independence: a copy change still means
-a PHP deploy.
-
-**Path B — its own origin (deploy independence).** Publish `landing/src/` to a static host
-(Cloudflare Pages, a bucket, or a `caddy:2-alpine` container next to the app) and route
-`wboost.cz/` to it while everything else continues to the app. The artifact is byte-identical
-to Path A, so switching later is a routing change, not a rebuild.
-
-Whichever you pick, write it down in `landing/README.md`.
-
----
+The landing links `/favicon.ico` and friends root-relative. Those paths are not in the landing
+router's rule, so they fall through to the app, which already serves them. One shared brand,
+zero duplicated bytes, and a browser's implicit `/favicon.ico` request works either way.
 
 ## 6. Commit 5 — polish
 
@@ -440,8 +477,9 @@ should be essentially instant; check the network panel shows **nothing** from `/
 - CSS under 40 KB, JS under 3 KB, fonts self-hosted as woff2.
 - `GET /dashboard` behaves like the old `/`; login lands on `/dashboard`; logout lands on `/`.
 - No reference to `homepage` remains in `src/`, `templates/` or `tests/`.
-- `/` serves the static page in production — with the chosen path from §5.2 written down in
-  `landing/README.md`, including whether the Caddy rule was needed.
+- `https://wboost.cz/` serves the static page from the nginx container, and `/login`,
+  `/registration`, `/api/docs`, `/ai`, `/_mcp`, `/nahled-manualu/*` and both `*.wboost.cz`
+  subdomains are unchanged — verified per §6 of `~/www/lily.srv/docs/wboost-landing-plan.md`.
 - PHPStan max and PHPUnit green.
 - The PR description lists every still-open **[POTVRDIT]** item from §10 of
   `designs/wboost-landing-notes.md` — in particular the light logo lockup, the OG image, the
