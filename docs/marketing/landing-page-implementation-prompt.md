@@ -208,7 +208,7 @@ preprocessor, no utility soup.
 
 ```css
 :root {
-  --lp-ink:#313a46; --lp-ink-deep:#28303a; --lp-ink-soft:#3a4453;
+  --lp-ink:#313a46; --lp-ink-deep:#20262f; --lp-ink-soft:#3a4453;
   --lp-paper:#fafbfe; --lp-paper-warm:#f4f1ea; --lp-white:#fff;
   --lp-primary:#727cf5; --lp-primary-hover:#5b66e0; --lp-primary-tint:#eef0fe;
   --lp-slate:#8491a0; --lp-logo-accent:#7075b5;
@@ -273,6 +273,17 @@ The ink-on-paper lockup is **[POTVRDIT]** — flag it in the PR description.
 anchors expect. Fourteen sections in the fixed order of §5 of the design brief: nav, hero,
 proof strip, problém, jak to funguje, showcase, moduly (`#funkce`), AI asistenti (`#ai`),
 pro koho (`#pro-koho`), příběh (`#pribeh`), cena (`#cena`), FAQ, final CTA, footer.
+
+**Section surfaces — one hard rule.** In order: paper ×5 → **ink** (Showcase) → paper
+(Moduly) → **ink** (AI) → paper (Pro koho) → **ink** (Reference) → **warm paper** (Příběh) →
+**ink** (Cena) → paper (FAQ) → **ink** (Final CTA) → **deeper ink `#20262f`** (Footer).
+
+**Never let two dark sections touch.** Two bands of the same ink meeting produce no boundary
+at all — the break vanishes and they read as one enormous block with a hole where the two
+paddings meet. It happened twice during design and was invisible until someone scrolled the
+real thing. The footer is the single permitted dark→dark boundary, and it earns it with both
+a tonal step (`#313a46` → `#20262f`) **and** `border-top: 1px solid #ffffff1a`. If you ever
+reorder or add a section, re-check this first.
 
 ### 4.1b The Reference section ships hidden
 

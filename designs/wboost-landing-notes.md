@@ -80,7 +80,7 @@ Mobile: H1 40 / section titles 34 / body 16–17.
   variables were defined from the brand tokens in §3 of the brief instead.
 - One idea borrowed from *Editorial Landscape Stack*: the three typographic voices above.
 
-Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #28303a`,
+Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #20262f` (footer only),
 `paper #fafbfe`, `paper-warm #f4f1ea`, `primary #727cf5`, `primary-hover #5b66e0`,
 `primary-tint #eef0fe`, `slate #8491a0`, `logo-accent #7075b5`, `text-head #313a46`,
 `text-body #6c757d`, `border #dee2e6`, `border-ink #8491a03d`, `success #0acf97`,
@@ -96,10 +96,16 @@ Document variables (all defined in the `.pen`): `ink #313a46`, `ink-deep #28303a
 - **Shape**: 8 px radius on buttons, inputs and fragment chrome; 16 px on cards and
   tiles; one hairline per surface (`#dee2e6` on paper, `#8491a03d` on ink). One soft
   ambient shadow, used only on floating popovers, the hero artwork and the toast.
-- **Rhythm**: paper → paper → paper → **ink** (Showcase) → paper (Moduly) → **ink** (AI)
-  → paper (Pro koho) → **warm paper `#f4f1ea`** (Příběh) → **ink** (Cena) → paper (FAQ)
-  → **ink** (Final CTA) → **deeper ink `#28303a`** (Footer). The footer's darker shade
-  keeps the closing dark block from reading as one undifferentiated slab.
+- **Rhythm**: paper ×5 → **ink** (Showcase) → paper (Moduly) → **ink** (AI) → paper
+  (Pro koho) → **ink** (Reference) → **warm paper `#f4f1ea`** (Příběh) → **ink** (Cena) →
+  paper (FAQ) → **ink** (Final CTA) → **deeper ink `#20262f`** (Footer).
+  **No two dark sections are ever adjacent** — that is a hard rule, not a preference. Two
+  bands of the same ink meeting have no visible boundary at all, so a section break simply
+  disappears and the two read as one enormous block with a hole in the middle (both
+  paddings meeting). It bit twice: the Reference section was first inserted one index too
+  low and landed against *Cena*, and the Final CTA and Footer were both put on `#28303a`.
+  The footer is the one permitted dark→dark boundary, and it carries **both** a real tonal
+  step (`#313a46` → `#20262f`) **and** a `#ffffff1a` top hairline.
 - **Asymmetry**: the hero composition overlaps the right edge (the "Publikováno na
   Facebook" toast is cut by it on purpose); the showcase format row bleeds off-canvas
   at the 9:16; the Final CTA is a single big line in an almost empty band.
