@@ -70,16 +70,17 @@ final class ExportFillValuesTest extends TestCase
         self::assertSame($withFont->toArray(), ExportFillValues::fromArray($withFont->toArray())->toArray());
     }
 
-    public function testVariantFormKeepsEmptyStringsButGroupFormDropsThem(): void
+    public function testBothWebFormsKeepEmptyStrings(): void
     {
-        // Single-variant surface: an empty text means "blank the text" — part
-        // of the fill. Group surface: empty means "keep the designed text".
+        // On both fill surfaces an empty text means "blank the text" — part
+        // of the fill (unified 2026-09-03; the group form used to drop it
+        // as "keep the designed text").
         $variant = ExportFillValues::fromVariantWebForm(['input-a' => ''], [], []);
         $group = ExportFillValues::fromGroupWebForm(['input-a' => ''], [], [], []);
 
         self::assertSame(['input-a' => ''], $variant->toArray()['texts']);
-        self::assertSame([], $group->toArray()['texts']);
-        self::assertTrue($group->isEmpty());
+        self::assertSame(['input-a' => ''], $group->toArray()['texts']);
+        self::assertFalse($group->isEmpty());
         self::assertFalse($variant->isEmpty());
     }
 

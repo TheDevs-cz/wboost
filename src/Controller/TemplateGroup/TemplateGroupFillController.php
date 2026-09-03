@@ -75,6 +75,9 @@ final class TemplateGroupFillController extends AbstractController
                 // dimension): eligibility is per-dimension, so each entry
                 // carries its own designed objects + containers + rules.
                 'echo' => $this->placeholders->echoData($variant),
+                // This dimension's overlay payload: the text frames its boxes
+                // are drawn at + the reflow mirror (fonts, containers).
+                'text_layout' => $this->placeholders->layoutData($variant),
             ];
         }
 
@@ -108,8 +111,12 @@ final class TemplateGroupFillController extends AbstractController
             'group' => $group,
             'menu_item' => 'templates',
             'variants' => $variants,
-            'text_inputs' => $textInputs,
-            'font_options' => $this->placeholders->fontOptions($memberVariants),
+            // The single-variant fill page's popover model, unified over the
+            // member dimensions — one popover per distinct input, seeded
+            // from the loaded version (else the sample text).
+            'text_placeholders' => $this->placeholders->textPlaceholders($memberVariants, $seed['texts'], $seed['hidden'], $seed['fonts']),
+            'rich_toolbar' => $this->placeholders->richTextToolbar($memberVariants),
+            'layers' => $this->placeholders->layers($memberVariants, $seed['hidden']),
             'image_inputs' => $imageInputs,
             'export_versions' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,

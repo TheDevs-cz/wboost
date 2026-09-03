@@ -1,0 +1,45 @@
+{#
+    The fill pages' overlay chrome switches + the "Všechna pole" panel button —
+    ONE partial for the single-variant fill component and the group fill page,
+    so the two surfaces offer the identical controls.
+
+    Element IDs are the contract: the overlay controller reads the switches'
+    state through them and tests pin them. Both switches are DOM `checked`
+    state, so on the Live-rendered single page the including markup keeps this
+    inside a data-live-ignore subtree (a Live morph would re-check them).
+#}
+<div class="form-check form-switch mb-0">
+    <input
+        type="checkbox"
+        class="form-check-input"
+        id="fill-highlight-toggle"
+        checked
+        data-action="change->variant-fill-overlay#toggleHighlight"
+    >
+    <label class="form-check-label small" for="fill-highlight-toggle">Zobrazit oblasti k vyplnění</label>
+</div>
+
+{# Name tags, independent of the borders above (same pair as the admin editor). #}
+<div class="form-check form-switch mb-0">
+    <input
+        type="checkbox"
+        class="form-check-input"
+        id="fill-captions-toggle"
+        checked
+        data-action="change->variant-fill-overlay#toggleCaptions"
+    >
+    <label class="form-check-label small" for="fill-captions-toggle" title="Jmenovky polí zobrazené v rohu každé oblasti">Popisky prvků</label>
+</div>
+
+{# Every field of the template in one stacked form (the popovers docked into
+   a modal) — for filling everything at once instead of pencil by pencil. #}
+<button
+    type="button"
+    class="btn btn-outline-secondary btn-sm"
+    data-action="variant-fill-overlay#togglePanel"
+    data-variant-fill-overlay-target="panelButton"
+    aria-expanded="false"
+    title="Všechna pole šablony v jednom formuláři"
+>
+    <i class="mdi mdi-form-textbox me-1" aria-hidden="true"></i>Všechna pole
+</button>

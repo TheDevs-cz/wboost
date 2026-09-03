@@ -90,7 +90,12 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         }
     }
 
-    public function testEmptyTextValueKeepsTheDesignedText(): void
+    /**
+     * Unified with the single-variant page (2026-09-03): the fields start
+     * pre-filled with the sample text, so an EMPTY posted field is the
+     * user's decision to blank the text — in every dimension.
+     */
+    public function testEmptyTextValueBlanksTheTextInEveryDimension(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
@@ -103,8 +108,10 @@ final class TemplateGroupExportControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        foreach ($this->getRendererFake()->calls as $call) {
-            self::assertSame([], $call['texts'], 'an empty unified field must NOT blank the designed text');
+        $calls = $this->getRendererFake()->calls;
+        self::assertCount(2, $calls);
+        foreach ($calls as $call) {
+            self::assertSame([TestDataFixture::GROUP_SHARED_INPUT_ID => ''], $call['texts'], 'an empty unified field blanks the text like the single-variant page');
         }
     }
 

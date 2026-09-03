@@ -1,0 +1,88 @@
+{#
+    The click-into-preview boxes of ONE fill surface (a preview of one
+    dimension): a dashed frame per text + image placeholder with the
+    always-visible icon cluster (pencil = edit, eye = hide). Shared by the
+    single-variant fill component (one surface) and the group fill page (one
+    surface per dimension — the same placeholder gets a box on every preview,
+    all opening the ONE shared popover).
+
+    Parameters:
+    - text_placeholders: the FillTextPlaceholders rows (inputId, name, locked,
+      hidable, hidden)
+    - image_placeholders: list of {inputId, name, hidable}
+    - text_frames / image_frames: inputId → frame|null IN THIS SURFACE's canvas
+      px — a placeholder without a frame here gets no box (the popover stays
+      reachable from the panel / layers list)
+    - image_hidden: inputId → bool, the initial eye state of image slots
+
+    The dashed BORDER follows the "Zobrazit oblasti k vyplnění" switch, the
+    name tag the "Popisky prvků" one (CSS on the form classes).
+#}
+{% for ph in text_placeholders %}
+    {% set frame = text_frames[ph.inputId] ?? null %}
+    {% if frame and not ph.locked %}
+        <div
+            class="fill-box fill-box--text"
+            data-variant-fill-overlay-target="box"
+            data-inputid="{{ ph.inputId }}"
+            data-frame-x="{{ frame.x }}"
+            data-frame-y="{{ frame.y }}"
+            data-frame-width="{{ frame.width }}"
+            data-frame-height="{{ frame.height }}"
+        >
+            <span class="fill-box__name">{{ ph.name ?: 'Text' }}</span>
+            <div class="fill-box__tools">
+                <button type="button" class="fill-box__tool fill-box__tool--edit"
+                    title="Upravit text" aria-label="Upravit text{% if ph.name %}: {{ ph.name }}{% endif %}"
+                    data-action="variant-fill-overlay#openPopover"
+                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
+                {% if ph.hidable %}
+                    <button type="button"
+                        class="fill-box__tool fill-box__tool--hide{{ ph.hidden ? ' is-active' : '' }}"
+                        data-hide-toggle="{{ ph.inputId }}"
+                        aria-pressed="{{ ph.hidden ? 'true' : 'false' }}"
+                        title="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                        aria-label="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                        data-action="variant-fill-overlay#toggleHide"
+                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                    ><i class="mdi {{ ph.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}
+{% for ph in image_placeholders %}
+    {% set frame = image_frames[ph.inputId] ?? null %}
+    {% if frame %}
+        {% set hidden = image_hidden[ph.inputId] ?? false %}
+        <div
+            class="fill-box fill-box--image"
+            data-variant-fill-overlay-target="box"
+            data-inputid="{{ ph.inputId }}"
+            data-frame-x="{{ frame.x }}"
+            data-frame-y="{{ frame.y }}"
+            data-frame-width="{{ frame.width }}"
+            data-frame-height="{{ frame.height }}"
+        >
+            <span class="fill-box__name">{{ ph.name ?: 'Obrázek' }}</span>
+            <div class="fill-box__tools">
+                <button type="button" class="fill-box__tool fill-box__tool--edit"
+                    title="Vybrat obrázek" aria-label="Vybrat obrázek{% if ph.name %}: {{ ph.name }}{% endif %}"
+                    data-action="variant-fill-overlay#openImageModal"
+                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
+                {% if ph.hidable %}
+                    <button type="button" class="fill-box__tool fill-box__tool--hide{{ hidden ? ' is-active' : '' }}"
+                        data-hide-toggle="{{ ph.inputId }}"
+                        aria-pressed="{{ hidden ? 'true' : 'false' }}"
+                        title="{{ hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                        aria-label="{{ hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                        data-action="variant-fill-overlay#toggleHide"
+                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                    ><i class="mdi {{ hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}

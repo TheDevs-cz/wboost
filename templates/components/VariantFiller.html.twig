@@ -77,10 +77,8 @@
         data-turbo="false"
         class="fill-form fill-highlight-on fill-captions-on"
         data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if echoPayload %} variant-text-echo{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
-        data-variant-fill-overlay-canvas-width-value="{{ variant.dimension.width }}"
-        data-variant-fill-overlay-text-layout-value="{{ this.textLayoutData()|json_encode }}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
-        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged{% if echoPayload and hasImages %} variant-text-echo:mode->variant-image-fill#echoModeChanged{% endif %}"
+        data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged variant-image-fill:picked->variant-fill-overlay#imagePicked{% if echoPayload and hasImages %} variant-text-echo:mode->variant-image-fill#echoModeChanged{% endif %}"
         {% if echoPayload %}
             data-variant-text-echo-payload-value="{{ echoPayload|json_encode }}"
             data-variant-text-echo-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
@@ -106,30 +104,9 @@
            itself on every debounced re-render and desync from the (class-driven)
            highlight state. #}
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" data-live-ignore>
-            <div class="form-check form-switch mb-0">
-                <input
-                    type="checkbox"
-                    class="form-check-input"
-                    id="fill-highlight-toggle"
-                    checked
-                    data-action="change->variant-fill-overlay#toggleHighlight"
-                >
-                <label class="form-check-label small" for="fill-highlight-toggle">Zobrazit oblasti k vyplnění</label>
-            </div>
-
-            {# Name tags, independent of the borders above (same pair as the
-               admin editor). Also `checked` as a DOM property, so it lives in
-               the same data-live-ignore subtree. #}
-            <div class="form-check form-switch mb-0">
-                <input
-                    type="checkbox"
-                    class="form-check-input"
-                    id="fill-captions-toggle"
-                    checked
-                    data-action="change->variant-fill-overlay#toggleCaptions"
-                >
-                <label class="form-check-label small" for="fill-captions-toggle" title="Jmenovky polí zobrazené v rohu každé oblasti">Popisky prvků</label>
-            </div>
+            {# The overlay switches + the "Všechna pole" panel button — the
+               same partial the group fill page renders. #}
+            {{ include('_fill_overlay_toggles.html.twig') }}
 
             <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Přiblížení náhledu">
                 <button type="button" class="btn btn-outline-secondary" title="Oddálit" aria-label="Oddálit" data-action="variant-fill-overlay#zoomOut">
@@ -265,7 +242,11 @@
 
         <div class="fill-body">
         <div class="fill-viewport">
-        <div class="fill-stage" data-variant-fill-overlay-target="stage">
+        <div class="fill-stage"
+             data-variant-fill-overlay-target="stage surface"
+             data-variant-id="{{ variant.id }}"
+             data-canvas-width="{{ variant.dimension.width }}"
+             data-layout="{{ this.textLayoutData()|json_encode }}">
             {# ---- Preview --------------------------------------------------- #}
             {% if hasImages %}
                 <div data-live-ignore>
@@ -333,318 +314,101 @@
                 </div>
             </div>
 
-            {# ---- Overlay: boxes + popovers (ignored so it survives renders) - #}
+            {# ---- Overlay: boxes (ignored so it survives renders) ---------- #}
+            {% set textFrames = {} %}
+            {% for ph in textPlaceholders %}
+                {% set textFrames = textFrames|merge({(ph.inputId): ph.frame}) %}
+            {% endfor %}
+            {% set imageFrames = {} %}
+            {% set imageHidden = {} %}
+            {% for ph in imagePlaceholders %}
+                {% set imageFrames = imageFrames|merge({(ph.inputId): ph.frame}) %}
+                {% set imageHidden = imageHidden|merge({(ph.inputId): (ph.seed is defined and ph.seed and ph.seed.hide|default(false))}) %}
+            {% endfor %}
             <div class="fill-overlay" data-live-ignore>
-                {# Boxes: an always-visible icon cluster (pencil = edit, eye =
-                   hide). The dashed BORDER is the only thing the highlight toggle
-                   controls. #}
-                {% for ph in textPlaceholders %}
-                    {% if ph.frame and not ph.locked %}
-                        <div
-                            class="fill-box fill-box--text"
-                            data-variant-fill-overlay-target="box"
-                            data-inputid="{{ ph.inputId }}"
-                            data-frame-x="{{ ph.frame.x }}"
-                            data-frame-y="{{ ph.frame.y }}"
-                            data-frame-width="{{ ph.frame.width }}"
-                            data-frame-height="{{ ph.frame.height }}"
-                        >
-                            <span class="fill-box__name">{{ ph.name ?: 'Text' }}</span>
-                            <div class="fill-box__tools">
-                                <button type="button" class="fill-box__tool fill-box__tool--edit"
-                                    title="Upravit text" aria-label="Upravit text{% if ph.name %}: {{ ph.name }}{% endif %}"
-                                    data-action="variant-fill-overlay#openPopover"
-                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
-                                {% if ph.hidable %}
-                                    <button type="button"
-                                        class="fill-box__tool fill-box__tool--hide{{ ph.hidden ? ' is-active' : '' }}"
-                                        data-hide-toggle="{{ ph.inputId }}"
-                                        aria-pressed="{{ ph.hidden ? 'true' : 'false' }}"
-                                        title="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
-                                        aria-label="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
-                                        data-action="variant-fill-overlay#toggleHide"
-                                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                    ><i class="mdi {{ ph.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endif %}
-                {% endfor %}
-                {% for ph in imagePlaceholders %}
-                    {% if ph.frame %}
-                        <div
-                            class="fill-box fill-box--image"
-                            data-variant-fill-overlay-target="box"
-                            data-inputid="{{ ph.inputId }}"
-                            data-frame-x="{{ ph.frame.x }}"
-                            data-frame-y="{{ ph.frame.y }}"
-                            data-frame-width="{{ ph.frame.width }}"
-                            data-frame-height="{{ ph.frame.height }}"
-                        >
-                            <span class="fill-box__name">{{ ph.name ?: 'Obrázek' }}</span>
-                            <div class="fill-box__tools">
-                                <button type="button" class="fill-box__tool fill-box__tool--edit"
-                                    title="Vybrat obrázek" aria-label="Vybrat obrázek{% if ph.name %}: {{ ph.name }}{% endif %}"
-                                    data-action="variant-fill-overlay#openImageModal"
-                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
-                                {% set seedHidden = ph.seed is defined and ph.seed and ph.seed.hide|default(false) %}
-                                {% if ph.hidable %}
-                                    <button type="button" class="fill-box__tool fill-box__tool--hide"
-                                        data-hide-toggle="{{ ph.inputId }}"
-                                        aria-pressed="{{ seedHidden ? 'true' : 'false' }}"
-                                        title="Schovat prvek"
-                                        aria-label="Schovat prvek"
-                                        data-action="variant-fill-overlay#toggleHide"
-                                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                    ><i class="mdi {{ seedHidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
-                                {% endif %}
-                            </div>
-                            {% if ph.hidable %}
-                                {# Hidden checkbox the eye toggles; wired to the image
-                                   controller's hide handler. Starts checked when a
-                                   loaded version hid this slot. #}
-                                <input type="checkbox" class="visually-hidden" tabindex="-1" aria-hidden="true"
-                                    data-image-hide="{{ ph.inputId }}"
-                                    {{ seedHidden ? 'checked' }}
-                                    data-action="change->variant-image-fill#toggleHide"
-                                    data-variant-image-fill-inputid-param="{{ ph.inputId }}">
-                            {% endif %}
-                        </div>
-                    {% endif %}
-                {% endfor %}
+                {{ include('_fill_overlay_boxes.html.twig', {
+                    text_placeholders: textPlaceholders,
+                    image_placeholders: imagePlaceholders,
+                    text_frames: textFrames,
+                    image_frames: imageFrames,
+                    image_hidden: imageHidden,
+                }) }}
             </div>
         </div>
         </div>
 
-        {# ---- Layers panel (Vrstvy) ------------------------------------------
-           Photoshop-style list of the variant's FILLABLE placeholders, topmost
-           first (canvas stacking order via this.layers() — locked texts,
-           decorative images and the background are admin-editor-only).
-           Hovering a row highlights its box over the preview; clicking opens
-           the same popover/modal the box's pencil opens. Rows are design-fixed,
-           and the eye buttons carry data-hide-toggle so the controller's
-           _reflectHide keeps them in sync with the box eyes — the whole aside
-           can live in data-live-ignore (image hide state is client-only and
-           must never be morphed away). JS-only chrome: hidden without .fill-js. #}
-        {% if layers|length > 0 %}
-            <aside class="fill-layers" data-live-ignore aria-label="Vrstvy šablony">
-                <p class="fill-layers__title"><i class="mdi mdi-layers-outline me-1" aria-hidden="true"></i>Vrstvy</p>
-                <div class="fill-layers__list" role="list">
-                    {% for layer in layers %}
-                        <div
-                            class="fill-layer-row"
-                            role="listitem"
-                            data-action="mouseenter->variant-fill-overlay#highlightLayer mouseleave->variant-fill-overlay#unhighlightLayer"
-                            data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
-                        >
-                            {% if layer.interactive %}
-                                <button
-                                    type="button"
-                                    class="fill-layer-row__main"
-                                    title="{{ layer.label }} — kliknutím upravíte"
-                                    data-action="variant-fill-overlay#{{ layer.kind == 'image' ? 'openImageModal' : 'openPopover' }} focus->variant-fill-overlay#highlightLayer blur->variant-fill-overlay#unhighlightLayer"
-                                    data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
-                                >
-                                    <i class="fill-layer-row__icon mdi {{ layer.icon }}" aria-hidden="true"></i>
-                                    <span class="fill-layer-row__label">{{ layer.label }}</span>
-                                </button>
-                            {% else %}
-                                <span class="fill-layer-row__main" title="{{ layer.label }}">
-                                    <i class="fill-layer-row__icon mdi {{ layer.icon }}" aria-hidden="true"></i>
-                                    <span class="fill-layer-row__label">{{ layer.label }}</span>
-                                </span>
-                            {% endif %}
-                            {% if layer.hidable %}
-                                <button
-                                    type="button"
-                                    class="fill-layer-row__eye{{ layer.hidden ? ' is-active' : '' }}"
-                                    data-hide-toggle="{{ layer.inputId }}"
-                                    aria-pressed="{{ layer.hidden ? 'true' : 'false' }}"
-                                    title="{{ layer.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
-                                    aria-label="{{ layer.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
-                                    data-action="variant-fill-overlay#toggleHide"
-                                    data-variant-fill-overlay-inputid-param="{{ layer.inputId }}"
-                                ><i class="mdi {{ layer.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-            </aside>
-        {% endif %}
+        {# ---- Layers panel (Vrstvy) — shared partial, see _fill_layers. #}
+        {{ include('_fill_layers.html.twig', { layers: layers }) }}
         </div>
 
-        {# Text popovers (all non-locked inputs, so the no-JS list works even
-           when a frame is missing). OUTSIDE the zoom-scaled stage and the
-           overflow-clipping .fill-viewport: the controller positions the open
-           popover `fixed` in viewport coordinates and clamps it fully
-           on-screen, so no ancestor can ever clip it. #}
-        <div class="fill-popovers" data-live-ignore>
+        {# ---- Popovers + the "Všechna pole" panel ----------------------------
+           One text popover per non-locked input (so the no-JS list works even
+           when a frame is missing) and one image card per slot. Floating
+           mode: the popovers position `fixed` in viewport coordinates OUTSIDE
+           the zoom-scaled stage and the overflow-clipping .fill-viewport, so
+           no ancestor can ever clip them; the image cards are hidden. Panel
+           mode (`fill-panel-open` on the form): this container docks into a
+           modal listing every popover + image card as a stacked form — the
+           SAME editor instances, no second copy of any field. #}
+        <div class="fill-panel-backdrop" data-live-ignore data-action="click->variant-fill-overlay#closePanel"></div>
+        <div class="fill-popovers" data-live-ignore data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title">
+            <div class="fill-popovers__header">
+                <h5 class="mb-0" id="fill-panel-title"><i class="mdi mdi-form-textbox me-1" aria-hidden="true"></i>Všechna pole</h5>
+                <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closePanel"></button>
+            </div>
             {% for ph in textPlaceholders %}
                 {% if not ph.locked %}
-                    <div class="fill-popover card{% if ph.richText and richToolbar %} fill-popover--rich{% endif %}" role="dialog" aria-labelledby="fill-text-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-start mb-1">
-                                <span class="d-inline-flex align-items-center" style="min-width: 0;">
-                                    <i class="mdi mdi-drag fill-popover__drag me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
-                                    <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0 text-truncate" for="fill-text-{{ ph.inputId }}">{{ ph.name ?? 'Text' }}</label>
-                                </span>
-                                <div class="d-flex align-items-center gap-1">
-                                    <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="variant-fill-overlay#close"><i class="mdi mdi-check me-1" aria-hidden="true"></i> Uložit</button>
-                                    <button type="button" class="btn-close" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
-                                </div>
-                            </div>
-                            {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
-                            {% if ph.checklist %}
-                                {# CHECKLIST component branch: fixed per-item
-                                   editor (checkbox + text + remove per row),
-                                   gated by the admin capability flags. Values
-                                   travel as the same checkbox-list envelope
-                                   the WYSIWYG writes. #}
-                                <div
-                                    data-controller="checklist-editor"
-                                    data-checklist-editor-input-id-value="{{ ph.inputId }}"
-                                    data-checklist-editor-items-value="{{ (ph.checklistItems ?? [])|json_encode }}"
-                                    data-checklist-editor-can-toggle-value="{{ ph.checklistToggle ? 'true' : 'false' }}"
-                                    data-checklist-editor-can-edit-text-value="{{ ph.checklistEditText ? 'true' : 'false' }}"
-                                    data-checklist-editor-can-add-value="{{ ph.checklistAdd ? 'true' : 'false' }}"
-                                    data-checklist-editor-can-remove-value="{{ ph.checklistRemove ? 'true' : 'false' }}"
-                                    data-checklist-editor-max-length-value="{{ ph.maxLength ?? 0 }}"
-                                >
-                                    <div class="d-flex flex-column gap-1" data-checklist-editor-target="rows"></div>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 d-none" data-checklist-editor-target="addButton" data-action="checklist-editor#addItem"><i class="mdi mdi-plus me-1"></i>Přidat položku</button>
-                                    <div class="d-flex justify-content-end mt-1">
-                                        <small class="text-muted" data-checklist-editor-target="counter"></small>
-                                    </div>
-                                </div>
-                            {% elseif ph.richText and richToolbar %}
-                                {# WYSIWYG branch: contenteditable + toolbar, one
-                                   rich-text-editor controller per popover. Seeded
-                                   from parsed runs (NEVER the raw mirror value —
-                                   that may be a JSON envelope); writes the envelope
-                                   back into the mirror on every edit. #}
-                                <div
-                                    data-controller="rich-text-editor"
-                                    data-rich-text-editor-input-id-value="{{ ph.inputId }}"
-                                    data-rich-text-editor-max-length-value="{{ ph.maxLength ?? 0 }}"
-                                    data-rich-text-editor-uppercase-value="{{ ph.uppercase ? 'true' : 'false' }}"
-                                    data-rich-text-editor-runs-value="{{ ph.runs|json_encode }}"
-                                    data-rich-text-editor-lines-value="{{ (ph.lines ?? [])|json_encode }}"
-                                    data-rich-text-editor-lists-value="{{ ph.lists ? 'true' : 'false' }}"
-                                    data-rich-text-editor-checkboxes-value="{{ ph.listCheckboxes ? 'true' : 'false' }}"
-                                    data-rich-text-editor-design-font-value="{{ ph.designFontFamily ?? '' }}"
-                                    data-rich-text-editor-fonts-value="{{ ph.fontOptions|json_encode }}"
-                                    data-rich-text-editor-colors-value="{{ richToolbar.colors|json_encode }}"
-                                >
-                                    {# Faces PER INPUT: the designed font's own faces
-                                       (bold / italic) plus what the designer opened up
-                                       for this input — not the variant-wide union. #}
-                                    <div class="fill-richtext-toolbar d-flex align-items-center flex-wrap gap-1 mb-1">
-                                        <select class="form-select form-select-sm fill-richtext-toolbar__font" aria-label="Písmo" data-rich-text-editor-target="fontSelect" data-action="change->rich-text-editor#applyFont">
-                                            <option value="">Výchozí písmo</option>
-                                            {% for group in ph.fontGroups %}
-                                                <optgroup label="{{ group.name }}">
-                                                    {% for face in group.faces %}
-                                                        <option value="{{ face.family }}" style="font-family: '{{ face.family }}'">{{ face.faceName }}</option>
-                                                    {% endfor %}
-                                                </optgroup>
-                                            {% endfor %}
-                                        </select>
-                                        <div class="btn-group btn-group-sm" role="group" aria-label="Řez a podtržení">
-                                            <button type="button" class="btn btn-outline-secondary fw-bold" title="Tučně (Ctrl+B) — přepne řez písma" data-rich-text-editor-target="bold" data-action="rich-text-editor#toggleBold">B</button>
-                                            <button type="button" class="btn btn-outline-secondary fst-italic" title="Kurzíva (Ctrl+I) — přepne řez písma" data-rich-text-editor-target="italic" data-action="rich-text-editor#toggleItalic">I</button>
-                                            <button type="button" class="btn btn-outline-secondary text-decoration-underline" title="Podtržení (Ctrl+U)" data-rich-text-editor-target="underline" data-action="rich-text-editor#toggleUnderline">U</button>
-                                        </div>
-                                        {% if ph.lists %}
-                                            <div class="btn-group btn-group-sm" role="group" aria-label="Seznamy">
-                                                <button type="button" class="btn btn-outline-secondary" title="Odrážkový seznam" data-rich-text-editor-target="ulButton" data-action="rich-text-editor#toggleBulletList"><i class="mdi mdi-format-list-bulleted" aria-hidden="true"></i></button>
-                                                <button type="button" class="btn btn-outline-secondary" title="Číslovaný seznam" data-rich-text-editor-target="olButton" data-action="rich-text-editor#toggleNumberedList"><i class="mdi mdi-format-list-numbered" aria-hidden="true"></i></button>
-                                                {% if ph.listCheckboxes %}
-                                                    <button type="button" class="btn btn-outline-secondary" title="Zaškrtávací seznam" data-rich-text-editor-target="cbButton" data-action="rich-text-editor#toggleCheckboxList"><i class="mdi mdi-format-list-checks" aria-hidden="true"></i></button>
-                                                {% endif %}
-                                            </div>
-                                        {% endif %}
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Výchozí styl — odstraní veškeré formátování" data-action="rich-text-editor#clearFormatting"><i class="mdi mdi-format-clear" aria-hidden="true"></i></button>
-                                    </div>
-                                    {# Colours PER INPUT: the admin's allowlist (only those
-                                       swatches, no free picker), the brand palette + free
-                                       picker when unrestricted, nothing at all when the
-                                       colour is locked. #}
-                                    {% if ph.colorOptions is null or ph.colorOptions|length > 0 %}
-                                        <div class="fill-richtext-toolbar__swatches d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barva textu">
-                                            <button type="button" class="fill-richtext-swatch fill-richtext-swatch--auto" title="Výchozí barva" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param=""></button>
-                                            {% for color in (ph.colorOptions ?? richToolbar.colors) %}
-                                                <button type="button" class="fill-richtext-swatch" style="background-color: {{ color }}" title="{{ color }}" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param="{{ color }}"></button>
-                                            {% endfor %}
-                                            {% if ph.colorOptions is null %}
-                                                <label class="fill-richtext-swatch fill-richtext-swatch--custom" title="Vlastní barva">
-                                                    <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
-                                                </label>
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
-                                    <div
-                                        id="fill-text-{{ ph.inputId }}"
-                                        class="form-control form-control-sm fill-richtext-editor{% if ph.uppercase %} text-uppercase{% endif %}"
-                                        contenteditable="true"
-                                        role="textbox"
-                                        aria-multiline="true"
-                                        aria-labelledby="fill-text-label-{{ ph.inputId }}"
-                                        {% if ph.designFontFamily %}style="font-family: '{{ ph.designFontFamily }}'"{% endif %}
-                                        data-rich-text-editor-target="editor"
-                                        data-action="input->rich-text-editor#input beforeinput->rich-text-editor#beforeInput keydown->rich-text-editor#keydown paste->rich-text-editor#paste compositionstart->rich-text-editor#compositionStart compositionend->rich-text-editor#compositionEnd click->rich-text-editor#editorClick"
-                                    ></div>
-                                    <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
-                                        <small class="text-muted">{% if ph.uppercase %}Zobrazí se VELKÝMI písmeny · {% endif %}{% if ph.listCheckboxes %}Kliknutím na čtvereček (za)odškrtnete položku · {% endif %}Shift+Enter pro nový řádek</small>
-                                        <small class="text-muted" data-rich-text-editor-target="counter"></small>
-                                    </div>
-                                </div>
-                            {% else %}
-                                {# Font choice ("Uživatel může přepínat písmo"): a
-                                   whole-text font select above the field — the
-                                   designed face first, marked as the default. Writes
-                                   the data-font-mirror via syncFont. #}
-                                {% if ph.fontChoice %}
-                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                        <label class="small text-muted mb-0 flex-shrink-0" for="fill-font-{{ ph.inputId }}"><i class="mdi mdi-format-font" aria-hidden="true"></i> Písmo</label>
-                                        <select
-                                            id="fill-font-{{ ph.inputId }}"
-                                            class="form-select form-select-sm fill-popover__font"
-                                            data-action="change->variant-fill-overlay#syncFont"
-                                            data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                        >
-                                            <option value=""{% if ph.fontValue == '' %} selected{% endif %}{% if ph.designFontFamily %} style="font-family: '{{ ph.designFontFamily }}'"{% endif %}>{{ ph.fontDefaultLabel }}</option>
-                                            {% for group in ph.fontGroups %}
-                                                <optgroup label="{{ group.name }}">
-                                                    {% for face in group.faces %}
-                                                        <option value="{{ face.family }}" style="font-family: '{{ face.family }}'"{% if ph.fontValue == face.family %} selected{% endif %}>{{ face.faceName }}</option>
-                                                    {% endfor %}
-                                                </optgroup>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                {% endif %}
-                                {# Auto-growing textarea: rows="1" is the collapsed
-                                   start; the controller resizes it to fit the full
-                                   value so long text is never clipped/scrolled. #}
-                                <textarea
-                                    id="fill-text-{{ ph.inputId }}"
-                                    class="form-control form-control-sm fill-popover__input"
-                                    rows="1"
-                                    {% if ph.maxLength %}maxlength="{{ ph.maxLength }}" aria-describedby="fill-text-hint-{{ ph.inputId }}"{% endif %}
-                                    data-action="input->variant-fill-overlay#syncText keydown->variant-fill-overlay#blockEnter"
-                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                                >{{- ph.value -}}</textarea>
-                                <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
-                                    {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
-                                    {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }} / {{ ph.maxLength }} znaků</small>{% endif %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
+                    {{ include('_fill_text_popover.html.twig', { ph: ph, richToolbar: richToolbar }) }}
                 {% endif %}
             {% endfor %}
+            {% for ph in imagePlaceholders %}
+                {% set seed = ph.seed ?? null %}
+                {% set seedHidden = seed and seed.hide|default(false) %}
+                <div class="fill-popover fill-popover--image card" data-inputid="{{ ph.inputId }}">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <span class="small fw-bold text-truncate">{{ ph.name ?: 'Obrázek' }}</span>
+                            {% if ph.hidable %}
+                                <button type="button"
+                                    class="fill-popover__eye{{ seedHidden ? ' is-active' : '' }}"
+                                    data-hide-toggle="{{ ph.inputId }}"
+                                    aria-pressed="{{ seedHidden ? 'true' : 'false' }}"
+                                    title="{{ seedHidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                                    aria-label="{{ seedHidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                                    data-action="variant-fill-overlay#toggleHide"
+                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                                ><i class="mdi {{ seedHidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                            {% endif %}
+                        </div>
+                        {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fill-image-card__thumb"
+                                  data-variant-fill-overlay-target="imageThumb"
+                                  data-inputid="{{ ph.inputId }}"
+                                  {% if seed and seed.url|default('') %}style="background-image: url('{{ seed.url }}');"
+                                  {% elseif ph.defaultImageUrl %}style="background-image: url('{{ ph.defaultImageUrl }}');"{% endif %}></span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-action="variant-fill-overlay#openImageModal"
+                                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}">
+                                <i class="mdi mdi-image-search-outline"></i> {{ ph.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
+                            </button>
+                        </div>
+                        {% if ph.hidable %}
+                            {# Hidden checkbox every eye of this slot toggles; wired
+                               to the image controller's hide handler. Starts checked
+                               when a loaded version hid this slot. #}
+                            <input type="checkbox" class="visually-hidden" tabindex="-1" aria-hidden="true"
+                                data-image-hide="{{ ph.inputId }}"
+                                {{ seedHidden ? 'checked' }}
+                                data-action="change->variant-image-fill#toggleHide"
+                                data-variant-image-fill-inputid-param="{{ ph.inputId }}">
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+            {% if textPlaceholders|filter(ph => not ph.locked)|length == 0 and imagePlaceholders|length == 0 %}
+                <p class="text-muted small mb-0 fill-popovers__empty">Šablona nemá žádné vyplnitelné prvky — export stáhne návrh tak, jak je.</p>
+            {% endif %}
         </div>
 
         {# Publish modal (variant-publish) — destination picker + caption. Own

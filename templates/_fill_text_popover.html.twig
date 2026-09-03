@@ -1,0 +1,184 @@
+{#
+    ONE text placeholder's editing popover — the floating card the box's
+    pencil opens, and (docked) one row of the "Všechna pole" panel. Shared by
+    the single-variant fill component and the group fill page: the same
+    plain textarea / rich WYSIWYG / checklist editor, the same font select.
+
+    Every editor writes into the input's `[data-text-mirror]` field (the
+    Live-bound mirror on the single page, the plain form field on the group
+    page) — the popover itself carries no form name.
+
+    Parameters:
+    - ph: one FillTextPlaceholders row
+    - richToolbar: the WYSIWYG toolbar payload (null = no rich input on the page)
+
+    `.fill-popover__chrome` marks the floating-only bits (drag grip, Uložit,
+    close); the eye is the panel-only hide control (the box has its own).
+#}
+<div class="fill-popover card{% if ph.richText and richToolbar %} fill-popover--rich{% endif %}" role="dialog" aria-labelledby="fill-text-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
+    <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+            <span class="d-inline-flex align-items-center" style="min-width: 0;">
+                <i class="mdi mdi-drag fill-popover__drag fill-popover__chrome me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0 text-truncate" for="fill-text-{{ ph.inputId }}">{{ ph.name ?: 'Text' }}</label>
+            </span>
+            <div class="d-flex align-items-center gap-1">
+                {% if ph.hidable %}
+                    <button type="button"
+                        class="fill-popover__eye{{ ph.hidden ? ' is-active' : '' }}"
+                        data-hide-toggle="{{ ph.inputId }}"
+                        aria-pressed="{{ ph.hidden ? 'true' : 'false' }}"
+                        title="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                        aria-label="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                        data-action="variant-fill-overlay#toggleHide"
+                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                    ><i class="mdi {{ ph.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                {% endif %}
+                <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center fill-popover__chrome" style="font-size: .7rem;" data-action="variant-fill-overlay#close"><i class="mdi mdi-check me-1" aria-hidden="true"></i> Uložit</button>
+                <button type="button" class="btn-close fill-popover__chrome" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
+            </div>
+        </div>
+        {% if ph.description %}<p class="small text-muted mb-1">{{ ph.description }}</p>{% endif %}
+        {% if ph.checklist %}
+            {# CHECKLIST component branch: fixed per-item editor (checkbox +
+               text + remove per row), gated by the admin capability flags.
+               Values travel as the same checkbox-list envelope the WYSIWYG
+               writes. #}
+            <div
+                data-controller="checklist-editor"
+                data-checklist-editor-input-id-value="{{ ph.inputId }}"
+                data-checklist-editor-items-value="{{ (ph.checklistItems ?? [])|json_encode }}"
+                data-checklist-editor-can-toggle-value="{{ ph.checklistToggle ? 'true' : 'false' }}"
+                data-checklist-editor-can-edit-text-value="{{ ph.checklistEditText ? 'true' : 'false' }}"
+                data-checklist-editor-can-add-value="{{ ph.checklistAdd ? 'true' : 'false' }}"
+                data-checklist-editor-can-remove-value="{{ ph.checklistRemove ? 'true' : 'false' }}"
+                data-checklist-editor-max-length-value="{{ ph.maxLength ?? 0 }}"
+            >
+                <div class="d-flex flex-column gap-1" data-checklist-editor-target="rows"></div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 d-none" data-checklist-editor-target="addButton" data-action="checklist-editor#addItem"><i class="mdi mdi-plus me-1"></i>Přidat položku</button>
+                <div class="d-flex justify-content-end mt-1">
+                    <small class="text-muted" data-checklist-editor-target="counter"></small>
+                </div>
+            </div>
+        {% elseif ph.richText and richToolbar %}
+            {# WYSIWYG branch: contenteditable + toolbar, one rich-text-editor
+               controller per popover. Seeded from parsed runs (NEVER the raw
+               mirror value — that may be a JSON envelope); writes the envelope
+               back into the mirror on every edit. #}
+            <div
+                data-controller="rich-text-editor"
+                data-rich-text-editor-input-id-value="{{ ph.inputId }}"
+                data-rich-text-editor-max-length-value="{{ ph.maxLength ?? 0 }}"
+                data-rich-text-editor-uppercase-value="{{ ph.uppercase ? 'true' : 'false' }}"
+                data-rich-text-editor-runs-value="{{ ph.runs|json_encode }}"
+                data-rich-text-editor-lines-value="{{ (ph.lines ?? [])|json_encode }}"
+                data-rich-text-editor-lists-value="{{ ph.lists ? 'true' : 'false' }}"
+                data-rich-text-editor-checkboxes-value="{{ ph.listCheckboxes ? 'true' : 'false' }}"
+                data-rich-text-editor-design-font-value="{{ ph.designFontFamily ?? '' }}"
+                data-rich-text-editor-fonts-value="{{ ph.fontOptions|json_encode }}"
+                data-rich-text-editor-colors-value="{{ richToolbar.colors|json_encode }}"
+            >
+                {# Faces PER INPUT: the designed font's own faces (bold / italic)
+                   plus what the designer opened up for this input — not the
+                   variant-wide union. #}
+                <div class="fill-richtext-toolbar d-flex align-items-center flex-wrap gap-1 mb-1">
+                    <select class="form-select form-select-sm fill-richtext-toolbar__font" aria-label="Písmo" data-rich-text-editor-target="fontSelect" data-action="change->rich-text-editor#applyFont">
+                        <option value="">Výchozí písmo</option>
+                        {% for group in ph.fontGroups %}
+                            <optgroup label="{{ group.name }}">
+                                {% for face in group.faces %}
+                                    <option value="{{ face.family }}" style="font-family: '{{ face.family }}'">{{ face.faceName }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endfor %}
+                    </select>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Řez a podtržení">
+                        <button type="button" class="btn btn-outline-secondary fw-bold" title="Tučně (Ctrl+B) — přepne řez písma" data-rich-text-editor-target="bold" data-action="rich-text-editor#toggleBold">B</button>
+                        <button type="button" class="btn btn-outline-secondary fst-italic" title="Kurzíva (Ctrl+I) — přepne řez písma" data-rich-text-editor-target="italic" data-action="rich-text-editor#toggleItalic">I</button>
+                        <button type="button" class="btn btn-outline-secondary text-decoration-underline" title="Podtržení (Ctrl+U)" data-rich-text-editor-target="underline" data-action="rich-text-editor#toggleUnderline">U</button>
+                    </div>
+                    {% if ph.lists %}
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Seznamy">
+                            <button type="button" class="btn btn-outline-secondary" title="Odrážkový seznam" data-rich-text-editor-target="ulButton" data-action="rich-text-editor#toggleBulletList"><i class="mdi mdi-format-list-bulleted" aria-hidden="true"></i></button>
+                            <button type="button" class="btn btn-outline-secondary" title="Číslovaný seznam" data-rich-text-editor-target="olButton" data-action="rich-text-editor#toggleNumberedList"><i class="mdi mdi-format-list-numbered" aria-hidden="true"></i></button>
+                            {% if ph.listCheckboxes %}
+                                <button type="button" class="btn btn-outline-secondary" title="Zaškrtávací seznam" data-rich-text-editor-target="cbButton" data-action="rich-text-editor#toggleCheckboxList"><i class="mdi mdi-format-list-checks" aria-hidden="true"></i></button>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Výchozí styl — odstraní veškeré formátování" data-action="rich-text-editor#clearFormatting"><i class="mdi mdi-format-clear" aria-hidden="true"></i></button>
+                </div>
+                {# Colours PER INPUT: the admin's allowlist (only those swatches,
+                   no free picker), the brand palette + free picker when
+                   unrestricted, nothing at all when the colour is locked. #}
+                {% if ph.colorOptions is null or ph.colorOptions|length > 0 %}
+                    <div class="fill-richtext-toolbar__swatches d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barva textu">
+                        <button type="button" class="fill-richtext-swatch fill-richtext-swatch--auto" title="Výchozí barva" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param=""></button>
+                        {% for color in (ph.colorOptions ?? richToolbar.colors) %}
+                            <button type="button" class="fill-richtext-swatch" style="background-color: {{ color }}" title="{{ color }}" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param="{{ color }}"></button>
+                        {% endfor %}
+                        {% if ph.colorOptions is null %}
+                            <label class="fill-richtext-swatch fill-richtext-swatch--custom" title="Vlastní barva">
+                                <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
+                            </label>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                <div
+                    id="fill-text-{{ ph.inputId }}"
+                    class="form-control form-control-sm fill-richtext-editor{% if ph.uppercase %} text-uppercase{% endif %}"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-multiline="true"
+                    aria-labelledby="fill-text-label-{{ ph.inputId }}"
+                    {% if ph.designFontFamily %}style="font-family: '{{ ph.designFontFamily }}'"{% endif %}
+                    data-rich-text-editor-target="editor"
+                    data-action="input->rich-text-editor#input beforeinput->rich-text-editor#beforeInput keydown->rich-text-editor#keydown paste->rich-text-editor#paste compositionstart->rich-text-editor#compositionStart compositionend->rich-text-editor#compositionEnd click->rich-text-editor#editorClick"
+                ></div>
+                <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
+                    <small class="text-muted">{% if ph.uppercase %}Zobrazí se VELKÝMI písmeny · {% endif %}{% if ph.listCheckboxes %}Kliknutím na čtvereček (za)odškrtnete položku · {% endif %}Shift+Enter pro nový řádek</small>
+                    <small class="text-muted" data-rich-text-editor-target="counter"></small>
+                </div>
+            </div>
+        {% else %}
+            {# Font choice ("Uživatel může přepínat písmo"): a whole-text font
+               select above the field — the designed face first, marked as the
+               default. Writes the data-font-mirror via syncFont. #}
+            {% if ph.fontChoice %}
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <label class="small text-muted mb-0 flex-shrink-0" for="fill-font-{{ ph.inputId }}"><i class="mdi mdi-format-font" aria-hidden="true"></i> Písmo</label>
+                    <select
+                        id="fill-font-{{ ph.inputId }}"
+                        class="form-select form-select-sm fill-popover__font"
+                        data-action="change->variant-fill-overlay#syncFont"
+                        data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                    >
+                        <option value=""{% if ph.fontValue == '' %} selected{% endif %}{% if ph.designFontFamily %} style="font-family: '{{ ph.designFontFamily }}'"{% endif %}>{{ ph.fontDefaultLabel }}</option>
+                        {% for group in ph.fontGroups %}
+                            <optgroup label="{{ group.name }}">
+                                {% for face in group.faces %}
+                                    <option value="{{ face.family }}" style="font-family: '{{ face.family }}'"{% if ph.fontValue == face.family %} selected{% endif %}>{{ face.faceName }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+            {% endif %}
+            {# Auto-growing textarea: rows="1" is the collapsed start; the
+               controller resizes it to fit the full value so long text is
+               never clipped/scrolled. #}
+            <textarea
+                id="fill-text-{{ ph.inputId }}"
+                class="form-control form-control-sm fill-popover__input"
+                rows="1"
+                {% if ph.maxLength %}maxlength="{{ ph.maxLength }}" aria-describedby="fill-text-hint-{{ ph.inputId }}"{% endif %}
+                data-action="input->variant-fill-overlay#syncText keydown->variant-fill-overlay#blockEnter"
+                data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+            >{{- ph.value -}}</textarea>
+            <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
+                {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
+                {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }} / {{ ph.maxLength }} znaků</small>{% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>

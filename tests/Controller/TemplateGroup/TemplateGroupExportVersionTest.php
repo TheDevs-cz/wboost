@@ -87,7 +87,7 @@ final class TemplateGroupExportVersionTest extends WebTestCase
             $crawler->filter(sprintf('input[name="images[%s][imageId]"]', TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID))->attr('value'),
         );
         // The JS seed payload carries the picture + the per-dimension placement.
-        $seedJson = $crawler->filter('form[data-controller="group-fill"]')->attr('data-group-fill-seed-value');
+        $seedJson = $crawler->filter('form[data-controller~="group-fill"]')->attr('data-group-fill-seed-value');
         self::assertIsString($seedJson);
         /** @var array{pictures: array<string, array{imageId: string, url: string}>, placements: array<string, array<string, array<string, float>>>} $seed */
         $seed = json_decode($seedJson, true);

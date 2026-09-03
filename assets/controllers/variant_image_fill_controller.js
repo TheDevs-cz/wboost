@@ -23,7 +23,9 @@ import { Canvas, FabricImage, Rect } from "fabric";
  * into the frame (base scale s0 = min(fw/iw, fh/ih)); the user's `scale` multiplies
  * s0, `offsetX/Y` pan from the frame centre (canvas px), `rotation` is degrees.
  *
- * Every placement change also broadcasts `variant-image-fill:frame-changed`
+ * Every successful fill broadcasts `variant-image-fill:picked` ({inputId,
+ * url}) — the overlay's panel thumb follows it. Every placement change also
+ * broadcasts `variant-image-fill:frame-changed`
  * (bubbling Stimulus event from the shared form root) carrying the slot's
  * VISIBLE bbox — object bounds ∩ designer frame, canvas px — so the overlay
  * controller anchors its dashed box + pencil/eye cluster to the artwork
@@ -415,6 +417,9 @@ export default class extends Controller {
                 this._setField(inputId, 'hide', '');
                 this._setField(inputId, 'imageId', imageId);
             }
+            // The panel's image card shows the picked picture — same event on a
+            // user pick and a loaded version's restore.
+            this.dispatch('picked', { detail: { inputId, url } });
             return true;
         }
 
@@ -459,6 +464,9 @@ export default class extends Controller {
             this._setField(inputId, 'imageId', imageId);
             this._writeTransform(inputId, img, frame);
         }
+        // The panel's image card shows the picked picture — same event on a
+        // user pick and a loaded version's restore.
+        this.dispatch('picked', { detail: { inputId, url } });
         return true;
     }
 

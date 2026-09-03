@@ -21,11 +21,14 @@ use WBoost\Web\Value\RenderImageFormat;
  * unknown ids, so a placeholder missing from some dimension is silently left
  * as designed there.
  *
- * Group semantics deliberately differ from the single-variant fill page in
- * one point: an EMPTY text value means "keep the designed text" (it is
- * dropped here), not "blank the text". The page starts as a truthful preview
- * of the designed state and the user replaces only what they need; removing
- * a text entirely goes through the hide toggle.
+ * Text semantics are the single-variant fill page's (unified 2026-09-03):
+ * every posted `textValues[…]` field is an override, an EMPTY one included —
+ * it blanks the text in every dimension. The fields start pre-filled with the
+ * admin's sample text (the render's own fallback), so an untouched form still
+ * previews and exports the designed state; only inputs ABSENT from the form
+ * (locked ones, an id no member carries) fall back to the sample. Before the
+ * unification an empty group field meant "keep the designed text", which made
+ * the two fill pages export different pixels for the same empty field.
  *
  * Renders are LENIENT (container overflow shown, not failed) — the same
  * policy as the web download path.
@@ -75,7 +78,7 @@ readonly final class GroupFillRenderer
         $providedValues = [];
 
         foreach ($rawTextValues as $inputId => $value) {
-            if (!is_string($value) || $value === '') {
+            if (!is_string($value)) {
                 continue;
             }
 

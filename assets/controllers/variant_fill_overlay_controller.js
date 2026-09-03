@@ -3,60 +3,82 @@ import { Textbox, cache, util } from "fabric";
 import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
 
 /**
- * Click-into-preview placeholder overlay for the user-fill / export page.
+ * Click-into-preview placeholder overlay of the fill pages — the ONE editing
+ * surface of both the single-variant fill page and the group fill page.
  *
- * Every text + image placeholder is drawn at its designer frame (canvas px,
- * scaled to the displayed preview: `scale = previewWidth / canvasWidth`) with an
- * always-visible icon cluster. Image boxes then TRACK the picked image's visible
- * bbox as the image-fill controller reports it (`variant-image-fill:frame-changed`
- * → imageFrameChanged) — a contain-fitted or user-moved image can sit far from
- * its frame's corner, and the icons must stay on the artwork. Icon cluster:
+ * SURFACES. The controller draws over one or more `surface` targets, each a
+ * preview of one dimension carrying its own geometry (`data-canvas-width`,
+ * `data-layout` = FillTextPlaceholders::layoutData()) and its own boxes. The
+ * single page has exactly one (the zoomable `.fill-stage`); the group page
+ * has one per member dimension, and the SAME placeholder gets a box on every
+ * surface. Boxes are positioned per surface: `scale = previewWidth /
+ * canvasWidth` of that surface, frames in that dimension's canvas px.
+ *
+ * Every text + image placeholder is drawn at its designer frame with an
+ * always-visible icon cluster. Image boxes then TRACK the picked image's
+ * visible bbox as the image-fill controller reports it
+ * (`variant-image-fill:frame-changed` → imageFrameChanged, single page) — a
+ * contain-fitted or user-moved image can sit far from its frame's corner,
+ * and the icons must stay on the artwork. Icon cluster:
  *  - pencil → text: opens the floating text popover; image: opens the gallery modal;
  *  - eye    → toggles "hide this element" (only when the slot is hidable).
  * The "Zobrazit oblasti k vyplnění" toggle shows/hides the dashed borders AND
  * the icon clusters together (via the `fill-highlight-on` CSS class), so turning
  * it off leaves a clean, undisturbed preview.
  *
- * Editing writes through the Live region without disturbing the overlay:
- *  - text value → the popover input mirrors into a visually-hidden Live-bound
- *    field (`data-text-mirror`) via syncText (dispatch input → debounced backdrop
- *    re-render + form POST value);
- *  - hide → toggleHide flips the controlled checkbox (`data-hide-mirror` for text,
- *    `data-image-hide` for image) and dispatches change so Live (text) or the
- *    `variant-image-fill` controller (image) reacts.
+ * POPOVERS are per INPUT, not per box: on the group page the pencil on any
+ * dimension opens the one popover of that input, anchored to the box it was
+ * clicked from (`_anchorBox`), and what the user types lands in every
+ * dimension because there is only one mirror field per input.
  *
- * The overlay + popovers + modals live in a `data-live-ignore` subtree so a Live
- * re-render never wipes open state. Progressive enhancement: without `.fill-js`
- * (added on connect) the popovers are a plain stacked editable list.
+ * Editing writes through the mirrors without disturbing the overlay:
+ *  - text value → the popover input mirrors into a `[data-text-mirror]` field
+ *    via syncText (dispatch input → the page's re-render + the form POST value:
+ *    a Live-bound hidden field on the single page, the form's own hidden
+ *    field on the group page);
+ *  - hide → toggleHide flips the controlled checkbox (`data-hide-mirror` for text,
+ *    `data-image-hide` for image) and dispatches change so the page reacts.
+ *
+ * THE "VŠECHNA POLE" PANEL docks the popovers container (`panel` target) into
+ * a modal listing every popover + image card as a stacked form — the SAME
+ * editor instances (a WYSIWYG keeps its state), just laid out statically,
+ * gated by the `fill-panel-open` class on the form. No second copy of any
+ * field exists.
+ *
+ * The overlay + popovers + modals live in a `data-live-ignore` subtree on the
+ * single page so a Live re-render never wipes open state. Progressive
+ * enhancement: without `.fill-js` (added on connect) the popovers are a plain
+ * stacked editable list.
  *
  * Enter inside a text field must NOT submit the form (that would download the
- * PNG); only the Export button downloads. blockEnter handles that.
+ * PNG / ZIP); only the Export button downloads. blockEnter handles that.
  *
  * CONTAINER REFLOW (live-tracking boxes). Text placeholders grouped into a
  * container by the designer reflow vertically at render time — the server PNG
- * moves them. The overlay mirrors that: it measures each filled text's wrapped
- * height with an offscreen Fabric Textbox (same Fabric build + break-word
- * patch + fonts as the export render) and runs the shared
- * window.WBoostContainerLayout algorithm over the designed frames from
- * `textLayoutValue`, so the boxes/pencils track exactly where the render puts
- * the text. When a container's content can't fit its max height the export
+ * moves them. The overlay mirrors that PER SURFACE: it measures each filled
+ * text's wrapped height with an offscreen Fabric Textbox (same Fabric build +
+ * break-word patch + fonts as the export render) and runs the shared
+ * window.WBoostContainerLayout algorithm over that dimension's designed
+ * frames, so the boxes/pencils track exactly where the render puts the
+ * text. When a container's content can't fit its max height the export
  * would be rejected (API contract) — the overlay shows an inline error and
  * disables the Export button instead of letting the POST produce a broken PNG.
  */
 export default class extends Controller {
-    static targets = ["stage", "preview", "previewSource", "box", "popover", "modal", "spinner", "zoomLabel", "exportButton", "overflowAlert"];
+    static targets = [
+        "stage", "surface", "preview", "previewSource", "box", "popover", "modal", "spinner",
+        "zoomLabel", "exportButton", "overflowAlert", "panel", "panelButton", "imageThumb",
+    ];
     static values = {
-        canvasWidth: Number,
-        // { inputs: { <inputId>: {frame, style, locked, uppercase, maxLength, hidable} },
-        //   decorations: { <inputId>: {frame} },   ← decorative image/shape members
-        //   containers: [ {id, maxHeight, memberInputIds, memberContainerIds, gap} ] }
-        textLayout: Object,
         fonts: Array,
     };
 
     connect() {
         this._openId = null;
+        this._anchorBox = null;
         this._modalTrigger = null;
+        this._panelOpen = false;
+        this._panelTrigger = null;
         this._zoom = 1;
         this._userZoomed = false;
         this.element.classList.add("fill-js");
@@ -73,9 +95,8 @@ export default class extends Controller {
         if (window.WBoostFabricBreakWord) {
             window.WBoostFabricBreakWord.enable(Textbox);
         }
-        this._computedFrames = {};
         this._imageFrames = {};
-        this._measureBoxes = new Map();
+        this._surfaces = this._collectSurfaces();
         this._loadFontsThenLayout();
 
         this._boundReposition = () => this.reposition();
@@ -96,7 +117,8 @@ export default class extends Controller {
 
         // Hide the live-preview spinner once the next server render lands. The
         // source span's data-src is updated by Live on each re-render — text-only
-        // branch via previewSource, image branch via the backdrop span.
+        // branch via previewSource, image branch via the backdrop span. (Single
+        // page only; the group page's previews are swapped by group-fill.)
         if (this.hasPreviewSourceTarget) {
             this._applyPreviewSrc();
             this._previewObserver = new MutationObserver(() => {
@@ -118,13 +140,15 @@ export default class extends Controller {
             });
         }
 
-        if (this.hasPreviewTarget && "ResizeObserver" in window) {
+        if ("ResizeObserver" in window) {
             this._resizeObserver = new ResizeObserver(() => this._fitToScreen());
-            this._resizeObserver.observe(this.previewTarget);
+            this.previewTargets.forEach((preview) => this._resizeObserver.observe(preview));
         }
-        if (this.hasPreviewTarget && this.previewTarget.tagName === "IMG" && !this.previewTarget.complete) {
-            this.previewTarget.addEventListener("load", this._boundFit);
-        }
+        // A preview <img> that (re)loads changes its on-screen size only on
+        // the first load, but re-fitting is cheap and keeps the boxes honest
+        // on the group page, where every render swaps the src.
+        this._imagePreviews = this.previewTargets.filter((preview) => preview.tagName === "IMG");
+        this._imagePreviews.forEach((preview) => preview.addEventListener("load", this._boundFit));
 
         this._fitToScreen();
     }
@@ -135,6 +159,7 @@ export default class extends Controller {
         document.removeEventListener("keydown", this._boundKeydown);
         document.removeEventListener("pointerdown", this._boundPointerDown, true);
         document.removeEventListener("click", this._boundOutside);
+        (this._imagePreviews || []).forEach((preview) => preview.removeEventListener("load", this._boundFit));
         if (this._resizeObserver) this._resizeObserver.disconnect();
         if (this._previewObserver) this._previewObserver.disconnect();
         if (this._backdropObserver) this._backdropObserver.disconnect();
@@ -142,10 +167,53 @@ export default class extends Controller {
         if (this._spinnerShowTimer) clearTimeout(this._spinnerShowTimer);
     }
 
+    /**
+     * One entry per `surface` target: its preview element, its boxes, its
+     * canvas width + reflow payload, and the per-surface measurement state.
+     * A box belongs to the surface that contains it.
+     */
+    _collectSurfaces() {
+        const surfaces = this.surfaceTargets.map((el) => {
+            let layout = null;
+            if (el.dataset.layout) {
+                try {
+                    layout = JSON.parse(el.dataset.layout);
+                } catch (err) {
+                    layout = null;
+                }
+            }
+            return {
+                el,
+                variantId: el.dataset.variantId || null,
+                canvasWidth: parseFloat(el.dataset.canvasWidth) || 0,
+                layout,
+                preview: el.querySelector('[data-variant-fill-overlay-target~="preview"]'),
+                boxes: [],
+                computed: {},
+                measureBoxes: new Map(),
+            };
+        });
+        this.boxTargets.forEach((box) => {
+            const surface = surfaces.find((candidate) => candidate.el.contains(box));
+            if (surface) surface.boxes.push(box);
+        });
+        return surfaces;
+    }
+
     _onKeydown(event) {
         if (event.key === "Escape") {
+            // A Bootstrap modal (the group page's image picker) owns its own
+            // Escape; ours must not also close the panel underneath it.
+            if (document.querySelector(".modal.show")) return;
+            if (this.modalTargets.some((modal) => modal.classList.contains("is-open"))) {
+                this._closeAllModals();
+                return;
+            }
+            if (this._panelOpen) {
+                this.closePanel();
+                return;
+            }
             this.closePopover();
-            this._closeAllModals();
             return;
         }
         if (event.key === "Tab") {
@@ -173,13 +241,66 @@ export default class extends Controller {
         this.element.classList.toggle("fill-captions-on", event.target.checked);
     }
 
-    // --- Zoom (whole preview) ------------------------------------------------
+    // --- "Všechna pole" panel ----------------------------------------------------
+    // The popovers container docks into a modal: every text popover + image
+    // card stacked as one form. Same DOM, same editor instances — only the
+    // layout changes (CSS on `fill-panel-open`). A floating popover is
+    // closed first so the panel never shows a popover twice.
+
+    togglePanel(event) {
+        if (this._panelOpen) {
+            this.closePanel();
+        } else {
+            this.openPanel(event);
+        }
+    }
+
+    openPanel(event) {
+        if (!this.hasPanelTarget || this._panelOpen) return;
+        this.closePopover();
+        this._closeAllModals();
+        this._panelOpen = true;
+        this._panelTrigger = event?.currentTarget ?? null;
+        this.element.classList.add("fill-panel-open");
+        this.panelTarget.setAttribute("role", "dialog");
+        this.panelTarget.setAttribute("aria-modal", "true");
+        this.panelButtonTargets.forEach((button) => button.setAttribute("aria-expanded", "true"));
+
+        // Every plain field grows to its value (the floating popover does this
+        // on open; docked, they are all "open" at once).
+        this.panelTarget.querySelectorAll("textarea").forEach((field) => this._autoGrow(field));
+
+        // Focus the first EDITABLE field (a WYSIWYG counts); the floating
+        // chrome is display:none here and would swallow the focus silently.
+        const first = Array.from(this.panelTarget.querySelectorAll(
+            'textarea, [contenteditable="true"], select, input[type="text"]:not(.visually-hidden), button.btn:not(.fill-popover__chrome)',
+        )).find((field) => field.offsetParent !== null);
+        if (first) first.focus({ preventScroll: true });
+    }
+
+    closePanel(event) {
+        if (event) event.preventDefault();
+        if (!this._panelOpen) return;
+        this._panelOpen = false;
+        this.element.classList.remove("fill-panel-open");
+        if (this.hasPanelTarget) {
+            this.panelTarget.removeAttribute("role");
+            this.panelTarget.removeAttribute("aria-modal");
+        }
+        this.panelButtonTargets.forEach((button) => button.setAttribute("aria-expanded", "false"));
+        if (this._panelTrigger && typeof this._panelTrigger.focus === "function") {
+            this._panelTrigger.focus({ preventScroll: true });
+        }
+        this._panelTrigger = null;
+    }
+
+    // --- Zoom (whole preview, single page) ---------------------------------------
     // Visual CSS scale on the stage: the preview + overlay boxes scale together,
     // so they stay aligned with no re-measuring. reposition() computes the box
     // scale from the UNSCALED width (divides by this._zoom), so the boxes are
     // laid out in unscaled coords and the transform scales them. The popovers
     // live OUTSIDE the stage (position:fixed, viewport coords) so zoom/overflow
-    // never clips them.
+    // never clips them. No `stage` target (the group page) = no zoom, z stays 1.
     //
     // On a WIDE screen the initial zoom is auto-fit so the WHOLE canvas fits the
     // visible part of the screen — width AND height — and the viewport's
@@ -317,8 +438,26 @@ export default class extends Controller {
         if (!inputId) return;
 
         this._closeAllModals();
+        if (this._panelOpen) this.closePanel();
+
+        // Anchor: the box the pencil sits in (any dimension's), else the
+        // input's first box (a layers-panel row has no box of its own).
+        const trigger = event.currentTarget;
+        const box = (trigger && typeof trigger.closest === "function" && trigger.closest(".fill-box")) || this._boxFor(inputId);
 
         if (this._openId === inputId) {
+            // Same input, another dimension's pencil: re-anchor rather than
+            // toggle closed — the user is pointing at where to edit, not
+            // dismissing.
+            if (box && box !== this._anchorBox) {
+                this._anchorBox = box;
+                const open = this._popoverFor(inputId);
+                if (open) {
+                    resetDrag(open);
+                    this._positionPopover(open, box);
+                }
+                return;
+            }
             this.closePopover();
             return;
         }
@@ -329,6 +468,7 @@ export default class extends Controller {
         if (!popover) return;
 
         this._openId = inputId;
+        this._anchorBox = box;
         popover.classList.add("is-open");
 
         // Grow the textarea to fit its current value BEFORE positioning — the
@@ -337,7 +477,7 @@ export default class extends Controller {
         const field = popover.querySelector('input[type="text"], textarea, [contenteditable="true"]');
         if (field) this._autoGrow(field);
 
-        this._positionPopover(popover, this._boxFor(inputId));
+        this._positionPopover(popover, box);
 
         if (field) field.focus();
     }
@@ -356,6 +496,7 @@ export default class extends Controller {
         const popover = this._popoverFor(this._openId);
         if (popover) { popover.classList.remove("is-open"); resetDrag(popover); }
         this._openId = null;
+        this._anchorBox = null;
     }
 
     /** Explicit close button inside a popover. */
@@ -367,9 +508,9 @@ export default class extends Controller {
     _maybeCloseOnOutside(event) {
         if (this._openId === null) return;
         const popover = this._popoverFor(this._openId);
-        const box = this._boxFor(this._openId);
+        const boxes = this._boxesFor(this._openId);
         const inside = (node) =>
-            Boolean(node) && ((popover && popover.contains(node)) || (box && box.contains(node)));
+            Boolean(node) && ((popover && popover.contains(node)) || boxes.some((box) => box.contains(node)));
         // Keep the popover open when the click's target OR the press that produced
         // it started inside the popover/box — the latter covers a text-selection
         // drag inside the WYSIWYG editor that releases beyond the popover edge.
@@ -379,21 +520,34 @@ export default class extends Controller {
 
     // --- Image gallery modal ------------------------------------------------
 
+    /**
+     * The slot's picker: the page's own `.fill-modal` (single page), or a
+     * Bootstrap modal carrying `data-image-modal` (the group page's pickers,
+     * which the group-fill controller feeds). Either way it opens above the
+     * panel, so picking from a docked image card works too.
+     */
     openImageModal(event) {
         if (event) event.stopPropagation();
         const inputId = event.params?.inputid;
         if (!inputId) return;
         this.closePopover();
+
         const modal = this._modalFor(inputId);
-        if (!modal) return;
+        if (modal) {
+            this._modalTrigger = event?.currentTarget ?? null;
+            modal.classList.add("is-open");
 
-        this._modalTrigger = event?.currentTarget ?? null;
-        modal.classList.add("is-open");
+            // Move focus into the dialog (its labelled container is tabindex=-1).
+            const dialog = modal.querySelector(".fill-modal__dialog");
+            const target = dialog?.querySelector("button, input, select, a[href]") || dialog;
+            if (target) target.focus();
+            return;
+        }
 
-        // Move focus into the dialog (its labelled container is tabindex=-1).
-        const dialog = modal.querySelector(".fill-modal__dialog");
-        const target = dialog?.querySelector("button, input, select, a[href]") || dialog;
-        if (target) target.focus();
+        const bootstrapModal = document.querySelector(`.modal[data-image-modal="${inputId}"]`);
+        if (bootstrapModal && window.bootstrap && window.bootstrap.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(bootstrapModal).show();
+        }
     }
 
     /** Close button inside a modal (or a thumbnail pick that should dismiss it). */
@@ -455,6 +609,18 @@ export default class extends Controller {
         }
     }
 
+    /** The image-fill controller (single page) filled a slot: the panel's
+     *  image card shows the picked picture. */
+    imagePicked(event) {
+        const { inputId, url } = event.detail || {};
+        if (!inputId) return;
+        this.imageThumbTargets
+            .filter((thumb) => thumb.dataset.inputid === inputId)
+            .forEach((thumb) => {
+                thumb.style.backgroundImage = url ? `url('${url}')` : "none";
+            });
+    }
+
     // --- Hide toggle (separate eye icon, text + image) -----------------------
 
     toggleHide(event) {
@@ -496,7 +662,8 @@ export default class extends Controller {
      *  pick, drag, resize and rotation — anchor that slot's box + icons to
      *  the artwork instead of the designed frame. A null frame (hidden slot,
      *  or the image dragged fully outside its frame) reverts to the designed
-     *  frame so the icons stay findable at the slot. */
+     *  frame so the icons stay findable at the slot. Single page only (one
+     *  surface); the group page's pictures are placed through its own ghosts. */
     imageFrameChanged(event) {
         const { inputId, frame } = event.detail || {};
         if (!inputId) return;
@@ -510,14 +677,14 @@ export default class extends Controller {
 
     // --- Layers panel (Vrstvy) ------------------------------------------------
 
-    /** Hovering/focusing a layers-panel row highlights the matching box over
-     *  the preview. No-op for placeholders without a box (locked / no frame). */
+    /** Hovering/focusing a layers-panel row highlights the matching box(es)
+     *  over the preview(s). No-op for placeholders without a box (locked / no
+     *  frame). */
     highlightLayer(event) {
         this._unhighlightLayers();
         const inputId = event.params?.inputid;
         if (!inputId) return;
-        const box = this._boxFor(inputId);
-        if (box) box.classList.add("fill-box--layer-hover");
+        this._boxesFor(inputId).forEach((box) => box.classList.add("fill-box--layer-hover"));
     }
 
     unhighlightLayer() {
@@ -536,9 +703,9 @@ export default class extends Controller {
         const field = event.target;
 
         // Hard-cap at maxlength. The attribute already blocks typing/paste, but
-        // enforce it here too so the Live-bound mirror (which drives the preview
-        // AND the export POST) can never carry an over-length value, whatever
-        // path filled the field.
+        // enforce it here too so the mirror (which drives the preview AND the
+        // export POST) can never carry an over-length value, whatever path
+        // filled the field.
         const max = parseInt(field.getAttribute("maxlength"), 10);
         if (Number.isInteger(max) && max > 0 && field.value.length > max) {
             field.value = field.value.slice(0, max);
@@ -547,10 +714,7 @@ export default class extends Controller {
         // Grow the field to fit the new value, then re-anchor the popover (its
         // height just changed, which affects the above/below flip).
         this._autoGrow(field);
-        if (this._openId !== null) {
-            const popover = this._popoverFor(this._openId);
-            if (popover) this._positionPopover(popover, this._boxFor(this._openId));
-        }
+        this._reanchorOpenPopover();
 
         const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
         if (!mirror) return;
@@ -566,9 +730,9 @@ export default class extends Controller {
     }
 
     /** The whole-text font select of a plain input ("Uživatel může přepínat
-     *  písmo"): write the pick into its Live-bound mirror (the same debounced
-     *  settle path as text), re-measure the reflow locally — a different face
-     *  wraps differently — and show the spinner. */
+     *  písmo"): write the pick into its mirror (the same debounced settle
+     *  path as text), re-measure the reflow locally — a different face wraps
+     *  differently — and show the spinner. */
     syncFont(event) {
         const inputId = event.params?.inputid;
         if (!inputId) return;
@@ -581,17 +745,20 @@ export default class extends Controller {
     }
 
     /** A rich-text WYSIWYG (rich_text_editor_controller) changed its value.
-     *  The editor already wrote the mirror + dispatched its `input` (Live
-     *  debounce running); this hook adds the same local echo syncText gives
-     *  plain fields: instant container reflow + the render spinner. Re-anchor
-     *  the open popover too — the editor auto-grows with its content. */
+     *  The editor already wrote the mirror + dispatched its `input` (the
+     *  page's debounce running); this hook adds the same local echo syncText
+     *  gives plain fields: instant container reflow + the render spinner.
+     *  Re-anchor the open popover too — the editor auto-grows with its content. */
     richTextChanged() {
-        if (this._openId !== null) {
-            const popover = this._popoverFor(this._openId);
-            if (popover) this._positionPopover(popover, this._boxFor(this._openId));
-        }
+        this._reanchorOpenPopover();
         this._scheduleRecompute();
         this._scheduleSpinner();
+    }
+
+    _reanchorOpenPopover() {
+        if (this._openId === null) return;
+        const popover = this._popoverFor(this._openId);
+        if (popover) this._positionPopover(popover, this._anchorBox);
     }
 
     _updateCounter(inputId, field) {
@@ -602,10 +769,11 @@ export default class extends Controller {
         counter.textContent = `${field.value.length} / ${max} znaků`;
     }
 
-    // --- Live-preview spinner -----------------------------------------------
+    // --- Live-preview spinner (single page; the group page has one per frame) --
 
     /** Show after a short idle so fast typing never flashes the veil per key. */
     _scheduleSpinner() {
+        if (!this.hasSpinnerTarget) return;
         if (this._spinnerShowTimer) clearTimeout(this._spinnerShowTimer);
         this._spinnerShowTimer = setTimeout(() => this._showSpinner(), 300);
     }
@@ -648,45 +816,46 @@ export default class extends Controller {
     reposition() {
         this._updateZoomBox();
         const z = this._zoom || 1;
-        const scale = this._scale();
-        const previewWidth = this.hasPreviewTarget
-            ? this.previewTarget.getBoundingClientRect().width / z
-            : 0;
 
-        this.boxTargets.forEach((box) => {
-            const frame = this._frameOf(box);
-            if (!frame) {
-                box.style.display = "none";
-                return;
-            }
-            box.style.display = "";
-            const left = frame.x * scale;
-            const top = frame.y * scale;
-            const right = (frame.x + frame.width) * scale;
-            box.style.left = `${left}px`;
-            box.style.top = `${top}px`;
-            box.style.width = `${frame.width * scale}px`;
-            box.style.height = `${frame.height * scale}px`;
+        (this._surfaces || []).forEach((surface) => {
+            const scale = this._scaleFor(surface);
+            const previewWidth = surface.preview
+                ? surface.preview.getBoundingClientRect().width / z
+                : 0;
 
-            // Edge-aware icon cluster: keep it from hanging off the top or right
-            // of the preview (where it would detach from the artwork / clip).
-            box.classList.toggle("fill-box--tools-inside", top < 30);
-            box.classList.toggle("fill-box--tools-left", previewWidth > 0 && previewWidth - right < 60);
+            surface.boxes.forEach((box) => {
+                const frame = this._frameOf(box, surface);
+                if (!frame) {
+                    box.style.display = "none";
+                    return;
+                }
+                box.style.display = "";
+                const left = frame.x * scale;
+                const top = frame.y * scale;
+                const right = (frame.x + frame.width) * scale;
+                box.style.left = `${left}px`;
+                box.style.top = `${top}px`;
+                box.style.width = `${frame.width * scale}px`;
+                box.style.height = `${frame.height * scale}px`;
+
+                // Edge-aware icon cluster: keep it from hanging off the top or right
+                // of the preview (where it would detach from the artwork / clip).
+                box.classList.toggle("fill-box--tools-inside", top < 30);
+                box.classList.toggle("fill-box--tools-left", previewWidth > 0 && previewWidth - right < 60);
+            });
         });
 
-        if (this._openId !== null) {
-            const popover = this._popoverFor(this._openId);
-            if (popover) this._positionPopover(popover, this._boxFor(this._openId));
-        }
+        this._reanchorOpenPopover();
     }
 
-    _scale() {
-        if (!this.hasPreviewTarget || !this.canvasWidthValue) return 1;
-        const rect = this.previewTarget.getBoundingClientRect();
-        // Divide by zoom: the box positions are in the stage's UNSCALED coords; the
-        // CSS transform then scales them along with the preview.
+    /** Display px per canvas px on one surface. Divides by zoom: the box
+     *  positions are in the stage's UNSCALED coords; the CSS transform then
+     *  scales them along with the preview. */
+    _scaleFor(surface) {
+        if (!surface.preview || !surface.canvasWidth) return 1;
+        const rect = surface.preview.getBoundingClientRect();
         const width = rect.width / (this._zoom || 1);
-        return width > 0 ? width / this.canvasWidthValue : 1;
+        return width > 0 ? width / surface.canvasWidth : 1;
     }
 
     _positionPopover(popover, box) {
@@ -753,7 +922,7 @@ export default class extends Controller {
                 } catch (err) {
                     // Non-fatal — remeasure below still improves on the fallback.
                 }
-                this._measureBoxes.clear();
+                (this._surfaces || []).forEach((surface) => surface.measureBoxes.clear());
                 this._recomputeLayout();
             });
     }
@@ -772,21 +941,40 @@ export default class extends Controller {
     }
 
     /**
-     * Mirror of the export render's text pipeline: transform each input's
-     * current value the way ResolveTextOverrides does (truncate to maxLength,
-     * uppercase), measure the wrapped height with an offscreen Fabric Textbox,
-     * then run the SAME two-phase shared container layout the server render
-     * runs — over geometry POJOs built from the designed frames (fillable
-     * texts) and the decorative-member frames (icons/separators the server
-     * ships in `decorations`), so nesting, uniform gaps and attachments all
-     * mirror the render exactly. Results land in _computedFrames (consumed by
-     * _frameOf → reposition) and in the overflow UI state.
+     * Mirror of the export render's text pipeline, run once PER SURFACE:
+     * transform each input's current value the way ResolveTextOverrides does
+     * (truncate to maxLength, uppercase), measure the wrapped height with an
+     * offscreen Fabric Textbox in that dimension's designed box, then run the
+     * SAME two-phase shared container layout the server render runs — over
+     * geometry POJOs built from that dimension's designed frames (fillable
+     * texts) and decorative-member frames (icons/separators the server ships
+     * in `decorations`), so nesting, uniform gaps and attachments all mirror
+     * the render exactly. Results land in the surface's computed frames
+     * (consumed by _frameOf → reposition) and in the overflow UI state — the
+     * worst overflow of any dimension gates the export.
      */
     _recomputeLayout() {
         const layoutModule = window.WBoostContainerLayout;
-        const data = this.hasTextLayoutValue ? this.textLayoutValue : null;
-        if (!layoutModule || !data || !data.inputs) return;
+        if (!layoutModule) return;
 
+        let worstOverflow = null;
+
+        (this._surfaces || []).forEach((surface) => {
+            const data = surface.layout;
+            if (!data || !data.inputs) return;
+            const surfaceOverflow = this._layoutSurface(surface, data, layoutModule);
+            if (surfaceOverflow !== null && (worstOverflow === null || surfaceOverflow > worstOverflow)) {
+                worstOverflow = surfaceOverflow;
+            }
+        });
+
+        this._setOverflowState(worstOverflow);
+        this.reposition();
+    }
+
+    /** One surface's reflow pass; returns its worst container overflow in
+     *  canvas px (null = everything fits). */
+    _layoutSurface(surface, data, layoutModule) {
         const inputs = data.inputs;
         const computed = {};
 
@@ -795,7 +983,7 @@ export default class extends Controller {
             if (!def.frame) return;
             let height = def.frame.height;
             if (!def.locked && def.style) {
-                height = this._measureHeight(inputId, this._currentValue(inputId, def), def);
+                height = this._measureHeight(surface, inputId, this._currentValue(inputId, def), def);
             }
             computed[inputId] = { x: def.frame.x, y: def.frame.y, width: def.frame.width, height };
         });
@@ -881,9 +1069,12 @@ export default class extends Controller {
             }
         });
 
-        this._computedFrames = computed;
-        this._setOverflowState(worstOverflow, overflowIds);
-        this.reposition();
+        surface.computed = computed;
+        surface.boxes.forEach((box) => {
+            box.classList.toggle("fill-box--overflow", overflowIds.has(box.dataset.inputid));
+        });
+
+        return worstOverflow;
     }
 
     /** The value the server would render: mirror value, capped + uppercased.
@@ -952,15 +1143,16 @@ export default class extends Controller {
         return Boolean(mirror && mirror.checked);
     }
 
-    /** Wrapped height of the value in the input's designed box (reused offscreen
-     *  Textbox per input — never added to a canvas, Fabric measures detached).
-     *  `value` is { text, runs } from _currentValue: styled runs are applied as
-     *  per-character styles (a bold face wraps wider!) via the shared module —
-     *  and cleared again when the value flips back to plain, or the box would
-     *  keep measuring with stale styling. */
-    _measureHeight(inputId, value, def) {
+    /** Wrapped height of the value in the input's designed box on ONE surface
+     *  (reused offscreen Textbox per surface + input — never added to a
+     *  canvas, Fabric measures detached). `value` is { text, runs } from
+     *  _currentValue: styled runs are applied as per-character styles (a bold
+     *  face wraps wider!) via the shared module — and cleared again when the
+     *  value flips back to plain, or the box would keep measuring with stale
+     *  styling. */
+    _measureHeight(surface, inputId, value, def) {
         try {
-            let box = this._measureBoxes.get(inputId);
+            let box = surface.measureBoxes.get(inputId);
             if (!box) {
                 box = new Textbox("", {
                     width: def.frame.width,
@@ -970,7 +1162,7 @@ export default class extends Controller {
                     charSpacing: def.style.charSpacing,
                     splitByGrapheme: false,
                 });
-                this._measureBoxes.set(inputId, box);
+                surface.measureBoxes.set(inputId, box);
             }
 
             // The user's font choice re-wraps the box exactly as the render
@@ -1024,11 +1216,8 @@ export default class extends Controller {
         }
     }
 
-    _setOverflowState(worstOverflow, overflowIds) {
+    _setOverflowState(worstOverflow) {
         const overflowing = worstOverflow !== null;
-        this.boxTargets.forEach((box) => {
-            box.classList.toggle("fill-box--overflow", overflowIds.has(box.dataset.inputid));
-        });
         if (this.hasOverflowAlertTarget) {
             this.overflowAlertTarget.classList.toggle("d-none", !overflowing);
             if (overflowing) {
@@ -1036,23 +1225,23 @@ export default class extends Controller {
                     `Texty se nevejdou do vymezené oblasti (přesah ${Math.ceil(worstOverflow)} px). Zkraťte prosím zvýrazněné texty.`;
             }
         }
-        if (this.hasExportButtonTarget) {
-            this.exportButtonTarget.disabled = overflowing;
-            this.exportButtonTarget.title = overflowing
+        this.exportButtonTargets.forEach((button) => {
+            button.disabled = overflowing;
+            button.title = overflowing
                 ? "Zkraťte texty, které se nevejdou do vymezené oblasti"
                 : "";
-        }
+        });
     }
 
     // --- helpers -------------------------------------------------------------
 
-    _frameOf(box) {
+    _frameOf(box, surface) {
         // Live frames win over the static designer frame baked into the data
         // attributes: image slots track their picked image's visible bbox,
         // text slots their container-reflowed / measured position.
         const image = this._imageFrames ? this._imageFrames[box.dataset.inputid] : null;
         if (image) return image;
-        const computed = this._computedFrames ? this._computedFrames[box.dataset.inputid] : null;
+        const computed = surface && surface.computed ? surface.computed[box.dataset.inputid] : null;
         if (computed) return computed;
 
         const x = parseFloat(box.dataset.frameX);
@@ -1063,8 +1252,16 @@ export default class extends Controller {
         return { x, y, width: w, height: h };
     }
 
+    /** The input's first (visible) box — the anchor when no specific one was
+     *  clicked (a layers-panel row). */
     _boxFor(inputId) {
-        return this.boxTargets.find((b) => b.dataset.inputid === inputId) || null;
+        const boxes = this._boxesFor(inputId);
+        return boxes.find((box) => box.style.display !== "none") || boxes[0] || null;
+    }
+
+    /** Every box of an input — one per surface carrying it. */
+    _boxesFor(inputId) {
+        return this.boxTargets.filter((b) => b.dataset.inputid === inputId);
     }
 
     _popoverFor(inputId) {

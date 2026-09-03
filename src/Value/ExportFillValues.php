@@ -81,10 +81,10 @@ final readonly class ExportFillValues
     }
 
     /**
-     * The group fill form. Group semantics: an empty text means "keep the
-     * designed text" and is NOT part of the fill, so it is dropped (mirrors
-     * GroupFillRenderer); placement stays per dimension, separate from the
-     * shared picture pick.
+     * The group fill form. Same text semantics as the variant form since the
+     * fill pages were unified: an EMPTY text means "blank the text" and is
+     * part of the fill, so it is kept (mirrors GroupFillRenderer); placement
+     * stays per dimension, separate from the shared picture pick.
      *
      * @param array<array-key, mixed> $rawTexts
      * @param array<array-key, mixed> $rawHidden
@@ -96,7 +96,7 @@ final readonly class ExportFillValues
     {
         $texts = [];
         foreach ($rawTexts as $inputId => $value) {
-            if (is_string($value) && $value !== '') {
+            if (is_string($value)) {
                 $texts[(string) $inputId] = $value;
             }
         }

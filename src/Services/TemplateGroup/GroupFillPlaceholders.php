@@ -11,15 +11,14 @@ use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\EchoCapableTextInputs;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
+use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
-use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
-use WBoost\Web\Value\RichTextOptions;
 
 /**
  * Collects the UNIFIED placeholder list of a template group for the
@@ -43,7 +42,7 @@ readonly final class GroupFillPlaceholders
         private CanvasPlaceholderGeometry $placeholderGeometry,
         private EchoCapableTextInputs $echoCapableTextInputs,
         private TextInputObjectBinder $textInputObjectBinder,
-        private ResolveRichTextOptions $resolveRichTextOptions,
+        private FillTextPlaceholders $fillTextPlaceholders,
     ) {
     }
 
@@ -64,11 +63,10 @@ readonly final class GroupFillPlaceholders
     /**
      * Per-variant payload for the client-side text echo (see
      * assets/editor/fill_text_echo.js) — the group-page sibling of
-     * AbstractVariantFiller::echoPayload(), with one extra rule carried in
-     * `inputs`: the group's "empty value keeps the designed text" semantics
-     * need the sample value client-side (`sampleValue`; null = fall back to
-     * the designed textbox text the echo objects already carry). Null when
-     * nothing is echo-capable in this dimension.
+     * AbstractVariantFiller::echoPayload() — same shape, same value rules
+     * (the mirror value IS the rendered value; the fields start pre-filled
+     * with the sample text, so the echo never needs it). Null when nothing
+     * is echo-capable in this dimension.
      *
      * @return null|array{
      *     width: int,
@@ -76,7 +74,7 @@ readonly final class GroupFillPlaceholders
      *     canvasHeight: int,
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
      *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
-     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool, sampleValue: null|string}>
+     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
      * }
      */
     public function echoData(TemplateVariant $variant): null|array
@@ -112,7 +110,6 @@ readonly final class GroupFillPlaceholders
                     'lists' => $input->richText && $input->lists,
                     'maxLength' => $input->maxLength,
                     'uppercase' => $input->uppercase,
-                    'sampleValue' => $input->sampleValue,
                 ];
             }
         }
@@ -131,47 +128,112 @@ readonly final class GroupFillPlaceholders
     }
 
     /**
-     * The whole-text font choice per unified input, for the group page's
-     * `fontValues[<inputId>]` selects: only inputs the designer opened up
-     * ({@see EditorTextInput::offersFontChoice()}) and that resolve to at
-     * least one face besides the designed one get an entry. Options come
-     * from the FIRST dimension carrying the input — the projector keeps the
-     * family across dimensions, so every dimension offers the same list.
+     * The UNIFIED text placeholders of the group — one popover per distinct
+     * non-locked `inputId`, built by the same {@see FillTextPlaceholders}
+     * the single-variant fill page uses (WYSIWYG seed, checklist items,
+     * font/colour options included), so a rich input on a synchronized
+     * template gets the exact editor it gets on a single variant. The FIRST
+     * dimension carrying an input supplies its presentation (the projector
+     * keeps definitions and font families across dimensions); `frame` is
+     * that dimension's and is NOT what the per-dimension boxes use — they
+     * read {@see layoutData()} of their own variant.
      *
      * @param list<TemplateVariant> $variants
-     * @return array<string, array{
-     *     defaultLabel: string,
-     *     groups: list<array{name: string, faces: list<array{family: string, faceName: string}>}>
-     * }>
+     * @param array<string, string> $textValues seeded mirror values (a loaded version)
+     * @param array<string, bool> $hiddenValues
+     * @param array<string, string> $fontValues
+     * @return list<array<string, mixed>>
      */
-    public function fontOptions(array $variants): array
+    public function textPlaceholders(array $variants, array $textValues, array $hiddenValues, array $fontValues): array
     {
-        $result = [];
+        /** @var array<string, array<string, mixed>> $unified */
+        $unified = [];
 
         foreach ($variants as $variant) {
-            $options = null;
-
+            $pending = false;
             foreach ($variant->inputs as $input) {
-                if ($input->locked || !$input->offersFontChoice() || isset($result[$input->inputId])) {
+                if (!$input->locked && !isset($unified[$input->inputId])) {
+                    $pending = true;
+                    break;
+                }
+            }
+            if (!$pending) {
+                continue;
+            }
+
+            $placeholders = $this->fillTextPlaceholders->placeholders(
+                $variant,
+                $textValues,
+                $hiddenValues,
+                $fontValues,
+                $this->echoCapableIds($variant),
+                $this->fillTextPlaceholders->fontOptions($variant),
+            );
+
+            foreach ($placeholders as $placeholder) {
+                /** @var string $inputId */
+                $inputId = $placeholder['inputId'];
+                /** @var bool $locked */
+                $locked = $placeholder['locked'];
+                if ($locked) {
                     continue;
                 }
-
-                $options ??= $this->resolveRichTextOptions->forVariant($variant);
-
-                if (!$options->offersFontSwitch($input)) {
-                    continue;
-                }
-
-                $designed = $options->designedFontFor($input->inputId);
-
-                $result[$input->inputId] = [
-                    'defaultLabel' => $designed !== null ? sprintf('%s (výchozí)', $designed->faceName) : 'Výchozí písmo',
-                    'groups' => RichTextOptions::groupFaces($options->switchableFontsFor($input->inputId)),
-                ];
+                $unified[$inputId] ??= $placeholder;
             }
         }
 
-        return $result;
+        return array_values($unified);
+    }
+
+    /**
+     * The WYSIWYG toolbar payload from the first dimension that has a rich
+     * input, or null when none does (no WYSIWYG chrome renders).
+     *
+     * @param list<TemplateVariant> $variants
+     * @return null|array{
+     *     fonts: list<array{family: string, fontName: string, faceName: string, weight: int, style: string, url: string}>,
+     *     colors: list<string>,
+     *     fontGroups: list<array{name: string, faces: list<array{family: string, faceName: string}>}>
+     * }
+     */
+    public function richTextToolbar(array $variants): null|array
+    {
+        foreach ($variants as $variant) {
+            $toolbar = $this->fillTextPlaceholders->richTextToolbar($variant, $this->fillTextPlaceholders->fontOptions($variant));
+            if ($toolbar !== null) {
+                return $toolbar;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The "Vrstvy" panel rows — the group's object set is identical across
+     * dimensions by contract, so the first dimension's stacking order stands
+     * for all of them.
+     *
+     * @param list<TemplateVariant> $variants
+     * @param array<string, bool> $hiddenValues
+     * @return list<array{kind: 'text'|'image', icon: string, inputId: string, label: string, hidable: bool, hidden: bool, interactive: bool}>
+     */
+    public function layers(array $variants, array $hiddenValues): array
+    {
+        $first = $variants[0] ?? null;
+
+        return $first === null ? [] : $this->fillTextPlaceholders->layers($first, $hiddenValues);
+    }
+
+    /**
+     * ONE dimension's overlay reflow payload — the per-dimension text frames
+     * the boxes are drawn at plus what the client needs to mirror container
+     * reflow ({@see FillTextPlaceholders::layoutData()}).
+     *
+     * @return array<string, mixed>
+     */
+    public function layoutData(TemplateVariant $variant): array
+    {
+        return $this->fillTextPlaceholders->layoutData($variant);
     }
 
     /**

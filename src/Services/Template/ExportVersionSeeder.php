@@ -154,7 +154,9 @@ readonly final class ExportVersionSeeder
         foreach ($textInputs as $input) {
             $stored = $values->texts[$input->inputId] ?? null;
 
-            if (is_string($stored) && $stored !== '') {
+            // An empty string is a real value (the text was blanked) — it
+            // must re-load as blank, not fall back to the sample text.
+            if (is_string($stored)) {
                 $texts[$input->inputId] = $this->degradeToInput($stored, $input);
             }
 

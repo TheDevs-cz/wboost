@@ -1408,6 +1408,140 @@ button.fill-layer-row__main:focus-visible {
     width: 360px;
 }
 
+/* --- "Všechna pole" panel --------------------------------------------------
+   The popovers container (.fill-popovers) has THREE presentations: the no-JS
+   stacked list (base rules above), the JS floating mode (display: contents —
+   each popover positions itself, image cards hidden) and the DOCKED panel:
+   the very same container becomes a centred modal listing every text popover
+   + image card as one stacked form. Same DOM, same editor instances — a
+   WYSIWYG keeps its state across the switch — only the layout changes.
+   z-order: above the page and the floating popovers (never open at the same
+   time), BELOW the gallery pickers (.fill-modal 1300, Bootstrap's modal 1055)
+   so picking from a docked image card opens the picker over the panel. */
+.fill-panel-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.fill-form.fill-js.fill-panel-open .fill-panel-backdrop {
+    display: block;
+}
+
+.fill-popovers__header {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--ct-border-color, #e3e6ef);
+}
+
+/* Panel-only chrome: one card per image slot (thumb + picker button + eye,
+   the group page adds its per-dimension placement rows). Floating mode has
+   the box's pencil for that. */
+.fill-form.fill-js .fill-popover--image {
+    display: none;
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popovers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: fixed;
+    top: 4vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 560px;
+    max-width: 94vw;
+    max-height: 92vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 1041;
+    margin: 0;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popovers__header {
+    display: flex;
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popover,
+.fill-form.fill-js.fill-panel-open .fill-popover--rich,
+.fill-form.fill-js.fill-panel-open .fill-popover--image {
+    position: static;
+    display: block;
+    width: auto;
+    max-width: none;
+    box-shadow: none;
+}
+
+/* Floating-only bits of a popover (drag grip, Uložit, close): pointless in
+   a stacked form. !important: the Uložit button carries Bootstrap's
+   `d-inline-flex` utility, which is !important itself. */
+.fill-form.fill-js.fill-panel-open .fill-popover__chrome {
+    display: none !important;
+}
+
+/* The popover's own hide eye — the panel row's hide control (a box has its
+   own eye next to the pencil, so the floating popover hides it). */
+.fill-popover__eye {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.6;
+    line-height: 1;
+}
+
+.fill-popover__eye:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.fill-popover__eye.is-active {
+    color: #fa5c7c;
+    opacity: 1;
+}
+
+.fill-form.fill-js .fill-popover__eye {
+    display: none;
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popover__eye {
+    display: inline-flex;
+}
+
+.fill-image-card__thumb {
+    flex: 0 0 auto;
+    width: 56px;
+    height: 56px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0.25rem;
+    background-color: #f6f7fb;
+    background-size: cover;
+    background-position: center;
+}
+
+/* A fill SURFACE (one preview of one dimension) — the overlay's boxes are
+   absolutely positioned inside it. The single page's .fill-stage is one;
+   the group page wraps each dimension's preview frame in one. */
+.fill-surface {
+    position: relative;
+}
+
 /* The contenteditable editing surface. Grows with content (no fixed height);
    single visual line by default, wraps like the exported textbox. */
 .fill-richtext-editor {
@@ -3216,15 +3350,10 @@ button.fill-layer-row__main:focus-visible {
     border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-.group-fill-image-thumb {
-    flex: 0 0 auto;
-    width: 56px;
-    height: 56px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 0.25rem;
-    background-color: #f6f7fb;
-    background-size: cover;
-    background-position: center;
+/* The dimension grid beside the "Vrstvy" panel (the .fill-body flex row). */
+.group-fill-previews {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .group-fill-image-option {

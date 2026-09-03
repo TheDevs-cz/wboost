@@ -861,6 +861,58 @@ replaces the old client-side Fabric runtime on the user-fill page. The preview
 image is rendered by the same Gotenberg path the API uses; the server resolves
 overrides via `ResolveTextOverrides`; download is a regular controller action.
 
+**ONE fill UX on both fill pages (2026-09-03).** The group fill page
+(`template_group_fill.html.twig`) used to be a different product: a bare
+side panel of single-line `<input>`s (no WYSIWYG, no checklist, no font
+select — the "no rich text on synchronized templates" report), while the
+single page had the click-into-preview overlay. Both pages now render the
+SAME editing surface from shared partials — `_fill_overlay_toggles.html.twig`
+(the two switches + the "Všechna pole" button), `_fill_overlay_boxes.html.twig`
+(the boxes of ONE surface), `_fill_text_popover.html.twig` (one input's
+popover: textarea / WYSIWYG / checklist / font select), `_fill_layers.html.twig`
+— built server-side by ONE builder, `Services/SocialNetwork/FillTextPlaceholders`
+(`placeholders()` / `layoutData()` / `layers()` / `fontOptions()` /
+`richTextToolbar()`; `AbstractVariantFiller` delegates, `GroupFillPlaceholders`
+unifies over the member dimensions first-wins by inputId). Contracts:
+
+- **Surfaces.** `variant_fill_overlay_controller` draws over N `surface`
+  targets, each carrying `data-canvas-width` + `data-layout`
+  (= `layoutData()` of THAT dimension) and containing its preview + its
+  `.fill-overlay` boxes; the single page has one (the zoomable `.fill-stage`,
+  target `"stage surface"`), the group page one per dimension (`.fill-surface`
+  wrapping the preview frame). Boxes scale per surface, container reflow runs
+  per surface with its own measurement boxes, the worst overflow of any
+  dimension gates the export button(s).
+- **Popovers are per INPUT, not per box**: the pencil on any dimension opens
+  the one popover of that input, anchored to the clicked box (`_anchorBox`;
+  a pencil of the same input on another dimension RE-ANCHORS instead of
+  toggling closed). The group page therefore has the single page's mirror
+  structure: one hidden `textValues[…]` / `fontValues[…]` /
+  `hiddenValues[…]` field per input carrying `data-text-mirror` /
+  `data-font-mirror` / `data-hide-mirror` (+ `data-input-id` for the echo)
+  and `data-action="input|change->group-fill#changed"` — the popovers, the
+  WYSIWYG and the checklist editor write those (they look the mirror up by
+  `[data-text-mirror]` globally), and every dimension re-renders. Image
+  slots: the group's `images[<id>][hide]` checkbox carries `data-image-hide`,
+  its Bootstrap picker modal `data-image-modal="<id>"` — `openImageModal`
+  falls back to `bootstrap.Modal` when no `.fill-modal` target matches.
+- **"Všechna pole" panel** (`togglePanel` → `fill-panel-open` on the form):
+  the `.fill-popovers` container (target `panel`) docks into a centred modal
+  listing every text popover + one `.fill-popover--image` card per slot
+  (thumb + picker button + eye; the group adds its per-dimension placement
+  rows) — the SAME editor instances, no second copy of any field, floating
+  chrome (`.fill-popover__chrome`: grip / Uložit / ×) hidden, the panel-only
+  `.fill-popover__eye` shown. z-order 1041: above the page, below the
+  pickers (`.fill-modal` 1300, Bootstrap 1055). The single page's card thumb
+  follows `variant-image-fill:picked` ({inputId, url}, also fired on a
+  version restore).
+- **Text semantics are unified to the single page's**: the group fields
+  start pre-filled with the sample text and an EMPTY field blanks the text
+  in every dimension (`GroupFillRenderer` no longer drops empty strings,
+  `ExportFillValues::fromGroupWebForm` keeps them, the seeder re-loads
+  them). Untouched sample-less inputs export blank — the single page's
+  behaviour since day one; the group's old "empty = designed text" is gone.
+
 **Click-into-preview overlay (`variant_fill_overlay_controller.js`).** Editing
 happens ON the preview: every text + image placeholder shows an always-visible
 icon cluster — **pencil** (text → floating popover with the replace input; image
@@ -1181,9 +1233,9 @@ version.
   is called at all six chokepoints with the surface's raw values;
   `ExportFillValues::fromVariantWebForm/fromGroupWebForm/fromApiRequest`
   normalise them into the WEB WIRE SHAPE (API rich `runs` re-encode as the
-  envelope STRING the mirrors carry) with per-surface semantics: the variant
-  form KEEPS empty strings (= "blank the text"), the group form DROPS them
-  (= "keep designed"). `toArray()` is canonical (recursive ksort, floats
+  envelope STRING the mirrors carry); both web forms KEEP empty strings
+  (= "blank the text" — the group form dropped them as "keep designed"
+  until the 2026-09-03 fill-page unification). `toArray()` is canonical (recursive ksort, floats
   rounded to 4 decimals) and `hash()` (sha256 over it) is the dedup key: the
   handler (`RecordTemplateExportVersionHandler`) bumps
   `lastExportedAt`/`exportCount`/`exportedBy`/`channel` on a same-(subject,

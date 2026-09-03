@@ -31,6 +31,13 @@ const MAX_CONCURRENT_RENDERS = 2;
  * image-picker modals and small form UX (Enter must not submit; the submit
  * button shows progress while the browser downloads the ZIP).
  *
+ * The EDITING surface (dashed boxes + pencils over every preview, the
+ * popovers, the "Všechna pole" panel, the hide eyes) is the shared
+ * variant-fill-overlay controller — the single-variant fill page's — mounted
+ * on the same form: its popovers write the hidden `textValues[…]` /
+ * `fontValues[…]` / `hiddenValues[…]` mirrors, whose input/change events
+ * land in changed() here and re-render every dimension.
+ *
  * ## Render discipline: single-flight per dimension, bounded concurrency
  *
  * A render request cannot be usefully cancelled — aborting the fetch leaves
@@ -489,7 +496,8 @@ export default class extends Controller {
     // proven pixel-equal to the server render by the golden tests) over a
     // lazily fetched text-transparent BASE render; the frame flips to the
     // settle render as soon as one lands that reflects the current edit state.
-    // Group semantics: an empty field keeps the designed text (sample first).
+    // Value semantics are the single page's: the field is what renders (it
+    // starts pre-filled with the sample text; empty = blank).
 
     _initEcho() {
         (this.variantsValue || []).forEach((variant) => {
@@ -652,22 +660,18 @@ export default class extends Controller {
             const values = {};
             Object.keys(entry.payload.inputs).forEach((inputId) => {
                 const def = entry.payload.inputs[inputId];
-                const field = this.element.querySelector(`input[name="textValues[${inputId}]"]`);
+                // The popovers' mirrors ARE the form fields here (hidden
+                // inputs the overlay controller writes into) — the same
+                // value the settle render receives, the single page's rule:
+                // an empty field blanks the text.
+                const field = this.element.querySelector(`[name="textValues[${inputId}]"]`);
                 const raw = field ? field.value : '';
-                const hideBox = this.element.querySelector(`input[name="hiddenValues[${inputId}]"]`);
+                const hideBox = this.element.querySelector(`[name="hiddenValues[${inputId}]"]`);
                 const hidden = Boolean(hideBox && hideBox.checked);
-                // The whole-text font choice (select, "" = designed font).
-                const fontSelect = this.element.querySelector(`select[name="fontValues[${inputId}]"]`);
-                const fontFamily = fontSelect ? fontSelect.value : '';
-                if (raw !== '') {
-                    values[inputId] = { resolved: module.resolveValue(raw, def), hidden, fontFamily };
-                } else if (typeof def.sampleValue === 'string' && def.sampleValue !== '') {
-                    // Empty keeps the designed content: the sample renders
-                    // (through the same lenient pipeline the server applies).
-                    values[inputId] = { resolved: module.resolveValue(def.sampleValue, def), hidden, fontFamily };
-                } else {
-                    values[inputId] = { designed: true, hidden, fontFamily };
-                }
+                // The whole-text font choice ("" = designed font).
+                const fontField = this.element.querySelector(`[name="fontValues[${inputId}]"]`);
+                const fontFamily = fontField ? fontField.value : '';
+                values[inputId] = { resolved: module.resolveValue(raw, def), hidden, fontFamily };
             });
             this._fitEchoCanvas(entry);
             entry.painter.update(values);

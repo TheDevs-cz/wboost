@@ -30,15 +30,48 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         self::assertSelectorExists('form[data-controller~="group-fill"]');
 
         // Both member variants carry the SAME inputId — the unified form must
-        // offer it exactly ONCE.
-        $sharedInputFields = $crawler->filter('input[name="textValues[' . TestDataFixture::GROUP_SHARED_INPUT_ID . ']"]');
+        // offer it exactly ONCE: one mirror field (the popovers write into it,
+        // the group-fill controller re-renders on its input event) and one
+        // popover — the single-variant page's editor, shared by every
+        // dimension's pencil.
+        $sharedInputFields = $crawler->filter('input[name="textValues[' . TestDataFixture::GROUP_SHARED_INPUT_ID . ']"][data-text-mirror="' . TestDataFixture::GROUP_SHARED_INPUT_ID . '"][data-action="input->group-fill#changed"]');
         self::assertCount(1, $sharedInputFields);
-        self::assertSame('headline', $crawler->filter('label[for="group-fill-text-' . TestDataFixture::GROUP_SHARED_INPUT_ID . '"]')->text());
+        $popovers = $crawler->filter('.fill-popover[data-variant-fill-overlay-target="popover"][data-inputid="' . TestDataFixture::GROUP_SHARED_INPUT_ID . '"]');
+        self::assertCount(1, $popovers);
+        self::assertSame('headline', $crawler->filter('label[for="fill-text-' . TestDataFixture::GROUP_SHARED_INPUT_ID . '"]')->text());
+        self::assertCount(1, $popovers->filter('textarea[data-action*="variant-fill-overlay#syncText"]'));
+
+        // The shared overlay controller is mounted on the same form, with the
+        // single page's chrome: both switches on, the "Všechna pole" panel.
+        $form = $crawler->filter('form[data-controller~="variant-fill-overlay"]');
+        self::assertCount(1, $form);
+        self::assertCount(1, $crawler->filter('form.fill-form.fill-highlight-on.fill-captions-on'));
+        self::assertCount(1, $crawler->filter('#fill-highlight-toggle[checked]'));
+        self::assertCount(1, $crawler->filter('#fill-captions-toggle[checked][data-action="change->variant-fill-overlay#toggleCaptions"]'));
+        self::assertCount(1, $crawler->filter('[data-variant-fill-overlay-target="panel"]'));
+        self::assertCount(1, $crawler->filter('[data-variant-fill-overlay-target="panelButton"]'));
 
         // One live preview per member variant, each wired to its own preview
-        // endpoint; the manually-added ungrouped variant gets none.
+        // endpoint; the manually-added ungrouped variant gets none. Each is a
+        // fill SURFACE carrying its own canvas width + reflow payload, with a
+        // text box AND an image box for the shared placeholders — a pencil on
+        // every dimension, all opening the one popover above.
         $previews = $crawler->filter('[data-group-fill-target="preview"]');
         self::assertCount(2, $previews);
+        $surfaces = $crawler->filter('[data-variant-fill-overlay-target="surface"]');
+        self::assertCount(2, $surfaces);
+        foreach ([TestDataFixture::GROUPED_PRESET_VARIANT_ID, TestDataFixture::GROUPED_FREEFORM_VARIANT_ID] as $variantId) {
+            $surface = $crawler->filter('[data-variant-fill-overlay-target="surface"][data-variant-id="' . $variantId . '"]');
+            self::assertCount(1, $surface);
+            self::assertNotSame('', (string) $surface->attr('data-canvas-width'));
+            /** @var array{inputs: array<string, array{frame: null|array{x: float}}>} $layout */
+            $layout = json_decode((string) $surface->attr('data-layout'), true, 512, JSON_THROW_ON_ERROR);
+            $frame = $layout['inputs'][TestDataFixture::GROUP_SHARED_INPUT_ID]['frame'];
+            self::assertIsArray($frame);
+            self::assertSame(80.0, (float) $frame['x']);
+            self::assertCount(1, $surface->filter('.fill-box--text[data-inputid="' . TestDataFixture::GROUP_SHARED_INPUT_ID . '"] [data-action="variant-fill-overlay#openPopover"]'));
+            self::assertCount(1, $surface->filter('.fill-box--image[data-inputid="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"] [data-action="variant-fill-overlay#openImageModal"]'));
+        }
         self::assertSelectorExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::GROUPED_PRESET_VARIANT_ID . '"]');
         self::assertSelectorExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::GROUPED_FREEFORM_VARIANT_ID . '"]');
         self::assertSelectorNotExists('[data-preview-endpoint$="/fill-preview/' . TestDataFixture::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID . '"]');
@@ -74,6 +107,14 @@ final class TemplateGroupFillControllerTest extends WebTestCase
 
         // Freshly uploaded pictures land in the picker's option grid.
         self::assertSelectorExists('[data-group-fill-target="imageOptions"][data-input-id="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
+
+        // The picker is a Bootstrap modal the overlay's openImageModal finds
+        // by data-image-modal; the panel's image card + every dimension's
+        // eye toggle the ONE hidden hide checkbox of the slot.
+        self::assertSelectorExists('.modal[data-image-modal="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
+        self::assertCount(1, $crawler->filter('.fill-popover--image[data-inputid="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]'));
+        self::assertCount(1, $crawler->filter('input[name="images[' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '][hide]"][data-image-hide="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]'));
+        self::assertGreaterThanOrEqual(3, $crawler->filter('[data-hide-toggle="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]')->count());
     }
 
     /**
