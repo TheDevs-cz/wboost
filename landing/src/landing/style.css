@@ -1,0 +1,1833 @@
+/* =========================================================================
+   WBoost landing page — the whole stylesheet, shared by every page.
+   Hand-written, no framework, no build step. Every class is prefixed `lp-`.
+   Order: reset · tokens · type · primitives · components · sections · motion.
+   ========================================================================= */
+
+/* ---- 1. Reset ---------------------------------------------------------- */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body,
+h1, h2, h3, h4, p, figure, blockquote, dl, dd, ul, ol {
+  margin: 0;
+  padding: 0;
+}
+
+ul, ol { list-style: none; }
+
+img, svg { display: block; max-width: 100%; }
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+a { color: inherit; }
+
+:focus-visible {
+  outline: 2px solid #727cf566;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* ---- 2. Fonts ---------------------------------------------------------- */
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("fonts/instrument-serif.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* One variable file covers 400/600/700/800 — the whole Nunito range we use. */
+@font-face {
+  font-family: Nunito;
+  src: url("fonts/nunito.woff2") format("woff2-variations");
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("fonts/ibm-plex-mono.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---- 3. Tokens --------------------------------------------------------- */
+
+:root {
+  --lp-ink: #313a46;
+  --lp-ink-deep: #20262f;
+  --lp-ink-soft: #3a4453;
+  --lp-paper: #fafbfe;
+  --lp-paper-alt: #f1f3f7;
+  --lp-white: #fff;
+  --lp-primary: #727cf5;
+  --lp-primary-hover: #5b66e0;
+  --lp-primary-tint: #eef0fe;
+  --lp-slate: #8491a0;
+  --lp-logo-accent: #7075b5;
+  --lp-text-head: #313a46;
+  --lp-text-body: #6c757d;
+  --lp-border: #dee2e6;
+  --lp-border-alt: #dde2e9;
+  --lp-border-ink: #8491a03d;
+  --lp-success: #0acf97;
+  --lp-danger: #fa5c7c;
+  --lp-demo-green: #1e4a3b;
+  --lp-demo-brick: #9c3a24;
+
+  /* Depicted-UI greys — used only inside the drawn product fragments. */
+  --lp-body-ink: #c2cbd6;
+  --lp-body-ink-dim: #a3aebb;
+  --lp-frag: #f5f7fb;
+  --lp-frag-alt: #eef1f6;
+  --lp-slot: #f2f4f8;
+  --lp-slot-ink: #ffffff0f;
+  --lp-numeral: #dde1e9;
+
+  --lp-font-display: "Instrument Serif", Georgia, serif;
+  --lp-font-body: Nunito, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --lp-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --lp-radius-card: 16px;
+  --lp-radius-ctl: 8px;
+  --lp-shadow-pop: 0 14px 34px rgba(49, 58, 70, .12);
+
+  /* Geometry. The gutter is a MINIMUM side margin, not the designed one:
+     at ≥1440 the 1200 px container centres itself and yields the design's 120. */
+  --lp-gutter: clamp(20px, 5vw, 120px);
+  --lp-section-y: clamp(76px, 9vw, 150px);
+}
+
+/* ---- 4. Type scale ----------------------------------------------------- */
+/* Fluid between the two designed artboards (390 → 1440). No breakpoints. */
+
+body {
+  background: var(--lp-paper);
+  color: var(--lp-text-body);
+  font-family: var(--lp-font-body);
+  font-size: clamp(1rem, .95rem + .19vw, 1.125rem);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+.lp-h1 {
+  font-family: var(--lp-font-display);
+  font-weight: 400;
+  text-wrap: balance;
+  font-size: clamp(2.5rem, 1.99rem + 2.1vw, 3.875rem);   /* 40 → 62 */
+  line-height: 1.07;
+  color: var(--lp-text-head);
+}
+
+.lp-title {
+  font-family: var(--lp-font-display);
+  font-weight: 400;
+  text-wrap: balance;
+  font-size: clamp(2.125rem, 1.85rem + 1.14vw, 2.875rem); /* 34 → 46 */
+  line-height: 1.11;
+  color: var(--lp-text-head);
+}
+
+/* The three "argument" sections outrank the explanatory ones. */
+.lp-title--lead { font-size: clamp(2.5rem, 2.22rem + 1.14vw, 3.25rem); } /* 40 → 52 */
+
+.lp-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--lp-font-mono);
+  font-size: clamp(.656rem, .62rem + .14vw, .75rem);      /* 10.5 → 12 */
+  letter-spacing: 1.5px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--lp-text-body);
+}
+
+.lp-eyebrow::before {
+  content: "";
+  flex: 0 0 30px;
+  height: 1.5px;
+  background: var(--lp-primary);
+}
+
+.lp-lead {
+  font-size: clamp(1rem, .95rem + .19vw, 1.125rem);
+  line-height: 1.65;
+  color: var(--lp-text-body);
+}
+
+.lp-mono {
+  font-family: var(--lp-font-mono);
+  font-size: clamp(.656rem, .62rem + .14vw, .75rem);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--lp-text-body);
+}
+
+/* The page's small mono label, wherever it appears. One rule, then only the
+   size, tracking or colour that actually differs per use. */
+.lp-ui__h,
+.lp-manual__head,
+.lp-history__h,
+.lp-audience__label,
+.lp-legal__eyebrow,
+.lp-footer__contact h2,
+.lp-chatpanel__head,
+.lp-showcase__fmt figcaption {
+  font-family: var(--lp-font-mono);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--lp-slate);
+}
+
+/* Nunito ships no U+2192; borrow the arrow from the mono face. */
+.lp-arrow { font-family: var(--lp-font-mono); }
+
+.lp-vh {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lp-skip {
+  position: absolute;
+  left: 12px; top: -100px;
+  z-index: 60;
+  padding: 12px 18px;
+  border-radius: var(--lp-radius-ctl);
+  background: var(--lp-primary);
+  color: var(--lp-white);
+  font-weight: 700;
+  text-decoration: none;
+  transition: top .15s;
+}
+.lp-skip:focus { top: 12px; }
+
+/* ---- 5. Layout primitives ---------------------------------------------- */
+
+.lp-container {
+  width: min(1200px, 100% - 2 * var(--lp-gutter));
+  margin-inline: auto;
+}
+
+.lp-section {
+  padding-block: var(--lp-section-y);
+  background: var(--lp-paper);
+}
+
+.lp-section--ink { background: var(--lp-ink); color: var(--lp-body-ink); }
+.lp-section--ink .lp-title,
+.lp-section--ink .lp-h1 { color: var(--lp-white); }
+.lp-section--ink .lp-eyebrow { color: var(--lp-slate); }
+.lp-section--ink .lp-lead { color: var(--lp-body-ink); }
+
+/* Recessed neutral tone. The top hairline is load-bearing when the Reference
+   section above is hidden: it is then the only thing separating #fafbfe from
+   #f1f3f7. Do not remove it as redundant. */
+.lp-section--recessed {
+  background: var(--lp-paper-alt);
+  border-top: 1px solid var(--lp-border-alt);
+}
+
+.lp-cols {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+}
+.lp-cols--wide { grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); }
+
+.lp-rule { height: 1px; background: var(--lp-border); border: 0; }
+.lp-section--ink .lp-rule { background: var(--lp-border-ink); }
+
+/* ---- 6. Components ----------------------------------------------------- */
+
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 15px 26px;
+  border-radius: var(--lp-radius-ctl);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+
+.lp-btn--primary { background: var(--lp-primary); color: var(--lp-white); }
+.lp-btn--primary:hover { background: var(--lp-primary-hover); }
+
+.lp-btn--ghost {
+  border: 1px solid var(--lp-border);
+  color: var(--lp-text-head);
+  font-weight: 600;
+  background: var(--lp-white);
+}
+.lp-btn--ghost:hover { border-color: var(--lp-slate); }
+
+.lp-btn--ghost-ink {
+  border: 1px solid var(--lp-border-ink);
+  color: var(--lp-white);
+  font-weight: 600;
+}
+.lp-btn--ghost-ink:hover { background: #ffffff14; }
+
+.lp-btn--sm { padding: 11px 20px; font-size: .9375rem; }
+
+.lp-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.lp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--lp-border);
+  background: var(--lp-white);
+  font-family: var(--lp-font-mono);
+  font-size: .8125rem;
+  line-height: 1.3;
+  color: var(--lp-text-head);
+}
+
+.lp-chip--status {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--lp-primary-tint);
+  color: var(--lp-primary-hover);
+  font-size: .6875rem;
+  letter-spacing: .3px;
+}
+
+.lp-card {
+  background: var(--lp-white);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-card);
+  padding: clamp(24px, 2.4vw, 32px);
+}
+
+.lp-card--ink {
+  background: var(--lp-ink);
+  border-color: transparent;
+  color: var(--lp-body-ink);
+}
+.lp-card--ink .lp-card__title { color: var(--lp-white); }
+
+.lp-card__title,
+.lp-tile h3 {
+  font-family: var(--lp-font-body);
+  font-weight: 700;
+  font-size: clamp(1.25rem, 1.11rem + .57vw, 1.625rem);   /* 20 → 26 */
+  line-height: 1.25;
+  letter-spacing: -.2px;
+  color: var(--lp-text-head);
+}
+
+.lp-check {
+  flex: 0 0 auto;
+  width: 15px; height: 15px;
+  margin-top: 5px;
+  color: var(--lp-primary);
+}
+
+/* The signature motif: the fill page's editable region. Two placements only —
+   the hero and the "Vyplnění a export" tile. A plain dashed border, never the
+   baked dash paths the design file had to use. */
+.lp-editable {
+  position: absolute;
+  border: 1.5px dashed var(--lp-primary);
+  border-radius: 3px;
+}
+.lp-editable--active {
+  border-style: solid;
+  background: #727cf51a;
+}
+
+.lp-tag {
+  position: absolute;
+  padding: .4em .8em;
+  border-radius: .5em;
+  background: var(--lp-primary);
+  color: var(--lp-white);
+  font-family: var(--lp-font-body);
+  font-weight: 600;
+  font-size: 1.2em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.lp-cluster {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: .7em;
+  padding: .5em .7em;
+  border-radius: .6em;
+  background: var(--lp-primary);
+  color: var(--lp-white);
+}
+.lp-cluster svg { width: 1.3em; height: 1.3em; }
+
+/* ---- 7. Wordmark ------------------------------------------------------- */
+/* Size the SVG itself and let the viewBox scale the paths — never a wrapper. */
+
+.lp-wordmark { display: inline-flex; text-decoration: none; }
+.lp-wordmark__svg { width: 118px; height: auto; }
+.lp-wordmark__w { fill: var(--lp-slate); }
+.lp-wordmark__tab { fill: var(--lp-logo-accent); }
+.lp-wordmark__word { fill: var(--lp-white); }
+/* Light-surface lockup — proposed, awaiting sign-off ([POTVRDIT] §10.3). */
+.lp-wordmark--ink .lp-wordmark__word { fill: var(--lp-ink); }
+.lp-footer .lp-wordmark__svg { width: 150px; }
+
+/* ---- 8. Nav ------------------------------------------------------------ */
+
+.lp-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--lp-paper);
+  border-bottom: 1px solid transparent;
+  transition: border-color .2s;
+}
+.lp-nav.is-scrolled { border-bottom-color: var(--lp-border); }
+
+.lp-nav__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 72px;
+}
+
+.lp-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.lp-nav__links a {
+  font-size: .9375rem;
+  font-weight: 600;
+  color: var(--lp-text-body);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.lp-nav__links a:hover { color: var(--lp-text-head); }
+
+.lp-nav__toggle {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-ctl);
+  font-weight: 600;
+  font-size: .9375rem;
+  color: var(--lp-text-head);
+}
+.lp-nav__toggle svg { width: 18px; height: 18px; }
+
+.lp-nav__drawer { display: none; }
+
+/* BREAKPOINT 1 of 3 — CONTENT change, not geometry: the six anchors measure
+   ~510 px and with the 118 px wordmark + the 150 px button they need ~860.
+   The container at 960 gives 864, so they fit to 960 and not one pixel
+   further. Below it the links are REPLACED by the drawer. */
+@media (max-width: 959.98px) {
+  .lp-nav__links { display: none; }
+  .lp-nav__toggle { display: inline-flex; }
+  .lp-nav__drawer { display: block; }
+  .lp-nav__drawer[hidden] { display: none; }
+  .lp-nav__drawer ul {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-block: 8px 20px;
+    border-top: 1px solid var(--lp-border);
+    margin-top: 4px;
+  }
+  .lp-nav__drawer a {
+    display: block;
+    padding: 12px 4px;
+    font-weight: 600;
+    color: var(--lp-text-head);
+    text-decoration: none;
+  }
+}
+
+/* ---- 9. Hero ----------------------------------------------------------- */
+
+.lp-hero {
+  padding-block: clamp(44px, 5vw, 56px) clamp(60px, 6vw, 92px);
+  /* The composition runs past the container on purpose. `clip`, not `hidden`:
+     `hidden` would make this a scroll container and break sticky inside it. */
+  overflow-x: clip;
+}
+
+.lp-hero__inner {
+  display: grid;
+  align-items: start;
+  gap: 40px;
+  /* Extend the row from the container's left edge to 40 px past the viewport's
+     right edge — the designed bleed. `50% - 50vw` is the container's own side
+     margin, whatever the width. The bleed is capped in vw so it shrinks with
+     the composition: a constant 40 px would push the format rail off-screen
+     once the artwork itself had scaled down (measured at 1024). */
+  margin-right: calc(50% - 50vw - min(40px, 2.8vw));
+  /* 600 : 720 at 1440, and the same ratio at every other width. */
+  grid-template-columns: minmax(0, .833fr) minmax(0, 1fr);
+}
+
+.lp-hero__copy { max-width: 600px; }
+.lp-hero__copy .lp-h1 { margin-top: 30px; }
+.lp-hero__copy .lp-lead { margin-top: 26px; max-width: 544px; }
+.lp-hero__copy .lp-btn-row { margin-top: 38px; }
+.lp-hero__micro { margin-top: 18px; font-size: .875rem; }
+
+/* The figure column is a size container so the composition can scale from the
+   space it actually has, continuously, instead of from a guessed viewport
+   formula. `min(…, 10px)` keeps it from growing past its designed scale. */
+.lp-hero__figcol { container-type: inline-size; }
+
+/* Intrinsic 720 × 610 at scale 10 px. Every px of the design ÷ 10 = one --u.
+   font-size scaling, never transform: scale() — the height then follows from
+   the unit by itself and the text stays real text.
+
+   GEOMETRY IS IN `--u`, NOT `em`, and that is load-bearing: `left`, `top` and
+   `padding` on an element that sets its own font-size resolve against THAT
+   font-size, so the 13 px "Synchronizováno" chip at `left: 50.7em` landed at
+   659 px instead of 507. `--u` is a container-query length, identical in every
+   descendant. `em` stays for what should scale with an element's own text. */
+.lp-hero__figure {
+  --u: min(1.3889cqw, 10px);
+  position: relative;
+  width: calc(72 * var(--u));
+  height: calc(61 * var(--u));
+  margin: 0;
+  font-size: var(--u);
+  justify-self: end;
+  /* The composition sits 40 design-px above the copy column's first baseline. */
+  margin-top: calc(-4 * var(--u));
+}
+
+.lp-poster.lp-hero__poster {
+  position: absolute;
+  inset: calc(5.6 * var(--u)) auto auto 0;
+  width: calc(40 * var(--u));
+  height: calc(40 * var(--u));
+  font-size: var(--u);
+}
+
+.lp-hero__ed-nadpis { left: calc(2.2 * var(--u)); top: calc(13 * var(--u));   width: calc(35.6 * var(--u)); height: calc(8.8 * var(--u)); }
+.lp-hero__ed-datum  { left: calc(2.2 * var(--u)); top: calc(23.6 * var(--u)); width: calc(27.8 * var(--u)); height: calc(3.1 * var(--u)); }
+.lp-hero__ed-foto   { left: calc(2.4 * var(--u)); top: calc(30 * var(--u));   width: calc(35.2 * var(--u)); height: calc(13.2 * var(--u)); }
+.lp-hero__tag-nadpis { left: calc(2.2 * var(--u)); top: calc(10.4 * var(--u)); }
+.lp-hero__tag-foto   { left: calc(3.2 * var(--u)); top: calc(30.8 * var(--u)); }
+.lp-hero__cl-nadpis  { left: calc(32.6 * var(--u)); top: calc(10 * var(--u)); }
+.lp-hero__cl-datum   { left: calc(30.8 * var(--u)); top: calc(24 * var(--u)); }
+
+.lp-popover {
+  position: absolute;
+  left: calc(25 * var(--u));
+  top: calc(28.4 * var(--u));
+  width: calc(30 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(1.2 * var(--u));
+  padding: calc(1.6 * var(--u));
+  border-radius: calc(1.2 * var(--u));
+  background: var(--lp-white);
+  box-shadow: 0 calc(1.4 * var(--u)) calc(3.4 * var(--u)) #3139461f;
+}
+.lp-popover__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--lp-font-mono);
+  font-size: calc(1.1 * var(--u));
+  letter-spacing: .1em;
+  color: var(--lp-text-body);
+}
+.lp-popover__head svg { width: calc(1.4 * var(--u)); height: calc(1.4 * var(--u)); }
+.lp-popover__input {
+  padding: calc(1 * var(--u)) calc(1.2 * var(--u));
+  border: 1.5px solid var(--lp-primary);
+  border-radius: calc(.8 * var(--u));
+  font-size: calc(1.4 * var(--u));
+  line-height: 1.2;
+  color: var(--lp-text-head);
+}
+.lp-popover__foot { display: flex; align-items: center; justify-content: space-between; }
+.lp-popover__counter { font-family: var(--lp-font-mono); font-size: calc(1.2 * var(--u)); color: var(--lp-text-body); }
+.lp-popover__save {
+  padding: calc(.8 * var(--u)) calc(1.5 * var(--u));
+  border-radius: calc(.8 * var(--u));
+  background: var(--lp-primary);
+  color: var(--lp-white);
+  font-weight: 700;
+  font-size: calc(1.3 * var(--u));
+  line-height: 1.2;
+}
+
+.lp-hero__sync {
+  position: absolute;
+  left: calc(50.7 * var(--u));
+  top: calc(4 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(.7 * var(--u));
+  padding: calc(.7 * var(--u)) calc(1.2 * var(--u));
+  border-radius: calc(.6 * var(--u));
+  border: 1px solid var(--lp-border);
+  background: var(--lp-white);
+  font-size: calc(1.3 * var(--u));
+  line-height: 1.2;
+  color: var(--lp-text-head);
+  white-space: nowrap;
+}
+.lp-hero__sync svg { width: 1em; height: 1em; color: var(--lp-primary); }
+
+.lp-hero__rail {
+  position: absolute;
+  left: calc(58.8 * var(--u));
+  top: calc(8 * var(--u));
+  width: calc(8.8 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(1.4 * var(--u));
+}
+.lp-hero__rail figcaption {
+  margin-top: calc(.6 * var(--u));
+  font-family: var(--lp-font-mono);
+  font-size: calc(1.1 * var(--u));
+  color: var(--lp-text-body);
+  text-align: center;
+}
+
+.lp-toast {
+  position: absolute;
+  left: calc(46.5 * var(--u));
+  top: calc(54 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(1.2 * var(--u));
+  padding: calc(1.4 * var(--u)) calc(1.8 * var(--u));
+  border-radius: calc(1 * var(--u));
+  background: var(--lp-ink);
+  color: var(--lp-white);
+  font-weight: 600;
+  font-size: calc(1.5 * var(--u));
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 calc(1.2 * var(--u)) calc(3 * var(--u)) #31394630;
+}
+.lp-toast::before {
+  content: "";
+  width: .55em; height: .55em;
+  border-radius: 50%;
+  background: var(--lp-success);
+}
+
+/* The tag and the cluster are positioned by the block that places them, so
+   their own geometry is in `em` on purpose — it scales with their text. */
+/* ---- 10. The client artworks (pure CSS, em-scaled) --------------------- */
+/* Build the poster once, then scale a copy with a single font-size. */
+
+.lp-poster {
+  font-size: 10px;
+  display: flex;
+  flex-direction: column;
+  padding: 2.8em;
+  border-radius: 1em;
+  background: var(--lp-demo-green);
+  color: var(--lp-white);
+  overflow: hidden;
+}
+.lp-poster > * { flex: none; }
+.lp-poster--brick { background: var(--lp-demo-brick); }
+.lp-poster--pop { box-shadow: 0 1.6em 4em #3139461a; }
+
+.lp-poster__client {
+  font-family: var(--lp-font-mono);
+  font-size: 1.2em;
+  letter-spacing: .15em;
+  color: #ffffffd9;
+  text-transform: uppercase;
+}
+.lp-poster__rule {
+  height: 1px;
+  margin: 1.7em 0 1.8em;
+  background: #ffffff30;
+}
+.lp-poster__head {
+  font-weight: 800;
+  font-size: 3.8em;
+  line-height: 1.05;
+  letter-spacing: -.013em;
+}
+.lp-poster__date {
+  /* 26 px at the poster's scale — divided by this element's own 1.7em, because
+     a margin resolves against the element's OWN font-size. */
+  margin-top: 1.529em;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  font-weight: 700;
+  font-size: 1.7em;
+  line-height: 1.2;
+}
+.lp-poster__date span {
+  width: .18em; height: .18em;
+  border-radius: 50%;
+  background: #9dbfae;
+}
+.lp-poster__date em { font-style: normal; font-weight: 400; color: #cfe0d5; }
+.lp-poster__meta { margin-top: .429em; font-size: 1.4em; line-height: 1.3; color: #cfe0d5; }
+.lp-poster__photo {
+  margin-top: 1.6em;
+  height: 12.4em;
+  border-radius: .6em;
+  background: linear-gradient(-101deg, #0f2a21 7%, #3d6a58 46%, #89a68d 71%, #d5dcc8 93%);
+}
+.lp-poster--brick .lp-poster__photo {
+  background: linear-gradient(-102deg, #5a1c0e 7%, #a8492f 46%, #d59376 71%, #f0d8c6 93%);
+}
+.lp-poster--brick .lp-poster__date em,
+.lp-poster--brick .lp-poster__meta { color: #f7e2dc; }
+.lp-poster--brick .lp-poster__date span { background: #e0a894; }
+
+/* The hero rail's three thumbs: same poster, one class, three heights. */
+.lp-railposter {
+  font-size: .29em;                 /* of the hero figure's em */
+  padding: 2.4em;
+  border-radius: 1.7em;
+  height: auto;
+}
+.lp-railposter .lp-poster__rule,
+.lp-railposter .lp-poster__client,
+.lp-railposter .lp-poster__meta { display: none; }
+.lp-railposter .lp-poster__head { font-size: 3.1em; }
+.lp-railposter .lp-poster__date { display: none; }
+.lp-railposter .lp-poster__photo { margin-top: 1.4em; }
+.lp-railposter--11 .lp-poster__photo { height: 12em; }
+.lp-railposter--45 .lp-poster__photo { height: 19.6em; }
+.lp-railposter--916 .lp-poster__photo { height: 35.4em; }
+
+/* ---- 11. Proof strip --------------------------------------------------- */
+
+.lp-proof {
+  border-block: 1px solid var(--lp-border);
+  padding-block: 38px;
+  background: var(--lp-paper);
+}
+.lp-proof__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px 40px;
+}
+.lp-proof__row + .lp-proof__row { margin-top: 30px; }
+.lp-proof__claim {
+  flex: 1 1 320px;
+  max-width: 560px;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: var(--lp-text-head);
+}
+.lp-proof__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.lp-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.lp-slots li {
+  width: 126px; height: 34px;
+  border-radius: 5px;
+  border: 1px solid var(--lp-border);
+  background: var(--lp-slot);
+}
+.lp-section--ink .lp-slots li {
+  height: 38px;
+  border-color: var(--lp-border-ink);
+  background: var(--lp-slot-ink);
+}
+
+/* ---- 12. Problém ------------------------------------------------------- */
+
+.lp-problem__cols {
+  margin-top: 64px;
+  gap: 48px;
+  grid-template-rows: auto auto auto auto;
+}
+.lp-problem__col {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+.lp-problem__num {
+  font-family: var(--lp-font-display);
+  font-size: clamp(3.75rem, 2.9rem + 3.5vw, 5.25rem);     /* 60 → 84 */
+  line-height: 1;
+  color: var(--lp-numeral);
+}
+.lp-problem__hr { margin-top: 10px; }
+.lp-problem h3 { margin-top: 22px; }
+.lp-problem__body { margin-top: 12px; }
+
+/* ---- 13. Jak to funguje ------------------------------------------------ */
+
+.lp-how__steps {
+  margin-top: 60px;
+  gap: 48px;
+  grid-template-rows: auto auto auto auto;
+}
+.lp-how__step {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+.lp-how__frag {
+  min-height: 224px;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--lp-border);
+  border-radius: 12px;
+  background: var(--lp-white);
+}
+.lp-how__index {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 28px;
+  font-family: var(--lp-font-mono);
+  font-size: .8125rem;
+  color: var(--lp-primary);
+}
+.lp-how__index::after { content: ""; flex: 1; height: 1px; background: var(--lp-border); }
+.lp-how h3 { margin-top: 20px; }
+.lp-how__body { margin-top: 10px; }
+
+/* Problém and Jak to funguje set the same step heading and body. */
+.lp-problem h3, .lp-how h3 {
+  font-size: 1.3125rem;
+  font-weight: 700;
+  line-height: 1.33;
+  color: var(--lp-text-head);
+}
+.lp-problem__body, .lp-how__body { font-size: 1.03125rem; line-height: 1.64; }
+
+/* Depicted UI — flexbox, hairlines and 11–14 px type. No screenshots. */
+.lp-ui { font-size: 12px; line-height: 1.4; color: var(--lp-text-head); }
+.lp-ui__h { font-size: 10px; letter-spacing: 1.1px; }
+.lp-ui__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  font-weight: 600;
+}
+.lp-ui__row svg { width: 13px; height: 13px; color: var(--lp-slate); flex: none; }
+.lp-ui__layer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px;
+  border-radius: 5px;
+  font-size: 11.5px;
+}
+.lp-ui__layer svg { width: 11px; height: 11px; color: var(--lp-slate); flex: none; }
+.lp-ui__layer.is-active { background: var(--lp-primary-tint); font-weight: 600; }
+.lp-ui__hint { font-family: var(--lp-font-mono); font-size: 9.5px; color: var(--lp-slate); }
+.lp-ui__toggle {
+  width: 30px; height: 17px;
+  border-radius: 9px;
+  background: var(--lp-border);
+  position: relative;
+  flex: none;
+}
+.lp-ui__toggle::after {
+  content: "";
+  position: absolute;
+  top: 2.5px; left: 2.5px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--lp-white);
+}
+.lp-ui__toggle.is-on { background: var(--lp-primary); }
+.lp-ui__toggle.is-on::after { left: auto; right: 2.5px; }
+.lp-ui__field {
+  min-width: 54px;
+  padding: 5px 10px;
+  border: 1px solid var(--lp-border);
+  border-radius: 5px;
+  text-align: right;
+  font-size: 11.5px;
+}
+.lp-ui__box {
+  width: 14px; height: 14px;
+  border-radius: 4px;
+  background: var(--lp-primary);
+  color: var(--lp-white);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.lp-ui__box svg { width: 10px; height: 10px; }
+.lp-ui__split { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lp-ui__list > * + * { margin-top: 6px; }
+.lp-ui__list--tight > * + * { margin-top: 5px; }
+
+.lp-how__frag--add { flex-wrap: wrap; }
+.lp-how__frag--add > div:first-child { flex: 194 1 0; min-width: 0; }
+.lp-how__frag--add > div:last-child { flex: 126 1 0; min-width: 0; }
+.lp-how__frag--props,
+.lp-how__frag--export { flex-direction: column; gap: 10px; }
+
+.lp-ui__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border: 1px solid var(--lp-border);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+.lp-ui__btn svg { width: 13px; height: 13px; flex: none; }
+.lp-ui__btn--primary {
+  background: var(--lp-primary);
+  border-color: var(--lp-primary);
+  color: var(--lp-white);
+  font-size: 13.5px;
+  padding: 13px 14px;
+}
+.lp-ui__btn-pair { display: flex; gap: 10px; }
+.lp-ui__btn-pair > * { flex: 1 1 0; min-width: 0; }
+
+/* ---- 14. Showcase (ink) ------------------------------------------------ */
+
+.lp-showcase { overflow-x: clip; }
+
+.lp-showcase__inner {
+  display: grid;
+  align-items: start;
+  gap: 40px;
+  /* Runs to 54 px past the viewport — the 9:16 bleeds off canvas by design.
+     Capped in vw for the same reason as the hero: the fraction of the 9:16 that
+     is cut off must stay constant as the artwork scales, not grow. */
+  margin-right: calc(50% - 50vw - min(54px, 3.75vw));
+  grid-template-columns: minmax(0, 430fr) minmax(0, 904fr);
+}
+.lp-showcase__copy { max-width: 470px; }
+.lp-showcase__copy .lp-title { margin-top: 26px; }
+.lp-showcase__copy .lp-lead { margin-top: 26px; }
+
+.lp-showcase__strip { container-type: inline-size; }
+
+/* 90.4 units of content at scale 10 px = the designed 904 px run. Geometry is
+   in `--s` for the same reason the hero uses `--u` — see there. */
+.lp-showcase__rail {
+  --s: min(1.1062cqw, 10px);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: calc(2 * var(--s));
+  font-size: var(--s);
+}
+.lp-showcase__fmt { flex: none; }
+.lp-showcase__fmt figcaption {
+  display: flex;
+  align-items: flex-end;
+  height: calc(3.6 * var(--s));
+  font-size: calc(1.2 * var(--s));
+  letter-spacing: .1em;
+  line-height: 1.5;
+  margin-bottom: calc(1.1 * var(--s));
+  white-space: nowrap;
+  text-transform: none;
+}
+.lp-showcase__art { width: calc(23 * var(--s)); }
+.lp-showcase__art .lp-poster { font-size: 1em; padding: 1.7em; border-radius: .8em; }
+.lp-showcase__art .lp-poster__head { font-size: 2.4em; line-height: 1.04; }
+.lp-showcase__art .lp-poster__rule { display: none; }
+.lp-showcase__art .lp-poster__client { font-size: .9em; }
+.lp-showcase__art .lp-poster__teams {
+  margin-top: .583em;
+  font-weight: 600;
+  font-size: 1.2em;
+  line-height: 1.33;
+  color: #f7e2dc;
+}
+.lp-showcase__art .lp-poster__date { margin-top: .583em; font-size: 1.2em; font-weight: 400; }
+.lp-showcase__art .lp-poster__photo { margin-top: .7em; border-radius: .4em; }
+.lp-showcase__fmt--11 .lp-poster__photo { height: 10.4em; }
+.lp-showcase__fmt--45 .lp-poster__photo { height: 16.2em; }
+.lp-showcase__fmt--916 .lp-poster__photo { height: 28.3em; }
+/* The A4 sheet is the same poster at print scale — 154 px wide of the 230. */
+.lp-showcase__fmt--a4 { padding-top: calc(1.1 * var(--s)); }
+.lp-showcase__fmt--a4 .lp-showcase__art {
+  width: calc(15.4 * var(--s));
+  font-size: calc(.6696 * var(--s));
+}
+.lp-showcase__fmt--a4 .lp-poster__photo { height: 12.4em; }
+.lp-showcase__fmt--a4 figcaption { font-size: calc(1.2 * var(--s)); }
+
+/* The editor's own smart-guide motif, through the headline of all four. */
+.lp-showcase__guide {
+  position: absolute;
+  left: calc(-9.4 * var(--s));
+  /* 4.7 units of caption box + 3.5 into the artwork = the headline's line. */
+  top: calc(8.2 * var(--s));
+  width: calc(104.6 * var(--s));
+  height: 1.5px;
+  background: var(--lp-primary);
+}
+
+/* ---- 15. Moduly (bento) ------------------------------------------------ */
+
+.lp-bento { margin-top: 64px; display: grid; gap: 24px; }
+
+.lp-modheader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px 60px;
+}
+.lp-modheader__left { flex: 1 1 420px; }
+.lp-modheader__left .lp-title { margin-top: 26px; }
+.lp-modheader__note { flex: 0 1 340px; font-size: 1rem; line-height: 1.63; }
+
+/* The one grid that is NOT auto-fit: the 740 + 436 ratio is doing real work
+   (the editor fragment needs the extra width), so it collapses at 960. */
+.lp-bento__pair {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1.7fr 1fr;
+}
+
+/* BREAKPOINT 2 of 3 — see also the hero and the showcase below. */
+@media (max-width: 959.98px) {
+  .lp-bento__pair { grid-template-columns: 1fr; }
+}
+
+.lp-tile {
+  display: flex;
+  flex-direction: column;
+  background: var(--lp-white);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius-card);
+  padding: clamp(24px, 2.4vw, 32px);
+}
+.lp-tile__titlerow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.lp-tile__body { margin-top: 14px; font-size: 1rem; line-height: 1.66; }
+.lp-card__body { font-size: 1rem; line-height: 1.65; }
+
+/* Fragments move below their copy by the same mechanism the page uses
+   everywhere else — available width, not a viewport test. */
+.lp-tile--split {
+  /* .lp-tile is a COLUMN flex container — this must reset the direction, or
+     every "side by side" tile stacks and the ratios below do nothing. */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: clamp(24px, 2.6vw, 40px);
+  align-items: flex-start;
+}
+.lp-tile--split > * { flex: 1 1 240px; min-width: 0; }
+/* The full-width manual tile keeps the design's 420 : 676 asymmetry. */
+.lp-tile--manual > :first-child { flex: 1 1 300px; }
+.lp-tile--manual > :last-child { flex: 2 1 300px; }
+
+.lp-frag {
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  background: var(--lp-frag);
+  padding: 20px;
+}
+.lp-frag--stage { background: var(--lp-frag-alt); padding: 24px; }
+
+.lp-manual__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--lp-border);
+  font-size: 10.5px;
+  letter-spacing: 1.1px;
+}
+.lp-manual__page { font-family: var(--lp-font-display); font-size: 22px; letter-spacing: 0; }
+.lp-manual__title { margin-top: 14px; font-weight: 700; font-size: 14px; color: var(--lp-text-head); }
+.lp-swatches {
+  margin-top: 14px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+}
+.lp-swatch__chip { height: 74px; border-radius: 4px; }
+.lp-swatch dl {
+  margin-top: 8px;
+  font-family: var(--lp-font-mono);
+  font-size: 9.5px;
+  line-height: 1.7;
+  color: var(--lp-slate);
+}
+.lp-swatch dt { font-size: 11px; color: var(--lp-text-head); }
+
+.lp-minicanvas { container-type: inline-size; position: relative; width: min(100%, 240px); }
+.lp-minicanvas .lp-poster { font-size: min(2.5cqw, 6px); }
+.lp-fillfrag__preview { position: relative; container-type: inline-size; }
+.lp-fillfrag__preview .lp-poster { font-size: min(2.51cqw, 4.4px); }
+
+.lp-editorstage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: 22px;
+}
+.lp-editorstage__guide {
+  position: absolute;
+  top: 8px; bottom: 8px;
+  left: 24px;
+  width: 1px;
+  background: var(--lp-danger);
+}
+.lp-minitoolbar {
+  display: flex;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: var(--lp-white);
+  box-shadow: var(--lp-shadow-pop);
+}
+.lp-minitoolbar span {
+  display: grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  color: var(--lp-slate);
+}
+.lp-minitoolbar span:first-child { color: var(--lp-primary); }
+.lp-minitoolbar svg { width: 13px; height: 13px; }
+
+.lp-fillfrag {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+  align-items: start;
+  margin-top: 24px;
+}
+
+.lp-history { font-size: 12px; }
+.lp-history__h { font-size: 10px; letter-spacing: 1.1px; padding-bottom: 8px; border-bottom: 1px solid var(--lp-border); }
+.lp-history li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--lp-border);
+}
+.lp-history b { font-weight: 700; font-size: 12.5px; color: var(--lp-text-head); display: block; }
+.lp-history small { font-size: 11px; color: var(--lp-slate); }
+.lp-history em {
+  font-style: normal;
+  font-family: var(--lp-font-mono);
+  font-size: 11px;
+  color: var(--lp-slate);
+}
+.lp-history__more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lp-primary);
+  text-decoration: none;
+}
+
+.lp-kv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--lp-border);
+  font-size: 12.5px;
+  color: var(--lp-text-head);
+}
+.lp-kv span { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.lp-kv span::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--lp-success);
+}
+.lp-kv em { font-style: normal; font-family: var(--lp-font-mono); font-size: 11.5px; color: var(--lp-slate); }
+
+.lp-galthumbs { margin-top: 10px; display: flex; gap: 8px; }
+.lp-galthumbs li { flex: 1 1 0; height: 54px; border-radius: 5px; }
+
+.lp-fontspec { margin-top: 22px; display: flex; align-items: center; gap: 18px; }
+.lp-fontspec__aa {
+  font-family: var(--lp-font-body);
+  font-weight: 400;
+  font-size: 52px;
+  line-height: 1;
+  color: var(--lp-text-head);
+}
+.lp-fontspec dt { font-weight: 700; font-size: 13.5px; color: var(--lp-text-head); }
+.lp-fontspec dd { font-family: var(--lp-font-mono); font-size: 11px; line-height: 1.75; color: var(--lp-slate); }
+
+.lp-signature {
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  background: var(--lp-frag);
+  padding: 22px;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.lp-signature b { display: block; font-weight: 700; font-size: 14px; color: var(--lp-text-head); }
+.lp-signature small { font-size: 12px; color: var(--lp-slate); }
+.lp-signature__rule { width: 84px; height: 2px; background: var(--lp-primary); margin: 12px 0; }
+.lp-signature address {
+  font-style: normal;
+  font-family: var(--lp-font-mono);
+  font-size: 11px;
+  line-height: 1.75;
+  color: var(--lp-slate);
+}
+.lp-qr {
+  flex: none;
+  width: 54px; height: 54px;
+  padding: 5px;
+  border: 1px solid var(--lp-border);
+  border-radius: 4px;
+  background: var(--lp-white);
+}
+
+/* The five small tiles carry a 22 px title; the three large ones 26. */
+.lp-bento > .lp-cols .lp-tile h3 { font-size: clamp(1.1875rem, 1.12rem + .29vw, 1.375rem); }
+
+.lp-code {
+  white-space: nowrap;
+  border-radius: 8px;
+  background: var(--lp-ink);
+  padding: 18px;
+  font-family: var(--lp-font-mono);
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--lp-body-ink);
+  overflow-x: auto;
+}
+.lp-code b { color: var(--lp-white); font-weight: 400; }
+.lp-code i { font-style: normal; color: var(--lp-slate); }
+.lp-code u { text-decoration: none; color: var(--lp-success); }
+
+.lp-bento__cta { margin-top: 64px; display: grid; justify-items: center; gap: 14px; text-align: center; }
+.lp-bento__cta p { font-size: .875rem; }
+
+/* ---- 16. AI asistenti (ink) -------------------------------------------- */
+
+.lp-ai__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 60px;
+  align-items: flex-start;
+}
+.lp-ai__head > :first-child { flex: 670 1 380px; min-width: 0; }
+.lp-ai__head > :last-child { flex: 470 1 340px; min-width: 0; }
+.lp-ai__head .lp-title { margin-top: 26px; }
+.lp-ai__body {
+  margin-top: 56px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px 60px;
+  align-items: flex-start;
+}
+.lp-ai__body > * { min-width: 0; }
+.lp-ai__body > :first-child { flex: 640 1 380px; }
+.lp-ai__body > :last-child { flex: 490 1 340px; }
+
+.lp-chatpanel {
+  border-radius: var(--lp-radius-card);
+  background: var(--lp-ink-soft);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.lp-chatpanel__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 11.5px; }
+.lp-chatpanel__head b { display: inline-flex; align-items: center; gap: 8px; font-weight: 400; text-transform: none; letter-spacing: .6px; }
+.lp-chatpanel__head b::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--lp-success);
+}
+.lp-bubble {
+  align-self: flex-end;
+  max-width: 440px;
+  padding: 14px 17px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--lp-primary);
+  color: var(--lp-white);
+  font-size: .9375rem;
+  line-height: 1.6;
+}
+.lp-toolchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lp-toolchips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--lp-border-ink);
+  background: var(--lp-slot-ink);
+  font-family: var(--lp-font-mono);
+  font-size: 12px;
+  color: var(--lp-body-ink);
+}
+.lp-toolchips li::before {
+  content: "";
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--lp-primary);
+}
+.lp-assistant {
+  align-self: flex-start;
+  padding: 14px 17px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--lp-slot-ink);
+  font-size: .9375rem;
+  line-height: 1.6;
+  color: var(--lp-body-ink);
+}
+.lp-assistant__results { margin-top: 14px; display: flex; align-items: flex-end; gap: 16px; }
+.lp-assistant__results figcaption {
+  margin-top: 6px;
+  font-family: var(--lp-font-mono);
+  font-size: 11px;
+  color: var(--lp-slate);
+}
+.lp-assistant .lp-poster { font-size: 3.1px; }
+.lp-assistant .lp-poster__client,
+.lp-assistant .lp-poster__rule,
+.lp-assistant .lp-poster__meta { display: none; }
+.lp-assistant .lp-poster__date { margin-top: 1.2em; font-size: 1.4em; font-weight: 400; }
+.lp-assistant .lp-poster__photo { height: 19em; }
+.lp-assistant li:last-child .lp-poster__photo { height: 41em; }
+
+.lp-bullets li {
+  padding: 18px 0;
+  border-top: 1px solid var(--lp-border-ink);
+}
+.lp-bullets b { display: block; font-weight: 700; font-size: 1rem; color: var(--lp-white); }
+.lp-bullets p { margin-top: 7px; font-size: .9375rem; line-height: 1.6; }
+
+.lp-install {
+  margin-top: 26px;
+  border: 1px solid var(--lp-border-ink);
+  border-radius: 10px;
+  background: var(--lp-slot-ink);
+  padding: 18px 20px;
+  font-family: var(--lp-font-mono);
+  font-size: 12.5px;
+  line-height: 2.1;
+  color: var(--lp-white);
+  overflow-x: auto;
+}
+.lp-install span { color: var(--lp-primary); margin-right: 10px; }
+.lp-ai__link {
+  display: inline-block;
+  margin-top: 26px;
+  font-weight: 700;
+  color: var(--lp-primary);
+  text-decoration: none;
+}
+.lp-ai__link:hover { text-decoration: underline; }
+
+/* ---- 17. Pro koho ------------------------------------------------------ */
+
+.lp-audience {
+  margin-top: 60px;
+  grid-template-rows: auto auto auto auto;
+}
+.lp-audience .lp-card {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+}
+.lp-audience h3 { margin-bottom: 16px; }
+.lp-audience__label { margin-top: 26px; letter-spacing: 1.3px; }
+.lp-audience ul { margin-top: 6px; }
+.lp-audience li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--lp-border);
+  font-size: .9375rem;
+  line-height: 1.5;
+}
+.lp-card--ink .lp-audience__label,
+.lp-card--ink li { border-color: var(--lp-border-ink); }
+
+/* ---- 18. Reference (ships hidden until real quotes exist) -------------- */
+
+.lp-quotes { margin-top: 60px; }
+.lp-quote {
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+  border: 1px solid var(--lp-border-ink);
+  border-radius: var(--lp-radius-card);
+  background: var(--lp-ink-soft);
+}
+.lp-quote__mark {
+  font-family: var(--lp-font-display);
+  font-size: 34px;
+  line-height: .5;
+  color: var(--lp-primary);
+}
+.lp-quote blockquote { margin-top: 22px; font-size: 1rem; line-height: 1.66; }
+.lp-quote figcaption {
+  margin-top: auto;
+  padding-top: 22px;
+  border-top: 1px solid var(--lp-border-ink);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.lp-quote figcaption > span {
+  flex: none;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: #4b5666;
+}
+.lp-quote b { display: block; font-weight: 700; font-size: .9375rem; color: var(--lp-white); }
+.lp-quote small { font-family: var(--lp-font-mono); font-size: 12px; color: var(--lp-slate); }
+.lp-reference__logos { margin-top: 56px; }
+
+/* ---- 19. Příběh -------------------------------------------------------- */
+
+.lp-story__top {
+  margin-top: 56px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px 60px;
+  align-items: flex-start;
+}
+.lp-story__copy { flex: 720 1 380px; min-width: 0; }
+.lp-founders { flex: 346 1 300px; min-width: 0; }
+.lp-story__copy { font-size: 1.03125rem; line-height: 1.7; }
+.lp-founders {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+}
+.lp-founders__photo {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #e4e7ef;
+  font-family: var(--lp-font-display);
+  font-size: 44px;
+  color: #c3c9d8;
+}
+.lp-founders b { display: block; margin-top: 16px; font-weight: 700; font-size: 1rem; color: var(--lp-text-head); }
+.lp-founders small { font-family: var(--lp-font-mono); font-size: 12px; color: var(--lp-slate); }
+
+.lp-pullquote { margin-top: clamp(56px, 6vw, 84px); }
+.lp-pullquote hr { border: 0; height: 1px; background: var(--lp-border-alt); }
+.lp-pullquote blockquote {
+  position: relative;
+  margin-top: clamp(40px, 4.4vw, 62px);
+  font-family: var(--lp-font-display);
+  font-size: clamp(1.5rem, 1.18rem + 1.33vw, 2.375rem);   /* 24 → 38 */
+  line-height: 1.37;
+  color: var(--lp-text-head);
+}
+/* The opening „ hangs into the left margin — it sits on the baseline, so it
+   is nudged up to sit beside line one rather than beside line two. */
+.lp-pullquote blockquote::before {
+  content: "„";
+  position: absolute;
+  left: -.55em;
+  top: .06em;
+  color: var(--lp-slate);
+  font-size: .78em;
+}
+.lp-pullquote figcaption { margin-top: 30px; }
+.lp-facts { margin-top: clamp(48px, 5vw, 72px); border-top: 1px solid var(--lp-border-alt); }
+.lp-facts li {
+  display: grid;
+  gap: 6px 40px;
+  grid-template-columns: 40px 1fr;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--lp-border-alt);
+}
+.lp-facts em {
+  font-style: normal;
+  font-family: var(--lp-font-mono);
+  font-size: 12px;
+  color: var(--lp-primary);
+  padding-top: 8px;
+}
+.lp-facts b {
+  font-family: var(--lp-font-display);
+  font-weight: 400;
+  font-size: clamp(1.25rem, 1.11rem + .57vw, 1.625rem);
+  line-height: 1.3;
+  color: var(--lp-text-head);
+}
+.lp-facts p { grid-column: 2; font-size: 1rem; line-height: 1.65; }
+
+/* ---- 20. Cena (ink) ---------------------------------------------------- */
+
+.lp-price {
+  display: grid;
+  gap: 40px 60px;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  align-items: start;
+}
+.lp-price__copy .lp-title { margin-top: 26px; }
+.lp-price__copy .lp-lead { margin-top: 26px; max-width: 560px; }
+.lp-price__facts { border-top: 1px solid var(--lp-border-ink); }
+.lp-price__facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--lp-border-ink);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--lp-white);
+}
+.lp-price__cta { margin-top: 34px; }
+.lp-price__cta p { margin-top: 16px; font-size: .875rem; color: var(--lp-slate); }
+
+/* ---- 21. FAQ ----------------------------------------------------------- */
+
+.lp-faq__cols {
+  margin-top: 56px;
+  display: grid;
+  gap: 0 60px;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  align-items: start;
+}
+.lp-faq__col { border-top: 1px solid var(--lp-border); }
+.lp-faq__item { border-bottom: 1px solid var(--lp-border); }
+.lp-faq__q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  padding: 24px 0;
+  text-align: left;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  color: var(--lp-text-head);
+}
+.lp-faq__sign { flex: none; width: 16px; height: 16px; color: var(--lp-slate); position: relative; }
+.lp-faq__sign::before,
+.lp-faq__sign::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto 0;
+  height: 1.5px;
+  background: currentColor;
+  transform: translateY(-50%);
+  transition: transform .2s, opacity .2s;
+}
+.lp-faq__sign::after { transform: translateY(-50%) rotate(90deg); }
+.lp-faq__q[aria-expanded="true"] .lp-faq__sign { color: var(--lp-primary); }
+.lp-faq__q[aria-expanded="true"] .lp-faq__sign::after { transform: translateY(-50%) rotate(0deg); opacity: 0; }
+.lp-faq__a { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
+.lp-faq__a > div { overflow: hidden; }
+.lp-faq__a[data-open] { grid-template-rows: 1fr; }
+.lp-faq__a p { padding-bottom: 24px; font-size: 1rem; line-height: 1.66; max-width: 46em; }
+
+/* ---- 22. Final CTA (ink) ----------------------------------------------- */
+/* Centred, the largest type on the page, and almost empty — four axes of
+   difference from Cena, which is otherwise the same ink band with buttons. */
+
+.lp-final {
+  padding-block: clamp(110px, 12vw, 176px);
+  text-align: center;
+}
+.lp-final__rule { width: 40px; height: 2px; background: var(--lp-primary); margin: 0 auto; border: 0; }
+.lp-final h2 {
+  text-wrap: balance;
+  margin: clamp(34px, 3.6vw, 52px) auto 0;
+  max-width: 1000px;
+  font-family: var(--lp-font-display);
+  font-weight: 400;
+  font-size: clamp(2.75rem, 1.96rem + 3.24vw, 4.875rem);  /* 44 → 78 */
+  line-height: 1.05;
+  color: var(--lp-white);
+}
+.lp-final p { margin-top: 26px; font-size: 1.0625rem; color: var(--lp-body-ink); }
+.lp-final .lp-btn-row { margin-top: 40px; justify-content: center; }
+.lp-final__micro { margin-top: 26px; font-size: .875rem; color: var(--lp-slate); }
+
+/* ---- 23. Footer -------------------------------------------------------- */
+/* The one permitted dark→dark boundary, and it earns it with BOTH a tonal
+   step (#313a46 → #20262f) and a hairline. */
+
+.lp-footer {
+  background: var(--lp-ink-deep);
+  border-top: 1px solid #ffffff1a;
+  padding-block: 80px 34px;
+  color: var(--lp-body-ink-dim);
+}
+.lp-footer__cols {
+  display: grid;
+  gap: 40px;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+}
+.lp-footer__about p { margin-top: 22px; max-width: 290px; font-size: .9375rem; line-height: 1.67; }
+.lp-footer__nav li + li { margin-top: 12px; }
+.lp-footer__nav a { font-size: .9375rem; color: var(--lp-body-ink); text-decoration: none; }
+.lp-footer__nav a:hover { color: var(--lp-white); }
+.lp-footer__contact h2 { letter-spacing: 1.3px; }
+.lp-footer__contact address { margin-top: 20px; font-style: normal; font-size: .90625rem; line-height: 1.72; }
+.lp-footer__contact a { color: inherit; }
+.lp-footer__bottom {
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid #ffffff1a;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 28px;
+  font-family: var(--lp-font-mono);
+  font-size: 11.5px;
+  color: var(--lp-slate);
+}
+.lp-footer__legal { display: flex; flex-wrap: wrap; gap: 12px 28px; }
+.lp-footer__legal a { text-decoration: none; }
+.lp-footer__legal a:hover { color: var(--lp-body-ink); }
+
+/* ---- 24. Legal pages --------------------------------------------------- */
+
+.lp-legal { padding-block: clamp(56px, 6vw, 96px) clamp(76px, 9vw, 120px); }
+.lp-legal__doc { width: min(720px, 100%); margin-inline: auto; }
+.lp-legal h1 {
+  margin-top: 18px;
+  font-family: var(--lp-font-display);
+  font-weight: 400;
+  font-size: clamp(2.25rem, 1.88rem + 1.52vw, 3.25rem);   /* 36 → 52 */
+  line-height: 1.1;
+  color: var(--lp-text-head);
+}
+.lp-legal__eyebrow { font-size: 11.5px; letter-spacing: 1.4px; color: var(--lp-text-body); }
+.lp-legal__updated {
+  margin-top: 18px;
+  font-family: var(--lp-font-mono);
+  font-size: 12px;
+  color: var(--lp-slate);
+}
+.lp-legal hr { margin: 26px 0 0; border: 0; height: 1px; background: var(--lp-border); }
+.lp-legal__perex { margin-top: 34px; font-size: 1.1875rem; line-height: 1.74; color: var(--lp-text-head); }
+.lp-legal__sections { margin-top: 46px; }
+.lp-legal__sections > li { display: grid; grid-template-columns: 46px 1fr; margin-top: 40px; }
+.lp-legal__sections > li:first-child { margin-top: 0; }
+.lp-legal__num { font-family: var(--lp-font-mono); font-size: 12px; color: var(--lp-primary); padding-top: 9px; }
+.lp-legal h2 { font-weight: 700; font-size: 1.5rem; line-height: 1.33; color: var(--lp-text-head); }
+.lp-legal__sections p { margin-top: 14px; font-size: 1.0625rem; line-height: 1.76; }
+.lp-legal__sections ul { margin-top: 12px; }
+.lp-legal__sections ul li {
+  position: relative;
+  padding-left: 18px;
+  margin-top: 6px;
+  font-size: 1.0625rem;
+  line-height: 1.76;
+}
+.lp-legal__sections ul li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--lp-primary);
+}
+.lp-legal .lp-nav__inner a[href="/"] {
+  font-size: .9375rem;
+  font-weight: 600;
+  color: var(--lp-text-body);
+  text-decoration: none;
+}
+
+/* ---- 25. Small screens: shared refinements ----------------------------- */
+/* Geometry only — every rule here is continuous, none of them is a
+   breakpoint: a full-width button below 640 is a touch-target rule. */
+
+@media (max-width: 639.98px) {
+  .lp-btn { width: 100%; min-height: 52px; }
+  .lp-btn-row { flex-direction: column; align-items: stretch; }
+  .lp-nav .lp-btn,
+  .lp-nav__toggle { width: auto; min-height: 0; }
+  .lp-proof__chips { justify-content: flex-start; }
+  .lp-slots li { flex: 1 1 96px; width: auto; }
+  .lp-facts li { grid-template-columns: 1fr; gap: 6px; }
+  .lp-facts p { grid-column: 1; }
+  .lp-legal__sections > li { grid-template-columns: 1fr; gap: 4px; }
+  .lp-legal__num { padding-top: 0; }
+}
+
+/* ---- 26. The two composition breakpoints ------------------------------- */
+/* BREAKPOINT 2 of 3 — the HERO's content changes, not just its geometry:
+   the format rail, the toast, the open popover and the active "Datum" box are
+   REMOVED below 960 and the composition becomes the artwork plus two boxes.
+   One set of markup, hidden selectively — never a second copy. */
+
+@media (max-width: 959.98px) {
+  .lp-hero__inner {
+    grid-template-columns: 1fr;
+    margin-right: 0;
+    gap: clamp(40px, 6vw, 64px);
+  }
+  .lp-hero__copy { max-width: none; }
+  .lp-hero__figcol { display: grid; justify-items: center; }
+  .lp-hero__figure {
+    --u: min(2.38cqw, 10.5px);
+    width: min(calc(42 * var(--u)), 100%);
+    height: auto;
+    justify-self: center;
+    margin-top: 0;
+  }
+  .lp-poster.lp-hero__poster { position: static; width: 100%; height: auto; }
+  .lp-hero__rail,
+  .lp-toast,
+  .lp-popover,
+  .lp-hero__sync,
+  .lp-hero__ed-datum,
+  .lp-hero__cl-datum { display: none; }
+  /* The two boxes that stay ride the artwork, which is now in normal flow. */
+  .lp-hero__ed-nadpis {
+    left: calc(3.4 * var(--u)); top: calc(7.6 * var(--u));
+    width: auto; right: calc(3.4 * var(--u)); height: calc(9 * var(--u));
+  }
+  .lp-hero__ed-foto {
+    left: calc(3.4 * var(--u)); bottom: calc(2.6 * var(--u)); top: auto;
+    width: auto; right: calc(3.4 * var(--u)); height: calc(12.6 * var(--u));
+  }
+  .lp-hero__tag-nadpis { left: calc(3.4 * var(--u)); top: calc(4.6 * var(--u)); }
+  .lp-hero__tag-foto { left: calc(4.4 * var(--u)); bottom: calc(11.4 * var(--u)); top: auto; }
+  .lp-hero__cl-nadpis { left: auto; right: calc(3.4 * var(--u)); top: calc(4.2 * var(--u)); }
+}
+
+/* BREAKPOINT 3 of 3 — the SHOWCASE's content changes: the four-format
+   staircase becomes a swipeable strip, and the indigo connector is DROPPED
+   because it only means anything when all four are visible at once. */
+
+@media (max-width: 959.98px) {
+  .lp-showcase__inner {
+    grid-template-columns: 1fr;
+    margin-right: calc(50% - 50vw);
+    gap: clamp(40px, 6vw, 56px);
+  }
+  .lp-showcase__copy { padding-right: var(--lp-gutter); padding-top: 0; }
+  .lp-showcase__strip {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+  }
+  .lp-showcase__rail {
+    /* Fixed scale in the scroll strip: --s must drive the artwork's width AND
+       its type, or the box shrinks to the strip while the text stays put. */
+    --s: 9px;
+    width: max-content;
+    padding-right: var(--lp-gutter);
+  }
+  .lp-showcase__fmt { scroll-snap-align: start; }
+  .lp-showcase__guide { display: none; }
+  .lp-showcase__hint { display: block; }
+}
+
+.lp-showcase__hint {
+  display: none;
+  margin-top: 18px;
+  font-family: var(--lp-font-mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--lp-slate);
+}
+@media (pointer: fine) { .lp-showcase__hint { display: none !important; } }
+
+/* ---- 27. Motion -------------------------------------------------------- */
+
+.lp-hero__figure .lp-editable,
+.lp-hero__figure .lp-tag,
+.lp-hero__figure .lp-cluster,
+.lp-popover {
+  animation: lp-fade .45s both;
+}
+.lp-hero__ed-nadpis, .lp-hero__tag-nadpis, .lp-hero__cl-nadpis { animation-delay: .15s; }
+.lp-hero__ed-datum, .lp-hero__cl-datum { animation-delay: .23s; }
+.lp-hero__ed-foto, .lp-hero__tag-foto { animation-delay: .31s; }
+.lp-popover { animation-delay: .39s; }
+
+@keyframes lp-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Nudged ~6 px once, on all four formats together, when the band scrolls in. */
+.lp-showcase__art .lp-poster__head { transition: transform .5s ease; transform: translateY(6px); }
+.lp-showcase.is-seen .lp-poster__head { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: .001ms !important;
+  }
+  .lp-showcase__art .lp-poster__head { transform: none; }
+}

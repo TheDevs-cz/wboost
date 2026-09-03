@@ -1,0 +1,1 @@
+Host(`wboost.cz`) && (Path(`/`) || PathPrefix(`/landing/`) || Path(`/robots.txt`) || Path(`/sitemap.xml`) || PathRegexp(`^/(obchodni-podminky|ochrana-osobnich-udaju)/?$`))

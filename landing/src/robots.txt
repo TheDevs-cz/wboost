@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# No indexable content, and every one of these either 302s to the login form,
+# answers only to a bearer token, or returns a binary.
+Disallow: /api/
+Disallow: /_mcp
+Disallow: /oauth/
+Disallow: /stahnout-logo/
+Disallow: /stahnout-mockup/
+Disallow: /media/cache/
+
+Sitemap: https://wboost.cz/sitemap.xml
