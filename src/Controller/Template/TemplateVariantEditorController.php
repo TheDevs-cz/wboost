@@ -19,6 +19,7 @@ use WBoost\Web\FormType\TemplateVariantEditorFormType;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
@@ -35,6 +36,7 @@ final class TemplateVariantEditorController extends AbstractController
         readonly private ClockInterface $clock,
         readonly private FileDirectoryRepository $fileDirectoryRepository,
         readonly private ResolveRichTextOptions $resolveRichTextOptions,
+        readonly private ResolveEditorFontDefaults $resolveEditorFontDefaults,
     ) {
     }
 
@@ -124,6 +126,7 @@ final class TemplateVariantEditorController extends AbstractController
             // active input's offer client-side, and the "Uživatel může
             // přepínat písmo" checklist picks from the whole set.
             'rich_toolbar' => $this->resolveRichTextOptions->forProject($template->project->id)->toToolbarArray(),
+            'font_defaults' => $this->resolveEditorFontDefaults->forProject($template->project->id),
             'menu_item' => 'templates',
             'module_label' => 'Šablony',
             'module_templates_url' => $this->generateUrl('templates', ['projectId' => $template->project->id]),

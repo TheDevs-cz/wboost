@@ -67,6 +67,11 @@ class Font
     }
 
     /**
+     * A new face lands in WEIGHT order — uprights Thin→Black, then italics —
+     * as long as the existing faces still sit in that order; once the
+     * designer has dragged the list into an order of their own, new faces
+     * simply append so the drag order is never silently undone.
+     *
      * @throws FontAlreadyHasFontFace
      */
     public function addFontFace(FontFace $fontFace): void
@@ -77,7 +82,49 @@ class Font
             }
         }
 
-        $this->faces[] = $fontFace;
+        if (!self::isWeightOrdered($this->faces)) {
+            $this->faces[] = $fontFace;
+
+            return;
+        }
+
+        $faces = [];
+        $inserted = false;
+        foreach ($this->faces as $existingFontFace) {
+            if (!$inserted && self::weightKey($existingFontFace) > self::weightKey($fontFace)) {
+                $faces[] = $fontFace;
+                $inserted = true;
+            }
+            $faces[] = $existingFontFace;
+        }
+        if (!$inserted) {
+            $faces[] = $fontFace;
+        }
+
+        $this->faces = $faces;
+    }
+
+    /**
+     * @param array<FontFace> $faces
+     */
+    private static function isWeightOrdered(array $faces): bool
+    {
+        $previous = null;
+        foreach ($faces as $face) {
+            $key = self::weightKey($face);
+            if ($previous !== null && $key < $previous) {
+                return false;
+            }
+            $previous = $key;
+        }
+
+        return true;
+    }
+
+    /** Uprights before italics, lighter before heavier. */
+    private static function weightKey(FontFace $face): int
+    {
+        return ($face->isItalic() ? 10000 : 0) + $face->weight;
     }
 
     public function removeFontFace(string $fontFaceName): void

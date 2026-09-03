@@ -44,10 +44,12 @@ export default class extends Controller {
     static values = {
         // Every project face: { family, fontName, faceName, weight, style, url }.
         fontFaces: { type: Array, default: [] },
+        // Face families the brand manuals enable — the one-click preset.
+        manualFaces: { type: Array, default: [] },
     };
     static targets = [
         "name", "description", "locked", "hidable", "uppercase", "richText",
-        "fontChoice", "fontChoiceList", "fontChoiceHint", "fontChoiceEmpty",
+        "fontChoice", "fontChoiceList", "fontChoiceHint", "fontChoiceEmpty", "manualPreset",
         "colorChoiceWrapper", "colorChoiceMode", "colorChoiceList", "colorChoiceSwatches", "colorChoiceCustom", "colorChoiceEmpty",
         "lists", "listConfig", "listBullet", "listBulletPreview", "listBulletPick",
         "listIndent", "listItemSpacing", "listBlockSpacing",
@@ -194,6 +196,22 @@ export default class extends Controller {
             // legitimately means "designed face only".
             this.fontChoiceEmptyTarget.classList.toggle('d-none', !open || allowed.length > 0 || activeObject.richText === true);
         }
+        if (this.hasManualPresetTarget) {
+            this.manualPresetTarget.classList.toggle('d-none', !open || this.manualFacesValue.length === 0);
+        }
+    }
+
+    /** "Použít řezy z manuálu": tick exactly the faces the brand manuals
+     *  enable (minus the designed one, which is implied). */
+    applyManualPreset() {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        const known = new Set(this.fontFacesValue.map((face) => face.family));
+        const designed = activeObject.fontFamily || '';
+        activeObject.allowedFonts = this.manualFacesValue.filter((family) => known.has(family) && family !== designed);
+        activeObject.fontChoice = true;
+        this.canvasEditorOutlet.markUnsaved();
+        this._syncFontChoice(activeObject);
     }
 
     /** The popover toggle. ON configures the offer: a rich input starts with

@@ -18,6 +18,7 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Repository\FileDirectoryRepository;
@@ -36,6 +37,7 @@ final class TemplateGroupEditorController extends AbstractController
         readonly private ClockInterface $clock,
         readonly private FileDirectoryRepository $fileDirectoryRepository,
         readonly private ResolveRichTextOptions $resolveRichTextOptions,
+        readonly private ResolveEditorFontDefaults $resolveEditorFontDefaults,
     ) {
     }
 
@@ -87,6 +89,7 @@ final class TemplateGroupEditorController extends AbstractController
             'gallery_directories' => $galleryDirectories,
             'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($group->project->id)),
             'rich_toolbar' => $this->resolveRichTextOptions->forProject($group->project->id)->toToolbarArray(),
+            'font_defaults' => $this->resolveEditorFontDefaults->forProject($group->project->id),
             'menu_item' => 'templates',
             'variants' => $variants,
             'save_url' => $this->generateUrl('template_group_editor', ['groupId' => $group->id]),

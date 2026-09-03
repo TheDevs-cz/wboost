@@ -56,6 +56,10 @@
         data-canvas-editor-background-image-value="{{ first.variant.backgroundMode.value == 'canvas' and first.variant.backgroundImage ? uploaded_asset(first.variant.backgroundImage) }}"
         data-canvas-editor-background-mode-value="{{ first.variant.backgroundMode.value }}"
         data-canvas-editor-custom-fonts-value='{{ font_faces|json_encode }}'
+        data-canvas-editor-font-options-value='{{ (rich_toolbar ? rich_toolbar.fonts : [])|json_encode }}'
+        data-canvas-editor-default-font-family-value="{{ font_defaults.defaultFamily ?? '' }}"
+        data-canvas-text-toolbar-default-font-family-value="{{ font_defaults.defaultFamily ?? '' }}"
+        data-canvas-input-properties-manual-faces-value='{{ font_defaults.manualFaces|json_encode }}'
         {# Brand palette for freshly added shapes (same list the text popover and the fill WYSIWYG offer). #}
         data-canvas-editor-brand-colors-value='{{ (brand_colors|default([]))|json_encode }}'
         data-canvas-editor-canvas-json="{{ first.variant.canvas }}"

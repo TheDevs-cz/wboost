@@ -37,6 +37,12 @@ export default class extends Controller {
         // object inside the canvas document, optional).
         backgroundMode: { type: String, default: 'canvas' },
         customFonts: Array,
+        // Every project face with metadata ({ family, fontName, faceName, … })
+        // — the font selects group by font from it; customFonts (flat family
+        // strings) stays the loader's list and the no-metadata fallback.
+        fontOptions: { type: Array, default: [] },
+        // The face a NEW text starts in (the manual's primary regular cut).
+        defaultFontFamily: { type: String, default: '' },
         editVariantUrl: String,
         // The project's manual colours (same list the text popover and the fill
         // WYSIWYG offer). A new shape is painted with the first one, so it
@@ -716,7 +722,10 @@ export default class extends Controller {
 
     populateFontSelect() {
         // The text popover's font select AND the "Přidat text" modal's — the
-        // modal lets the designer pick the new text's face up front.
+        // modal lets the designer pick the new text's face up front. Faces
+        // are grouped by font (optgroup) and previewed in their own face
+        // when the page ships face metadata; the flat family list is the
+        // fallback. The modal starts on the manual's default face.
         ['font-family-control', 'addTextFont'].forEach((id) => {
             const fontFamilySelect = document.getElementById(id);
             if (!fontFamilySelect) {
@@ -724,8 +733,38 @@ export default class extends Controller {
             }
             fontFamilySelect.innerHTML = '';
 
-            (this.customFontsValue || []).forEach((font) => this.addFontOption(fontFamilySelect, font));
+            const options = Array.isArray(this.fontOptionsValue) ? this.fontOptionsValue : [];
+            if (options.length > 0) {
+                const groups = new Map();
+                options.forEach((face) => {
+                    let group = groups.get(face.fontName);
+                    if (!group) {
+                        group = document.createElement('optgroup');
+                        group.label = face.fontName;
+                        groups.set(face.fontName, group);
+                        fontFamilySelect.appendChild(group);
+                    }
+                    const option = document.createElement('option');
+                    option.value = face.family;
+                    option.textContent = face.faceName;
+                    option.style.fontFamily = `"${face.family}"`;
+                    group.appendChild(option);
+                });
+            } else {
+                (this.customFontsValue || []).forEach((font) => this.addFontOption(fontFamilySelect, font));
+            }
+
+            if (id === 'addTextFont' && this.defaultFontFamilyValue) {
+                fontFamilySelect.value = this.defaultFontFamilyValue;
+            }
         });
+    }
+
+    /** The face a NEW text starts in: the manual's primary regular cut
+     *  (server-resolved), else the first project face, else Arial. */
+    defaultTextFontFamily() {
+        if (this.defaultFontFamilyValue) return this.defaultFontFamilyValue;
+        return this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
     }
 
     addFontOption(selectElement, font) {
@@ -943,8 +982,7 @@ export default class extends Controller {
         // The designed font: the modal's pick, else the first project font,
         // else Arial when the project has no fonts at all.
         const fontSelect = document.getElementById('addTextFont');
-        const fontFamily = (fontSelect && fontSelect.value)
-            || (this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial');
+        const fontFamily = (fontSelect && fontSelect.value) || this.defaultTextFontFamily();
 
         // Font choice: the EXTRA faces the end user may switch to (the
         // checklist's checked, unlocked rows) — only while the toggle is on.
@@ -1018,7 +1056,7 @@ export default class extends Controller {
         const items = rawItems.length > 0 ? rawItems : ['První položka', 'Druhá položka', 'Třetí položka'];
         const text = items.join('\n');
 
-        const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
+        const fontFamily = this.defaultTextFontFamily();
 
         const textBox = new Textbox(text, {
             left: 100,

@@ -522,6 +522,21 @@ font" to the designed family unless the designer ticks more.
   nelze měnit, brand + custom hex chips), the fill WYSIWYG + admin sample
   modal render per input, API/MCP `inputs[].colorOptions`, DSL
   `input.fontChoice` / `input.allowedColors`.
+- **Manual-driven defaults + weight axis (2026-09-03).**
+  `Services/Editor/ResolveEditorFontDefaults` reads the brand manuals: the
+  PRIMARY manual font's regular cut (upright, weight closest to 400, among
+  the faces the manual enables) is the face a NEW text / checklist starts
+  in (`data-canvas-editor-default-font-family-value`, also the text
+  toolbar's `defaultFontFamily`), falling back to the first project font's
+  regular cut; `manualFaces` (every face a manual enables) backs the
+  "Použít řezy z manuálu" preset button in the font allowlist. The editor
+  font selects (popover + "Přidat text" modal) group faces by font
+  (`data-canvas-editor-font-options-value` = every project face with
+  metadata) and preview each option in its face. `Font::addFontFace`
+  inserts by weight (uprights Thin→Black, then italics) while the list is
+  still weight-ordered, appends once the designer dragged an order of their
+  own. The fonts page shows a 100–900 weight axis per family (filled =
+  upright, slanted mark = italic).
 - **Admin editor**: `canvas_font_choice.js` (pure planner + checklist DOM:
   fonts as tri-state group headers, faces previewed in their own face, the
   designed row locked-checked with a "výchozí" badge — the designed font is
