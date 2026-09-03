@@ -670,7 +670,9 @@ final class TestDataFixture extends Fixture
             $variant1Canvas,
             [
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID, 'headline', 30, false, false, null, false, richText: true),
-                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false),
+                // Font choice: the plain tagline (Fabric's default font on the
+                // canvas — no project face) may be switched to Rubik Bold.
+                new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID, 'tagline', null, false, true, null, false, allowedFonts: ['Rubik (Rubik Bold)']),
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID, null, null, true, false, null, false),
                 new EditorTextInput(self::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID, 'badge', null, false, false, null, true),
             ],

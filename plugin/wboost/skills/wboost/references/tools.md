@@ -70,8 +70,11 @@ No arguments. Returns:
 Projects are the ones the account can VIEW — owned, shared, or all of them for an
 admin. Cached server-side for 60 s per user.
 
-`fonts[]` is the whitelist for both a rich-text run's `fontFamily` and a design
-element's `font`. `colors[]` is a suggestion list, not a whitelist.
+`fonts[]` is the whitelist for a design element's `font` and its
+`input.allowedFonts`. At FILL time the whitelist is per input —
+`describe_variant`'s `inputs[].fontOptions` — for a rich run's `fontFamily`
+and for the whole-text `fontFamily` alike. `colors[]` is a suggestion list,
+not a whitelist.
 
 ---
 
@@ -134,7 +137,9 @@ of the canvas size a design must be authored at.
     "checklist": null,     // or { "toggle", "editText", "addItems", "removeItems" }
     "sampleValue",         // designer default; omit the id to render it
     "frame": { "x", "y", "width", "height" },   // nullable
-    "containerId"          // nullable — which flow this text is in
+    "containerId",         // nullable — which flow this text is in
+    "fontOptions"          // nullable — faces this input may be filled in
+                           //   (designed first); {"fontFamily": …} accepted
   }],
 
   "imageInputs": [{
@@ -401,7 +406,7 @@ within the document. Slugs carry input identity across saves.
 | `canvas.background` | `image`, `fill` |
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
 | `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `at`, `x`, `y`, `width`, `input` |
-| `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue` |
+| `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts` |
 | `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
 | `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `at`, `x`, `y`, `width`, `height` |
@@ -484,6 +489,7 @@ A worked document that exercises all five kinds is in `SKILL.md`.
 | `{"value": "text", "hide": false}` | explicit |
 | `{"hide": true}` | blank a `hidable` input |
 | `{"runs": [...], "lines": [...]}` | rich text; `richText` inputs only |
+| `{"value": "…", "fontFamily": "…"}` | the whole text in one of the input's `fontOptions` (also next to `runs`); refused where `fontOptions` is null |
 
 A run is `{"text", "fontFamily", "color", "underline"}`; `fontFamily` and `color`
 may be `null` (inherit the designed style). `lines` has one entry per

@@ -31,6 +31,12 @@ namespace WBoost\Web\Mcp\Response;
  * its text reflows together with that container's other members and shares the
  * container's height budget.
  *
+ * `fontOptions` are the exact face strings THIS input may be filled in —
+ * designed font first. Non-null means the user may switch: send the pick as
+ * the value's `fontFamily` (`{ value, fontFamily }`, a whole-text switch), and
+ * for a rich input it is also the whitelist a run's `fontFamily` must respect.
+ * Null = no choice, the designed font renders.
+ *
  * Deliberately NOT reported: the resolved list styling (bullet glyph, indent,
  * spacing) and the designed text metrics. Both exist in the REST listing for
  * consumers that re-draw the layout themselves; here the server render is the
@@ -54,6 +60,8 @@ readonly final class VariantTextInputResponse
         public null|string $sampleValue,
         public null|VariantInputFrameResponse $frame,
         public null|string $containerId,
+        /** @var null|list<string> */
+        public null|array $fontOptions = null,
     ) {
     }
 }

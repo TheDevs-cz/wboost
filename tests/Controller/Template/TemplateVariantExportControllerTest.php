@@ -257,6 +257,9 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         $component = $testComponent->component();
         $component->textValues = ['b-id' => 'Žluťoučký kůň', 'a-id' => 'pěl'];
         $component->hiddenValues = ['h-id' => true];
+        // postMount seeds a font mirror for the fixture's tagline (it offers
+        // a font choice) — pin the baseline on an explicit, font-less state.
+        $component->fontValues = [];
 
         // Independently computed djb2 over
         // "T:a-id=pěl\nT:b-id=Žluťoučký kůň\nH:h-id=1" (UTF-8 bytes, sorted keys).
@@ -265,6 +268,15 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         // Key order must not matter (ksort), value bytes must.
         $component->textValues = ['a-id' => 'pěl', 'b-id' => 'Žluťoučký kůň'];
         self::assertSame('2821327736', $component->fillStateHash());
+
+        // The font choice is part of the state ("F:<id>=<family>" lines after
+        // the hides, sorted) — a font-less fill keeps hashing as before, a
+        // pick changes it, and the JS twin lists the font mirrors the same way.
+        $component->fontValues = ['f-id' => ''];
+        self::assertNotSame('2821327736', $component->fillStateHash(), 'an empty pick is still a state line');
+        // djb2 over "T:a-id=pěl\nT:b-id=Žluťoučký kůň\nH:h-id=1\nF:f-id=Rubik (Rubik Bold)".
+        $component->fontValues = ['f-id' => 'Rubik (Rubik Bold)'];
+        self::assertSame('2836775537', $component->fillStateHash());
     }
 
     public function testRenderedTemplateUsesBracketNotationForUuidKeys(): void

@@ -1462,7 +1462,48 @@ final class DesignCompilerTest extends TestCase
         self::assertFalse($input->locked);
         self::assertTrue($input->richText);
         self::assertSame('SLEVA 50 %', $input->sampleValue);
+        self::assertSame([], $input->allowedFonts);
+        self::assertSame([], $object['allowedFonts']);
         self::assertSame($object['inputId'], $input->inputId);
+    }
+
+    /**
+     * The font choice names faces exactly like `font` does and is checked the
+     * same way: a real face lands on both the object and the input, an
+     * unknown one is the same hard error — at the pick's own path.
+     */
+    public function testAllowedFontsAreCompiledAndValidatedLikeTheDesignedFont(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                [
+                    'kind' => 'text', 'id' => 'headline', 'text' => 'SLEVA', 'font' => self::FONT_BOLD,
+                    'size' => 96, 'color' => '#ffffff', 'x' => 80, 'y' => 120, 'width' => 920,
+                    'input' => ['allowedFonts' => [self::FONT]],
+                ],
+            ],
+        ]);
+
+        self::assertSame([self::FONT], $compiled->objects()[0]['allowedFonts']);
+        self::assertSame([self::FONT], $compiled->textInputs[0]->allowedFonts);
+
+        try {
+            $this->compile([
+                'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+                'elements' => [
+                    [
+                        'kind' => 'text', 'id' => 'headline', 'text' => 'SLEVA', 'font' => self::FONT_BOLD,
+                        'size' => 96, 'color' => '#ffffff', 'x' => 80, 'y' => 120, 'width' => 920,
+                        'input' => ['allowedFonts' => ['Comic Sans (Comic Sans Regular)']],
+                    ],
+                ],
+            ]);
+            self::fail('An unknown face in allowedFonts must be refused');
+        } catch (DesignCompilationFailed $exception) {
+            self::assertSame('elements[0].input.allowedFonts[0]', $exception->violations[0]->path);
+            self::assertSame(CompileErrorCode::FontNotAllowed, $exception->violations[0]->code);
+        }
     }
 
     // =================================================================

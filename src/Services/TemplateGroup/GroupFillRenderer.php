@@ -54,7 +54,12 @@ readonly final class GroupFillRenderer
      * echo BASE the group page's client-drawn text layer paints over. Only
      * the preview controller's base mode passes it; exports never do.
      *
+     * `$rawFontValues` are the `fontValues[<inputId>]` selects — the user's
+     * whole-text font choice for inputs the designer opened up; "" means the
+     * designed font (no override).
+     *
      * @param list<string> $transparentTextInputIds
+     * @param array<array-key, mixed> $rawFontValues
      */
     public function render(
         TemplateVariant $variant,
@@ -64,8 +69,9 @@ readonly final class GroupFillRenderer
         array $rawPlacements = [],
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
+        array $rawFontValues = [],
     ): string {
-        /** @var array<string, array{value?: string, hide?: bool}> $providedValues */
+        /** @var array<string, array{value?: string, hide?: bool, fontFamily?: string}> $providedValues */
         $providedValues = [];
 
         foreach ($rawTextValues as $inputId => $value) {
@@ -84,6 +90,18 @@ readonly final class GroupFillRenderer
                 $providedValues[$key] = [];
             }
             $providedValues[$key]['hide'] = true;
+        }
+
+        foreach ($rawFontValues as $inputId => $value) {
+            if (!is_string($value) || $value === '') {
+                continue;
+            }
+
+            $key = (string) $inputId;
+            if (!isset($providedValues[$key])) {
+                $providedValues[$key] = [];
+            }
+            $providedValues[$key]['fontFamily'] = $value;
         }
 
         $overrides = $this->resolveTextOverrides->resolve(

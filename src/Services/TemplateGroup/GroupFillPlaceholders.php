@@ -12,12 +12,14 @@ use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\EchoCapableTextInputs;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\RichTextOptions;
 
 /**
  * Collects the UNIFIED placeholder list of a template group for the
@@ -41,6 +43,7 @@ readonly final class GroupFillPlaceholders
         private CanvasPlaceholderGeometry $placeholderGeometry,
         private EchoCapableTextInputs $echoCapableTextInputs,
         private TextInputObjectBinder $textInputObjectBinder,
+        private ResolveRichTextOptions $resolveRichTextOptions,
     ) {
     }
 
@@ -125,6 +128,50 @@ readonly final class GroupFillPlaceholders
             ),
             'inputs' => $inputRules,
         ];
+    }
+
+    /**
+     * The whole-text font choice per unified input, for the group page's
+     * `fontValues[<inputId>]` selects: only inputs the designer opened up
+     * ({@see EditorTextInput::offersFontChoice()}) and that resolve to at
+     * least one face besides the designed one get an entry. Options come
+     * from the FIRST dimension carrying the input — the projector keeps the
+     * family across dimensions, so every dimension offers the same list.
+     *
+     * @param list<TemplateVariant> $variants
+     * @return array<string, array{
+     *     defaultLabel: string,
+     *     groups: list<array{name: string, faces: list<array{family: string, faceName: string}>}>
+     * }>
+     */
+    public function fontOptions(array $variants): array
+    {
+        $result = [];
+
+        foreach ($variants as $variant) {
+            $options = null;
+
+            foreach ($variant->inputs as $input) {
+                if ($input->locked || !$input->offersFontChoice() || isset($result[$input->inputId])) {
+                    continue;
+                }
+
+                $options ??= $this->resolveRichTextOptions->forVariant($variant);
+
+                if (!$options->offersFontSwitch($input)) {
+                    continue;
+                }
+
+                $designed = $options->designedFontFor($input->inputId);
+
+                $result[$input->inputId] = [
+                    'defaultLabel' => $designed !== null ? sprintf('%s (výchozí)', $designed->faceName) : 'Výchozí písmo',
+                    'groups' => RichTextOptions::groupFaces($options->switchableFontsFor($input->inputId)),
+                ];
+            }
+        }
+
+        return $result;
     }
 
     /**

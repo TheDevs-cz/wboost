@@ -19,11 +19,17 @@ readonly final class ResolvedInputOverrides
      * @param array<string, bool> $hidden inputId → true when the textbox should be hidden.
      * @param array<string, RichText> $richTexts inputId → styled runs, present
      *   only for rich-text inputs whose value actually carries styling.
+     * @param array<string, string> $fonts inputId → the face family the WHOLE
+     *   textbox renders in (the user's font choice — validated against the
+     *   input's font options). Applied BEFORE the text override, so a rich
+     *   value's unstyled runs inherit it and a list stack takes it as its
+     *   base font.
      */
     public function __construct(
         public array $texts,
         public array $hidden,
         public array $richTexts = [],
+        public array $fonts = [],
     ) {
     }
 }

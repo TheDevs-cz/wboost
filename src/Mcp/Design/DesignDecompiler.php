@@ -1070,6 +1070,7 @@ readonly final class DesignDecompiler
                 $input->locked,
                 $input->richText,
                 self::blankToNull($input->sampleValue),
+                $input->allowedFonts,
             );
         }
 
@@ -1083,7 +1084,28 @@ readonly final class DesignDecompiler
             ($object['locked'] ?? false) === true,
             ($object['richText'] ?? false) === true,
             self::blankToNull(self::string($object, 'sampleValue')),
+            self::stringList($object, 'allowedFonts'),
         );
+    }
+
+    /**
+     * @param array<array-key, mixed> $object
+     * @return list<string>
+     */
+    private static function stringList(array $object, string $key): array
+    {
+        $raw = $object[$key] ?? null;
+        $values = [];
+
+        if (is_array($raw)) {
+            foreach ($raw as $value) {
+                if (is_string($value) && trim($value) !== '' && !in_array($value, $values, true)) {
+                    $values[] = $value;
+                }
+            }
+        }
+
+        return $values;
     }
 
     /**

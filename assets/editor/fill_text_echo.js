@@ -152,6 +152,7 @@
                     // semantics need it (values: { designed: true }).
                     designedText: box.text,
                     designedStylesJson: JSON.stringify(box.styles || {}),
+                    designedFontFamily: box.fontFamily,
                 });
                 canvas.add(box);
             });
@@ -190,6 +191,15 @@
                         if (!value || (!value.resolved && !value.designed)) {
                             entry.box.set({ visible: false });
                             return;
+                        }
+                        // The whole-text FONT choice lands first — the render
+                        // template's exact order — so the text below re-wraps
+                        // in it; no pick restores the designed face.
+                        const fontFamily = typeof value.fontFamily === 'string' && value.fontFamily !== ''
+                            ? value.fontFamily
+                            : entry.designedFontFamily;
+                        if (entry.box.fontFamily !== fontFamily) {
+                            entry.box.set({ fontFamily: fontFamily });
                         }
                         if (value.designed) {
                             // "Keep the designed text" (group page, empty

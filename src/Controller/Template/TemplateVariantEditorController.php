@@ -120,7 +120,10 @@ final class TemplateVariantEditorController extends AbstractController
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
             'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($template->project->id)),
-            'rich_toolbar' => $this->resolveRichTextOptions->forVariant($variant)->toToolbarArray(),
+            // EVERY project face: the "Vzorový text" WYSIWYG narrows it to the
+            // active input's offer client-side, and the "Uživatel může
+            // přepínat písmo" checklist picks from the whole set.
+            'rich_toolbar' => $this->resolveRichTextOptions->forProject($template->project->id)->toToolbarArray(),
             'menu_item' => 'templates',
             'module_label' => 'Šablony',
             'module_templates_url' => $this->generateUrl('templates', ['projectId' => $template->project->id]),

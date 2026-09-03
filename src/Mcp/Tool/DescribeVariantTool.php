@@ -164,7 +164,7 @@ readonly final class DescribeVariantTool
                 width: $variant->dimension->width(),
                 height: $variant->dimension->height(),
             ),
-            inputs: self::buildTextInputs($variant, $frames, $definitions),
+            inputs: $this->buildTextInputs($variant, $frames, $definitions),
             imageInputs: $this->buildImageInputs($variant, $canvas),
             containers: self::buildContainers($definitions, $frames, $variant->inputs),
             richTextOptions: $this->buildRichTextOptions($variant),
@@ -238,7 +238,7 @@ readonly final class DescribeVariantTool
      *
      * @return list<VariantTextInputResponse>
      */
-    private static function buildTextInputs(TemplateVariant $variant, array $frames, array $definitions): array
+    private function buildTextInputs(TemplateVariant $variant, array $frames, array $definitions): array
     {
         $containerIdByInputId = [];
 
@@ -248,9 +248,27 @@ readonly final class DescribeVariantTool
             }
         }
 
+        // Per-input font offers, resolved once and only when some input can
+        // actually switch fonts (the same gate the REST listing uses).
+        $fontOptions = null;
+        foreach ($variant->inputs as $input) {
+            if (!$input->locked && ($input->richText || $input->offersFontChoice())) {
+                $fontOptions = $this->resolveRichTextOptions->forVariant($variant);
+                break;
+            }
+        }
+
         return array_values(array_map(
-            static function (EditorTextInput $input) use ($frames, $containerIdByInputId): VariantTextInputResponse {
+            static function (EditorTextInput $input) use ($frames, $containerIdByInputId, $fontOptions): VariantTextInputResponse {
                 $frame = $frames[$input->inputId] ?? null;
+
+                $inputFontOptions = null;
+                if ($fontOptions !== null && !$input->locked && ($input->richText || $fontOptions->offersFontSwitch($input))) {
+                    $inputFontOptions = array_map(
+                        static fn (RichTextFontOption $font): string => $font->family,
+                        $fontOptions->fontOptionsFor($input->inputId),
+                    );
+                }
 
                 return new VariantTextInputResponse(
                     id: $input->inputId,
@@ -278,6 +296,7 @@ readonly final class DescribeVariantTool
                     sampleValue: $input->sampleValue,
                     frame: self::frame($frame),
                     containerId: $containerIdByInputId[$input->inputId] ?? null,
+                    fontOptions: $inputFontOptions,
                 );
             },
             $variant->inputs,

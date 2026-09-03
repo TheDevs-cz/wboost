@@ -12,6 +12,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
+use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -34,6 +35,7 @@ readonly final class ExportVersionSeeder
         private FileUploadRepository $fileUploadRepository,
         private PlaceholderAllowedDirectories $allowedDirectories,
         private UploaderHelper $uploaderHelper,
+        private ResolveRichTextOptions $resolveRichTextOptions,
     ) {
     }
 
@@ -44,6 +46,7 @@ readonly final class ExportVersionSeeder
      * @return array{
      *     textValues: array<string, string>,
      *     hiddenValues: array<string, bool>,
+     *     fontValues: array<string, string>,
      *     imageValues: array<string, array<string, mixed>>,
      * }
      */
@@ -51,9 +54,11 @@ readonly final class ExportVersionSeeder
     {
         $values = $version->fillValues;
         $hiddenIds = array_flip($values->hidden);
+        $fontOptions = $values->fonts !== [] ? $this->resolveRichTextOptions->forVariant($variant) : null;
 
         $textValues = [];
         $hiddenValues = [];
+        $fontValues = [];
 
         foreach ($variant->inputs as $input) {
             if ($input->locked) {
@@ -68,6 +73,14 @@ readonly final class ExportVersionSeeder
 
             if ($input->hidable && isset($hiddenIds[$input->inputId])) {
                 $hiddenValues[$input->inputId] = true;
+            }
+
+            // A font the input no longer offers (choice withdrawn, face
+            // deleted) falls back to the designed font — the select would
+            // show a value it has no option for otherwise.
+            $storedFont = $values->fonts[$input->inputId] ?? null;
+            if ($fontOptions !== null && is_string($storedFont) && in_array($storedFont, $fontOptions->allowedFamiliesFor($input->inputId), true)) {
+                $fontValues[$input->inputId] = $storedFont;
             }
         }
 
@@ -90,6 +103,7 @@ readonly final class ExportVersionSeeder
         return [
             'textValues' => $textValues,
             'hiddenValues' => $hiddenValues,
+            'fontValues' => $fontValues,
             'imageValues' => $imageValues,
         ];
     }
@@ -104,6 +118,7 @@ readonly final class ExportVersionSeeder
      * @return array{
      *     texts: array<string, string>,
      *     hidden: array<string, bool>,
+     *     fonts: array<string, string>,
      *     images: array<string, array{imageId: string, url: string}>,
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
@@ -121,6 +136,20 @@ readonly final class ExportVersionSeeder
 
         $texts = [];
         $hidden = [];
+        $fonts = [];
+
+        // Font options are per variant; the group page offers an input's
+        // options from the first dimension that carries it, so the seed
+        // validates against the same list.
+        $allowedFontsByInput = [];
+        if ($values->fonts !== []) {
+            foreach ($memberVariants as $memberVariant) {
+                $options = $this->resolveRichTextOptions->forVariant($memberVariant);
+                foreach ($memberVariant->inputs as $input) {
+                    $allowedFontsByInput[$input->inputId] ??= $options->allowedFamiliesFor($input->inputId);
+                }
+            }
+        }
 
         foreach ($textInputs as $input) {
             $stored = $values->texts[$input->inputId] ?? null;
@@ -131,6 +160,11 @@ readonly final class ExportVersionSeeder
 
             if ($input->hidable && isset($hiddenIds[$input->inputId])) {
                 $hidden[$input->inputId] = true;
+            }
+
+            $storedFont = $values->fonts[$input->inputId] ?? null;
+            if (is_string($storedFont) && in_array($storedFont, $allowedFontsByInput[$input->inputId] ?? [], true)) {
+                $fonts[$input->inputId] = $storedFont;
             }
         }
 
@@ -199,6 +233,7 @@ readonly final class ExportVersionSeeder
         return [
             'texts' => $texts,
             'hidden' => $hidden,
+            'fonts' => $fonts,
             'images' => $images,
             'imageHidden' => $imageHidden,
             'placements' => $placements,

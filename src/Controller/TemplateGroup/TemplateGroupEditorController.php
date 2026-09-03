@@ -86,7 +86,7 @@ final class TemplateGroupEditorController extends AbstractController
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
             'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($group->project->id)),
-            'rich_toolbar' => $memberVariants !== [] ? $this->resolveRichTextOptions->forVariant($memberVariants[0])->toToolbarArray() : null,
+            'rich_toolbar' => $this->resolveRichTextOptions->forProject($group->project->id)->toToolbarArray(),
             'menu_item' => 'templates',
             'variants' => $variants,
             'save_url' => $this->generateUrl('template_group_editor', ['groupId' => $group->id]),

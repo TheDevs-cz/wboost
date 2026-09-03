@@ -12,6 +12,9 @@ namespace WBoost\Web\Value;
  * - `texts`: inputId → the mirror string (plain text OR a rich
  *   `{"runs":…,"lines":…}` envelope, exactly as the mirror smuggles it).
  * - `hidden`: inputIds explicitly hidden (checkbox semantics: presence = hide).
+ * - `fonts`: inputId → the whole-text font choice (`fontValues[…]` select /
+ *   the API value's `fontFamily`); only non-empty picks are kept, "" being
+ *   the "designed font" option.
  * - `images`: imageInputId → `{imageId?, scale?, offsetX?, offsetY?,
  *   offsetXRatio?, offsetYRatio?, rotation?, hide?}`.
  * - `placements`: group exports only — variantId → inputId → the
@@ -20,7 +23,10 @@ namespace WBoost\Web\Value;
  * The array form is CANONICAL — keys sorted recursively, floats rounded to 4
  * decimals, empty entries dropped — so `hash()` is stable across field order,
  * float noise and repeated round-trips, which is what version deduplication
- * rests on: the same fill always hashes the same.
+ * rests on: the same fill always hashes the same. The `fonts` key is emitted
+ * ONLY when a font was picked: it arrived after the first versions were
+ * recorded, and an always-present empty key would re-hash every stored
+ * font-less fill, duplicating each one on its next identical export.
  *
  * API / MCP exports are converted INTO this shape (rich runs re-encoded as the
  * envelope string) so one history lists every channel's exports uniformly.
@@ -34,12 +40,14 @@ final readonly class ExportFillValues
      * @param list<string> $hidden
      * @param array<string, array<string, mixed>> $images
      * @param array<string, array<string, array<string, float>>> $placements
+     * @param array<string, string> $fonts
      */
     private function __construct(
         public array $texts,
         public array $hidden,
         public array $images,
         public array $placements,
+        public array $fonts = [],
     ) {
     }
 
@@ -52,8 +60,9 @@ final readonly class ExportFillValues
      * @param array<array-key, mixed> $rawTexts `textValues[…]`
      * @param array<array-key, mixed> $rawHidden `hiddenValues[…]`
      * @param array<array-key, mixed> $rawImages `images[…]`
+     * @param array<array-key, mixed> $rawFonts `fontValues[…]`
      */
-    public static function fromVariantWebForm(array $rawTexts, array $rawHidden, array $rawImages): self
+    public static function fromVariantWebForm(array $rawTexts, array $rawHidden, array $rawImages, array $rawFonts = []): self
     {
         $texts = [];
         foreach ($rawTexts as $inputId => $value) {
@@ -67,6 +76,7 @@ final readonly class ExportFillValues
             self::hiddenIds($rawHidden),
             self::imageEntries($rawImages),
             [],
+            self::fontEntries($rawFonts),
         );
     }
 
@@ -80,8 +90,9 @@ final readonly class ExportFillValues
      * @param array<array-key, mixed> $rawHidden
      * @param array<array-key, mixed> $rawImages
      * @param array<array-key, mixed> $rawPlacements `imagePlacements[<variantId>][<inputId>][…]`
+     * @param array<array-key, mixed> $rawFonts `fontValues[…]`
      */
-    public static function fromGroupWebForm(array $rawTexts, array $rawHidden, array $rawImages, array $rawPlacements): self
+    public static function fromGroupWebForm(array $rawTexts, array $rawHidden, array $rawImages, array $rawPlacements, array $rawFonts = []): self
     {
         $texts = [];
         foreach ($rawTexts as $inputId => $value) {
@@ -120,14 +131,16 @@ final readonly class ExportFillValues
             self::hiddenIds($rawHidden),
             self::imageEntries($rawImages),
             $placements,
+            self::fontEntries($rawFonts),
         );
     }
 
     /**
      * The API / MCP export request (`inputs` + `images` maps). Values are
      * re-encoded into the web wire shape: `{value, hide}` unwraps, rich
-     * `{runs, lines}` becomes the envelope STRING the web mirrors carry, so a
-     * version recorded through the API seeds the web fill page like any other.
+     * `{runs, lines}` becomes the envelope STRING the web mirrors carry, a
+     * `fontFamily` lands in `fonts`, so a version recorded through the API
+     * seeds the web fill page like any other.
      *
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
@@ -136,6 +149,7 @@ final readonly class ExportFillValues
     {
         $texts = [];
         $hidden = [];
+        $fonts = [];
 
         foreach ($inputs as $inputId => $value) {
             $key = (string) $inputId;
@@ -147,6 +161,10 @@ final readonly class ExportFillValues
 
             if (!is_array($value)) {
                 continue;
+            }
+
+            if (is_string($value['fontFamily'] ?? null) && $value['fontFamily'] !== '') {
+                $fonts[$key] = $value['fontFamily'];
             }
 
             if (isset($value['runs']) && is_array($value['runs'])) {
@@ -167,7 +185,7 @@ final readonly class ExportFillValues
             }
         }
 
-        return new self($texts, $hidden, self::imageEntries($images), []);
+        return new self($texts, $hidden, self::imageEntries($images), [], $fonts);
     }
 
     /**
@@ -221,14 +239,15 @@ final readonly class ExportFillValues
             }
         }
 
-        return new self($texts, $hidden, $images, $placements);
+        return new self($texts, $hidden, $images, $placements, self::fontEntries(is_array($data['fonts'] ?? null) ? $data['fonts'] : []));
     }
 
     /**
      * Canonical form: recursively key-sorted, empty top-level keys kept (the
-     * shape is fixed), suitable for storage AND hashing.
+     * shape is fixed — except `fonts`, see the class docblock), suitable for
+     * storage AND hashing.
      *
-     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>}
+     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>, fonts?: array<string, string>}
      */
     public function toArray(): array
     {
@@ -257,12 +276,20 @@ final readonly class ExportFillValues
         }
         ksort($placements);
 
-        return [
+        $canonical = [
             'texts' => $texts,
             'hidden' => $hidden,
             'images' => $images,
             'placements' => $placements,
         ];
+
+        if ($this->fonts !== []) {
+            $fonts = $this->fonts;
+            ksort($fonts);
+            $canonical['fonts'] = $fonts;
+        }
+
+        return $canonical;
     }
 
     /**
@@ -276,7 +303,25 @@ final readonly class ExportFillValues
 
     public function isEmpty(): bool
     {
-        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [];
+        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [] && $this->fonts === [];
+    }
+
+    /**
+     * Non-empty string picks only — "" is the select's "výchozí" option.
+     *
+     * @param array<array-key, mixed> $rawFonts
+     * @return array<string, string>
+     */
+    private static function fontEntries(array $rawFonts): array
+    {
+        $fonts = [];
+        foreach ($rawFonts as $inputId => $value) {
+            if (is_string($value) && $value !== '') {
+                $fonts[(string) $inputId] = $value;
+            }
+        }
+
+        return $fonts;
     }
 
     /**

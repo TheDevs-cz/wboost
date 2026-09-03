@@ -56,6 +56,33 @@ final class ExportVersionSeederTest extends KernelTestCase
         // Only the hidable input (badge) keeps its hide flag — headline is
         // not hidable, so its stored flag is dropped.
         self::assertSame([TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_BADGE_ID => true], $seed['hiddenValues']);
+        self::assertSame([], $seed['fontValues']);
+    }
+
+    /**
+     * A stored font pick seeds only while the input still offers it: the
+     * choice may have been withdrawn or the face deleted since, and a select
+     * cannot show a value it has no option for.
+     */
+    public function testFontPicksSeedOnlyWhileTheInputStillOffersThem(): void
+    {
+        $seed = $this->seedFor(ExportFillValues::fromVariantWebForm(
+            [],
+            [],
+            [],
+            [
+                // The custom variant's tagline has NO font choice (no allowedFonts).
+                TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_TAGLINE_ID => 'Rubik (Rubik Bold)',
+                // The rich headline whitelists the Rubik faces.
+                TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => 'Rubik (Rubik Bold)',
+                TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_BADGE_ID => 'Comic Sans (Comic Sans Regular)',
+            ],
+        ));
+
+        self::assertSame(
+            [TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => 'Rubik (Rubik Bold)'],
+            $seed['fontValues'],
+        );
     }
 
     public function testImageSeedingMirrorsTheResolversValidationLeniently(): void
@@ -114,7 +141,7 @@ final class ExportVersionSeederTest extends KernelTestCase
     }
 
     /**
-     * @return array{textValues: array<string, string>, hiddenValues: array<string, bool>, imageValues: array<string, array<string, mixed>>}
+     * @return array{textValues: array<string, string>, hiddenValues: array<string, bool>, fontValues: array<string, string>, imageValues: array<string, array<string, mixed>>}
      */
     private function seedFor(ExportFillValues $fillValues): array
     {

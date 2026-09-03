@@ -73,6 +73,76 @@ final class ResolveTextOverridesTest extends TestCase
         self::assertSame('abc', $result->texts[self::INPUT_ID]);
     }
 
+    public function testFontChoiceIsValidatedAgainstTheInputsOwnOptions(): void
+    {
+        $options = new RichTextOptions(
+            fonts: [$this->fontOption('Rubik (Rubik Regular)'), $this->fontOption('Rubik (Rubik Bold)')],
+            colors: [],
+            fontsByInput: [self::INPUT_ID => [$this->fontOption('Rubik (Rubik Bold)')]],
+        );
+
+        // An allowed pick rides along with the text (and alone).
+        $result = (new ResolveTextOverrides())->resolve(
+            [$this->input(uppercase: true)],
+            [self::INPUT_ID => ['value' => 'hi', 'fontFamily' => 'Rubik (Rubik Bold)']],
+            richTextOptions: $options,
+        );
+        self::assertSame('HI', $result->texts[self::INPUT_ID]);
+        self::assertSame([self::INPUT_ID => 'Rubik (Rubik Bold)'], $result->fonts);
+
+        // The union allows Regular, THIS input does not — strict 400 with the
+        // input's own list, lenient drop.
+        try {
+            (new ResolveTextOverrides())->resolve(
+                [$this->input()],
+                [self::INPUT_ID => ['value' => 'hi', 'fontFamily' => 'Rubik (Rubik Regular)']],
+                richTextOptions: $options,
+            );
+            self::fail('Expected font_not_allowed');
+        } catch (InvalidRichTextValue $exception) {
+            self::assertSame('font_not_allowed', $exception->errorCode);
+            self::assertSame(['allowedFonts' => ['Rubik (Rubik Bold)']], $exception->context);
+        }
+
+        $lenient = (new ResolveTextOverrides())->resolve(
+            [$this->input()],
+            [self::INPUT_ID => ['value' => 'hi', 'fontFamily' => 'Rubik (Rubik Regular)']],
+            truncateOverflow: true,
+            richTextOptions: $options,
+        );
+        self::assertSame('hi', $lenient->texts[self::INPUT_ID]);
+        self::assertSame([], $lenient->fonts);
+
+        // "" is the select's "výchozí" option; null skips; no options = no check.
+        $blank = (new ResolveTextOverrides())->resolve([$this->input()], [self::INPUT_ID => ['value' => 'x', 'fontFamily' => '']], richTextOptions: $options);
+        self::assertSame([], $blank->fonts);
+        $unchecked = (new ResolveTextOverrides())->resolve([$this->input()], [self::INPUT_ID => ['value' => 'x', 'fontFamily' => 'Anything']]);
+        self::assertSame([self::INPUT_ID => 'Anything'], $unchecked->fonts);
+
+        $this->expectException(BadRequestHttpException::class);
+        (new ResolveTextOverrides())->resolve([$this->input()], [self::INPUT_ID => ['value' => 'x', 'fontFamily' => 12]]);
+    }
+
+    public function testFontPickAloneKeepsTheSampleAsTheText(): void
+    {
+        $result = (new ResolveTextOverrides())->resolve(
+            [$this->input(sampleValue: 'Sample copy')],
+            [self::INPUT_ID => ['fontFamily' => 'Rubik (Rubik Bold)']],
+        );
+
+        self::assertSame('Sample copy', $result->texts[self::INPUT_ID]);
+        self::assertSame([self::INPUT_ID => 'Rubik (Rubik Bold)'], $result->fonts);
+
+        // Without a sample the designed canvas text stays (no text override).
+        $designed = (new ResolveTextOverrides())->resolve(
+            [$this->input()],
+            [self::INPUT_ID => ['fontFamily' => 'Rubik (Rubik Bold)']],
+        );
+
+        self::assertSame([], $designed->texts);
+        self::assertSame([self::INPUT_ID => 'Rubik (Rubik Bold)'], $designed->fonts);
+    }
+
     public function testRichRunsResolveIntoPlainConcatAndStyledRuns(): void
     {
         $result = (new ResolveTextOverrides())->resolve(
@@ -424,7 +494,7 @@ Item", $resolved->texts[self::INPUT_ID]);
         );
     }
 
-    private function input(int $maxLength, bool $uppercase = false): EditorTextInput
+    private function input(null|int $maxLength = null, bool $uppercase = false, null|string $sampleValue = null): EditorTextInput
     {
         return new EditorTextInput(
             inputId: self::INPUT_ID,
@@ -434,7 +504,15 @@ Item", $resolved->texts[self::INPUT_ID]);
             uppercase: $uppercase,
             description: null,
             hidable: false,
+            sampleValue: $sampleValue,
         );
+    }
+
+    private function fontOption(string $family): RichTextFontOption
+    {
+        [$fontName, $faceName] = explode(' (', rtrim($family, ')'), 2);
+
+        return new RichTextFontOption($family, $fontName, $faceName, 400, 'normal', 'https://assets.test/' . $faceName);
     }
 
     private function richInput(

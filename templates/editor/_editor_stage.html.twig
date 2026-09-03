@@ -82,9 +82,24 @@
                 <!-- Font Family Control -->
                 <div class="col-12">
                     <label for="font-family-control" class="form-label small mb-1">Písmo</label>
-                    <select id="font-family-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="fontFamily" data-action="change->canvas-text-toolbar#updateFontFamily">
+                    <select id="font-family-control" class="form-select form-select-sm" data-canvas-text-toolbar-target="fontFamily" data-action="change->canvas-text-toolbar#updateFontFamily change->canvas-input-properties#refreshFontChoice">
                         <!-- Options will be populated dynamically by Stimulus -->
                     </select>
+                </div>
+
+                {# Font choice ("Uživatel může přepínat písmo"): the designed
+                   font is always offered (locked-checked), the checklist adds
+                   faces the END USER may switch to on the fill page — the
+                   WYSIWYG's face menu for rich inputs, a font select for
+                   plain ones. Built by canvas-input-properties from the
+                   project's faces (canvas_font_choice.js). #}
+                <div class="col-12" data-font-choice-wrapper>
+                    <div class="form-check mb-0">
+                        <input type="checkbox" id="font-choice-control" class="form-check-input" data-canvas-input-properties-target="fontChoice" data-action="change->canvas-input-properties#toggleFontChoice">
+                        <label for="font-choice-control" class="form-check-label small">Uživatel může přepínat písmo <i class="mdi mdi-information-outline text-muted" data-canvas-input-properties-target="fontChoiceHint" title="Při vyplňování se u pole zobrazí výběr písma: použité písmo + zaškrtnutá."></i></label>
+                    </div>
+                    <div class="font-choice d-none mt-1" data-canvas-input-properties-target="fontChoiceList" aria-label="Písma k výběru"></div>
+                    <div class="form-text small d-none" data-canvas-input-properties-target="fontChoiceEmpty">Zaškrtněte alespoň jedno další písmo — jinak uživatel nemá z čeho vybírat.</div>
                 </div>
 
                 <!-- Font Size Control -->

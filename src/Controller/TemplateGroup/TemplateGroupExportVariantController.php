@@ -76,6 +76,7 @@ final class TemplateGroupExportVariantController extends AbstractController
                 $request->request->all('hiddenValues'),
                 $request->request->all('images'),
                 $request->request->all('imagePlacements'),
+                rawFontValues: $request->request->all('fontValues'),
             );
         } catch (TemplateRenderUnavailable) {
             return $this->renderFailed(
@@ -100,6 +101,7 @@ final class TemplateGroupExportVariantController extends AbstractController
             $request->request->all('hiddenValues'),
             $request->request->all('images'),
             $request->request->all('imagePlacements'),
+            $request->request->all('fontValues'),
         ));
 
         $fileName = sprintf(

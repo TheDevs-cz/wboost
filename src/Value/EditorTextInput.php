@@ -86,11 +86,32 @@ readonly final class EditorTextInput
          * simply omitted the input.
          */
         public null|string $sampleValue = null,
+        /**
+         * Font choice ("Uživatel může přepínat písmo"): the ADDITIONAL font
+         * faces — exact `"<Font> (<Face>)"` family strings, see
+         * {@see \WBoost\Web\Entity\Font::faceFamily()} — the end user may
+         * switch this input to, on top of the designed one. Empty = no
+         * choice: a plain input renders in its designed face only, a rich
+         * input's WYSIWYG offers the designed font's own faces (bold /
+         * italic) and nothing else. Resolved per input by
+         * {@see \WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions};
+         * a face renamed / deleted after the admin picked it simply drops
+         * out of the offer.
+         *
+         * @var list<string>
+         */
+        public array $allowedFonts = [],
     ) {
     }
 
+    /** Whether the designer opened this input's font to the end user. */
+    public function offersFontChoice(): bool
+    {
+        return $this->allowedFonts !== [];
+    }
+
     /**
-     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float, listCheckboxes: bool, listCheckboxImage: null|string, listCheckboxCheckedImage: null|string, checklist: bool, checklistAdd: bool, checklistRemove: bool, checklistEditText: bool, checklistToggle: bool, sampleValue: null|string}
+     * @return array{inputId: string, name: null|string, maxLength: null|int, locked: bool, uppercase: bool, description: null|string, hidable: bool, richText: bool, lists: bool, listBullet: null|string, listBulletImage: null|string, listIndent: null|float, listItemSpacing: null|float, listBlockSpacing: null|float, listCheckboxes: bool, listCheckboxImage: null|string, listCheckboxCheckedImage: null|string, checklist: bool, checklistAdd: bool, checklistRemove: bool, checklistEditText: bool, checklistToggle: bool, sampleValue: null|string, allowedFonts: list<string>}
      */
     public function toArray(): array
     {
@@ -118,6 +139,7 @@ readonly final class EditorTextInput
             'checklistEditText' => $this->checklistEditText,
             'checklistToggle' => $this->checklistToggle,
             'sampleValue' => $this->sampleValue,
+            'allowedFonts' => $this->allowedFonts,
         ];
     }
 
@@ -129,7 +151,7 @@ readonly final class EditorTextInput
      * caller is responsible for stamping the matching id onto the canvas
      * object on the next save.
      *
-     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string} $data
+     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string, allowedFonts?: mixed} $data
      */
     public static function fromArray(array $data): self
     {
@@ -190,7 +212,33 @@ readonly final class EditorTextInput
             checklistEditText: ($data['checklistEditText'] ?? true) === true,
             checklistToggle: ($data['checklistToggle'] ?? true) === true,
             sampleValue: self::sampleValueFrom($data['sampleValue'] ?? null),
+            allowedFonts: self::allowedFontsFrom($data['allowedFonts'] ?? null),
         );
+    }
+
+    /**
+     * Defensive read of the admin's font pick: non-empty strings only,
+     * deduped, order kept (the resolver re-orders by project font anyway).
+     *
+     * @return list<string>
+     */
+    private static function allowedFontsFrom(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $families = [];
+
+        foreach ($value as $family) {
+            if (!is_string($family) || trim($family) === '' || in_array($family, $families, true)) {
+                continue;
+            }
+
+            $families[] = $family;
+        }
+
+        return $families;
     }
 
     private static function sampleValueFrom(mixed $value): null|string
@@ -209,7 +257,7 @@ readonly final class EditorTextInput
      */
     public static function createCollectionFromJson(string $json): array
     {
-        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string}> $data */
+        /** @var array<array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string, allowedFonts?: mixed}> $data */
         $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         $collection = [];
 

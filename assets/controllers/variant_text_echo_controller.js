@@ -66,7 +66,7 @@ export default class extends Controller {
 
         // Mirror edits (the overlay dispatches bubbling events on them).
         this._onInput = (event) => {
-            if (event.target && event.target.matches && event.target.matches("[data-text-mirror]")) {
+            if (event.target && event.target.matches && event.target.matches("[data-text-mirror], [data-font-mirror]")) {
                 this._edited();
             }
         };
@@ -174,9 +174,11 @@ export default class extends Controller {
         Object.keys(rules).forEach((inputId) => {
             const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
             const hideMirror = this.element.querySelector(`[data-hide-mirror="${inputId}"]`);
+            const fontMirror = this.element.querySelector(`[data-font-mirror="${inputId}"]`);
             values[inputId] = {
                 resolved: module.resolveValue(mirror ? mirror.value : "", rules[inputId]),
                 hidden: Boolean(hideMirror && hideMirror.checked),
+                fontFamily: fontMirror ? fontMirror.value : "",
             };
         });
         this._painter.update(values);
@@ -228,6 +230,13 @@ export default class extends Controller {
         });
         hidden.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
         hidden.forEach(([id, flag]) => parts.push(`H:${id}=${flag}`));
+
+        const fonts = [];
+        this.element.querySelectorAll("[data-font-mirror]").forEach((mirror) => {
+            fonts.push([mirror.getAttribute("data-font-mirror"), mirror.value]);
+        });
+        fonts.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+        fonts.forEach(([id, family]) => parts.push(`F:${id}=${family}`));
 
         const bytes = new TextEncoder().encode(parts.join("\n"));
         let hash = 5381;

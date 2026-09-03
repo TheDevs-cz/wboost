@@ -261,6 +261,9 @@ export function buildVariantPayload(canvas) {
                 checklistEditText: textbox.checklistEditText !== false,
                 checklistToggle: textbox.checklistToggle !== false,
                 sampleValue: typeof textbox.sampleValue === 'string' && textbox.sampleValue !== '' ? textbox.sampleValue : null,
+                allowedFonts: Array.isArray(textbox.allowedFonts)
+                    ? textbox.allowedFonts.filter((family) => typeof family === 'string' && family !== '')
+                    : [],
             };
         });
 

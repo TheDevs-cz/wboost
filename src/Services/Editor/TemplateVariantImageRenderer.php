@@ -451,7 +451,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // means "couldn't determine safely" → inline everything (today's
         // behaviour), so narrowing can only ever drop provably-unused fonts,
         // never silently swap in a fallback face.
-        $overrideFamilies = [];
+        $overrideFamilies = array_values($overrides->fonts);
         foreach ($overrides->richTexts as $richText) {
             foreach ($richText->runs as $run) {
                 if ($run->fontFamily !== null) {
@@ -545,6 +545,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'font_faces' => $fontFaceData,
                 'text_overrides' => $plainTextOverrides,
                 'rich_text_overrides' => $richTextOverrides,
+                'font_overrides' => $overrides->fonts,
                 'list_configs' => $listConfigs,
                 'hidden_overrides' => $overrides->hidden,
                 'containers' => array_map(

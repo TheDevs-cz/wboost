@@ -32,12 +32,16 @@
 // built the object — 'line' and 'square' are both a Fabric Rect, so the type
 // alone cannot label a layers-panel row honestly. Purely cosmetic: nothing
 // renders off it, and a shape without one still behaves like a shape.
+// allowedFonts (textboxes): the EXTRA font faces ("<Font> (<Face>)" strings)
+// the end user may switch the input to — "Uživatel může přepínat písmo".
+// Empty = no choice (a rich input still offers the designed font's own
+// faces). Resolved per input server-side (ResolveRichTextOptions).
 export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
     'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
     'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
-    'sampleValue',
+    'sampleValue', 'allowedFonts',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
     'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
 ];

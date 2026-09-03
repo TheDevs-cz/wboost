@@ -35,6 +35,7 @@ use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichText;
+use WBoost\Web\Value\RichTextFontOption;
 use WBoost\Web\Value\RichTextOptions;
 
 /**
@@ -89,6 +90,18 @@ abstract class AbstractVariantFiller extends AbstractController
      */
     #[LiveProp(writable: true)]
     public array $textValues = [];
+
+    /**
+     * inputId → the user's whole-text FONT choice for inputs the designer
+     * opened up ("Uživatel může přepínat písmo"); "" = the designed font.
+     * Bound through the visually-hidden `data-font-mirror` field the
+     * popover's font select writes into — the same mirror pattern as
+     * `textValues`, so Live re-renders and the plain form POST both carry it.
+     *
+     * @var array<string, string>
+     */
+    #[LiveProp(writable: true)]
+    public array $fontValues = [];
 
     /**
      * Map of inputId UUID → bool (true = hide). Only inputs whose definition
@@ -224,6 +237,10 @@ abstract class AbstractVariantFiller extends AbstractController
 
             if ($input->hidable) {
                 $this->hiddenValues[$input->inputId] ??= false;
+            }
+
+            if ($input->offersFontChoice()) {
+                $this->fontValues[$input->inputId] ??= '';
             }
         }
     }
@@ -556,6 +573,11 @@ abstract class AbstractVariantFiller extends AbstractController
      *     runs: null|list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>,
      *     lines: null|list<string>,
      *     designFontFamily: null|string,
+     *     fontOptions: list<array{family: string, fontName: string, faceName: string, weight: int, style: string, url: string}>,
+     *     fontGroups: list<array{name: string, faces: list<array{family: string, faceName: string}>}>,
+     *     fontChoice: bool,
+     *     fontDefaultLabel: string,
+     *     fontValue: string,
      *     textAlign: string,
      *     hidden: bool,
      *     echoCapable: bool
@@ -570,10 +592,22 @@ abstract class AbstractVariantFiller extends AbstractController
         $canvas = is_array($decoded) ? $decoded : [];
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
         $styles = $this->textInputObjectBinder->textStylesByInputId($canvas, $variant->inputs);
+        $fontOptions = $this->fontOptions();
 
         $result = [];
         foreach ($variant->inputs as $input) {
             $placeholderFrame = $frames[$input->inputId] ?? null;
+
+            // Font options for THIS input: the WYSIWYG's face menu (rich —
+            // every option, "" = the designed font) or the whole-text font
+            // select (plain, only when the designer opened the input up and at
+            // least one extra face resolved — the menu lists the SWITCHABLE
+            // faces under a "(výchozí)" entry for the designed one).
+            $fontChoice = $fontOptions !== null && !$input->richText && $fontOptions->offersFontSwitch($input);
+            $faces = $fontOptions !== null && !$input->locked && $input->richText
+                ? $fontOptions->fontOptionsFor($input->inputId)
+                : ($fontChoice ? $fontOptions->switchableFontsFor($input->inputId) : []);
+            $designedFace = $fontChoice ? $fontOptions->designedFontFor($input->inputId) : null;
             $frame = $placeholderFrame !== null
                 ? [
                     'x' => $placeholderFrame->x,
@@ -611,6 +645,11 @@ abstract class AbstractVariantFiller extends AbstractController
                 'runs' => $this->seededRuns($input),
                 'lines' => $this->seededEnvelope($input)['lines'] ?? null,
                 'designFontFamily' => $styles[$input->inputId]['fontFamily'] ?? null,
+                'fontOptions' => array_map(static fn (RichTextFontOption $font): array => $font->toArray(), $faces),
+                'fontGroups' => RichTextOptions::groupFaces($faces),
+                'fontChoice' => $fontChoice,
+                'fontDefaultLabel' => $designedFace !== null ? sprintf('%s (výchozí)', $designedFace->faceName) : 'Výchozí písmo',
+                'fontValue' => $fontChoice ? ($this->fontValues[$input->inputId] ?? '') : '',
                 'textAlign' => $styles[$input->inputId]['textAlign'] ?? 'left',
                 'hidden' => $this->hiddenValues[$input->inputId] ?? false,
                 // Echo-capable inputs get the LAZY settle debounce — the echo
@@ -827,6 +866,24 @@ abstract class AbstractVariantFiller extends AbstractController
         }
 
         return $this->richTextOptionsCache ??= $this->resolveRichTextOptions->forVariant($variant);
+    }
+
+    /**
+     * The same options object, resolved whenever ANY fillable input can
+     * switch fonts (rich, or a plain input the designer opened up) — the
+     * whole-text font override is validated against it in the render.
+     */
+    private function fontOptions(): null|RichTextOptions
+    {
+        $variant = $this->variantEntity();
+
+        foreach ($variant->inputs as $input) {
+            if (!$input->locked && ($input->richText || $input->offersFontChoice())) {
+                return $this->richTextOptionsCache ??= $this->resolveRichTextOptions->forVariant($variant);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1124,6 +1181,12 @@ abstract class AbstractVariantFiller extends AbstractController
             $parts[] = 'H:' . $inputId . '=' . ($hide ? '1' : '0');
         }
 
+        $fonts = $this->fontValues;
+        ksort($fonts);
+        foreach ($fonts as $inputId => $family) {
+            $parts[] = 'F:' . $inputId . '=' . $family;
+        }
+
         $canonical = implode("\n", $parts);
 
         $hash = 5381;
@@ -1156,7 +1219,7 @@ abstract class AbstractVariantFiller extends AbstractController
             $variant->inputs,
             $this->buildProvidedValues(),
             truncateOverflow: true,
-            richTextOptions: $this->richTextOptions(),
+            richTextOptions: $this->fontOptions(),
         );
         // Background-less slices are the transparent overlay layers: flat, tiny,
         // and PNG measured FASTER for exactly that shape (0.147s vs 0.220s for
@@ -1246,14 +1309,14 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
-     * Merge the two writable LiveProps into the shape ResolveTextOverrides
-     * expects: `{ inputId: { value?: string, hide?: bool } }`.
+     * Merge the three writable LiveProps into the shape ResolveTextOverrides
+     * expects: `{ inputId: { value?: string, hide?: bool, fontFamily?: string } }`.
      *
-     * @return array<string, array{value?: string, hide?: bool}>
+     * @return array<string, array{value?: string, hide?: bool, fontFamily?: string}>
      */
     private function buildProvidedValues(): array
     {
-        /** @var array<string, array{value?: string, hide?: bool}> $merged */
+        /** @var array<string, array{value?: string, hide?: bool, fontFamily?: string}> $merged */
         $merged = [];
 
         foreach ($this->textValues as $inputId => $value) {
@@ -1265,6 +1328,17 @@ abstract class AbstractVariantFiller extends AbstractController
                 $merged[$inputId] = [];
             }
             $merged[$inputId]['hide'] = $hide;
+        }
+
+        // "" is the select's "výchozí" option — no override.
+        foreach ($this->fontValues as $inputId => $family) {
+            if ($family === '') {
+                continue;
+            }
+            if (!isset($merged[$inputId])) {
+                $merged[$inputId] = [];
+            }
+            $merged[$inputId]['fontFamily'] = $family;
         }
 
         return $merged;

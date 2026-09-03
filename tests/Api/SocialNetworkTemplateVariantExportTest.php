@@ -486,6 +486,103 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         self::assertSame(['Rubik (Rubik Regular)', 'Rubik (Rubik Bold)'], $body['allowedFonts'] ?? null);
     }
 
+    /**
+     * The whole-text font choice: `{ value, fontFamily }` is accepted for a
+     * plain input the designer opened up (the fixture tagline may switch to
+     * Rubik Bold), validated against THAT input's `fontOptions`.
+     */
+    public function testFontChoiceIsAppliedAsAWholeTextOverride(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $client->request(
+            'POST',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID => ['value' => 'world', 'fontFamily' => 'Rubik (Rubik Bold)'],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseIsSuccessful();
+
+        $fake = $this->getRendererFake();
+        $lastCall = $fake->calls[count($fake->calls) - 1];
+        self::assertSame('WORLD', $lastCall['texts'][TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID] ?? null);
+        self::assertSame(
+            [TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID => 'Rubik (Rubik Bold)'],
+            $lastCall['fonts'],
+        );
+    }
+
+    public function testFontChoiceOutsideTheInputsOptionsIs400WithAllowedFonts(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        // Rubik Regular is a project face — and a rich HEADLINE option — but
+        // the tagline's designer only opened up Rubik Bold.
+        $response = $client->request(
+            'POST',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID => ['value' => 'world', 'fontFamily' => 'Rubik (Rubik Regular)'],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('font_not_allowed', $body['code'] ?? null);
+        self::assertSame(['Rubik (Rubik Bold)'], $body['allowedFonts'] ?? null);
+
+        // An input with NO font choice (badge) refuses every pick, with an
+        // empty list telling the consumer there is nothing to choose.
+        $response = $client->request(
+            'POST',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $token,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => json_encode([
+                    'inputs' => [
+                        TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID => ['value' => 'x', 'fontFamily' => 'Rubik (Rubik Bold)'],
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $this->assertResponseStatusCodeSame(400);
+        $body = $response->toArray(false);
+        self::assertSame('font_not_allowed', $body['code'] ?? null);
+        self::assertSame([], $body['allowedFonts'] ?? null);
+    }
+
     public function testRichInvalidColorIs400WithCode(): void
     {
         $client = self::createClient();

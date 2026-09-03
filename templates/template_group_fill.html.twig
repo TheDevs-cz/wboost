@@ -123,6 +123,30 @@
                                                placeholder="Ponechat text ze šablony"
                                                autocomplete="off"
                                                data-action="input->group-fill#changed">
+                                        {# Font choice ("Uživatel může přepínat písmo"):
+                                           the whole-text font for every dimension —
+                                           the designed face first, as the default. #}
+                                        {% set fontChoice = font_options[input.inputId]|default(null) %}
+                                        {% if fontChoice %}
+                                            <div class="d-flex align-items-center gap-2 mt-1">
+                                                <label class="form-label font-12 text-muted mb-0 flex-shrink-0" for="group-fill-font-{{ input.inputId }}"><i class="mdi mdi-format-font" aria-hidden="true"></i> Písmo</label>
+                                                <select class="form-select form-select-sm"
+                                                        id="group-fill-font-{{ input.inputId }}"
+                                                        name="fontValues[{{ input.inputId }}]"
+                                                        data-input-id="{{ input.inputId }}"
+                                                        data-action="change->group-fill#changed">
+                                                    {% set seededFont = seed.fonts[input.inputId]|default('') %}
+                                                    <option value=""{% if seededFont == '' %} selected{% endif %}>{{ fontChoice.defaultLabel }}</option>
+                                                    {% for group in fontChoice.groups %}
+                                                        <optgroup label="{{ group.name }}">
+                                                            {% for face in group.faces %}
+                                                                <option value="{{ face.family }}" style="font-family: '{{ face.family }}'"{% if seededFont == face.family %} selected{% endif %}>{{ face.faceName }}</option>
+                                                            {% endfor %}
+                                                        </optgroup>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        {% endif %}
                                         {% if input.description %}
                                             <div class="form-text">{{ input.description }}</div>
                                         {% endif %}

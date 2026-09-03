@@ -71,7 +71,7 @@ final class DslParser
     public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'at', 'x', 'y', 'width', 'input'];
 
     /** @var list<string> */
-    public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue'];
+    public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts'];
 
     /** @var list<string> */
     public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input'];
@@ -883,7 +883,57 @@ final class DslParser
             $this->readBool($inputPath, $raw, 'locked', false),
             $this->readBool($inputPath, $raw, 'richText', false),
             $this->readString($inputPath, $raw, 'sampleValue'),
+            $this->readFontList($inputPath, $raw, 'allowedFonts'),
         );
+    }
+
+    /**
+     * A list of exact face strings — shape only; whether each names a real
+     * project face is the compiler's call (the parser is context-free).
+     *
+     * @param array<array-key, mixed> $raw
+     * @return list<string>
+     */
+    private function readFontList(string $path, array $raw, string $key): array
+    {
+        $value = $raw[$key] ?? null;
+
+        if ($value === null) {
+            return [];
+        }
+
+        if (!is_array($value) || ($value !== [] && !array_is_list($value))) {
+            $this->violation(self::join($path, $key), DslErrorCode::InvalidType, sprintf(
+                '%s.%s must be an array of face strings (as get_context lists them), got %s.',
+                $path,
+                $key,
+                self::describe($value),
+            ));
+
+            return [];
+        }
+
+        $families = [];
+
+        foreach ($value as $position => $entry) {
+            if (!is_string($entry) || trim($entry) === '') {
+                $this->violation(sprintf('%s.%s[%d]', $path, $key, $position), DslErrorCode::InvalidType, sprintf(
+                    '%s.%s[%d] must be a face string, got %s.',
+                    $path,
+                    $key,
+                    $position,
+                    self::describe($entry),
+                ));
+
+                continue;
+            }
+
+            if (!in_array($entry, $families, true)) {
+                $families[] = $entry;
+            }
+        }
+
+        return $families;
     }
 
     private function parseImageInput(string $path, mixed $raw): null|ImageInputSpec

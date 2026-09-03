@@ -101,7 +101,7 @@ final class TemplateGroupFillController extends AbstractController
                 array_map(static fn (array $slot) => $slot['input'], $imageInputs),
                 $memberVariants,
             )
-            : ['texts' => [], 'hidden' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
+            : ['texts' => [], 'hidden' => [], 'fonts' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
 
         return $this->render('template_group_fill.html.twig', [
             'project' => $group->project,
@@ -109,6 +109,7 @@ final class TemplateGroupFillController extends AbstractController
             'menu_item' => 'templates',
             'variants' => $variants,
             'text_inputs' => $textInputs,
+            'font_options' => $this->placeholders->fontOptions($memberVariants),
             'image_inputs' => $imageInputs,
             'export_versions' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,

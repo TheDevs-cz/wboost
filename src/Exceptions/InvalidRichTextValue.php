@@ -64,13 +64,17 @@ final class InvalidRichTextValue extends \Exception
     }
 
     /**
+     * Raised for a rich run's `fontFamily` AND for the whole-text
+     * `fontFamily` choice alike — both are checked against the INPUT's font
+     * options (`inputs[].fontOptions`), which the context carries.
+     *
      * @param list<string> $allowedFamilies
      */
     public static function fontNotAllowed(string $inputLabel, string $fontFamily, array $allowedFamilies): self
     {
         return new self(
             'font_not_allowed',
-            sprintf('Input "%s" uses font "%s" which is not allowed for this variant.', $inputLabel, $fontFamily),
+            sprintf('Input "%s" uses font "%s" which is not allowed for this input.', $inputLabel, $fontFamily),
             ['allowedFonts' => $allowedFamilies],
         );
     }

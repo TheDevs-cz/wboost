@@ -160,6 +160,7 @@ final class TemplateVariantPublishController extends AbstractController
             $request->request->all('textValues'),
             $request->request->all('hiddenValues'),
             $request->request->all('images'),
+            $request->request->all('fontValues'),
         ));
 
         return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);

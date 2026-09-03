@@ -69,6 +69,7 @@
                 const canvasJson = {{ canvas_json|raw }};
                 const textOverrides = {{ text_overrides|json_encode|raw }};
                 const richTextOverrides = {{ rich_text_overrides|json_encode|raw }};
+                const fontOverrides = {{ font_overrides|default([])|json_encode|raw }};
                 const listConfigs = {{ list_configs|json_encode|raw }};
                 const hiddenOverrides = {{ hidden_overrides|json_encode|raw }};
                 const containers = {{ containers|json_encode|raw }};
@@ -174,6 +175,18 @@
                 // styles keyed to the old character positions must go first —
                 // Fabric never remaps the styles grid on a programmatic text
                 // set, and stale entries would smear onto arbitrary chars.
+                // The user's whole-text FONT choice lands first, so the plain
+                // text below re-wraps in it, a rich value's unstyled runs
+                // inherit it and a list stack reads it as its base font
+                // (buildListStack copies obj.fontFamily). Phase A above
+                // already snapshotted the DESIGNED geometry, so this is an
+                // override like any other — the reflow measures it.
+                Object.keys(fontOverrides).forEach((idKey) => {
+                    const obj = liveObjects.find((o) => o.inputId === idKey);
+                    if (obj) {
+                        obj.set({ fontFamily: String(fontOverrides[idKey]) });
+                    }
+                });
                 Object.keys(textOverrides).forEach((idKey) => {
                     const obj = liveObjects.find((o) => o.inputId === idKey);
                     if (obj) {

@@ -31,7 +31,7 @@ use WBoost\Web\Value\RichText;
  * | `left`, `top`, displayed width/height | the pixels |
  * | `angle` | rotation is not expressible; a rotated fixture MUST fail here |
  * | `text`, `fontFamily`, effective `fontSize`, `fill`, `textAlign`, `lineHeight` | what the text looks like |
- * | `inputId`, `name`, `maxLength`, `locked`, `uppercase`, `hidable`, `richText`, `sampleValue` | the fill contract |
+ * | `inputId`, `name`, `maxLength`, `locked`, `uppercase`, `hidable`, `richText`, `sampleValue`, `allowedFonts` | the fill contract |
  * | `imagePlaceholder`, `isBackground`, `allowMove/Resize/Rotate`, `allowedDirectoryIds` | the slot contract |
  * | resolved `assetId` | WHICH gallery picture the object shows |
  *
@@ -465,6 +465,7 @@ final class CanvasComparison
                 'hidable' => $input !== null ? $input->hidable : ($object['hidable'] ?? false) === true,
                 'richText' => $input !== null ? $input->richText : ($object['richText'] ?? false) === true,
                 'sampleValue' => self::blankToNull($input !== null ? $input->sampleValue : self::string($object, 'sampleValue')),
+                'allowedFonts' => $input !== null ? $input->allowedFonts : (is_array($object['allowedFonts'] ?? null) ? array_values($object['allowedFonts']) : []),
             ];
         }
 
@@ -550,6 +551,7 @@ final class CanvasComparison
                 'hidable' => $input->hidable,
                 'richText' => $input->richText,
                 'sampleValue' => self::blankToNull($input->sampleValue),
+                'allowedFonts' => $input->allowedFonts,
             ];
         }
 

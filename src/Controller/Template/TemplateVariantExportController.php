@@ -55,7 +55,7 @@ final class TemplateVariantExportController extends AbstractController
         $loadedVersion = $this->resolveVersion($request, $variant);
         $seed = $loadedVersion !== null
             ? $this->versionSeeder->forVariant($loadedVersion, $variant)
-            : ['textValues' => [], 'hiddenValues' => [], 'imageValues' => []];
+            : ['textValues' => [], 'hiddenValues' => [], 'fontValues' => [], 'imageValues' => []];
 
         return $this->render('template_variant_export.html.twig', [
             'project' => $template->project,
@@ -69,6 +69,7 @@ final class TemplateVariantExportController extends AbstractController
             'loaded_version' => $loadedVersion,
             'seed_text_values' => $seed['textValues'],
             'seed_hidden_values' => $seed['hiddenValues'],
+            'seed_font_values' => $seed['fontValues'],
             'seed_image_values' => $seed['imageValues'],
         ]);
     }

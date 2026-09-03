@@ -41,6 +41,35 @@ final class ExportFillValuesTest extends TestCase
         self::assertNotSame($a->hash(), $b->hash());
     }
 
+    /**
+     * The font choice arrived after the first versions were recorded: a fill
+     * WITHOUT a pick must keep hashing exactly as before (no `fonts` key), or
+     * every stored font-less version would duplicate on its next re-export;
+     * a pick is part of the fill and changes the hash.
+     */
+    public function testFontPicksArePartOfTheFillButAbsentPicksLeaveTheShapeUntouched(): void
+    {
+        $withoutFonts = ExportFillValues::fromVariantWebForm(['input-a' => 'Hello'], [], []);
+        $blankPick = ExportFillValues::fromVariantWebForm(['input-a' => 'Hello'], [], [], ['input-a' => '']);
+        $withFont = ExportFillValues::fromVariantWebForm(['input-a' => 'Hello'], [], [], ['input-a' => 'Rubik (Rubik Bold)']);
+
+        self::assertArrayNotHasKey('fonts', $withoutFonts->toArray());
+        self::assertSame($withoutFonts->hash(), $blankPick->hash(), '"" is the "výchozí" option, not a pick');
+        self::assertSame(['input-a' => 'Rubik (Rubik Bold)'], $withFont->toArray()['fonts'] ?? null);
+        self::assertNotSame($withoutFonts->hash(), $withFont->hash());
+        self::assertFalse(ExportFillValues::fromVariantWebForm([], [], [], ['input-a' => 'Rubik (Rubik Bold)'])->isEmpty());
+
+        // Group form and API request land in the same shape.
+        $group = ExportFillValues::fromGroupWebForm([], [], [], [], ['input-a' => 'Rubik (Rubik Bold)', 'input-b' => '']);
+        $api = ExportFillValues::fromApiRequest(['input-a' => ['value' => 'x', 'fontFamily' => 'Rubik (Rubik Bold)'], 'input-b' => ['fontFamily' => '']], []);
+
+        self::assertSame(['input-a' => 'Rubik (Rubik Bold)'], $group->toArray()['fonts'] ?? null);
+        self::assertSame(['input-a' => 'Rubik (Rubik Bold)'], $api->toArray()['fonts'] ?? null);
+
+        // Storage round-trip keeps the pick.
+        self::assertSame($withFont->toArray(), ExportFillValues::fromArray($withFont->toArray())->toArray());
+    }
+
     public function testVariantFormKeepsEmptyStringsButGroupFormDropsThem(): void
     {
         // Single-variant surface: an empty text means "blank the text" — part

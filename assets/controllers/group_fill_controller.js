@@ -652,18 +652,21 @@ export default class extends Controller {
             const values = {};
             Object.keys(entry.payload.inputs).forEach((inputId) => {
                 const def = entry.payload.inputs[inputId];
-                const field = this.element.querySelector(`[data-input-id="${inputId}"]`);
+                const field = this.element.querySelector(`input[name="textValues[${inputId}]"]`);
                 const raw = field ? field.value : '';
                 const hideBox = this.element.querySelector(`input[name="hiddenValues[${inputId}]"]`);
                 const hidden = Boolean(hideBox && hideBox.checked);
+                // The whole-text font choice (select, "" = designed font).
+                const fontSelect = this.element.querySelector(`select[name="fontValues[${inputId}]"]`);
+                const fontFamily = fontSelect ? fontSelect.value : '';
                 if (raw !== '') {
-                    values[inputId] = { resolved: module.resolveValue(raw, def), hidden };
+                    values[inputId] = { resolved: module.resolveValue(raw, def), hidden, fontFamily };
                 } else if (typeof def.sampleValue === 'string' && def.sampleValue !== '') {
                     // Empty keeps the designed content: the sample renders
                     // (through the same lenient pipeline the server applies).
-                    values[inputId] = { resolved: module.resolveValue(def.sampleValue, def), hidden };
+                    values[inputId] = { resolved: module.resolveValue(def.sampleValue, def), hidden, fontFamily };
                 } else {
-                    values[inputId] = { designed: true, hidden };
+                    values[inputId] = { designed: true, hidden, fontFamily };
                 }
             });
             this._fitEchoCanvas(entry);

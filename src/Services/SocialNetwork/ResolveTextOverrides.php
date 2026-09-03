@@ -22,15 +22,22 @@ use WBoost\Web\Value\RichTextOptions;
  *
  * Accepts three shapes per input value:
  *   - shorthand: a string → treated as `{ value: <string> }`
- *   - extended:  an object `{ value?: string, hide?: bool }`
- *   - rich:      an object `{ runs: [...], hide?: bool }` — only for inputs
- *     with `richText: true`. The web fill page smuggles the same runs through
- *     its string-typed mirror fields as a `{"runs":[...]}` JSON envelope,
- *     which is detected here (and ONLY for rich inputs, so a plain input's
- *     literal text can never be misparsed).
+ *   - extended:  an object `{ value?: string, hide?: bool, fontFamily?: string }`
+ *   - rich:      an object `{ runs: [...], hide?: bool, fontFamily?: string }`
+ *     — only for inputs with `richText: true`. The web fill page smuggles the
+ *     same runs through its string-typed mirror fields as a `{"runs":[...]}`
+ *     JSON envelope, which is detected here (and ONLY for rich inputs, so a
+ *     plain input's literal text can never be misparsed).
  *
  * `hide` is honored only when the input definition has `hidable: true`; it is
  * silently ignored otherwise.
+ *
+ * `fontFamily` is the user's FONT CHOICE for the whole textbox — one of the
+ * input's font options ({@see RichTextOptions::allowedFamiliesFor()}: the
+ * designed font plus what the designer opened up). Outside that list it is a
+ * structured 400 `font_not_allowed` in strict mode and dropped leniently —
+ * the same treatment a rich run's font gets. Applied before the text, so a
+ * rich value's unstyled runs inherit it.
  */
 readonly final class ResolveTextOverrides
 {
@@ -60,6 +67,8 @@ readonly final class ResolveTextOverrides
         $hidden = [];
         /** @var array<string, RichText> $richTexts */
         $richTexts = [];
+        /** @var array<string, string> $fonts */
+        $fonts = [];
 
         foreach ($inputs as $input) {
             if ($input->locked) {
@@ -96,7 +105,33 @@ readonly final class ResolveTextOverrides
             $lenient = $truncateOverflow || !$provided;
             $label = $input->name ?? $inputId;
 
-            [$textValue, $hideValue, $rawRuns, $rawLines] = $this->parseValue($label, $rawValue, $input->richText, $lenient);
+            [$textValue, $hideValue, $rawRuns, $rawLines, $fontFamily] = $this->parseValue($label, $rawValue, $input->richText, $lenient);
+
+            // An object carrying only `hide` / `fontFamily` addresses the
+            // input without giving it a TEXT — the sample still stands in for
+            // the text (leniently, exactly as for an omitted input), so a
+            // font pick on an untouched field never swaps the sample for the
+            // designed stand-in.
+            if ($provided && $textValue === null && $rawRuns === null && $input->sampleValue !== null) {
+                [$textValue, , $rawRuns, $rawLines] = $this->parseValue($label, $input->sampleValue, $input->richText, true);
+                $lenient = true;
+            }
+
+            if ($fontFamily !== null) {
+                $allowedFonts = $richTextOptions?->allowedFamiliesFor($inputId);
+
+                if ($allowedFonts !== null && !in_array($fontFamily, $allowedFonts, true)) {
+                    if (!$lenient) {
+                        throw InvalidRichTextValue::fontNotAllowed($label, $fontFamily, $allowedFonts);
+                    }
+
+                    $fontFamily = null;
+                }
+
+                if ($fontFamily !== null) {
+                    $fonts[$inputId] = $fontFamily;
+                }
+            }
 
             if ($rawRuns !== null) {
                 $richText = RichText::fromRaw(
@@ -159,11 +194,11 @@ readonly final class ResolveTextOverrides
             }
         }
 
-        return new ResolvedInputOverrides($texts, $hidden, $richTexts);
+        return new ResolvedInputOverrides($texts, $hidden, $richTexts, $fonts);
     }
 
     /**
-     * @return array{0: string|null, 1: bool|null, 2: list<mixed>|null, 3: list<mixed>|null}
+     * @return array{0: string|null, 1: bool|null, 2: list<mixed>|null, 3: list<mixed>|null, 4: string|null}
      */
     private function parseValue(string $label, mixed $raw, bool $richAllowed, bool $lenient): array
     {
@@ -172,11 +207,11 @@ readonly final class ResolveTextOverrides
                 $envelope = RichText::tryExtractEnvelope($raw);
 
                 if ($envelope !== null) {
-                    return [null, null, $envelope['runs'], $envelope['lines']];
+                    return [null, null, $envelope['runs'], $envelope['lines'], null];
                 }
             }
 
-            return [$raw, null, null, null];
+            return [$raw, null, null, null, null];
         }
 
         if (!is_array($raw)) {
@@ -190,6 +225,7 @@ readonly final class ResolveTextOverrides
         $hideValue = null;
         $rawRuns = null;
         $rawLines = null;
+        $fontFamily = $this->parseFontFamily($label, $raw, $lenient);
 
         if (array_key_exists('runs', $raw)) {
             if (!$richAllowed) {
@@ -223,12 +259,37 @@ readonly final class ResolveTextOverrides
                 $envelope = RichText::tryExtractEnvelope($textValue);
 
                 if ($envelope !== null) {
-                    return [null, $this->parseHide($label, $raw), $envelope['runs'], $envelope['lines']];
+                    return [null, $this->parseHide($label, $raw), $envelope['runs'], $envelope['lines'], $fontFamily];
                 }
             }
         }
 
-        return [$textValue, $this->parseHide($label, $raw), $rawRuns, $rawLines];
+        return [$textValue, $this->parseHide($label, $raw), $rawRuns, $rawLines, $fontFamily];
+    }
+
+    /**
+     * The whole-text font choice. An empty string is the web select's
+     * "výchozí" option — no override, not an invalid one.
+     *
+     * @param array<mixed> $raw
+     */
+    private function parseFontFamily(string $label, array $raw, bool $lenient): null|string
+    {
+        if (!array_key_exists('fontFamily', $raw) || $raw['fontFamily'] === null) {
+            return null;
+        }
+
+        $fontFamily = $raw['fontFamily'];
+
+        if (!is_string($fontFamily)) {
+            if (!$lenient) {
+                throw new BadRequestHttpException(sprintf('Input "%s".fontFamily must be a string or null.', $label));
+            }
+
+            return null;
+        }
+
+        return trim($fontFamily) === '' ? null : $fontFamily;
     }
 
     /**

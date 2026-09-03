@@ -7,11 +7,14 @@ namespace WBoost\Web\Api\Templates;
 final class ExportRequest
 {
     /**
-     * Map of inputId UUID → value: a plain string, `{ value, hide }`, or — for
-     * inputs with `richText: true` — `{ runs: [...], hide }` where each run is
-     * `{ "text": "...", "fontFamily": null|string, "color": null|"#rrggbb",
-     * "underline": bool }` (null style = inherit the designed style; fonts
-     * must come from the variant's `richTextOptions.fonts[].family`).
+     * Map of inputId UUID → value: a plain string, `{ value, hide, fontFamily }`,
+     * or — for inputs with `richText: true` — `{ runs: [...], hide, fontFamily }`
+     * where each run is `{ "text": "...", "fontFamily": null|string,
+     * "color": null|"#rrggbb", "underline": bool }` (null style = inherit the
+     * designed style). Fonts — a run's and the whole-text `fontFamily` alike —
+     * must come from that input's `fontOptions[].family`; `fontFamily` on the
+     * value switches the WHOLE textbox (the user's font choice) and is only
+     * accepted for inputs that list `fontOptions`.
      * Inputs whose ids are missing keep the variant's default canvas text.
      * Locked inputs cannot be addressed and are always served from the canvas
      * defaults. Discover ids via `GET /api/projects/{projectId}/templates`

@@ -34,7 +34,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     /** Real, decodable 1×1 VP8 WebP (44 bytes): `RIFF` + `WEBP` + `VP8 `. */
     private const string FIXED_WEBP_BASE64 = 'UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=';
 
-    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string}> */
+    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, fonts: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string}> */
     public array $calls = [];
 
     /**
@@ -145,6 +145,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
             'slice' => $slice === null ? null : [$slice->fromIndex, $slice->toIndex, $slice->withBackground],
             'texts' => $overrides->texts,
             'richTexts' => $richTexts,
+            'fonts' => $overrides->fonts,
             'hidden' => $overrides->hidden,
             'images' => $images,
             'imagesHidden' => $imagesHidden,

@@ -74,6 +74,19 @@ final readonly class TemplateVariantInputResponse
          * too. Null when the textbox cannot be located on the canvas.
          */
         public null|int $layerIndex = null,
+        /**
+         * The font faces THIS input may be filled in — the designed font first
+         * (`textStyle.fontFamily`), then what the designer opened up. Non-null
+         * when the user may switch: always for a rich input (it is the
+         * per-input whitelist for the runs' `fontFamily`), for a plain input
+         * only when the designer enabled the choice. Send the pick as the
+         * value's `fontFamily` (`{ value, fontFamily }`) — a whole-text
+         * switch; a family outside this list is a 400 `font_not_allowed`.
+         * Null = no choice, the input renders in its designed font.
+         *
+         * @var null|list<RichTextFontOptionResponse>
+         */
+        public null|array $fontOptions = null,
     ) {
     }
 }

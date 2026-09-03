@@ -1,5 +1,12 @@
 import { Controller } from "@hotwired/stimulus";
 import { applyChecklistItems, applySampleToCanvasText, checklistItems, itemsFromValue } from './canvas_checklist_sample.js';
+import {
+    buildFontOptgroups,
+    collectAllowedFonts,
+    effectiveFontOptions,
+    planFontChoice,
+    renderFontChoiceList,
+} from './canvas_font_choice.js';
 
 /**
  * Editor-side input metadata: name / description / locked / hidable /
@@ -15,11 +22,24 @@ import { applyChecklistItems, applySampleToCanvasText, checklistItems, itemsFrom
  * inline canvas edit (Fabric fires text:changed only for interactive edits,
  * never for our programmatic set), after which renaming never touches the
  * designed text again.
+ *
+ * Font choice ("Uživatel může přepínat písmo"): `allowedFonts` on the
+ * textbox = the EXTRA faces the end user may switch to. The checklist
+ * (canvas_font_choice.js) shows every project face grouped by font with the
+ * designed one locked-checked — never persisted, it follows the canvas font
+ * — and the popover's toggle is derived from the pick (empty = off). The
+ * same checklist backs the "Přidat text" modal (`#addTextFontChoiceList`)
+ * and narrows the "Vzorový text" WYSIWYG's face menu per input.
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
+    static values = {
+        // Every project face: { family, fontName, faceName, weight, style, url }.
+        fontFaces: { type: Array, default: [] },
+    };
     static targets = [
         "name", "description", "locked", "hidable", "uppercase", "richText",
+        "fontChoice", "fontChoiceList", "fontChoiceHint", "fontChoiceEmpty",
         "lists", "listConfig", "listBullet", "listBulletPreview", "listBulletPick",
         "listIndent", "listItemSpacing", "listBlockSpacing",
         "listCheckboxes", "checkboxConfig",
@@ -48,6 +68,21 @@ export default class extends Controller {
             };
             sampleModal.addEventListener('hidden.bs.modal', this._onSampleModalHidden);
         }
+
+        // The "Přidat text" modal's font checklist follows its font select;
+        // (re)built on every open so a closed-and-reopened modal starts clean.
+        const addTextModal = document.getElementById('addTextModal');
+        if (addTextModal) {
+            this._onAddTextModalShown = () => this._resetAddTextFontChoice();
+            addTextModal.addEventListener('show.bs.modal', this._onAddTextModalShown);
+        }
+
+        // A font checklist change anywhere (the popover list dispatches its
+        // change on the container) — persist the popover's picks.
+        this._onFontChoiceChange = () => this.updateAllowedFonts();
+        if (this.hasFontChoiceListTarget) {
+            this.fontChoiceListTarget.addEventListener('change', this._onFontChoiceChange);
+        }
     }
 
     disconnect() {
@@ -56,6 +91,13 @@ export default class extends Controller {
         const sampleModal = document.getElementById('sampleTextModal');
         if (sampleModal && this._onSampleModalHidden) {
             sampleModal.removeEventListener('hidden.bs.modal', this._onSampleModalHidden);
+        }
+        const addTextModal = document.getElementById('addTextModal');
+        if (addTextModal && this._onAddTextModalShown) {
+            addTextModal.removeEventListener('show.bs.modal', this._onAddTextModalShown);
+        }
+        if (this.hasFontChoiceListTarget && this._onFontChoiceChange) {
+            this.fontChoiceListTarget.removeEventListener('change', this._onFontChoiceChange);
         }
     }
 
@@ -106,6 +148,126 @@ export default class extends Controller {
         this._syncListControls(activeObject);
         this._syncChecklistControls(activeObject);
         this._syncSampleChrome(activeObject);
+        this._fontChoiceOpenFor = null;
+        this._syncFontChoice(activeObject);
+    }
+
+    // --- Font choice ("Uživatel může přepínat písmo") -----------------------
+
+    /** Populate the toggle + checklist for the active textbox. The toggle
+     *  reflects a NON-EMPTY pick (or a just-opened, still-empty list — the
+     *  transient state between ticking the box and ticking a face). */
+    _syncFontChoice(activeObject) {
+        if (!this.hasFontChoiceTarget || !this.hasFontChoiceListTarget) return;
+        const allowed = Array.isArray(activeObject.allowedFonts) ? activeObject.allowedFonts : [];
+        const open = allowed.length > 0 || this._fontChoiceOpenFor === activeObject;
+        this.fontChoiceTarget.checked = open;
+        this.fontChoiceTarget.disabled = activeObject.locked === true;
+        if (this.hasFontChoiceHintTarget) {
+            this.fontChoiceHintTarget.title = activeObject.richText
+                ? 'Editor textu nabízí řezy použitého písma (tučné, kurzíva) vždy; zaškrtnutá písma přibudou do nabídky.'
+                : 'Při vyplňování se u pole zobrazí výběr písma: použité písmo + zaškrtnutá.';
+        }
+        this.fontChoiceListTarget.classList.toggle('d-none', !open);
+        if (open) {
+            renderFontChoiceList(this.fontChoiceListTarget, planFontChoice(this.fontFacesValue, {
+                designedFamily: activeObject.fontFamily || '',
+                richText: activeObject.richText === true,
+                allowedFonts: allowed,
+            }));
+        }
+        if (this.hasFontChoiceEmptyTarget) {
+            this.fontChoiceEmptyTarget.classList.toggle('d-none', !open || allowed.length > 0);
+        }
+    }
+
+    /** The popover toggle: on opens the (empty) checklist, off clears the
+     *  pick — an empty pick IS "no choice", nothing else to persist. */
+    toggleFontChoice(event) {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        if (event.target.checked) {
+            this._fontChoiceOpenFor = activeObject;
+        } else {
+            this._fontChoiceOpenFor = null;
+            if (Array.isArray(activeObject.allowedFonts) && activeObject.allowedFonts.length > 0) {
+                activeObject.allowedFonts = [];
+                this.canvasEditorOutlet.markUnsaved();
+            }
+        }
+        this._syncFontChoice(activeObject);
+    }
+
+    /** A face checkbox / group checkbox changed in the popover list. */
+    updateAllowedFonts() {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject || !this.hasFontChoiceListTarget) return;
+        const picked = collectAllowedFonts(this.fontChoiceListTarget);
+        const before = Array.isArray(activeObject.allowedFonts) ? activeObject.allowedFonts : [];
+        if (JSON.stringify(picked) === JSON.stringify(before)) return;
+        activeObject.allowedFonts = picked;
+        if (picked.length > 0) this._fontChoiceOpenFor = null;
+        if (this.hasFontChoiceEmptyTarget) {
+            this.fontChoiceEmptyTarget.classList.toggle('d-none', picked.length > 0);
+        }
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    /** The designed font changed (popover font select) — the locked "výchozí"
+     *  row moves with it; the same after a rich toggle flips whole-family vs
+     *  single-face locking. */
+    refreshFontChoice() {
+        const activeObject = this._getActiveTextbox();
+        if (!activeObject) return;
+        // A face that just became the designed one is implied, not a pick.
+        if (Array.isArray(activeObject.allowedFonts) && activeObject.allowedFonts.length > 0) {
+            const implied = new Set(effectiveFontOptions(this.fontFacesValue, {
+                designedFamily: activeObject.fontFamily || '',
+                richText: activeObject.richText === true,
+                allowedFonts: [],
+            }).map((face) => face.family));
+            const kept = activeObject.allowedFonts.filter((family) => !implied.has(family));
+            if (kept.length !== activeObject.allowedFonts.length) {
+                activeObject.allowedFonts = kept;
+                this.canvasEditorOutlet.markUnsaved();
+            }
+        }
+        this._syncFontChoice(activeObject);
+    }
+
+    // "Přidat text" modal: the same checklist against the modal's own font
+    // select (there is no textbox yet — canvas-editor#submitAddText reads the
+    // picks straight from the list).
+    _resetAddTextFontChoice() {
+        const toggle = document.getElementById('addTextFontChoice');
+        const list = document.getElementById('addTextFontChoiceList');
+        if (toggle) toggle.checked = false;
+        if (list) {
+            list.classList.add('d-none');
+            list.textContent = '';
+        }
+    }
+
+    toggleAddTextFontChoice(event) {
+        const list = document.getElementById('addTextFontChoiceList');
+        if (!list) return;
+        list.classList.toggle('d-none', !event.target.checked);
+        if (event.target.checked) this.refreshAddTextFontChoice();
+    }
+
+    refreshAddTextFontChoice() {
+        const toggle = document.getElementById('addTextFontChoice');
+        const list = document.getElementById('addTextFontChoiceList');
+        const select = document.getElementById('addTextFont');
+        if (!toggle || !toggle.checked || !list) return;
+        // Keep the picks across a font change; the newly designed face is
+        // implied and drops out of the pick on its own.
+        const previous = collectAllowedFonts(list);
+        renderFontChoiceList(list, planFontChoice(this.fontFacesValue, {
+            designedFamily: select ? select.value : '',
+            richText: false,
+            allowedFonts: previous,
+        }));
     }
 
     /** Checklist COMPONENT inputs: show the capability toggles, hide the
@@ -358,6 +520,15 @@ export default class extends Controller {
             clone.dataset.richTextEditorRunsValue = JSON.stringify(seed.runs);
             clone.dataset.richTextEditorLinesValue = JSON.stringify(seed.lines);
             clone.dataset.richTextEditorDesignFontValue = activeObject.fontFamily || '';
+            // The face menu is THIS input's offer (designed family + picks),
+            // exactly what the fill page will show — not every project face.
+            const inputFonts = effectiveFontOptions(this.fontFacesValue, {
+                designedFamily: activeObject.fontFamily || '',
+                richText: true,
+                allowedFonts: Array.isArray(activeObject.allowedFonts) ? activeObject.allowedFonts : [],
+            });
+            clone.dataset.richTextEditorFontsValue = JSON.stringify(inputFonts);
+            buildFontOptgroups(clone.querySelector('[data-rich-text-editor-target="fontSelect"]'), inputFonts, { defaultLabel: 'Výchozí písmo' });
             const listButtons = clone.querySelector('[data-sample-lists]');
             if (listButtons) listButtons.classList.toggle('d-none', !activeObject.lists);
             const checkboxButton = clone.querySelector('[data-sample-checkboxes]');
@@ -504,6 +675,7 @@ export default class extends Controller {
         if (!activeObject) return;
         activeObject.locked = event.target.checked;
         if (this.hasRichTextTarget) this.richTextTarget.disabled = activeObject.locked;
+        if (this.hasFontChoiceTarget) this.fontChoiceTarget.disabled = activeObject.locked;
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }
@@ -533,6 +705,7 @@ export default class extends Controller {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.richText = event.target.checked;
+        this.refreshFontChoice();
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }

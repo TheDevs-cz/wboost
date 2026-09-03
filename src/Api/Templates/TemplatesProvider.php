@@ -209,10 +209,38 @@ final readonly class TemplatesProvider implements ProviderInterface
             }
         }
 
+        // Per-input font options — computed (fonts + manuals queries) only
+        // when some input can actually switch fonts.
+        $fontOptions = null;
+        foreach ($variant->inputs as $input) {
+            if (!$input->locked && ($input->richText || $input->offersFontChoice())) {
+                $fontOptions = $this->resolveRichTextOptions->forVariant($variant);
+                break;
+            }
+        }
+
         return array_values(array_map(
-            function (EditorTextInput $input) use ($frames, $textStyles, $containerIdByInputId, $layerIndexes): TemplateVariantInputResponse {
+            function (EditorTextInput $input) use ($frames, $textStyles, $containerIdByInputId, $layerIndexes, $fontOptions): TemplateVariantInputResponse {
                 $frame = $frames[$input->inputId] ?? null;
                 $textStyle = $textStyles[$input->inputId] ?? null;
+
+                // Rich inputs always list their whitelist; a plain input only
+                // when the designer opened it up AND an extra face resolved —
+                // null, not a one-entry list, when there is nothing to switch to.
+                $inputFontOptions = null;
+                if ($fontOptions !== null && !$input->locked && ($input->richText || $fontOptions->offersFontSwitch($input))) {
+                    $inputFontOptions = array_map(
+                        static fn (RichTextFontOption $font): RichTextFontOptionResponse => new RichTextFontOptionResponse(
+                            family: $font->family,
+                            fontName: $font->fontName,
+                            faceName: $font->faceName,
+                            weight: $font->weight,
+                            style: $font->style,
+                            url: $font->url,
+                        ),
+                        $fontOptions->fontOptionsFor($input->inputId),
+                    );
+                }
 
                 $listStyle = null;
                 if ($input->richText && $input->lists) {
@@ -268,6 +296,7 @@ final readonly class TemplatesProvider implements ProviderInterface
                         )
                         : null,
                     containerId: $containerIdByInputId[$input->inputId] ?? null,
+                    fontOptions: $inputFontOptions,
                     textStyle: $textStyle !== null
                         ? new TemplateVariantInputTextStyleResponse(
                             fontFamily: $textStyle['fontFamily'],

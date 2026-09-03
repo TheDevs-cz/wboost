@@ -100,16 +100,16 @@ readonly final class DesignCompiler
         'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
         'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
         'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
-        'sampleValue',
+        'sampleValue', 'allowedFonts',
         'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
         'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
     ];
 
     /**
-     * The custom properties a compiled TEXTBOX carries — the seven-key
-     * {@see \WBoost\Web\Mcp\Design\Dsl\TextInputSpec} plus `inputId` and the
-     * always-null `description` (the DSL has no word for it yet, and writing
-     * the key with its resolved value keeps the canvas shape stable).
+     * The custom properties a compiled TEXTBOX carries — the
+     * {@see \WBoost\Web\Mcp\Design\Dsl\TextInputSpec} keys plus `inputId` and
+     * the always-null `description` (the DSL has no word for it yet, and
+     * writing the key with its resolved value keeps the canvas shape stable).
      *
      * The list machinery (`lists`, `listBullet`, the checklist component, …) is
      * Stage-6+ DSL surface. Not writing those keys leaves the editor's own
@@ -118,7 +118,7 @@ readonly final class DesignCompiler
      * @var list<string>
      */
     public const array TEXT_CUSTOM_PROPERTIES = [
-        'inputId', 'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'sampleValue',
+        'inputId', 'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'sampleValue', 'allowedFonts',
     ];
 
     /**
@@ -236,6 +236,15 @@ readonly final class DesignCompiler
             if ($element instanceof TextElement) {
                 if (!$context->allowsFont($element->font)) {
                     $violations[] = self::fontNotAllowed($index, $element->font, $context->allowedFonts);
+                }
+
+                // The font choice names faces the same way `font` does, and an
+                // unknown one is the same hard error — offering the end user a
+                // font that does not exist is not a design anyone can fill.
+                foreach ($element->input->allowedFonts as $position => $family) {
+                    if (!$context->allowsFont($family)) {
+                        $violations[] = self::fontNotAllowed($index, $family, $context->allowedFonts, sprintf('input.allowedFonts[%d]', $position));
+                    }
                 }
 
                 $object = $this->compileTextObject($element, $rect, $inputId);
@@ -527,6 +536,7 @@ readonly final class DesignCompiler
             'hidable' => $element->input->hidable,
             'richText' => $element->input->richText,
             'sampleValue' => $element->input->sampleValue,
+            'allowedFonts' => $element->input->allowedFonts,
         ];
     }
 
@@ -547,6 +557,7 @@ readonly final class DesignCompiler
             hidable: $element->input->hidable,
             richText: $element->input->richText,
             sampleValue: $element->input->sampleValue,
+            allowedFonts: $element->input->allowedFonts,
         );
     }
 
@@ -1159,9 +1170,9 @@ readonly final class DesignCompiler
      *
      * @param list<string> $allowed
      */
-    public static function fontNotAllowed(int $index, string $font, array $allowed): CompileViolation
+    public static function fontNotAllowed(int $index, string $font, array $allowed, string $key = 'font'): CompileViolation
     {
-        $path = sprintf('elements[%d].font', $index);
+        $path = sprintf('elements[%d].%s', $index, $key);
 
         $message = $allowed === []
             ? sprintf(

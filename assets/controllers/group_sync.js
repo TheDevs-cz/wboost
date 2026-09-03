@@ -47,6 +47,9 @@ const META_KEYS = [
     'listCheckboxes', 'listCheckboxImage', 'listCheckboxCheckedImage',
     'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
     'sampleValue',
+    // Font choice: face family strings are dimension-independent (the
+    // projector keeps the family), so the pick copies exactly.
+    'allowedFonts',
     // Shapes: cosmetic layers-panel label only, but it keeps a re-synced
     // sibling from reading as a different element than the one it mirrors.
     'shapeKind',

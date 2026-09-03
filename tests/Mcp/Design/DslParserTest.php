@@ -715,7 +715,7 @@ final class DslParserTest extends TestCase
             self::documentWith(self::textElement(['input' => ['lists' => true]])),
             'elements[0].input.lists',
             DslErrorCode::UnknownKey,
-            'Allowed keys: name, maxLength, uppercase, hidable, locked, richText, sampleValue.',
+            'Allowed keys: name, maxLength, uppercase, hidable, locked, richText, sampleValue, allowedFonts.',
         ];
         yield 'unknown image input key' => [
             self::documentWith(self::imageElement(['input' => ['allowSkew' => true]])),

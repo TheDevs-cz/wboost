@@ -149,6 +149,7 @@ final class DescribeVariantTest extends WebTestCase
                 // the next input must NOT have shifted the binding.
                 'frame' => ['x' => 80, 'y' => 100, 'width' => 520, 'height' => 80],
                 'containerId' => TestDataFixture::ORIENTATION_ROOT_CONTAINER_ID,
+                'fontOptions' => null,
             ],
             $inputs[TestDataFixture::ORIENTATION_INPUT_INTRO_ID],
         );
@@ -285,6 +286,42 @@ final class DescribeVariantTest extends WebTestCase
             ['id' => TestDataFixture::FILE_DIRECTORY_OTHER_ID, 'name' => 'Other'],
             $directories,
         );
+    }
+
+    /**
+     * `inputs[].fontOptions` — the per-input font offer — is the REST
+     * listing's `fontOptions[].family` list, so an agent and a browser
+     * consumer read the same offer for the same input.
+     */
+    public function testFontOptionsAgreeWithTheRestApiListing(): void
+    {
+        $seen = 0;
+
+        foreach ($this->apiVariantsById(TestDataFixture::PROJECT_1_ID) as $variantId => $apiVariant) {
+            $mcp = self::inputsById($this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, $variantId), 'inputs');
+
+            self::assertIsArray($apiVariant['inputs'] ?? null);
+            foreach ($apiVariant['inputs'] as $apiInput) {
+                self::assertIsArray($apiInput);
+                self::assertIsString($apiInput['id']);
+                $expected = null;
+                if ($apiInput['fontOptions'] !== null) {
+                    self::assertIsArray($apiInput['fontOptions']);
+                    $expected = [];
+                    foreach ($apiInput['fontOptions'] as $option) {
+                        self::assertIsArray($option);
+                        $expected[] = $option['family'];
+                    }
+                    $seen++;
+                }
+
+                self::assertArrayHasKey($apiInput['id'], $mcp, 'Input ' . $apiInput['id']);
+                self::assertArrayHasKey('fontOptions', $mcp[$apiInput['id']], 'Input ' . $apiInput['id']);
+                self::assertSame($expected, $mcp[$apiInput['id']]['fontOptions'], 'Input ' . $apiInput['id']);
+            }
+        }
+
+        self::assertGreaterThan(0, $seen, 'the fixtures carry inputs with a font offer');
     }
 
     /**

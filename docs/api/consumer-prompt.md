@@ -184,6 +184,7 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
               "textAlign": "left"                       // left|center|right|justify — e.g. to anchor a name tag on the box
             },
             "richText": false,                          // true → offer the WYSIWYG; export accepts { runs } for this input
+            "fontOptions": null,                        // nullable; non-null → the user may SWITCH the font (see "Font choice")
             "layerIndex": 2                             // stacking order (0 = backmost); one index space with imageInputs[].layerIndex, nullable
           }
         ],
@@ -271,6 +272,7 @@ Content-Type: application/json
     "95b025f2-9ea9-40ed-a1e9-737e23a4a953": "Hello world",          // plain string sets the text
     "db3a6588-d604-4c1b-9440-8412d8624bab": { "value": "Line two" },// object form
     "0a0de75d-57bc-4e35-a2cc-33c8dc5ecd4d": { "hide": true },       // hide (only if hidable)
+    "3f9c2b10-6d4e-4a7b-9c1d-5e8f7a6b4c2d": { "value": "Sale", "fontFamily": "Rubik (Rubik Bold)" }, // FONT CHOICE — only inputs with fontOptions
     "7c1e42aa-91b3-4f6e-9d3f-2b8f0c11aa55": { "runs": [             // RICH value — only for inputs with richText: true
       { "text": "Hello " },                                          // unstyled run = inherits the designed style
       { "text": "world", "fontFamily": "Rubik (Rubik Bold)",         // styled run: font face + color + underline
@@ -286,6 +288,9 @@ Server rules (mirror these in the UI):
   (see "Rich text (WYSIWYG) inputs" below). `runs` and `value` are mutually
   exclusive (`400 invalid_rich_text` if both are sent).
 - `hide` honored only if that input is `hidable: true`; ignored otherwise.
+- `fontFamily` (next to `value` OR `runs`) switches the WHOLE textbox to one of
+  that input's `fontOptions[].family` — a `400 font_not_allowed` otherwise, and
+  always where `fontOptions` is `null` (see "Font choice").
 - `maxLength` enforced → over-length value returns **`400`** (for rich values it
   counts the **concatenation** of all run texts).
 - `uppercase: true` inputs are uppercased automatically (rich runs keep their
@@ -363,7 +368,7 @@ structured `400` `{ "error": "...", "code": "..." }` with one of these codes:
 |---|---|
 | `rich_text_not_allowed` | You sent `{ runs }` for an input whose `richText` is `false`. Send a plain string instead. |
 | `invalid_rich_text` | Malformed runs (non-object run, missing/non-string `text`, unknown run key, `runs` + `value` together, > 200 runs, > 10 000 chars total). |
-| `font_not_allowed` | A run's `fontFamily` is not in `richTextOptions.fonts[].family`. The body includes `allowedFonts` (the valid family list). |
+| `font_not_allowed` | A run's `fontFamily` — or the value-level `fontFamily` (font choice) — is not in THAT input's `fontOptions[].family`. The body includes `allowedFonts` (the input's valid family list; empty when the input offers no choice at all). |
 | `invalid_color` | A run's `color` isn't a hex color. Use `#rrggbb` (or `#rgb`); **no alpha**. Colors are otherwise free-form — `richTextOptions.colors` are suggested brand swatches, NOT a whitelist. |
 | `lists_not_allowed` | You sent `lines` list types (`ul`/`ol`/`cb`/`cbx`) for an input whose `lists` is `false`. Drop the `lines` key or send only `"p"` entries. |
 | `checkbox_lists_not_allowed` | You sent checkbox line types (`cb`/`cbx`) for an input whose `listCheckboxes` is `false`. Use `ul`/`ol` items instead. |
@@ -386,14 +391,38 @@ For each entry in `variant.inputs`:
 | `containerId` | Nullable. When set, this input is a member of `variants[].containers[]` entry with that id and reflows at render time. |
 | `textStyle` | Nullable `{fontFamily, fontSize, lineHeight, charSpacing, textAlign}` — the Fabric text metrics of the box (wrap width = `frame.width`). Only needed if you want to re-measure wrapped text height client-side to mirror the reflow, or to anchor a name tag by `textAlign` (`left`\|`center`\|`right`\|`justify`). |
 | `richText` | When `true`, render a **simple WYSIWYG** instead of a plain field (see "Rich text (WYSIWYG) inputs") and send the value as `{ runs: [...] }`. A plain string is still accepted (renders unstyled). |
+| `fontOptions` | Nullable list of font faces (same shape as `richTextOptions.fonts[]`, designed font FIRST). Non-null → the user may switch this input's font: render a font select (plain inputs) or use it as the WYSIWYG's face menu (rich inputs) and send the pick as the value's `fontFamily` (see "Font choice"). `null` → no choice, render in the designed font only. |
 | `lists` / `listStyle` | When `lists` is `true`, offer bullet/numbered-list buttons in the WYSIWYG and send per-line types via the envelope's `lines` key (see "Lists inside rich text"). `listStyle` carries the RESOLVED bullet + spacing geometry for local preview mirroring. |
 | `listCheckboxes` | When `true` (implies `lists`), additionally offer a CHECKBOX-list button and per-item check toggles — `lines` may then carry `"cb"` (unchecked) / `"cbx"` (checked) item types (see "Checkbox lists"). |
 | `checklist` | Nullable object. Non-null → this input is a DEDICATED checklist component: render a fixed per-item editor instead of a WYSIWYG (see "Checklist components"). |
 | `sampleValue` | Nullable. The admin's default fill ("Vzorový text") the render uses when you OMIT the input entirely. Same wire format the export accepts: a plain string, or the `{"runs":[...],"lines":[...]}` envelope (a JSON string starting with `{"runs"`). Prefill your form with it so an untouched export matches the preview; sending an explicit `""` suppresses it (renders empty). |
 | `layerIndex` | Nullable int — the object's stacking position on the variant canvas (0 = backmost, higher = painted on top). Shares ONE index space with `imageInputs[].layerIndex`: merge both arrays and sort by `layerIndex` **descending** to build a Photoshop-style layers list (topmost first). Values may have gaps (decorative design objects occupy positions too); only the relative order is meaningful. Purely informational for display/navigation — the export accepts no z-order overrides. |
 
-Build the `inputs` payload as `{ <inputId>: <string|{value,hide}|{runs,hide}> }`,
+Build the `inputs` payload as `{ <inputId>: <string|{value,hide,fontFamily}|{runs,hide,fontFamily}> }`,
 including only the inputs the user actually edited/toggled (omitted = default).
+
+### Font choice (`inputs[].fontOptions` non-null)
+
+The designer can let the end user SWITCH an input's font ("Uživatel může
+přepínat písmo"). `fontOptions` lists the faces that input may be filled in —
+the designed one first (`textStyle.fontFamily`), then what the designer opened
+up — as `{ family, fontName, faceName, weight, style, url }` entries (the
+`richTextOptions.fonts[]` shape; `@font-face` the `url`s to preview them).
+
+- **Plain input with `fontOptions`**: render a font select above/next to the
+  field (group by `fontName`, label the first entry as the default) and send
+  the pick as `{ "value": "…", "fontFamily": "<family>" }`. No pick / the
+  default = omit `fontFamily`.
+- **Rich input**: `fontOptions` IS the per-input whitelist for the runs'
+  `fontFamily` — use it as the WYSIWYG's face menu instead of the variant-wide
+  `richTextOptions.fonts` (which is only the UNION over the rich inputs, kept
+  for `@font-face` loading). A value-level `fontFamily` is also accepted there
+  (switches the base font; runs still override per segment).
+- `fontFamily` outside the input's `fontOptions` — or on an input whose
+  `fontOptions` is `null` — is a `400 font_not_allowed` with `allowedFonts`.
+- The switch is a whole-text override applied BEFORE the text, so wrapping and
+  container reflow follow the picked face; the server render stays
+  authoritative.
 
 ### Rich text (WYSIWYG) inputs (`inputs[].richText: true`)
 
@@ -414,9 +443,12 @@ Contract details:
 - Run keys: `text` (required string; newlines allowed — `\n` renders as a hard
   line break, CRLF/CR are canonicalized to `\n`), `fontFamily`
   (nullable string), `color` (nullable hex), `underline` (bool). No other keys.
+- **The face menu is per input.** Offer `inputs[].fontOptions` (the designed
+  family's faces plus what the designer opened up for THAT input) — a face
+  from another input's list is a `400 font_not_allowed` here.
 - **Bold/italic are font faces, not flags.** The app stores each uploaded face
   as its own family (`"Rubik (Rubik Bold)"`). Build a B/I toggle by grouping
-  `richTextOptions.fonts` by `fontName` and switching a run's `fontFamily` to
+  the input's `fontOptions` by `fontName` and switching a run's `fontFamily` to
   the sibling face with `weight >= 600` (bold) / `style === "italic"` (italic);
   the metadata is best-effort — disable the button when no candidate face
   exists. A face dropdown is the reliable fallback.

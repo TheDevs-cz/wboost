@@ -459,6 +459,61 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   position. The mfkfm backoffice consumes this (zones + structured-400
   highlighting, no client reflow — its preview IS the server render).
 
+**Font choice — "Uživatel může přepínat písmo" (`allowedFonts` on
+`EditorTextInput`, 2026-09-03).** Per text input the designer may open the
+FONT to the end user: `allowedFonts` = the EXTRA face families (exact
+`"<Font> (<Face>)"` strings, the canvas' own vocabulary) on top of the
+designed one; empty = no choice. Single source of the per-input offer is
+`ResolveRichTextOptions` (now injected with `TextInputObjectBinder`):
+`computeInputFonts()` puts the designed font first — a RICH input gets every
+face of its family (B/I keep working), a PLAIN input its exact face — then the
+picks in project-font order (stale picks drop), and a rich input with nothing
+resolvable falls back to all project fonts (the pre-choice behaviour).
+`RichTextOptions` carries `fontsByInput` + `designedByInput`; `fonts` is now
+the UNION over the rich inputs (the API's `richTextOptions.fonts`, kept for
+`@font-face` loading) and **validation is per input** —
+`ResolveTextOverrides` checks a run's `fontFamily` AND the new whole-text
+`fontFamily` override against `allowedFamiliesFor($inputId)` (strict: 400
+`font_not_allowed` with the input's list, lenient: dropped). Consequence for
+existing rich inputs: the WYSIWYG's face menu narrowed from "every canvas
+font" to the designed family unless the designer ticks more.
+
+- **Wire**: the whole-text pick is `fontFamily` on the value —
+  `{ value, hide, fontFamily }` / `{ runs, hide, fontFamily }` (API + MCP),
+  `fontValues[<inputId>]` on the web forms ("" = designed). It lands in
+  `ResolvedInputOverrides::$fonts` → the renderer's `font_overrides`, applied
+  in the render template BEFORE the text (plain re-wraps, unstyled runs
+  inherit, a list stack takes it as base) and after phase A; the override
+  families join the inlined `@font-face` narrowing. An object carrying only
+  `hide`/`fontFamily` keeps the SAMPLE as the text. Export versions store
+  `fonts` (emitted in `toArray()` only when non-empty — hash stability for
+  stored font-less versions), the seeder re-validates picks against the
+  current offer.
+- **Fill pages**: `AbstractVariantFiller::$fontValues` LiveProp + a
+  `data-font-mirror` hidden field per plain input with a choice (same
+  debounce class as text); the popover shows a font select (designed face
+  labelled "(výchozí)", switchable faces grouped — `textPlaceholders()` ships
+  `fontChoice/fontGroups/fontDefaultLabel/fontValue`); the WYSIWYG's face
+  menu is `ph.fontOptions` (per input). The echo painter applies
+  `values[id].fontFamily` before the text (designed font restored when
+  empty), `fillStateHash` / `_clientHash` add `F:<id>=<family>` lines after
+  the hides, the overlay re-measures with the picked face. Group page:
+  `GroupFillPlaceholders::fontOptions()` → a `fontValues[…]` select per
+  opened-up input, `GroupFillRenderer::render(..., rawFontValues:)`.
+- **API/MCP**: `inputs[].fontOptions` (nullable list, designed first; rich
+  always, plain only when `RichTextOptions::offersFontSwitch()`), MCP
+  `describe_variant` mirrors it as family strings; DSL `input.allowedFonts`
+  (validated like `font`, path `elements[i].input.allowedFonts[j]`).
+- **Admin editor**: `canvas_font_choice.js` (pure planner + checklist DOM:
+  fonts as tri-state group headers, faces previewed in their own face, the
+  designed row locked-checked with a "výchozí" badge — the designed font is
+  never persisted, so it follows the canvas font) used by the text popover
+  (toggle under "Písmo"), the "Přidat text" modal (which also gained a font
+  select) and to narrow the "Vzorový text" WYSIWYG menu per input. The
+  editor pages' `rich_toolbar` is now `forProject()` = EVERY project face
+  (`data-canvas-input-properties-font-faces-value`). `allowedFonts` ∈
+  `CANVAS_CUSTOM_PROPERTIES` / `META_KEYS` / `TEXT_CUSTOM_PROPERTIES`.
+
 **Rich text (WYSIWYG) placeholders**
 
 A text input flagged `richText: true` (admin checkbox "Formátovatelný text",

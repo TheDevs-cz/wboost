@@ -565,6 +565,21 @@ export default class extends Controller {
         this._scheduleSpinner();
     }
 
+    /** The whole-text font select of a plain input ("Uživatel může přepínat
+     *  písmo"): write the pick into its Live-bound mirror (the same debounced
+     *  settle path as text), re-measure the reflow locally — a different face
+     *  wraps differently — and show the spinner. */
+    syncFont(event) {
+        const inputId = event.params?.inputid;
+        if (!inputId) return;
+        const mirror = this.element.querySelector(`[data-font-mirror="${inputId}"]`);
+        if (!mirror) return;
+        mirror.value = event.target.value;
+        mirror.dispatchEvent(new Event("input", { bubbles: true }));
+        this._scheduleRecompute();
+        this._scheduleSpinner();
+    }
+
     /** A rich-text WYSIWYG (rich_text_editor_controller) changed its value.
      *  The editor already wrote the mirror + dispatched its `input` (Live
      *  debounce running); this hook adds the same local echo syncText gives
@@ -880,6 +895,9 @@ export default class extends Controller {
         const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
         const raw = mirror ? mirror.value : "";
         const module = window.WBoostRichTextRuns;
+        // The whole-text font choice ("" / no mirror = the designed face).
+        const fontMirror = this.element.querySelector(`[data-font-mirror="${inputId}"]`);
+        const fontFamily = fontMirror && fontMirror.value !== "" ? fontMirror.value : null;
 
         if (def.richText && module) {
             const blocksModule = window.WBoostRichTextBlocks;
@@ -915,6 +933,7 @@ export default class extends Controller {
                 text: module.plainText(runs),
                 runs: module.isStyled(runs) || lines ? runs : null,
                 lines,
+                fontFamily,
             };
         }
 
@@ -925,7 +944,7 @@ export default class extends Controller {
         if (def.uppercase) {
             value = value.toUpperCase();
         }
-        return { text: value, runs: null };
+        return { text: value, runs: null, fontFamily };
     }
 
     _isHidden(inputId) {
@@ -952,6 +971,13 @@ export default class extends Controller {
                     splitByGrapheme: false,
                 });
                 this._measureBoxes.set(inputId, box);
+            }
+
+            // The user's font choice re-wraps the box exactly as the render
+            // applies it (before the text); no pick = the designed face.
+            const fontFamily = value.fontFamily || def.style.fontFamily;
+            if (box.fontFamily !== fontFamily) {
+                box.set({ fontFamily });
             }
 
             const module = window.WBoostRichTextRuns;

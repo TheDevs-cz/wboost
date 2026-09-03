@@ -46,6 +46,22 @@
                             <label class="form-check-label" for="uppercaseCheckbox">Verzálky</label>
                         </div>
                     </div>
+                    {# Font + font choice, the same pair the text popover
+                       carries: the select picks the designed face (options are
+                       populated by canvas-editor#populateFontSelect), the
+                       checklist opens the input to the end user. #}
+                    <div class="mb-3">
+                        <label for="addTextFont" class="form-label">Písmo</label>
+                        <select class="form-select" id="addTextFont" data-action="change->canvas-input-properties#refreshAddTextFontChoice"></select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="addTextFontChoice" data-action="change->canvas-input-properties#toggleAddTextFontChoice">
+                            <label class="form-check-label" for="addTextFontChoice">Uživatel může přepínat písmo</label>
+                            <div class="form-text">Při vyplňování se u pole zobrazí výběr písma: použité písmo + zaškrtnutá.</div>
+                        </div>
+                        <div class="font-choice d-none mt-2" id="addTextFontChoiceList" aria-label="Písma k výběru"></div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">

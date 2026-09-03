@@ -17,11 +17,11 @@ namespace WBoost\Web\Mcp\Design\Dsl;
  * materializes this VO for every text element and consumers never branch on
  * null. (Contrast {@see ImageInputSpec}, where presence is meaningful.)
  *
- * The field set is deliberately the seven keys of plan §3.4 and no more. The
- * richer per-input machinery the app supports — lists, checkbox lists, the
- * checklist component, per-input list styling — is Stage-6+ DSL surface, not
- * an ad-hoc escape: leaving it out is what makes unknown-key rejection mean
- * something.
+ * The field set is deliberately the seven keys of plan §3.4 plus
+ * `allowedFonts` (the font choice — see below) and no more. The richer
+ * per-input machinery the app supports — lists, checkbox lists, the checklist
+ * component, per-input list styling — is Stage-6+ DSL surface, not an ad-hoc
+ * escape: leaving it out is what makes unknown-key rejection mean something.
  */
 readonly final class TextInputSpec
 {
@@ -45,11 +45,21 @@ readonly final class TextInputSpec
          * element's designed `text`.
          */
         public null|string $sampleValue = null,
+        /**
+         * Font choice: the ADDITIONAL faces (exact face strings from
+         * `get_context`, byte for byte) the end user may switch this text
+         * to. The designed `font` is always offered and never listed here —
+         * a rich input's WYSIWYG offers its whole family (bold / italic),
+         * a plain input its exact face. Empty = the user cannot switch.
+         *
+         * @var list<string>
+         */
+        public array $allowedFonts = [],
     ) {
     }
 
     /**
-     * @return array{name: null|string, maxLength: null|int, uppercase: bool, hidable: bool, locked: bool, richText: bool, sampleValue: null|string}
+     * @return array{name: null|string, maxLength: null|int, uppercase: bool, hidable: bool, locked: bool, richText: bool, sampleValue: null|string, allowedFonts: list<string>}
      */
     public function toArray(): array
     {
@@ -61,6 +71,7 @@ readonly final class TextInputSpec
             'locked' => $this->locked,
             'richText' => $this->richText,
             'sampleValue' => $this->sampleValue,
+            'allowedFonts' => $this->allowedFonts,
         ];
     }
 }

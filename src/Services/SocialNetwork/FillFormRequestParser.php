@@ -8,21 +8,22 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Normalises the fill-page form POST (`textValues[]` / `hiddenValues[]` /
- * `images[]`) into the shapes ResolveTextOverrides / ResolveImageOverrides
- * expect. Shared by the download AND publish endpoints so a posted fill can
- * never be interpreted differently between them.
+ * `fontValues[]` / `images[]`) into the shapes ResolveTextOverrides /
+ * ResolveImageOverrides expect. Shared by the download AND publish endpoints
+ * so a posted fill can never be interpreted differently between them.
  */
 readonly final class FillFormRequestParser
 {
     /**
-     * @return array<string, array{value?: string, hide?: bool}>
+     * @return array<string, array{value?: string, hide?: bool, fontFamily?: string}>
      */
     public function parseTextValues(Request $request): array
     {
         $rawTextValues = $request->request->all('textValues');
         $rawHiddenValues = $request->request->all('hiddenValues');
+        $rawFontValues = $request->request->all('fontValues');
 
-        /** @var array<string, array{value?: string, hide?: bool}> $providedValues */
+        /** @var array<string, array{value?: string, hide?: bool, fontFamily?: string}> $providedValues */
         $providedValues = [];
 
         foreach ($rawTextValues as $inputId => $value) {
@@ -40,6 +41,19 @@ readonly final class FillFormRequestParser
                 $providedValues[$key] = [];
             }
             $providedValues[$key]['hide'] = true;
+        }
+
+        // The font select's "" option is "výchozí" (the designed font) — no
+        // override at all, so it never reaches the resolver.
+        foreach ($rawFontValues as $inputId => $value) {
+            if (!is_string($value) || $value === '') {
+                continue;
+            }
+            $key = (string) $inputId;
+            if (!isset($providedValues[$key])) {
+                $providedValues[$key] = [];
+            }
+            $providedValues[$key]['fontFamily'] = $value;
         }
 
         return $providedValues;

@@ -74,6 +74,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
             $request->request->all('imagePlacements'),
             format: RenderImageFormat::Webp,
             transparentTextInputIds: $transparentTextInputIds,
+            rawFontValues: $request->request->all('fontValues'),
         );
 
         return new Response($bytes, Response::HTTP_OK, [

@@ -181,6 +181,82 @@ final class TemplatesTest extends ApiTestCase
     }
 
     /**
+     * `inputs[].fontOptions` — the per-input font offer: a rich input always
+     * lists its whitelist (the designed family's faces), a plain input only
+     * when the designer opened it up (the social fixture's tagline → Rubik
+     * Bold), everything else null. `richTextOptions.fonts` stays the union
+     * over the rich inputs.
+     */
+    public function testInputsExposeTheirFontOptions(): void
+    {
+        $client = self::createClient();
+        $token = TestingApiAuthentication::getAccessToken(
+            $client,
+            TestDataFixture::OAUTH2_CLIENT_ID,
+            TestDataFixture::OAUTH2_CLIENT_SECRET,
+        );
+
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+        $this->assertResponseIsSuccessful();
+
+        /** @var array<string, array<string, mixed>> $byId */
+        $byId = [];
+        foreach ($response->toArray() as $template) {
+            self::assertIsArray($template);
+            self::assertIsArray($template['variants'] ?? null);
+            foreach ($template['variants'] as $variant) {
+                self::assertIsArray($variant);
+                if (($variant['id'] ?? null) !== TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID) {
+                    continue;
+                }
+                self::assertIsArray($variant['inputs']);
+                foreach ($variant['inputs'] as $input) {
+                    self::assertIsArray($input);
+                    self::assertIsString($input['id']);
+                    $byId[$input['id']] = $input;
+                }
+            }
+        }
+        self::assertCount(4, $byId);
+
+        $families = static function (mixed $options): null|array {
+            if ($options === null) {
+                return null;
+            }
+            self::assertIsArray($options);
+            $families = [];
+            foreach ($options as $option) {
+                self::assertIsArray($option);
+                self::assertIsString($option['family']);
+                $families[] = $option['family'];
+            }
+
+            return $families;
+        };
+
+        // Rich headline, designed in Rubik Bold → the whole Rubik family.
+        self::assertSame(
+            ['Rubik (Rubik Regular)', 'Rubik (Rubik Bold)'],
+            $families($byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_HEADLINE_ID]['fontOptions'] ?? null),
+        );
+        // Plain tagline (Fabric default font, no project face) opened up to Rubik Bold.
+        self::assertSame(
+            ['Rubik (Rubik Bold)'],
+            $families($byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID]['fontOptions'] ?? null),
+        );
+        $taglineOptions = $byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_TAGLINE_ID]['fontOptions'];
+        self::assertIsArray($taglineOptions);
+        self::assertIsArray($taglineOptions[0]);
+        self::assertSame('Rubik', $taglineOptions[0]['fontName'] ?? null);
+        // No choice → null, not an empty list; locked inputs never offer one.
+        self::assertArrayHasKey('fontOptions', $byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID]);
+        self::assertNull($byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_BADGE_ID]['fontOptions']);
+        self::assertNull($byId[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_INPUT_LOCKED_ID]['fontOptions']);
+    }
+
+    /**
      * The two legacy module listing paths are deprecated ALIASES of the
      * canonical /templates collection: same provider, same merged list — a
      * consumer still calling the old paths sees every template either way.

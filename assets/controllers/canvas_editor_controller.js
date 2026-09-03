@@ -7,6 +7,7 @@ import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canva
 import { createShapeObject, isShapeObject } from './canvas_shapes.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
 import { syncChecklistSample, syncTextSample, sweepChecklistSamples } from './canvas_checklist_sample.js';
+import { collectAllowedFonts } from './canvas_font_choice.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
 /**
@@ -714,13 +715,17 @@ export default class extends Controller {
     }
 
     populateFontSelect() {
-        const fontFamilySelect = document.getElementById('font-family-control');
-        if (!fontFamilySelect) {
-            return;
-        }
-        fontFamilySelect.innerHTML = '';
+        // The text popover's font select AND the "Přidat text" modal's — the
+        // modal lets the designer pick the new text's face up front.
+        ['font-family-control', 'addTextFont'].forEach((id) => {
+            const fontFamilySelect = document.getElementById(id);
+            if (!fontFamilySelect) {
+                return;
+            }
+            fontFamilySelect.innerHTML = '';
 
-        (this.customFontsValue || []).forEach((font) => this.addFontOption(fontFamilySelect, font));
+            (this.customFontsValue || []).forEach((font) => this.addFontOption(fontFamilySelect, font));
+        });
     }
 
     addFontOption(selectElement, font) {
@@ -935,8 +940,18 @@ export default class extends Controller {
         const inputName = document.getElementById('textName').value || 'Text';
         const hidable = document.getElementById('hidableCheckbox').checked;
 
-        // Determine the font family: use the first custom font, or fall back to 'Arial' if none are provided
-        const fontFamily = this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial';
+        // The designed font: the modal's pick, else the first project font,
+        // else Arial when the project has no fonts at all.
+        const fontSelect = document.getElementById('addTextFont');
+        const fontFamily = (fontSelect && fontSelect.value)
+            || (this.customFontsValue.length > 0 ? this.customFontsValue[0] : 'Arial');
+
+        // Font choice: the EXTRA faces the end user may switch to (the
+        // checklist's checked, unlocked rows) — only while the toggle is on.
+        const fontChoiceToggle = document.getElementById('addTextFontChoice');
+        const allowedFonts = fontChoiceToggle && fontChoiceToggle.checked
+            ? collectAllowedFonts(document.getElementById('addTextFontChoiceList'))
+            : [];
 
         const textBox = new Textbox(inputName, {
             left: 100,
@@ -968,6 +983,7 @@ export default class extends Controller {
             uppercase: uppercase,
             description: description,
             hidable: hidable,
+            allowedFonts: allowedFonts,
         });
 
         this.canvas.add(textBox);

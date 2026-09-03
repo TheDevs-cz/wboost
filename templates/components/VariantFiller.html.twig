@@ -172,6 +172,10 @@
            ignored subtree so Live can read/write them; visually hidden because
            the user edits via the popovers. #}
         {% set echoIds = echoPayload ? echoPayload.inputs|keys : [] %}
+        {% set fontChoiceIds = [] %}
+        {% for ph in textPlaceholders %}
+            {% if ph.fontChoice %}{% set fontChoiceIds = fontChoiceIds|merge([ph.inputId]) %}{% endif %}
+        {% endfor %}
         {% for input in variant.inputs %}
             {% if not input.locked %}
                 {# Echo-capable inputs settle LAZILY (the instant client echo
@@ -186,6 +190,21 @@
                     data-model="on(input)|debounce({{ input.inputId in echoIds ? 2500 : 600 }})|textValues[{{ input.inputId }}]"
                     value="{{ this.textValues[input.inputId] ?? '' }}"
                 >
+                {# The whole-text FONT choice mirror (inputs the designer opened
+                   up): the popover's font select writes here — same debounce
+                   class as the text, the echo repaints it instantly. #}
+                {% if input.inputId in fontChoiceIds %}
+                    <input
+                        type="text"
+                        class="visually-hidden"
+                        tabindex="-1"
+                        aria-hidden="true"
+                        name="fontValues[{{ input.inputId }}]"
+                        data-font-mirror="{{ input.inputId }}"
+                        data-model="on(input)|debounce({{ input.inputId in echoIds ? 2500 : 600 }})|fontValues[{{ input.inputId }}]"
+                        value="{{ this.fontValues[input.inputId] ?? '' }}"
+                    >
+                {% endif %}
                 {% if input.hidable %}
                     <input
                         type="checkbox"
@@ -515,13 +534,16 @@
                                     data-rich-text-editor-lists-value="{{ ph.lists ? 'true' : 'false' }}"
                                     data-rich-text-editor-checkboxes-value="{{ ph.listCheckboxes ? 'true' : 'false' }}"
                                     data-rich-text-editor-design-font-value="{{ ph.designFontFamily ?? '' }}"
-                                    data-rich-text-editor-fonts-value="{{ richToolbar.fonts|json_encode }}"
+                                    data-rich-text-editor-fonts-value="{{ ph.fontOptions|json_encode }}"
                                     data-rich-text-editor-colors-value="{{ richToolbar.colors|json_encode }}"
                                 >
+                                    {# Faces PER INPUT: the designed font's own faces
+                                       (bold / italic) plus what the designer opened up
+                                       for this input — not the variant-wide union. #}
                                     <div class="fill-richtext-toolbar d-flex align-items-center flex-wrap gap-1 mb-1">
                                         <select class="form-select form-select-sm fill-richtext-toolbar__font" aria-label="Písmo" data-rich-text-editor-target="fontSelect" data-action="change->rich-text-editor#applyFont">
                                             <option value="">Výchozí písmo</option>
-                                            {% for group in richToolbar.fontGroups %}
+                                            {% for group in ph.fontGroups %}
                                                 <optgroup label="{{ group.name }}">
                                                     {% for face in group.faces %}
                                                         <option value="{{ face.family }}" style="font-family: '{{ face.family }}'">{{ face.faceName }}</option>
@@ -571,6 +593,30 @@
                                     </div>
                                 </div>
                             {% else %}
+                                {# Font choice ("Uživatel může přepínat písmo"): a
+                                   whole-text font select above the field — the
+                                   designed face first, marked as the default. Writes
+                                   the data-font-mirror via syncFont. #}
+                                {% if ph.fontChoice %}
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <label class="small text-muted mb-0 flex-shrink-0" for="fill-font-{{ ph.inputId }}"><i class="mdi mdi-format-font" aria-hidden="true"></i> Písmo</label>
+                                        <select
+                                            id="fill-font-{{ ph.inputId }}"
+                                            class="form-select form-select-sm fill-popover__font"
+                                            data-action="change->variant-fill-overlay#syncFont"
+                                            data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                                        >
+                                            <option value=""{% if ph.fontValue == '' %} selected{% endif %}{% if ph.designFontFamily %} style="font-family: '{{ ph.designFontFamily }}'"{% endif %}>{{ ph.fontDefaultLabel }}</option>
+                                            {% for group in ph.fontGroups %}
+                                                <optgroup label="{{ group.name }}">
+                                                    {% for face in group.faces %}
+                                                        <option value="{{ face.family }}" style="font-family: '{{ face.family }}'"{% if ph.fontValue == face.family %} selected{% endif %}>{{ face.faceName }}</option>
+                                                    {% endfor %}
+                                                </optgroup>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                {% endif %}
                                 {# Auto-growing textarea: rows="1" is the collapsed
                                    start; the controller resizes it to fit the full
                                    value so long text is never clipped/scrolled. #}

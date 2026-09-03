@@ -73,6 +73,7 @@ final class TemplateGroupExportController extends AbstractController
         $rawHiddenValues = $request->request->all('hiddenValues');
         $rawImages = $request->request->all('images');
         $rawPlacements = $request->request->all('imagePlacements');
+        $rawFontValues = $request->request->all('fontValues');
 
         $groupSlug = $this->nonEmptySlug($group->name, 'export');
 
@@ -87,7 +88,7 @@ final class TemplateGroupExportController extends AbstractController
             try {
                 // No format argument: the ZIP the user downloads must stay
                 // lossless PNG (entry names below are .png).
-                $bytes = $this->groupFillRenderer->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements);
+                $bytes = $this->groupFillRenderer->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues);
             } catch (TemplateRenderUnavailable) {
                 return $this->renderFailed(
                     $group,
@@ -126,6 +127,7 @@ final class TemplateGroupExportController extends AbstractController
             $rawHiddenValues,
             $rawImages,
             $rawPlacements,
+            $rawFontValues,
         ));
 
         return new Response($zipBytes, Response::HTTP_OK, [

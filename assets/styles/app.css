@@ -3571,3 +3571,62 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     background: rgba(0, 0, 0, 0.05);
     color: #343a40;
 }
+
+/* --- Font choice ("Uživatel může přepínat písmo") ------------------------- */
+
+/* The admin's per-input font checklist (text popover + "Přidat text" modal):
+   fonts as group headers with a tri-state checkbox, faces beneath previewed
+   in their own face, the designed face locked-checked with a badge. */
+.font-choice {
+    max-height: 190px;
+    overflow: auto;
+    border: 1px solid var(--ct-border-color, #dee2e6);
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+    background: var(--ct-input-bg, #fff);
+}
+
+.font-choice__group + .font-choice__group {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--ct-border-color, #dee2e6);
+}
+
+.font-choice__header,
+.font-choice__face {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    cursor: pointer;
+    line-height: 1.6;
+}
+
+.font-choice__header {
+    font-weight: 600;
+}
+
+.font-choice__face {
+    padding-left: 1.4rem;
+}
+
+.font-choice__name {
+    font-size: 0.9375rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.font-choice__badge {
+    font-size: 0.6rem;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+/* The end user's whole-text font select in a plain fill popover. */
+.fill-popover__font {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+}
