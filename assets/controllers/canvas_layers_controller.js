@@ -65,11 +65,25 @@ export default class extends Controller {
         // position mirror clone (.gu-mirror) follows the cursor while the
         // in-flow row keeps only the ghost treatment. The instance lives on
         // the CONTAINER, so it survives every rebuild's replaceChildren().
+        //
+        // The eye and the padlock are BUTTONS inside the drag target. In
+        // fallback mode Sortable owns the pointer from the very first
+        // pointerdown and — with its default fallbackTolerance of 0 px —
+        // promotes ANY sub-pixel wobble before pointerup into a drag, whose
+        // onEnd rebuild replaces the row so the button's click never lands
+        // ("the eye sometimes does nothing"). `filter` keeps Sortable's hands
+        // off a press that starts on either icon (preventOnFilter: false —
+        // the native click + focus must survive), and fallbackTolerance gives
+        // the row itself the native drag threshold, so a click on the label
+        // selects instead of starting a no-op drag.
         this._sortable = Sortable.create(this.listTarget, {
             draggable: '.canvas-layer-row',
+            filter: '.canvas-layer-row__eye, .canvas-layer-row__lock',
+            preventOnFilter: false,
             direction: 'vertical',
             animation: 150,
             forceFallback: true,
+            fallbackTolerance: 4,
             ghostClass: 'gu-transit',
             dragClass: 'gu-mirror',
             onStart: () => {
