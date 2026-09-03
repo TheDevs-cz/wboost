@@ -35,13 +35,14 @@ final class FontFacesDoctrineType extends JsonType
         $fonts = [];
 
         foreach ($jsonData as $fontData) {
-            /** @var array{name: string, filePath: string, weight: int, style: string} $fontData */
+            /** @var array{name: string, filePath: string, weight: int, style: string, fileSize?: null|int} $fontData */
 
             $fonts[] = new FontFace(
                 name: $fontData['name'],
                 weight: $fontData['weight'],
                 style: $fontData['style'],
                 filePath: $fontData['filePath'],
+                fileSize: $fontData['fileSize'] ?? null,
             );
         }
 
@@ -66,6 +67,7 @@ final class FontFacesDoctrineType extends JsonType
                 'weight' => $font->weight,
                 'style' => $font->style,
                 'filePath' => $font->filePath,
+                'fileSize' => $font->fileSize,
             ];
         }
 

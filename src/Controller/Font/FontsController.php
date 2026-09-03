@@ -23,9 +23,12 @@ final class FontsController extends AbstractController
     #[IsGranted(ProjectVoter::VIEW, 'project')]
     public function __invoke(Project $project): Response
     {
+        $fonts = $this->getFonts->allForProject($project->id);
+
         return $this->render('fonts.html.twig', [
             'project' => $project,
-            'fonts' => $this->getFonts->allForProject($project->id),
+            'fonts' => $fonts,
+            'faces_count' => array_sum(array_map(static fn ($font): int => count($font->faces), $fonts)),
         ]);
     }
 }

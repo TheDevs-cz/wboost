@@ -1,13 +1,13 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Přidat font{% endblock %}
+{% block title %}Nahrát písma{% endblock %}
 {% set active_menu_item = 'fonts' %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('homepage') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Fonty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('fonts_list', {'id': project.id}) }}">Fonty</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
@@ -15,10 +15,12 @@
 {% block content %}
     <div class="card">
         <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_row(form.font) }}
+            <p class="text-muted">Vyberte jeden nebo více souborů (TTF, OTF, WOFF). Každý soubor je jeden řez; do rodiny se zařadí podle názvu uvnitř souboru.</p>
 
-            <input type="submit" name="submit" value="Přidat" class="btn btn-primary">
+            {{ form_start(form) }}
+            {{ form_row(form.fonts) }}
+
+            <input type="submit" name="submit" value="Nahrát" class="btn btn-primary">
 
             {{ form_end(form) }}
         </div>

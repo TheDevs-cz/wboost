@@ -1,0 +1,41 @@
+{# Multi-file font dropzone (font-uploader controller). Expects `project`;
+   optional `compact` (bool) for a slimmer strip and `hint` text. One request
+   per file to `upload_font`; the page reloads once a batch added a face. #}
+<div
+    data-controller="font-uploader"
+    data-font-uploader-url-value="{{ path('upload_font', {'id': project.id}) }}"
+>
+    <input type="hidden" name="upload_font_form[_token]" value="{{ csrf_token('upload_font') }}">
+
+    <div
+        class="gallery-dropzone{% if compact|default(false) %} py-3{% endif %}"
+        data-font-uploader-target="dropzone"
+        data-action="
+            click->font-uploader#browse
+            keydown->font-uploader#keydown
+            dragover->font-uploader#dragOver
+            dragleave->font-uploader#dragLeave
+            drop->font-uploader#drop
+        "
+        role="button"
+        tabindex="0"
+        aria-label="Nahrát soubory písem"
+    >
+        <i class="mdi mdi-format-font gallery-dropzone__icon"></i>
+        <div class="gallery-dropzone__title">Přetáhněte soubory písem sem</div>
+        <div class="text-muted small">nebo klikněte pro výběr z počítače · více souborů najednou</div>
+        <div class="text-muted small mt-1">{{ hint|default('TTF, OTF nebo WOFF, max. 10 MB / soubor. Řezy se zařadí do rodiny podle názvu uvnitř souboru.') }}</div>
+    </div>
+
+    <input
+        type="file"
+        name="upload_font_form[file]"
+        class="d-none"
+        accept=".ttf,.otf,.woff,font/ttf,font/otf,font/woff"
+        multiple
+        data-font-uploader-target="input"
+        data-action="change->font-uploader#filesChosen"
+    >
+
+    <div class="mt-2 d-flex flex-column gap-2" data-font-uploader-target="queue"></div>
+</div>

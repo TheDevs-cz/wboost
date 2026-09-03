@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetManualFonts;
 use WBoost\Web\Services\Security\ManualVoter;
 
@@ -17,6 +18,7 @@ final class ManualFontsController extends AbstractController
 {
     public function __construct(
         readonly private GetManualFonts $getManualFonts,
+        readonly private GetFonts $getFonts,
     ) {
     }
 
@@ -32,6 +34,9 @@ final class ManualFontsController extends AbstractController
             'project' => $manual->project,
             'manual' => $manual,
             'fonts' => $fonts,
+            // Every project font: the page registers @font-face for all of
+            // them so each row can show its specimen.
+            'project_fonts' => $this->getFonts->allForProject($manual->project->id),
         ]);
     }
 }

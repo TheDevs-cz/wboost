@@ -12,76 +12,121 @@
 {% endblock %}
 
 {% block content %}
+    {# Every project face as @font-face — the specimens below render in the
+       real glyphs, the same registration the editor and fill pages use. #}
+    {{ include('editor/_editor_fonts.html.twig', {'fonts': fonts}) }}
 
-    {% if is_granted('ROLE_DESIGNER') %}
-        <div class="row mb-2">
-            <div class="col-sm-12">
-                <a href="{{ path('add_font_face', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Přidat font</a>
-            </div>
-        </div>
-    {% endif %}
-
-    <div class="row">
-        {% for font in fonts %}
-            <div class="col-sm-3">
-                <div class="card">
-                    {% if is_granted('font_edit', font) %}
-                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="ri-more-fill text-lighter"></i>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a href="#"
-                                   class="dropdown-item"
-                                   data-modal-id="{{ font.id }}"
-                                   data-action="click->confirm-modal#showModal">
-                                    <i class="mdi mdi-delete me-1"></i> Smazat
-                                </a>
-                            </div>
-                        </div>
-
-                        <twig:ConfirmModal
-                            id="{{ font.id }}"
-                            url="{{ path('delete_font', {'fontId': font.id}) }}"
-                            confirmationText="Opravdu chcete smazat tento font včetně všech rezů?" />
-                    {% endif %}
-
-                    <div class="card-body"
-                         data-controller="dragula"
-                         data-dragula-sort-url-value="{{ path('sort_font_faces', {'fontId': font.id}) }}"
-                         data-dragula-target="container"
-                    >
-                        <h4 class="mt-0">{{ font.name }}</h4>
-
-                        {% for font_face in font.faces %}
-                            <div class="mt-2 d-flex align-items-center justify-content-start position-relative" data-entity-id="{{ font_face.name }}">
-                                {% if is_granted('font_edit', font) %}
-                                    <span class="dragula-handle dragula-handle-absolute-left"></span>
-                                {% endif %}
-
-                                <span class="flex-grow-1" style="min-width: 0; overflow-wrap: anywhere;">
-                                    {{ font_face.name }}
-                                </span>
-
-                                <span class="ms-2 flex-shrink-0">
-                                    {% if is_granted('font_edit', font) %}
-                                        <a href="#"
-                                           class="btn btn-outline-danger btn btn-sm px-1 py-0"
-                                           data-modal-id="{{ font.id }}-{{ loop.index }}"
-                                           data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete"></i></a>
-
-                                        <twig:ConfirmModal
-                                            id="{{ font.id }}-{{ loop.index }}"
-                                            url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
-                                            confirmationText="Opravdu chcete smazat tento řez fontu?" />
-                                    {% endif %}
-                                </span>
-                            </div>
-                        {% endfor %}
+    <div data-controller="font-specimen">
+        {% if is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    {{ include('_font_uploader.html.twig', {'project': project}) }}
+                    <div class="text-muted small mt-2">
+                        Bez JavaScriptu: <a href="{{ path('add_font_face', {'id': project.id}) }}">klasický formulář pro nahrání</a>.
                     </div>
                 </div>
             </div>
-        {% endfor %}
-    </div>
+        {% endif %}
 
+        {% if fonts|length > 0 %}
+            {# Shared specimen controls: sample text (remembered per browser)
+               and a size slider, rewriting every row at once. #}
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-lg-8">
+                            <label class="visually-hidden" for="font-specimen-text">Ukázkový text</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="mdi mdi-format-text"></i></span>
+                                <input type="text" id="font-specimen-text" class="form-control" placeholder="Ukázkový text…" data-font-specimen-target="input" data-action="input->font-specimen#input">
+                            </div>
+                        </div>
+                        <div class="col-lg-4 d-flex align-items-center gap-2">
+                            <label class="small text-muted text-nowrap mb-0" for="font-specimen-size">Velikost</label>
+                            <input type="range" class="form-range" id="font-specimen-size" min="14" max="72" value="28" data-font-specimen-target="size" data-action="input->font-specimen#resize">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">Projekt zatím nemá nahraná žádná písma. Písma nahraná zde nabízí editor šablon i vyplňování.</div>
+        {% endif %}
+
+        <div class="row">
+            {% for font in fonts %}
+                <div class="col-xl-6">
+                    <div class="card">
+                        {% if is_granted('font_edit', font) %}
+                            <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                                <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="ri-more-fill text-lighter"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-end">
+                                    <a href="#"
+                                       class="dropdown-item"
+                                       data-modal-id="{{ font.id }}"
+                                       data-action="click->confirm-modal#showModal">
+                                        <i class="mdi mdi-delete me-1"></i> Smazat celé písmo
+                                    </a>
+                                </div>
+                            </div>
+
+                            <twig:ConfirmModal
+                                id="{{ font.id }}"
+                                url="{{ path('delete_font', {'fontId': font.id}) }}"
+                                confirmationText="Opravdu chcete smazat písmo {{ font.name }} včetně všech řezů? Šablony, které ho používají, se vykreslí náhradním písmem." />
+                        {% endif %}
+
+                        <div class="card-body"
+                             data-controller="dragula"
+                             data-dragula-sort-url-value="{{ path('sort_font_faces', {'fontId': font.id}) }}"
+                             data-dragula-target="container"
+                        >
+                            <h4 class="mt-0 mb-2">
+                                {{ font.name }}
+                                <span class="text-muted font-13 fw-normal ms-1">{{ font.faces|length }} {{ font.faces|length == 1 ? 'řez' : (font.faces|length < 5 ? 'řezy' : 'řezů') }}</span>
+                            </h4>
+
+                            {% for font_face in font.faces %}
+                                {% set family = font.faceFamily(font_face) %}
+                                <div class="font-face-row" data-entity-id="{{ font_face.name }}">
+                                    {% if is_granted('font_edit', font) %}
+                                        <span class="dragula-handle" title="Přetažením změníte pořadí"></span>
+                                    {% endif %}
+
+                                    <div class="font-face-row__body">
+                                        <div class="font-specimen" style="font-family: '{{ family }}', sans-serif;" data-font-specimen-target="specimen" title="{{ font_face.name }}">Příliš žluťoučký kůň úpěl ďábelské ódy 0123456789</div>
+                                        <div class="font-face-row__meta small text-muted">
+                                            <span class="fw-semibold text-body">{{ font_face.name }}</span>
+                                            <span class="badge bg-light text-secondary" title="Tloušťka (usWeightClass)">{{ font_face.weight }}</span>
+                                            <span class="badge bg-light text-secondary" title="Styl řezu">{{ font_face.style }}</span>
+                                            <span class="badge bg-light text-secondary" title="Formát souboru">{{ font_face.format }}</span>
+                                            {% if font_face.fileSizeLabel %}<span title="Velikost souboru">{{ font_face.fileSizeLabel }}</span>{% endif %}
+                                            <span class="font-wire text-muted" title="Přesný název písma pro API, MCP a JSON plátna">{{ family }}</span>
+                                            <button type="button" class="btn btn-link btn-sm p-0 text-muted" title="Zkopírovat název písma pro API / MCP" aria-label="Zkopírovat název písma" data-action="font-specimen#copy" data-font-specimen-family-param="{{ family }}"><i class="mdi mdi-content-copy"></i></button>
+                                        </div>
+                                    </div>
+
+                                    {% if is_granted('font_edit', font) %}
+                                        <span class="font-face-row__actions">
+                                            <a href="#"
+                                               class="btn btn-outline-danger btn-sm px-1 py-0"
+                                               title="Smazat řez"
+                                               data-modal-id="{{ font.id }}-{{ loop.index }}"
+                                               data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete"></i></a>
+
+                                            <twig:ConfirmModal
+                                                id="{{ font.id }}-{{ loop.index }}"
+                                                url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
+                                                confirmationText="Opravdu chcete smazat řez {{ font_face.name }}? Šablony, které ho používají, se vykreslí náhradním písmem." />
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
 {% endblock %}

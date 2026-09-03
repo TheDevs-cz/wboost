@@ -3630,3 +3630,60 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     flex: 1 1 auto;
     min-width: 0;
 }
+
+/* --- Fonts page: type specimens ------------------------------------------- */
+
+.font-face-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    position: relative;
+}
+
+.font-face-row:first-of-type {
+    border-top: 0;
+}
+
+.font-face-row__body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.font-specimen {
+    font-size: 28px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--bs-body-color, #212529);
+}
+
+.font-face-row__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    margin-top: 0.15rem;
+}
+
+.font-face-row__meta .badge {
+    font-weight: 500;
+}
+
+.font-face-row__actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.font-face-row .dragula-handle {
+    margin-top: 0.6rem;
+}
+
+.font-wire {
+    font-family: var(--bs-font-monospace, monospace);
+    font-size: 0.75rem;
+}
