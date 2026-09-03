@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Query\GetFontUsage;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Security\ProjectVoter;
 
@@ -16,6 +17,7 @@ final class FontsController extends AbstractController
 {
     public function __construct(
         readonly private GetFonts $getFonts,
+        readonly private GetFontUsage $getFontUsage,
     ) {
     }
 
@@ -29,6 +31,8 @@ final class FontsController extends AbstractController
             'project' => $project,
             'fonts' => $fonts,
             'faces_count' => array_sum(array_map(static fn ($font): int => count($font->faces), $fonts)),
+            // Where each face is used + references no project face satisfies.
+            'usage' => $this->getFontUsage->forProject($project->id),
         ]);
     }
 }

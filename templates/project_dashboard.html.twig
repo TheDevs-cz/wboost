@@ -110,8 +110,9 @@
         {{ _self.module_card(
             path('fonts_list', {'id': project.id}),
             'ri-font-family', 'Fonty',
-            'Písma používaná napříč projektem',
-            fonts|length
+            missing_fonts is not empty ? 'Šablony odkazují na písma, která projekt nemá' : 'Písma používaná napříč projektem',
+            fonts|length,
+            missing_fonts is not empty ? (missing_fonts|length ~ ' chybí') : null
         ) }}
 
         {{ _self.module_card(

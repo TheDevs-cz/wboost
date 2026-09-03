@@ -28,6 +28,29 @@
             </div>
         {% endif %}
 
+        {# References no project face satisfies: a deleted face, or the editor's
+           "Arial" default from before the project had fonts. Those texts render
+           in a fallback font — link straight to the editors that carry them. #}
+        {% if usage.hasMissing %}
+            <div class="card border-warning mb-3">
+                <div class="card-body">
+                    <h5 class="mt-0 mb-2"><i class="mdi mdi-alert-outline text-warning me-1"></i> Písma mimo projekt</h5>
+                    <p class="text-muted small mb-2">Tyto šablony používají písmo, které v projektu není (smazaný řez, nebo výchozí písmo editoru). V exportu se vykreslí náhradním písmem — otevřete šablonu a zvolte písmo projektu, nebo písmo nahrajte.</p>
+                    <ul class="mb-0 small">
+                        {% for family, sites in usage.missing %}
+                            <li class="mb-1">
+                                <span class="font-wire fw-semibold text-body">{{ family }}</span>
+                                —
+                                {% for site in sites %}
+                                    <a href="{{ site.groupId ? path('template_group_editor', {'groupId': site.groupId}) : path('template_variant_editor', {'variantId': site.variantId}) }}">{{ site.templateName }} ({{ site.dimensionLabel }})</a>{{ not loop.last ? ',' }}
+                                {% endfor %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
+
         {% if fonts|length > 0 %}
             {# Shared specimen controls: sample text (remembered per browser)
                and a size slider, rewriting every row at once. #}
@@ -71,10 +94,11 @@
                                 </div>
                             </div>
 
+                            {% set fontTemplates = usage.templateNamesFor(font.faces|map(f => font.faceFamily(f))|merge([font.name])) %}
                             <twig:ConfirmModal
                                 id="{{ font.id }}"
                                 url="{{ path('delete_font', {'fontId': font.id}) }}"
-                                confirmationText="Opravdu chcete smazat písmo {{ font.name }} včetně všech řezů? Šablony, které ho používají, se vykreslí náhradním písmem." />
+                                confirmationText="Opravdu chcete smazat písmo {{ font.name }} včetně všech řezů?{% if fontTemplates|length > 0 %} Používá ho {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šablona' : (fontTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ fontTemplates|slice(0, 5)|join(', ') }}{% if fontTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}" />
                         {% endif %}
 
                         <div class="card-body"
@@ -118,6 +142,12 @@
                                             <span class="badge bg-light text-secondary" title="Styl řezu">{{ font_face.style }}</span>
                                             <span class="badge bg-light text-secondary" title="Formát souboru">{{ font_face.format }}</span>
                                             {% if font_face.fileSizeLabel %}<span title="Velikost souboru">{{ font_face.fileSizeLabel }}</span>{% endif %}
+                                            {% set faceTemplates = usage.templateNamesFor([family]) %}
+                                            {% if faceTemplates|length > 0 %}
+                                                <span class="badge bg-primary-lighten text-primary" title="{{ faceTemplates|join(', ') }}">{{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }}</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-secondary" title="Žádná šablona tento řez nepoužívá">nepoužito</span>
+                                            {% endif %}
                                             <span class="font-wire text-muted" title="Přesný název písma pro API, MCP a JSON plátna">{{ family }}</span>
                                             <button type="button" class="btn btn-link btn-sm p-0 text-muted" title="Zkopírovat název písma pro API / MCP" aria-label="Zkopírovat název písma" data-action="font-specimen#copy" data-font-specimen-family-param="{{ family }}"><i class="mdi mdi-content-copy"></i></button>
                                         </div>
@@ -134,7 +164,7 @@
                                             <twig:ConfirmModal
                                                 id="{{ font.id }}-{{ loop.index }}"
                                                 url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
-                                                confirmationText="Opravdu chcete smazat řez {{ font_face.name }}? Šablony, které ho používají, se vykreslí náhradním písmem." />
+                                                confirmationText="Opravdu chcete smazat řez {{ font_face.name }}?{% if faceTemplates|length > 0 %} Používá ho {{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ faceTemplates|slice(0, 5)|join(', ') }}{% if faceTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}" />
                                         </span>
                                     {% endif %}
                                 </div>

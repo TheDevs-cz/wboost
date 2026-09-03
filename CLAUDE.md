@@ -537,6 +537,17 @@ font" to the designed family unless the designer ticks more.
   still weight-ordered, appends once the designer dragged an order of their
   own. The fonts page shows a 100–900 weight axis per family (filled =
   upright, slanted mark = italic).
+- **Font usage scan (2026-09-03).** `Query/GetFontUsage::forProject()` scans
+  every variant document of the project — textbox `fontFamily` (per-char
+  `styles` included), `inputs[].allowedFonts`, rich `sampleValue` runs —
+  into a `FontUsage` VO (family → `FontUsageSite`s; `missing` = referenced
+  families no project face or bare font name satisfies, e.g. a deleted face
+  or the editor's "Arial" default). Nothing is stored: fonts are referenced
+  by STRING, so the scan is the only truthful source; it runs on the fonts
+  page (per-face "N šablon" chips, delete confirms listing the templates,
+  the "Písma mimo projekt" card linking to the editors) and the project
+  dashboard (the Fonty card's "N chybí" badge). Deleting a face/font also
+  removes the storage object(s) since the fonts rework.
 - **Admin editor**: `canvas_font_choice.js` (pure planner + checklist DOM:
   fonts as tri-state group headers, faces previewed in their own face, the
   designed row locked-checked with a "výchozí" badge — the designed font is
