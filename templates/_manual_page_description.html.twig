@@ -1,0 +1,24 @@
+{# One manual page's description column.
+
+   The DEFAULT is developer-authored HTML (it carries <p>/<strong>) and is
+   rendered raw; an ADMIN OVERRIDE is plain text and is always escaped, with
+   blank-line-separated paragraphs and single newlines kept as <br>. Mixing the
+   two up is the difference between markup we wrote and markup a user typed.
+
+   Params: manual, page (ManualPage), class (optional column classes). #}
+{% set override = manual.pageDescriptionOverride(page) %}
+{% set default_description = page.defaultDescription %}
+
+{% if override is not null or default_description is not empty %}
+    <div class="page-description {{ class|default('col-3 fs-5 fst-italic') }}">
+        {% if override is not null %}
+            {% for paragraph in override|split("\n\n") %}
+                {% if paragraph|trim is not empty %}
+                    <p>{{ paragraph|trim|nl2br }}</p>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            {{ default_description|raw }}
+        {% endif %}
+    </div>
+{% endif %}

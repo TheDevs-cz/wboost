@@ -1,0 +1,52 @@
+{# The admin pencil for a manual page's heading + description. Renders nothing
+   for a reader, so the same markup serves the public manual. #}
+{% if is_granted('manual_edit', manual) %}
+    {% set page = this.manualPage %}
+    {% set modalId = 'manualPageTextModal-' ~ page.value %}
+
+    <span {{ attributes }}>
+        <button type="button"
+                class="btn btn-sm btn-soft-primary p-1 px-2 manual-page-text-edit"
+                title="Upravit texty stránky"
+                data-bs-toggle="modal"
+                data-bs-target="#{{ modalId }}">
+            <i class="mdi mdi-pencil"></i>
+        </button>
+
+        <div class="modal fade" id="{{ modalId }}" tabindex="-1" data-controller="modal">
+            <div class="modal-dialog">
+                {{ form_start(form, {
+                    attr: {
+                        'data-action': 'live#action:prevent',
+                        'data-live-action-param': 'save',
+                        'data-bs-dismiss': isSuccessful ? 'modal' : ''
+                    }
+                }) }}
+
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Texty stránky – {{ page.label }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body text-start">
+                        <p class="text-muted">
+                            Prázdné pole znamená výchozí text — ten je vidět jako nápověda v poli.
+                        </p>
+
+                        {{ form_row(form.title) }}
+                        {{ form_row(form.description) }}
+                        {{ form_widget(form) }}
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zavřít</button>
+                        <button type="submit" class="btn btn-primary">Uložit</button>
+                    </div>
+                </div>
+
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </span>
+{% endif %}

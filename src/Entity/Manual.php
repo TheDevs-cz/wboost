@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Doctrine\ManualColorsDoctrineType;
+use WBoost\Web\Doctrine\ManualPageTextsDoctrineType;
 use WBoost\Web\Exceptions\MissingManualColor;
 use WBoost\Web\Repository\ManualDoctrineRepository;
 use WBoost\Web\Services\Slugify;
@@ -28,6 +29,8 @@ use WBoost\Web\Value\LogoColorVariant;
 use WBoost\Web\Value\LogoTypeVariant;
 use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
+use WBoost\Web\Value\ManualPage;
+use WBoost\Web\Value\ManualPageText;
 use WBoost\Web\Value\ManualType;
 
 #[Entity(repositoryClass: ManualDoctrineRepository::class)]
@@ -59,6 +62,17 @@ class Manual
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(options: ['default' => ''])]
     public string $slug;
+
+    /**
+     * Per-page heading / description overrides, keyed by `ManualPage` value.
+     * A page absent from the map renders the wording the enum carries — that
+     * is what makes every manual read the same until an admin edits one.
+     *
+     * @var array<string, ManualPageText>
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: ManualPageTextsDoctrineType::NAME, options: ['default' => '{}'])]
+    public array $pageTexts = [];
 
     public function __construct(
         #[Id]
@@ -306,5 +320,47 @@ class Manual
         );
 
         $this->logo = $newLogo;
+    }
+
+    public function pageTitle(ManualPage $page): string
+    {
+        return $this->pageTexts[$page->value]->title ?? $page->defaultTitle();
+    }
+
+    /**
+     * The admin's plain-text description, or null when the page still renders
+     * the enum's HTML default. The caller has to tell the two apart: an
+     * override is escaped, a default is developer-authored markup.
+     */
+    public function pageDescriptionOverride(ManualPage $page): null|string
+    {
+        return $this->pageTexts[$page->value]->description ?? null;
+    }
+
+    public function pageTextTitleOverride(ManualPage $page): null|string
+    {
+        return $this->pageTexts[$page->value]->title ?? null;
+    }
+
+    public function hasPageTextOverride(ManualPage $page): bool
+    {
+        return isset($this->pageTexts[$page->value]);
+    }
+
+    public function editPageText(ManualPage $page, null|string $title, null|string $description): void
+    {
+        $text = ManualPageText::fromInput($title, $description);
+        $texts = $this->pageTexts;
+
+        if ($text->isEmpty()) {
+            unset($texts[$page->value]);
+        } else {
+            $texts[$page->value] = $text;
+        }
+
+        // Reassigned rather than mutated in place: Doctrine compares the
+        // property by value for a JSON column, and an in-place write on the
+        // same array instance is not always seen as a change.
+        $this->pageTexts = $texts;
     }
 }

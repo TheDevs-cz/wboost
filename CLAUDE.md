@@ -1536,6 +1536,42 @@ a new upload for the same slot wins over the flag). Slot order == persisted
 `images` array indexes. NOTE: Stimulus reuses controller instances on
 reconnect — slot state is reset in `connect()`, not `initialize()`.
 
+### Manual page texts — admin-overridable, code-authored defaults
+
+Every fixed page of a manual (`manual_preview.html.twig`) used to carry its
+heading and its descriptive paragraph as literal Twig, so every brand/logo
+manual read identically. The wording now lives in the **`ManualPage` enum**
+(`defaultTitle()` / `defaultDescription()`) and an admin can override either
+half per manual: `manual.page_texts` is a JSONB map keyed by the enum VALUE
+(renaming a case orphans its overrides) holding `{title, description}` with
+either half nullable — blank input is normalized to null, and an entry with
+nothing in it is dropped rather than stored.
+
+- **Two shared partials** replace the per-page markup:
+  `_manual_page_heading.html.twig` (number + manual name + title + the admin
+  pencil) and `_manual_page_description.html.twig`. Pages address themselves
+  through the `manual_page('<key>')` Twig function; the font pages derive the
+  key from the font's TYPE (`manual_font.type.value ~ '_font'`), so primary
+  and secondary carry their own texts.
+- **The escaping asymmetry is load-bearing**: a DEFAULT is developer-authored
+  HTML (the monochrome pages ship `<p>`/`<strong>`) and is rendered `|raw`; an
+  OVERRIDE is plain text typed by a user and is always escaped, with
+  blank-line-separated paragraphs and single newlines as `<br>`. There is no
+  HTML sanitizer in this project — do not "unify" the two branches by rendering
+  an override raw.
+- **Editing** = `Twig/Components/ManualPageTextComponent` (`ManualPageText`),
+  a pencil + Bootstrap modal Live component modelled on `LogoColorsMapping`
+  (the pattern already on the logo cards of the same page). It renders NOTHING
+  unless `manual_edit` is granted, which is what lets the public manual use
+  the same markup. The textarea is pre-filled via
+  `defaultDescriptionAsPlainText()`, so an admin tweaks the stock wording
+  rather than retyping it.
+- The protected-zone page's default title is the literal `'Základní
+  logotypy'` — the same heading the basic-logos page uses. That is today's
+  wording kept verbatim so no live manual changed appearance on deploy; it
+  reads like a copy/paste slip and an admin can now fix it per manual, which
+  is precisely the point of the feature.
+
 ### Upload size limit — 10 MB, decimal
 
 Every image upload is capped at **10 MB**, expressed server-side as

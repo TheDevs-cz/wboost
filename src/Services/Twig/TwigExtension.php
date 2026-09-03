@@ -12,6 +12,7 @@ use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Services\FormatFileSize;
 use WBoost\Web\Services\SvgColorsMapper;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\ManualPage;
 
 final class TwigExtension extends AbstractExtension
 {
@@ -34,6 +35,9 @@ final class TwigExtension extends AbstractExtension
             new TwigFunction('remap_svg_colors', $this->svgColorsMapper->mapToDataUri(...)),
             new TwigFunction('pending_registration_requests_count', $this->registrationRequestRepository->countPending(...)),
             new TwigFunction('project_avatar', $this->getProjectAvatars->forProject(...)),
+            // The manual pages address their own texts by key; the enum carries
+            // the defaults, so the template needs the case, not the string.
+            new TwigFunction('manual_page', ManualPage::from(...)),
         ];
     }
 
