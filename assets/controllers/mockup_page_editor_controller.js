@@ -16,16 +16,20 @@ export default class extends Controller {
         'stage', 'stageEmpty', 'fileInput', 'removeFlag',
         'layoutRadio', 'layoutOption', 'extraNotice',
         'fillSummary', 'dirtyBadge',
-        'downloadList', 'downloadInput', 'downloadRemoveFlag',
+        'downloadInput', 'downloadRemoveFlag',
         'pageDownloadInput', 'pageDownloadRemoveFlag',
+        'pageFileState', 'pageFilePick', 'pageFileRemove', 'pageFileRestore', 'pageFileError',
     ];
 
     static values = {
         geometry: Object,
         existingImages: Array,
         existingDownloads: Array,
-        // `{}` means "no file attached" — a Stimulus Object value cannot be null.
-        existingPageDownload: Object,
+        // Two scalars, NOT an object: Twig encodes an empty hash as `[]` and
+        // Stimulus' Object reader throws on an array, which aborted connect()
+        // and left the whole editor half-wired.
+        pageDownloadName: String,
+        pageDownloadSize: Number,
         fixedLayout: String,
         maxFileSize: Number,
         maxDownloadSize: Number,
@@ -68,10 +72,11 @@ export default class extends Controller {
             });
         }
 
-        const pageDownload = this.existingPageDownloadValue;
         this.pageDownloadState = {
-            existing: pageDownload && pageDownload.name ? pageDownload : null,
-            removed: (this.pageDownloadRemoveFlagTarget?.value ?? '0') === '1',
+            existing: this.pageDownloadNameValue === ''
+                ? null
+                : { name: this.pageDownloadNameValue, size: this.pageDownloadSizeValue },
+            removed: this.hasPageDownloadRemoveFlagTarget && this.pageDownloadRemoveFlagTarget.value === '1',
             file: null,
             error: null,
         };
@@ -92,7 +97,7 @@ export default class extends Controller {
         this.element.addEventListener('input', this.onNameInput);
 
         this.renderStage();
-        this.renderDownloads();
+        this.refreshPageFile();
         this.updateMiniGrids();
         this.updateSummary();
 
@@ -132,7 +137,7 @@ export default class extends Controller {
     layoutChanged() {
         this.markDirty();
         this.renderStage();
-        this.renderDownloads();
+        this.refreshPageFile();
         this.updateMiniGrids();
         this.updateSummary();
     }
@@ -180,13 +185,17 @@ export default class extends Controller {
                 <strong>Obrázek bude po uložení odebrán</strong>
             </div>
             <span class="mockup-editor-slot-number">${index + 1}</span>
-            <span class="mockup-editor-slot-attach" hidden><i class="mdi mdi-paperclip"></i></span>
             <span class="mockup-editor-slot-chip" hidden></span>
             <div class="mockup-editor-slot-meta" hidden></div>
             <div class="mockup-editor-slot-actions">
                 <button type="button" class="btn btn-sm btn-light" data-role="replace"><i class="ri-upload-2-line me-1"></i>Vyměnit</button>
                 <button type="button" class="btn btn-sm btn-light text-danger" data-role="remove"><i class="ri-delete-bin-line me-1"></i>Odebrat</button>
                 <button type="button" class="btn btn-sm btn-light" data-role="restore"><i class="ri-arrow-go-back-line me-1"></i>Vrátit původní</button>
+            </div>
+            <div class="mockup-editor-slot-file">
+                <button type="button" class="mockup-editor-slot-file-pick" data-role="file"></button>
+                <button type="button" class="mockup-editor-slot-file-clear" data-role="file-remove" title="Odebrat soubor" hidden><i class="ri-close-line"></i></button>
+                <button type="button" class="mockup-editor-slot-file-clear" data-role="file-restore" title="Vrátit původní soubor" hidden><i class="ri-arrow-go-back-line"></i></button>
             </div>
         `;
 
@@ -204,6 +213,14 @@ export default class extends Controller {
                 this.removeImage(index);
             } else if (button.dataset.role === 'restore') {
                 this.restoreImage(index);
+            } else if (button.dataset.role === 'file') {
+                // The attachment bar sits inside the slot, so its clicks must
+                // not fall through to the image picker behind it.
+                this.downloadInputFor(index)?.click();
+            } else if (button.dataset.role === 'file-remove') {
+                this.removeDownload(index);
+            } else if (button.dataset.role === 'file-restore') {
+                this.restoreDownload(index);
             }
         });
 
@@ -216,7 +233,25 @@ export default class extends Controller {
             event.preventDefault();
             element.classList.remove('is-dragover');
 
+            // A drop on the attachment bar attaches a downloadable file to
+            // this picture instead of replacing the picture.
             const file = event.dataTransfer.files[0] ?? null;
+
+            if (event.target.closest('.mockup-editor-slot-file') !== null) {
+                if (file !== null) {
+                    const transfer = new DataTransfer();
+                    transfer.items.add(file);
+                    const input = this.downloadInputFor(index);
+
+                    if (input !== null) {
+                        input.files = transfer.files;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+
+                return;
+            }
+
 
             if (file !== null) {
                 const transfer = new DataTransfer();
@@ -290,12 +325,7 @@ export default class extends Controller {
         element.querySelector('button[data-role="replace"]').hidden = displayUrl === null;
         element.querySelector('button[data-role="restore"]').hidden = !isRemovedView;
 
-        // Mirrors the row below the stage, so the designer can see at a glance
-        // which segment carries a downloadable file.
-        const attachment = element.querySelector('.mockup-editor-slot-attach');
-        const download = this.effectiveDownload(this.downloadStates[index]);
-        attachment.hidden = download === null;
-        attachment.title = download === null ? '' : `Soubor ke stažení: ${this.describeDownload(download)}`;
+        this.refreshSlotFile(index);
     }
 
     // --- file handling ------------------------------------------------------
@@ -425,9 +455,13 @@ export default class extends Controller {
     }
 
     // --- downloadable attachments -------------------------------------------
+    //
+    // A per-image file is attached ON the image — a bar along the bottom of its
+    // slot — so it is never in doubt which picture the file belongs to. The
+    // file for the WHOLE page is a separate card below the stage.
 
     /**
-     * The file a row will end up with once saved: a freshly picked one wins
+     * The file a slot will end up with once saved: a freshly picked one wins
      * over the stored one, and the remove flag hides the stored one.
      */
     effectiveDownload(state) {
@@ -448,64 +482,6 @@ export default class extends Controller {
         return size === '' ? download.name : `${download.name} · ${size}`;
     }
 
-    renderDownloads() {
-        if (!this.hasDownloadListTarget) {
-            return;
-        }
-
-        this.downloadListTarget.innerHTML = '';
-
-        // The page-level row first, then one per slot of the CURRENT layout —
-        // slots the layout does not have are sliced away server-side anyway.
-        this.downloadListTarget.appendChild(
-            this.buildDownloadRow('page', 'Celá stránka', 'mdi-file-document-outline'),
-        );
-
-        this.currentSlots.forEach((slot, index) => {
-            this.downloadListTarget.appendChild(
-                this.buildDownloadRow(index, `Obrázek ${index + 1}`, 'mdi-image-outline'),
-            );
-        });
-
-        this.refreshDownloadRow('page');
-        this.currentSlots.forEach((slot, index) => this.refreshDownloadRow(index));
-    }
-
-    buildDownloadRow(key, label, icon) {
-        const element = document.createElement('div');
-        element.className = 'mockup-download-row';
-        element.dataset.downloadKey = String(key);
-
-        element.innerHTML = `
-            <span class="mockup-download-row-label"><i class="mdi ${icon} me-1"></i>${label}</span>
-            <span class="mockup-download-row-file"></span>
-            <span class="mockup-download-row-error text-danger" hidden></span>
-            <span class="mockup-download-row-actions">
-                <button type="button" class="btn btn-sm btn-light" data-role="pick"></button>
-                <button type="button" class="btn btn-sm btn-light text-danger" data-role="remove" hidden><i class="ri-delete-bin-line me-1"></i>Odebrat</button>
-                <button type="button" class="btn btn-sm btn-light" data-role="restore" hidden><i class="ri-arrow-go-back-line me-1"></i>Vrátit původní</button>
-            </span>
-        `;
-
-        element.addEventListener('click', (event) => {
-            const button = event.target.closest('button[data-role]');
-
-            if (button === null) {
-                return;
-            }
-
-            if (button.dataset.role === 'pick') {
-                this.downloadInputFor(key)?.click();
-            } else if (button.dataset.role === 'remove') {
-                this.removeDownload(key);
-            } else if (button.dataset.role === 'restore') {
-                this.restoreDownload(key);
-            }
-        });
-
-        return element;
-    }
-
     downloadStateFor(key) {
         return key === 'page' ? this.pageDownloadState : this.downloadStates[key];
     }
@@ -522,52 +498,101 @@ export default class extends Controller {
             : (this.downloadRemoveFlagTargets[key] ?? null);
     }
 
-    downloadRowFor(key) {
-        if (!this.hasDownloadListTarget) {
-            return null;
+    /**
+     * The bar along the bottom of a slot: pick / show / clear the file that
+     * rides with THAT picture.
+     */
+    refreshSlotFile(index) {
+        const element = this.slotElements[index];
+
+        if (element === undefined) {
+            return;
         }
 
-        return this.downloadListTarget.querySelector(`[data-download-key="${key}"]`);
-    }
+        const state = this.downloadStates[index];
+        const bar = element.querySelector('.mockup-editor-slot-file');
 
-    refreshDownloadRow(key) {
-        const element = this.downloadRowFor(key);
-        const state = this.downloadStateFor(key);
-
-        if (element === null || state === undefined) {
+        if (bar === null || state === undefined) {
             return;
         }
 
         const download = this.effectiveDownload(state);
         const isRemovedView = state.file === null && state.removed && state.existing !== null;
 
-        const file = element.querySelector('.mockup-download-row-file');
-        if (download !== null) {
-            file.textContent = this.describeDownload(download);
-            file.className = 'mockup-download-row-file has-file';
+        const pick = bar.querySelector('button[data-role="file"]');
+
+        if (state.error !== null) {
+            bar.className = 'mockup-editor-slot-file is-error';
+            pick.innerHTML = `<i class="ri-error-warning-line"></i><span>${this.escape(state.error)}</span>`;
+        } else if (download !== null) {
+            bar.className = 'mockup-editor-slot-file has-file';
+            pick.innerHTML = `<i class="ri-attachment-2"></i><span>${this.escape(this.describeDownload(download))}</span>`;
         } else if (isRemovedView) {
-            file.textContent = 'Soubor bude po uložení odebrán';
-            file.className = 'mockup-download-row-file is-removed';
+            bar.className = 'mockup-editor-slot-file is-removed';
+            pick.innerHTML = '<i class="ri-delete-bin-line"></i><span>Soubor bude odebrán</span>';
         } else {
-            file.textContent = 'Bez souboru';
-            file.className = 'mockup-download-row-file';
+            bar.className = 'mockup-editor-slot-file';
+            pick.innerHTML = '<i class="ri-attachment-2"></i><span>Přidat soubor ke stažení</span>';
         }
 
-        const error = element.querySelector('.mockup-download-row-error');
-        error.hidden = state.error === null;
-        error.textContent = state.error ?? '';
+        pick.title = download === null
+            ? 'Přiložit k tomuto obrázku soubor ke stažení'
+            : `Vyměnit soubor: ${this.describeDownload(download)}`;
 
-        const pick = element.querySelector('button[data-role="pick"]');
-        pick.innerHTML = download === null
+        bar.querySelector('button[data-role="file-remove"]').hidden = download === null;
+        bar.querySelector('button[data-role="file-restore"]').hidden = !isRemovedView;
+    }
+
+    /**
+     * The card below the stage: the file offered next to the whole page.
+     */
+    refreshPageFile() {
+        if (!this.hasPageFileStateTarget) {
+            return;
+        }
+
+        const state = this.pageDownloadState;
+        const download = this.effectiveDownload(state);
+        const isRemovedView = state.file === null && state.removed && state.existing !== null;
+
+        if (download !== null) {
+            this.pageFileStateTarget.textContent = this.describeDownload(download);
+            this.pageFileStateTarget.className = 'mockup-page-file-state has-file';
+        } else if (isRemovedView) {
+            this.pageFileStateTarget.textContent = 'Soubor bude po uložení odebrán';
+            this.pageFileStateTarget.className = 'mockup-page-file-state is-removed';
+        } else {
+            this.pageFileStateTarget.textContent = 'Bez souboru';
+            this.pageFileStateTarget.className = 'mockup-page-file-state';
+        }
+
+        this.pageFilePickTarget.innerHTML = download === null
             ? '<i class="ri-attachment-2 me-1"></i>Vybrat soubor'
             : '<i class="ri-upload-2-line me-1"></i>Vyměnit';
 
-        element.querySelector('button[data-role="remove"]').hidden = download === null;
-        element.querySelector('button[data-role="restore"]').hidden = !isRemovedView;
+        this.pageFileRemoveTarget.hidden = download === null;
+        this.pageFileRestoreTarget.hidden = !isRemovedView;
+
+        if (this.hasPageFileErrorTarget) {
+            this.pageFileErrorTarget.hidden = state.error === null;
+            this.pageFileErrorTarget.textContent = state.error ?? '';
+        }
+    }
+
+    pickPageDownload() {
+        this.downloadInputFor('page')?.click();
+    }
+
+    removePageDownload() {
+        this.removeDownload('page');
+    }
+
+    restorePageDownload() {
+        this.restoreDownload('page');
     }
 
     downloadChanged(event) {
-        const key = event.target === (this.hasPageDownloadInputTarget ? this.pageDownloadInputTarget : null)
+        const key = this.hasPageDownloadInputTarget && event.target === this.pageDownloadInputTarget
             ? 'page'
             : this.downloadInputTargets.indexOf(event.target);
 
@@ -653,12 +678,13 @@ export default class extends Controller {
     }
 
     afterDownloadChange(key) {
-        this.refreshDownloadRow(key);
-        this.updateExtraNotice();
-
-        if (key !== 'page') {
-            this.refreshSlot(key);
+        if (key === 'page') {
+            this.refreshPageFile();
+            return;
         }
+
+        this.refreshSlotFile(key);
+        this.updateExtraNotice();
     }
 
     /**
@@ -684,6 +710,13 @@ export default class extends Controller {
         }
 
         return `${value.toFixed(value >= 100 ? 0 : 1).replace('.', ',')} ${units[unit]}`;
+    }
+
+    escape(text) {
+        const node = document.createElement('span');
+        node.textContent = text;
+
+        return node.innerHTML;
     }
 
     // --- feedback -----------------------------------------------------------

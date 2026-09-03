@@ -1514,13 +1514,36 @@ PUBLIC like the manual it hangs off and serves the bytes BUFFERED through PHP
 (a `Content-Disposition` is the only way to restore the name; a flushing
 StreamedResponse would corrupt the next request on resident FrankenPHP). The
 manual render shows a corner button on each slot that carries a file and a
-"Stáhnout" button in the page heading for the page-level one; the editor's
-"Soubory ke stažení" rows (page + one per slot of the chosen layout) mirror
-the images' pick/remove/restore flags, and an attached slot gets a paperclip
-badge on the stage. Attachments are NOT images, so the cap is
-`ManualMockupPageFormType::DOWNLOAD_MAX_SIZE` = 20 MB decimal (mirrored
-client-side), and any file type is accepted. Both columns are enumerated in
-`BuildStorageReferenceIndex` — without that the files read as orphans.
+"Stáhnout" button in the page heading for the page-level one. Attachments are
+NOT images, so the cap is `ManualMockupPageFormType::DOWNLOAD_MAX_SIZE` =
+20 MB decimal (mirrored client-side), and any file type is accepted. Both
+columns are enumerated in `BuildStorageReferenceIndex` — without that the
+files read as orphans.
+
+**Editor UX: the per-image attachment lives ON the image.** A bar along the
+bottom of each stage slot (`.mockup-editor-slot-file`) picks / shows / clears
+the file that rides with THAT picture; the file for the whole page is a
+separate card below the stage, rendered server-side. It began as a list of
+"Obrázek 1 / 2 / 3" rows under the stage, where nothing told the designer
+which row was which picture. Three things there are load-bearing:
+
+- the bar is **always visible**, not hover-only: an attachment leaves no trace
+  in the artwork, so hiding the control hides the only evidence a file exists;
+- **`z-index: 3`** on the bar — `.mockup-editor-slot-actions` is `inset: 0`
+  and still takes pointer events at `opacity: 0`, so without it the bar is
+  unclickable on any slot that has an image;
+- the whole-page card is **Twig, not JS**. It used to be built by the
+  controller, and an empty invisible button was exactly the symptom when that
+  controller crashed on connect (below).
+
+**Stimulus Object values and Twig's empty hash.** `existing_page_download ??
+{}` looked harmless but Twig encodes an empty hash as `[]`, and Stimulus'
+`Object` reader THROWS on an array — which aborted `connect()` half-way, so
+the page-level row was never refreshed AND the editor's dirty tracking,
+beforeunload guard and name listener were all dead, silently. The page
+attachment now travels as two scalars (`pageDownloadName` / `pageDownloadSize`).
+Prefer a scalar or an Array value over an Object one whose empty case comes
+from Twig.
 
 The editor: click/drop a segment → instant local preview + fit verdict
 (ratio crop %, low-resolution vs `recommendedWidth/Height` = 2× unit size,

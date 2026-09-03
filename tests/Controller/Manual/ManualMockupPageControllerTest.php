@@ -44,6 +44,32 @@ final class ManualMockupPageControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('input[type="file"][name="manual_mockup_page_form[downloadFile]"]'));
     }
 
+    /**
+     * The whole-page attachment card is rendered SERVER-SIDE, labels and all —
+     * it used to be built by the editor controller, and when that controller
+     * crashed on connect the card shipped an empty, invisible button.
+     */
+    public function testTheWholePageAttachmentCardIsRenderedWithItsLabels(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        $crawler = $browser->request('GET', '/manual/' . TestDataFixture::MANUAL_1_ID . '/add-mockup-page');
+        $this->assertResponseIsSuccessful();
+
+        $card = $crawler->filter('.mockup-page-file');
+        self::assertCount(1, $card);
+        self::assertStringContainsString('Soubor pro celou stránku', $card->text());
+        self::assertStringContainsString('Bez souboru', $card->text());
+        self::assertStringContainsString(
+            'Vybrat soubor',
+            $card->filter('[data-mockup-page-editor-target="pageFilePick"]')->text(),
+        );
+
+        // The per-image attachments live on the images now, not in a list.
+        self::assertCount(0, $crawler->filter('.mockup-download-row'));
+    }
+
     public function testAddCreatesPageAndSlicesImagesToLayoutSlotCount(): void
     {
         $browser = self::createClient();

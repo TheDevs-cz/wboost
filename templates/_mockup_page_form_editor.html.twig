@@ -7,6 +7,9 @@
    - existing_images: list<string|null> — per-slot uploaded_asset URLs (edit)
    - existing_downloads: list<{name, size}|null> — per-slot attached files (edit)
    - existing_page_download: {name, size}|null — the whole page's attached file (edit)
+     (passed to the controller as two SCALARS, never as an object — Twig encodes
+     an empty hash as `[]` and Stimulus' Object reader THROWS on an array,
+     which aborted connect() and left the editor half-wired)
    - submit_label: string
 #}
 {% set existing_images = existing_images|default([]) %}
@@ -21,7 +24,8 @@
     'data-mockup-page-editor-geometry-value': layouts_geometry|json_encode,
     'data-mockup-page-editor-existing-images-value': existing_images|json_encode,
     'data-mockup-page-editor-existing-downloads-value': existing_downloads|json_encode,
-    'data-mockup-page-editor-existing-page-download-value': (existing_page_download ?? {})|json_encode,
+    'data-mockup-page-editor-page-download-name-value': existing_page_download ? existing_page_download.name : '',
+    'data-mockup-page-editor-page-download-size-value': existing_page_download ? existing_page_download.size : 0,
     'data-mockup-page-editor-fixed-layout-value': fixed_layout ? fixed_layout.value : '',
     'data-mockup-page-editor-max-file-size-value': 10000000,
     'data-mockup-page-editor-max-download-size-value': 20000000,
@@ -106,7 +110,8 @@
             <h4 class="header-title mt-3 mb-1">Soubory ke stažení</h4>
             <p class="text-muted mb-2">
                 Nepovinné. Přiložte podklad, který si čtenář manuálu stáhne — tiskové PDF, zdrojová data, balíček.
-                Soubor můžete přidat k celé stránce i k jednotlivým obrázkům; u každého se pak v manuálu objeví tlačítko ke stažení.
+                Soubor pro jednotlivý obrázek přidáte přímo v něm (lišta „Soubor ke stažení“ dole v poli),
+                soubor pro celou stránku níže. U každého se pak v manuálu objeví tlačítko ke stažení.
             </p>
 
             {% if form.downloadFile.vars.errors|length > 0 %}
@@ -122,7 +127,32 @@
                 {% endif %}
             {% endfor %}
 
-            <div class="mockup-download-list" data-mockup-page-editor-target="downloadList"></div>
+            {# Rendered server-side, not built by JS: an empty button is exactly
+               the failure this card had while the controller was crashing. #}
+            <div class="mockup-page-file">
+                <span class="mockup-page-file-label">
+                    <i class="mdi mdi-file-document-outline me-1"></i>Soubor pro celou stránku
+                </span>
+                <span class="mockup-page-file-state" data-mockup-page-editor-target="pageFileState">Bez souboru</span>
+                <span class="mockup-page-file-actions">
+                    <button type="button" class="btn btn-sm btn-light"
+                            data-mockup-page-editor-target="pageFilePick"
+                            data-action="mockup-page-editor#pickPageDownload">
+                        <i class="ri-attachment-2 me-1"></i>Vybrat soubor
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light text-danger" hidden
+                            data-mockup-page-editor-target="pageFileRemove"
+                            data-action="mockup-page-editor#removePageDownload">
+                        <i class="ri-delete-bin-line me-1"></i>Odebrat
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light" hidden
+                            data-mockup-page-editor-target="pageFileRestore"
+                            data-action="mockup-page-editor#restorePageDownload">
+                        <i class="ri-arrow-go-back-line me-1"></i>Vrátit původní
+                    </button>
+                </span>
+                <span class="mockup-page-file-error text-danger" hidden data-mockup-page-editor-target="pageFileError"></span>
+            </div>
 
             <div class="d-none">
                 {% for imageField in form.images %}
