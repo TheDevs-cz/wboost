@@ -1,6 +1,11 @@
 {# The admin pencil that sizes ONE logo card. Top-LEFT corner on purpose: the
    download and colour-mapping buttons already own the right-hand corner, and
-   not every card carries both, so a shared corner would collide unevenly. #}
+   not every card carries both, so a shared corner would collide unevenly.
+
+   The component root stays UNPOSITIONED and the button carries the offsets
+   (`.manual-logo-width-edit`): the root also wraps the modal, so a `position`
+   + `z-index` on it would trap the modal in a stacking context below the
+   backdrop Bootstrap appends to <body>, leaving it greyed out and unclickable. #}
 {% if is_granted('manual_edit', manual) %}
     <div {{ attributes.defaults({'class': 'manual-logo-width'}) }}>
         <button type="button"

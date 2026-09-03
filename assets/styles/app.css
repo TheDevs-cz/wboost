@@ -2668,7 +2668,14 @@ button.fill-layer-row__main:focus-visible {
  * and colour-mapping buttons already own the right-hand corner and not every
  * card carries both, so sharing that side would collide unevenly.
  */
-.manual-logo-width {
+/*
+ * The POSITIONING BELONGS TO THE BUTTON, never to the component root — the
+ * root also contains the Bootstrap modal, and `position` + `z-index` on it
+ * would make that root a stacking context the modal can never escape: it
+ * would paint below the backdrop Bootstrap appends to <body> at z-index 1050
+ * and be unreachable. Same shape as LogoColorsMapping, whose root is static.
+ */
+.manual-logo-width-edit {
     position: absolute;
     left: 10px;
     top: 10px;
