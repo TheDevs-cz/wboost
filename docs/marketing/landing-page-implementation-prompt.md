@@ -97,7 +97,8 @@ controllers `redirectToRoute('homepage')`.
 
      ```php
      ['path' => '^/$',                                        'roles' => [AuthenticatedVoter::PUBLIC_ACCESS]],
-     ['path' => '^/(ochrana-osobnich-udaju|obchodni-podminky)$', 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS]],
+     ['path' => '^/(ochrana-osobnich-udaju|obchodni-podminky)/?$', 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS]],
+     ['path' => '^/(robots\.txt|sitemap\.xml)$',                   'roles' => [AuthenticatedVoter::PUBLIC_ACCESS]],
      ```
 
      Anchor both with `$` — `^/` alone would open the entire app. This is belt-and-braces:
@@ -125,6 +126,8 @@ landing/
     index.html                       →  /
     ochrana-osobnich-udaju.html      →  /ochrana-osobnich-udaju
     obchodni-podminky.html           →  /obchodni-podminky
+    robots.txt                       →  /robots.txt
+    sitemap.xml                      →  /sitemap.xml
     landing/
       style.css
       script.js
@@ -136,6 +139,15 @@ landing/
 **This is a multi-page site, not one page.** `src/*.html` is the page set and the filesystem
 is its source of truth: `index.html` serves `/`, every other `<slug>.html` serves `/<slug>`
 extensionless. Shared assets live under `src/landing/` and are served at `/landing/…`.
+
+**`/index.html` is deliberately NOT routed.** It would be a second URL serving identical
+content, and nginx never emits it — the `try_files` rewrite is internal and invisible to the
+client. A request for it falls through to the app and 404s, which is correct: nothing should
+ever link there.
+
+**`robots.txt` and `sitemap.xml` live here too.** They are domain-level SEO files and belong
+next to the marketing content, which is where they will actually be edited. §6 covers both,
+including deleting the app's `public/robots.txt` in the same commit.
 
 The two legal pages are **required before launch** — the footer links to them today as
 placeholders. Their content is a legal question, not a design one; ship the routing and the
@@ -250,7 +262,7 @@ The ink-on-paper lockup is **[POTVRDIT]** — flag it in the PR description.
 
 ### 4.1 Document structure
 
-One `index.html`. Real landmarks — `<header>`, `<main id="main">`, `<nav>`, `<footer>` — one
+`index.html` is the landing itself; the legal pages reuse its nav and footer. Real landmarks — `<header>`, `<main id="main">`, `<nav>`, `<footer>` — one
 `<h1>`, then `<h2>` per section. Sections are `<section id="…">` carrying the ids the nav
 anchors expect. Fourteen sections in the fixed order of §5 of the design brief: nav, hero,
 proof strip, problém, jak to funguje, showcase, moduly (`#funkce`), AI asistenti (`#ai`),
@@ -360,10 +372,17 @@ server {
     gzip_types text/html text/css application/javascript image/svg+xml;
     # woff2 is already compressed — deliberately not in gzip_types.
 
-    # Extensionless page URLs: /ochrana-osobnich-udaju -> ochrana-osobnich-udaju.html
+    # Canonicalise a trailing slash away before anything else. Traefik routes both
+    # forms (the page regex ends `/?$`) so this 301 is reachable; without it the
+    # slashed variant would be a duplicate URL. `landing/` is excluded — it is an
+    # asset prefix, not a page.
+    location ~ "^/(?!landing/)([a-z0-9-]+)/$" { return 301 /$1; }
+
+    # Extensionless page URLs: /ochrana-osobnich-udaju -> ochrana-osobnich-udaju.html.
+    # The rewrite is internal, so /index.html is never emitted as a URL.
     location / {
         add_header Cache-Control "no-cache";
-        try_files $uri $uri.html /index.html =404;
+        try_files $uri $uri.html =404;
     }
 
     # Filenames are NOT fingerprinted (no build step), so only the fonts — which
@@ -389,8 +408,8 @@ Add a static service to `compose.yaml` so dev mirrors prod:
 ```
 
 App on `:8080`, landing on `:8090`. The bind mount means edits are live with no rebuild — the
-image build is production-only. `open landing/src/index.html` also works, which is why the
-site's own assets use **relative** paths and only the app links are root-relative.
+image build is production-only. This is now the only way to view the site correctly: assets are
+root-relative (§3.1), so opening a file directly off the filesystem no longer resolves them.
 
 `WEB_PORT` / `POSTGRES_PORT` already exist because the defaults collide with other projects on
 this machine; `LANDING_PORT` follows the same pattern.
@@ -419,30 +438,122 @@ The landing links `/favicon.ico` and friends root-relative. Those paths are not 
 router's rule, so they fall through to the app, which already serves them. One shared brand,
 zero duplicated bytes, and a browser's implicit `/favicon.ico` request works either way.
 
-## 6. Commit 5 — polish
+## 6. Commit 5 — SEO, accessibility, motion
 
-**SEO / meta.** `<title>` ≈ *"WBoost — brand manuály, šablony a export pro grafiky a
-marketingové týmy"*. Meta description from the hero subhead. `<html lang="cs">`.
-`rel="canonical"` to `https://wboost.cz/`. Open Graph + Twitter card (`og:title`,
-`og:description`, `og:url`, `og:type=website`, `og:locale=cs_CZ`, `og:image`). JSON-LD
-`Organization` (Wantoo Design s. r. o. with the real address and IČ from §5.13) +
-`SoftwareApplication`. Invent nothing — check §8 of the design brief first.
+`wboost.cz/` returns a **302 to the login form** today, so there is currently nothing
+indexable at the apex at all. This page is the site's entire organic surface — treat SEO as
+part of the build, not a follow-up.
 
-**The OG image does not exist.** Export a 1200×630 crop of the hero composition from Pencil
-into `landing/src/landing/img/og-cover.png`, or ship without `og:image` and flag it as a follow-up.
-Do not link a placeholder.
+### 6.1 Per page, not once
 
-**`public/robots.txt` already exists** (`User-agent: * / Disallow:` — allow everything) and
-belongs to the app. It is fine as-is. If the landing moves to its own origin under Path B,
-that origin needs its own copy.
+Every page gets its own `<title>`, meta description and `rel="canonical"` (absolute, apex
+host, no trailing slash). Copying the landing's tags onto the legal pages is the usual
+mistake and produces three duplicate-title pages.
 
-**Accessibility.** Skip link to `#main`. `aria-expanded` + `aria-controls` on the FAQ buttons
-and the mobile menu toggle (`<details>`/`<summary>` styled is fine and needs almost no JS).
-Visible `:focus-visible` rings (2 px `#727cf566` — the state is drawn in the Components frame).
+| Page | Title | Canonical |
+|---|---|---|
+| `/` | *WBoost — brand manuály, šablony a export pro grafiky a marketingové týmy* | `https://wboost.cz/` |
+| `/ochrana-osobnich-udaju` | *Ochrana osobních údajů — WBoost* | `https://wboost.cz/ochrana-osobnich-udaju` |
+| `/obchodni-podminky` | *Obchodní podmínky — WBoost* | `https://wboost.cz/obchodni-podminky` |
+
+Also on every page: `<html lang="cs">`, Open Graph + Twitter card (`og:title`,
+`og:description`, `og:url`, `og:type=website`, `og:locale=cs_CZ`, `og:image` — **absolute
+URL**, `https://wboost.cz/landing/img/og-cover.png`). JSON-LD `Organization` +
+`SoftwareApplication` on `/` only, with the real company block from §5.13 of the design brief.
+Invent nothing — check §8 of that brief first.
+
+**The OG image does not exist.** Export a 1200×630 crop of the hero composition from Pencil to
+`landing/src/landing/img/og-cover.png`, or ship without `og:image` and flag it. Never link a
+placeholder.
+
+### 6.2 `sitemap.xml`
+
+`landing/src/sitemap.xml`, served at `/sitemap.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://wboost.cz/</loc></url>
+  <url><loc>https://wboost.cz/ochrana-osobnich-udaju</loc></url>
+  <url><loc>https://wboost.cz/obchodni-podminky</loc></url>
+  <url><loc>https://wboost.cz/ai</loc></url>
+</urlset>
+```
+
+`<loc>` only. `changefreq` and `priority` are ignored by Google, and a hand-maintained
+`lastmod` on a site with no build step drifts into a lie — an absent `lastmod` is better than a
+wrong one.
+
+`/ai` is the MCP guide and is served by the **app**, not by nginx. A sitemap lists URLs, not
+files, so that is correct and deliberate: it is the one genuinely indexable page the
+application has. §7's test asserts every landing page appears here; extra URLs like this are
+allowed.
+
+### 6.3 `robots.txt`
+
+Moves from the app to `landing/src/robots.txt`. **Delete `public/robots.txt` in the same
+commit** so there is exactly one. Today's version is `Disallow:` (allow everything) with no
+sitemap line.
+
+```
+User-agent: *
+Allow: /
+
+# No indexable content, and every one of these either 302s to the login form,
+# answers only to a bearer token, or returns a binary.
+Disallow: /api/
+Disallow: /_mcp
+Disallow: /oauth/
+Disallow: /stahnout-logo/
+Disallow: /stahnout-mockup/
+Disallow: /media/cache/
+
+Sitemap: https://wboost.cz/sitemap.xml
+```
+
+The 52 authenticated app prefixes are deliberately **not** listed: they all redirect
+anonymous requests to `/login`, which crawlers handle correctly, and enumerating a list that
+grows with every feature would rot immediately.
+
+### 6.4 One decision to put to Jan and Lukáš — public brand manuals in Google
+
+`/nahled-manualu/{project}/{manual}` is public and login-free by design, and therefore
+crawlable and indexable today. "Shareable by link" is not the same as "should rank for the
+client's brand name", and comparable products (Frontify, Brandfolder) exclude shared links by
+default. A client finding their brand manual in Google results would, at minimum, be surprised.
+
+If they agree it should be excluded, the correct fix is **`<meta name="robots" content="noindex">`
+in `templates/manual_preview.html.twig`** — one line, app-side, not part of this task. Do
+**not** reach for `Disallow: /nahled-manualu/` in robots.txt: that blocks crawling, which means
+the `noindex` is never seen, and already-indexed URLs can still surface as bare links. Raise
+it; do not decide it.
+
+### 6.5 Already handled elsewhere — do not "fix" these
+
+- **`www.wboost.cz` → `wboost.cz`** is a 301 served by Cloudflare (verified 2026-09-03). The
+  apex resolves straight to the box; `www` does not. Nothing to add in Traefik or nginx.
+- **HTTP → HTTPS** is a permanent redirect on Traefik's `web` entrypoint (pinned at priority
+  1000000, D56).
+
+### 6.6 Performance
+
+Nothing to tune, and that is the point: the pages are text and CSS with no images above the
+fold, so the LCP element is the H1 — there is no hero image to optimise and no layout shift to
+chase. Keep it that way: self-hosted woff2 with `font-display: swap`, the two above-the-fold
+faces preloaded, CSS under 40 KB, JS under 3 KB.
+
+### 6.7 Accessibility
+
+Skip link to `#main`. `aria-expanded` + `aria-controls` on the FAQ buttons and the mobile menu
+toggle (`<details>`/`<summary>` styled is fine and needs almost no JS). Visible
+`:focus-visible` rings (2 px `#727cf566` — the state is drawn in the Components frame).
 Contrast is already AA in the design; do not adjust colours without re-checking. Body text
 never below 14 px.
 
-**Motion**, from §7 of the notes and nothing more:
+### 6.8 Motion
+
+From §7 of the design notes and nothing more:
+
 - Hero dashed outlines fade in one by one, ~80 ms apart, popover last.
 - Sticky nav gains its hairline on first scroll.
 - The showcase headline nudges ~6 px once, on scroll into view, on all four formats together.
@@ -450,12 +561,10 @@ never below 14 px.
 - All of it behind `@media (prefers-reduced-motion: reduce)`.
 
 **JavaScript, under 3 KB, vanilla.** Four things only: nav scroll class, mobile menu toggle,
-FAQ accordion, one `IntersectionObserver`. No library. If you reach for one, you have gone
-wrong.
+FAQ accordion, one `IntersectionObserver`. No library. The legal pages load the same file and
+use none of it.
 
----
-
-## 7. The contract between the two systems — one test file, three assertions
+## 7. The contract between the two systems — one test file, four assertions
 
 The landing and the app are independent code, but they share a domain, and that creates
 exactly two ways for them to drift apart. Both go in
@@ -483,10 +592,17 @@ loudly instead of silently shadowing the static site.
 it equals the committed `landing/traefik-rule.txt`:
 
 ```
-Host(`wboost.cz`) && (Path(`/`) || Path(`/index.html`) || PathPrefix(`/landing/`) || Path(`/obchodni-podminky`) || Path(`/ochrana-osobnich-udaju`))
+Host(`wboost.cz`) && (Path(`/`) || PathPrefix(`/landing/`) || Path(`/robots.txt`) || Path(`/sitemap.xml`) || PathRegexp(`^/(obchodni-podminky|ochrana-osobnich-udaju)/?$`))
 ```
 
-Sort the page paths so the output is deterministic. On mismatch, fail with the **new rule
+One `PathRegexp` covers every non-root page **and** its trailing-slash variant, which nginx
+then 301s to the canonical form (§5.1) — without it a slashed URL would fall through to the app
+and soft-404. Traefik on the box is v3.7.5, so `PathRegexp` is available. Sort the slugs
+alphabetically so the output is deterministic.
+
+**4. Every page is in the sitemap.** Assert each `landing/src/*.html` page has a matching
+`<loc>` in `landing/src/sitemap.xml`. Extra `<loc>` entries (like `/ai`, served by the app) are
+allowed — this catches the real mistake, which is adding a page and forgetting the sitemap. On mismatch, fail with the **new rule
 printed verbatim** and the instruction to paste it into
 `apps/wboost-landing/compose.yaml` in the infra repo. That turns the one unavoidable
 cross-repo duplication into a build failure with the fix in the message, instead of a
@@ -494,11 +610,13 @@ convention nobody remembers.
 
 ### Adding a static page later — the whole checklist
 
-1. `landing/src/<slug>.html` (copy a legal page for the nav/footer chrome).
-2. Run the tests; assertion 3 fails and prints the new rule. Commit the regenerated
+1. `landing/src/<slug>.html` (copy a legal page for the nav/footer chrome), with its own
+   `<title>`, meta description and canonical.
+2. Add its `<loc>` to `landing/src/sitemap.xml`.
+3. Run the tests; assertions 3 and 4 fail and print what to change. Commit the regenerated
    `landing/traefik-rule.txt`.
-3. Infra repo: paste the rule into `apps/wboost-landing/compose.yaml`, **push that first**.
-4. App repo: add the slug to the `security.php` PUBLIC_ACCESS rule, push `landing/**`.
+4. Infra repo: paste the rule into `apps/wboost-landing/compose.yaml`, **push that first**.
+5. App repo: add the slug to the `security.php` PUBLIC_ACCESS rule, push `landing/**`.
 
 Step 4's push builds and deploys the nginx image, and that deploy applies the compose.yaml the
 reconciler already delivered in step 3 — so the new route goes live on the landing's own
@@ -508,7 +626,6 @@ deploy. **No separate infra window, as long as step 3 lands before step 4.**
 
 ```bash
 docker compose up -d landing                      # http://localhost:8090
-open landing/src/index.html                       # no server needed
 docker compose exec web composer phpstan          # level max, must pass
 docker compose exec web vendor/bin/phpunit        # must pass
 docker compose exec web bin/console debug:router | grep -E ' / | /dashboard '
@@ -527,8 +644,11 @@ should be essentially instant; check the network panel shows **nothing** from `/
 - Nothing under `landing/` references the app's code; nothing in `src/`, `templates/` or
   `assets/` references the landing. `tests/Controller/LandingContractTest.php` is the single
   exception and it only reads URLs and page filenames.
-- `/`, `/ochrana-osobnich-udaju` and `/obchodni-podminky` serve from nginx;
-  `landing/traefik-rule.txt` matches the rule deployed in `apps/wboost-landing/compose.yaml`.
+- `/`, `/ochrana-osobnich-udaju`, `/obchodni-podminky`, `/robots.txt` and `/sitemap.xml` serve
+  from nginx; `landing/traefik-rule.txt` matches the rule deployed in
+  `apps/wboost-landing/compose.yaml`; the app's `public/robots.txt` is deleted; `/index.html`
+  is not routed; a trailing slash 301s to the canonical URL.
+- Every page has its own title, meta description and canonical, and a `<loc>` in the sitemap.
 - All 14 sections present in order, copy verbatim, at all four widths; both legal pages exist
   as shells with the shared nav and footer.
 - CSS under 40 KB, JS under 3 KB, fonts self-hosted as woff2.
