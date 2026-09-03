@@ -351,22 +351,20 @@ export-history list, e-mail signature, API code block, QR grid — is flexbox pl
 plus 11–14 px type. No screenshots, no device mockups, no icon fonts. Icons are inline SVG at
 a single 1.5 px stroke weight from one set (Lucide, matching the design).
 
-### 4.3 Responsive — fully fluid, and why there is no tablet artboard
+### 4.3 Responsive — intrinsic layout, three breakpoints, no guessing
 
-**Two artboards, four ranges.** 1440 and 390 are designed; everything between is specified
-here rather than drawn. That is deliberate. The page is built from patterns whose intermediate
-states are determined by their endpoints — text columns clamp, card rows drop columns,
-two-column sections stack — so a 768 artboard would mostly redraw the same components at a
-third width and then need maintaining alongside the other two on every copy change. And it
-would not remove a single browser check: a drawn tablet view still has to be verified against
-the real thing. The browser is the better place to settle the middle.
+**Two artboards, and deliberately no third.** 1440 and 390 are designed. The widths between
+are not guessed at and not drawn — they are *derived*, because the layout is built from
+primitives that cannot produce a bad intermediate state. A 768 artboard would redraw the same
+components at a third width, need maintaining on every copy change, and still not remove a
+single browser check.
 
-The exception is the hero composition, which is the one piece of bespoke absolute positioning
-on the page. Its degradation is written out below in full. **If, once built, the 960–1199 band
-looks wrong, say so and we will design that one section at 1024** — informed by what actually
-broke rather than by guesswork.
+#### The principle
 
-Everything below is a rule, not a suggestion. Where a rule is missing, ask rather than improvise.
+**Prefer intrinsic layout to breakpoints. Reach for a media query only when the CONTENT
+changes, never when the geometry changes.** Geometry is `min()`, `clamp()`, `auto-fit` and
+`flex-wrap` — they adapt continuously and cannot be wrong at a width nobody tested. There are
+exactly **three** content breakpoints on this page, listed below; everything else is fluid.
 
 #### Container and type
 
@@ -375,80 +373,116 @@ Everything below is a rule, not a suggestion. Where a rule is missing, ask rathe
 .lp-container { width: min(1200px, 100% - 2 * var(--lp-gutter)); margin-inline: auto; }
 ```
 
-Fluid type with `clamp()` between the mobile and desktop values, viewport-interpolated:
+Fluid type with `clamp()`, viewport-interpolated between the two designed values:
 
-| Role | Mobile → Desktop |
-|---|---|
-| H1 (hero) | 40 → 62 |
-| Final CTA headline | 44 → 78 |
-| Section titles | 34 → 46 |
-| Showcase / AI / Cena titles | 40 → 52 |
-| Legal H1 | 36 → 52 |
-| Tile + card titles | 20 → 26 |
-| Body | 16 → 18 |
-| Mono labels | 10.5 → 12 |
+| Role | Mobile → Desktop | | Role | Mobile → Desktop |
+|---|---|---|---|---|
+| H1 (hero) | 40 → 62 | | Legal H1 | 36 → 52 |
+| Final CTA headline | 44 → 78 | | Tile / card titles | 20 → 26 |
+| Section titles | 34 → 46 | | Body | 16 → 18 |
+| Showcase / AI / Cena titles | 40 → 52 | | Mono labels | 10.5 → 12 |
 
-Section padding: `clamp(76px, 9vw, 150px)` vertical. Touch targets ≥ 44 px everywhere; below
-640 the buttons are full width at 52 px.
+Section padding `clamp(76px, 9vw, 150px)` vertical. Touch targets ≥ 44 px; below 640 the
+buttons are full width at 52 px.
 
-#### The four ranges
+#### Everything that is just grid
 
-| Range | Behaviour |
-|---|---|
-| **≥ 1200** | The Desktop 1440 artboard exactly. |
-| **960–1199** | Same structure and section order; container narrows by the gutter formula. Hero composition scales (below). Bento `740+436` row keeps two columns but both shrink. |
-| **640–959** | Everything two-column stacks; three-column rows become two; the showcase becomes a scroll strip. Nav collapses to the toggle. |
-| **< 640** | The Mobile 390 artboard. Single column, 20 px gutters (16 px for the AI section so the chat panel keeps its width). |
+Card and column rows are `auto-fit` grids. They drop a column exactly when a card would
+otherwise go below its minimum — no breakpoint, no tuning, and correct at every width
+including the ones nobody thought to test:
 
-#### Per section, at 640–959 unless stated
+```css
+.lp-cols { display: grid; gap: 24px;
+           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+```
 
-- **Nav** — the six anchor links fit down to ~960 and no further (they measure ~510 px plus a
-  118 px wordmark and a 150 px button inside a 864 px container). **Below 960 the links are
-  replaced by the menu toggle** from the mobile artboard. If they crowd before that, collapse
-  earlier; do not shrink the type to buy room.
-- **Hero** — copy above, composition below, both full width; the CTA pair stays side by side
-  until 640, then stacks full-width.
-- **Hero composition** — one `position: relative` block, children absolutely positioned in px
-  against an intrinsic 720 × 600. Scale it, do not re-lay it out:
-  - ≥ 1200: as designed, bleeding past the right container edge.
-  - 960–1199: `transform: scale()` from 1 → ~0.78 with `transform-origin: top left`, and a
-    wrapper whose height tracks the scale (a transform does not affect layout).
-  - < 960: switch to the **mobile treatment** — poster plus the two dashed boxes (Nadpis,
-    Fotografie), centred, `max-width: 420px`. The format rail, the toast, the open popover and
-    the active "Datum" box are `display: none`. **One set of markup, hidden selectively** —
-    never a second copy.
-- **Proof strip** — statement above, chips below as a wrapping row; the six logo slots become
-  3 × 2.
-- **Problém / Jak to funguje / Pro koho** — 3 columns → 2 → 1. In *Jak to funguje* the
-  fragment card stays above its copy at every width.
-- **Showcase** — below 960 becomes `overflow-x: auto; scroll-snap-type: x mandatory` with the
-  `posuňte prstem →` hint (hidden on `(pointer: fine)`). **The indigo connector line is
-  dropped in the scroll strip** — it only means something when all four formats are visible at
-  once.
-- **Moduly** — the header's title/note pair stacks below 960. Rows: the full-width tile stays;
-  `740+436` stacks; the 3-column row → 2 → 1; the 2-column row stacks. Fragments inside tiles
-  move below their copy when the tile is narrower than ~520 px.
-- **AI** — header pair stacks below 960; then chat panel above, bullets + install block below.
-  The chat panel never goes narrower than its 16 px gutters.
-- **Reference** — header pair stacks below 960; testimonials 3 → 2 → 1; the caption/logo row
-  stacks with the slots at 3 × 2.
-- **Příběh** — copy above, then the two founder cards side by side (they stay paired down to
-  640, then stack); the facts list is full width at every size.
-- **Cena** — two columns stack: statement, then the checked facts, then the CTA.
-- **FAQ** — two columns → one below 960.
-- **Final CTA** — already centred; only the type clamps.
-- **Footer** — 3 columns → 2 → 1; the bottom row stacks below 640.
-- **Legal pages** — a single 760 px prose column that becomes `100% - 2 × gutter`; the
-  numbered section headings keep their hanging index down to 640, then the index moves above
-  the heading (as on the Legal 390 artboard).
+| Block | `minmax` min | Yields |
+|---|---|---|
+| Problém · Jak to funguje · Pro koho · Reference testimonials | `300px` | 3 → 2 → 1 |
+| Bento 3-column row | `300px` | 3 → 2 → 1 |
+| Bento 2-column row · FAQ · AI row · Cena row · Moduly + Reference header pairs | `420px` | 2 → 1 |
+| Footer columns | `260px` | 3 → 2 → 1 |
+| Story: copy ⁄ founder pair | `420px` | 2 → 1; the two founder cards are their own `minmax(150px, 1fr)` grid so they stay paired |
+
+Chip rows and the logo-slot rows are `flex-wrap: wrap` — they reflow with no rules at all.
+The bento's asymmetric `740 + 436` row is the one grid that is not `auto-fit`:
+`grid-template-columns: 1.7fr 1fr`, collapsing to one column at the 960 breakpoint below,
+because the ratio is doing real work (the editor fragment needs the extra width).
+
+Fragments inside a tile move below their copy via the same mechanism — put the tile's inner
+layout on `auto-fit minmax(240px, 1fr)` rather than testing the viewport.
+
+#### The only three content breakpoints
+
+All at **960px**, all because something must genuinely *change*, not merely reflow:
+
+1. **Nav.** The six anchor links measure ~510 px; with a 118 px wordmark and a 150 px button
+   they need ~860 px, and the container at 960 gives 864. So they fit to 960 and not one pixel
+   further. Below it, the links are replaced by the menu toggle from the mobile artboard.
+   Never shrink the type to buy room.
+2. **Hero composition** — full arrangement above, mobile treatment below (see next).
+3. **Showcase** — the four-format staircase becomes `overflow-x: auto;
+   scroll-snap-type: x mandatory` with the `posuňte prstem →` hint (hidden on
+   `(pointer: fine)`). **Drop the indigo connector line in the scroll strip** — it only means
+   anything when all four formats are visible at once.
+
+#### The hero composition — `em`, never `transform: scale()`
+
+The one piece of bespoke absolute positioning on the page. Scale it with `font-size` and size
+every child in `em` — the same trick §4.2 already uses for the posters, extended to the whole
+composition:
+
+```css
+.lp-hero__figure {                 /* intrinsic 720 × 600 at font-size 10px */
+  font-size: clamp(7.8px, 0.70vw, 10px);
+  position: relative;
+  width: 72em; height: 60em;
+}
+.lp-hero__poster { position: absolute; inset: 5.6em auto auto 0; width: 40em; height: 40em; }
+```
+
+Every px in the Pencil composition ÷ 10 = em.
+
+`transform: scale()` is the obvious move and the wrong one: it does not affect layout, so the
+block's height has to be faked with a wrapper; it rasterises text at the pre-scale size, so
+type softens; it ignores browser zoom and the reader's default font size; and it silently
+shrinks focus rings. `font-size` scaling has none of those — the height follows from `60em`
+by itself and the text stays real text.
+
+- ≥ 960: the clamp does everything; nothing switches.
+- < 960: the **mobile treatment** — poster plus the two dashed boxes (Nadpis, Fotografie),
+  centred, `max-width: 420px`, font-size raised to fill the column. Format rail, toast, open
+  popover and the active "Datum" box are `display: none`. **One set of markup, hidden
+  selectively** — never a second copy.
+- **Minimum legible size.** Text stops rendering usefully below ~6 px computed. The
+  format-rail thumbnails hit that first: hide their club line and date at thumbnail scale
+  (`.lp-poster--thumb .lp-poster__meta { display: none }`) rather than shipping a smudge.
+- **Mark it up as a figure.** It is illustrative and its type is far below reading size:
+  `<figure>` plus a visually-hidden `<figcaption>` ("Vyplňovací stránka WBoostu: oznámení
+  o odstávce vody ve třech formátech"). Do not make a screen reader spell out forty tiny
+  labels.
+
+#### Two things that cause horizontal scrollbars
+
+- **Bleeding elements need `overflow-x: clip`, not `hidden`.** The hero composition and the
+  showcase's 9:16 run past the container on purpose. Put `overflow-x: clip` on those two
+  sections: `hidden` would create a scroll container and break sticky positioning inside it,
+  and doing nothing gives the whole page a sideways scrollbar. This is the single most likely
+  cause of "why does the page scroll horizontally".
+- **`minmax(300px, 1fr)` still overflows below 300 px + gutters** if a grid is nested. Use
+  `minmax(min(300px, 100%), 1fr)` wherever a grid can end up inside another one.
 
 #### Verify
 
-Build, then check in a real browser at **1440, 1280, 1024, 900, 768, 640, 480 and 390** —
-including the two off-breakpoint widths, which is where reflow bugs actually live. At each:
-no horizontal scrollbar, no text touching an edge, no card narrower than its content, the nav
-in the right mode, and the hero composition intact rather than clipped. Compare 1440 and 390
-against `designs/exports/sections/*.png`.
+Build, then check at **1440, 1280, 1024, 900, 768, 640, 480 and 390** — the off-breakpoint
+widths are where reflow bugs live. At each: no horizontal scrollbar, no text touching an edge,
+no card narrower than its content, nav in the correct mode, hero composition scaled rather
+than clipped. Then drag the window slowly from 1440 to 390 and watch for a jump: with intrinsic
+layout there should be exactly three, at 960.
+
+Compare 1440 and 390 against `designs/exports/sections/*.png`. The widths between are governed
+by the rules above — if one of them looks wrong, the rule is wrong, so fix the rule rather than
+adding a breakpoint.
 
 ### 4.4 Copy
 
@@ -507,6 +541,14 @@ server {
     # slashed variant would be a duplicate URL. `landing/` is excluded — it is an
     # asset prefix, not a page.
     location ~ "^/(?!landing/)([a-z0-9-]+)/$" { return 301 /$1; }
+
+    # `/` MUST be its own exact-match block. In the general block below try_files
+    # would test "/" as a file, fail, test "/.html", fail, and 404 the homepage —
+    # the `index` directive never gets a look in. This is a real bug, not a nicety.
+    location = / {
+        add_header Cache-Control "no-cache";
+        try_files /index.html =404;
+    }
 
     # Extensionless page URLs: /ochrana-osobnich-udaju -> ochrana-osobnich-udaju.html.
     # The rewrite is internal, so /index.html is never emitted as a URL.
