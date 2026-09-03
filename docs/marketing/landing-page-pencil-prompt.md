@@ -1,6 +1,6 @@
 # WBoost — marketing landing page · design brief for Claude Code + Pencil (pen.dev)
 
-> **How to use this file.** Paste everything below the horizontal rule into a Claude Code session that has the Pencil MCP server connected (the Pencil desktop app must be running). CLI alternative, from the repo root:
+> **How to use this file.** Start the Pencil desktop app and open (or create) the `.pen` file you want the page built in — the MCP edits whichever file is active in the app. Then, in a Claude Code session opened in this repo, say: *"Read docs/marketing/landing-page-pencil-prompt.md and do exactly what it says, using the Pencil MCP."* CLI alternative, from the repo root:
 >
 > ```bash
 > pen --out designs/wboost-landing.pen \
@@ -21,14 +21,15 @@ Design the public marketing landing page for **WBoost** (https://wboost.cz) in P
 
 Deliverables:
 
-- `designs/wboost-landing.pen` with three top-level frames: **Desktop 1440** (the full page, every section in §5), **Mobile 390** (the same content, single column, same components) and **Components** (buttons, chips, cards, the product-UI fragments you build).
-- PNG exports of both artboards at 2×: `designs/wboost-landing-desktop.png`, `designs/wboost-landing-mobile.png`.
-- `designs/wboost-landing-notes.md`: the decisions you made, plus every **[POTVRDIT]** item copied out so the founders can tick them off.
+- The `.pen` file that is open in Pencil (check the path with `get_app_state`; at the time of writing it is `~/pencil/wboost.pen`), with three top-level frames directly under the document root: **Desktop 1440** (the full page, every section in §5), **Mobile 390** (the same content, single column, same components) and **Components** (buttons, chips, cards, the product-UI fragments you build). Nothing else at the root.
+- PNG exports of both artboards at 2× via `Export([desktopId, mobileId], "png", "<repo>/designs/exports", {scale: 2})` — Pencil names the files by node id, so list the id → artboard mapping in the notes.
+- `designs/wboost-landing-notes.md` in this repo: the decisions you made, plus every **[POTVRDIT]** item copied out so the founders can tick them off.
 
 Workflow in Pencil:
 
-1. `get_app_state({ include_schema: true, include_canvas_design: true, include_scripts_and_shaders: false })`.
-2. `get_guidelines()` — load the guide for marketing websites / landing pages. Browse the styles and load the ONE closest to "editorial, typographic, product-led SaaS". Then override its colours and fonts with the tokens in §3. Do not ship the style's stock palette or stock font pairing.
+1. `get_app_state({ include_schema: true, include_canvas_design: true, include_scripts_and_shaders: false })`. Note the active file path.
+2. `get_guidelines({ category: "guide", name: "Landing Page" })` — follow its rules on conversion, one CTA, composition axis, rhythm and typography. Where it asks for imagery of people in the outcome state, this brief deliberately overrides it with product-native compositions (§6); the audience is designers and a stock photo of a smiling marketer loses them.
+   Then load the base style: `get_guidelines({ category: "style", name: "Split Inverse Showcase", params: { colorPalette: "Minimal Ink", roundness: "Basic Roundness", elevation: "Gentle Lift", decorativeImagery: "", headings: "Newsreader", body: "Geist", captions: "Geist Mono" } })`. It was chosen because its identity is a product-interface representation as structural content with no decorative imagery — the closest archetype to this page. Treat it as reference only: styles do not save variables, so define your own document variables from the brand tokens in §3 and never ship the style's `#0066FF` accent or its Geist/Newsreader pairing as-is. Borrow one idea from the "Editorial Landscape Stack" archetype: three typographic voices (display headline, humanist sans body, monospace labels).
 3. Build the desktop page section by section in the order of §5, as auto-layout frames on an 8 px grid. After every section validate and screenshot it; fix overflow, overlap and contrast before moving on. Only then build mobile from the same components.
 4. **Self-critique pass, mandatory.** Screenshot the finished desktop page and review it against §6 as a hostile art director would: Which sections could be from a template? Where is the visual signature missing? Where does the type hierarchy go flat? Which product fragment looks like a wireframe? Fix every finding, then re-screenshot. Do this twice.
 5. Write the notes file last, including what the critique pass changed.
@@ -90,13 +91,14 @@ The product has no marketing identity yet — only the app's admin-theme palette
 Typography:
 
 - **Body and UI fragments: Nunito** (the app's face; keeps the landing page and the app feeling like one thing). Weights 400/600/700.
-- **Headlines: a display face with character that is NOT Inter, Roboto, Arial, Poppins, Montserrat, Open Sans or Nunito.** Two directions you may pick from: (a) a sharp contemporary grotesk with tight tracking and a large x-height (e.g. Bricolage Grotesque, Instrument Sans, Schibsted Grotesk), or (b) a warm editorial serif for the H1 and section titles only (e.g. Fraunces, Instrument Serif) against Nunito body. Pick one and commit; state the choice in the notes.
+- **Headlines: a display face with character that is NOT Inter, Roboto, Arial, Poppins, Montserrat, Open Sans, Geist or Nunito.** Every Google Font is available in Pencil, so pick freely. Two directions: (a) a sharp contemporary grotesk with tight tracking and a large x-height (e.g. Bricolage Grotesque, Instrument Sans, Schibsted Grotesk), or (b) a warm editorial serif for the H1 and section titles only (e.g. Fraunces, Instrument Serif) against Nunito body. Pick one and commit; state the choice in the notes.
+- **Labels, chips, code: a monospace voice** (IBM Plex Mono or Geist Mono) for the format chips (1:1 · 4:5 · 9:16 · A4), the field tags inside product fragments, the MCP tool-call chips and the install commands. Small, regular weight, slightly letter-spaced. This third voice is what ties the designer story and the developer story into one page.
 - Headline scale on desktop: H1 ≈ 64–72 px, section titles ≈ 40–44 px, body 18 px, captions 14 px. Mobile: H1 ≈ 40 px, body 17 px.
 
 Logo:
 
 - The only asset is `assets/images/logo-lg.svg`: lowercase wordmark **wboost**, the `w` in slate `#8491a0` with a small rounded tab in `#7075b5`, the letters `boost` in **white**. It therefore only works on a dark surface. `assets/images/logo-icon.svg` is a `w`+`b` monogram; `public/android-icon-192x192.png` is the same monogram in white on an indigo rounded square (the app icon).
-- Import the SVG if Pencil lets you; otherwise recreate it: lowercase "wboost" in a heavy geometric sans, `w` in slate, rest white, the tab in `#7075b5`.
+- Getting it into Pencil: there is no image node — images are fills, with URLs relative to the `.pen` file. Copy `assets/images/logo-lg.svg` and `assets/images/logo-icon.svg` next to the open `.pen` file and use them as image fills on a frame of the right ratio (1099:299 for the wordmark). Alternatively read the SVG source and insert its `<path d="…">` data as path nodes with the SVG's `viewBox` — that keeps it vector and lets you recolour the letters for the light lockup. Do not redraw it freehand and do not use `Generate` for it.
 - The page needs a **light-surface lockup that does not exist yet**: same wordmark with `boost` in ink `#313a46` and the `w` in slate. Propose it in the Components frame and flag it **[POTVRDIT]**.
 
 Spacing and shape: 8 px grid, 12-column desktop grid with a 1200 px content width (sections may go full-bleed), 8 px radius on buttons and inputs, 16 px on cards, one hairline border style. No drop shadows beyond a single soft ambient shadow on floating popovers.
