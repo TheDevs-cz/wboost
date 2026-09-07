@@ -1,0 +1,118 @@
+{% extends 'base.html.twig' %}
+
+{#
+    The full export history of one fill surface ("Historie exportů" page) —
+    the single-variant AND the group flavour, one template. Every stored
+    version, pinned first, each with inline rename + pin and a "Načíst" link
+    that opens the fill page seeded from it. The summary column is a digest
+    of the stored fill (labelled texts, picture / hidden counts) so twenty
+    same-day versions can be told apart without a render per row.
+
+    Expects (from the two history controllers):
+    - project, template (null for a group whose template is gone), variant | group
+    - subject_label:      heading
+    - history:            ExportHistory
+    - history_cap:        the unpinned pruning cap (explained to the user)
+    - summaries:          version id → {texts: [{label, value}], pictures, hidden}
+    - load_route_name / load_route_params: the fill page (version id merged in)
+    - fill_url:           the fill page without a version
+#}
+
+{% block title %}Historie exportů{% endblock %}
+{% set active_menu_item = 'templates' %}
+
+{% block title_actions %}
+    <div class="text-sm-end mb-3">
+        <a href="{{ fill_url }}" class="btn btn-primary"><i class="mdi mdi-arrow-left"></i> Zpět na vyplnění</a>
+    </div>
+{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
+        {% if variant and template %}
+            <li class="breadcrumb-item"><a href="{{ path('template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item"><a href="{{ fill_url }}">{{ subject_label }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    {% set redirect_url = app.request.requestUri %}
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-1">{{ subject_label }}</h4>
+            <p class="text-muted">
+                Každý úspěšný export se uloží jako verze s hodnotami, které jste vyplnili. Verzi můžete
+                pojmenovat a <i class="mdi mdi-pin-outline"></i> připnout – připnuté verze jsou v historii vždy nahoře
+                a nikdy se nepromažou. Z ostatních se uchovává posledních {{ history_cap }}.
+            </p>
+
+            {% if history.isEmpty %}
+                <p class="text-muted mb-0">Zatím nebyl proveden žádný export.</p>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-centered mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 2.5rem;"><span class="visually-hidden">Připnuto</span></th>
+                                <th>Název</th>
+                                <th>Exportováno</th>
+                                <th>Obsah</th>
+                                <th class="text-end">Akce</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for version in history.all %}
+                                {% set summary = summaries[version.id.toString] %}
+                                <tr data-export-version="{{ version.id }}"{{ version.pinned ? ' data-export-version-pinned' }}>
+                                    <td class="pe-0">
+                                        {{ include('_export_version_pin_button.html.twig', {version: version, redirect_url: redirect_url}) }}
+                                    </td>
+                                    <td>
+                                        {{ include('_export_version_rename_form.html.twig', {version: version, redirect_url: redirect_url}) }}
+                                    </td>
+                                    <td class="text-nowrap">
+                                        {{ version.lastExportedAt|date('d.m.Y H:i') }}<br>
+                                        <small class="text-muted">{{ version.exportedBy ? version.exportedBy.displayName : 'Neznámý uživatel' }}</small>
+                                        {% if version.channel.value != 'web' %}
+                                            <span class="badge bg-secondary-lighten text-secondary">{{ version.channel.label }}</span>
+                                        {% endif %}
+                                        {% if version.exportCount > 1 %}
+                                            <span class="badge bg-secondary-lighten text-secondary" title="Exportováno {{ version.exportCount }}×">{{ version.exportCount }}×</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if summary.texts is empty and summary.pictures == 0 and summary.hidden == 0 %}
+                                            <span class="text-muted">Výchozí hodnoty</span>
+                                        {% else %}
+                                            {% for entry in summary.texts|slice(0, 3) %}
+                                                <div class="text-truncate" style="max-width: 28rem;">
+                                                    <span class="text-muted">{{ entry.label }}:</span> {{ entry.value }}
+                                                </div>
+                                            {% endfor %}
+                                            {% set more = summary.texts|length - 3 %}
+                                            <small class="text-muted">
+                                                {% if more > 0 %}+ {{ more }} {{ more == 1 ? 'další text' : (more < 5 ? 'další texty' : 'dalších textů') }}{% endif %}
+                                                {% if summary.pictures > 0 %}<span class="ms-1"><i class="mdi mdi-image-outline"></i> {{ summary.pictures }}</span>{% endif %}
+                                                {% if summary.hidden > 0 %}<span class="ms-1" title="Skryté prvky"><i class="mdi mdi-eye-off-outline"></i> {{ summary.hidden }}</span>{% endif %}
+                                            </small>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <a class="btn btn-sm btn-primary text-nowrap" href="{{ path(load_route_name, load_route_params|merge({'version': version.id})) }}" title="Načíst hodnoty této verze do formuláře">
+                                            <i class="mdi mdi-upload"></i> Načíst
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

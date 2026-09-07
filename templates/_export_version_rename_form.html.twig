@@ -1,0 +1,14 @@
+{# Inline rename of one export version: a compact input-group POSTing to the
+   rename endpoint (blank = back to the date label).
+
+   Expects:
+   - version:       TemplateExportVersion
+   - redirect_url:  local path to return to after saving #}
+<form action="{{ path('template_export_version_rename', {'versionId': version.id}) }}" method="post" class="input-group input-group-sm flex-nowrap" style="max-width: 22rem;" data-export-version-rename>
+    <input type="hidden" name="_token" value="{{ csrf_token('template_export_version_rename') }}">
+    <input type="hidden" name="redirect" value="{{ redirect_url }}">
+    <input type="text" name="name" class="form-control" value="{{ version.name }}"
+           maxlength="{{ constant('WBoost\\Web\\Entity\\TemplateExportVersion::NAME_MAX_LENGTH') }}"
+           placeholder="Pojmenovat verzi…" aria-label="Název verze" autocomplete="off">
+    <button type="submit" class="btn btn-outline-secondary" title="Uložit název"><i class="mdi mdi-check"></i></button>
+</form>

@@ -20,10 +20,13 @@ use WBoost\Web\Repository\TemplateExportVersionRepository;
 readonly final class RecordTemplateExportVersionHandler
 {
     /**
-     * History cap per fill surface (variant or group): enough to hold weeks of
-     * distinct fills, small enough that a busy template can't grow unbounded.
+     * History cap per fill surface (variant or group) for UNPINNED versions:
+     * enough to hold months of distinct fills now that the dedicated history
+     * page lists them all, small enough that a busy template can't grow
+     * unbounded. Pinned versions sit outside the cap — see
+     * {@see TemplateExportVersionRepository::prune()}.
      */
-    public const int MAX_VERSIONS = 30;
+    public const int MAX_VERSIONS = 100;
 
     public function __construct(
         private TemplateExportVersionRepository $versionRepository,
@@ -71,7 +74,8 @@ readonly final class RecordTemplateExportVersionHandler
         }
 
         // Prune BEFORE adding (the new row is not flushed yet, so it cannot be
-        // seen — keep cap-1 existing rows and the insert lands at the cap).
+        // seen — keep cap-1 existing unpinned rows and the insert lands at
+        // the cap).
         $this->versionRepository->prune($message->variantId, $message->groupId, self::MAX_VERSIONS - 1);
 
         $this->versionRepository->add(new TemplateExportVersion(

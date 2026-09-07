@@ -1239,10 +1239,12 @@ version.
   rounded to 4 decimals) and `hash()` (sha256 over it) is the dedup key: the
   handler (`RecordTemplateExportVersionHandler`) bumps
   `lastExportedAt`/`exportCount`/`exportedBy`/`channel` on a same-(subject,
-  hash) row instead of inserting, and prunes each subject to
-  `MAX_VERSIONS` (30). No unique constraint on purpose — a lost race merely
-  duplicates a history row, a violation would abort the export's transaction.
-  An all-defaults export still records (dedup collapses the repeats).
+  hash) row instead of inserting, and prunes each subject's UNPINNED
+  versions to `MAX_VERSIONS` (100 since 2026-09-07; was 30 while the
+  dropdown was the only surface). No unique constraint on purpose — a lost
+  race merely duplicates a history row, a violation would abort the export's
+  transaction. An all-defaults export still records (dedup collapses the
+  repeats).
 - **Re-loading** (`?version=<id>` on both fill pages; invalid/foreign/pruned
   ids silently ignored): `Services/Template/ExportVersionSeeder` is LENIENT
   where the render resolvers 400 — deleted inputs drop, a rich envelope on a
@@ -1260,13 +1262,45 @@ version.
   `data-group-fill-seed-value` JSON that `group_fill_controller._applySeed()`
   replays AFTER connect()'s neutral-placement reset (server-rendered
   placement fields alone would be wiped by it).
-- **UI**: shared partials `_export_history_menu.html.twig` (dropdown on both
-  fill pages: freshest first, user, non-web channel badge, ×N export count,
-  "Zpět na výchozí hodnoty") + `_export_history_banner.html.twig` (loaded
-  state). Listing surfaces read `Query/GetExportVersions`
-  (`latestForProjectTemplates` / `latestForTemplateVariants`, Postgres
-  DISTINCT ON): template cards show "Naposledy exportováno", variant tiles
-  add a "Načíst poslední export" menu item.
+- **Curation — names + pins (2026-09-07, the "I keep going back to one
+  version and it scrolls out of reach" report).** `name` (nullable, 120
+  chars, replaces the date label everywhere) and `pinnedAt` (nullable;
+  pinned = sorts FIRST on every surface, most recent pin on top, and is
+  EXEMPT from the prune — `TemplateExportVersionRepository::prune` filters
+  `pinnedAt IS NULL`, so the cap counts unpinned rows only). Both are shared
+  per template, not per user. Messages `RenameTemplateExportVersion` /
+  `PinTemplateExportVersion` (+ handlers); POST endpoints
+  `/export-version/{id}/rename` and `/export-version/{id}/pin` (`pinned=1|0`),
+  CSRF ids = the route names, gated by `TemplateExportVersionVoter::MANAGE`
+  which delegates to the fill surface's VIEW (variant or group voter — anyone
+  who can fill can curate). Each form carries a `redirect` field;
+  `Services/Template/ExportVersionRedirect` honours LOCAL paths only and
+  falls back to the version's history page (never an open redirect).
+  `Query/GetExportVersions::forVariant/forGroup` now return a
+  `Value/ExportHistory` (pinned + unpinned lists, `recent(5)`, `all()`,
+  `total()`) — no LIMIT, the split/sort is PHP-side.
+- **UI**: `_export_history_menu.html.twig` (dropdown on both fill pages:
+  "Připnuté verze" section + the `ExportHistory::MENU_RECENT` = 5 most recent
+  unpinned + "Zobrazit vše (N)" → the history page + "Zpět na výchozí
+  hodnoty"; every row has an inline pin toggle — rows are `div.dropdown-item`
+  wrapping the load `<a>` + a pin `<form>`, since an `<a>` cannot contain a
+  form), `_export_history_banner.html.twig` (loaded state, with the inline
+  rename form + a labelled pin button), the dedicated page
+  `template_export_history.html.twig` (routes
+  `template_variant_export_history` = `/template-variant/{id}/export-history`
+  and `template_group_export_history` = `/template-group/{id}/export-history`,
+  VIEW-gated; pinned-first table with per-row rename form, pin toggle,
+  "Načíst" link and a fill DIGEST — `Services/Template/SummarizeExportVersion`:
+  texts labelled by input name in design order, rich envelopes flattened to
+  plain text, 60-char cut, picture / hidden counts; deliberately NO thumbnail
+  per version, that would be a render per row). Shared form partials
+  `_export_version_pin_button.html.twig` / `_export_version_rename_form.html.twig`
+  (`data-export-version-pin` / `data-export-version-rename` hooks are what the
+  tests read tokens from). Listing surfaces read
+  `Query/GetExportVersions` (`latestForProjectTemplates` /
+  `latestForTemplateVariants`, Postgres DISTINCT ON): template cards show
+  "Naposledy exportováno", variant tiles add a "Načíst poslední export" menu
+  item.
 
 ### One "Šablony" module — merge history + dimension model
 

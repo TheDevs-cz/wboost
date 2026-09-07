@@ -8,11 +8,13 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\TemplateExportVersion;
+use WBoost\Web\Value\ExportHistory;
 
 /**
- * Read side of the export history ("Historie exportů"): freshest-first
- * version lists for the two fill surfaces, and "latest export per …" lookups
- * for the listing pages.
+ * Read side of the export history ("Historie exportů"): the whole curated
+ * history of a fill surface (pinned first — {@see ExportHistory}), consumed
+ * by the fill pages' dropdown AND the dedicated history page, plus "latest
+ * export per …" lookups for the listing pages.
  */
 readonly final class GetExportVersions
 {
@@ -21,20 +23,14 @@ readonly final class GetExportVersions
     ) {
     }
 
-    /**
-     * @return list<TemplateExportVersion>
-     */
-    public function forVariant(UuidInterface $variantId, int $limit = 15): array
+    public function forVariant(UuidInterface $variantId): ExportHistory
     {
-        return $this->history('version.variant = :subjectId', $variantId, $limit);
+        return $this->history('version.variant = :subjectId', $variantId);
     }
 
-    /**
-     * @return list<TemplateExportVersion>
-     */
-    public function forGroup(UuidInterface $groupId, int $limit = 15): array
+    public function forGroup(UuidInterface $groupId): ExportHistory
     {
-        return $this->history('version.group = :subjectId', $groupId, $limit);
+        return $this->history('version.group = :subjectId', $groupId);
     }
 
     /**
@@ -108,22 +104,25 @@ readonly final class GetExportVersions
     }
 
     /**
-     * @return list<TemplateExportVersion>
+     * The whole history of one surface — bounded by the pruning cap plus
+     * whatever the users pinned, so no LIMIT: the split/sort into pinned +
+     * recent happens in PHP ({@see ExportHistory::fromVersions}).
      */
-    private function history(string $subjectCondition, UuidInterface $subjectId, int $limit): array
+    private function history(string $subjectCondition, UuidInterface $subjectId): ExportHistory
     {
-        /** @var list<TemplateExportVersion> */
-        return $this->entityManager->createQueryBuilder()
+        /** @var list<TemplateExportVersion> $versions */
+        $versions = $this->entityManager->createQueryBuilder()
             ->from(TemplateExportVersion::class, 'version')
-            // Join-fetch the exporter: the history dropdown prints a name per
-            // row, and 15 lazy loads per page view would be silly.
+            // Join-fetch the exporter: every surface prints a name per row,
+            // and a lazy load per row would be silly.
             ->select('version', 'exportedBy')
             ->leftJoin('version.exportedBy', 'exportedBy')
             ->where($subjectCondition)
             ->setParameter('subjectId', $subjectId->toString())
             ->orderBy('version.lastExportedAt', 'DESC')
-            ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+
+        return ExportHistory::fromVersions($versions);
     }
 }

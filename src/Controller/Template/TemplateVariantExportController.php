@@ -65,7 +65,7 @@ final class TemplateVariantExportController extends AbstractController
             // The shared classic scripts + @font-face declarations load on
             // THIS page (the deferred Live component cannot execute scripts).
             'font_faces' => $this->fontFaces($variant),
-            'export_versions' => $this->getExportVersions->forVariant($variant->id),
+            'export_history' => $this->getExportVersions->forVariant($variant->id),
             'loaded_version' => $loadedVersion,
             'seed_text_values' => $seed['textValues'],
             'seed_hidden_values' => $seed['hiddenValues'],

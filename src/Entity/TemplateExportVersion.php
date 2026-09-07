@@ -38,6 +38,12 @@ use WBoost\Web\Value\ExportFillValues;
  * / `exportCount` / `exportedBy` / `channel` on the existing row instead of
  * creating a new one — the history stays a list of DISTINCT fills, freshest
  * first.
+ *
+ * Users curate the list: a version can be NAMED (the name replaces the export
+ * date wherever the version is listed) and PINNED (sorts first everywhere and
+ * is exempt from history pruning — the way back to "that one fill" that would
+ * otherwise scroll out of reach). Both are shared per template, not per user:
+ * the history is one list for everyone who can fill the surface.
  */
 #[Entity]
 #[Index(name: 'idx_export_version_variant', columns: ['variant_id', 'last_exported_at'])]
@@ -45,11 +51,27 @@ use WBoost\Web\Value\ExportFillValues;
 #[Index(name: 'idx_export_version_template', columns: ['template_id', 'last_exported_at'])]
 class TemplateExportVersion
 {
+    public const int NAME_MAX_LENGTH = 120;
+
     #[Column(type: Types::DATETIME_IMMUTABLE)]
     public DateTimeImmutable $lastExportedAt;
 
     #[Column(type: Types::INTEGER)]
     public int $exportCount = 1;
+
+    /**
+     * Optional user-given label ("Letní kampaň – finální"). Null = unnamed,
+     * listed under its export date.
+     */
+    #[Column(length: self::NAME_MAX_LENGTH, nullable: true)]
+    public null|string $name = null;
+
+    /**
+     * When the version was pinned; null = not pinned. Pinned versions list
+     * first (most recently pinned on top) and are never pruned.
+     */
+    #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    public null|DateTimeImmutable $pinnedAt = null;
 
     public function __construct(
         #[Id]
@@ -97,5 +119,32 @@ class TemplateExportVersion
         $this->exportCount++;
         $this->exportedBy = $exportedBy;
         $this->channel = $channel;
+    }
+
+    /**
+     * Blank clears the name (back to the date label); anything longer than
+     * the column is cut, never rejected — a name is a convenience, not data.
+     */
+    public function rename(null|string $name): void
+    {
+        $trimmed = trim((string) $name);
+
+        $this->name = $trimmed === '' ? null : mb_substr($trimmed, 0, self::NAME_MAX_LENGTH);
+    }
+
+    public function pin(DateTimeImmutable $pinnedAt): void
+    {
+        // Re-pinning keeps the original position in the pinned section.
+        $this->pinnedAt ??= $pinnedAt;
+    }
+
+    public function unpin(): void
+    {
+        $this->pinnedAt = null;
+    }
+
+    public function isPinned(): bool
+    {
+        return $this->pinnedAt !== null;
     }
 }

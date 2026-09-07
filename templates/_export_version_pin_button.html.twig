@@ -1,0 +1,27 @@
+{# Pin / unpin toggle for one export version — a POST form (CSRF), never a
+   GET link, because it changes shared state. Pinned versions sort first on
+   every history surface and are never pruned.
+
+   Expects:
+   - version:       TemplateExportVersion
+   - redirect_url:  local path to return to after the toggle
+   - labelled:      bool (default false) — a labelled btn-sm instead of the
+                    icon-only link button
+   - tone:          optional text colour class for the icon-only style
+                    (defaults to primary when pinned, muted otherwise) #}
+{% set labelled = labelled ?? false %}
+{% set title = version.pinned ? 'Odepnout verzi' : 'Připnout verzi – zůstane nahoře v historii a nikdy se nepromaže' %}
+<form action="{{ path('template_export_version_pin', {'versionId': version.id}) }}" method="post" class="d-inline-flex align-items-center" data-export-version-pin>
+    <input type="hidden" name="_token" value="{{ csrf_token('template_export_version_pin') }}">
+    <input type="hidden" name="pinned" value="{{ version.pinned ? '0' : '1' }}">
+    <input type="hidden" name="redirect" value="{{ redirect_url }}">
+    {% if labelled %}
+        <button type="submit" class="btn btn-sm {{ version.pinned ? 'btn-primary' : 'btn-outline-primary' }} text-nowrap" title="{{ title }}">
+            <i class="mdi {{ version.pinned ? 'mdi-pin-off' : 'mdi-pin' }}"></i> {{ version.pinned ? 'Odepnout' : 'Připnout' }}
+        </button>
+    {% else %}
+        <button type="submit" class="btn btn-link btn-sm p-0 px-1 lh-1 {{ tone ?? (version.pinned ? 'text-primary' : 'text-muted') }}" title="{{ title }}" aria-label="{{ title }}">
+            <i class="mdi {{ version.pinned ? 'mdi-pin' : 'mdi-pin-outline' }} font-16"></i>
+        </button>
+    {% endif %}
+</form>

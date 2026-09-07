@@ -6,10 +6,12 @@
 {% block title_actions %}
     <div class="text-sm-end mb-3 d-flex justify-content-sm-end gap-2">
         {{ include('_export_history_menu.html.twig', {
-            versions: export_versions,
+            history: export_history,
             loaded_version: loaded_version,
             route_name: 'template_variant_export',
             route_params: {'variantId': variant.id},
+            history_url: path('template_variant_export_history', {'variantId': variant.id}),
+            redirect_url: app.request.requestUri,
         }) }}
         {% if is_granted('template_variant_edit', variant) %}
             <a href="{{ path('template_variant_editor', {'variantId': variant.id}) }}" class="btn btn-primary"><i class="mdi mdi-pencil"></i> Zpět na editor</a>
@@ -54,6 +56,7 @@
         {{ include('_export_history_banner.html.twig', {
             loaded_version: loaded_version,
             clear_url: path('template_variant_export', {'variantId': variant.id}),
+            redirect_url: app.request.requestUri,
         }) }}
     {% endif %}
 

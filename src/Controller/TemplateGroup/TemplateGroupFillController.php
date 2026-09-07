@@ -118,7 +118,7 @@ final class TemplateGroupFillController extends AbstractController
             'rich_toolbar' => $this->placeholders->richTextToolbar($memberVariants),
             'layers' => $this->placeholders->layers($memberVariants, $seed['hidden']),
             'image_inputs' => $imageInputs,
-            'export_versions' => $this->getExportVersions->forGroup($group->id),
+            'export_history' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,
             'seed' => $seed,
             'placement_slots' => array_map(

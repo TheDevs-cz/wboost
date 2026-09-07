@@ -1,13 +1,28 @@
 {# Info banner shown while a stored export version is loaded into the fill
-   form ("?version=<id>"). Expects: loaded_version (TemplateExportVersion),
-   clear_url (the same page without the version param). #}
+   form ("?version=<id>"), carrying the version's curation controls — rename
+   and pin — so the user can label "the one I keep coming back to" right
+   where they just loaded it.
+
+   Expects:
+   - loaded_version:  TemplateExportVersion
+   - clear_url:       the same page without the version param
+   - redirect_url:    local path the rename / pin forms return to (this page) #}
 <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2" role="alert">
     <span>
         <i class="mdi mdi-history"></i>
-        Formulář je předvyplněný hodnotami exportu z
-        <strong>{{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}</strong>{% if loaded_version.exportedBy %}
+        Formulář je předvyplněný hodnotami exportu
+        {% if loaded_version.name %}
+            <strong>{{ loaded_version.name }}</strong>
+            ({{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}{% if loaded_version.exportedBy %}, {{ loaded_version.exportedBy.displayName }}{% endif %}).
+        {% else %}
+            z <strong>{{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}</strong>{% if loaded_version.exportedBy %}
             ({{ loaded_version.exportedBy.displayName }}){% endif %}.
+        {% endif %}
         Hodnoty můžete dál upravit a znovu exportovat.
     </span>
-    <a href="{{ clear_url }}" class="alert-link text-nowrap">Zpět na výchozí hodnoty</a>
+    <span class="d-flex align-items-center flex-wrap gap-2">
+        {{ include('_export_version_rename_form.html.twig', {version: loaded_version, redirect_url: redirect_url}) }}
+        {{ include('_export_version_pin_button.html.twig', {version: loaded_version, redirect_url: redirect_url, labelled: true}) }}
+        <a href="{{ clear_url }}" class="alert-link text-nowrap">Zpět na výchozí hodnoty</a>
+    </span>
 </div>

@@ -97,10 +97,12 @@
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     {{ include('_export_history_menu.html.twig', {
-                        versions: export_versions,
+                        history: export_history,
                         loaded_version: loaded_version,
                         route_name: 'template_group_fill',
                         route_params: {'groupId': group.id},
+                        history_url: path('template_group_export_history', {'groupId': group.id}),
+                        redirect_url: app.request.requestUri,
                     }) }}
                     {% if is_granted('template_group_edit', group) %}
                         <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit design</a>
@@ -115,6 +117,7 @@
                 {{ include('_export_history_banner.html.twig', {
                     loaded_version: loaded_version,
                     clear_url: path('template_group_fill', {'groupId': group.id}),
+                    redirect_url: app.request.requestUri,
                 }) }}
             {% endif %}
 

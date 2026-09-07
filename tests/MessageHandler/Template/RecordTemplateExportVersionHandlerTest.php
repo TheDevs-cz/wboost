@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\MessageHandler\Template;
 
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use WBoost\Web\Entity\TemplateExportVersion;
+use WBoost\Web\Message\Template\PinTemplateExportVersion;
 use WBoost\Web\Message\Template\RecordTemplateExportVersion;
+use WBoost\Web\MessageHandler\Template\PinTemplateExportVersionHandler;
 use WBoost\Web\MessageHandler\Template\RecordTemplateExportVersionHandler;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\ExportChannel;
@@ -17,6 +20,7 @@ use WBoost\Web\Value\ExportFillValues;
 /**
  * @covers \WBoost\Web\MessageHandler\Template\RecordTemplateExportVersionHandler
  * @covers \WBoost\Web\Repository\TemplateExportVersionRepository
+ * @covers \WBoost\Web\MessageHandler\Template\PinTemplateExportVersionHandler
  */
 final class RecordTemplateExportVersionHandlerTest extends KernelTestCase
 {
@@ -106,11 +110,30 @@ final class RecordTemplateExportVersionHandlerTest extends KernelTestCase
         $entityManager->flush();
     }
 
-    public function testHistoryIsPrunedToTheCap(): void
+    public function testHistoryIsPrunedToTheCapExceptPinnedVersions(): void
     {
         $handler = self::getContainer()->get(RecordTemplateExportVersionHandler::class);
+        $pinHandler = self::getContainer()->get(PinTemplateExportVersionHandler::class);
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $variantId = Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+
+        // The very first (= oldest) fill gets pinned before the flood.
+        $handler(new RecordTemplateExportVersion($variantId, null, null, ExportChannel::Web, ExportFillValues::fromVariantWebForm(
+            [TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => 'Pinned keeper'],
+            [],
+            [],
+        )));
+        $entityManager->flush();
+        /** @var list<TemplateExportVersion> $initial */
+        $initial = $entityManager->getRepository(TemplateExportVersion::class)->findBy(['variant' => $variantId->toString()]);
+        self::assertCount(1, $initial);
+        $pinned = $initial[0];
+        // Strictly the oldest: the flood below lands within the same second,
+        // and the prune orders by lastExportedAt.
+        $pinned->lastExportedAt = new DateTimeImmutable('-1 day');
+        $pinHandler(new PinTemplateExportVersion($pinned->id, true));
+        $entityManager->flush();
+        self::assertTrue($pinned->isPinned());
 
         for ($i = 0; $i < RecordTemplateExportVersionHandler::MAX_VERSIONS + 3; $i++) {
             $handler(new RecordTemplateExportVersion($variantId, null, null, ExportChannel::Web, ExportFillValues::fromVariantWebForm(
@@ -121,9 +144,29 @@ final class RecordTemplateExportVersionHandlerTest extends KernelTestCase
             $entityManager->flush();
         }
 
-        self::assertCount(
-            RecordTemplateExportVersionHandler::MAX_VERSIONS,
-            $entityManager->getRepository(TemplateExportVersion::class)->findBy(['variant' => $variantId->toString()]),
+        /** @var list<TemplateExportVersion> $remaining */
+        $remaining = $entityManager->getRepository(TemplateExportVersion::class)->findBy(['variant' => $variantId->toString()]);
+        // The cap counts UNPINNED versions; the pinned one rides outside it.
+        self::assertCount(RecordTemplateExportVersionHandler::MAX_VERSIONS + 1, $remaining);
+        $survivorIds = array_map(static fn (TemplateExportVersion $version): string => $version->id->toString(), $remaining);
+        self::assertContains($pinned->id->toString(), $survivorIds);
+
+        // Unpinning puts it back under the cap: the next export prunes it
+        // (it is the oldest by far).
+        $pinHandler(new PinTemplateExportVersion($pinned->id, false));
+        $entityManager->flush();
+        $handler(new RecordTemplateExportVersion($variantId, null, null, ExportChannel::Web, ExportFillValues::fromVariantWebForm(
+            [TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => 'One more'],
+            [],
+            [],
+        )));
+        $entityManager->flush();
+
+        $remaining = $entityManager->getRepository(TemplateExportVersion::class)->findBy(['variant' => $variantId->toString()]);
+        self::assertCount(RecordTemplateExportVersionHandler::MAX_VERSIONS, $remaining);
+        self::assertNotContains(
+            $pinned->id->toString(),
+            array_map(static fn (TemplateExportVersion $version): string => $version->id->toString(), $remaining),
         );
     }
 }
