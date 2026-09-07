@@ -90,6 +90,36 @@ final class GetExportVersionsTest extends KernelTestCase
         self::assertSame($versions[6]->id->toString(), $all[1]->id->toString());
         self::assertSame($versions[7]->id->toString(), $all[2]->id->toString());
 
+        // Two exports within the same second: the newer id (UUID v7 is
+        // time-ordered) comes first, stably — the CI flake this guards.
+        $tiedAt = new DateTimeImmutable('2026-09-20 12:00:00');
+        // The clear() above detached $variant — attach the rows to a managed one.
+        $variant = $entityManager->find(TemplateVariant::class, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+        self::assertInstanceOf(TemplateVariant::class, $variant);
+        $tied = [];
+        foreach (['first', 'second'] as $i => $label) {
+            $tied[$i] = new TemplateExportVersion(
+                Uuid::uuid7(),
+                $variant->template,
+                $variant,
+                null,
+                null,
+                ExportChannel::Web,
+                ExportFillValues::fromVariantWebForm([TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => "Tied $label"], [], []),
+                "hash-tied-$i",
+                $tiedAt,
+            );
+            $entityManager->persist($tied[$i]);
+        }
+        $entityManager->flush();
+        $entityManager->clear();
+        $newestFirst = self::getContainer()->get(GetExportVersions::class)->forVariant($variant->id)->unpinned;
+        self::assertSame(
+            strcmp($tied[1]->id->toString(), $tied[0]->id->toString()) > 0 ? [$tied[1]->id->toString(), $tied[0]->id->toString()] : [$tied[0]->id->toString(), $tied[1]->id->toString()],
+            [$newestFirst[0]->id->toString(), $newestFirst[1]->id->toString()],
+        );
+        self::assertSame($tiedAt->format(DATE_ATOM), $newestFirst[0]->lastExportedAt->format(DATE_ATOM));
+
         // An untouched surface is simply empty.
         $empty = self::getContainer()->get(GetExportVersions::class)->forVariant(Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID));
         self::assertTrue($empty->isEmpty());

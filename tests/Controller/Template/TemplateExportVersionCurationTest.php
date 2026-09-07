@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Controller\Template;
 
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -35,8 +36,8 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
-        $older = $this->export($client, 'Verze první');
-        $newer = $this->export($client, 'Verze druhá');
+        $older = $this->export($client, 'Verze první', new DateTimeImmutable('2026-09-01 10:00:00'));
+        $newer = $this->export($client, 'Verze druhá', new DateTimeImmutable('2026-09-02 10:00:00'));
 
         // Loaded-version banner carries the rename form; its token is the
         // real one the page hands out.
@@ -229,7 +230,12 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         self::assertStringContainsString('Zobrazit vše (1)', $content);
     }
 
-    private function export(KernelBrowser $client, string $headline): TemplateExportVersion
+    /**
+     * Exports through the real download endpoint, then stamps the version
+     * with an explicit export time: two exports in one test land within the
+     * same second, and the history orders by that timestamp.
+     */
+    private function export(KernelBrowser $client, string $headline, null|DateTimeImmutable $exportedAt = null): TemplateExportVersion
     {
         $client->request('POST', '/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/download', [
             'textValues' => [TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => $headline],
@@ -246,6 +252,11 @@ final class TemplateExportVersionCurationTest extends WebTestCase
             )->hash(),
         ]);
         self::assertInstanceOf(TemplateExportVersion::class, $version);
+
+        if ($exportedAt !== null) {
+            $version->lastExportedAt = $exportedAt;
+            $entityManager->flush();
+        }
 
         return $version;
     }

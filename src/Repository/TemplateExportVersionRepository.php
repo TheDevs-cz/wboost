@@ -78,6 +78,7 @@ readonly final class TemplateExportVersionRepository
             ->select('version')
             ->where('version.pinnedAt IS NULL')
             ->orderBy('version.lastExportedAt', 'DESC')
+            ->addOrderBy('version.id', 'DESC')
             ->setFirstResult($keep);
 
         if ($variantId !== null) {

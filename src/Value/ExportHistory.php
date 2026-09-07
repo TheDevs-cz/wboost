@@ -43,14 +43,17 @@ final readonly class ExportHistory
             }
         }
 
+        // Ties (a second's worth of exports, or two pins in one request)
+        // break on the UUID v7 id — newest-minted first — so the order is
+        // deterministic across reloads.
+        $freshestFirst = static fn (TemplateExportVersion $a, TemplateExportVersion $b): int => ($b->lastExportedAt <=> $a->lastExportedAt)
+            ?: strcmp($b->id->toString(), $a->id->toString());
+
         usort(
             $pinned,
-            static fn (TemplateExportVersion $a, TemplateExportVersion $b): int => ($b->pinnedAt <=> $a->pinnedAt) ?: ($b->lastExportedAt <=> $a->lastExportedAt),
+            static fn (TemplateExportVersion $a, TemplateExportVersion $b): int => ($b->pinnedAt <=> $a->pinnedAt) ?: $freshestFirst($a, $b),
         );
-        usort(
-            $unpinned,
-            static fn (TemplateExportVersion $a, TemplateExportVersion $b): int => $b->lastExportedAt <=> $a->lastExportedAt,
-        );
+        usort($unpinned, $freshestFirst);
 
         return new self($pinned, $unpinned);
     }

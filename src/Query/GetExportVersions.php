@@ -120,6 +120,10 @@ readonly final class GetExportVersions
             ->where($subjectCondition)
             ->setParameter('subjectId', $subjectId->toString())
             ->orderBy('version.lastExportedAt', 'DESC')
+            // Same-second exports tie on the timestamp (it is TIMESTAMP(0));
+            // the id is a UUID v7, so newest-minted wins and the order is
+            // stable across reloads.
+            ->addOrderBy('version.id', 'DESC')
             ->getQuery()
             ->getResult();
 
