@@ -1278,7 +1278,11 @@ version.
   falls back to the version's history page (never an open redirect).
   `Query/GetExportVersions::forVariant/forGroup` now return a
   `Value/ExportHistory` (pinned + unpinned lists, `recent(5)`, `all()`,
-  `total()`) — no LIMIT, the split/sort is PHP-side.
+  `total()`) — no LIMIT, the split/sort is PHP-side. **Ordering ties
+  break on the id** (query, VO sorts AND the prune's oldest-first offset):
+  `last_exported_at` is TIMESTAMP(0), so two exports in one second tie,
+  and the id is a UUID v7 — time-ordered — which keeps the dropdown
+  stable across reloads (the 2026-09-07 CI flake).
 - **UI**: `_export_history_menu.html.twig` (dropdown on both fill pages:
   "Připnuté verze" section + the `ExportHistory::MENU_RECENT` = 5 most recent
   unpinned + "Zobrazit vše (N)" → the history page + "Zpět na výchozí
