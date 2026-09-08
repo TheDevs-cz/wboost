@@ -15,11 +15,15 @@ use WBoost\Web\Entity\TemplateExportVersion;
 use WBoost\Web\Message\Template\PinTemplateExportVersion;
 use WBoost\Web\Services\Security\TemplateExportVersionVoter;
 use WBoost\Web\Services\Template\ExportVersionRedirect;
+use WBoost\Web\Services\Template\ExportVersionTurboStream;
 
 /**
  * Pin / unpin a stored export version (`pinned=1|0`). POST + CSRF from the
  * pin buttons on the history page, the fill page's dropdown rows and its
- * loaded-version banner; `redirect` brings the user back where they were.
+ * loaded-version banner. A fill page's Turbo-submitted toggle gets a Turbo
+ * Stream re-rendering the history chrome in place (no reload, no flash —
+ * the flipped pin IS the confirmation); a plain POST is redirected back
+ * where it came from.
  */
 final class PinTemplateExportVersionController extends AbstractController
 {
@@ -28,6 +32,7 @@ final class PinTemplateExportVersionController extends AbstractController
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private ExportVersionRedirect $redirect,
+        readonly private ExportVersionTurboStream $turboStream,
     ) {
     }
 
@@ -45,6 +50,11 @@ final class PinTemplateExportVersionController extends AbstractController
         $pinned = $request->request->getBoolean('pinned');
 
         $this->bus->dispatch(new PinTemplateExportVersion($version->id, $pinned));
+
+        $stream = $this->turboStream->respond($request, $version);
+        if ($stream !== null) {
+            return $stream;
+        }
 
         $this->addFlash('success', $pinned ? 'Verze byla připnuta – zůstane nahoře a nikdy se nepromaže.' : 'Verze byla odepnuta.');
 

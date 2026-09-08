@@ -12,14 +12,21 @@
    of the group page outside its form (no pencils, previews and exports posted
    nothing; 2026-09-08).
 
+   `turbo: true` marks the BUTTON Turbo-enabled as well: Turbo only takes over
+   a submission when the form AND its submitter are navigatable, and under the
+   site-wide `<html data-turbo="false">` the button — which sits in the page,
+   not in the anchor — needs its own opt-in (the anchor carries the other).
+
    Expects:
    - version:       TemplateExportVersion (its anchor must be on the page)
    - redirect_url:  local path to return to after the toggle
    - labelled:      bool (default false) — a labelled btn-sm instead of the
                     icon-only link button
    - tone:          optional text colour class for the icon-only style
-                    (defaults to primary when pinned, muted otherwise) #}
+                    (defaults to primary when pinned, muted otherwise)
+   - turbo:         bool (default false) — see above #}
 {% set labelled = labelled ?? false %}
+{% set turbo = turbo ?? false %}
 {% set form_id = 'export-version-pin-' ~ version.id %}
 {% set title = version.pinned ? 'Odepnout verzi' : 'Připnout verzi – zůstane nahoře v historii a nikdy se nepromaže' %}
 <span class="d-inline-flex align-items-center" data-export-version-pin="{{ version.id }}">
@@ -27,11 +34,11 @@
     <input type="hidden" name="pinned" value="{{ version.pinned ? '0' : '1' }}" form="{{ form_id }}">
     <input type="hidden" name="redirect" value="{{ redirect_url }}" form="{{ form_id }}">
     {% if labelled %}
-        <button type="submit" form="{{ form_id }}" class="btn btn-sm {{ version.pinned ? 'btn-primary' : 'btn-outline-primary' }} text-nowrap" title="{{ title }}">
+        <button type="submit" form="{{ form_id }}" class="btn btn-sm {{ version.pinned ? 'btn-primary' : 'btn-outline-primary' }} text-nowrap" title="{{ title }}"{% if turbo %} data-turbo="true"{% endif %}>
             <i class="mdi {{ version.pinned ? 'mdi-pin-off' : 'mdi-pin' }}"></i> {{ version.pinned ? 'Odepnout' : 'Připnout' }}
         </button>
     {% else %}
-        <button type="submit" form="{{ form_id }}" class="btn btn-link btn-sm p-0 px-1 lh-1 {{ tone ?? (version.pinned ? 'text-primary' : 'text-muted') }}" title="{{ title }}" aria-label="{{ title }}">
+        <button type="submit" form="{{ form_id }}" class="btn btn-link btn-sm p-0 px-1 lh-1 {{ tone ?? (version.pinned ? 'text-primary' : 'text-muted') }}" title="{{ title }}" aria-label="{{ title }}"{% if turbo %} data-turbo="true"{% endif %}>
             <i class="mdi {{ version.pinned ? 'mdi-pin' : 'mdi-pin-outline' }} font-16"></i>
         </button>
     {% endif %}

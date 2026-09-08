@@ -1317,10 +1317,14 @@ version.
 - **UI**: `_export_history_menu.html.twig` (dropdown on both fill pages:
   "Připnuté verze" section + the `ExportHistory::MENU_RECENT` = 5 most recent
   unpinned + "Zobrazit vše (N)" → the history page + "Zpět na výchozí
-  hodnoty"; every row has an inline pin toggle — rows are `div.dropdown-item`
-  wrapping the load `<a>` + the pin controls, since an `<a>` cannot contain
-  form controls), `_export_history_banner.html.twig` (loaded state, with the
-  inline rename controls + a labelled pin button), the dedicated page
+  hodnoty"; every row has an inline pin toggle AND an inline rename (a
+  pencil flips the label into the rename field — `export_version_row_controller.js`,
+  Escape / × cancel, Enter / ✓ save) — rows are `div.dropdown-item` wrapping
+  the load `<a>` + the controls, since an `<a>` cannot contain form
+  controls; the rows live in `_export_history_menu_body.html.twig`, which
+  owns `#export-history-menu-body`), `_export_history_banner.html.twig`
+  (loaded state, owns `#export-history-banner`, with the inline rename
+  controls + a labelled pin button), the dedicated page
   `template_export_history.html.twig` (routes
   `template_variant_export_history` = `/template-variant/{id}/export-history`
   and `template_group_export_history` = `/template-group/{id}/export-history`,
@@ -1343,7 +1347,27 @@ version.
   and the ZIP export posting six orphaned pin inputs; 2026-09-08, one day
   after the pins shipped). Never include these partials as real forms; the
   group-page regression test asserts the mirrors and surfaces are descendants
-  of `form.fill-form`. Listing surfaces read
+  of `form.fill-form`. **The fill pages curate IN PLACE via Turbo Streams
+  (2026-09-08)** — a pin / rename used to be a full navigation, which threw
+  away everything typed into the fill form. Turbo ships on every page but
+  Drive is off site-wide (`<html data-turbo="false">` in `base.html.twig`),
+  so the fill pages opt their anchors in (`turbo: true` on the anchors
+  include → `data-turbo="true"`) AND their submit buttons (the pin / rename
+  partials' `turbo` flag — Turbo takes a submission over only when the form
+  and its submitter are both navigatable, and the buttons sit in the page,
+  not in the anchor). `Services/Template/ExportVersionTurboStream` answers
+  a request whose preferred format is `TurboBundle::STREAM_FORMAT` with
+  `_export_version_curation.stream.html.twig`: three `replace` actions —
+  the menu body, the banner (when the anchors' `loaded` field names a
+  version of the same surface) and the anchors wrapper
+  `#export-version-form-anchors` (a version that just entered the "recent"
+  rows needs an anchor of its own). Every fragment partial renders its own
+  id and the stream never touches the dropdown SHELL, which together with
+  `data-bs-auto-close="outside"` is what keeps the open menu open; no flash
+  is queued on that path (it would surface on the next navigation, out of
+  context — the flipped pin / relabelled row is the confirmation). The
+  history page keeps plain forms + the redirect: the page IS the list.
+  Listing surfaces read
   `Query/GetExportVersions` (`latestForProjectTemplates` /
   `latestForTemplateVariants`, Postgres DISTINCT ON): template cards show
   "Naposledy exportováno", variant tiles add a "Načíst poslední export" menu

@@ -8,13 +8,26 @@
 
    Expects:
    - version:       TemplateExportVersion (its anchor must be on the page)
-   - redirect_url:  local path to return to after saving #}
+   - redirect_url:  local path to return to after saving
+   - turbo:         bool (default false) — Turbo-enable the submit button (the
+                    fill pages; see the pin partial for why the button too)
+   - row:           bool (default false) — the dropdown-row flavour: wires the
+                    field and a × button to the row's `export-version-row`
+                    controller (Escape / × cancel the edit; Escape is bound
+                    window-capture because Bootstrap's dropdown swallows it
+                    on the document before a field listener sees it) #}
+{% set turbo = turbo ?? false %}
+{% set row = row ?? false %}
 {% set form_id = 'export-version-rename-' ~ version.id %}
 <span class="input-group input-group-sm flex-nowrap" style="max-width: 22rem;" data-export-version-rename="{{ version.id }}">
     <input type="hidden" name="_token" value="{{ csrf_token('template_export_version_rename') }}" form="{{ form_id }}">
     <input type="hidden" name="redirect" value="{{ redirect_url }}" form="{{ form_id }}">
     <input type="text" name="name" form="{{ form_id }}" class="form-control" value="{{ version.name }}"
            maxlength="{{ constant('WBoost\\Web\\Entity\\TemplateExportVersion::NAME_MAX_LENGTH') }}"
-           placeholder="Pojmenovat verzi…" aria-label="Název verze" autocomplete="off">
-    <button type="submit" form="{{ form_id }}" class="btn btn-outline-secondary" title="Uložit název"><i class="mdi mdi-check"></i></button>
+           placeholder="Pojmenovat verzi…" aria-label="Název verze" autocomplete="off"
+           {% if row %}data-export-version-row-target="input" data-action="keydown.esc@window->export-version-row#cancel:capture"{% endif %}>
+    <button type="submit" form="{{ form_id }}" class="btn btn-outline-secondary" title="Uložit název"{% if turbo %} data-turbo="true"{% endif %}><i class="mdi mdi-check"></i></button>
+    {% if row %}
+        <button type="button" class="btn btn-outline-secondary" title="Zrušit" aria-label="Zrušit přejmenování" data-action="export-version-row#cancel"><i class="mdi mdi-close"></i></button>
+    {% endif %}
 </span>

@@ -15,11 +15,15 @@ use WBoost\Web\Entity\TemplateExportVersion;
 use WBoost\Web\Message\Template\RenameTemplateExportVersion;
 use WBoost\Web\Services\Security\TemplateExportVersionVoter;
 use WBoost\Web\Services\Template\ExportVersionRedirect;
+use WBoost\Web\Services\Template\ExportVersionTurboStream;
 
 /**
  * Name a stored export version (blank = unname). POST + CSRF from the inline
- * forms on the history page and the fill page's loaded-version banner; the
- * form's `redirect` field brings the user back to the surface they were on.
+ * forms on the history page, the fill page's loaded-version banner and its
+ * dropdown rows. A fill page's Turbo-submitted form gets a Turbo Stream
+ * re-rendering the history chrome in place (no reload, no flash — the
+ * relabelled row IS the confirmation); a plain POST is redirected back to
+ * the surface it came from.
  */
 final class RenameTemplateExportVersionController extends AbstractController
 {
@@ -28,6 +32,7 @@ final class RenameTemplateExportVersionController extends AbstractController
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private ExportVersionRedirect $redirect,
+        readonly private ExportVersionTurboStream $turboStream,
     ) {
     }
 
@@ -45,6 +50,11 @@ final class RenameTemplateExportVersionController extends AbstractController
         $name = trim($request->request->getString('name'));
 
         $this->bus->dispatch(new RenameTemplateExportVersion($version->id, $name === '' ? null : $name));
+
+        $stream = $this->turboStream->respond($request, $version);
+        if ($stream !== null) {
+            return $stream;
+        }
 
         $this->addFlash('success', $name === '' ? 'Název verze byl odebrán.' : 'Verze byla pojmenována.');
 

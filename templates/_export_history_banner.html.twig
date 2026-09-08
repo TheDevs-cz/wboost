@@ -1,13 +1,16 @@
 {# Info banner shown while a stored export version is loaded into the fill
    form ("?version=<id>"), carrying the version's curation controls — rename
    and pin — so the user can label "the one I keep coming back to" right
-   where they just loaded it.
+   where they just loaded it. Owns `#export-history-banner`: a pin / rename
+   from either fill-page surface answers with a Turbo Stream that replaces
+   this element in place (Services/Template/ExportVersionTurboStream), so
+   the controls here are Turbo-enabled.
 
    Expects:
    - loaded_version:  TemplateExportVersion
    - clear_url:       the same page without the version param
    - redirect_url:    local path the rename / pin forms return to (this page) #}
-<div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2" role="alert">
+<div id="export-history-banner" class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2" role="alert">
     <span>
         <i class="mdi mdi-history"></i>
         Formulář je předvyplněný hodnotami exportu
@@ -21,8 +24,8 @@
         Hodnoty můžete dál upravit a znovu exportovat.
     </span>
     <span class="d-flex align-items-center flex-wrap gap-2">
-        {{ include('_export_version_rename_form.html.twig', {version: loaded_version, redirect_url: redirect_url}) }}
-        {{ include('_export_version_pin_button.html.twig', {version: loaded_version, redirect_url: redirect_url, labelled: true}) }}
+        {{ include('_export_version_rename_form.html.twig', {version: loaded_version, redirect_url: redirect_url, turbo: true}) }}
+        {{ include('_export_version_pin_button.html.twig', {version: loaded_version, redirect_url: redirect_url, labelled: true, turbo: true}) }}
         <a href="{{ clear_url }}" class="alert-link text-nowrap">Zpět na výchozí hodnoty</a>
     </span>
 </div>

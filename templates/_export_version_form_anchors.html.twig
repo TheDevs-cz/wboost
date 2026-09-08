@@ -9,9 +9,29 @@
    `ExportHistory::all()` on the history page. The anchors are empty and
    hidden — a `display: none` form still submits.
 
+   `turbo: true` (the fill pages) opts the anchors into Turbo under the
+   site-wide `<html data-turbo="false">`: Turbo submits them by fetch and the
+   controllers answer with a Turbo Stream that re-renders the menu body, the
+   banner and THIS wrapper (`#export-version-form-anchors` — a version that
+   just entered the "recent" rows needs an anchor of its own to be curatable)
+   instead of a reload that would throw the fill form's state away. The
+   stream needs to know which version the page has loaded (the banner it
+   re-renders), hence the `loaded` field. The history page passes neither:
+   there the whole page is the list and its redirect loses nothing.
+
    Expects:
-   - versions: list<TemplateExportVersion> #}
-{% for version in versions %}
-    <form id="export-version-pin-{{ version.id }}" action="{{ path('template_export_version_pin', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-pin-form="{{ version.id }}"></form>
-    <form id="export-version-rename-{{ version.id }}" action="{{ path('template_export_version_rename', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-rename-form="{{ version.id }}"></form>
-{% endfor %}
+   - versions:        list<TemplateExportVersion>
+   - turbo:           bool (default false)
+   - loaded_version:  null|TemplateExportVersion (fill pages) #}
+{% set turbo = turbo ?? false %}
+{% set loaded_version = loaded_version ?? null %}
+<div id="export-version-form-anchors" hidden>
+    {% for version in versions %}
+        <form id="export-version-pin-{{ version.id }}" action="{{ path('template_export_version_pin', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-pin-form="{{ version.id }}"{% if turbo %} data-turbo="true"{% endif %}>
+            {% if loaded_version %}<input type="hidden" name="loaded" value="{{ loaded_version.id }}">{% endif %}
+        </form>
+        <form id="export-version-rename-{{ version.id }}" action="{{ path('template_export_version_rename', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-rename-form="{{ version.id }}"{% if turbo %} data-turbo="true"{% endif %}>
+            {% if loaded_version %}<input type="hidden" name="loaded" value="{{ loaded_version.id }}">{% endif %}
+        </form>
+    {% endfor %}
+</div>

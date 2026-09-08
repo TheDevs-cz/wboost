@@ -1,0 +1,29 @@
+{# Turbo Stream answer to a pin / rename POST from a FILL page — see
+   Services/Template/ExportVersionTurboStream. Each fragment partial renders
+   its own id, so every action is a `replace` of an element already on the
+   page: the dropdown's rows (the shell around them, and so the open menu,
+   stays), the loaded-version banner (only when the page has one — it sits
+   inside the fill form on the group page and comes back there) and the
+   out-of-line form anchors (outside every form, where they must stay).
+
+   Expects the menu's context:
+   - history, loaded_version, route_name, route_params, history_url, redirect_url #}
+<turbo-stream action="replace" target="export-history-menu-body">
+    <template>{{ include('_export_history_menu_body.html.twig') }}</template>
+</turbo-stream>
+{% if loaded_version %}
+    <turbo-stream action="replace" target="export-history-banner">
+        <template>{{ include('_export_history_banner.html.twig', {
+            loaded_version: loaded_version,
+            clear_url: path(route_name, route_params),
+            redirect_url: redirect_url,
+        }) }}</template>
+    </turbo-stream>
+{% endif %}
+<turbo-stream action="replace" target="export-version-form-anchors">
+    <template>{{ include('_export_version_form_anchors.html.twig', {
+        versions: history.menu(loaded_version),
+        loaded_version: loaded_version,
+        turbo: true,
+    }) }}</template>
+</turbo-stream>

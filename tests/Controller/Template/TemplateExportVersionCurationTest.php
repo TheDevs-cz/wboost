@@ -39,12 +39,14 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         $older = $this->export($client, 'Verze první', new DateTimeImmutable('2026-09-01 10:00:00'));
         $newer = $this->export($client, 'Verze druhá', new DateTimeImmutable('2026-09-02 10:00:00'));
 
-        // Loaded-version banner carries the rename form; its token is the
-        // real one the page hands out.
+        // Loaded-version banner carries the rename form (every dropdown row
+        // carries an inline one too); its token is the real one the page
+        // hands out.
         $crawler = $client->request('GET', $this->fillPageUrl() . '?version=' . $older->id->toString());
         self::assertResponseIsSuccessful();
-        $renameForm = $crawler->filter('[data-export-version-rename]');
+        $renameForm = $crawler->filter('#export-history-banner [data-export-version-rename]');
         self::assertCount(1, $renameForm);
+        self::assertCount(2, $crawler->filter('#export-history-menu-body [data-controller="export-version-row"] [data-export-version-rename]'));
         $renameToken = $renameForm->filter('input[name="_token"]')->attr('value');
         self::assertIsString($renameToken);
 
@@ -117,6 +119,124 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         // Unpinned again: freshest first.
         $crawler = $client->request('GET', $this->historyPageUrl());
         self::assertSame($newer->id->toString(), $crawler->filter('tr[data-export-version]')->first()->attr('data-export-version'));
+    }
+
+    /**
+     * The fill pages curate IN PLACE: their anchors and buttons are
+     * Turbo-enabled, and a Turbo-submitted pin / rename is answered with a
+     * Turbo Stream re-rendering the dropdown rows, the loaded-version banner
+     * and the anchors — no redirect, no flash. The history page keeps the
+     * plain forms and the redirect (the page IS the list).
+     */
+    public function testFillPageCurationAnswersTurboStreamsInPlace(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $older = $this->export($client, 'Verze první', new DateTimeImmutable('2026-09-01 10:00:00'));
+        $newer = $this->export($client, 'Verze druhá', new DateTimeImmutable('2026-09-02 10:00:00'));
+
+        $loadedUrl = $this->fillPageUrl() . '?version=' . $older->id->toString();
+        $crawler = $client->request('GET', $loadedUrl);
+        self::assertResponseIsSuccessful();
+
+        // Turbo takes a submission over only when the form AND its submitter
+        // opt in (the site is `<html data-turbo="false">`); the anchors carry
+        // the loaded version for the banner the stream re-renders.
+        $anchors = $crawler->filter('#export-version-form-anchors form');
+        self::assertCount(4, $anchors);
+        foreach ($anchors as $anchor) {
+            self::assertInstanceOf(\DOMElement::class, $anchor);
+            self::assertSame('true', $anchor->getAttribute('data-turbo'));
+        }
+        self::assertCount(4, $crawler->filter('#export-version-form-anchors input[name="loaded"][value="' . $older->id->toString() . '"]'));
+        $submitters = $crawler->filter('[data-export-version-pin] button, [data-export-version-rename] button[type="submit"]');
+        self::assertGreaterThan(0, $submitters->count());
+        foreach ($submitters as $button) {
+            self::assertInstanceOf(\DOMElement::class, $button);
+            self::assertSame('true', $button->getAttribute('data-turbo'));
+        }
+        // The dropdown stays open across those clicks, and every row has the
+        // inline rename editor next to its pin.
+        $toggle = $crawler->filter('#export-history-menu-body')->closest('.dropdown')?->filter('[data-bs-toggle="dropdown"]');
+        self::assertNotNull($toggle);
+        self::assertSame('outside', $toggle->attr('data-bs-auto-close'));
+        $rows = $crawler->filter('#export-history-menu-body [data-controller="export-version-row"]');
+        self::assertCount(2, $rows);
+        self::assertCount(1, $rows->first()->filter('[data-export-version-rename] input[name="name"][data-export-version-row-target="input"]'));
+        self::assertCount(1, $rows->first()->filter('button[data-action="export-version-row#edit"]'));
+
+        $pinToken = $rows->first()->filter('[data-export-version-pin] input[name="_token"]')->attr('value');
+        self::assertIsString($pinToken);
+        $renameToken = $rows->first()->filter('[data-export-version-rename] input[name="_token"]')->attr('value');
+        self::assertIsString($renameToken);
+
+        $turbo = ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml'];
+
+        // Pin from a row: the stream carries the re-rendered rows (a pinned
+        // section now), the banner and the anchors; nothing is redirected.
+        $client->request('POST', '/export-version/' . $newer->id->toString() . '/pin', [
+            '_token' => $pinToken,
+            'pinned' => '1',
+            'redirect' => $loadedUrl,
+            'loaded' => $older->id->toString(),
+        ], [], $turbo);
+        self::assertResponseIsSuccessful();
+        self::assertStringStartsWith('text/vnd.turbo-stream.html', (string) $client->getResponse()->headers->get('Content-Type'));
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('<turbo-stream action="replace" target="export-history-menu-body">', $content);
+        self::assertStringContainsString('<turbo-stream action="replace" target="export-history-banner">', $content);
+        self::assertStringContainsString('<turbo-stream action="replace" target="export-version-form-anchors">', $content);
+        self::assertStringContainsString('Připnuté verze', $content);
+        self::assertStringContainsString('Formulář je předvyplněný hodnotami exportu', $content);
+        // The re-rendered controls stay Turbo-enabled and keep the page.
+        self::assertStringContainsString('data-turbo="true"', $content);
+        self::assertStringContainsString('name="redirect" value="' . $loadedUrl . '"', $content);
+        self::assertTrue($this->reload($newer)->isPinned());
+
+        // Rename (the row's or the banner's form, same endpoint): the banner
+        // AND the row relabel in the same answer.
+        $client->request('POST', '/export-version/' . $older->id->toString() . '/rename', [
+            '_token' => $renameToken,
+            'name' => 'Jarní kampaň',
+            'redirect' => $loadedUrl,
+            'loaded' => $older->id->toString(),
+        ], [], $turbo);
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('<strong>Jarní kampaň</strong>', $content);
+        self::assertStringContainsString('<div class="text-truncate fw-semibold">', $content);
+        self::assertSame('Jarní kampaň', $this->reload($older)->name);
+
+        // Without a loaded version there is no banner to re-render.
+        $client->request('POST', '/export-version/' . $newer->id->toString() . '/pin', [
+            '_token' => $pinToken,
+            'pinned' => '0',
+            'redirect' => $this->fillPageUrl(),
+        ], [], $turbo);
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('target="export-history-menu-body"', $content);
+        self::assertStringNotContainsString('target="export-history-banner"', $content);
+        self::assertStringNotContainsString('Připnuté verze', $content);
+        self::assertFalse($this->reload($newer)->isPinned());
+
+        // A stream answer queues no flash: the next page load is clean.
+        $client->request('GET', $this->fillPageUrl());
+        self::assertResponseIsSuccessful();
+        $content = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('Verze byla připnuta', $content);
+        self::assertStringNotContainsString('Verze byla odepnuta', $content);
+        self::assertStringNotContainsString('Verze byla pojmenována', $content);
+
+        // The history page's anchors are plain forms: its pin / rename
+        // navigate (the page IS the list), and its buttons don't opt in.
+        $crawler = $client->request('GET', $this->historyPageUrl());
+        self::assertResponseIsSuccessful();
+        self::assertCount(4, $crawler->filter('#export-version-form-anchors form'));
+        self::assertCount(0, $crawler->filter('#export-version-form-anchors form[data-turbo]'));
+        self::assertCount(0, $crawler->filter('#export-version-form-anchors input[name="loaded"]'));
+        self::assertCount(0, $crawler->filter('[data-export-version-pin] button[data-turbo], [data-export-version-rename] button[data-turbo]'));
     }
 
     public function testForeignRedirectsFallBackToTheHistoryPageAndBadTokensAreRefused(): void

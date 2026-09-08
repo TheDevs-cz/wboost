@@ -99,15 +99,26 @@ final class TemplateGroupExportVersionTest extends WebTestCase
         $fillForm = $crawler->filter('form.fill-form');
         self::assertCount(1, $fillForm);
         self::assertGreaterThan(0, $fillForm->filter('[data-export-version-pin]')->count());
-        self::assertCount(1, $fillForm->filter('[data-export-version-rename]'));
+        self::assertCount(1, $fillForm->filter('#export-history-banner [data-export-version-rename]'));
+        // Every dropdown row carries its inline rename editor too.
+        self::assertGreaterThan(0, $fillForm->filter('#export-history-menu-body [data-controller="export-version-row"] [data-export-version-rename]')->count());
         self::assertCount(1, $fillForm->filter(sprintf('input[name="textValues[%s]"]', TestDataFixture::GROUP_SHARED_INPUT_ID)));
         self::assertCount(2, $fillForm->filter('.fill-surface'));
-        foreach ($crawler->filter('[data-export-version-pin] button, [data-export-version-rename] button') as $button) {
+        foreach ($crawler->filter('[data-export-version-pin] button[form], [data-export-version-rename] button[form]') as $button) {
             self::assertInstanceOf(\DOMElement::class, $button);
             $anchor = $crawler->filter('form#' . $button->getAttribute('form'));
             self::assertCount(1, $anchor);
             self::assertNull($anchor->closest('form.fill-form'));
+            // Turbo-enabled on both ends (anchor + submitter): a pin / rename
+            // is answered with a stream, the fill form's state survives.
+            self::assertSame('true', $anchor->attr('data-turbo'));
+            self::assertSame('true', $button->getAttribute('data-turbo'));
         }
+        self::assertNull($crawler->filter('#export-version-form-anchors')->closest('form.fill-form'));
+        self::assertSame(
+            $version->id->toString(),
+            $crawler->filter('#export-version-form-anchors input[name="loaded"]')->first()->attr('value'),
+        );
         self::assertSame(
             TestDataFixture::FILE_IN_ALLOWED_ID,
             $crawler->filter(sprintf('input[name="images[%s][imageId]"]', TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID))->attr('value'),

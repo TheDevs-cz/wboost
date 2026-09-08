@@ -544,7 +544,9 @@
         {# The dropdown's and the banner's pin / rename controls above sit
            INSIDE the fill form and submit through these anchors — which must
            stay OUTSIDE it (a nested <form> would close the fill form and
-           strand every field below the header; 2026-09-08). #}
-        {{ include('_export_version_form_anchors.html.twig', {versions: export_history.menu(loaded_version)}) }}
+           strand every field below the header; 2026-09-08). Turbo-enabled:
+           a pin / rename re-renders the history chrome in place, the fill
+           form's state survives. #}
+        {{ include('_export_version_form_anchors.html.twig', {versions: export_history.menu(loaded_version), loaded_version: loaded_version, turbo: true}) }}
     {% endif %}
 {% endblock %}
