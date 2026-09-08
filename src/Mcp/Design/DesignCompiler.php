@@ -93,6 +93,11 @@ readonly final class DesignCompiler
      * up as a failing test in this stage rather than as designer metadata
      * quietly lost on the next save.
      *
+     * `missingSrc` is listed for parity only: it is the editor's SESSION-ONLY
+     * marker for a picture whose file is gone (canvas_missing_images.js) and
+     * buildVariantPayload strips it before any save, so a stored document —
+     * what the compiler and decompiler ever see — never carries it.
+     *
      * @var list<string>
      */
     public const array CANVAS_CUSTOM_PROPERTIES = [
@@ -102,7 +107,7 @@ readonly final class DesignCompiler
         'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
         'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
         'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
-        'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
+        'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
     ];
 
     /**
