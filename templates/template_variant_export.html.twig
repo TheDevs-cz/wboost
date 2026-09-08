@@ -60,6 +60,10 @@
         }) }}
     {% endif %}
 
+    {# Anchors for the title-row dropdown's and the banner's pin / rename
+       controls (they carry no <form> of their own — see the partial). #}
+    {{ include('_export_version_form_anchors.html.twig', {versions: export_history.menu(loaded_version)}) }}
+
     {# The fill UI is driven by a Live Component; it renders its own preview
        server-side (Gotenberg PNG → base64 data URI). `loading="defer"` keeps
        those Gotenberg calls OUT of this page request — the shell paints

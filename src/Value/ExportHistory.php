@@ -80,6 +80,30 @@ final readonly class ExportHistory
     }
 
     /**
+     * Every version a fill page renders curation controls for: the dropdown's
+     * pinned + recent rows, plus the loaded one — its banner carries a rename
+     * and a pin too, and an old unpinned version is not among the recent
+     * rows. The out-of-line form anchors
+     * (`_export_version_form_anchors.html.twig`) are rendered from this list.
+     *
+     * @return list<TemplateExportVersion>
+     */
+    public function menu(?TemplateExportVersion $loaded = null): array
+    {
+        $versions = [...$this->pinned, ...$this->recent()];
+        if ($loaded !== null) {
+            $versions[] = $loaded;
+        }
+
+        $unique = [];
+        foreach ($versions as $version) {
+            $unique[$version->id->toString()] ??= $version;
+        }
+
+        return array_values($unique);
+    }
+
+    /**
      * Whether the dropdown's recent section leaves something out — the
      * "Zobrazit vše" link's reason to exist beyond curation.
      */

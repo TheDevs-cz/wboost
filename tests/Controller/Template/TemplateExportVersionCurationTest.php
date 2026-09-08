@@ -43,7 +43,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         // real one the page hands out.
         $crawler = $client->request('GET', $this->fillPageUrl() . '?version=' . $older->id->toString());
         self::assertResponseIsSuccessful();
-        $renameForm = $crawler->filter('form[data-export-version-rename]');
+        $renameForm = $crawler->filter('[data-export-version-rename]');
         self::assertCount(1, $renameForm);
         $renameToken = $renameForm->filter('input[name="_token"]')->attr('value');
         self::assertIsString($renameToken);
@@ -59,7 +59,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         // Pin from the dropdown row (every row carries the toggle).
         $crawler = $client->request('GET', $this->fillPageUrl());
         self::assertResponseIsSuccessful();
-        $pinForms = $crawler->filter('form[data-export-version-pin]');
+        $pinForms = $crawler->filter('[data-export-version-pin]');
         self::assertCount(2, $pinForms);
         self::assertStringNotContainsString('Připnuté verze', (string) $client->getResponse()->getContent());
         $pinToken = $pinForms->first()->filter('input[name="_token"]')->attr('value');
@@ -96,7 +96,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         self::assertCount(1, $rows->first()->filter(sprintf('a[href*="version=%s"]', $older->id->toString())));
 
         // Unpin + unname from the history page, redirect back to it.
-        $pinToken = $rows->first()->filter('form[data-export-version-pin] input[name="_token"]')->attr('value');
+        $pinToken = $rows->first()->filter('[data-export-version-pin] input[name="_token"]')->attr('value');
         self::assertIsString($pinToken);
         $client->request('POST', '/export-version/' . $older->id->toString() . '/pin', [
             '_token' => $pinToken,
@@ -126,7 +126,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         $version = $this->export($client, 'Verze');
 
         $crawler = $client->request('GET', $this->historyPageUrl());
-        $token = $crawler->filter('form[data-export-version-pin] input[name="_token"]')->attr('value');
+        $token = $crawler->filter('[data-export-version-pin] input[name="_token"]')->attr('value');
         self::assertIsString($token);
 
         foreach (['https://evil.example/phish', '//evil.example/phish', '/\\evil.example', "/ok\r\nLocation: x", ''] as $redirect) {
@@ -160,7 +160,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
         $version = $this->export($client, 'Verze');
         $crawler = $client->request('GET', $this->historyPageUrl());
-        $token = $crawler->filter('form[data-export-version-pin] input[name="_token"]')->attr('value');
+        $token = $crawler->filter('[data-export-version-pin] input[name="_token"]')->attr('value');
         self::assertIsString($token);
 
         // A shared user of the project can curate — the history is shared.
@@ -212,7 +212,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         self::assertStringContainsString('Letní kampaň', $row->text());
         self::assertCount(1, $row->filter(sprintf('a[href="%s?version=%s"]', $fillUrl, $version->id->toString())));
 
-        $token = $row->filter('form[data-export-version-pin] input[name="_token"]')->attr('value');
+        $token = $row->filter('[data-export-version-pin] input[name="_token"]')->attr('value');
         self::assertIsString($token);
         $client->request('POST', '/export-version/' . $version->id->toString() . '/pin', [
             '_token' => $token,

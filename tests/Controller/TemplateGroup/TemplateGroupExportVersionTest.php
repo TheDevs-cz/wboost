@@ -82,6 +82,32 @@ final class TemplateGroupExportVersionTest extends WebTestCase
             'Letní kampaň',
             $crawler->filter(sprintf('input[name="textValues[%s]"]', TestDataFixture::GROUP_SHARED_INPUT_ID))->attr('value'),
         );
+
+        // Regression (2026-09-08): the dropdown's pin toggles and the banner's
+        // rename + pin sit INSIDE the fill form. A real <form> there is not
+        // merely invalid — browsers and libxml drop the start tag and its
+        // </form> CLOSES THE FILL FORM, stranding every field below the header
+        // outside it (no pencils; previews and exports posted nothing). The
+        // controls submit through out-of-line anchors instead, so the fill
+        // form contains no form tag and keeps every field.
+        $formOpen = strpos($content, '<form method="post" action="/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/export"');
+        self::assertIsInt($formOpen);
+        $formClose = strpos($content, '</form>', $formOpen);
+        self::assertIsInt($formClose);
+        self::assertStringNotContainsString('<form', substr($content, $formOpen + 1, $formClose - $formOpen - 1));
+
+        $fillForm = $crawler->filter('form.fill-form');
+        self::assertCount(1, $fillForm);
+        self::assertGreaterThan(0, $fillForm->filter('[data-export-version-pin]')->count());
+        self::assertCount(1, $fillForm->filter('[data-export-version-rename]'));
+        self::assertCount(1, $fillForm->filter(sprintf('input[name="textValues[%s]"]', TestDataFixture::GROUP_SHARED_INPUT_ID)));
+        self::assertCount(2, $fillForm->filter('.fill-surface'));
+        foreach ($crawler->filter('[data-export-version-pin] button, [data-export-version-rename] button') as $button) {
+            self::assertInstanceOf(\DOMElement::class, $button);
+            $anchor = $crawler->filter('form#' . $button->getAttribute('form'));
+            self::assertCount(1, $anchor);
+            self::assertNull($anchor->closest('form.fill-form'));
+        }
         self::assertSame(
             TestDataFixture::FILE_IN_ALLOWED_ID,
             $crawler->filter(sprintf('input[name="images[%s][imageId]"]', TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID))->attr('value'),

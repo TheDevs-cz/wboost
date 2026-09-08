@@ -271,6 +271,12 @@ export default class extends Controller {
     // Enter in a fill field must never trigger the ZIP download — only the
     // explicit export button submits.
     blockEnter(event) {
+        // A control owned by ANOTHER form — the export-version rename field
+        // in the loaded-version banner, whose `form` attribute points at an
+        // out-of-line anchor — submits that form on Enter, as it should.
+        if (event.target && event.target.form && event.target.form !== this.element) {
+            return;
+        }
         if (event.key === 'Enter' && event.target instanceof HTMLInputElement && event.target.type === 'text') {
             event.preventDefault();
         }

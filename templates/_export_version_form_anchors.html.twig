@@ -1,0 +1,17 @@
+{# The <form> elements the export-version curation controls submit through.
+   `_export_version_pin_button.html.twig` and `_export_version_rename_form.html.twig`
+   render their inputs and buttons with `form="export-version-(pin|rename)-<id>"`
+   and NO form element of their own, so they can be included inside another
+   form (the fill pages wrap their dropdown and banner in the fill form, and a
+   nested <form> tag would close it — see the pin partial). Include this ONCE
+   per page, OUTSIDE every other form, with every version the page renders
+   controls for: `ExportHistory::menu(loaded)` on the fill pages,
+   `ExportHistory::all()` on the history page. The anchors are empty and
+   hidden — a `display: none` form still submits.
+
+   Expects:
+   - versions: list<TemplateExportVersion> #}
+{% for version in versions %}
+    <form id="export-version-pin-{{ version.id }}" action="{{ path('template_export_version_pin', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-pin-form="{{ version.id }}"></form>
+    <form id="export-version-rename-{{ version.id }}" action="{{ path('template_export_version_rename', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-rename-form="{{ version.id }}"></form>
+{% endfor %}

@@ -112,6 +112,9 @@
                         </tbody>
                     </table>
                 </div>
+                {# The rows' pin / rename controls carry no <form> of their own
+                   (see the partials) — they submit through these anchors. #}
+                {{ include('_export_version_form_anchors.html.twig', {versions: history.all}) }}
             {% endif %}
         </div>
     </div>

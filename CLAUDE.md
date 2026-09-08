@@ -1304,9 +1304,9 @@ version.
   "Připnuté verze" section + the `ExportHistory::MENU_RECENT` = 5 most recent
   unpinned + "Zobrazit vše (N)" → the history page + "Zpět na výchozí
   hodnoty"; every row has an inline pin toggle — rows are `div.dropdown-item`
-  wrapping the load `<a>` + a pin `<form>`, since an `<a>` cannot contain a
-  form), `_export_history_banner.html.twig` (loaded state, with the inline
-  rename form + a labelled pin button), the dedicated page
+  wrapping the load `<a>` + the pin controls, since an `<a>` cannot contain
+  form controls), `_export_history_banner.html.twig` (loaded state, with the
+  inline rename controls + a labelled pin button), the dedicated page
   `template_export_history.html.twig` (routes
   `template_variant_export_history` = `/template-variant/{id}/export-history`
   and `template_group_export_history` = `/template-group/{id}/export-history`,
@@ -1317,7 +1317,19 @@ version.
   per version, that would be a render per row). Shared form partials
   `_export_version_pin_button.html.twig` / `_export_version_rename_form.html.twig`
   (`data-export-version-pin` / `data-export-version-rename` hooks are what the
-  tests read tokens from). Listing surfaces read
+  tests read tokens from). **Neither renders a `<form>` of its own**: the
+  controls carry `form="export-version-(pin|rename)-<id>"` and submit through
+  the empty, hidden anchors of `_export_version_form_anchors.html.twig`,
+  included ONCE per page OUTSIDE every other form (`ExportHistory::menu(loaded)`
+  on the fill pages, `all()` on the history page). The group fill page wraps
+  its dropdown and banner in the fill form, and a nested `<form>` tag is not
+  merely invalid: browsers AND libxml drop the start tag and its `</form>`
+  closes the OUTER form — every fill field below the header ended up outside
+  the fill form (boxes `display:none`, overlay targets unreachable, previews
+  and the ZIP export posting six orphaned pin inputs; 2026-09-08, one day
+  after the pins shipped). Never include these partials as real forms; the
+  group-page regression test asserts the mirrors and surfaces are descendants
+  of `form.fill-form`. Listing surfaces read
   `Query/GetExportVersions` (`latestForProjectTemplates` /
   `latestForTemplateVariants`, Postgres DISTINCT ON): template cards show
   "Naposledy exportováno", variant tiles add a "Načíst poslední export" menu
