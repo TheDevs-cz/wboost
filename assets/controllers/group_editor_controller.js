@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import { FabricImage, StaticCanvas } from "fabric";
 
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
+import { loadCanvasDocument, reportMissingImages, withStandInsHidden } from './canvas_missing_images.js';
 import { GroupSync, isSyncable } from './group_sync.js';
 
 const SYNC_DEBOUNCE = 150;
@@ -591,14 +592,23 @@ export default class extends Controller {
             source = canvasJson || {};
         }
 
-        await shadow.loadFromJSON(source);
-
         // Fabric resolves loadFromJSON even when it DROPPED an object whose
-        // image src failed to fetch (no rejection — verified). A shadow
-        // missing an object would propagate wrong and, worse, be saved over
-        // the variant's real canvas, silently deleting the object. Treat a
-        // drop as the load failure it is — callers retry / mark the variant
-        // "Nenačteno" instead of proceeding lossy.
+        // image src failed to fetch (no rejection — verified). The loader
+        // tells a picture that is GONE (404 — purged from the gallery) from a
+        // flake: the former comes back as a marked stand-in so the variant
+        // stays editable and savable (a whole group referencing one dead
+        // picture used to be bricked — every variant "Nenačteno", nothing
+        // saved, 2026-09-08); the substituted source carries the marker for
+        // the restore pass below.
+        const loaded = await loadCanvasDocument(shadow, source);
+        source = loaded.source;
+        reportMissingImages(loaded.missing);
+
+        // A shadow STILL missing an object after that is a transient failure:
+        // it would propagate wrong and, worse, be saved over the variant's
+        // real canvas, silently deleting the object. Treat the drop as the
+        // load failure it is — callers retry / mark the variant "Nenačteno"
+        // instead of proceeding lossy.
         const expectedObjects = Array.isArray(source.objects) ? source.objects.length : 0;
         const lost = expectedObjects - shadow.getObjects().length;
         if (lost > 0) {
@@ -1045,10 +1055,12 @@ export default class extends Controller {
                     // upscaling the 400px bitmap, so the thumbnail is as sharp
                     // as the design allows — text re-rasterizes, pictures
                     // re-sample from their originals.
-                    preview = variant.shadow.toDataURL({
+                    // Stand-ins for gone pictures are editor chrome, not
+                    // design — the thumbnail shows the design as it exports.
+                    preview = withStandInsHidden(variant.shadow, () => variant.shadow.toDataURL({
                         format: 'png',
                         multiplier: Math.min(PREVIEW_MAX_WIDTH, variant.width) / SHADOW_WIDTH,
-                    });
+                    }));
                 } catch (err) {
                     console.warn('Preview generation skipped (tainted canvas):', err);
                 }

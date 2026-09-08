@@ -3,6 +3,7 @@ import { Canvas, IText, Textbox, FabricImage, cache } from "fabric";
 
 import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
+import { loadCanvasDocument, reportMissingImages, withStandInsHidden } from './canvas_missing_images.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { createShapeObject, isShapeObject } from './canvas_shapes.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
@@ -433,7 +434,14 @@ export default class extends Controller {
             }
 
             // Fabric v7 loadFromJSON returns a Promise (no callback form).
-            await this.canvas.loadFromJSON(sourceCanvas);
+            // Routed through the missing-picture loader: an image whose file
+            // is gone for good (404) comes back as a marked stand-in instead
+            // of a silent drop that the next save would persist as a deletion
+            // (canvas_missing_images.js). The substituted source is what the
+            // restore pass below must read — it carries the marker.
+            const loaded = await loadCanvasDocument(this.canvas, sourceCanvas);
+            sourceCanvas = loaded.source;
+            reportMissingImages(loaded.missing);
 
             // CRITICAL: Fabric v7 strips our custom annotation properties
             // (inputId / name / locked / …) during loadFromJSON — without the
@@ -1209,7 +1217,9 @@ export default class extends Controller {
         // Gallery images are loaded crossorigin="anonymous" so this normally
         // succeeds; this guard only catches the tainted-canvas edge cases.
         try {
-            this.previewImageTarget.value = this.getScaledCanvasDataURI(PREVIEW_MAX_WIDTH);
+            // Stand-ins for gone pictures are editor chrome, not design — the
+            // thumbnail shows the design as it exports.
+            this.previewImageTarget.value = withStandInsHidden(this.canvas, () => this.getScaledCanvasDataURI(PREVIEW_MAX_WIDTH));
         } catch (err) {
             console.warn('Preview generation skipped (tainted canvas):', err);
             this.previewImageTarget.value = '';

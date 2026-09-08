@@ -39,6 +39,13 @@
 // allowedColors is the rich input's colour allowlist (null = any colour,
 // [] = colour locked, list = only those swatches). All resolved per input
 // server-side (ResolveRichTextOptions).
+// missingSrc (images) is SESSION-ONLY: the original src of a picture whose
+// file is gone for good (404 — purged from the gallery), set by the
+// missing-picture loader (canvas_missing_images.js) when it swaps the object
+// for a red stand-in tile. It rides toJSON / clone / restore so undo, tab
+// switches and group-sync clones keep the marker, and buildVariantPayload
+// puts it BACK into `src` and strips it — the saved document never carries
+// the stand-in, and the server never sees this property.
 export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
@@ -46,7 +53,7 @@ export const CANVAS_CUSTOM_PROPERTIES = [
     'checklist', 'checklistAdd', 'checklistRemove', 'checklistEditText', 'checklistToggle',
     'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
-    'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind',
+    'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
 ];
 
 /**

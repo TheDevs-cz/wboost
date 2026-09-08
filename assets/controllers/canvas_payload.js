@@ -1,4 +1,5 @@
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
+import { MISSING_SRC_PROP, alignLoadedObjects } from './canvas_missing_images.js';
 import { applyShapeDefaults, isShapeObject } from './canvas_shapes.js';
 
 /**
@@ -40,39 +41,22 @@ export const PREVIEW_MAX_WIDTH = 1000;
  * inputId-keyed propagation would scramble that variant. The positional map
  * is kept for the healthy equal-count case; on a count mismatch the map
  * aligns source→loaded as an ordered subsequence on type + position, so a
- * dropped source entry just doesn't consume a loaded object.
+ * dropped source entry just doesn't consume a loaded object (the alignment
+ * lives in canvas_missing_images.js, which also uses it to find WHICH
+ * pictures dropped — a gone one is reloaded as a marked stand-in BEFORE this
+ * pass runs, so a mismatch here is a transient failure).
  */
-function sourceMatchesLoaded(source, obj) {
-    if (String(source.type || '').toLowerCase() !== String(obj.type || '').toLowerCase()) {
-        return false;
-    }
-    const close = (a, b) => typeof a !== 'number' || typeof b !== 'number' || Math.abs(a - b) < 1;
-    return close(source.left, obj.left) && close(source.top, obj.top);
-}
-
 export function restoreCustomProperties(canvas, sourceCanvas) {
     const sourceObjects = Array.isArray(sourceCanvas.objects) ? sourceCanvas.objects : [];
     const loadedObjects = canvas.getObjects();
 
-    const dropped = sourceObjects.length - loadedObjects.length;
-    if (dropped > 0) {
+    if (sourceObjects.length > loadedObjects.length) {
         console.error(`Plátno se nenačetlo celé: dokument má ${sourceObjects.length} objektů, načteno ${loadedObjects.length} (pravděpodobně nedostupný obrázek).`);
     }
 
-    let cursor = 0;
+    const { sourceFor } = alignLoadedObjects(sourceObjects, loadedObjects);
     loadedObjects.forEach((obj, idx) => {
-        let source = null;
-        if (dropped <= 0) {
-            source = sourceObjects[idx] || null;
-        } else {
-            while (cursor < sourceObjects.length && !sourceMatchesLoaded(sourceObjects[cursor], obj)) {
-                cursor += 1;
-            }
-            if (cursor < sourceObjects.length) {
-                source = sourceObjects[cursor];
-                cursor += 1;
-            }
-        }
+        const source = sourceFor[idx];
         if (source) {
             CANVAS_CUSTOM_PROPERTIES.forEach((prop) => {
                 if (source[prop] !== undefined) {
@@ -212,6 +196,16 @@ export function buildVariantPayload(canvas) {
                 serialized[prop] = value;
             }
         });
+
+        // A stand-in for a picture that is gone (canvas_missing_images.js)
+        // must never be SAVED as the design: the document keeps the original
+        // reference and the session-only marker is stripped. The render side
+        // drops an unreadable picture on its own, so the export is unchanged
+        // — and the next editor load marks the object again.
+        if (typeof serialized[MISSING_SRC_PROP] === 'string' && serialized[MISSING_SRC_PROP] !== '') {
+            serialized.src = serialized[MISSING_SRC_PROP];
+        }
+        delete serialized[MISSING_SRC_PROP];
     });
 
     // Container definitions travel inside the canvas document (sanitized:

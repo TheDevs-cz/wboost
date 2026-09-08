@@ -4094,3 +4094,33 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
 .weight-axis__label {
     pointer-events: none;
 }
+
+/* Layers panel: a picture whose file is gone for good (404 — purged from the
+   gallery) loads as a red stand-in tile (canvas_missing_images.js); its row
+   carries the same signal so a hidden layer's missing picture is noticed too. */
+.canvas-layer-row--missing .canvas-layer-row__icon {
+    color: #e11d48;
+}
+
+.canvas-layer-row__missing {
+    flex: 0 0 auto;
+    margin-left: 0.35rem;
+    padding: 0 0.3rem;
+    border-radius: 0.25rem;
+    background: #fff1f2;
+    color: #e11d48;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* The gallery toast chrome in its warning tone — the editors' "a picture in
+   this design no longer exists" notice. */
+.gallery-toast--warning {
+    background: var(--bs-warning, #ffbc00);
+    color: #313a46;
+    max-width: 26rem;
+    pointer-events: auto;
+}

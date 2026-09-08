@@ -4,6 +4,7 @@ import Sortable from "sortablejs";
 import { applyEditorLock } from './canvas_custom_properties.js';
 import { SHAPE_KINDS, isShapeObject } from './canvas_shapes.js';
 import { labelLayers } from './canvas_layer_labels.js';
+import { isMissingImage } from './canvas_missing_images.js';
 
 /**
  * Photoshop-style layers panel for the admin canvas editor (left panel).
@@ -303,6 +304,18 @@ export default class extends Controller {
         text.className = 'canvas-layer-row__label';
         text.textContent = label;
         main.appendChild(text);
+
+        // A picture whose file is gone for good renders as a red stand-in on
+        // the canvas (canvas_missing_images.js); the row says so as well, so
+        // a hidden layer's missing picture is noticed before the export.
+        if (isMissingImage(obj)) {
+            row.classList.add('canvas-layer-row--missing');
+            const missing = document.createElement('span');
+            missing.className = 'canvas-layer-row__missing';
+            missing.textContent = 'chybí soubor';
+            main.appendChild(missing);
+            main.title = `${label} — soubor obrázku už neexistuje (byl smazán z galerie): smažte vrstvu, nebo vložte obrázek znovu`;
+        }
 
         row.appendChild(main);
 

@@ -1514,6 +1514,35 @@ same-origin static-harness recipe with an injected broken-src image:
   instead of silently saving divergence; the save still proceeds (blocking
   would hold the healthy variants' work hostage).
 
+**Gone pictures are stand-ins, not load failures (2026-09-08).** The
+hardening above treats every dropped object as a flake, but a picture whose
+file is GONE FOR GOOD (a gallery image purged from the Koš — the prod group
+`019fe590…` referenced two) fails identically on every attempt: every
+variant ended up "Nenačteno", nothing propagated or saved, and the designer
+could not even delete the dead object to recover (the single editor was
+quieter and worse: it dropped the object and the next save persisted the
+deletion). `assets/controllers/canvas_missing_images.js` — dependency-free,
+used by BOTH loaders (`loadCanvasWithoutHistory`, `_loadShadow`) — wraps
+`loadFromJSON`: only on a count shortfall it aligns source↔loaded (the
+ordered-subsequence match `restoreCustomProperties` also uses, now shared as
+`alignLoadedObjects`), PROBES each dropped image's src, and reloads with a
+red hatched stand-in tile (SVG data URI at the original's pixel size, so
+geometry, inputId and metadata are untouched) for every definitive 404/410;
+anything else (network error, 5xx, CORS, a dropped non-image) stays a
+transient failure with the retry / "Nenačteno" semantics. Contract: the
+original src lives in the session-only `missingSrc` custom property
+(∈ `CANVAS_CUSTOM_PROPERTIES`, so undo/redo, tab switches and group-sync
+clones keep the marker without re-probing — verdicts are cached per src),
+and `buildVariantPayload` puts it BACK into `src` and strips the marker, so
+**the saved document is never rewritten** and the server never sees the
+property (the renderer already drops an unreadable picture, so exports are
+unchanged); `withStandInsHidden` keeps the tiles out of the save-time
+preview thumbnails. Surfaces: a coalesced warning toast per page load
+(`reportMissingImages`, once per src) and a red "chybí soubor" badge on the
+layers-panel row. The designer resolves it by deleting the layer or adding
+the picture again; the purge guard on the gallery side (below) is what keeps
+new cases from arising.
+
 **Web routes** live under `/project/{projectId}/templates` (name `templates`),
 `/template/{templateId}/…`, `/template-variant/{variantId}/…` and
 `/template-group/{groupId}/…`. The old social/custom URL families are GONE
