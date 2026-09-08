@@ -10,11 +10,16 @@ use Ramsey\Uuid\UuidInterface;
  * PERMANENTLY delete a gallery image: the storage object AND the database row.
  * Irreversible. Dispatched by the bin's "Smazat ihned" action and by the
  * app:gallery:purge-trash cron for bin entries past the retention window.
+ *
+ * A file a template still references is refused (FileUploadInUse) unless
+ * `force` is set — the cron never forces (the file stays in the bin), the
+ * bin's button does, after a confirm that names the templates.
  */
 readonly final class PurgeFileUpload
 {
     public function __construct(
         public UuidInterface $fileId,
+        public bool $force = false,
     ) {
     }
 }

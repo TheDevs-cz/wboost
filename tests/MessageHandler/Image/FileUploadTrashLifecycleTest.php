@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Exceptions\FileUploadInUse;
 use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Message\Image\DeleteFileUpload;
 use WBoost\Web\Message\Image\PurgeFileUpload;
@@ -118,6 +119,48 @@ final class FileUploadTrashLifecycleTest extends KernelTestCase
         } catch (FileUploadNotFound) {
             // expected
         }
+    }
+
+    /**
+     * A picture a template still references is refused (row + object stay)
+     * unless the purge is FORCED — the bin's "Smazat ihned" after a confirm
+     * that names the templates. The nightly purge never forces.
+     */
+    public function testPurgeRefusesAPictureATemplateStillUsesUnlessForced(): void
+    {
+        $path = $this->storagePath();
+        $this->filesystem()->write($path, 'fake-png-bytes');
+
+        $file = $this->persistFile($path, null);
+        $fileId = $file->id;
+
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE template_variant SET canvas = :canvas WHERE id = :id',
+            [
+                'canvas' => json_encode(['objects' => [
+                    ['type' => 'Image', 'src' => sprintf('https://img.example/wboost/file-upload/%s/%s.png', TestDataFixture::PROJECT_1_ID, $fileId->toString())],
+                ]], JSON_THROW_ON_ERROR),
+                'id' => TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID,
+            ],
+        );
+
+        try {
+            $this->purgeHandler()(new PurgeFileUpload($fileId));
+            self::fail('Expected the purge to be refused while a template uses the picture.');
+        } catch (FileUploadInUse $exception) {
+            self::assertSame($fileId->toString(), $exception->upload->id->toString());
+            self::assertCount(1, $exception->templateNames());
+        }
+        $this->em()->flush();
+
+        self::assertTrue($this->filesystem()->fileExists($path), 'A refused purge must not touch storage.');
+        self::assertNotNull($this->em()->find(FileUpload::class, $fileId), 'A refused purge must keep the row.');
+
+        $this->purgeHandler()(new PurgeFileUpload($fileId, force: true));
+        $this->em()->flush();
+
+        self::assertFalse($this->filesystem()->fileExists($path));
+        self::assertNull($this->em()->find(FileUpload::class, $fileId));
     }
 
     public function testPurgeIsIdempotentWhenStorageObjectMissing(): void

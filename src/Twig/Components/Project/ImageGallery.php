@@ -30,10 +30,12 @@ use WBoost\Web\Message\Image\RenameFileDirectory;
 use WBoost\Web\Message\Image\RestoreFileUpload;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Query\GetGalleryImageUsage;
 use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\GalleryImageUsageSite;
 use WBoost\Web\Value\FileSource;
 
 /**
@@ -157,6 +159,7 @@ final class ImageGallery extends AbstractController
         private readonly ProvideIdentity $provideIdentity,
         private readonly ClockInterface $clock,
         private readonly FileUploadPixelSizeBackfill $pixelSizeBackfill,
+        private readonly GetGalleryImageUsage $galleryImageUsage,
     ) {
     }
 
@@ -325,9 +328,13 @@ final class ImageGallery extends AbstractController
     /**
      * Bin contents, closest-to-purge first, with a human countdown. Rendered
      * only by the read-only Koš view — no select/move/delete affordances,
-     * just Obnovit / Smazat ihned.
+     * just Obnovit / Smazat ihned. `usedIn` names the templates that still
+     * reference the picture: the nightly purge skips such a file (its
+     * countdown says so instead), and "Smazat ihned" names them in its
+     * confirm — purging is the one gallery action that damages a design for
+     * good.
      *
-     * @return list<array{id: string, url: string, deletedAt: string, purgeLabel: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
+     * @return list<array{id: string, url: string, deletedAt: string, purgeLabel: string, usedIn: list<array{id: string, name: string}>, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
      */
     public function trashedAssets(): array
     {
@@ -336,15 +343,24 @@ final class ImageGallery extends AbstractController
 
         $files = $this->fileUploadRepository->listTrashed($project->id, $this->source);
         $this->pixelSizeBackfill->backfill($files);
+        $usage = $this->galleryImageUsage->forFiles($project->id, $files);
 
         return array_map(
-            fn (FileUpload $f): array => [
-                'id' => $f->id->toString(),
-                'url' => $this->uploaderHelper->getPublicPath($f->path),
-                'deletedAt' => $f->deletedAt?->format('Y-m-d H:i') ?? '',
-                'purgeLabel' => $this->purgeLabel($f, $now),
-                ...$this->describe($f),
-            ],
+            function (FileUpload $f) use ($now, $usage): array {
+                $sites = $usage[$f->id->toString()] ?? [];
+
+                return [
+                    'id' => $f->id->toString(),
+                    'url' => $this->uploaderHelper->getPublicPath($f->path),
+                    'deletedAt' => $f->deletedAt?->format('Y-m-d H:i') ?? '',
+                    'purgeLabel' => $sites === [] ? $this->purgeLabel($f, $now) : 'Automaticky se nesmaže – používá se v šabloně',
+                    'usedIn' => array_map(
+                        static fn (GalleryImageUsageSite $site): array => ['id' => $site->templateId, 'name' => $site->templateName],
+                        $sites,
+                    ),
+                    ...$this->describe($f),
+                ];
+            },
             $files,
         );
     }
@@ -565,7 +581,12 @@ final class ImageGallery extends AbstractController
         $this->fileActionNotice = 'Obrázek byl obnoven z koše.';
     }
 
-    /** Irreversible removal from the bin ("Smazat ihned") — row AND storage. */
+    /**
+     * Irreversible removal from the bin ("Smazat ihned") — row AND storage.
+     * FORCED: the button's confirm already named the templates that still
+     * use the picture (`usedIn`), so this is the admin's informed choice; the
+     * nightly purge is the one that never removes a referenced file.
+     */
     #[LiveAction]
     public function purgeFile(#[LiveArg('fileid')] string $fileId): void
     {
@@ -577,7 +598,7 @@ final class ImageGallery extends AbstractController
             return;
         }
 
-        $this->bus->dispatch(new PurgeFileUpload($file->id));
+        $this->bus->dispatch(new PurgeFileUpload($file->id, force: true));
     }
 
     #[LiveAction]

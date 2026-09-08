@@ -1098,10 +1098,24 @@ Stage 8 added a **filesystem-like nested folder tree** on top:
   ids explicitly (the unrestricted-slot root branch would accept them), and
   `MoveFileUploadHandler` refuses to move a trashed file (a move would
   silently un-trash it). `PurgeFileUploadHandler` is the only place in the
-  app that hard-deletes gallery storage (row + object; an image in use as a
-  template background/placeholder default loses its source there). The purge
-  cron is `app:gallery:purge-trash` (daily; retention =
-  `FileUpload::TRASH_RETENTION_DAYS` = 7). **`#[LiveArg]`
+  app that hard-deletes gallery storage (row + object). The purge cron is
+  `app:gallery:purge-trash` (daily; retention =
+  `FileUpload::TRASH_RETENTION_DAYS` = 7). **A picture a template still
+  references is never purged automatically (2026-09-08).** Purging is the
+  one gallery action that damages a design for good — the prod group whose
+  every variant referenced a purged decorative picture could not even be
+  opened for editing (see the editor's stand-in handling) — so
+  `Query/GetGalleryImageUsage` scans ONE project's variants (canvas JSONB
+  text + `background_image` + `inputs` text, substring-matched on the file
+  UUID, which every spelling of a reference contains: public URL, storage
+  key, `assetId`; export-version picks are deliberately NOT a reference —
+  the seeder degrades leniently) and the handler throws `FileUploadInUse`
+  unless `PurgeFileUpload::$force` is set. The cron never forces: such a
+  file stays in the Koš, its tile says "Používá se v: <templates>" +
+  "Automaticky se nesmaže" and the run reports it as skipped; the bin's
+  "Smazat ihned" forces after a confirm that names the templates. Trashing
+  itself stays harmless — a trashed picture still renders wherever a design
+  references it; only fills reject trashed ids. **`#[LiveArg]`
   names must be lowercase** (e.g. `#[LiveArg('directoryid')]` / `#[LiveArg('fileid')]`)
   to match the HTML-lowercased `data-live-*-param`.
 - Uploads still POST to `project_upload_file`; the modal's upload form carries a

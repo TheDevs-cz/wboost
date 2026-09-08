@@ -446,6 +446,16 @@
                                 >
                             </div>
                             {{ tile.caption(asset) }}
+                            {# Templates still referencing the picture: the
+                               nightly purge leaves such a file alone (the
+                               countdown says so), only "Smazat ihned" — whose
+                               confirm names them — removes it for good. #}
+                            {% if asset.usedIn is not empty %}
+                                <div class="small text-warning px-1" data-gallery-used-in title="Šablony, které obrázek používají – při trvalém smazání o něj přijdou">
+                                    <i class="mdi mdi-alert-outline"></i> Používá se v:
+                                    {% for site in asset.usedIn %}<a href="{{ path('template_variants', {'templateId': site.id}) }}" class="text-reset text-decoration-underline">{{ site.name }}</a>{{ not loop.last ? ', ' }}{% endfor %}
+                                </div>
+                            {% endif %}
                             <div class="small text-danger px-1">{{ asset.purgeLabel }}</div>
                             <div class="d-flex gap-1 p-1">
                                 <button
@@ -455,13 +465,16 @@
                                     data-live-action-param="restoreFile"
                                     data-live-fileid-param="{{ asset.id }}"
                                 ><i class="mdi mdi-restore"></i> Obnovit</button>
+                                {% set used_names = asset.usedIn|map(site => site.name)|join(', ') %}
                                 <button
                                     type="button"
                                     class="btn btn-sm btn-outline-danger py-0"
                                     title="Smazat ihned (nevratné)"
                                     aria-label="Smazat ihned"
                                     data-controller="confirm"
-                                    data-confirm-message-value="Trvale smazat tento obrázek? Akce je nevratná – pokud je obrázek použitý v šabloně, šablona o něj přijde."
+                                    data-confirm-message-value="{{ asset.usedIn is not empty
+                                        ? 'Obrázek používá šablona: ' ~ used_names ~ '. Trvalým smazáním o něj přijde – v editoru zůstane jen prázdné místo a v exportu nic. Opravdu smazat ihned? Akce je nevratná.'
+                                        : 'Trvale smazat tento obrázek? Akce je nevratná.' }}"
                                     data-action="confirm#confirm live#action"
                                     data-live-action-param="purgeFile"
                                     data-live-fileid-param="{{ asset.id }}"
