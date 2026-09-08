@@ -489,10 +489,17 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 /* Layer-mode variants may have no background at all — a checkerboard behind
    the (transparent) canvas element makes that state visible in the editor,
-   like every raster editor does. Any background layer paints over it. */
-.canvas-wrapper--transparent canvas.lower-canvas,
-.canvas-wrapper--transparent > canvas,
-.fill-preview-img--transparent {
+   like every raster editor does. Any background layer paints over it.
+   The checkerboard belongs to the BOTTOM surface only: the fill page's echo
+   canvas (a Fabric StaticCanvas, so it carries `lower-canvas` too, and a
+   direct child of the same wrapper) is an overlay ABOVE the fill canvas —
+   with the checkerboard it turned into an opaque sheet the moment it became
+   visible, hiding the whole preview while the user typed (2026-09-08). The
+   text branch's echo base gets it instead of the hidden settle img. */
+.canvas-wrapper--transparent canvas.lower-canvas:not(.fill-echo-canvas),
+.canvas-wrapper--transparent > canvas:not(.fill-echo-canvas),
+.fill-preview-img--transparent,
+.fill-echo-base--transparent {
     background-image:
         linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%),
         linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%);
@@ -991,8 +998,10 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 }
 
 /* While the echo covers the typing, the "rendering" veil is noise — the user
-   already sees their text; the settle lands silently underneath. */
-.fill-echo-active .fill-spinner {
+   already sees their text; the settle lands silently underneath. Must out-
+   rank `.fill-spinner.is-active` (same specificity, declared later), hence
+   the `.is-active` here. */
+.fill-echo-active .fill-spinner.is-active {
     display: none;
 }
 

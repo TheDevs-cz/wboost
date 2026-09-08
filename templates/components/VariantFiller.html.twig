@@ -82,7 +82,6 @@
         {% if echoPayload %}
             data-variant-text-echo-payload-value="{{ echoPayload|json_encode }}"
             data-variant-text-echo-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
-            data-variant-text-echo-has-images-value="{{ hasImages ? 'true' : 'false' }}"
         {% endif %}
         {% if hasImages %}
             data-variant-image-fill-placeholders-value="{{ imagePlaceholders|json_encode }}"
@@ -295,7 +294,7 @@
                             {# Echo composite (visible only in echo mode, above the
                                settle img): the text-transparent base + the
                                client-drawn text canvas. #}
-                            <img class="fill-echo-base" data-variant-text-echo-target="baseImage" src="{{ previewSources.baseSrc }}" alt="" aria-hidden="true">
+                            <img class="fill-echo-base{{ variant.backgroundMode.value == 'layer' ? ' fill-echo-base--transparent' }}" data-variant-text-echo-target="baseImage" src="{{ previewSources.baseSrc }}" alt="" aria-hidden="true">
                             <canvas class="fill-echo-canvas" data-variant-text-echo-target="canvas" aria-hidden="true"></canvas>
                         {% endif %}
                     {% else %}

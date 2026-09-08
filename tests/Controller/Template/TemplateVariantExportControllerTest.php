@@ -238,7 +238,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
 
     /**
      * Pin the state-hash algorithm: djb2 over the canonical UTF-8 fill state.
-     * The JS twin (variant_text_echo_controller.js _clientHash) must produce
+     * The JS twin (assets/controllers/fill_state_hash.js) must produce
      * these exact strings for the same values — Czech diacritics included,
      * which is what makes the byte-domain (UTF-8, not UTF-16) load-bearing.
      */

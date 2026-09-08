@@ -1,6 +1,8 @@
 import { Controller } from "@hotwired/stimulus";
 import { Textbox, cache, util } from "fabric";
 import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
+import { fillStateHash, settleSourceFor } from "./fill_state_hash.js";
+import { liveComponentFor } from "./live_component.js";
 
 /**
  * Click-into-preview placeholder overlay of the fill pages — the ONE editing
@@ -115,30 +117,49 @@ export default class extends Controller {
         document.addEventListener("pointerdown", this._boundPointerDown, true);
         document.addEventListener("click", this._boundOutside);
 
-        // Hide the live-preview spinner once the next server render lands. The
-        // source span's data-src is updated by Live on each re-render — text-only
-        // branch via previewSource, image branch via the backdrop span. (Single
-        // page only; the group page's previews are swapped by group-fill.)
+        // Hide the live-preview spinner once the next server render lands
+        // (single page only; the group page's previews are swapped by
+        // group-fill). The signal is Live's `render:finished` hook — NOT a
+        // `data-src` mutation: on the image branch the typed text usually
+        // lives in an overlay slice, so the backdrop's bytes (and attribute)
+        // come back identical and a morph touches nothing, and the same holds
+        // for a text-only settle whose pixels did not change. Before this the
+        // veil sat there until its 20 s safety net (the "stuck on the
+        // spinner" report). The observers stay: the previewSource one also
+        // swaps the ignored <img>, and both are the belt for a Live version
+        // without the hook.
         if (this.hasPreviewSourceTarget) {
             this._applyPreviewSrc();
             this._previewObserver = new MutationObserver(() => {
                 this._applyPreviewSrc();
-                this._hideSpinner();
+                this._settleRendered();
             });
             this._previewObserver.observe(this.previewSourceTarget, {
                 attributes: true,
-                attributeFilter: ["data-src"],
+                attributeFilter: ["data-src", "data-state-hash"],
             });
         }
 
         const backdrop = document.getElementById("variant-backdrop-source");
         if (backdrop) {
-            this._backdropObserver = new MutationObserver(() => this._hideSpinner());
+            this._backdropObserver = new MutationObserver(() => this._settleRendered());
             this._backdropObserver.observe(backdrop, {
                 attributes: true,
-                attributeFilter: ["data-src"],
+                attributeFilter: ["data-src", "data-state-hash"],
             });
         }
+
+        this._onRenderFinished = () => this._settleRendered();
+        // A failed re-render (Live shows its own error) — nothing fresher is
+        // coming, so the veil must not outlive it.
+        this._onResponseError = () => this._hideSpinner();
+        this._disposed = false;
+        liveComponentFor(this.element).then((component) => {
+            if (!component || this._disposed) return;
+            this._liveComponent = component;
+            component.on("render:finished", this._onRenderFinished);
+            component.on("response:error", this._onResponseError);
+        });
 
         if ("ResizeObserver" in window) {
             this._resizeObserver = new ResizeObserver(() => this._fitToScreen());
@@ -154,6 +175,12 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this._disposed = true;
+        if (this._liveComponent) {
+            this._liveComponent.off("render:finished", this._onRenderFinished);
+            this._liveComponent.off("response:error", this._onResponseError);
+            this._liveComponent = null;
+        }
         window.removeEventListener("resize", this._boundFit);
         window.removeEventListener("scroll", this._boundReposition, true);
         document.removeEventListener("keydown", this._boundKeydown);
@@ -789,6 +816,19 @@ export default class extends Controller {
         // missed (e.g. an unchanged data-src).
         if (this._spinnerTimeout) clearTimeout(this._spinnerTimeout);
         this._spinnerTimeout = setTimeout(() => this._hideSpinner(), 20000);
+    }
+
+    /** A settle render landed (Live's render:finished, or a source-span
+     *  mutation as the belt). The veil goes only when the server pixels
+     *  reflect the mirrors as they are NOW — the render's `data-state-hash`
+     *  equals the client's (fill_state_hash.js, the echo's rest rule). A stale
+     *  settle raced by typing keeps it up; Live guarantees one more render for
+     *  the final state. No hash (pre-echo markup) counts as a match. */
+    _settleRendered() {
+        const source = settleSourceFor(this.element);
+        const serverHash = source ? source.getAttribute("data-state-hash") : null;
+        if (serverHash !== null && serverHash !== fillStateHash(this.element)) return;
+        this._hideSpinner();
     }
 
     _hideSpinner() {

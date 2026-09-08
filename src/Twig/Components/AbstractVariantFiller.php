@@ -736,9 +736,10 @@ abstract class AbstractVariantFiller extends AbstractController
      * Fingerprint of the fill state THIS render pass painted — stamped on the
      * Live-updated source elements so the echo controller can tell a settle
      * render that matches the current mirrors ("rest on server pixels") from a
-     * stale one that raced the user's typing ("stay on the echo"). djb2 over
-     * the canonical UTF-8 serialization; the JS twin lives in
-     * variant_text_echo_controller.js and must hash byte-identically.
+     * stale one that raced the user's typing ("stay on the echo") — and, since
+     * 2026-09-08, whether the overlay's render veil may go. djb2 over the
+     * canonical UTF-8 serialization; the JS twin is
+     * assets/controllers/fill_state_hash.js and must hash byte-identically.
      */
     public function fillStateHash(): string
     {

@@ -1,5 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 import * as fabric from "fabric";
+import { fillStateHash, settleSourceFor } from "./fill_state_hash.js";
+import { liveComponentFor } from "./live_component.js";
 
 /**
  * Client-side text ECHO for the single-variant fill page.
@@ -19,15 +21,17 @@ import * as fabric from "fabric";
  *    exactly what the user sees typed. A stale settle (raced by typing) keeps
  *    the echo up; Live guarantees one more re-render for the final state.
  *
- * The hash is djb2 over the canonical UTF-8 fill state; the PHP twin is
- * AbstractVariantFiller::fillStateHash() and the two must stay byte-identical.
+ * A settle "lands" on Live's `render:finished` hook (every re-render, even
+ * one whose bytes came out identical — typing a character and deleting it
+ * again changes no attribute, so a MutationObserver alone would miss it); the
+ * observer on the source span stays as the belt. The hash is the shared
+ * fill_state_hash.js module (PHP twin: AbstractVariantFiller::fillStateHash()).
  */
 export default class extends Controller {
     static targets = ["canvas", "baseImage"];
     static values = {
         payload: Object,
         fonts: Array,
-        hasImages: Boolean,
     };
 
     connect() {
@@ -81,7 +85,7 @@ export default class extends Controller {
         // Settle renders land as data-* mutations on the Live-updated source
         // element (previewSource span, or the backdrop span on the image
         // branch). Each landing decides echo vs rest by the state hash.
-        this._settleSource = this._findSettleSource();
+        this._settleSource = settleSourceFor(this.element);
         if (this._settleSource) {
             this._settleObserver = new MutationObserver(() => this._settleLanded());
             this._settleObserver.observe(this._settleSource, {
@@ -90,6 +94,12 @@ export default class extends Controller {
             });
             this._applyBaseSrc();
         }
+        this._onRenderFinished = () => this._settleLanded();
+        liveComponentFor(this.element).then((component) => {
+            if (!component || this._disposed) return;
+            this._liveComponent = component;
+            component.on("render:finished", this._onRenderFinished);
+        });
 
         // Track the preview's on-screen size (the echo canvas must raster at
         // the same display width; the CSS zoom transform scales both together).
@@ -122,6 +132,10 @@ export default class extends Controller {
         this.element.removeEventListener("change", this._onChange);
         if (this._settleObserver) this._settleObserver.disconnect();
         if (this._resizeObserver) this._resizeObserver.disconnect();
+        if (this._liveComponent) {
+            this._liveComponent.off("render:finished", this._onRenderFinished);
+            this._liveComponent = null;
+        }
         if (this._painter) {
             this._painter.dispose();
             this._painter = null;
@@ -146,7 +160,7 @@ export default class extends Controller {
         }
         const serverHash = this._settleSource ? this._settleSource.getAttribute("data-state-hash") : null;
         // No hash (pre-echo markup, mid-deploy) → rest, the pre-echo behavior.
-        if (serverHash !== null && serverHash !== this._clientHash()) {
+        if (serverHash !== null && serverHash !== fillStateHash(this.element)) {
             return; // stale settle — the echo stays up, a fresher one is coming
         }
         this._active = false;
@@ -196,13 +210,6 @@ export default class extends Controller {
 
     // --- Sources -------------------------------------------------------------
 
-    _findSettleSource() {
-        if (this.hasImagesValue) {
-            return document.getElementById("variant-backdrop-source");
-        }
-        return this.element.querySelector('[data-variant-fill-overlay-target="previewSource"]');
-    }
-
     /** Text branch only: keep the base <img> on the freshest base render. */
     _applyBaseSrc() {
         if (!this.hasBaseImageTarget || !this._settleSource) return;
@@ -210,41 +217,6 @@ export default class extends Controller {
         if (src && this.baseImageTarget.getAttribute("src") !== src) {
             this.baseImageTarget.setAttribute("src", src);
         }
-    }
-
-    // --- State hash (PHP twin: AbstractVariantFiller::fillStateHash) ----------
-
-    _clientHash() {
-        const parts = [];
-
-        const texts = [];
-        this.element.querySelectorAll("[data-text-mirror]").forEach((mirror) => {
-            texts.push([mirror.getAttribute("data-text-mirror"), mirror.value]);
-        });
-        texts.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-        texts.forEach(([id, value]) => parts.push(`T:${id}=${value}`));
-
-        const hidden = [];
-        this.element.querySelectorAll("[data-hide-mirror]").forEach((mirror) => {
-            hidden.push([mirror.getAttribute("data-hide-mirror"), mirror.checked ? "1" : "0"]);
-        });
-        hidden.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-        hidden.forEach(([id, flag]) => parts.push(`H:${id}=${flag}`));
-
-        const fonts = [];
-        this.element.querySelectorAll("[data-font-mirror]").forEach((mirror) => {
-            fonts.push([mirror.getAttribute("data-font-mirror"), mirror.value]);
-        });
-        fonts.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-        fonts.forEach(([id, family]) => parts.push(`F:${id}=${family}`));
-
-        const bytes = new TextEncoder().encode(parts.join("\n"));
-        let hash = 5381;
-        for (let i = 0; i < bytes.length; i += 1) {
-            hash = (Math.imul(hash, 33) ^ bytes[i]) >>> 0;
-        }
-
-        return String(hash);
     }
 
     _previewElement() {

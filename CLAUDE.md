@@ -998,8 +998,25 @@ never see any of this.
   `data-state-hash` equals the client hash of the mirrors AS THEY ARE NOW
   rests the echo; a stale settle keeps it up (Live guarantees a final
   re-render). The hash is djb2 over the canonical UTF-8 fill state — PHP
-  (`AbstractVariantFiller::fillStateHash`) and JS (`_clientHash`) are pinned
-  byte-identical by test (Czech diacritics covered).
+  (`AbstractVariantFiller::fillStateHash`) and JS
+  (`assets/controllers/fill_state_hash.js`, shared with the overlay) are
+  pinned byte-identical by test (Czech diacritics covered).
+- **"A settle landed" = Live's `render:finished` hook (2026-09-08)**, wired
+  through `assets/controllers/live_component.js` in BOTH the echo controller
+  and `variant_fill_overlay_controller` (the render veil); the
+  MutationObservers on the source span stay as the belt. A `data-src`
+  mutation alone is NOT a settle signal: on the image branch the typed text
+  usually sits in an overlay slice, so the backdrop's bytes come back
+  identical and the morph touches no attribute — the veil then sat until its
+  20 s safety net (the "stuck on the spinner" prod report; same for a text
+  typed and deleted again). The veil is gated on the SAME hash rule as the
+  echo's rest (`_settleRendered`): a stale settle keeps it, `response:error`
+  drops it. Two CSS traps found with it: the transparent-wrapper
+  checkerboard must exclude `.fill-echo-canvas` (a StaticCanvas carries
+  `lower-canvas` too and is a direct child of the same wrapper — with the
+  checkerboard it was an opaque sheet over the whole preview while typing),
+  and `.fill-echo-active .fill-spinner` needs `.is-active` to outrank the
+  later, equal-specificity `.fill-spinner.is-active`.
 - **Group page** (`group_fill_controller.js`): per-dimension activation (an
   edit lights up dimensions where the input is capable), base fetched LAZILY
   on first edit via `?base=1` on the fill-preview endpoint (page load stays at
