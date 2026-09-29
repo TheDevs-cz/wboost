@@ -262,11 +262,10 @@ final class TemplatesTest extends ApiTestCase
     }
 
     /**
-     * The two legacy module listing paths are deprecated ALIASES of the
-     * canonical /templates collection: same provider, same merged list — a
-     * consumer still calling the old paths sees every template either way.
+     * The former module listing paths were deprecated aliases and are GONE
+     * (API v2 cleanup) — only the canonical /templates collection answers.
      */
-    public function testLegacyListingAliasesReturnTheSameMergedList(): void
+    public function testLegacyListingAliasesAreGone(): void
     {
         $client = self::createClient();
         $token = TestingApiAuthentication::getAccessToken(
@@ -275,32 +274,15 @@ final class TemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $ids = [];
-        foreach (['templates', 'custom-templates', 'social-network-templates'] as $segment) {
-            $response = $client->request(
+        foreach (['custom-templates', 'social-network-templates'] as $segment) {
+            $client->request(
                 'GET',
                 '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/' . $segment,
                 ['headers' => ['Authorization' => 'Bearer ' . $token]],
             );
 
-            $this->assertResponseIsSuccessful();
-
-            $rows = [];
-            foreach ($response->toArray() as $row) {
-                self::assertIsArray($row);
-                self::assertIsString($row['id'] ?? null);
-                $rows[] = $row['id'];
-            }
-            sort($rows);
-            $ids[$segment] = $rows;
+            $this->assertResponseStatusCodeSame(404);
         }
-
-        // The merged list carries BOTH the former-social and the free-form
-        // templates, on every path.
-        self::assertContains(TestDataFixture::CUSTOM_TEMPLATE_1_ID, $ids['templates']);
-        self::assertContains(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_1_ID, $ids['templates']);
-        self::assertSame($ids['templates'], $ids['custom-templates']);
-        self::assertSame($ids['templates'], $ids['social-network-templates']);
     }
 
     /**

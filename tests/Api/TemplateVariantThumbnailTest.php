@@ -8,8 +8,8 @@ use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingApiAuthentication;
 
 /**
- * The thumbnail endpoint at its CANONICAL path plus the two deprecated legacy
- * aliases (former custom-template and social-network module paths). The
+ * The thumbnail endpoint at its canonical path (the former module alias paths
+ * are gone). The
  * fixture variant carries no preview render, so the endpoint streams its
  * background image — the documented fallback.
  *
@@ -55,7 +55,7 @@ final class TemplateVariantThumbnailTest extends ApiTestCase
         self::assertSame($bytes, $response->getContent());
     }
 
-    public function testLegacyAliasPathsStreamTheSameThumbnail(): void
+    public function testLegacyAliasPathsAreGone(): void
     {
         $client = self::createClient();
         $token = TestingApiAuthentication::getAccessToken(
@@ -64,26 +64,14 @@ final class TemplateVariantThumbnailTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $this->writeTestImage('fixtures/custom-template-bg-1.png');
-        $this->writeTestImage('fixtures/bg-1.png');
-
-        // Former custom-template path, hitting a free-form variant.
-        $client->request(
-            'GET',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/thumbnail',
-            ['headers' => ['Authorization' => 'Bearer ' . $token]],
-        );
-        $this->assertResponseIsSuccessful();
-        $this->assertResponseHeaderSame('content-type', 'image/png');
-
-        // Former social path, hitting a former-social (preset) variant.
-        $client->request(
-            'GET',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/thumbnail',
-            ['headers' => ['Authorization' => 'Bearer ' . $token]],
-        );
-        $this->assertResponseIsSuccessful();
-        $this->assertResponseHeaderSame('content-type', 'image/png');
+        foreach (['custom-template-variants', 'social-network-template-variants'] as $segment) {
+            $client->request(
+                'GET',
+                '/api/' . $segment . '/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/thumbnail',
+                ['headers' => ['Authorization' => 'Bearer ' . $token]],
+            );
+            $this->assertResponseStatusCodeSame(404);
+        }
     }
 
     public function testForbiddenForVariantInOtherUsersProject(): void

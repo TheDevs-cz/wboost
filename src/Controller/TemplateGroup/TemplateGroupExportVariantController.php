@@ -17,8 +17,8 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
-use WBoost\Web\Services\Slugify;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\TemplateGroup\GroupExportArchive;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
@@ -39,6 +39,7 @@ final class TemplateGroupExportVariantController extends AbstractController
         readonly private RecordExportUsage $recordExportUsage,
         readonly private RecordExportVersion $recordExportVersion,
         readonly private ReleaseSessionLock $releaseSessionLock,
+        readonly private GroupExportArchive $archive,
     ) {
     }
 
@@ -104,11 +105,7 @@ final class TemplateGroupExportVariantController extends AbstractController
             $request->request->all('fontValues'),
         ));
 
-        $fileName = sprintf(
-            '%s-%s.png',
-            $this->nonEmptySlug($group->name, 'export'),
-            $this->nonEmptySlug($variant->dimension->label(), 'varianta'),
-        );
+        $fileName = $this->archive->fileName($group, $variant);
 
         return new Response($bytes, Response::HTTP_OK, [
             'Content-Type' => 'image/png',
@@ -140,12 +137,5 @@ final class TemplateGroupExportVariantController extends AbstractController
             'reason' => $reason,
             'back_url' => $this->generateUrl('template_group_fill', ['groupId' => $group->id]),
         ], new Response(status: $status));
-    }
-
-    private function nonEmptySlug(string $value, string $fallback): string
-    {
-        $slug = Slugify::string($value);
-
-        return $slug !== '' ? $slug : $fallback;
     }
 }

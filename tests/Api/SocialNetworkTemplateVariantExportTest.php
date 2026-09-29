@@ -11,10 +11,8 @@ use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TestingApiAuthentication;
 
 /**
- * LEGACY-ALIAS contract test: `POST /api/social-network-template-variants/{id}/export`
- * is a deprecated alias of the canonical `POST /api/template-variants/{id}/export`
- * (one processor, unified data). The request paths in here are the consumer
- * contract (mfkfm) and must keep working unchanged.
+ * Export of former-social (preset) variants through the canonical
+ * `POST /api/template-variants/{id}/export` — the consumer contract (mfkfm).
  *
  * @covers \WBoost\Web\Api\Templates\ExportProcessor
  * @covers \WBoost\Web\Api\Templates\ExportRequest
@@ -31,7 +29,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
         $client = self::createClient();
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             ['headers' => ['Content-Type' => 'application/json'], 'body' => '{"inputs":{}}'],
         );
         $this->assertResponseStatusCodeSame(401);
@@ -48,7 +46,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_2_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -72,7 +70,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -100,7 +98,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -141,7 +139,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -179,7 +177,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -213,7 +211,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -241,7 +239,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -280,7 +278,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -322,7 +320,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -351,7 +349,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -400,7 +398,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -433,7 +431,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -464,7 +462,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -628,7 +626,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -660,7 +658,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $response = $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,
@@ -693,7 +691,7 @@ final class SocialNetworkTemplateVariantExportTest extends ApiTestCase
 
         $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,

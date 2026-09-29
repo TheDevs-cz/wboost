@@ -30,10 +30,11 @@ The PNG size is the variant's dimension rasterized to pixels (physical units
 at 300 DPI; social presets are fixed px sizes) — see `variants[].width`/`height`
 in `GET /api/projects/{projectId}/templates`.
 
-This is the CANONICAL export path. The legacy paths
-`POST /api/custom-template-variants/{id}/export` and
-`POST /api/social-network-template-variants/{id}/export` are deprecated
-aliases of this operation and keep working over the same unified data.
+Every successful call is an EXPORT: it is counted in usage and snapshotted
+as a re-loadable version in the variant's export history
+(`GET /api/template-variants/{id}/export-versions`). Live previews must use
+`POST /api/template-variants/{id}/preview` instead (same body, WebP, not
+recorded).
 
 The shape of `inputs` is **dynamic per variant** — keys are the input UUIDs
 defined on the variant (discover them via
@@ -193,6 +194,7 @@ MD,
                                                     'properties' => [
                                                         'value' => ['type' => 'string'],
                                                         'hide' => ['type' => 'boolean'],
+                                                        'fontFamily' => ['type' => 'string', 'nullable' => true],
                                                     ],
                                                     'additionalProperties' => false,
                                                 ],
@@ -214,7 +216,9 @@ MD,
                                                                 'additionalProperties' => false,
                                                             ],
                                                         ],
+                                                        'lines' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['p', 'ul', 'ol', 'cb', 'cbx']]],
                                                         'hide' => ['type' => 'boolean'],
+                                                        'fontFamily' => ['type' => 'string', 'nullable' => true],
                                                     ],
                                                     'required' => ['runs'],
                                                     'additionalProperties' => false,
@@ -281,59 +285,65 @@ MD,
                         ]),
                     ),
                     '400' => new OpenApiResponse(
-                        description: 'Invalid request — malformed JSON, wrong types, value exceeds maxLength, an invalid rich-text value (`code`: `rich_text_not_allowed` / `invalid_rich_text` / `font_not_allowed` — body carries `allowedFonts` — / `invalid_color`), or container content overflows its max height (body carries `code: "container_overflow"`, the `containerId` and the `overflowPx`).',
+                        description: 'Invalid request. Every 400 carries a structured body `{error, code, ...context}`; see docs/api/consumer-prompt.md for the code table. Value errors name the offending `inputId` / `imageInputId`.',
                         content: new ArrayObject([
                             'application/json' => [
                                 'schema' => [
                                     'type' => 'object',
                                     'properties' => [
                                         'error' => ['type' => 'string'],
-                                        'code' => ['type' => 'string', 'enum' => ['container_overflow', 'rich_text_not_allowed', 'invalid_rich_text', 'font_not_allowed', 'invalid_color']],
+                                        'code' => ['type' => 'string', 'enum' => ['container_overflow', 'value_too_long', 'invalid_value', 'rich_text_not_allowed', 'invalid_rich_text', 'font_not_allowed', 'color_not_allowed', 'invalid_color', 'lists_not_allowed', 'checkbox_lists_not_allowed', 'invalid_image_value', 'image_transform_not_allowed', 'image_not_allowed', 'image_unreadable']],
+                                        'inputId' => ['type' => 'string'],
+                                        'imageInputId' => ['type' => 'string'],
                                         'containerId' => ['type' => 'string', 'nullable' => true],
                                         'overflowPx' => ['type' => 'number'],
+                                        'maxLength' => ['type' => 'integer'],
+                                        'transform' => ['type' => 'string'],
                                         'allowedFonts' => ['type' => 'array', 'items' => ['type' => 'string']],
+                                        'allowedColors' => ['type' => 'array', 'items' => ['type' => 'string']],
                                     ],
                                 ],
                             ],
                         ]),
                     ),
+                    '503' => new OpenApiResponse(description: 'The renderer is overloaded (`code: "render_unavailable"`); retry shortly.'),
                     '401' => new OpenApiResponse(description: 'Missing or invalid bearer token.'),
                     '403' => new OpenApiResponse(description: 'Variant is not accessible to the authenticated user.'),
                     '404' => new OpenApiResponse(description: 'Variant not found.'),
                 ],
             ),
         ),
-        // Legacy aliases of the canonical export — the former custom-template
-        // and social-network module paths. Same processor, same contract, same
-        // unified data; kept so existing service consumers keep working.
         new Post(
-            uriTemplate: '/custom-template-variants/{id}/export',
+            uriTemplate: '/template-variants/{id}/preview',
             input: ExportRequest::class,
             output: false,
             read: false,
-            processor: ExportProcessor::class,
+            processor: PreviewProcessor::class,
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            deprecationReason: 'Deprecated alias — use POST /api/template-variants/{id}/export.',
-            name: 'api_template_variant_export_legacy_custom',
+            name: 'api_template_variant_preview',
             openapi: new OpenApiOperation(
-                summary: 'Render a template variant to PNG (deprecated alias)',
-                description: 'Deprecated alias of `POST /api/template-variants/{id}/export` — same request/response contract.',
-                deprecated: true,
-            ),
-        ),
-        new Post(
-            uriTemplate: '/social-network-template-variants/{id}/export',
-            input: ExportRequest::class,
-            output: false,
-            read: false,
-            processor: ExportProcessor::class,
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            deprecationReason: 'Deprecated alias — use POST /api/template-variants/{id}/export.',
-            name: 'api_template_variant_export_legacy_social',
-            openapi: new OpenApiOperation(
-                summary: 'Render a template variant to PNG (deprecated alias)',
-                description: 'Deprecated alias of `POST /api/template-variants/{id}/export` — same request/response contract.',
-                deprecated: true,
+                summary: 'Render a live preview of a template variant (WebP, not recorded)',
+                description: <<<MD
+The on-screen sibling of `POST /api/template-variants/{id}/export`: the SAME
+request body and the SAME strict validation (identical structured 400s), but
+the response is a **WebP** image and the call is **not an export** — no usage
+event, no version in the variant's export history. Use it for debounced live
+previews; send only the user's real download to `/export`.
+MD,
+                responses: [
+                    '200' => new OpenApiResponse(
+                        description: 'Rendered WebP preview.',
+                        content: new ArrayObject([
+                            'image/webp' => [
+                                'schema' => ['type' => 'string', 'format' => 'binary'],
+                            ],
+                        ]),
+                    ),
+                    '400' => new OpenApiResponse(description: 'Same structured 400s as the export.'),
+                    '401' => new OpenApiResponse(description: 'Missing or invalid bearer token.'),
+                    '403' => new OpenApiResponse(description: 'Variant is not accessible to the authenticated user.'),
+                    '404' => new OpenApiResponse(description: 'Variant not found.'),
+                ],
             ),
         ),
     ],

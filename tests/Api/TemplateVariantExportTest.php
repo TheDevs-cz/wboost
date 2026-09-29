@@ -131,11 +131,9 @@ final class TemplateVariantExportTest extends ApiTestCase
     }
 
     /**
-     * The former custom-template export path is a deprecated ALIAS of the
-     * canonical `/api/template-variants/{id}/export` — one processor, so the
-     * whole contract (renderer call included) is identical.
+     * The former module export paths were deprecated aliases and are GONE.
      */
-    public function testLegacyCustomAliasPathStillExports(): void
+    public function testLegacyAliasPathsAreGone(): void
     {
         $client = self::createClient();
         $token = TestingApiAuthentication::getAccessToken(
@@ -144,30 +142,21 @@ final class TemplateVariantExportTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request(
-            'POST',
-            '/api/custom-template-variants/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
-            [
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $token,
-                    'Content-Type' => 'application/json',
-                ],
-                'body' => json_encode([
-                    'inputs' => [
-                        TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID => 'Alias',
+        foreach (['custom-template-variants', 'social-network-template-variants'] as $segment) {
+            $client->request(
+                'POST',
+                '/api/' . $segment . '/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/export',
+                [
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $token,
+                        'Content-Type' => 'application/json',
                     ],
-                ], JSON_THROW_ON_ERROR),
-            ],
-        );
+                    'body' => '{"inputs":{}}',
+                ],
+            );
 
-        $this->assertResponseIsSuccessful();
-        $this->assertResponseHeaderSame('content-type', 'image/png');
-        self::assertStringStartsWith(self::PNG_MAGIC, $response->getContent());
-
-        $lastCall = $this->getRendererFake()->calls[count($this->getRendererFake()->calls) - 1];
-        self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, $lastCall['variantId']);
-        self::assertSame('Alias', $lastCall['texts'][TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID] ?? null);
-        self::assertSame('png', $lastCall['format'], 'the public API export must stay lossless PNG');
+            $this->assertResponseStatusCodeSame(404);
+        }
     }
 
     public function testExtendedShapeAppliesValueAndHide(): void

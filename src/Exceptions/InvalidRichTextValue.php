@@ -31,6 +31,15 @@ final class InvalidRichTextValue extends \Exception
         parent::__construct($message);
     }
 
+    /**
+     * The same violation, tagged with the input it happened on — the resolver
+     * knows the id, the value parsers only know the label.
+     */
+    public function forInput(string $inputId): self
+    {
+        return new self($this->errorCode, $this->getMessage(), [...$this->context, 'inputId' => $inputId]);
+    }
+
     public static function richTextNotAllowed(string $inputLabel): self
     {
         return new self(

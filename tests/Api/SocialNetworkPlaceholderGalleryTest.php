@@ -11,8 +11,7 @@ use WBoost\Web\Tests\TestingApiAuthentication;
 use WBoost\Web\Value\EditorImageInput;
 
 /**
- * LEGACY-ALIAS contract test: the social-network placeholder-gallery path is a
- * deprecated alias of the canonical
+ * Placeholder gallery on former-social (preset) variants through the canonical
  * `GET /api/template-variants/{variantId}/placeholders/{inputId}/images`.
  *
  * @covers \WBoost\Web\Api\Templates\PlaceholderGalleryProvider
@@ -22,7 +21,7 @@ final class SocialNetworkPlaceholderGalleryTest extends ApiTestCase
 {
     private function galleryUrl(string $variantId, string $inputId): string
     {
-        return '/api/social-network-template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
+        return '/api/template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
     }
 
     public function testRequiresAuthentication(): void

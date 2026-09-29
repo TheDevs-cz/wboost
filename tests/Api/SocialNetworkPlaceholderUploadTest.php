@@ -13,8 +13,7 @@ use WBoost\Web\Tests\TestingApiAuthentication;
 use WBoost\Web\Value\EditorImageInput;
 
 /**
- * LEGACY-ALIAS contract test: the social-network placeholder-upload path is a
- * deprecated alias of the canonical
+ * Placeholder upload on former-social (preset) variants through the canonical
  * `POST /api/template-variants/{variantId}/placeholders/{inputId}/images`.
  *
  * @covers \WBoost\Web\Controller\Template\TemplateVariantPlaceholderUploadController
@@ -25,7 +24,7 @@ final class SocialNetworkPlaceholderUploadTest extends ApiTestCase
 
     private function uploadUrl(string $variantId, string $inputId): string
     {
-        return '/api/social-network-template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
+        return '/api/template-variants/' . $variantId . '/placeholders/' . $inputId . '/images';
     }
 
     public function testRequiresAuthentication(): void

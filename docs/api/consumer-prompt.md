@@ -24,9 +24,13 @@ A self-contained **"Export" feature** in our app. The project is fixed/pre-provi
    **same render**.
 6. A **"Download"** button saves the rendered PNG.
 
-The whole thing is powered by **two API endpoints** plus an OAuth2 token call
-(and an optional **project fonts endpoint** if you want pixel-accurate live
-placeholder boxes — see "Containers → Full mirror").
+The core is **three API endpoints** — the listing, the live **preview** and the
+final **export** — plus an OAuth2 token call (and an optional **project fonts
+endpoint** if you want pixel-accurate live placeholder boxes — see "Containers →
+Full mirror"). Templates that are **groups** (one design in several dimensions)
+are filled once and exported as a ZIP or per dimension — see "Template groups".
+Every export lands in a shared, re-loadable **export history** — see "Export
+history".
 
 ---
 
@@ -132,14 +136,10 @@ exactly when its `preset` is non-null (`"1:1" | "4:5" | "9:16"`); print and
 free-form variants carry `preset: null` and their designed size in
 `unit`/`unitWidth`/`unitHeight`.
 
-> **Legacy aliases (deprecated).** This API used to be split into two modules
-> ("social network templates" + "custom templates"). The old paths keep working
-> as **deprecated aliases** with the exact same payloads and behavior:
-> `GET …/projects/{id}/social-network-templates` and `…/custom-templates`
-> (each returns this same FULL merged list), plus the
-> `…/social-network-template-variants/…` and `…/custom-template-variants/…`
-> prefixes for the export, placeholder-images (GET+POST) and thumbnail
-> endpoints. New code should use only the canonical `/templates` +
+> **Removed legacy aliases (API v2, 2026-09).** The old module paths
+> (`…/social-network-templates`, `…/custom-templates`,
+> `…/social-network-template-variants/…`, `…/custom-template-variants/…`) are
+> GONE and answer 404. Use only the canonical `/templates` +
 > `/template-variants/…` paths used throughout this document.
 
 Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
@@ -153,6 +153,7 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
     "categoryId": "01923322-9f8f-71b5-bfda-ed9374b09a0b",  // nullable
     "categoryName": "Kat 1",                          // nullable — group templates by this
     "createdAt": "2024-08-28T14:47:09+00:00",
+    "group": null,                                    // nullable — { "id", "name" } when the template is a GROUP (see "Template groups")
     "variants": [
       {
         "id": "0191f2be-74be-72e3-95a2-5e5df08897da", // variant id → used for preview/export
@@ -232,7 +233,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "layerIndex": 0,                             // stacking order (0 = backmost); one index space with inputs[].layerIndex, nullable
             "isBackground": false                        // true = the variant's BACKGROUND layer (cover-fit top-left fill, no transform; frame = full canvas)
           }
-        ]
+        ],
+        "groupMember": false                             // true = a member dimension of the template's group (fill it through the group endpoints)
       }
     ]
   }
@@ -253,13 +255,24 @@ UI use:
 
 ---
 
-## Step 3 — Render (endpoint 2) — used for BOTH preview and download
+## Step 3 — Render: `preview` (live) and `export` (download)
 
 ```
-POST {API_BASE}/api/template-variants/{variantId}/export
+POST {API_BASE}/api/template-variants/{variantId}/preview   → WebP, NOT recorded
+POST {API_BASE}/api/template-variants/{variantId}/export    → PNG, recorded as an export
 Authorization: Bearer <token>
 Content-Type: application/json
 ```
+
+Both take the SAME body and apply the SAME strict validation (identical 400s),
+so what previews fine exports fine. The difference is what they ARE:
+
+- **`/preview`** is for the screen — a WebP (a fraction of the PNG's bytes) and
+  **not an export**: no usage event, no history version. Send every debounced
+  live preview here.
+- **`/export`** is the user's download — a lossless PNG that counts in usage
+  and is snapshotted into the variant's **export history** (see "Export
+  history"). Call it only when the user actually downloads.
 
 > Build this URL from `API_BASE` + the variant `id`. Don't reuse the response's
 > `exportUrl` string from a container (its host is `localhost`).
@@ -339,13 +352,33 @@ frame's top-left corner instead of the contain math. A variant may have **no
 background at all**: `backgroundImageUrl` is then `null` and the export PNG has
 real alpha where nothing is drawn.
 
-**Response:** raw **PNG binary**, `Content-Type: image/png`. **Don't JSON-parse it.**
+**Response:** raw image bytes — `image/png` from `/export`, `image/webp` from
+`/preview`. **Don't JSON-parse it.**
 - **Download:** save the bytes (suggest filename `<template-name>-<dimension>.png`).
 - **Preview:** display the same bytes (see "Live preview").
 
-**Status codes:** `200` PNG · `400` malformed / value too long / container
-overflow (see below) · `401` bad token · `403` variant not visible to this
-client's user · `404` variant not found · `500` render backend failure.
+**Status codes:** `200` image · `400` structured error (see the code table
+below) · `401` bad token · `403` variant not visible to this client's user ·
+`404` variant not found · `503` `render_unavailable` (renderer overloaded —
+retry) · `500` render backend failure.
+
+**Every 400 is structured** — `{ "error": "<human message>", "code": "<code>",
+...context }` — and value errors name the offending field (`inputId` or
+`imageInputId`), so point the user at that field:
+
+| `code` | Meaning | Context |
+|---|---|---|
+| `value_too_long` | A text exceeds the input's `maxLength`. | `inputId`, `maxLength` |
+| `invalid_value` | A text value of the wrong type / shape. | `inputId` |
+| `invalid_image_value` | An image value of the wrong type / shape (a transform without `imageId`, px + ratio pan on one axis, non-numeric transform). | `imageInputId` |
+| `image_transform_not_allowed` | A move / resize / rotate the slot forbids. | `imageInputId`, `transform` (`scale` / `offset` / `rotation`) |
+| `image_not_allowed` | The image does not exist, is trashed, belongs to another project or sits outside the slot's folders. | `imageInputId` |
+| `image_unreadable` | The picked file is not a readable raster image. | `imageInputId` |
+| `container_overflow` | See below. | `containerId`, `overflowPx` |
+| rich-text codes | See "Rich-text 400s" below. | `inputId` (+ `allowedFonts` / `allowedColors`) |
+
+Group renders (see "Template groups") add the `variantId` of the dimension
+that failed.
 
 **Container overflow 400.** When the filled texts of a container (see
 "Containers" below) cannot fit its `maxHeight` even after reflow, the export
@@ -361,8 +394,9 @@ Match on `code === "container_overflow"`, look the container up in
 (`memberInputIds` / `inputs[].containerId`) — e.g. "shorten these fields by
 ~`overflowPx` px worth of lines".
 
-**Rich-text 400s.** A rich value that violates the contract also answers a
-structured `400` `{ "error": "...", "code": "..." }` with one of these codes:
+**Rich-text 400s.** A rich value that violates the contract answers a
+structured `400` `{ "error": "...", "code": "...", "inputId": "..." }` with one
+of these codes:
 
 | `code` | Meaning / UI reaction |
 |---|---|
@@ -745,17 +779,19 @@ For each image slot, let the user pick a picture (and, if allowed, position it):
 
 ## Live preview — supported, but it's a full render
 
-There is **no dedicated lightweight preview endpoint**. Preview uses the **same
-`export` render** (headless Chromium via Gotenberg, ~1–2 s, **uncached**, no rate
-limit but heavy). Implement it as:
+Preview uses the **`/preview` endpoint** — the same render pipeline as the
+export (headless Chromium via Gotenberg, ~1–2 s, **uncached**, heavy) but
+answered as WebP and never recorded. Implement it as:
 
 - **Initial state:** show `variant.previewImageUrl` if non-null (the cached default
   render). If null, do one render with `{ "inputs": {} }`.
 - **On edit:** **debounce ~600–800 ms** after the user stops typing, then POST to
-  `export` with the current inputs and swap the preview image. Show a small spinner
+  `preview` with the current inputs and swap the preview image. Show a small spinner
   while rendering. (This mirrors how our own user-fill page debounces at 600 ms.)
 - **Or** skip auto-preview and provide an explicit **"Preview"** button — preferred
-  if you want to minimize render load. A "Download" button always does a final render.
+  if you want to minimize render load. A "Download" button always does a final
+  render through `export` (never download the preview bytes — they are WebP and
+  the download would not be recorded).
 - **Don't** render on every keystroke — each call is a full PNG.
 - **Validate before sending** (respect `maxLength`) so you don't trigger `400`s
   during live preview.
@@ -828,5 +864,114 @@ file out.png   # -> PNG image data, 1080 x 1080
 
 1. **TokenManager** — `getToken()` returns a cached bearer; refreshes at ~90% TTL or on 401.
 2. **`listTemplates(projectId)`** — GET endpoint 1 → parsed array.
-3. **`renderVariant(variantId, inputs)`** — POST endpoint 2 (URL from `API_BASE` + id) → PNG bytes. Used for both preview and download.
-4. **UI**: Export button → template grid (grouped by `categoryName`) → variant chooser → input form (rules table above) → debounced live preview + Download.
+3. **`previewVariant(variantId, body)`** / **`exportVariant(variantId, body)`** — `/preview` (WebP) for the screen, `/export` (PNG) for the download.
+4. **Groups** — `previewGroupVariant`, `exportGroup` (ZIP), `exportGroupVariant` (PNG) for templates with a non-null `group`.
+5. **History** — `listVersions(subject)`, `getVersion(id)`, `updateVersion(id, {name?, pinned?})`.
+6. **UI**: Export button → template grid (grouped by `categoryName`) → a GROUP opens its group fill (all dimensions at once), any other template → variant chooser → input form (rules table above) → debounced live preview + Download, with a "Historie exportů" menu.
+
+---
+
+## Template groups (`template.group` non-null)
+
+A **group** is ONE design in several dimensions (e.g. 1:1 + 9:16) that the
+user fills **once** — the WBoost web page "Vyplnit a exportovat". A template
+whose `group` is non-null is a group; its variants with `groupMember: true`
+are the member dimensions. (A variant added by hand to a grouped template has
+`groupMember: false` — treat it as an ordinary single variant.)
+
+**Member dimensions share their input ids.** The same text input / image
+slot carries the same UUID in every member, so ONE `inputs` / `images` map
+fills every dimension. Build the form from the UNION of the members' inputs,
+first dimension wins for labels / limits. A dimension that lacks an input
+simply ignores it (skipped server-side — same as unknown ids). Each member
+still has its own `frame`s, `containers` and canvas size — draw each
+dimension's overlay from its own variant.
+
+**Placement is per dimension.** The picture of an image slot is picked once
+for the group, but how it sits in the frame differs per dimension (a crop that
+works in 1:1 rarely works in 9:16). Send it in `placements`:
+
+```jsonc
+POST {API_BASE}/api/template-groups/{groupId}/export
+{
+  "inputs":  { "<inputId>": "Letní kampaň" },                  // shared, exactly as the variant export
+  "images":  { "<imageInputId>": "<galleryImageId>" },         // shared pick (or { "hide": true })
+  "placements": {                                              // per dimension
+    "<variantId 1:1>":  { "<imageInputId>": { "scale": 1.4, "offsetXRatio": -0.1, "offsetYRatio": 0.05 } },
+    "<variantId 9:16>": { "<imageInputId>": { "scale": 1.0, "offsetXRatio": 0,    "offsetYRatio": 0.2 } }
+  }
+}
+```
+
+A dimension's placement REPLACES the shared pick's transform for that slot
+(never merged); a dimension without an entry renders the pick centred +
+contain. Placements for a slot without a picture are ignored. Transforms obey
+each slot's `allow*` flags like the variant export (400 otherwise). Store the
+pan as ratios — see "Store the pan as a fraction of the frame".
+
+| Endpoint | Returns | Recorded |
+|---|---|---|
+| `POST /api/template-groups/{groupId}/preview/{variantId}` | WebP of ONE member dimension | no |
+| `POST /api/template-groups/{groupId}/export` | `application/zip` `{group}.zip` with one `{group}-{dimension}.png` per member | yes — one GROUP version |
+| `POST /api/template-groups/{groupId}/export/{variantId}` | `image/png` `{group}-{dimension}.png` | yes — the same GROUP version |
+
+- Use the response's `Content-Disposition` filename for the download.
+- A `variantId` that is not a member → `404`.
+- Validation is strict like the variant export; a failing dimension answers
+  its structured 400 with `variantId` (and nothing is recorded). Pre-check
+  overflow per dimension if you mirror containers.
+- The ZIP renders every dimension in one request (one render each, ~1–2 s
+  per dimension) — give the call a generous timeout.
+- Image uploads use the per-variant placeholder endpoints of any member that
+  carries the slot (the gallery is project-wide, the slot id is shared).
+
+---
+
+## Export history
+
+Every successful `export` (variant or group, from the API or the WBoost web
+UI) is snapshotted as a **version** — the fill values only (texts, hides,
+fonts, picture picks, placements), never pixels. Identical fills deduplicate
+(the version's `exportCount` / `lastExportedAt` move). The history belongs to
+the **fill surface**: a GROUP for synchronized templates (one list for all its
+dimensions), the VARIANT otherwise — and it is SHARED with everyone who can
+fill that surface (the WBoost web UI shows the same list). Unpinned versions
+are capped at the 100 most recent per surface; pinned ones are kept forever.
+
+```
+GET   {API_BASE}/api/template-groups/{groupId}/export-versions
+GET   {API_BASE}/api/template-variants/{variantId}/export-versions
+GET   {API_BASE}/api/export-versions/{versionId}
+PATCH {API_BASE}/api/export-versions/{versionId}      Content-Type: application/json
+```
+
+List rows (pinned first — most recently pinned on top — then freshest first):
+
+```jsonc
+{ "id": "…", "subject": "group", "groupId": "…", "variantId": null,
+  "name": null,                    // user label (≤ 120 chars); null → list it by lastExportedAt
+  "pinned": false, "pinnedAt": null,
+  "createdAt": "…", "lastExportedAt": "…", "exportCount": 2,
+  "channel": "api",               // channel of the latest export: web | api | mcp | facebook | instagram
+  "summary": { "texts": [ { "label": "Nadpis", "value": "Letní kampaň" } ], "pictures": 1, "hidden": 0 } }
+```
+
+`GET /api/export-versions/{id}` adds `fill` — **in the export request's own
+shape**, ready to put back into your form and send again:
+
+```jsonc
+"fill": {
+  "inputs": { "<inputId>": "text" | { "value"|"runs"+"lines", "hide", "fontFamily" } },
+  "images": { "<imageInputId>": { "imageId": "…", "url": "<public store url>", "scale": 1.4, "offsetXRatio": 0.1 } | { "hide": true } },
+  "placements": { "<variantId>": { "<imageInputId>": { … } } }   // group versions only; {} otherwise
+}
+```
+
+The fill is seeded **leniently against the current design**: inputs that no
+longer exist or got locked are dropped, a rich value on a now-plain input
+degrades to its text, and a font / picture / transform the slot no longer
+allows is dropped — a loaded version always exports again.
+
+`PATCH` curates the shared list: `{ "name": "Finální" }` renames (trimmed; a
+blank or `null` name clears it), `{ "pinned": true|false }` pins / unpins;
+absent keys are left alone. It answers the updated version (with `fill`).

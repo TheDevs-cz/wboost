@@ -18,8 +18,6 @@ use WBoost\Web\Value\EditorImageInput;
  * need only DB rows (they fail before inlining); the happy paths write a real
  * 1×1 PNG to the test object store so the resolver can inline it + read its size.
  *
- * Runs through the LEGACY-ALIAS export path (see SocialNetworkTemplateVariantExportTest).
- *
  * @covers \WBoost\Web\Api\Templates\ExportProcessor
  * @covers \WBoost\Web\Api\Templates\ExportRequest
  * @covers \WBoost\Web\Services\SocialNetwork\ResolveImageOverrides
@@ -254,7 +252,7 @@ final class SocialNetworkTemplateVariantImageExportTest extends ApiTestCase
 
         return $client->request(
             'POST',
-            '/api/social-network-template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
+            '/api/template-variants/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/export',
             [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $token,

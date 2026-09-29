@@ -112,6 +112,9 @@ final readonly class TemplatesProvider implements ProviderInterface
                 fn (TemplateVariant $variant): TemplateVariantResponse => $this->buildVariant($variant),
                 $template->variants(),
             )),
+            group: $template->group !== null
+                ? new TemplateGroupRefResponse($template->group->id->toString(), $template->group->name)
+                : null,
         );
     }
 
@@ -152,6 +155,7 @@ final readonly class TemplatesProvider implements ProviderInterface
             imageInputs: $this->buildImageInputs($variant),
             containers: $this->buildContainers($containers, $frames, $variant->inputs),
             richTextOptions: $this->buildRichTextOptions($variant),
+            groupMember: $variant->group !== null,
         );
     }
 

@@ -12,10 +12,6 @@ use DateTimeImmutable;
 #[ApiResource(
     shortName: 'Template',
     operations: [
-        // Canonical listing plus two deprecated aliases kept for existing
-        // service consumers: the former custom-template and social-network
-        // module paths. All three run the same provider over the same unified
-        // data and return the FULL merged template list.
         new GetCollection(
             uriTemplate: '/projects/{projectId}/templates',
             // projectId is not an identifier of this resource — it scopes the
@@ -38,38 +34,6 @@ use DateTimeImmutable;
             normalizationContext: ['skip_null_values' => false],
             name: 'api_templates_collection',
         ),
-        new GetCollection(
-            uriTemplate: '/projects/{projectId}/custom-templates',
-            uriVariables: [
-                'projectId' => new Link(
-                    fromClass: TemplateResponse::class,
-                    identifiers: [],
-                    parameterName: 'projectId',
-                ),
-            ],
-            provider: TemplatesProvider::class,
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            paginationEnabled: false,
-            normalizationContext: ['skip_null_values' => false],
-            deprecationReason: 'Deprecated alias — use GET /api/projects/{projectId}/templates.',
-            name: 'api_templates_collection_legacy_custom',
-        ),
-        new GetCollection(
-            uriTemplate: '/projects/{projectId}/social-network-templates',
-            uriVariables: [
-                'projectId' => new Link(
-                    fromClass: TemplateResponse::class,
-                    identifiers: [],
-                    parameterName: 'projectId',
-                ),
-            ],
-            provider: TemplatesProvider::class,
-            security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            paginationEnabled: false,
-            normalizationContext: ['skip_null_values' => false],
-            deprecationReason: 'Deprecated alias — use GET /api/projects/{projectId}/templates.',
-            name: 'api_templates_collection_legacy_social',
-        ),
     ],
 )]
 final readonly class TemplateResponse
@@ -85,6 +49,11 @@ final readonly class TemplateResponse
         public null|string $categoryName,
         public DateTimeImmutable $createdAt,
         public array $variants,
+        // Non-null when the template is a synchronized GROUP (one design in
+        // several dimensions, filled once): fill + export it through the
+        // `/api/template-groups/{group.id}/…` endpoints. Only variants with
+        // `groupMember: true` belong to the group fill.
+        public null|TemplateGroupRefResponse $group = null,
     ) {
     }
 }

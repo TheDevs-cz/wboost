@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\SocialNetwork;
 
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedInputOverrides;
@@ -76,122 +76,123 @@ readonly final class ResolveTextOverrides
             }
 
             $inputId = $input->inputId;
-            $provided = array_key_exists($inputId, $providedValues);
 
-            // A checklist component with every capability disabled is
-            // effectively read-only: provided overrides are ignored (the
-            // sample still renders), mirroring the fill UI where nothing is
-            // editable. Capabilities beyond this all-off case are a UI
-            // contract — the render accepts any valid checkbox-list value.
-            if (
-                $provided
-                && $input->checklist
-                && !$input->checklistAdd && !$input->checklistRemove
-                && !$input->checklistEditText && !$input->checklistToggle
-            ) {
-                $provided = false;
-            }
+            // Tag every refusal with the input it concerns — the parsers
+            // below only know the label, the API consumer needs the id.
+            try {
+                $provided = array_key_exists($inputId, $providedValues);
 
-            // "Vzorový text": an input the caller did not address at all
-            // falls back to the admin's sample value — processed through the
-            // exact same pipeline as a provided value, but ALWAYS leniently
-            // (a stale stored sample must never 400 an API consumer who
-            // merely omitted the input).
-            if (!$provided && $input->sampleValue === null) {
-                continue;
-            }
+                // A checklist component with every capability disabled is
+                // effectively read-only: provided overrides are ignored (the
+                // sample still renders), mirroring the fill UI where nothing is
+                // editable. Capabilities beyond this all-off case are a UI
+                // contract — the render accepts any valid checkbox-list value.
+                if (
+                    $provided
+                    && $input->checklist
+                    && !$input->checklistAdd && !$input->checklistRemove
+                    && !$input->checklistEditText && !$input->checklistToggle
+                ) {
+                    $provided = false;
+                }
 
-            $rawValue = $provided ? $providedValues[$inputId] : $input->sampleValue;
-            $lenient = $truncateOverflow || !$provided;
-            $label = $input->name ?? $inputId;
+                // "Vzorový text": an input the caller did not address at all
+                // falls back to the admin's sample value — processed through the
+                // exact same pipeline as a provided value, but ALWAYS leniently
+                // (a stale stored sample must never 400 an API consumer who
+                // merely omitted the input).
+                if (!$provided && $input->sampleValue === null) {
+                    continue;
+                }
 
-            [$textValue, $hideValue, $rawRuns, $rawLines, $fontFamily] = $this->parseValue($label, $rawValue, $input->richText, $lenient);
+                $rawValue = $provided ? $providedValues[$inputId] : $input->sampleValue;
+                $lenient = $truncateOverflow || !$provided;
+                $label = $input->name ?? $inputId;
 
-            // An object carrying only `hide` / `fontFamily` addresses the
-            // input without giving it a TEXT — the sample still stands in for
-            // the text (leniently, exactly as for an omitted input), so a
-            // font pick on an untouched field never swaps the sample for the
-            // designed stand-in.
-            if ($provided && $textValue === null && $rawRuns === null && $input->sampleValue !== null) {
-                [$textValue, , $rawRuns, $rawLines] = $this->parseValue($label, $input->sampleValue, $input->richText, true);
-                $lenient = true;
-            }
+                [$textValue, $hideValue, $rawRuns, $rawLines, $fontFamily] = $this->parseValue($label, $rawValue, $input->richText, $lenient);
 
-            if ($fontFamily !== null) {
-                $allowedFonts = $richTextOptions?->allowedFamiliesFor($inputId);
-
-                if ($allowedFonts !== null && !in_array($fontFamily, $allowedFonts, true)) {
-                    if (!$lenient) {
-                        throw InvalidRichTextValue::fontNotAllowed($label, $fontFamily, $allowedFonts);
-                    }
-
-                    $fontFamily = null;
+                // An object carrying only `hide` / `fontFamily` addresses the
+                // input without giving it a TEXT — the sample still stands in for
+                // the text (leniently, exactly as for an omitted input), so a
+                // font pick on an untouched field never swaps the sample for the
+                // designed stand-in.
+                if ($provided && $textValue === null && $rawRuns === null && $input->sampleValue !== null) {
+                    [$textValue, , $rawRuns, $rawLines] = $this->parseValue($label, $input->sampleValue, $input->richText, true);
+                    $lenient = true;
                 }
 
                 if ($fontFamily !== null) {
-                    $fonts[$inputId] = $fontFamily;
-                }
-            }
+                    $allowedFonts = $richTextOptions?->allowedFamiliesFor($inputId);
 
-            if ($rawRuns !== null) {
-                $richText = RichText::fromRaw(
-                    $rawRuns,
-                    strict: !$lenient,
-                    inputLabel: $label,
-                    allowedFontFamilies: $richTextOptions?->allowedFamilies(),
-                    rawLines: $rawLines,
-                    listsAllowed: $input->lists,
-                    checkboxesAllowed: $input->lists && $input->listCheckboxes,
-                    allowedColors: $richTextOptions?->allowedColorsFor($inputId),
-                );
+                    if ($allowedFonts !== null && !in_array($fontFamily, $allowedFonts, true)) {
+                        if (!$lenient) {
+                            throw InvalidRichTextValue::fontNotAllowed($label, $fontFamily, $allowedFonts);
+                        }
 
-                if ($input->maxLength !== null && mb_strlen($richText->toPlainText()) > $input->maxLength) {
-                    if ($lenient) {
-                        $richText = $richText->truncateToPlainLength($input->maxLength);
-                    } else {
-                        throw new BadRequestHttpException(sprintf(
-                            'Input "%s" exceeds max length of %d characters.',
-                            $label,
-                            $input->maxLength,
-                        ));
+                        $fontFamily = null;
+                    }
+
+                    if ($fontFamily !== null) {
+                        $fonts[$inputId] = $fontFamily;
                     }
                 }
 
-                if ($input->uppercase) {
-                    $richText = $richText->toUpper();
-                }
+                if ($rawRuns !== null) {
+                    $richText = RichText::fromRaw(
+                        $rawRuns,
+                        strict: !$lenient,
+                        inputLabel: $label,
+                        allowedFontFamilies: $richTextOptions?->allowedFamilies(),
+                        rawLines: $rawLines,
+                        listsAllowed: $input->lists,
+                        checkboxesAllowed: $input->lists && $input->listCheckboxes,
+                        allowedColors: $richTextOptions?->allowedColorsFor($inputId),
+                    );
 
-                $texts[$inputId] = $richText->toPlainText();
-
-                // An all-unstyled value degrades to a plain override — the
-                // renderer then treats it exactly like untouched-toolbar text.
-                // LIST structure counts as styling: the block-stack layout
-                // only runs on the rich path.
-                if ($richText->isStyled() || $richText->hasLists()) {
-                    $richTexts[$inputId] = $richText;
-                }
-            } elseif ($textValue !== null) {
-                if ($input->maxLength !== null && mb_strlen($textValue) > $input->maxLength) {
-                    if ($lenient) {
-                        $textValue = mb_substr($textValue, 0, $input->maxLength);
-                    } else {
-                        throw new BadRequestHttpException(sprintf(
-                            'Input "%s" exceeds max length of %d characters.',
-                            $label,
-                            $input->maxLength,
-                        ));
+                    if ($input->maxLength !== null && mb_strlen($richText->toPlainText()) > $input->maxLength) {
+                        if ($lenient) {
+                            $richText = $richText->truncateToPlainLength($input->maxLength);
+                        } else {
+                            throw InvalidExportValue::valueTooLong($label, $input->maxLength);
+                        }
                     }
+
+                    if ($input->uppercase) {
+                        $richText = $richText->toUpper();
+                    }
+
+                    $texts[$inputId] = $richText->toPlainText();
+
+                    // An all-unstyled value degrades to a plain override — the
+                    // renderer then treats it exactly like untouched-toolbar text.
+                    // LIST structure counts as styling: the block-stack layout
+                    // only runs on the rich path.
+                    if ($richText->isStyled() || $richText->hasLists()) {
+                        $richTexts[$inputId] = $richText;
+                    }
+                } elseif ($textValue !== null) {
+                    if ($input->maxLength !== null && mb_strlen($textValue) > $input->maxLength) {
+                        if ($lenient) {
+                            $textValue = mb_substr($textValue, 0, $input->maxLength);
+                        } else {
+                            throw InvalidExportValue::valueTooLong($label, $input->maxLength);
+                        }
+                    }
+
+                    if ($input->uppercase) {
+                        $textValue = mb_strtoupper($textValue);
+                    }
+
+                    $texts[$inputId] = $textValue;
                 }
 
-                if ($input->uppercase) {
-                    $textValue = mb_strtoupper($textValue);
+                if ($hideValue !== null && $input->hidable) {
+                    $hidden[$inputId] = $hideValue;
                 }
-
-                $texts[$inputId] = $textValue;
-            }
-
-            if ($hideValue !== null && $input->hidable) {
-                $hidden[$inputId] = $hideValue;
+            } catch (InvalidRichTextValue $e) {
+                throw $e->forInput($inputId);
+            } catch (InvalidExportValue $e) {
+                throw $e->withContext(['inputId' => $inputId]);
             }
         }
 
@@ -216,7 +217,7 @@ readonly final class ResolveTextOverrides
         }
 
         if (!is_array($raw)) {
-            throw new BadRequestHttpException(sprintf(
+            throw InvalidExportValue::invalidValue(sprintf(
                 'Input "%s" must be a string or { value, hide } object.',
                 $label,
             ));
@@ -252,7 +253,7 @@ readonly final class ResolveTextOverrides
 
         if ($rawRuns === null && $textValue === null && array_key_exists('value', $raw)) {
             if (!is_string($raw['value'])) {
-                throw new BadRequestHttpException(sprintf('Input "%s".value must be a string.', $label));
+                throw InvalidExportValue::invalidValue(sprintf('Input "%s".value must be a string.', $label));
             }
             $textValue = $raw['value'];
 
@@ -284,7 +285,7 @@ readonly final class ResolveTextOverrides
 
         if (!is_string($fontFamily)) {
             if (!$lenient) {
-                throw new BadRequestHttpException(sprintf('Input "%s".fontFamily must be a string or null.', $label));
+                throw InvalidExportValue::invalidValue(sprintf('Input "%s".fontFamily must be a string or null.', $label));
             }
 
             return null;
@@ -324,7 +325,7 @@ readonly final class ResolveTextOverrides
         }
 
         if (!is_bool($raw['hide'])) {
-            throw new BadRequestHttpException(sprintf('Input "%s".hide must be a boolean.', $label));
+            throw InvalidExportValue::invalidValue(sprintf('Input "%s".hide must be a boolean.', $label));
         }
 
         return $raw['hide'];

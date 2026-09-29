@@ -20,9 +20,6 @@ use WBoost\Web\Services\Security\TemplateVariantVoter;
  * Public API: stream a template variant's thumbnail — its cached preview render
  * when one exists, otherwise the background image — from the upload (Minio)
  * filesystem. API consumers never reach the object store directly.
- *
- * Canonical path plus two deprecated aliases (the former custom-template and
- * social-network module paths) serving the same unified data.
  */
 final class TemplateVariantThumbnailController extends AbstractController
 {
@@ -35,16 +32,6 @@ final class TemplateVariantThumbnailController extends AbstractController
     #[Route(
         path: '/api/template-variants/{variantId}/thumbnail',
         name: 'api_template_variant_thumbnail',
-        methods: ['GET'],
-    )]
-    #[Route(
-        path: '/api/custom-template-variants/{variantId}/thumbnail',
-        name: 'api_template_variant_thumbnail_legacy_custom',
-        methods: ['GET'],
-    )]
-    #[Route(
-        path: '/api/social-network-template-variants/{variantId}/thumbnail',
-        name: 'api_template_variant_thumbnail_legacy_social',
         methods: ['GET'],
     )]
     #[IsGranted(TemplateVariantVoter::VIEW, 'variant')]

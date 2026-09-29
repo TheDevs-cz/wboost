@@ -25,9 +25,6 @@ use WBoost\Web\Services\SocialNetwork\PlaceholderImageUploader;
  * Secured by the `^/api` OAuth2 firewall plus the variant VIEW voter (same
  * visibility as export). The web-session counterpart is
  * {@see TemplateVariantPlaceholderUploadWebController}.
- *
- * Canonical path plus two deprecated aliases (the former custom-template and
- * social-network module paths) hitting the same unified data.
  */
 final class TemplateVariantPlaceholderUploadController extends AbstractController
 {
@@ -39,16 +36,6 @@ final class TemplateVariantPlaceholderUploadController extends AbstractControlle
     #[Route(
         path: '/api/template-variants/{variantId}/placeholders/{inputId}/images',
         name: 'api_template_variant_placeholder_upload',
-        methods: ['POST'],
-    )]
-    #[Route(
-        path: '/api/custom-template-variants/{variantId}/placeholders/{inputId}/images',
-        name: 'api_template_variant_placeholder_upload_legacy_custom',
-        methods: ['POST'],
-    )]
-    #[Route(
-        path: '/api/social-network-template-variants/{variantId}/placeholders/{inputId}/images',
-        name: 'api_template_variant_placeholder_upload_legacy_social',
         methods: ['POST'],
     )]
     #[IsGranted(TemplateVariantVoter::VIEW, 'variant')]

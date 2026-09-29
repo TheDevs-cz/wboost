@@ -101,7 +101,7 @@ final class ResolveTextOverridesTest extends TestCase
             self::fail('Expected font_not_allowed');
         } catch (InvalidRichTextValue $exception) {
             self::assertSame('font_not_allowed', $exception->errorCode);
-            self::assertSame(['allowedFonts' => ['Rubik (Rubik Bold)']], $exception->context);
+            self::assertSame(['allowedFonts' => ['Rubik (Rubik Bold)'], 'inputId' => self::INPUT_ID], $exception->context);
         }
 
         $lenient = (new ResolveTextOverrides())->resolve(

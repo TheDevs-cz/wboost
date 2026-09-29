@@ -189,6 +189,25 @@ final readonly class ExportFillValues
     }
 
     /**
+     * The API GROUP export request: the shared `inputs` + `images` maps (the
+     * single-variant API shape) plus per-dimension `placements`
+     * (variantId → imageInputId → transform) — the same snapshot the web group
+     * fill form produces, so API and web group exports share one history and
+     * deduplicate against each other.
+     *
+     * @param array<array-key, mixed> $inputs
+     * @param array<array-key, mixed> $images
+     * @param array<array-key, mixed> $placements
+     */
+    public static function fromGroupApiRequest(array $inputs, array $images, array $placements): self
+    {
+        $values = self::fromApiRequest($inputs, $images);
+        $group = self::fromGroupWebForm([], [], [], $placements);
+
+        return new self($values->texts, $values->hidden, $values->images, $group->placements, $values->fonts);
+    }
+
+    /**
      * Defensive read of a stored snapshot (the Doctrine type's PHP side).
      *
      * @param array<array-key, mixed> $data

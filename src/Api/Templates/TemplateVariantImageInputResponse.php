@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace WBoost\Web\Api\Templates;
 
 /**
- * A fillable IMAGE placeholder on a custom-template variant — the image counterpart of
+ * A fillable IMAGE placeholder on a template variant — the image counterpart of
  * {@see TemplateVariantInputResponse}. The consumer picks a gallery image
  * (list them via
- * `GET /api/custom-template-variants/{variantId}/placeholders/{id}/images`)
+ * `GET /api/template-variants/{variantId}/placeholders/{id}/images`)
  * and references it by id in the export `images` map, optionally positioning it
  * within the limits below.
  */

@@ -12,11 +12,10 @@ use WBoost\Web\Tests\TestingApiAuthentication;
 use WBoost\Web\Value\SharingLevel;
 
 /**
- * LEGACY-ALIAS contract test: `GET /api/projects/{id}/social-network-templates`
- * is a deprecated alias of the canonical `GET /api/projects/{id}/templates`
- * (same provider, same unified data, full merged list). The request paths in
- * here are the consumer contract (mfkfm) and must keep working; for preset
- * variants `dimension` must STILL be the '1:1'-style ratio label.
+ * Former-social (preset) templates in the canonical
+ * `GET /api/projects/{id}/templates` listing — the shape the mfkfm consumer
+ * relies on; for preset variants `dimension` must STILL be the '1:1'-style
+ * ratio label. (The old `social-network-templates` alias path is gone.)
  *
  * @covers \WBoost\Web\Api\Templates\TemplateResponse
  * @covers \WBoost\Web\Api\Templates\TemplateVariantResponse
@@ -30,7 +29,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
     public function testRequiresAuthentication(): void
     {
         $client = self::createClient();
-        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates');
+        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates');
         $this->assertResponseStatusCodeSame(401);
     }
 
@@ -43,7 +42,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -79,7 +78,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
 
         // PROJECT_2 belongs to USER_2 — querying it with USER_1's token must 404,
         // not leak the project's existence or its templates.
-        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/social-network-templates', [
+        $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -107,7 +106,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         $project->share($user, SharingLevel::Read, new \DateTimeImmutable());
         $entityManager->flush();
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_2_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -132,7 +131,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $client->request('GET', '/api/projects/00000000-0000-0000-0000-0000000000ff/social-network-templates', [
+        $client->request('GET', '/api/projects/00000000-0000-0000-0000-0000000000ff/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -148,7 +147,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -253,7 +252,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -325,7 +324,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 
@@ -412,7 +411,7 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
             TestDataFixture::OAUTH2_CLIENT_SECRET,
         );
 
-        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/social-network-templates', [
+        $response = $client->request('GET', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/templates', [
             'headers' => ['Authorization' => 'Bearer ' . $token],
         ]);
 

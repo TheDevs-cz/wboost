@@ -41,6 +41,11 @@ final readonly class TemplateVariantResponse
         // Fonts + brand color swatches for rich-text inputs. Null unless at
         // least one input has `richText: true`.
         public null|RichTextOptionsResponse $richTextOptions = null,
+        // True when this variant is a member dimension of the template's
+        // group (`TemplateResponse::$group`). A variant added by hand to a
+        // grouped template is NOT a member: fill it on its own via
+        // `/api/template-variants/{id}/…`.
+        public bool $groupMember = false,
     ) {
     }
 }

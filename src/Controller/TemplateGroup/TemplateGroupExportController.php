@@ -17,13 +17,12 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
-use WBoost\Web\Services\Slugify;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\TemplateGroup\GroupExportArchive;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
-use ZipArchive;
 
 /**
  * Export the WHOLE group at once: every member variant is rendered with the
@@ -41,6 +40,7 @@ final class TemplateGroupExportController extends AbstractController
         readonly private RecordExportUsage $recordExportUsage,
         readonly private RecordExportVersion $recordExportVersion,
         readonly private ReleaseSessionLock $releaseSessionLock,
+        readonly private GroupExportArchive $archive,
     ) {
     }
 
@@ -75,14 +75,12 @@ final class TemplateGroupExportController extends AbstractController
         $rawPlacements = $request->request->all('imagePlacements');
         $rawFontValues = $request->request->all('fontValues');
 
-        $groupSlug = $this->nonEmptySlug($group->name, 'export');
-
         // One render per member variant, sequentially — the longest request
         // this app makes; it must not sit on a stale session copy throughout.
         $this->releaseSessionLock->release($request);
 
-        /** @var array<string, string> $files filename → PNG bytes */
-        $files = [];
+        /** @var list<array{TemplateVariant, string}> $renders */
+        $renders = [];
 
         foreach ($variants as $variant) {
             try {
@@ -104,19 +102,10 @@ final class TemplateGroupExportController extends AbstractController
                 return $this->renderFailed($group, $e->getMessage(), Response::HTTP_BAD_REQUEST);
             }
 
-            $baseName = sprintf('%s-%s', $groupSlug, $this->dimensionSlug($variant));
-            $fileName = "$baseName.png";
-
-            // Two variants may share a dimension (e.g. two identical custom
-            // sizes) — suffix instead of silently overwriting a ZIP entry.
-            for ($suffix = 2; isset($files[$fileName]); $suffix++) {
-                $fileName = "$baseName-$suffix.png";
-            }
-
-            $files[$fileName] = $bytes;
+            $renders[] = [$variant, $bytes];
         }
 
-        $zipBytes = $this->buildZip($files);
+        $zipBytes = $this->archive->build($group, $renders);
 
         foreach ($variants as $variant) {
             $this->recordExportUsage->record($variant, ExportChannel::Web);
@@ -132,7 +121,7 @@ final class TemplateGroupExportController extends AbstractController
 
         return new Response($zipBytes, Response::HTTP_OK, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => sprintf('attachment; filename="%s.zip"', $groupSlug),
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->archiveName($group)),
             'Cache-Control' => 'no-store',
         ]);
     }
@@ -145,53 +134,5 @@ final class TemplateGroupExportController extends AbstractController
             'reason' => $reason,
             'back_url' => $this->generateUrl('template_group_fill', ['groupId' => $group->id]),
         ], new Response(status: $status));
-    }
-
-    /**
-     * @param array<string, string> $files
-     */
-    private function buildZip(array $files): string
-    {
-        $path = tempnam(sys_get_temp_dir(), 'group-export-');
-
-        if ($path === false) {
-            throw new \RuntimeException('Could not create a temporary file for the ZIP export.');
-        }
-
-        try {
-            $zip = new ZipArchive();
-
-            if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-                throw new \RuntimeException('Could not open the ZIP archive for writing.');
-            }
-
-            foreach ($files as $fileName => $bytes) {
-                $zip->addFromString($fileName, $bytes);
-            }
-
-            $zip->close();
-
-            $bytes = file_get_contents($path);
-
-            if ($bytes === false) {
-                throw new \RuntimeException('Could not read the finished ZIP archive.');
-            }
-
-            return $bytes;
-        } finally {
-            @unlink($path);
-        }
-    }
-
-    private function dimensionSlug(TemplateVariant $variant): string
-    {
-        return $this->nonEmptySlug($variant->dimension->label(), 'varianta');
-    }
-
-    private function nonEmptySlug(string $value, string $fallback): string
-    {
-        $slug = Slugify::string($value);
-
-        return $slug !== '' ? $slug : $fallback;
     }
 }
