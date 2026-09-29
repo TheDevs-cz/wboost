@@ -33,7 +33,7 @@ use DateTimeImmutable;
             ],
             provider: ExportVersionProvider::class,
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            normalizationContext: ['skip_null_values' => false],
+            normalizationContext: ['skip_null_values' => false, 'preserve_empty_objects' => true],
             name: 'api_export_version',
         ),
         new Patch(
@@ -46,7 +46,7 @@ use DateTimeImmutable;
             read: false,
             processor: ExportVersionUpdateProcessor::class,
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
-            normalizationContext: ['skip_null_values' => false],
+            normalizationContext: ['skip_null_values' => false, 'preserve_empty_objects' => true],
             name: 'api_export_version_update',
         ),
     ],
