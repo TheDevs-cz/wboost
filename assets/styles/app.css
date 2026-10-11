@@ -2696,16 +2696,9 @@ button.fill-layer-row__main:focus-visible {
     box-shadow: 0 0.375rem 1.125rem rgba(0, 0, 0, 0.12);
 }
 
-/* "Objevte další moduly" — the upsell tile closing the module grid: dashed,
-   tinted, so it reads as an invitation rather than one more module. */
-.module-card.module-card--discover {
-    background: rgba(114, 124, 245, 0.06);
-    border: 2px dashed rgba(114, 124, 245, 0.35);
-    box-shadow: none;
-}
-
-/* …and its left-nav twin: the last project item, set apart by a gap and the
-   accent colour. Scoped one level deeper than the theme's `.side-nav-link`
+/* "Objevte další moduly" in the left nav (its only entry point — the
+   dashboard has no tile for it): the last project item, set apart by a gap
+   and the accent colour. Scoped one level deeper than the theme's `.side-nav-link`
    colour rule (app.css loads first, equal specificity loses). */
 .leftside-menu .side-nav .side-nav-link.side-nav-discover {
     margin-top: 0.5rem;

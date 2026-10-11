@@ -76,7 +76,8 @@
 
     {# Module tiles — one per left-nav item: the project's switched-on
        modules plus the always-available Galerie and Fonty. The rest wait
-       behind the "Objevte další moduly" tile. #}
+       behind the left nav's "Objevte další moduly" item (no dashboard tile —
+       the nav entry is enough). #}
     {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
     <div class="row g-3">
         {% if project.hasModule(project_module.Manuals) %}
@@ -132,27 +133,6 @@
             ) }}
         {% endif %}
 
-        {% if project.disabledModules is not empty %}
-            <div class="col-sm-6 col-xl-3 d-flex">
-                <a href="{{ path('project_modules', {'projectId': project.id}) }}" class="text-body d-block w-100">
-                    <div class="card module-card module-card--discover h-100 mb-0">
-                        <div class="card-body d-flex flex-column justify-content-center">
-                            <div class="d-flex align-items-center gap-2 mb-2">
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-primary-lighten text-primary rounded-circle">
-                                        <i class="ri-sparkling-2-line font-20"></i>
-                                    </span>
-                                </div>
-                                <h4 class="my-0 text-primary">Objevte další moduly</h4>
-                            </div>
-                            <p class="text-muted font-13 mb-0">
-                                {{ project.disabledModules|map(module => module.label)|join(', ') }} a další — podívejte se, co dalšího WBoost umí
-                            </p>
-                        </div>
-                    </div>
-                </a>
-            </div>
-        {% endif %}
     </div>
 
     {# Latest templates #}

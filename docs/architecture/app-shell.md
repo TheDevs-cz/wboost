@@ -42,9 +42,9 @@ discover page (`calendars.html.twig` highlights the discover nav item).
   (also the column default). The 2026-10-11 migration backfilled existing
   projects: core two + E-maily / Jídelníčky only where content existed.
 - **Discover / upsell**: `project_modules` (`/project/{id}/modules`, "Objevte
-  další moduly") lists the switched-off modules; a nav item (`.side-nav-discover`)
-  and a dashed dashboard tile (`.module-card--discover`) link to it while any
-  module is off. Anyone with `project_edit` switches a module on there
+  další moduly") lists the switched-off modules; the left-nav item
+  (`.side-nav-discover`) links to it while any module is off — the only entry
+  point (the dashboard tile was dropped 2026-10-12: the nav entry is enough). Anyone with `project_edit` switches a module on there
   (`project_module_enable`, POST + CSRF) and lands on it.
 - **Admin mail**: `EnableProjectModuleHandler` e-mails the
   `SIGNUP_NOTIFICATION_EMAILS` admins (bound as `$adminNotificationRecipients`)

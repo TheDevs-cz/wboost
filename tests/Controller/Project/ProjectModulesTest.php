@@ -15,7 +15,7 @@ use WBoost\Web\Value\ProjectModule;
 
 /**
  * Project modules: only switched-on modules show in the nav and on the
- * dashboard, the rest sit behind "Objevte další moduly". A project editor
+ * dashboard, the rest sit behind the nav's "Objevte další moduly". A project editor
  * switches one on (admins get an e-mail); only an admin switches one off.
  *
  * Fixtures: Project 1 has every module, Project 2 (owned by user 2) only the
@@ -39,8 +39,9 @@ final class ProjectModulesTest extends WebTestCase
         self::assertSelectorNotExists(sprintf('a[href="/project/%s/emails"]', self::PROJECT_2));
         self::assertSelectorNotExists(sprintf('a[href="/project/%s/weekly-menus"]', self::PROJECT_2));
         self::assertSelectorNotExists(sprintf('a[href="/project/%s/calendars"]', self::PROJECT_2));
-        // Nav item + dashboard tile.
-        self::assertCount(2, $client->getCrawler()->filter(sprintf('a[href="/project/%s/modules"]', self::PROJECT_2)));
+        // The left-nav item is the only entry point — no dashboard tile.
+        self::assertCount(1, $client->getCrawler()->filter(sprintf('a[href="/project/%s/modules"]', self::PROJECT_2)));
+        self::assertSelectorExists(sprintf('.leftside-menu a.side-nav-discover[href="/project/%s/modules"]', self::PROJECT_2));
     }
 
     public function testProjectUsingEveryModuleHasNothingToDiscover(): void
