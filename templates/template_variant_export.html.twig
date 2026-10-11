@@ -52,13 +52,13 @@
         </style>
     </div>
 
-    {% if loaded_version %}
-        {{ include('_export_history_banner.html.twig', {
-            loaded_version: loaded_version,
-            clear_url: path('template_variant_export', {'variantId': variant.id}),
-            redirect_url: app.request.requestUri,
-        }) }}
-    {% endif %}
+    {# Always rendered (an empty placeholder when nothing is loaded): a draft
+       save makes the draft the loaded version and replaces it. #}
+    {{ include('_export_history_banner.html.twig', {
+        loaded_version: loaded_version,
+        clear_url: path('template_variant_export', {'variantId': variant.id}),
+        redirect_url: app.request.requestUri,
+    }) }}
 
     {# Anchors for the title-row dropdown's and the banner's pin / rename
        controls (they carry no <form> of their own — see the partial),
@@ -72,13 +72,21 @@
        the placeholder macro in the component template). The seed props carry
        a loaded export version's fill state (empty otherwise) — postMount's
        `??=` sample-seeding fills only what the version left blank. #}
-    <twig:Template:VariantFiller
-        :variant="variant"
-        :facebookConnected="facebookConnected"
-        :textValues="seed_text_values"
-        :hiddenValues="seed_hidden_values"
-        :fontValues="seed_font_values"
-        :seedImageValues="seed_image_values"
-        loading="defer"
-    />
+    {# "Uložit rozpracované" (the button lives in the component's toolbar):
+       the controller wraps the deferred component, and the page's draft id +
+       the CSRF token sit OUT here — joined to the component's form via
+       `form=` — so no Live re-render can reset them. #}
+    <div data-controller="fill-draft" data-fill-draft-url-value="{{ path('template_variant_fill_draft', {variantId: variant.id}) }}">
+        <input type="hidden" form="variant-fill-form" name="draftVersionId" value="{{ loaded_version ? loaded_version.id : '' }}" data-fill-draft-target="versionField">
+        <input type="hidden" form="variant-fill-form" name="_fill_draft_token" value="{{ csrf_token('template_fill_draft') }}">
+        <twig:Template:VariantFiller
+            :variant="variant"
+            :facebookConnected="facebookConnected"
+            :textValues="seed_text_values"
+            :hiddenValues="seed_hidden_values"
+            :fontValues="seed_font_values"
+            :seedImageValues="seed_image_values"
+            loading="defer"
+        />
+    </div>
 {% endblock %}

@@ -6,22 +6,39 @@
    this element in place (Services/Template/ExportVersionTurboStream), so
    the controls here are Turbo-enabled.
 
+   With no version loaded it renders an empty, hidden placeholder that owns
+   the same id: "Uložit rozpracované" makes the saved draft the loaded
+   version and its stream replaces the placeholder with the real banner.
+
    Expects:
-   - loaded_version:  TemplateExportVersion
+   - loaded_version:  null|TemplateExportVersion
    - clear_url:       the same page without the version param
    - redirect_url:    local path the rename / pin forms return to (this page) #}
+{% if loaded_version is null %}
+<div id="export-history-banner" hidden></div>
+{% else %}
 <div id="export-history-banner" class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2" role="alert">
     <span>
-        <i class="mdi mdi-history"></i>
-        Formulář je předvyplněný hodnotami exportu
-        {% if loaded_version.name %}
-            <strong>{{ loaded_version.name }}</strong>
-            ({{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}{% if loaded_version.exportedBy %}, {{ loaded_version.exportedBy.displayName }}{% endif %}).
+        {% set when = loaded_version.lastExportedAt|date('d.m.Y H:i') %}
+        {% set who = loaded_version.exportedBy ? loaded_version.exportedBy.displayName : null %}
+        {% if loaded_version.draft %}
+            <i class="mdi mdi-content-save-outline"></i>
+            Pracujete na rozpracované verzi
+            {% if loaded_version.name %}<strong>{{ loaded_version.name }}</strong>{% endif %}
+            (uloženo <strong>{{ when }}</strong>{% if who %}, {{ who }}{% endif %}).
+            „Uložit rozpracované“ ji přepíše, exportem se z ní stane exportovaná verze.
         {% else %}
-            z <strong>{{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}</strong>{% if loaded_version.exportedBy %}
-            ({{ loaded_version.exportedBy.displayName }}){% endif %}.
+            <i class="mdi mdi-history"></i>
+            Formulář je předvyplněný hodnotami exportu
+            {% if loaded_version.name %}
+                <strong>{{ loaded_version.name }}</strong>
+                ({{ when }}{% if who %}, {{ who }}{% endif %}).
+            {% else %}
+                z <strong>{{ when }}</strong>{% if who %}
+                ({{ who }}){% endif %}.
+            {% endif %}
+            Hodnoty můžete dál upravit a znovu exportovat.
         {% endif %}
-        Hodnoty můžete dál upravit a znovu exportovat.
     </span>
     <span class="d-flex align-items-center flex-wrap gap-2">
         {{ include('_export_version_rename_form.html.twig', {version: loaded_version, redirect_url: redirect_url, turbo: true}) }}
@@ -29,3 +46,4 @@
         <a href="{{ clear_url }}" class="alert-link text-nowrap">Zpět na výchozí hodnoty</a>
     </span>
 </div>
+{% endif %}

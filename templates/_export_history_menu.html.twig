@@ -11,6 +11,10 @@
    the page with `?version=<id>`; the controller then seeds the whole fill
    state from that version's snapshot.
 
+   The whole thing sits in `#export-history-menu`, rendered even while the
+   history is empty: "Uložit rozpracované" answers with a stream that
+   REPLACES it (the first save of a surface is what creates its dropdown).
+
    Expects:
    - history:         ExportHistory (pinned + recent split)
    - loaded_version:  null|TemplateExportVersion currently loaded
@@ -18,6 +22,7 @@
    - route_params:    the fill page's route params (version id gets merged in)
    - history_url:     the dedicated history page
    - redirect_url:    local path a pin / rename returns to (this page) #}
+<div id="export-history-menu" class="d-inline-block">
 {% if not history.isEmpty %}
     <div class="dropdown d-inline-block">
         <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
@@ -28,3 +33,4 @@
         </div>
     </div>
 {% endif %}
+</div>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\TemplateExportVersion;
 use WBoost\Web\Exceptions\TemplateExportVersionNotFound;
@@ -35,8 +36,9 @@ readonly final class TemplateExportVersionRepository
     }
 
     /**
-     * An existing version of the SAME subject (variant or group) with the same
-     * canonical fill — the row a re-export bumps instead of duplicating.
+     * An existing EXPORTED version of the SAME subject (variant or group) with
+     * the same canonical fill — the row a re-export bumps instead of
+     * duplicating. Drafts never match: they are saved work, not exports.
      */
     public function findDuplicate(
         null|UuidInterface $variantId,
@@ -47,6 +49,7 @@ readonly final class TemplateExportVersionRepository
             ->from(TemplateExportVersion::class, 'version')
             ->select('version')
             ->where('version.fillValuesHash = :hash')
+            ->andWhere('version.draft = false')
             ->setParameter('hash', $fillValuesHash)
             ->setMaxResults(1);
 
@@ -60,6 +63,38 @@ readonly final class TemplateExportVersionRepository
 
         /** @var null|TemplateExportVersion */
         return $builder->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * The draft `$versionId` — but only when it IS a draft of THIS subject
+     * (the id is client-supplied: a loaded export, a foreign or a pruned id
+     * all mean "no draft", i.e. a save starts a new one).
+     */
+    public function findDraftOf(
+        string $versionId,
+        null|UuidInterface $variantId,
+        null|UuidInterface $groupId,
+    ): null|TemplateExportVersion {
+        if (!Uuid::isValid($versionId)) {
+            return null;
+        }
+
+        $version = $this->find(Uuid::fromString($versionId));
+
+        if ($version === null || !$version->draft) {
+            return null;
+        }
+
+        $sameSubject = $variantId !== null
+            ? $version->variant?->id->equals($variantId) === true
+            : ($groupId !== null && $version->group?->id->equals($groupId) === true);
+
+        return $sameSubject ? $version : null;
+    }
+
+    public function remove(TemplateExportVersion $version): void
+    {
+        $this->entityManager->remove($version);
     }
 
     /**

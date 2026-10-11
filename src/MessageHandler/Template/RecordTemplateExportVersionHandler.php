@@ -67,6 +67,28 @@ readonly final class RecordTemplateExportVersionHandler
 
         $duplicate = $this->versionRepository->findDuplicate($message->variantId, $message->groupId, $hash);
 
+        // Exported with a saved draft loaded: the draft BECOMES this export's
+        // version — or, when these exact values were exported before, merges
+        // into that version (keeping the draft's name / pin) so the history
+        // never holds the same fill twice.
+        $draft = $message->draftVersionId !== null
+            ? $this->versionRepository->findDraftOf($message->draftVersionId, $message->variantId, $message->groupId)
+            : null;
+
+        if ($draft !== null) {
+            if ($duplicate !== null) {
+                $duplicate->bump($this->clock->now(), $user, $message->channel);
+                $duplicate->absorbCuration($draft, $this->clock->now());
+                $this->versionRepository->remove($draft);
+
+                return;
+            }
+
+            $draft->promoteToExport($message->fillValues, $this->clock->now(), $user, $message->channel);
+
+            return;
+        }
+
         if ($duplicate !== null) {
             $duplicate->bump($this->clock->now(), $user, $message->channel);
 

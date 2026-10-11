@@ -59,6 +59,9 @@
             {{ include('_export_version_rename_form.html.twig', {version: version, redirect_url: redirect_url, turbo: true, row: true}) }}
         </span>
         <span class="text-nowrap" data-export-version-row-target="view">
+            {% if version.draft %}
+                <span class="badge bg-warning-lighten text-warning" title="Uložená rozpracovaná práce — zatím neexportováno">Rozpracováno</span>
+            {% endif %}
             {% if version.channel.value != 'web' %}
                 <span class="badge bg-secondary-lighten text-secondary">{{ version.channel.label }}</span>
             {% endif %}

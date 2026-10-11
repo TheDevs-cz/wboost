@@ -72,6 +72,7 @@
        overlay's reflow parity and the text echo. #}
 
     <form
+        id="variant-fill-form"
         method="POST"
         action="{{ this.downloadPath() }}"
         data-turbo="false"
@@ -132,6 +133,13 @@
                     </a>
                 {% endif %}
             {% endif %}
+            {# Saving work in progress never depends on the form being
+               exportable: not an exportButton target, so the overflow gate
+               leaves it alone (the fill-draft controller wraps this component
+               on the page). #}
+            <button type="button" class="btn btn-outline-primary btn-sm" data-fill-draft-target="button" data-action="fill-draft#save" title="Uloží rozpracovanou práci do Historie exportů, i když ji zatím nejde exportovat (Ctrl/⌘+S)">
+                <i class="mdi mdi-content-save-outline me-1" aria-hidden="true"></i>Uložit rozpracované
+            </button>
             <button type="submit" class="btn btn-primary btn-sm" data-variant-fill-overlay-target="exportButton">Export do PNG</button>
         </div>
 

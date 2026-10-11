@@ -29,6 +29,40 @@ version.
   race merely duplicates a history row, a violation would abort the export's
   transaction. An all-defaults export still records (dedup collapses the
   repeats).
+- **Drafts — "Uložit rozpracované" (2026-10-12, the "an overflowing text
+  blocks the export, so I can't save and must start over" report).** A
+  version can be a DRAFT (`draft` bool, additive migration; `exportCount` 0,
+  `lastExportedAt` = last save). Both fill pages carry an always-enabled
+  "Uložit rozpracované" button (NOT an `exportButton` target, so the overflow
+  gate never touches it; Ctrl/⌘+S too) — `fill_draft_controller.js` POSTs the
+  fill form AS IT IS to `template_variant_fill_draft` /
+  `template_group_fill_draft` (CSRF id `template_fill_draft`, field
+  `_fill_draft_token`; VIEW-gated). NO render and no resolver validation —
+  only the `ExportFillValues::from*WebForm` normalisation — so any state
+  saves; the lenient seeder is what makes any draft re-loadable.
+  `SaveTemplateFillDraft` overwrites the page's own draft in place
+  (`draftVersionId` field = the loaded version; `findDraftOf` accepts it
+  only when it IS a draft of THIS subject — a loaded export, a foreign or a
+  pruned id start a new draft). The answer is a Turbo Stream
+  (`ExportVersionTurboStream::draftSaved` → `_fill_draft_saved.stream.html.twig`)
+  replacing the WHOLE dropdown `#export-history-menu` (always rendered, empty
+  while there is no history — the first save creates it), the banner
+  (`#export-history-banner`, an empty hidden placeholder when nothing is
+  loaded) and the anchors, with the draft as the loaded version; the
+  `X-Fill-Draft-Version` header feeds the field + `history.replaceState`
+  (`?version=<draft>`). Single page: the controller wraps the deferred Live
+  component and the two hidden fields sit OUTSIDE it, joined via
+  `form="variant-fill-form"`, so no morph resets them. Leaving with unsaved
+  changes warns (beforeunload; baseline = form state at the first touch,
+  re-based on every save and export submit). **Export semantics**: the four
+  web export paths pass `draftVersionId` to `RecordExportVersion`; a draft of
+  the subject is PROMOTED (becomes the export's version, name/pin kept) —
+  or, when an exported version with the same hash exists, merged into it
+  (`absorbCuration`: name if it has none, pin) and deleted. Export dedup
+  (`findDuplicate`) never matches drafts, and the listing queries
+  (`latestFor*`, "naposledy exportováno") exclude them. Drafts count toward
+  the 100 unpinned cap. Badge "Rozpracováno" in the dropdown and on the
+  history page; the banner words a loaded draft differently.
 - **Re-loading** (`?version=<id>` on both fill pages; invalid/foreign/pruned
   ids silently ignored): `Services/Template/ExportVersionSeeder` is LENIENT
   where the render resolvers 400 — deleted inputs drop, a rich envelope on a

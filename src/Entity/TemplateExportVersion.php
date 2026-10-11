@@ -39,6 +39,14 @@ use WBoost\Web\Value\ExportFillValues;
  * creating a new one — the history stays a list of DISTINCT fills, freshest
  * first.
  *
+ * A version can also be a DRAFT ("Rozpracováno"): the fill pages' "Uložit
+ * rozpracované" button stores the form as it is — no render, so it works even
+ * while a text overflows and the export is blocked. A draft is updated IN
+ * PLACE by further saves from the page that loaded / saved it, never takes
+ * part in export dedup, and becomes an ordinary export version when the user
+ * exports with it loaded ({@see promoteToExport()}). `lastExportedAt` of a
+ * draft is its last save, `exportCount` 0.
+ *
  * Users curate the list: a version can be NAMED (the name replaces the export
  * date wherever the version is listed) and PINNED (sorts first everywhere and
  * is exempt from history pruning — the way back to "that one fill" that would
@@ -58,6 +66,10 @@ class TemplateExportVersion
 
     #[Column(type: Types::INTEGER)]
     public int $exportCount = 1;
+
+    /** Saved work in progress, not (yet) exported — see the class docblock. */
+    #[Column(type: Types::BOOLEAN, options: ['default' => false])]
+    public bool $draft = false;
 
     /**
      * Optional user-given label ("Letní kampaň – finální"). Null = unnamed,
@@ -98,10 +110,10 @@ class TemplateExportVersion
         public ExportChannel $channel,
 
         #[Column(type: ExportFillValuesDoctrineType::NAME)]
-        readonly public ExportFillValues $fillValues,
+        public private(set) ExportFillValues $fillValues,
 
         #[Column(length: 64)]
-        readonly public string $fillValuesHash,
+        public private(set) string $fillValuesHash,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public DateTimeImmutable $createdAt,
@@ -119,6 +131,51 @@ class TemplateExportVersion
         $this->exportCount++;
         $this->exportedBy = $exportedBy;
         $this->channel = $channel;
+    }
+
+    /** A fresh draft: saved, never exported. */
+    public function markDraft(): void
+    {
+        $this->draft = true;
+        $this->exportCount = 0;
+    }
+
+    /** Another "Uložit rozpracované" on the same draft: overwrite it in place. */
+    public function saveDraft(ExportFillValues $fillValues, DateTimeImmutable $savedAt, null|User $savedBy): void
+    {
+        $this->fillValues = $fillValues;
+        $this->fillValuesHash = $fillValues->hash();
+        $this->lastExportedAt = $savedAt;
+        $this->exportedBy = $savedBy;
+    }
+
+    /**
+     * The draft was exported: it BECOMES that export's version (name and pin
+     * stay), carrying exactly the values the export rendered.
+     */
+    public function promoteToExport(
+        ExportFillValues $fillValues,
+        DateTimeImmutable $exportedAt,
+        null|User $exportedBy,
+        ExportChannel $channel,
+    ): void {
+        $this->saveDraft($fillValues, $exportedAt, $exportedBy);
+        $this->draft = false;
+        $this->exportCount = 1;
+        $this->channel = $channel;
+    }
+
+    /**
+     * A draft whose export matched THIS already-exported version merges into
+     * it: the draft's curation survives where this row has none.
+     */
+    public function absorbCuration(self $draft, DateTimeImmutable $now): void
+    {
+        $this->name ??= $draft->name;
+
+        if ($draft->isPinned()) {
+            $this->pin($now);
+        }
     }
 
     /**

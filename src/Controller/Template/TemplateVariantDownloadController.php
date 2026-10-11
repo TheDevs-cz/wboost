@@ -129,7 +129,7 @@ final class TemplateVariantDownloadController extends AbstractController
             $rawHiddenValues,
             $request->request->all('images'),
             $request->request->all('fontValues'),
-        ));
+        ), $request->request->getString('draftVersionId'));
 
         return $response;
     }

@@ -34,8 +34,9 @@ readonly final class GetExportVersions
     }
 
     /**
-     * The freshest version per template of one project — the listing cards'
-     * "naposledy exportováno" line. Keyed by template id (string).
+     * The freshest EXPORTED version per template of one project — the listing
+     * cards' "naposledy exportováno" line (a saved draft is not an export).
+     * Keyed by template id (string).
      *
      * @return array<string, array{versionId: string, variantId: null|string, groupId: null|string, lastExportedAt: DateTimeImmutable}>
      */
@@ -50,7 +51,7 @@ readonly final class GetExportVersions
               version.last_exported_at
             FROM template_export_version version
             JOIN template ON template.id = version.template_id
-            WHERE template.project_id = :projectId
+            WHERE template.project_id = :projectId AND NOT version.draft
             ORDER BY version.template_id, version.last_exported_at DESC
         SQL;
 
@@ -73,7 +74,7 @@ readonly final class GetExportVersions
     }
 
     /**
-     * The freshest version per VARIANT of one template — the variant listing's
+     * The freshest EXPORTED version per VARIANT of one template — the variant listing's
      * per-row "naposledy exportováno" link. Keyed by variant id (string).
      *
      * @return array<string, array{versionId: string, lastExportedAt: DateTimeImmutable}>
@@ -83,7 +84,7 @@ readonly final class GetExportVersions
         $sql = <<<SQL
             SELECT DISTINCT ON (variant_id) variant_id, id, last_exported_at
             FROM template_export_version
-            WHERE template_id = :templateId AND variant_id IS NOT NULL
+            WHERE template_id = :templateId AND variant_id IS NOT NULL AND NOT draft
             ORDER BY variant_id, last_exported_at DESC
         SQL;
 

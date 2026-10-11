@@ -21,6 +21,12 @@ readonly final class RecordTemplateExportVersion
         public null|UuidInterface $exportedByUserId,
         public ExportChannel $channel,
         public ExportFillValues $fillValues,
+        /**
+         * The draft the fill page had loaded / saved (raw, client-supplied):
+         * when it is a draft of this subject, the export PROMOTES it instead
+         * of adding a row of its own.
+         */
+        public null|string $draftVersionId = null,
     ) {
     }
 }

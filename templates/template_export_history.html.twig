@@ -78,6 +78,9 @@
                                     <td class="text-nowrap">
                                         {{ version.lastExportedAt|date('d.m.Y H:i') }}<br>
                                         <small class="text-muted">{{ version.exportedBy ? version.exportedBy.displayName : 'Neznámý uživatel' }}</small>
+                                        {% if version.draft %}
+                                            <span class="badge bg-warning-lighten text-warning" title="Uložená rozpracovaná práce — zatím neexportováno">Rozpracováno</span>
+                                        {% endif %}
                                         {% if version.channel.value != 'web' %}
                                             <span class="badge bg-secondary-lighten text-secondary">{{ version.channel.label }}</span>
                                         {% endif %}

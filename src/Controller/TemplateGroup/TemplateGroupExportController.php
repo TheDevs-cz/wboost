@@ -117,7 +117,7 @@ final class TemplateGroupExportController extends AbstractController
             $rawImages,
             $rawPlacements,
             $rawFontValues,
-        ));
+        ), $request->request->getString('draftVersionId'));
 
         return new Response($zipBytes, Response::HTTP_OK, [
             'Content-Type' => 'application/zip',

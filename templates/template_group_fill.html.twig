@@ -77,7 +77,8 @@
 
         <form method="post" action="{{ export_url }}" data-turbo="false"
               class="fill-form fill-highlight-on fill-captions-on"
-              data-controller="group-fill variant-fill-overlay"
+              data-controller="group-fill variant-fill-overlay fill-draft"
+              data-fill-draft-url-value="{{ path('template_group_fill_draft', {groupId: group.id}) }}"
               {# With the instant echo covering the gap, the settle render can
                  afford to be lazier than the echo-less 900ms. #}
               data-group-fill-debounce-value="{{ has_echo ? 1500 : 900 }}"
@@ -109,19 +110,31 @@
                     {% if is_granted('template_group_edit', group) %}
                         <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit design</a>
                     {% endif %}
+                    {# Saving work in progress never depends on the form being
+                       exportable — this button is NOT an exportButton target, so
+                       the overflow gate leaves it alone. #}
+                    <button type="button" class="btn btn-outline-primary rounded-pill" data-fill-draft-target="button" data-action="fill-draft#save" title="Uloží rozpracovanou práci do Historie exportů, i když ji zatím nejde exportovat (Ctrl/⌘+S)">
+                        <i class="mdi mdi-content-save-outline"></i> Uložit rozpracované
+                    </button>
                     <button type="submit" class="btn btn-primary rounded-pill" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
                         <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
                     </button>
                 </div>
             </div>
 
-            {% if loaded_version %}
-                {{ include('_export_history_banner.html.twig', {
-                    loaded_version: loaded_version,
-                    clear_url: path('template_group_fill', {'groupId': group.id}),
-                    redirect_url: app.request.requestUri,
-                }) }}
-            {% endif %}
+            {# The page's draft: the loaded version (the server only ever updates
+               it when it IS a draft of this group) — "Uložit rozpracované"
+               overwrites it, an export promotes it. #}
+            <input type="hidden" name="draftVersionId" value="{{ loaded_version ? loaded_version.id : '' }}" data-fill-draft-target="versionField">
+            <input type="hidden" name="_fill_draft_token" value="{{ csrf_token('template_fill_draft') }}">
+
+            {# Always rendered (an empty placeholder when nothing is loaded): a
+               draft save makes the draft the loaded version and replaces it. #}
+            {{ include('_export_history_banner.html.twig', {
+                loaded_version: loaded_version,
+                clear_url: path('template_group_fill', {'groupId': group.id}),
+                redirect_url: app.request.requestUri,
+            }) }}
 
             {# ---- Toolbar: the overlay switches + the panel button ----------- #}
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">

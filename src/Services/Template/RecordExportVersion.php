@@ -38,8 +38,9 @@ final readonly class RecordExportVersion
         TemplateVariant $variant,
         ExportChannel $channel,
         ExportFillValues $fillValues,
+        null|string $draftVersionId = null,
     ): void {
-        $this->record($variant->id, null, $channel, $fillValues, $variant->id->toString());
+        $this->record($variant->id, null, $channel, $fillValues, $variant->id->toString(), $draftVersionId);
     }
 
     /**
@@ -51,8 +52,9 @@ final readonly class RecordExportVersion
         TemplateGroup $group,
         ExportChannel $channel,
         ExportFillValues $fillValues,
+        null|string $draftVersionId = null,
     ): void {
-        $this->record(null, $group->id, $channel, $fillValues, $group->id->toString());
+        $this->record(null, $group->id, $channel, $fillValues, $group->id->toString(), $draftVersionId);
     }
 
     private function record(
@@ -61,6 +63,7 @@ final readonly class RecordExportVersion
         ExportChannel $channel,
         ExportFillValues $fillValues,
         string $subjectId,
+        null|string $draftVersionId,
     ): void {
         try {
             $currentUser = $this->security->getUser();
@@ -71,6 +74,7 @@ final readonly class RecordExportVersion
                 $currentUser instanceof User ? $currentUser->id : null,
                 $channel,
                 $fillValues,
+                $draftVersionId !== '' ? $draftVersionId : null,
             ));
         } catch (Throwable $e) {
             $this->logger->error('Failed to record template export version.', [

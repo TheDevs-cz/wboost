@@ -51,19 +51,11 @@ final readonly class ExportVersionTurboStream
             return null;
         }
 
-        if ($version->variant !== null) {
-            $routeName = 'template_variant_export';
-            $routeParams = ['variantId' => $version->variant->id];
-            $historyUrl = $this->urlGenerator->generate('template_variant_export_history', $routeParams);
-            $history = $this->getExportVersions->forVariant($version->variant->id);
-        } elseif ($version->group !== null) {
-            $routeName = 'template_group_fill';
-            $routeParams = ['groupId' => $version->group->id];
-            $historyUrl = $this->urlGenerator->generate('template_group_export_history', $routeParams);
-            $history = $this->getExportVersions->forGroup($version->group->id);
-        } else {
+        $surface = $this->surface($version);
+        if ($surface === null) {
             return null;
         }
+        [$routeName, $routeParams, $historyUrl, $history] = $surface;
 
         // The re-rendered controls return to the same page the ones that
         // submitted did; the same local-path rule as the redirect.
@@ -82,6 +74,58 @@ final readonly class ExportVersionTurboStream
             'history_url' => $historyUrl,
             'redirect_url' => $redirectUrl,
         ]));
+    }
+
+    /**
+     * Answer to "Uložit rozpracované" (always a fetch from the fill page): the
+     * saved draft becomes the page's LOADED version — the whole dropdown
+     * (shell included: the first save of a surface creates its history), the
+     * banner and the anchors re-render around it, every control returning to
+     * `?version=<draft>`, the URL the page itself switches to.
+     */
+    public function draftSaved(TemplateExportVersion $draft): Response
+    {
+        $surface = $this->surface($draft) ?? throw new \LogicException('A draft always belongs to a variant or a group.');
+        [$routeName, $routeParams, $historyUrl, $history] = $surface;
+
+        return new TurboStreamResponse($this->twig->render('_fill_draft_saved.stream.html.twig', [
+            'history' => $history,
+            'loaded_version' => $draft,
+            'route_name' => $routeName,
+            'route_params' => $routeParams,
+            'history_url' => $historyUrl,
+            'redirect_url' => $this->urlGenerator->generate($routeName, $routeParams + ['version' => $draft->id->toString()]),
+        ]));
+    }
+
+    /**
+     * @return null|array{string, array<string, mixed>, string, \WBoost\Web\Value\ExportHistory}
+     */
+    private function surface(TemplateExportVersion $version): null|array
+    {
+        if ($version->variant !== null) {
+            $routeParams = ['variantId' => $version->variant->id];
+
+            return [
+                'template_variant_export',
+                $routeParams,
+                $this->urlGenerator->generate('template_variant_export_history', $routeParams),
+                $this->getExportVersions->forVariant($version->variant->id),
+            ];
+        }
+
+        if ($version->group !== null) {
+            $routeParams = ['groupId' => $version->group->id];
+
+            return [
+                'template_group_fill',
+                $routeParams,
+                $this->urlGenerator->generate('template_group_export_history', $routeParams),
+                $this->getExportVersions->forGroup($version->group->id),
+            ];
+        }
+
+        return null;
     }
 
     /**
