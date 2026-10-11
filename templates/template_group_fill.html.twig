@@ -257,24 +257,37 @@
                component for the floating-vs-docked contract; here the image
                cards additionally carry the per-dimension placement rows. #}
             <div class="fill-panel-backdrop" data-action="click->variant-fill-overlay#closePanel"></div>
-            <div class="fill-popovers" data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title">
-                <div class="fill-popovers__header">
-                    <h5 class="mb-0" id="fill-panel-title"><i class="mdi mdi-form-textbox me-1" aria-hidden="true"></i>Všechna pole</h5>
-                    <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closePanel"></button>
-                </div>
+            {% set can_arrange_fields = group_template is not null and is_granted('ROLE_ADMIN') %}
+            <div class="fill-popovers" data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title"
+                 {% if can_arrange_fields %}data-controller="fill-field-order" data-fill-field-order-url-value="{{ path('template_fill_field_order', {templateId: group_template.id}) }}"{% endif %}>
+                {{ include('_fill_panel_header.html.twig', { arrangeable: can_arrange_fields }) }}
 
+                {# Text and image fields in ONE sequence, in the template's
+                   admin-arranged order (Template::$fillFieldOrder — the group is
+                   1:1 with its template); admins drag them by the handle. #}
+                {% set panel_fields = [] %}
                 {% for ph in text_placeholders %}
-                    {{ include('_fill_text_popover.html.twig', { ph: ph, richToolbar: rich_toolbar }) }}
+                    {% set panel_fields = panel_fields|merge([{inputId: ph.inputId, kind: 'text', ph: ph}]) %}
+                {% endfor %}
+                {% for slot in image_inputs %}
+                    {% set panel_fields = panel_fields|merge([{inputId: slot.input.inputId, kind: 'image', slot: slot, index: loop.index}]) %}
                 {% endfor %}
 
-                {% for slot in image_inputs %}
+                {% for field in panel_fields|arrange_fill_fields(fill_field_order) %}
+                  {% if field.kind == 'text' %}
+                    {{ include('_fill_text_popover.html.twig', { ph: field.ph, richToolbar: rich_toolbar, arrangeable: can_arrange_fields }) }}
+                  {% else %}
+                    {% set slot = field.slot %}
                     {% set input = slot.input %}
                     {% set seededImage = seed.images[input.inputId]|default(null) %}
                     {% set hidden = seed.imageHidden[input.inputId] is defined %}
                     <div class="fill-popover fill-popover--image card" data-inputid="{{ input.inputId }}">
                         <div class="card-body p-2">
                             <div class="d-flex justify-content-between align-items-start mb-1">
-                                <span class="small fw-bold text-truncate">{{ input.name ?: 'Obrázek ' ~ loop.index }}</span>
+                                <span class="d-inline-flex align-items-center" style="min-width: 0;">
+                                    {% if can_arrange_fields %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
+                                    <span class="small fw-bold text-truncate">{{ input.name ?: 'Obrázek ' ~ field.index }}</span>
+                                </span>
                                 {% if input.hidable %}
                                     <button type="button"
                                         class="fill-popover__eye{{ hidden ? ' is-active' : '' }}"
@@ -384,6 +397,7 @@
                             {% endif %}
                         </div>
                     </div>
+                  {% endif %}
                 {% endfor %}
 
                 {% if text_placeholders|length == 0 and image_inputs|length == 0 %}

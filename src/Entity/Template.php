@@ -37,6 +37,21 @@ class Template
     #[JoinColumn(onDelete: "SET NULL")]
     public null|TemplateGroup $group = null;
 
+    /**
+     * The order the fill pages' "Všechna pole" panel lists the fields in, as
+     * inputIds (text and image mixed) — arranged by whoever may edit the
+     * template, shared by everyone who fills it. A grouped template and its
+     * group are 1:1, so the group fill page reads it from here too. Ids not
+     * listed (added after the last arrangement) follow in their natural
+     * order; ids no longer present are ignored — see
+     * {@see \WBoost\Web\Services\Template\FillFieldOrder}.
+     *
+     * @var list<string>
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '[]'])]
+    public array $fillFieldOrder = [];
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -97,6 +112,14 @@ class Template
     public function sort(int $position): void
     {
         $this->position = $position;
+    }
+
+    /**
+     * @param list<string> $inputIds
+     */
+    public function arrangeFillFields(array $inputIds): void
+    {
+        $this->fillFieldOrder = $inputIds;
     }
 
     public function assignToGroup(TemplateGroup $group): void

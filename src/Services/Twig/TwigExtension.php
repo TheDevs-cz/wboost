@@ -11,6 +11,7 @@ use WBoost\Web\Query\GetProjectAvatars;
 use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Services\FormatFileSize;
 use WBoost\Web\Services\SvgColorsMapper;
+use WBoost\Web\Services\Template\FillFieldOrder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\ManualPage;
 
@@ -22,6 +23,7 @@ final class TwigExtension extends AbstractExtension
         readonly private RegistrationRequestRepository $registrationRequestRepository,
         readonly private FormatFileSize $formatFileSize,
         readonly private GetProjectAvatars $getProjectAvatars,
+        readonly private FillFieldOrder $fillFieldOrder,
     ) {
     }
 
@@ -50,6 +52,20 @@ final class TwigExtension extends AbstractExtension
     {
         return [
             new TwigFilter('file_size', $this->formatFileSize->__invoke(...)),
+            // The fill panel's fields (hashes with an `inputId`) in the
+            // template's admin-arranged order.
+            new TwigFilter('arrange_fill_fields', $this->arrangeFillFields(...)),
         ];
+    }
+
+    /**
+     * @param list<array{inputId: string}> $fields
+     * @param list<string> $order
+     *
+     * @return list<array{inputId: string}>
+     */
+    private function arrangeFillFields(array $fields, array $order): array
+    {
+        return $this->fillFieldOrder->apply($fields, static fn (array $field): string => $field['inputId'], $order);
     }
 }

@@ -11,6 +11,7 @@
     Parameters:
     - ph: one FillTextPlaceholders row
     - richToolbar: the WYSIWYG toolbar payload (null = no rich input on the page)
+    - arrangeable: (optional) show the admin's panel reorder handle
 
     `.fill-popover__chrome` marks the floating-only bits (drag grip, Uložit,
     close); the eye is the panel-only hide control (the box has its own).
@@ -20,6 +21,7 @@
         <div class="d-flex justify-content-between align-items-start mb-1">
             <span class="d-inline-flex align-items-center" style="min-width: 0;">
                 <i class="mdi mdi-drag fill-popover__drag fill-popover__chrome me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                {% if arrangeable|default(false) %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
                 <label id="fill-text-label-{{ ph.inputId }}" class="small fw-bold mb-0 text-truncate" for="fill-text-{{ ph.inputId }}">{{ ph.name ?: 'Text' }}</label>
             </span>
             <div class="d-flex align-items-center gap-1">

@@ -1504,6 +1504,33 @@ button.fill-layer-row__main:focus-visible {
     display: none !important;
 }
 
+/* Admin reorder handle of a "Všechna pole" field (fill_field_order_controller):
+   only meaningful in the docked panel — the floating popovers sit at their
+   boxes, so their order is invisible. */
+.fill-popover__reorder {
+    display: none;
+    flex: 0 0 auto;
+    cursor: grab;
+    opacity: 0.45;
+    touch-action: none;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.fill-popover__reorder:hover {
+    opacity: 0.9;
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popover__reorder {
+    display: inline-block;
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popover.fill-popover--reorder-ghost {
+    opacity: 0.4;
+    outline: 2px dashed var(--bs-primary, #727cf5);
+    outline-offset: -2px;
+}
+
 /* The popover's own hide eye — the panel row's hide control (a box has its
    own eye next to the pencil, so the floating popover hides it). */
 .fill-popover__eye {

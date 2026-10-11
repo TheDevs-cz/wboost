@@ -1,0 +1,19 @@
+{#
+    The "Všechna pole" panel header, shared by the single-variant and group
+    fill pages. `arrangeable` (admins only) adds the hint that the fields can
+    be dragged into a new order — saved for everyone filling the template —
+    and the fill-field-order controller's save status.
+#}
+<div class="fill-popovers__header">
+    <div style="min-width: 0;">
+        <h5 class="mb-0" id="fill-panel-title"><i class="mdi mdi-form-textbox me-1" aria-hidden="true"></i>Všechna pole</h5>
+        {% if arrangeable|default(false) %}
+            <p class="small text-muted mb-0 mt-1">
+                <i class="mdi mdi-drag-vertical" aria-hidden="true"></i>
+                Pořadí polí změníte přetažením — uloží se pro všechny, kdo šablonu vyplňují.
+                <span class="fill-field-order__status" data-fill-field-order-target="status" aria-live="polite"></span>
+            </p>
+        {% endif %}
+    </div>
+    <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closePanel"></button>
+</div>

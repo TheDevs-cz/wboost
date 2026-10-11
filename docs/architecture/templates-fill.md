@@ -53,6 +53,18 @@ unifies over the member dimensions first-wins by inputId). Contracts:
   pickers (`.fill-modal` 1300, Bootstrap 1055). The single page's card thumb
   follows `variant-image-fill:picked` ({inputId, url}, also fired on a
   version restore).
+- **Panel field order is admin-arranged (2026-10-11).** Both panels render
+  text popovers and image cards as ONE sequence (`panel_fields` /
+  `panelFields` → `arrange_fill_fields` Twig filter → `FillFieldOrder`) in the
+  order stored on `Template::$fillFieldOrder` (JSONB list of inputIds; the
+  group reads its 1:1 template via `GetTemplateGroupMembers::template()`).
+  Unlisted ids (fields added later) follow in natural order, stale ids are
+  ignored — nothing is ever dropped. ROLE_ADMIN viewers get
+  `fill_field_order_controller.js` on the `.fill-popovers` container (SortableJS,
+  `forceFallback` + `fallbackOnBody` — the panel is `transform`ed) and a
+  `[data-fill-field-order-handle]` per card (panel mode only); a drop POSTs
+  `{order}` to `template_fill_field_order` (`ArrangeTemplateFillFields`).
+  Nothing may look popovers up by DOM position — only by `data-inputid`.
 - **Text semantics are unified to the single page's**: the group fields
   start pre-filled with the sample text and an EMPTY field blanks the text
   in every dimension (`GroupFillRenderer` no longer drops empty strings,

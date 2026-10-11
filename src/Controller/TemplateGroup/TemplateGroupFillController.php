@@ -106,9 +106,15 @@ final class TemplateGroupFillController extends AbstractController
             )
             : ['texts' => [], 'hidden' => [], 'fonts' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
 
+        // The group is 1:1 with its template, which stores the admin-arranged
+        // order of the "Všechna pole" panel.
+        $groupTemplate = $this->members->template($group->id);
+
         return $this->render('template_group_fill.html.twig', [
             'project' => $group->project,
             'group' => $group,
+            'group_template' => $groupTemplate,
+            'fill_field_order' => $groupTemplate->fillFieldOrder ?? [],
             'menu_item' => 'templates',
             'variants' => $variants,
             // The single-variant fill page's popover model, unified over the
