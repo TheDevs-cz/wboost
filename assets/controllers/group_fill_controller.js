@@ -57,7 +57,7 @@ const MAX_CONCURRENT_RENDERS = 2;
  * ## Image placement
  *
  * A picture in an adjustable slot is placed by DRAGGING IT IN THE PREVIEW (plus
- * wheel to zoom, arrows to nudge, and the panel's range inputs for precision).
+ * wheel to zoom, arrows to nudge, and the strip's range inputs for precision).
  * Because a server render takes seconds, the drag is shown by a "ghost": a
  * clipped, CSS-transformed copy of the picture drawn over the preview with the
  * exact math the server uses ({@see image_placement.js}), so the ghost and the
@@ -71,15 +71,14 @@ const MAX_CONCURRENT_RENDERS = 2;
  * `imagePlacements[<variantId>][<inputId>]` from the first render, and only
  * the dimension you touched re-renders.
  *
- * Two surfaces edit the same values: dragging the picture in a preview, and a
- * row per dimension under that picture in the left panel (zoom / rotation /
- * centre). Pans are stored as a FRACTION of the frame, the one form that
+ * Two surfaces edit the same values: dragging the picture in a preview, and
+ * the placement strip under that preview (zoom / rotation / centre per slot). Pans are stored as a FRACTION of the frame, the one form that
  * survives a preview being displayed at an arbitrary size.
  */
 export default class extends Controller {
     static targets = [
         'preview', 'imageThumb', 'imageValue', 'imageOptions', 'exportButton',
-        'placementLayer', 'placementControls', 'overrideField',
+        'placementLayer', 'placementControls', 'placementEmpty', 'overrideField',
         'variantZoomRange', 'variantZoomLabel', 'variantRotationRange', 'variantRotationLabel',
         'echoBase', 'echoCanvas',
     ];
@@ -1031,9 +1030,9 @@ export default class extends Controller {
 
     // --- Per-dimension controls -------------------------------------------
     //
-    // One row per dimension under each picture in the left panel. Everything
-    // about how a picture SITS is per dimension — only the picture itself is
-    // picked once for the whole group.
+    // The strip under each dimension's preview, one row per adjustable slot.
+    // Everything about how a picture SITS is per dimension — only the picture
+    // itself is picked once for the whole group.
 
     variantZoomChanged(event) {
         this._mutateVariantPlacement(event.target, (placement) => {
@@ -1062,13 +1061,17 @@ export default class extends Controller {
     }
 
     /**
-     * Keep the chrome truthful: a slot's placement rows only make sense once a
-     * picture is chosen, and every range mirrors what its dimension currently
-     * renders with.
+     * Keep the chrome truthful: a slot's sliders only make sense once a
+     * picture is chosen (the designed one cannot be placed) — until then its
+     * row offers the picker instead — and every range mirrors what its
+     * dimension currently renders with.
      */
     _syncPlacementControls() {
-        this.placementControlsTargets.forEach((panel) => {
-            panel.classList.toggle('d-none', !this.pictures[panel.dataset.inputId]);
+        this.placementControlsTargets.forEach((element) => {
+            element.classList.toggle('d-none', !this.pictures[element.dataset.inputId]);
+        });
+        this.placementEmptyTargets.forEach((element) => {
+            element.classList.toggle('d-none', !!this.pictures[element.dataset.inputId]);
         });
 
         const mirror = (ranges, labels, key, format) => {

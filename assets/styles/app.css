@@ -3609,15 +3609,60 @@ button.fill-layer-row__main:focus-visible {
     opacity: 1;
 }
 
-.group-fill-placement-controls {
-    padding: 0.5rem 0.6rem;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 0.3rem;
+/* Placement strip under each dimension's preview: one row per adjustable
+   picture — the picker until one is chosen, then zoom / rotation sliders. */
+.group-fill-placement-strip {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
     background: #fbfbfe;
+    border-radius: 0 0 var(--ct-card-border-radius, 0.25rem) var(--ct-card-border-radius, 0.25rem);
 }
 
-.group-fill-placement-controls .form-range {
-    margin-bottom: 0.35rem;
+.group-fill-placement-row {
+    padding: 0.5rem 0.75rem;
+}
+
+.group-fill-placement-row + .group-fill-placement-row {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.group-fill-placement-row__name {
+    min-width: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.group-fill-placement-row__empty {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin-top: 0.35rem;
+}
+
+.group-fill-placement-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.group-fill-placement-control label {
+    flex: 0 0 auto;
+    margin: 0;
+    color: var(--ct-secondary-color, #8a969c);
+}
+
+.group-fill-placement-control .form-range {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.group-fill-placement-control__value {
+    flex: 0 0 3.25rem;
+    text-align: right;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ct-secondary-color, #8a969c);
 }
 
 /* Dimension cards on the group fill page. The theme's 0.75rem card margin is
@@ -3625,14 +3670,6 @@ button.fill-layer-row__main:focus-visible {
    cards read as one column of stuff. */
 .group-fill-preview-card {
     margin-bottom: 1.5rem;
-}
-
-/* One block per dimension inside a slot's placement panel, separated so
-   several dimensions don't read as one long strip of sliders. */
-.group-fill-variant-slot + .group-fill-variant-slot {
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /* The dimension grid beside the "Vrstvy" panel (the .fill-body flex row). */

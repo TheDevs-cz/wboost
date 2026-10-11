@@ -46,13 +46,24 @@ unifies over the member dimensions first-wins by inputId). Contracts:
 - **"Všechna pole" panel** (`togglePanel` → `fill-panel-open` on the form):
   the `.fill-popovers` container (target `panel`) docks into a centred modal
   listing every text popover + one `.fill-popover--image` card per slot
-  (thumb + picker button + eye; the group adds its per-dimension placement
-  rows) — the SAME editor instances, no second copy of any field, floating
+  (thumb + picker button + eye) — the SAME editor instances, no second copy of any field, floating
   chrome (`.fill-popover__chrome`: grip / Uložit / ×) hidden, the panel-only
   `.fill-popover__eye` shown. z-order 1041: above the page, below the
   pickers (`.fill-modal` 1300, Bootstrap 1055). The single page's card thumb
   follows `variant-image-fill:picked` ({inputId, url}, also fired on a
   version restore).
+- **Group image placement lives UNDER EACH PREVIEW (2026-10-11)**, not in
+  the panel: every dimension card ends with a `.group-fill-placement-strip`,
+  one row per adjustable slot whose frame exists in THAT dimension — the
+  picker button (`placementEmpty`) until a picture is chosen, then the zoom /
+  rotation ranges + "Vycentrovat" (`placementControls`), toggled by
+  `_syncPlacementControls`. The designed picture is never placeable
+  (`ResolveImageOverrides` 400s a transform without `imageId`). The
+  `imagePlacements[<variantId>][<inputId>][…]` hidden fields sit with the
+  text mirrors at the top of the form, one per variant × adjustable slot ×
+  allowed field. History: the rows were on the cards (c175859), moved beside
+  the picture in the old side panel (5de549a), and the 2026-09-03 unification
+  buried that panel behind "Všechna pole" — users stopped finding them.
 - **Panel field order is admin-arranged (2026-10-11).** Both panels render
   text popovers and image cards as ONE sequence (`panel_fields` /
   `panelFields` → `arrange_fill_fields` Twig filter → `FillFieldOrder`) in the
