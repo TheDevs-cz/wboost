@@ -3609,34 +3609,40 @@ button.fill-layer-row__main:focus-visible {
     opacity: 1;
 }
 
-/* Placement strip under each dimension's preview: one row per adjustable
-   picture — the picker until one is chosen, then zoom / rotation sliders. */
-.group-fill-placement-strip {
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
-    background: #fbfbfe;
-    border-radius: 0 0 var(--ct-card-border-radius, 0.25rem) var(--ct-card-border-radius, 0.25rem);
+.group-fill-ghost.is-selected {
+    border: 2px solid rgba(114, 124, 245, 1);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);
 }
 
-.group-fill-placement-row {
-    padding: 0.5rem 0.75rem;
+/* Placement toolbar of the picture selected in a preview: floats over the
+   dimension's fill surface, anchored to the picture's frame by the
+   group-fill controller (top/left). Steps aside while the picture is dragged. */
+.group-fill-placement-toolbar {
+    position: absolute;
+    z-index: 30;
+    width: min(280px, calc(100% - 16px));
+    padding: 0.45rem 0.6rem 0.5rem;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 0.4rem;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
 }
 
-.group-fill-placement-row + .group-fill-placement-row {
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
+.group-fill-placement-toolbar.is-dragging {
+    visibility: hidden;
 }
 
-.group-fill-placement-row__name {
+.group-fill-placement-toolbar__name {
     min-width: 0;
     font-size: 0.75rem;
     font-weight: 600;
 }
 
-.group-fill-placement-row__empty {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.25rem 0.5rem;
-    margin-top: 0.35rem;
+.group-fill-placement-toolbar__close {
+    width: 0.6rem;
+    height: 0.6rem;
+    padding: 0.25rem;
+    background-size: 0.6rem;
 }
 
 .group-fill-placement-control {

@@ -52,18 +52,24 @@ unifies over the member dimensions first-wins by inputId). Contracts:
   pickers (`.fill-modal` 1300, Bootstrap 1055). The single page's card thumb
   follows `variant-image-fill:picked` ({inputId, url}, also fired on a
   version restore).
-- **Group image placement lives UNDER EACH PREVIEW (2026-10-11)**, not in
-  the panel: every dimension card ends with a `.group-fill-placement-strip`,
-  one row per adjustable slot whose frame exists in THAT dimension — the
-  picker button (`placementEmpty`) until a picture is chosen, then the zoom /
-  rotation ranges + "Vycentrovat" (`placementControls`), toggled by
-  `_syncPlacementControls`. The designed picture is never placeable
-  (`ResolveImageOverrides` 400s a transform without `imageId`). The
-  `imagePlacements[<variantId>][<inputId>][…]` hidden fields sit with the
-  text mirrors at the top of the form, one per variant × adjustable slot ×
-  allowed field. History: the rows were on the cards (c175859), moved beside
-  the picture in the old side panel (5de549a), and the 2026-09-03 unification
-  buried that panel behind "Všechna pole" — users stopped finding them.
+- **Group image placement opens FROM THE PICTURE (2026-10-11)**, not from
+  the panel: each dimension's `.fill-surface` carries one hidden
+  `.group-fill-placement-toolbar` (target `placementToolbar`) per adjustable
+  slot whose frame exists in THAT dimension — zoom / rotation ranges (only
+  what the slot allows), "Vycentrovat", ×. Selecting the picture's stand-in
+  (`.group-fill-ghost`, pointerdown or focus) opens that one toolbar,
+  anchored under the frame (flips above, last resort inside the bottom
+  edge) by `_positionToolbars`, which every `renderGhosts` re-runs; a press
+  outside ghost + toolbar, Escape or × closes it, and it hides while the
+  picture is dragged. Stand-ins exist only for PICKED pictures, so the
+  designed picture never gets one (`ResolveImageOverrides` 400s a transform
+  without `imageId`). The `imagePlacements[<variantId>][<inputId>][…]`
+  hidden fields sit with the text mirrors at the top of the form, one per
+  variant × adjustable slot × allowed field. History: rows on the cards
+  (c175859) → beside the picture in the old side panel (5de549a) → buried
+  behind "Všechna pole" by the 2026-09-03 unification (users stopped finding
+  them) → an always-visible strip under each preview (260f9cd, rejected:
+  a pick button there made no sense) → this toolbar.
 - **Panel field order is admin-arranged (2026-10-11).** Both panels render
   text popovers and image cards as ONE sequence (`panel_fields` /
   `panelFields` → `arrange_fill_fields` Twig filter → `FillFieldOrder`) in the

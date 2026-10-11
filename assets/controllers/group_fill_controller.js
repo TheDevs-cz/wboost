@@ -57,7 +57,7 @@ const MAX_CONCURRENT_RENDERS = 2;
  * ## Image placement
  *
  * A picture in an adjustable slot is placed by DRAGGING IT IN THE PREVIEW (plus
- * wheel to zoom, arrows to nudge, and the strip's range inputs for precision).
+ * wheel to zoom, arrows to nudge, and the toolbar's range inputs for precision).
  * Because a server render takes seconds, the drag is shown by a "ghost": a
  * clipped, CSS-transformed copy of the picture drawn over the preview with the
  * exact math the server uses ({@see image_placement.js}), so the ghost and the
@@ -72,13 +72,15 @@ const MAX_CONCURRENT_RENDERS = 2;
  * the dimension you touched re-renders.
  *
  * Two surfaces edit the same values: dragging the picture in a preview, and
- * the placement strip under that preview (zoom / rotation / centre per slot). Pans are stored as a FRACTION of the frame, the one form that
- * survives a preview being displayed at an arbitrary size.
+ * the placement toolbar that clicking (or focusing) the picture in that
+ * preview opens next to it (zoom / rotation / centre). Pans are stored as a
+ * FRACTION of the frame, the one form that survives a preview being displayed
+ * at an arbitrary size.
  */
 export default class extends Controller {
     static targets = [
         'preview', 'imageThumb', 'imageValue', 'imageOptions', 'exportButton',
-        'placementLayer', 'placementControls', 'placementEmpty', 'overrideField',
+        'placementLayer', 'placementToolbar', 'overrideField',
         'variantZoomRange', 'variantZoomLabel', 'variantRotationRange', 'variantRotationLabel',
         'echoBase', 'echoCanvas',
     ];
@@ -139,6 +141,8 @@ export default class extends Controller {
         // in 9:16, so every dimension owns its own from the first render.
         this.placement = {};
         this.dragState = null;
+        // The picture whose placement toolbar is open: {variantId, inputId}.
+        this._selected = null;
     }
 
     connect() {
@@ -167,6 +171,23 @@ export default class extends Controller {
         this._onPageShow = (event) => event.persisted && this.exportFinished();
         window.addEventListener('pageshow', this._onPageShow);
 
+        // The placement toolbar closes on a press anywhere but the picture or
+        // the toolbar itself, on Escape, and follows the frames on resize.
+        this._onOutsidePress = (event) => {
+            if (this._selected && !event.target.closest?.('.group-fill-ghost, .group-fill-placement-toolbar')) {
+                this.deselectPlacement();
+            }
+        };
+        this._onEscape = (event) => {
+            if (event.key === 'Escape' && this._selected) {
+                this.deselectPlacement();
+            }
+        };
+        this._onResize = () => this.renderGhosts();
+        document.addEventListener('pointerdown', this._onOutsidePress, true);
+        document.addEventListener('keydown', this._onEscape, true);
+        window.addEventListener('resize', this._onResize);
+
         // The <img> the server put in each frame is the stored ADMIN thumbnail
         // (`preview_image_path`) — whatever the designer's canvas rasterized to
         // at some past save, complete with that save's stand-in text and
@@ -193,6 +214,10 @@ export default class extends Controller {
     disconnect() {
         this._connectionToken = null;
         window.removeEventListener('pageshow', this._onPageShow);
+        document.removeEventListener('pointerdown', this._onOutsidePress, true);
+        document.removeEventListener('keydown', this._onEscape, true);
+        window.removeEventListener('resize', this._onResize);
+        this._selected = null;
         clearTimeout(this.refreshTimer);
         clearTimeout(this.exportTimer);
         this._renderQueue.clear();
@@ -852,6 +877,8 @@ export default class extends Controller {
                 Object.assign(img.style, ghostStyle(frame, picture.natural, this._effectivePlacement(variantId, slot.inputId), k));
             });
         });
+
+        this._positionToolbars();
     }
 
     _createGhost(layer, slot, variantId) {
@@ -861,14 +888,22 @@ export default class extends Controller {
         box.tabIndex = 0;
         box.setAttribute('role', 'application');
         box.setAttribute('aria-label', `${slot.name || 'Obrázek'} — umístění (táhněte myší, šipky posunou o 1 px, kolečko přiblíží)`);
-        box.title = slot.allowMove ? 'Táhněte obrázkem, šipky posunou o 1 px' : 'Kolečkem přiblížíte';
+        box.title = slot.allowMove
+            ? 'Klikněte pro úpravu velikosti, táhněte pro posun (šipky o 1 px)'
+            : 'Klikněte pro úpravu obrázku';
 
         const img = document.createElement('img');
         img.alt = '';
         img.draggable = false;
         box.appendChild(img);
 
-        box.addEventListener('pointerdown', (event) => this._startDrag(event, variantId, slot));
+        box.addEventListener('pointerdown', (event) => {
+            if (event.button === 0) {
+                this._selectPlacement(variantId, slot.inputId);
+            }
+            this._startDrag(event, variantId, slot);
+        });
+        box.addEventListener('focus', () => this._selectPlacement(variantId, slot.inputId));
         box.addEventListener('wheel', (event) => this._wheelZoom(event, variantId, slot), { passive: false });
         box.addEventListener('keydown', (event) => this._nudge(event, variantId, slot));
 
@@ -946,6 +981,8 @@ export default class extends Controller {
             baseY: start.offsetYRatio ?? 0,
         };
 
+        this._positionToolbars();
+
         this._boundDragMove ??= (moveEvent) => this._dragMove(moveEvent);
         this._boundDragEnd ??= () => this._endDrag();
         window.addEventListener('pointermove', this._boundDragMove);
@@ -980,6 +1017,10 @@ export default class extends Controller {
         const drag = this.dragState;
         drag?.element?.releasePointerCapture?.(drag.pointerId);
         this.dragState = null;
+        // The toolbar steps aside while dragging — bring it back.
+        if (drag) {
+            this._positionToolbars();
+        }
     }
 
     _wheelZoom(event, variantId, slot) {
@@ -1030,9 +1071,91 @@ export default class extends Controller {
 
     // --- Per-dimension controls -------------------------------------------
     //
-    // The strip under each dimension's preview, one row per adjustable slot.
-    // Everything about how a picture SITS is per dimension — only the picture
-    // itself is picked once for the whole group.
+    // One toolbar per picked picture per dimension, opened by selecting the
+    // picture in that preview. Everything about how a picture SITS is per
+    // dimension — only the picture itself is picked once for the whole group.
+
+    _selectPlacement(variantId, inputId) {
+        if (this._selected?.variantId === variantId && this._selected?.inputId === inputId) {
+            return;
+        }
+
+        this._selected = { variantId, inputId };
+        this._positionToolbars();
+    }
+
+    deselectPlacement() {
+        this._selected = null;
+        this._positionToolbars();
+    }
+
+    /**
+     * Show the selected picture's toolbar (and only it), anchored under its
+     * frame — above when there is no room below, inside the preview's bottom
+     * edge as the last resort — and mark its stand-in as selected. A selection
+     * whose stand-in is gone (picture cleared) closes itself.
+     */
+    _positionToolbars() {
+        const selected = this._selected;
+        let selectedGhost = null;
+
+        this.placementLayerTargets.forEach((layer) => {
+            layer.querySelectorAll('.group-fill-ghost').forEach((ghost) => {
+                const isSelected = selected !== null
+                    && layer.dataset.variantId === selected.variantId
+                    && ghost.dataset.ghost === selected.inputId;
+                ghost.classList.toggle('is-selected', isSelected);
+                if (isSelected) {
+                    selectedGhost = ghost;
+                }
+            });
+        });
+
+        if (selected && !selectedGhost) {
+            this._selected = null;
+        }
+
+        this.placementToolbarTargets.forEach((toolbar) => {
+            const open = selectedGhost !== null
+                && toolbar.dataset.variantId === selected.variantId
+                && toolbar.dataset.inputId === selected.inputId;
+            toolbar.hidden = !open;
+
+            if (!open) {
+                return;
+            }
+
+            toolbar.classList.toggle('is-dragging', this.dragState?.variantId === selected.variantId && this.dragState?.inputId === selected.inputId);
+            this._placeToolbar(toolbar, selectedGhost);
+        });
+    }
+
+    _placeToolbar(toolbar, ghost) {
+        const surface = toolbar.offsetParent;
+        if (!surface) {
+            return;
+        }
+
+        const gap = 8;
+        const area = surface.getBoundingClientRect();
+        const frame = ghost.getBoundingClientRect();
+        const width = toolbar.offsetWidth;
+        const height = toolbar.offsetHeight;
+
+        let top = frame.bottom - area.top + gap;
+        if (top + height > area.height) {
+            top = frame.top - area.top - gap - height;
+        }
+        if (top < 0) {
+            top = Math.max(0, area.height - height - gap);
+        }
+
+        const centred = frame.left - area.left + frame.width / 2 - width / 2;
+        const left = Math.min(Math.max(centred, gap), Math.max(gap, area.width - width - gap));
+
+        toolbar.style.top = `${top}px`;
+        toolbar.style.left = `${left}px`;
+    }
 
     variantZoomChanged(event) {
         this._mutateVariantPlacement(event.target, (placement) => {
@@ -1061,18 +1184,11 @@ export default class extends Controller {
     }
 
     /**
-     * Keep the chrome truthful: a slot's sliders only make sense once a
-     * picture is chosen (the designed one cannot be placed) — until then its
-     * row offers the picker instead — and every range mirrors what its
-     * dimension currently renders with.
+     * Keep the chrome truthful: every range mirrors what its dimension
+     * currently renders with. (The toolbars themselves only open over a
+     * stand-in, which exists only once a picture is picked.)
      */
     _syncPlacementControls() {
-        this.placementControlsTargets.forEach((element) => {
-            element.classList.toggle('d-none', !this.pictures[element.dataset.inputId]);
-        });
-        this.placementEmptyTargets.forEach((element) => {
-            element.classList.toggle('d-none', !!this.pictures[element.dataset.inputId]);
-        });
 
         const mirror = (ranges, labels, key, format) => {
             ranges.forEach((range) => {

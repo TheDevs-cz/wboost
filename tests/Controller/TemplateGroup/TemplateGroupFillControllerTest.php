@@ -127,13 +127,13 @@ final class TemplateGroupFillControllerTest extends WebTestCase
     }
 
     /**
-     * Placement is edited under each dimension's preview, not behind the
-     * "Všechna pole" button: every card carries a strip row per adjustable
-     * slot — the picker until a picture is chosen, then sliders limited to
-     * what the designer allowed — and the per-dimension placement fields
-     * are posted exactly once each.
+     * Placement is edited ON the preview, not behind the "Všechna pole"
+     * button: every dimension's surface carries one (hidden) toolbar per
+     * adjustable slot — opened by selecting the picked picture there — with
+     * only the sliders the designer allowed, and the per-dimension placement
+     * fields are posted exactly once each.
      */
-    public function testPlacementStripSitsUnderEveryDimensionPreview(): void
+    public function testPlacementToolbarSitsOnEveryDimensionSurface(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
@@ -144,18 +144,15 @@ final class TemplateGroupFillControllerTest extends WebTestCase
 
         $slotId = TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID;
         foreach ([TestDataFixture::GROUPED_PRESET_VARIANT_ID, TestDataFixture::GROUPED_FREEFORM_VARIANT_ID] as $variantId) {
-            $card = $crawler->filter('.group-fill-preview-card')->reduce(
-                static fn ($node): bool => $node->filter('[data-variant-fill-overlay-target="surface"][data-variant-id="' . $variantId . '"]')->count() === 1,
-            );
-            self::assertCount(1, $card);
-
-            $strip = $card->filter('.group-fill-placement-strip');
-            self::assertCount(1, $strip);
-            self::assertCount(1, $strip->filter('[data-group-fill-target="placementEmpty"][data-input-id="' . $slotId . '"] [data-action="variant-fill-overlay#openImageModal"]'));
+            $surface = $crawler->filter('[data-variant-fill-overlay-target="surface"][data-variant-id="' . $variantId . '"]');
+            $toolbar = $surface->filter('[data-group-fill-target="placementToolbar"][data-variant-id="' . $variantId . '"][data-input-id="' . $slotId . '"]');
+            self::assertCount(1, $toolbar);
+            self::assertNotNull($toolbar->attr('hidden'));
             // Slot allows move + resize, not rotate.
-            self::assertCount(1, $strip->filter('[data-group-fill-target="variantZoomRange"][data-variant-id="' . $variantId . '"][data-input-id="' . $slotId . '"]'));
-            self::assertCount(0, $strip->filter('[data-group-fill-target="variantRotationRange"]'));
-            self::assertCount(1, $strip->filter('[data-action="group-fill#resetVariantPlacement"][data-group-fill-variantid-param="' . $variantId . '"]'));
+            self::assertCount(1, $toolbar->filter('[data-group-fill-target="variantZoomRange"][data-variant-id="' . $variantId . '"]'));
+            self::assertCount(0, $toolbar->filter('[data-group-fill-target="variantRotationRange"]'));
+            self::assertCount(1, $toolbar->filter('[data-action="group-fill#resetVariantPlacement"][data-group-fill-variantid-param="' . $variantId . '"]'));
+            self::assertCount(1, $toolbar->filter('[data-action="group-fill#deselectPlacement"]'));
 
             foreach (['scale', 'offsetXRatio', 'offsetYRatio'] as $field) {
                 self::assertCount(1, $crawler->filter('input[type="hidden"][name="imagePlacements[' . $variantId . '][' . $slotId . '][' . $field . ']"][data-group-fill-target="overrideField"]'));
