@@ -1,11 +1,12 @@
 import { Controller } from '@hotwired/stimulus';
 import Sortable from 'sortablejs';
+import { withMoveCursor } from './sort_drag_cursor.js';
 
 export default class extends Controller {
     static targets = ['container'];
 
     connect() {
-        this.sortable = Sortable.create(this.containerTarget, {
+        this.sortable = Sortable.create(this.containerTarget, withMoveCursor({
             handle: '.dragula-handle',
             // See dragula_controller.js: fallback mode keeps .gu-mirror on a
             // detached clone (correct) instead of the in-flow item (breaks layout).
@@ -13,7 +14,7 @@ export default class extends Controller {
             ghostClass: 'gu-transit',
             dragClass: 'gu-mirror',
             onEnd: this.updateOrder.bind(this)
-        });
+        }));
     }
 
     disconnect() {

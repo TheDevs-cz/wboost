@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import Sortable from "sortablejs";
+import { withMoveCursor } from "./sort_drag_cursor.js";
 
 import { applyEditorLock } from './canvas_custom_properties.js';
 import { SHAPE_KINDS, isShapeObject } from './canvas_shapes.js';
@@ -77,7 +78,7 @@ export default class extends Controller {
         // the native click + focus must survive), and fallbackTolerance gives
         // the row itself the native drag threshold, so a click on the label
         // selects instead of starting a no-op drag.
-        this._sortable = Sortable.create(this.listTarget, {
+        this._sortable = Sortable.create(this.listTarget, withMoveCursor({
             draggable: '.canvas-layer-row',
             filter: '.canvas-layer-row__eye, .canvas-layer-row__lock',
             preventOnFilter: false,
@@ -95,7 +96,7 @@ export default class extends Controller {
                 this._dragging = false;
                 this._applySortedOrder();
             },
-        });
+        }));
     }
 
     disconnect() {

@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import Sortable from 'sortablejs';
+import { withMoveCursor } from './sort_drag_cursor.js';
 
 export default class extends Controller {
     connect() {
@@ -38,7 +39,7 @@ export default class extends Controller {
         const containers = this.element.querySelectorAll(`[data-weekly-menu-dragula-target="${targetName}"]`);
 
         containers.forEach(container => {
-            this.sortables.push(Sortable.create(container, {
+            this.sortables.push(Sortable.create(container, withMoveCursor({
                 ...options,
                 // See dragula_controller.js: fallback mode keeps .gu-mirror on a
                 // detached clone (correct) instead of the in-flow item (breaks layout).
@@ -46,7 +47,7 @@ export default class extends Controller {
                 ghostClass: 'gu-transit',
                 dragClass: 'gu-mirror',
                 onEnd: (evt) => onReorder(evt.to),
-            }));
+            })));
         });
     }
 

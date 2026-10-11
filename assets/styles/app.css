@@ -239,6 +239,26 @@
     opacity: 0.85;
 }
 
+/* Drag & drop cursor contract: every drag handle / draggable row shows
+   `move`, never `pointer`. The grips carry role="button" (a11y) and the
+   theme's reboot `[role=button] { cursor: pointer }` loads AFTER app.css at
+   equal specificity, so the plain class rules above lose — re-assert one level
+   deeper. The editor's layer rows are draggable as a whole, but their main
+   part is a <button> (reboot: pointer). While a SortableJS drag is running
+   (sort_drag_cursor.js flags <html>), the cursor stays `move` over anything
+   the pointer crosses. */
+[role="button"][data-popover-drag-handle],
+[role="button"][data-fill-field-order-handle],
+.canvas-layer-row .canvas-layer-row__main,
+.canvas-layer-row .canvas-layer-row__grip {
+    cursor: move;
+}
+
+html.is-sort-dragging,
+html.is-sort-dragging * {
+    cursor: move !important;
+}
+
 .editable-outline {
     position: absolute;
     z-index: 900;
@@ -1510,7 +1530,7 @@ button.fill-layer-row__main:focus-visible {
 .fill-popover__reorder {
     display: none;
     flex: 0 0 auto;
-    cursor: grab;
+    cursor: move;
     opacity: 0.45;
     touch-action: none;
     font-size: 1.1rem;

@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import Sortable from 'sortablejs';
+import { withMoveCursor } from './sort_drag_cursor.js';
 
 export default class extends Controller {
     static targets = ['container'];
@@ -9,7 +10,7 @@ export default class extends Controller {
     };
 
     connect() {
-        this.sortable = Sortable.create(this.containerTarget, {
+        this.sortable = Sortable.create(this.containerTarget, withMoveCursor({
             handle: '.dragula-handle',
             direction: this.directionValue,
             // Use the JS-managed fallback drag instead of native HTML5 DnD: in
@@ -22,7 +23,7 @@ export default class extends Controller {
             ghostClass: 'gu-transit',
             dragClass: 'gu-mirror',
             onEnd: this.updateOrder.bind(this)
-        });
+        }));
     }
 
     disconnect() {

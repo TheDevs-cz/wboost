@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import Sortable from "sortablejs";
+import { withMoveCursor } from "./sort_drag_cursor.js";
 
 /**
  * Admin-only reordering of the fill pages' "Všechna pole" panel (single
@@ -26,7 +27,7 @@ export default class extends Controller {
     };
 
     connect() {
-        this._sortable = Sortable.create(this.element, {
+        this._sortable = Sortable.create(this.element, withMoveCursor({
             draggable: ".fill-popover",
             handle: "[data-fill-field-order-handle]",
             direction: "vertical",
@@ -40,7 +41,7 @@ export default class extends Controller {
                     this.save();
                 }
             },
-        });
+        }));
     }
 
     disconnect() {
