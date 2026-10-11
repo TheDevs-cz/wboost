@@ -4216,3 +4216,17 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     max-width: 26rem;
     pointer-events: auto;
 }
+
+/* Export-version rename editor (_export_version_rename_form.html.twig): the
+   ✓ / × buttons take the name field's light border, so the -1px input-group
+   overlap reads as one continuous outline whether the field (focused, on top)
+   or a button covers the shared edge. Scoped one level deeper than the
+   theme's equal-specificity `.btn-outline-secondary`. */
+.export-version-rename .input-group .export-version-rename__btn {
+    border-color: var(--ct-border-color);
+}
+
+.export-version-rename .input-group .export-version-rename__btn:hover,
+.export-version-rename .input-group .export-version-rename__btn:focus-visible {
+    border-color: var(--ct-secondary);
+}
