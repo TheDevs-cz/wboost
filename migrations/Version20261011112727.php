@@ -34,7 +34,7 @@ final class Version20261011112727 extends AbstractMigration
         $this->addSql('CREATE INDEX IDX_3EC52909166D1F9C452042E1 ON project_module_change (project_id, changed_at)');
         $this->addSql('ALTER TABLE project_module_change ADD CONSTRAINT FK_3EC52909166D1F9C FOREIGN KEY (project_id) REFERENCES project (id) ON DELETE CASCADE NOT DEFERRABLE');
         $this->addSql('ALTER TABLE project_module_change ADD CONSTRAINT FK_3EC52909828AD0A0 FOREIGN KEY (changed_by_id) REFERENCES "user" (id) ON DELETE SET NULL NOT DEFERRABLE');
-        $this->addSql('ALTER TABLE project ADD modules JSONB DEFAULT \'["manuals","templates"]\' NOT NULL');
+        $this->addSql('ALTER TABLE project ADD modules JSONB DEFAULT \'["manuals", "templates"]\' NOT NULL');
         $this->addSql(<<<'SQL'
             UPDATE project p SET modules = '["manuals","templates"]'::jsonb
                 || CASE WHEN EXISTS (SELECT 1 FROM email_signature_template t WHERE t.project_id = p.id)

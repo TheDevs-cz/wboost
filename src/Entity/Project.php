@@ -61,7 +61,9 @@ class Project
      * @var list<string>
      */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '["manuals","templates"]'])]
+    // The default is spelled the way Postgres prints a jsonb literal back
+    // (space after the comma) — any other spelling reads as schema drift.
+    #[Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '["manuals", "templates"]'])]
     public array $modules = ['manuals', 'templates'];
 
     public function __construct(
