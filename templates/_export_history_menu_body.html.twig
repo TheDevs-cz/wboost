@@ -37,8 +37,10 @@
 </div>
 
 {% macro row(version, loaded_version, route_name, route_params, redirect_url) %}
+    {# The loaded version's row is `.active`: the theme paints that a LIGHT
+       grey with dark text (not Bootstrap's primary + white), so the icons
+       keep their normal muted / primary colours — white ones vanished. #}
     {% set active = loaded_version and loaded_version.id.equals(version.id) %}
-    {% set tone = active ? 'text-white' : null %}
     <div class="dropdown-item d-flex align-items-center gap-2 py-2 pe-2{{ active ? ' active' }}" data-controller="export-version-row" data-export-version-row="{{ version.id }}">
         <a class="flex-grow-1 text-reset text-decoration-none" style="min-width: 0;"
            href="{{ path(route_name, route_params|merge({'version': version.id})) }}"
@@ -47,7 +49,7 @@
             <div class="text-truncate{{ version.name ? ' fw-semibold' }}">
                 {{ version.name ?: version.lastExportedAt|date('d.m.Y H:i') }}
             </div>
-            <small class="{{ active ? '' : 'text-muted' }}">
+            <small class="text-muted">
                 {% if version.name %}{{ version.lastExportedAt|date('d.m.Y H:i') }} · {% endif %}{{ version.exportedBy ? version.exportedBy.displayName : 'Neznámý uživatel' }}
             </small>
         </a>
@@ -64,10 +66,10 @@
                 <span class="badge bg-secondary-lighten text-secondary" title="Exportováno {{ version.exportCount }}×">{{ version.exportCount }}×</span>
             {% endif %}
         </span>
-        <button type="button" class="btn btn-link btn-sm p-0 px-1 lh-1 {{ tone ?? 'text-muted' }}" title="Přejmenovat verzi" aria-label="Přejmenovat verzi"
+        <button type="button" class="btn btn-link btn-sm p-0 px-1 lh-1 text-muted" title="Přejmenovat verzi" aria-label="Přejmenovat verzi"
                 data-action="export-version-row#edit" data-export-version-row-target="view pencil">
             <i class="mdi mdi-pencil-outline font-16"></i>
         </button>
-        {{ include('_export_version_pin_button.html.twig', {version: version, redirect_url: redirect_url, tone: tone, turbo: true}) }}
+        {{ include('_export_version_pin_button.html.twig', {version: version, redirect_url: redirect_url, turbo: true}) }}
     </div>
 {% endmacro %}

@@ -102,6 +102,12 @@ final class TemplateGroupExportVersionTest extends WebTestCase
         self::assertCount(1, $fillForm->filter('#export-history-banner [data-export-version-rename]'));
         // Every dropdown row carries its inline rename editor too.
         self::assertGreaterThan(0, $fillForm->filter('#export-history-menu-body [data-controller="export-version-row"] [data-export-version-rename]')->count());
+        // The loaded version's row is highlighted, and its icons keep their
+        // colours: the theme's active row is light grey, so white icons vanished.
+        $activeRow = $fillForm->filter('#export-history-menu-body [data-export-version-row="' . $version->id->toString() . '"]');
+        self::assertCount(1, $activeRow);
+        self::assertStringContainsString('active', (string) $activeRow->attr('class'));
+        self::assertCount(0, $activeRow->filter('.text-white'));
         self::assertCount(1, $fillForm->filter(sprintf('input[name="textValues[%s]"]', TestDataFixture::GROUP_SHARED_INPUT_ID)));
         self::assertCount(2, $fillForm->filter('.fill-surface'));
         foreach ($crawler->filter('[data-export-version-pin] button[form], [data-export-version-rename] button[form]') as $button) {
