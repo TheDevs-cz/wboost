@@ -3,7 +3,7 @@
 Status: **DELIVERED 2026-09-01** (Phase 0 shipped 2026-08-31; Phases 1+2 —
 the echo on the single fill page and the group fill page — shipped the next
 day, golden-tested and browser-verified). The authoritative documentation now
-lives in CLAUDE.md ("Client-side text echo"); this file records the original
+lives in `docs/architecture/templates-fill.md` ("Client-side text echo"); this file records the original
 reasoning plus the delivery deltas:
 
 - Value resolution needed no new mirror — the shared `WBoostRichTextRuns`

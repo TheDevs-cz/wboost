@@ -1,0 +1,69 @@
+# Templates API — export/preview endpoints, groups + export history
+
+### Template variant export endpoint
+
+`POST /api/template-variants/{id}/export` returns a PNG and IS AN EXPORT
+(usage + a version in the variant's history); its sibling
+`POST /api/template-variants/{id}/preview` takes the same body with the same
+strict validation but returns WebP and records NOTHING — consumers must send
+their live previews there (before 2026-09-29 the mfkfm backoffice previewed
+through `/export`, so every typing pause became a history row). Both run
+through `Services/Template/ApiExportRenderer` (strict: invalid values and
+container overflow fail) and answer failures via
+`Api/Templates/ExportErrorResponse` — EVERY 400 is structured
+`{error, code, ...context}`: the resolvers throw
+`Exceptions/InvalidExportValue` (a `BadRequestHttpException` subclass, so the
+lenient web controllers keep catching it) with `value_too_long` /
+`invalid_value` / `invalid_image_value` / `image_transform_not_allowed` /
+`image_not_allowed` / `image_unreadable`, tagged with `inputId` /
+`imageInputId`; rich-text violations carry `inputId` too
+(`InvalidRichTextValue::forInput`). The former module alias paths
+(`custom-template-variants`, `social-network-template-variants`,
+`…/custom-templates`, `…/social-network-templates`) were REMOVED in the same
+v2 cleanup — mfkfm is the only consumer and moved to the canonical paths.
+The request body is `ExportRequest` and its `inputs` map is
+**keyed by inputId UUID** (Stage 2): `{ "inputs": { "<uuid>": "Hello", "<uuid>": { "value": "World", "hide": false } } }`.
+Discover the available input ids via
+`GET /api/projects/{projectId}/templates` — each
+`variants[].inputs[].id` is the same UUID accepted here. Unknown ids
+are silently ignored; locked inputs cannot be overridden; `hide` only
+applies to inputs with `hidable: true`.
+
+### Template groups + export history over the API (2026-09-29)
+
+- **Listing:** `TemplateResponse::$group` (`{id, name}` | null) and
+  `TemplateVariantResponse::$groupMember` (variant carries the group FK —
+  a hand-added variant on a grouped template is NOT a member).
+- **Group render** (`src/Api/TemplateGroups/`): `POST
+  /api/template-groups/{groupId}/preview/{variantId}` (WebP, unrecorded),
+  `…/export` (ZIP) and `…/export/{variantId}` (PNG). Body =
+  `GroupExportRequest {inputs, images, placements}` — the variant export's
+  maps (members share input ids) plus `placements[variantId][imageInputId]`,
+  which REPLACES the shared pick's transform in that dimension
+  (`ApiExportRenderer::imagesForVariant`, the web `GroupFillRenderer`
+  layering rule). Strict per dimension, error bodies add `variantId`.
+  Exports record usage per member + ONE group version
+  (`ExportFillValues::fromGroupApiRequest`) that dedupes with the web group
+  page's exports. ZIP/PNG naming is `Services/TemplateGroup/GroupExportArchive`,
+  shared with the web controllers. Members/ids/voters resolve through
+  `Services/Template/ApiSubjectLoader` (group VIEW voter; non-member → 404).
+- **History** (`src/Api/ExportVersions/`): `GET
+  /api/template-groups/{id}/export-versions`, `GET
+  /api/template-variants/{id}/export-versions` (pinned-first
+  `ExportHistory` order + `SummarizeExportVersion` digest), `GET
+  /api/export-versions/{id}` (+ `fill` in the API request shape, seeded
+  leniently by `ExportVersionSeeder` and converted back by
+  `Services/Template/ExportVersionApiView`), `PATCH
+  /api/export-versions/{id}` `{name?, pinned?}` (absent key = untouched,
+  dispatches the web's Rename/Pin messages; `TemplateExportVersionVoter::MANAGE`).
+
+Each `variants[].inputs[]` also carries a nullable **`frame {x,y,width,height}`**
+(canvas px, top-left origin, axis-aligned — same shape/space as
+`imageInputs[].frame` and the variant's `width`/`height`), so a consumer can draw
+a highlight box over the rendered preview and edit in place. `null` when the
+textbox can't be located → fall back to the flat field list. Mapping to screen px
+is a single scale factor (`renderedPreviewWidth / variant.width`) because the
+export PNG is the variant's exact dimensions. The mfkfm backoffice consumer
+(`~/www/mfkfm/backoffice`) implements this overlay; see
+[`docs/api/consumer-prompt.md`](../api/consumer-prompt.md). v1 limitation:
+rotated placeholders are reported as their axis-aligned bounding box.

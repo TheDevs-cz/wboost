@@ -13,12 +13,10 @@ wait for the task — do not start exploring, reading files or proposing work.
 
 ## Context
 
-CLAUDE.md is already in your context and is accurate + load-bearing. The sections that matter
-here: "Template editor (Šablony — the unified templates module)" (data model, canvas-vs-layer
-backgrounds, containers, rich text / lists / checklists, vector shapes, floating toolbar,
-client-side text echo, fill flow, gallery, render path, slice cache, export versioning), "One
-Šablony module — merge history + dimension model" (TemplateDimension + presets, groups, routes,
-deliberately-unmoved namespaces) and the API sections. Do not re-derive what it states; verify
+CLAUDE.md is in your context; it indexes the detailed, load-bearing architecture notes in
+`docs/architecture/`. For this area that means the `templates-*.md` files, `gallery-and-uploads.md`
+and `api-templates.md`. Read the ones the task touches BEFORE changing code (they record contracts
+and past root causes the code alone does not explain). Do not re-derive what they state; verify
 against code only when a task touches it.
 
 Code map (paths verified 2026-09-02):
@@ -78,7 +76,7 @@ Code map (paths verified 2026-09-02):
   + base-href, and local headless Chrome.
 - API-shape changes get ported to the mfkfm consumer (`~/www/mfkfm/backoffice`) in the same session
   and documented in `docs/api/consumer-prompt.md`.
-- Keep CLAUDE.md updated when you change an architectural contract.
+- Keep the matching `docs/architecture/*.md` file updated when you change an architectural contract.
 
 ## Current state (2026-09-02)
 
