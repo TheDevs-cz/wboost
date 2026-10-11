@@ -117,7 +117,8 @@ How big a logo renders inside one manual card resolves through
 `Manual::logoDisplayWidth($slot, $logoVariant)`, highest priority first:
 
 1. the width set on **that card** (`manual.logo_slot_widths`, a JSON map keyed
-   by slot id) — edited by a pencil on the card itself;
+   by slot id) — edited from a pencil on the card itself (see **Editing a
+   card's width** below);
 2. the width of the **logo variant** (`manual.logo -> <variant> ->
    displayWidth`, the "Šířka loga v manuálu (%)" field on the Loga page);
 3. nothing — the stylesheet decides.
@@ -148,6 +149,34 @@ real Chromium against a live manual:
   card renders 500×120), so an admin asking for a wide logo would get a
   distorted one. Lifting the cap lets a card grow, which is the honest reading
   of "width = N % of the frame".
+
+**Editing a card's width — one live-preview bar, no reload (2026-10-11).**
+It began as a Live component + Bootstrap modal PER CARD whose save redirected
+to `manual_preview`: the backdrop hid the logo being sized, and every save
+threw the admin back to the top of a manual dozens of screens long. Now:
+
+- the pencil is a plain button rendered by `_manual_logo_image.html.twig`
+  (slot / own width / variant width as Stimulus action params); the ONE bar
+  (`_manual_logo_width_bar.html.twig`) is mounted once by
+  `manual_preview.html.twig`, together with `data-controller=
+  "manual-logo-width"` on the manual root — only when `manual_edit` is granted;
+- `manual_logo_width_controller.js` previews on the card's `<img>` (found by
+  `data-logo-slot`) with the SAME two `!important` declarations the partial
+  renders; Zrušit / Escape restore the original inline style; Uložit (or
+  Enter) POSTs to `EditManualLogoSlotWidthController`
+  (`/manual/{manualId}/sirka-loga`, CSRF `manual_logo_slot_width`), which
+  answers JSON and the page stays put;
+- that endpoint **validates the slot id against the three enums**
+  (`ManualPage`, `LogoTypeVariant`, `LogoColorVariant`|`base`) — the old Live
+  prop was server-signed, a POST field is not, and without the check any key
+  could be planted in `logo_slot_widths`;
+- the slider starts from the logo's **visible** width: with no explicit width
+  the stylesheet stretches the `<img>` box across the card and caps its height,
+  and the SVG letterboxes inside it, so the box width (≈100 %) overstates the
+  logo and the first nudge would make it jump;
+- the bar is `.card.manual-logo-width-bar` on purpose — the theme's
+  `.card { position: relative }` loads after app.css and beat a plain
+  `.manual-logo-width-bar { position: fixed }` (browser-verified).
 
 ### Manual page texts — admin-overridable, code-authored defaults
 

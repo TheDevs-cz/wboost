@@ -15,9 +15,25 @@
      browser clamps the height and keeps the width), so an admin asking for a
      wide logo would get a distorted one.
 
+   The pencil only opens the page's ONE width bar (`manual_logo_width_controller.js`,
+   mounted on the manual root in manual_preview.html.twig) — the bar previews
+   the width live on the `<img>` it finds by `data-logo-slot` and saves without
+   a reload. Top-LEFT corner on purpose: the download and colour-mapping
+   buttons already own the right-hand corner, and not every card carries both.
+
    Params: manual, logo (SvgImage), colorsMapping, slot (string),
            logo_variant (string). #}
 {% set display_width = manual.logoDisplayWidth(slot, logo_variant) %}
-<twig:ManualLogoWidth manual="{{ manual }}" slot="{{ slot }}" logoVariant="{{ logo_variant }}" />
-<img src="{{ remap_svg_colors(logo.filePath, colorsMapping) }}"
+{% if is_granted('manual_edit', manual) %}
+    <button type="button"
+            class="btn btn-sm btn-soft-primary p-1 px-2 manual-logo-width-edit"
+            title="Šířka loga v tomto rámečku"
+            data-action="manual-logo-width#open"
+            data-manual-logo-width-slot-param="{{ slot }}"
+            data-manual-logo-width-slot-width-param="{{ manual.logoSlotWidth(slot) }}"
+            data-manual-logo-width-variant-width-param="{{ manual.logoVariantWidth(logo_variant) }}">
+        <i class="mdi mdi-arrow-expand-horizontal"></i>
+    </button>
+{% endif %}
+<img src="{{ remap_svg_colors(logo.filePath, colorsMapping) }}" data-logo-slot="{{ slot }}"
      {%- if display_width %} style="width: {{ display_width }}% !important; max-height: none !important;"{% endif %}>

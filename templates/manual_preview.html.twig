@@ -21,7 +21,13 @@
 {% endblock %}
 
 {% block full_content %}
-    <div style="min-width: 1400px;" class="manual-{{ manual.slug }}">
+    {% set can_edit_manual = is_granted('manual_edit', manual) %}
+    <div style="min-width: 1400px;" class="manual-{{ manual.slug }}"
+        {%- if can_edit_manual %}
+            data-controller="manual-logo-width"
+            data-manual-logo-width-url-value="{{ path('manual_logo_slot_width', {'manualId': manual.id}) }}"
+            data-manual-logo-width-csrf-value="{{ csrf_token('manual_logo_slot_width') }}"
+        {%- endif %}>
         <div class="container-fluid" style="max-width: 1320px;">
             {% set page = 0 %}
 
@@ -666,6 +672,10 @@
                 </div>
             {% endfor %}
         </div>
+
+        {% if can_edit_manual %}
+            {{ include('_manual_logo_width_bar.html.twig') }}
+        {% endif %}
     </div>
 {% endblock %}
 

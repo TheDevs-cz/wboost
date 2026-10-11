@@ -1,0 +1,48 @@
+{# The ONE bar that sizes a logo card — opened by the pencil on any card
+   (`_manual_logo_image.html.twig`), driven by `manual_logo_width_controller.js`.
+   Fixed to the bottom of the viewport and non-modal on purpose: the admin
+   watches the card itself change while dragging, and saving never reloads
+   the page (it used to be a modal per card whose save redirected to the top
+   of the manual). #}
+<div class="manual-logo-width-bar card shadow-lg mb-0" hidden
+     data-manual-logo-width-target="bar"
+     data-action="keydown.esc@window->manual-logo-width#cancel">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex align-items-center gap-3">
+            <div class="text-nowrap">
+                <div class="fw-semibold">Šířka loga</div>
+                <div class="small text-muted">jen tento rámeček</div>
+            </div>
+
+            <input type="range" class="form-range flex-grow-1" min="1" max="100" step="1"
+                   aria-label="Šířka loga v tomto rámečku (%)"
+                   data-manual-logo-width-target="range"
+                   data-action="input->manual-logo-width#slide">
+
+            <div class="input-group input-group-sm manual-logo-width-number">
+                <input type="number" class="form-control" min="0" max="100" step="1"
+                       aria-label="Šířka loga v tomto rámečku (%)"
+                       data-manual-logo-width-target="number"
+                       data-action="input->manual-logo-width#type keydown.enter->manual-logo-width#save:prevent">
+                <span class="input-group-text">%</span>
+            </div>
+
+            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap"
+                    data-manual-logo-width-target="reset"
+                    data-action="manual-logo-width#reset">Výchozí</button>
+
+            <div class="vr"></div>
+
+            <button type="button" class="btn btn-sm btn-light text-nowrap"
+                    data-action="manual-logo-width#cancel">Zrušit</button>
+            <button type="button" class="btn btn-sm btn-primary text-nowrap"
+                    data-manual-logo-width-target="save"
+                    data-action="manual-logo-width#save">Uložit</button>
+        </div>
+
+        <div class="small mt-1">
+            <span class="text-muted" data-manual-logo-width-target="hint"></span>
+            <span class="text-danger ms-2" data-manual-logo-width-target="error"></span>
+        </div>
+    </div>
+</div>
