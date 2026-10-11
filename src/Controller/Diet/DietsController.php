@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\Diet;
 
+use WBoost\Web\Attribute\RequiresProjectModule;
+use WBoost\Web\Value\ProjectModule;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,6 +15,7 @@ use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetDiets;
 use WBoost\Web\Services\Security\ProjectVoter;
 
+#[RequiresProjectModule(ProjectModule::WeeklyMenus)]
 final class DietsController extends AbstractController
 {
     public function __construct(

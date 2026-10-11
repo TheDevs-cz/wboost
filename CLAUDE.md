@@ -45,7 +45,7 @@ commit when you change a contract described there — not this file.
 
 | File | Read when touching |
 |---|---|
-| `app-shell.md` | `base.html.twig`, left navigation, account drop-up, mobile drawer toggle |
+| `app-shell.md` | `base.html.twig`, left navigation, account drop-up, mobile drawer toggle, project modules (`project.modules`, "Objevte další moduly", module guard) |
 | `templates-data-model.md` | `template_variant` columns, canvas JSONB, inputId binding, canvas vs LAYER background mode, `BackgroundLayer`, gallery-picked backgrounds, group background propagation |
 | `templates-editor-ui.md` | admin editor Stimulus controllers (`canvas_*.js`), backdrop targeting, layers panel, vector shapes (+ MCP DSL shapes), floating toolbar/popover, editor shell/zoom, overlay chrome toggles |
 | `templates-containers.md` | containers / smart text areas, `container_layout.js`, nesting, gap, collision-push, `spaceAfter`, overflow 400 contract |

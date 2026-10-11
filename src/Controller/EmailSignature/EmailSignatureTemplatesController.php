@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\EmailSignature;
 
+use WBoost\Web\Attribute\RequiresProjectModule;
+use WBoost\Web\Value\ProjectModule;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -12,6 +14,7 @@ use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetEmailSignatureTemplates;
 use WBoost\Web\Services\Security\ProjectVoter;
 
+#[RequiresProjectModule(ProjectModule::EmailSignatures)]
 final class EmailSignatureTemplatesController extends AbstractController
 {
     public function __construct(

@@ -135,24 +135,29 @@
 
                         {% if project is defined %}
                             {% set nav_avatar = project_avatar(project) %}
+                            {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
                             <li class="side-nav-title d-flex align-items-center">
                                 {{ include('_project_avatar.html.twig', {'avatar': nav_avatar, 'size': 22, 'font_size': '.6rem', 'alt': ''}) }}
                                 <span class="text-truncate ms-1">{{ project.name }}</span>
                             </li>
 
-                            <li class="side-nav-item {{ active_menu_item|default == 'manuals' ? 'menuitem-active' }}">
-                                <a href="{{ path('manuals_list', {'id': project.id}) }}" class="side-nav-link">
-                                    <i class="uil-copy-alt"></i>
-                                    <span> Manuály </span>
-                                </a>
-                            </li>
+                            {% if project.hasModule(project_module.Manuals) %}
+                                <li class="side-nav-item {{ active_menu_item|default == 'manuals' ? 'menuitem-active' }}">
+                                    <a href="{{ path('manuals_list', {'id': project.id}) }}" class="side-nav-link">
+                                        <i class="uil-copy-alt"></i>
+                                        <span> Manuály </span>
+                                    </a>
+                                </li>
+                            {% endif %}
 
-                            <li class="side-nav-item {{ active_menu_item|default == 'templates' ? 'menuitem-active' }}">
-                                <a href="{{ path('templates', {'projectId': project.id}) }}" class="side-nav-link">
-                                    <i class="uil-postcard"></i>
-                                    <span> Šablony </span>
-                                </a>
-                            </li>
+                            {% if project.hasModule(project_module.Templates) %}
+                                <li class="side-nav-item {{ active_menu_item|default == 'templates' ? 'menuitem-active' }}">
+                                    <a href="{{ path('templates', {'projectId': project.id}) }}" class="side-nav-link">
+                                        <i class="uil-postcard"></i>
+                                        <span> Šablony </span>
+                                    </a>
+                                </li>
+                            {% endif %}
 
                             {% if is_granted('project_edit', project) %}
                                 <li class="side-nav-item {{ active_menu_item|default == 'gallery' ? 'menuitem-active' }}">
@@ -163,13 +168,6 @@
                                 </li>
                             {% endif %}
 
-                            <li class="side-nav-item {{ active_menu_item|default == 'calendars' ? 'menuitem-active' }}">
-                                <a href="{{ path('calendars', {'projectId': project.id}) }}" class="side-nav-link">
-                                    <i class="uil-calendar-alt"></i>
-                                    <span> Kalendáře </span>
-                                </a>
-                            </li>
-
                             <li class="side-nav-item {{ active_menu_item|default == 'fonts' ? 'menuitem-active' }}">
                                 <a href="{{ path('fonts_list', {'id': project.id}) }}" class="side-nav-link">
                                     <i class="ri-font-family"></i>
@@ -177,32 +175,45 @@
                                 </a>
                             </li>
 
-                            <li class="side-nav-item {{ active_menu_item|default == 'emails' ? 'menuitem-active' }}">
-                                <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="side-nav-link">
-                                    <i class="ri-mail-line"></i>
-                                    <span> E-maily</span>
-                                </a>
-                            </li>
+                            {% if project.hasModule(project_module.EmailSignatures) %}
+                                <li class="side-nav-item {{ active_menu_item|default == 'emails' ? 'menuitem-active' }}">
+                                    <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="side-nav-link">
+                                        <i class="ri-mail-line"></i>
+                                        <span> E-maily</span>
+                                    </a>
+                                </li>
+                            {% endif %}
 
-                            <li class="side-nav-item {{ active_menu_item|default == 'weekly_menus' ? 'menuitem-active' }}">
-                                <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="side-nav-link">
-                                    <i class="uil-restaurant"></i>
-                                    <span> Jídelníčky</span>
-                                </a>
-                                {% if active_menu_item|default == 'weekly_menus' %}
-                                    <ul class="side-nav-second-level">
-                                        <li class="{{ active_submenu_item|default == 'meals' ? 'active' : '' }}">
-                                            <a href="{{ path('meals', {'projectId': project.id}) }}">Seznam jídel</a>
-                                        </li>
-                                        <li class="{{ active_submenu_item|default == 'diets' ? 'active' : '' }}">
-                                            <a href="{{ path('diets', {'projectId': project.id}) }}">Diety</a>
-                                        </li>
-                                        <li class="{{ active_submenu_item|default == 'dish_types' ? 'active' : '' }}">
-                                            <a href="{{ path('dish_types', {'projectId': project.id}) }}">Druhy jídel</a>
-                                        </li>
-                                    </ul>
-                                {% endif %}
-                            </li>
+                            {% if project.hasModule(project_module.WeeklyMenus) %}
+                                <li class="side-nav-item {{ active_menu_item|default == 'weekly_menus' ? 'menuitem-active' }}">
+                                    <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="side-nav-link">
+                                        <i class="uil-restaurant"></i>
+                                        <span> Jídelníčky</span>
+                                    </a>
+                                    {% if active_menu_item|default == 'weekly_menus' %}
+                                        <ul class="side-nav-second-level">
+                                            <li class="{{ active_submenu_item|default == 'meals' ? 'active' : '' }}">
+                                                <a href="{{ path('meals', {'projectId': project.id}) }}">Seznam jídel</a>
+                                            </li>
+                                            <li class="{{ active_submenu_item|default == 'diets' ? 'active' : '' }}">
+                                                <a href="{{ path('diets', {'projectId': project.id}) }}">Diety</a>
+                                            </li>
+                                            <li class="{{ active_submenu_item|default == 'dish_types' ? 'active' : '' }}">
+                                                <a href="{{ path('dish_types', {'projectId': project.id}) }}">Druhy jídel</a>
+                                            </li>
+                                        </ul>
+                                    {% endif %}
+                                </li>
+                            {% endif %}
+
+                            {% if project.disabledModules is not empty %}
+                                <li class="side-nav-item {{ active_menu_item|default == 'project_modules' ? 'menuitem-active' }}">
+                                    <a href="{{ path('project_modules', {'projectId': project.id}) }}" class="side-nav-link side-nav-discover">
+                                        <i class="ri-sparkling-2-line"></i>
+                                        <span> Objevte další moduly </span>
+                                    </a>
+                                </li>
+                            {% endif %}
                         {% endif %}
                     </ul>
                     <!--- End Sidemenu -->

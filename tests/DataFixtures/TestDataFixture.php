@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\DataFixtures;
 
+use WBoost\Web\Value\ProjectModule;
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
@@ -345,6 +346,11 @@ final class TestDataFixture extends Fixture
             $date,
             'Project 1',
         );
+        // Project 1 uses every module; Project 2 keeps the new-project
+        // defaults (Manuály + Šablony), so the hidden-module paths are covered.
+        foreach (ProjectModule::cases() as $module) {
+            $project1->enableModule($module);
+        }
         $manager->persist($project1);
 
         $manual1 = new Manual(

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\DishType;
 
+use WBoost\Web\Attribute\RequiresProjectModule;
+use WBoost\Web\Value\ProjectModule;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +17,7 @@ use WBoost\Web\Message\DishType\SeedDefaultDishTypes;
 use WBoost\Web\Query\GetDishTypes;
 use WBoost\Web\Services\Security\ProjectVoter;
 
+#[RequiresProjectModule(ProjectModule::WeeklyMenus)]
 final class DishTypesController extends AbstractController
 {
     public function __construct(

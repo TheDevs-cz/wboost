@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\Template;
 
+use WBoost\Web\Attribute\RequiresProjectModule;
+use WBoost\Web\Value\ProjectModule;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,6 +17,7 @@ use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Query\GetTemplates;
 use WBoost\Web\Services\Security\ProjectVoter;
 
+#[RequiresProjectModule(ProjectModule::Templates)]
 final class TemplatesController extends AbstractController
 {
     public function __construct(

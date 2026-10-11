@@ -11,15 +11,18 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\User;
 use WBoost\Web\FormData\ProjectFormData;
 use WBoost\Web\FormType\ProjectFormType;
 use WBoost\Web\Message\Project\EditProject;
+use WBoost\Web\Repository\ProjectModuleChangeRepository;
 use WBoost\Web\Services\Security\ProjectVoter;
 
 final class EditProjectController extends AbstractController
 {
     public function __construct(
-        readonly private MessageBusInterface $bus,  
+        readonly private MessageBusInterface $bus,
+        readonly private ProjectModuleChangeRepository $moduleChangeRepository,
     ) {
     }
     
@@ -55,6 +58,10 @@ final class EditProjectController extends AbstractController
         return $this->render('edit_project.html.twig', [
             'form' => $form,
             'project' => $project,
+            // The admin-only "Moduly projektu" card's history.
+            'module_changes' => $this->isGranted(User::ROLE_ADMIN)
+                ? $this->moduleChangeRepository->latestForProject($project->id)
+                : [],
         ]);
     }
 }

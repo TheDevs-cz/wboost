@@ -19,6 +19,7 @@ use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Doctrine\ProjectSharingDoctrineType;
 use WBoost\Web\Services\Slugify;
+use WBoost\Web\Value\ProjectModule;
 use WBoost\Web\Value\ProjectSharing;
 use WBoost\Web\Value\SharingLevel;
 
@@ -51,6 +52,17 @@ class Project
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(nullable: true)]
     public null|string $icon = null;
+
+    /**
+     * Enabled {@see ProjectModule} values, in enum order. Only these show in
+     * the left navigation and on the dashboard; switching one off only hides
+     * it. Every change is logged as a {@see ProjectModuleChange}.
+     *
+     * @var list<string>
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '["manuals","templates"]'])]
+    public array $modules = ['manuals', 'templates'];
 
     public function __construct(
         #[Id]
@@ -129,6 +141,71 @@ class Project
                 return;
             }
         }
+    }
+
+    public function hasModule(ProjectModule $module): bool
+    {
+        return in_array($module->value, $this->modules, true);
+    }
+
+    /**
+     * @return list<ProjectModule>
+     */
+    public function enabledModules(): array
+    {
+        return array_values(array_filter(
+            ProjectModule::cases(),
+            fn (ProjectModule $module): bool => $this->hasModule($module),
+        ));
+    }
+
+    /**
+     * @return list<ProjectModule>
+     */
+    public function disabledModules(): array
+    {
+        return array_values(array_filter(
+            ProjectModule::cases(),
+            fn (ProjectModule $module): bool => !$this->hasModule($module),
+        ));
+    }
+
+    /**
+     * @return bool whether anything changed
+     */
+    public function enableModule(ProjectModule $module): bool
+    {
+        if ($this->hasModule($module)) {
+            return false;
+        }
+
+        $this->modules[] = $module->value;
+        $this->normalizeModules();
+
+        return true;
+    }
+
+    /**
+     * @return bool whether anything changed
+     */
+    public function disableModule(ProjectModule $module): bool
+    {
+        if (!$this->hasModule($module)) {
+            return false;
+        }
+
+        $this->modules = array_values(array_diff($this->modules, [$module->value]));
+        $this->normalizeModules();
+
+        return true;
+    }
+
+    private function normalizeModules(): void
+    {
+        $this->modules = array_map(
+            static fn (ProjectModule $module): string => $module->value,
+            $this->enabledModules(),
+        );
     }
 
     private function changeName(string $name): void
