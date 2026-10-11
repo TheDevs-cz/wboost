@@ -1,0 +1,48 @@
+{#
+    One picture in a fill page's image picker — the gallery modal's tile 1:1
+    (square thumb + `_gallery_asset_caption`: file name, pixel size, format),
+    so a picture reads the same in the picker as in the gallery.
+
+    The grid CELL is the fill-gallery `thumb` target (the folder filter hides
+    cells, not buttons); the inner button carries the host page's own pick
+    wiring, passed in as `attrs`.
+
+    Vars: asset (url, directoryId, tooltip, uploadedAt + caption fields),
+          attrs (hash of extra button attributes), class (extra button classes).
+    Without `asset` it renders the NEW-UPLOAD tile for the picker's
+    <template>: fill-gallery replaces the __KEY__ placeholders with the
+    upload response (id, url, caption) — keep the two lists in sync.
+#}
+{% set asset = asset ?? {
+    url: '__URL__',
+    directoryId: '',
+    tooltip: '__TOOLTIP__',
+    uploadedAt: '__UPLOADED_AT__',
+    name: '__NAME__',
+    nameBase: '__NAME_BASE__',
+    nameExt: '__NAME_EXT__',
+    sizeLabel: '__SIZE__',
+    format: '__FORMAT__',
+} %}
+<div class="col-6 col-sm-4 col-md-3" data-fill-gallery-target="thumb" data-directory-id="{{ asset.directoryId ?? '' }}">
+    <div class="position-relative border rounded gallery-asset h-100">
+        <button
+            type="button"
+            class="btn p-0 w-100 h-100 text-start gallery-asset__select {{ class|default('') }}"
+            title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}"
+            {% for name, value in attrs %}{{ name }}="{{ value }}" {% endfor %}
+        >
+            <div class="p-1">
+                <img
+                    crossorigin="anonymous"
+                    src="{{ asset.url }}"
+                    alt=""
+                    loading="lazy"
+                    class="img-fluid"
+                    style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                >
+            </div>
+            {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
+        </button>
+    </div>
+</div>

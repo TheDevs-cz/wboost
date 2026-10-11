@@ -1708,19 +1708,6 @@ button.fill-layer-row__main:focus-visible {
     padding: 1rem 1.25rem;
 }
 
-.fill-modal__thumb {
-    width: 96px;
-    height: 96px;
-    padding: 0;
-    overflow: hidden;
-}
-
-.fill-modal__thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
 .manual-preview-color {
     text-align: center;
     color: #fff;
@@ -3607,36 +3594,11 @@ button.fill-layer-row__main:focus-visible {
     min-width: 0;
 }
 
-.group-fill-image-option {
-    position: relative;
-    width: 96px;
-    height: 96px;
-    padding: 0;
-    border: 2px solid rgba(0, 0, 0, 0.08);
-    border-radius: 0.3rem;
-    background: #f6f7fb;
-    overflow: hidden;
-}
-
-.group-fill-image-option img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.group-fill-image-option:hover,
-.group-fill-image-option.selected {
-    border-color: var(--bs-primary, #727cf5);
-}
-
-.group-fill-image-option span {
-    position: absolute;
-    inset: auto 0 0 0;
-    padding: 1px 0;
-    background: rgba(255, 255, 255, 0.85);
-    font-size: 11px;
-    text-align: center;
+/* Group picker: the picked tile (the "Výchozí" one until the user picks).
+   Tiles are the gallery's (`_fill_gallery_tile.html.twig`); only the
+   selection ring is the group page's own. */
+.gallery-asset__select.group-fill-image-option.selected {
+    box-shadow: 0 0 0 2px var(--bs-primary, #727cf5);
 }
 
 /* Photoshop-style navigator mini-map (canvas_navigator_controller): fixed

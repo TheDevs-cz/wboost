@@ -32,6 +32,7 @@ use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Query\GetGalleryImageUsage;
 use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
+use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\UploaderHelper;
@@ -160,6 +161,7 @@ final class ImageGallery extends AbstractController
         private readonly ClockInterface $clock,
         private readonly FileUploadPixelSizeBackfill $pixelSizeBackfill,
         private readonly GetGalleryImageUsage $galleryImageUsage,
+        private readonly GalleryImageCaption $caption,
     ) {
     }
 
@@ -173,7 +175,7 @@ final class ImageGallery extends AbstractController
      * Files that live directly inside the currently-open folder. Each entry
      * carries both the public URL (for Fabric / <img>) and the raw storage
      * path (for background-persistence flows that store the path, not the URL),
-     * plus the tile caption fields (see {@see describe()}).
+     * plus the tile caption fields (see {@see GalleryImageCaption}).
      *
      * @return list<array{id: string, url: string, path: string, uploadedAt: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
      */
@@ -193,65 +195,10 @@ final class ImageGallery extends AbstractController
                 'url' => $this->uploaderHelper->getPublicPath($f->path),
                 'path' => $f->path,
                 'uploadedAt' => $f->uploadedAt->format('Y-m-d H:i'),
-                ...$this->describe($f),
+                ...$this->caption->describe($f),
             ],
             $files,
         );
-    }
-
-    /**
-     * The caption a tile shows so that two look-alike thumbnails can be told
-     * apart: the uploaded file name (split so the extension survives a
-     * truncated middle) and the picture's own pixel size, plus the stored
-     * format. `name` is null for uploads older than the column (nothing to
-     * backfill it from — the tile says "Bez názvu"); `sizeLabel` is null while
-     * the size is unknown (an unreadable object) and reads "Vektor" for an SVG.
-     *
-     * @return array{name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}
-     */
-    private function describe(FileUpload $file): array
-    {
-        $name = $file->originalName;
-        $nameBase = $name ?? '';
-        $nameExt = '';
-
-        if ($name !== null) {
-            $dot = mb_strrpos($name, '.');
-
-            // "archive.tar.gz" splits as "archive.tar" + ".gz"; a leading dot
-            // (".hidden") or no dot at all keeps the whole name as the base.
-            if ($dot !== false && $dot > 0) {
-                $nameBase = mb_substr($name, 0, $dot);
-                $nameExt = mb_substr($name, $dot);
-            }
-        }
-
-        $sizeLabel = match (true) {
-            $file->isSvg() => 'Vektor',
-            $file->hasPixelSize() => sprintf('%d × %d px', $file->width, $file->height),
-            default => null,
-        };
-
-        $format = strtoupper($file->extension());
-        if ($format === 'JPEG') {
-            $format = 'JPG';
-        }
-
-        $tooltipParts = array_filter([
-            $name ?? 'Bez názvu',
-            $sizeLabel !== null ? $sizeLabel . ' · ' . $format : $format,
-        ]);
-
-        return [
-            'name' => $name,
-            'nameBase' => $nameBase,
-            'nameExt' => $nameExt,
-            'width' => $file->width,
-            'height' => $file->height,
-            'sizeLabel' => $sizeLabel,
-            'format' => $format,
-            'tooltip' => implode(' · ', $tooltipParts),
-        ];
     }
 
     /**
@@ -358,7 +305,7 @@ final class ImageGallery extends AbstractController
                         static fn (GalleryImageUsageSite $site): array => ['id' => $site->templateId, 'name' => $site->templateName],
                         $sites,
                     ),
-                    ...$this->describe($f),
+                    ...$this->caption->describe($f),
                 ];
             },
             $files,

@@ -28,8 +28,20 @@ the gallery listings AND the MCP `list_gallery` tool (which no longer reads
 headers itself) — plus `app:gallery:backfill-image-size` for a one-shot sweep
 (run once after deploy; non-zero exit lists unreadable rows). The MCP
 `GalleryImageResponse` gained `originalName`; `name` stays the stored basename
-(= format). The caption fields are computed once in `ImageGallery::describe()`
-(`name`, `nameBase`, `nameExt`, `sizeLabel`, `format`, `tooltip`).
+(= format). The caption fields are computed once in `Services/Image/GalleryImageCaption`
+(`name`, `nameBase`, `nameExt`, `sizeLabel`, `format`, `tooltip`) and rendered
+by the shared `_gallery_asset_caption.html.twig`.
+
+**The fill pages' image pickers show the gallery tile 1:1 (2026-10-11).** Both
+the single-variant and the group picker render every picture through
+`_fill_gallery_tile.html.twig` (square thumb + the same caption; the grid CELL
+is the `fill-gallery` thumb target, the inner button carries the page's pick
+wiring). Their image lists (`AbstractVariantFiller::allowedImages`,
+`GroupFillPlaceholders::allowedImages`) carry the caption fields and run the
+lazy size backfill too. A fresh upload is cloned from the same partial's
+`__KEY__` placeholder version, so the two WEB upload endpoints return
+`PlaceholderImageUploader::uploadWithCaption()` (`caption` object added); the
+OAuth API upload keeps `upload()`'s shape — the public contract did not move.
 
 Stage 8 added a **filesystem-like nested folder tree** on top:
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\SocialNetwork;
 
+use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -14,6 +15,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Message\Image\UploadFile;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorImageInput;
@@ -45,7 +47,33 @@ readonly final class PlaceholderImageUploader
         private FileUploadRepository $fileUploadRepository,
         private PlaceholderAllowedDirectories $allowedDirectories,
         private UploaderHelper $uploaderHelper,
+        private GalleryImageCaption $caption,
     ) {
+    }
+
+    /**
+     * {@see upload()} plus the gallery tile caption of the stored picture, for
+     * the fill pages' pickers: a fresh upload lands as a captioned tile like
+     * every other. The API response stays {@see upload()}'s shape.
+     *
+     * @return array{id: string, url: string, directoryId: null|string, caption: array{uploadedAt: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}}
+     */
+    public function uploadWithCaption(
+        TemplateVariant $variant,
+        string $inputId,
+        UploadedFile $file,
+        null|string $requestedDirectoryId,
+    ): array {
+        $result = $this->upload($variant, $inputId, $file, $requestedDirectoryId);
+        $upload = $this->fileUploadRepository->get(Uuid::fromString($result['id']));
+
+        return [
+            ...$result,
+            'caption' => [
+                'uploadedAt' => $upload->uploadedAt->format('Y-m-d H:i'),
+                ...$this->caption->describe($upload),
+            ],
+        ];
     }
 
     /**

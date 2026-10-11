@@ -44,7 +44,7 @@ final class TemplateVariantPlaceholderUploadWebController extends AbstractContro
             throw new BadRequestHttpException('Missing "file" upload.');
         }
 
-        return $this->json($this->uploader->upload(
+        return $this->json($this->uploader->uploadWithCaption(
             $variant,
             $inputId,
             $file,

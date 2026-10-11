@@ -1,0 +1,22 @@
+{#
+    Gallery tile caption — the uploaded file name (base and extension in
+    separate spans so a long name truncates in the middle and "…1350.png"
+    still reads) and a meta line with the pixel size ("1080 × 1350 px",
+    "Vektor" for an SVG) plus a format badge. Fields come from
+    Services/Image/GalleryImageCaption. Shared by Project:ImageGallery and the
+    fill pages' image pickers, so a picture reads the same everywhere.
+    "Bez názvu" marks uploads from before the name was recorded (2026-09).
+#}
+<div class="gallery-asset__caption">
+    <div class="gallery-asset__name">
+        {% if asset.name is not null %}
+            <span class="gallery-asset__name-base">{{ asset.nameBase }}</span><span class="gallery-asset__name-ext">{{ asset.nameExt }}</span>
+        {% else %}
+            <span class="gallery-asset__name-missing">Bez názvu</span>
+        {% endif %}
+    </div>
+    <div class="gallery-asset__meta">
+        <span class="gallery-asset__size">{{ asset.sizeLabel ?? '' }}</span>
+        <span class="gallery-asset__format">{{ asset.format }}</span>
+    </div>
+</div>

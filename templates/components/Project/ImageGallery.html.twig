@@ -23,31 +23,11 @@
     addImageToCanvas. Each image also has a "move to folder" menu and a delete
     button (deleteFile, which also removes the file from storage).
 
-    Every tile carries an always-visible CAPTION (`tile.caption` below): the
-    uploaded file name — base and extension in separate spans so a long name
-    truncates in the middle and "…1350.png" still reads — and a meta line with
-    the pixel size ("1080 × 1350 px", "Vektor" for an SVG) plus a format
-    badge. It is what tells two look-alike thumbnails of different sizes
-    apart; the same information repeats in the tile's title tooltip together
-    with the upload date. "Bez názvu" marks uploads from before the name was
-    recorded (2026-09) — there is nothing to backfill it from.
+    Every tile carries an always-visible CAPTION (`_gallery_asset_caption`):
+    file name + pixel size + format badge — what tells two look-alike
+    thumbnails apart. The same information repeats in the tile's title
+    tooltip together with the upload date.
 #}
-{% macro caption(asset) %}
-    <div class="gallery-asset__caption">
-        <div class="gallery-asset__name">
-            {% if asset.name is not null %}
-                <span class="gallery-asset__name-base">{{ asset.nameBase }}</span><span class="gallery-asset__name-ext">{{ asset.nameExt }}</span>
-            {% else %}
-                <span class="gallery-asset__name-missing">Bez názvu</span>
-            {% endif %}
-        </div>
-        <div class="gallery-asset__meta">
-            <span class="gallery-asset__size">{{ asset.sizeLabel ?? '' }}</span>
-            <span class="gallery-asset__format">{{ asset.format }}</span>
-        </div>
-    </div>
-{% endmacro %}
-{% import _self as tile %}
 <div {{ attributes.defaults({'data-controller': 'image-gallery'}) }}>
     {#
         Hidden trigger for the LiveAction that re-fetches the asset list. The
@@ -353,7 +333,7 @@
                                             style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
                                         >
                                     </div>
-                                    {{ tile.caption(asset) }}
+                                    {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
                                 </button>
                             {% else %}
                                 <div title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}">
@@ -366,7 +346,7 @@
                                             style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
                                         >
                                     </div>
-                                    {{ tile.caption(asset) }}
+                                    {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
                                 </div>
                             {% endif %}
                             {# No confirm: the delete is reversible (Koš + 7-day retention);
@@ -445,7 +425,7 @@
                                     style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
                                 >
                             </div>
-                            {{ tile.caption(asset) }}
+                            {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
                             {# Templates still referencing the picture: the
                                nightly purge leaves such a file alone (the
                                countdown says so), only "Smazat ihned" — whose

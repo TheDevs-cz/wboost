@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\TemplateGroup;
 
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\EchoCapableTextInputs;
+use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
+use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
@@ -43,6 +45,8 @@ readonly final class GroupFillPlaceholders
         private EchoCapableTextInputs $echoCapableTextInputs,
         private TextInputObjectBinder $textInputObjectBinder,
         private FillTextPlaceholders $fillTextPlaceholders,
+        private FileUploadPixelSizeBackfill $pixelSizeBackfill,
+        private GalleryImageCaption $caption,
     ) {
     }
 
@@ -270,7 +274,7 @@ readonly final class GroupFillPlaceholders
      * @return list<array{
      *     input: EditorImageInput,
      *     defaultImageUrl: null|string,
-     *     images: list<array{id: string, url: string, directoryId: string}>,
+     *     images: list<array{id: string, url: string, directoryId: string, uploadedAt: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>,
      *     directories: list<array{id: string, name: string}>,
      *     includesRoot: bool,
      *     canUpload: bool
@@ -369,22 +373,30 @@ readonly final class GroupFillPlaceholders
 
     /**
      * `directoryId` ('' = gallery root) drives the picker modal's folder
-     * navigation — thumbs are filtered client-side by their folder.
+     * navigation — thumbs are filtered client-side by their folder. Each image
+     * carries the gallery tile caption ({@see GalleryImageCaption}) so the
+     * picker reads like the gallery; sizes missing on old uploads heal here
+     * too (one persisted header read, never repeated).
      *
      * @param list<FileDirectory> $directories
-     * @return list<array{id: string, url: string, directoryId: string}>
+     * @return list<array{id: string, url: string, directoryId: string, uploadedAt: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
      */
     private function allowedImages(UuidInterface $projectId, array $directories, bool $includeRoot): array
     {
         $directoryIds = array_map(static fn (FileDirectory $directory): UuidInterface => $directory->id, $directories);
+
+        $files = $this->fileUploadRepository->listByProjectSourceAndDirectories($projectId, FileSource::ProjectImage, $directoryIds, $includeRoot);
+        $this->pixelSizeBackfill->backfill($files);
 
         return array_map(
             fn (FileUpload $file): array => [
                 'id' => $file->id->toString(),
                 'url' => $this->uploaderHelper->getPublicPath($file->path),
                 'directoryId' => $file->directory?->id->toString() ?? '',
+                'uploadedAt' => $file->uploadedAt->format('Y-m-d H:i'),
+                ...$this->caption->describe($file),
             ],
-            $this->fileUploadRepository->listByProjectSourceAndDirectories($projectId, FileSource::ProjectImage, $directoryIds, $includeRoot),
+            $files,
         );
     }
 

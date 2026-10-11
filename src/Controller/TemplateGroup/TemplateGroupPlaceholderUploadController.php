@@ -62,7 +62,7 @@ final class TemplateGroupPlaceholderUploadController extends AbstractController
             throw $this->createNotFoundException('No variant of this group has such an image placeholder.');
         }
 
-        return $this->json($this->uploader->upload(
+        return $this->json($this->uploader->uploadWithCaption(
             $variant,
             $inputId,
             $file,

@@ -42,6 +42,14 @@ final class TemplateGroupPlaceholderUploadControllerTest extends WebTestCase
         // lands in the root, never in an arbitrary folder.
         self::assertArrayHasKey('directoryId', $data);
         self::assertNull($data['directoryId']);
+
+        // The picker drops the fresh upload in as a gallery tile, so the web
+        // response carries the same caption the gallery shows.
+        self::assertIsArray($data['caption'] ?? null);
+        self::assertSame('photo', $data['caption']['nameBase']);
+        self::assertSame('.png', $data['caption']['nameExt']);
+        self::assertSame('1 × 1 px', $data['caption']['sizeLabel']);
+        self::assertSame('PNG', $data['caption']['format']);
     }
 
     public function testUploadsIntoAnExplicitlyChosenFolder(): void

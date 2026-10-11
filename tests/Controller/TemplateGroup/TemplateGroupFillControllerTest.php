@@ -115,6 +115,15 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('.fill-popover--image[data-inputid="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]'));
         self::assertCount(1, $crawler->filter('input[name="images[' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '][hide]"][data-image-hide="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]'));
         self::assertGreaterThanOrEqual(3, $crawler->filter('[data-hide-toggle="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]')->count());
+
+        // Picker tiles are the gallery's: every picture carries the gallery
+        // caption (fixture uploads predate original names → "Bez názvu").
+        $modal = $crawler->filter('.modal[data-image-modal="' . TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID . '"]');
+        $rootTile = $modal->filter('[data-image-id="' . TestDataFixture::FILE_IN_ROOT_ID . '"]');
+        self::assertCount(1, $rootTile);
+        self::assertSame('Bez názvu', trim($rootTile->filter('.gallery-asset__name')->text()));
+        self::assertSame('PNG', trim($rootTile->filter('.gallery-asset__format')->text()));
+        self::assertGreaterThanOrEqual(2, $modal->filter('.gallery-asset__caption')->count());
     }
 
     /**

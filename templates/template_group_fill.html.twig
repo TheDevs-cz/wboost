@@ -450,55 +450,67 @@
                                         {% endif %}
                                     {% endif %}
 
-                                    <div class="d-flex flex-wrap gap-2"
+                                    <div class="row g-2"
                                          data-group-fill-target="imageOptions"
                                          {% if slot.canUpload %}data-fill-gallery-target="grid"{% endif %}
                                          data-input-id="{{ input.inputId }}">
                                         {# The keep-designed option belongs to no folder — visible in
-                                           every view (data-always-visible). #}
-                                        <button type="button" class="group-fill-image-option selected"
-                                                data-action="group-fill#pickImage"
-                                                data-fill-gallery-target="thumb"
-                                                data-always-visible="true"
-                                                data-input-id="{{ input.inputId }}"
-                                                data-image-id=""
-                                                data-image-url="{{ slot.defaultImageUrl ?: '' }}"
-                                                data-bs-dismiss="modal"
-                                                title="Ponechat obrázek ze šablony">
-                                            {% if slot.defaultImageUrl %}
-                                                <img src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy">
-                                            {% endif %}
-                                            <span>Výchozí</span>
-                                        </button>
+                                           every view (data-always-visible). Same tile as the
+                                           gallery pictures, captioned instead of a file name. #}
+                                        <div class="col-6 col-sm-4 col-md-3" data-fill-gallery-target="thumb" data-always-visible="true">
+                                            <div class="position-relative border rounded gallery-asset h-100">
+                                                <button type="button" class="btn p-0 w-100 h-100 text-start gallery-asset__select group-fill-image-option selected"
+                                                        data-action="group-fill#pickImage"
+                                                        data-input-id="{{ input.inputId }}"
+                                                        data-image-id=""
+                                                        data-image-url="{{ slot.defaultImageUrl ?: '' }}"
+                                                        data-bs-dismiss="modal"
+                                                        title="Ponechat obrázek ze šablony">
+                                                    <div class="p-1">
+                                                        {% if slot.defaultImageUrl %}
+                                                            <img crossorigin="anonymous" src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy" class="img-fluid" style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;">
+                                                        {% else %}
+                                                            <div class="d-flex align-items-center justify-content-center text-muted rounded" style="aspect-ratio: 1; background: #f8f9fa;"><i class="mdi mdi-image-off-outline fs-2"></i></div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="gallery-asset__caption">
+                                                        <div class="gallery-asset__name"><span class="gallery-asset__name-base">Výchozí</span></div>
+                                                        <div class="gallery-asset__meta"><span class="gallery-asset__size">Obrázek ze šablony</span></div>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
                                         {% for image in slot.images %}
-                                            <button type="button" class="group-fill-image-option"
-                                                    data-action="group-fill#pickImage"
-                                                    data-fill-gallery-target="thumb"
-                                                    data-directory-id="{{ image.directoryId }}"
-                                                    data-input-id="{{ input.inputId }}"
-                                                    data-image-id="{{ image.id }}"
-                                                    data-image-url="{{ image.url }}"
-                                                    data-bs-dismiss="modal">
-                                                <img src="{{ image.url }}" alt="" loading="lazy">
-                                            </button>
+                                            {{ include('_fill_gallery_tile.html.twig', {
+                                                asset: image,
+                                                class: 'group-fill-image-option',
+                                                attrs: {
+                                                    'data-action': 'group-fill#pickImage',
+                                                    'data-input-id': input.inputId,
+                                                    'data-image-id': image.id,
+                                                    'data-image-url': image.url,
+                                                    'data-bs-dismiss': 'modal',
+                                                },
+                                            }) }}
                                         {% endfor %}
                                     </div>
 
                                     {% if slot.canUpload %}
                                         <p class="text-muted small mt-2 mb-0 d-none" data-fill-gallery-target="emptyNote">Zatím tu nejsou žádné obrázky — nahrajte vlastní níže.</p>
 
-                                        {# New-upload thumb markup (this page's pick wiring),
-                                           cloned by fill-gallery with __ID__/__URL__ filled in. #}
+                                        {# New-upload tile (this page's pick wiring), cloned by
+                                           fill-gallery with the __KEY__ placeholders filled in. #}
                                         <template data-fill-gallery-target="thumbTemplate">
-                                            <button type="button" class="group-fill-image-option"
-                                                    data-action="group-fill#pickImage"
-                                                    data-fill-gallery-target="thumb"
-                                                    data-input-id="{{ input.inputId }}"
-                                                    data-image-id="__ID__"
-                                                    data-image-url="__URL__"
-                                                    data-bs-dismiss="modal">
-                                                <img src="__URL__" alt="">
-                                            </button>
+                                            {{ include('_fill_gallery_tile.html.twig', {
+                                                class: 'group-fill-image-option',
+                                                attrs: {
+                                                    'data-action': 'group-fill#pickImage',
+                                                    'data-input-id': input.inputId,
+                                                    'data-image-id': '__ID__',
+                                                    'data-image-url': '__URL__',
+                                                    'data-bs-dismiss': 'modal',
+                                                },
+                                            }) }}
                                         </template>
 
                                         <hr class="my-3">

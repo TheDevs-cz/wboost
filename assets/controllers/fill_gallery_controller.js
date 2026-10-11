@@ -16,7 +16,9 @@ import { Controller } from "@hotwired/stimulus";
  * host page's own pick wiring (variant-image-fill#pickImage on the variant
  * page, group-fill#pickImage on the group page), and freshly uploaded thumbs
  * are cloned from a per-modal <template> holding that page-specific markup
- * with __ID__ / __URL__ placeholders. A single-file upload auto-picks by
+ * (`_fill_gallery_tile.html.twig`) with __KEY__ placeholders for the id, url
+ * and gallery caption. Thumb targets are grid CELLS; the pick wiring sits on
+ * the cell's button. A single-file upload auto-picks by
  * clicking its new thumb (uploading INTO a slot means "use this picture");
  * multi-file batches stay open with the new thumbs highlighted, like the
  * admin modal.
@@ -230,7 +232,8 @@ export default class extends Controller {
         // it via its own thumb so the page's pick wiring (and modal close)
         // runs. Batches stay open with the highlights.
         if (this._batchSuccess === 1 && this._lastThumb) {
-            this._lastThumb.click();
+            const pick = this._lastThumb.matches('button') ? this._lastThumb : this._lastThumb.querySelector('button');
+            if (pick) pick.click();
         }
         this._batchSuccess = 0;
         this._lastThumb = null;
@@ -260,15 +263,29 @@ export default class extends Controller {
             throw new Error(data.error || "Nahrání selhalo");
         }
 
-        return { id: data.id, url: data.url, directoryId: data.directoryId || '' };
+        return { id: data.id, url: data.url, directoryId: data.directoryId || '', caption: data.caption || {} };
     }
 
     /** Clone the page-specific thumb markup for a fresh upload, tag it with
-     *  its folder and pulse it — visibility rules then apply as usual. */
+     *  its folder and pulse it — visibility rules then apply as usual. One
+     *  pass over the placeholders, so a file name that itself reads like
+     *  "__URL__" is never substituted twice. */
     insertThumb(asset) {
-        const html = this.thumbTemplateTarget.innerHTML
-            .replaceAll("__ID__", asset.id)
-            .replaceAll("__URL__", asset.url);
+        const caption = asset.caption;
+        const values = {
+            ID: asset.id,
+            URL: asset.url,
+            NAME_BASE: caption.nameBase || "",
+            NAME_EXT: caption.nameExt || "",
+            SIZE: caption.sizeLabel || "",
+            FORMAT: caption.format || "",
+            TOOLTIP: caption.tooltip || "",
+            UPLOADED_AT: caption.uploadedAt || "",
+        };
+        const html = this.thumbTemplateTarget.innerHTML.replace(
+            /__(ID|URL|NAME_BASE|NAME_EXT|SIZE|FORMAT|TOOLTIP|UPLOADED_AT)__/g,
+            (match, key) => this.escape(values[key]),
+        );
         const wrap = document.createElement("div");
         wrap.innerHTML = html.trim();
         const thumb = wrap.firstElementChild;
@@ -278,8 +295,9 @@ export default class extends Controller {
 
         thumb.dataset.directoryId = asset.directoryId || '';
         this.gridTarget.prepend(thumb);
-        thumb.classList.add("gallery-asset--new");
-        setTimeout(() => thumb.classList.remove("gallery-asset--new"), 4000);
+        const tile = thumb.querySelector(".gallery-asset") || thumb;
+        tile.classList.add("gallery-asset--new");
+        setTimeout(() => tile.classList.remove("gallery-asset--new"), 4000);
 
         this.render();
 
@@ -335,9 +353,13 @@ export default class extends Controller {
         return row;
     }
 
+    /** HTML-escapes for text AND attribute positions (quotes included). */
     escape(text) {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
+        return String(text)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
     }
 }
