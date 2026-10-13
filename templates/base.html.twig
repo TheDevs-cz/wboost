@@ -104,6 +104,23 @@
                             </a>
                         </li>
 
+                        {# Facebook / Instagram — a fake door for now (publishing
+                           isn't finished): unless already connected, it opens the
+                           "coming soon" modal in place, never leaving the page. #}
+                        <li class="side-nav-item">
+                            {% if facebook_connected() %}
+                                <a href="{{ path('user_profile') }}" class="side-nav-link">
+                                    <i class="ri-facebook-circle-line"></i>
+                                    <span> Facebook a Instagram </span>
+                                </a>
+                            {% else %}
+                                <a href="#" class="side-nav-link" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door" role="button">
+                                    <i class="ri-facebook-circle-line"></i>
+                                    <span> Facebook a Instagram </span>
+                                </a>
+                            {% endif %}
+                        </li>
+
                         {% if is_granted('ROLE_ADMIN') %}
                             <li class="side-nav-title">Administrace</li>
 
@@ -322,6 +339,8 @@
 
         </div>
         <!-- END wrapper -->
+
+        {{ include('_social_publish_fake_door.html.twig') }}
     {% endblock %}
 
     <!-- Vendor js -->

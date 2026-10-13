@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Twig;
 
+use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
+use WBoost\Web\Entity\User;
 use WBoost\Web\Query\GetProjectAvatars;
 use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Services\FormatFileSize;
+use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\SvgColorsMapper;
 use WBoost\Web\Services\Template\FillFieldOrder;
 use WBoost\Web\Services\UploaderHelper;
@@ -24,6 +27,8 @@ final class TwigExtension extends AbstractExtension
         readonly private FormatFileSize $formatFileSize,
         readonly private GetProjectAvatars $getProjectAvatars,
         readonly private FillFieldOrder $fillFieldOrder,
+        readonly private GetFacebookDestinations $facebookDestinations,
+        readonly private Security $security,
     ) {
     }
 
@@ -42,6 +47,9 @@ final class TwigExtension extends AbstractExtension
             new TwigFunction('manual_page', ManualPage::from(...)),
             // The page a logo variant gets when it is shown on its own.
             new TwigFunction('manual_logo_page', ManualPage::forLogoVariant(...)),
+            // The left navigation's Facebook / Instagram entry: a connected
+            // user goes to the profile, anyone else gets the "coming soon" modal.
+            new TwigFunction('facebook_connected', $this->facebookConnected(...)),
         ];
     }
 
@@ -56,6 +64,13 @@ final class TwigExtension extends AbstractExtension
             // template's admin-arranged order.
             new TwigFilter('arrange_fill_fields', $this->arrangeFillFields(...)),
         ];
+    }
+
+    private function facebookConnected(): bool
+    {
+        $user = $this->security->getUser();
+
+        return $user instanceof User && $this->facebookDestinations->connectedAccount($user) !== null;
     }
 
     /**

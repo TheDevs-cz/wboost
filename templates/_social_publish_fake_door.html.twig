@@ -1,0 +1,29 @@
+{# "Coming soon" modal for Facebook / Instagram publishing — a fake door until
+   publishing is finished. Opened (data-bs-target) from the left navigation and
+   from the fill page's Export dropdown; it is a plain in-page Bootstrap modal,
+   so opening it never navigates away and an unsaved fill survives. #}
+<div class="modal fade" id="social-publish-fake-door" tabindex="-1" aria-labelledby="social-publish-fake-door-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="social-publish-fake-door-title">
+                    <i class="mdi mdi-facebook text-primary" aria-hidden="true"></i><i class="mdi mdi-instagram text-danger me-1" aria-hidden="true"></i>Publikování na Facebook a Instagram
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    Brzy budete moci publikovat vyplněné šablony přímo na své facebookové stránky
+                    a instagramové profesionální účty — bez stahování PNG.
+                </p>
+                <p class="mb-0 text-muted">
+                    Publikování vyžaduje propojený facebookový účet. Propojení právě připravujeme —
+                    dáme vám vědět, jakmile bude k dispozici.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Rozumím</button>
+            </div>
+        </div>
+    </div>
+</div>

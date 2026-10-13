@@ -49,6 +49,13 @@ A "social format" is nothing more than a preset dimension now.
 (`POST /template-variant/{variantId}/publish`, route `template_variant_publish`)
 answers 400 when `dimension->preset === null`; the fill page renders its
 publish chrome via `AbstractVariantFiller::canPublish()` (the same check).
+That chrome is the Export split button's menu ("Publikovat na Facebook /
+Instagram"). **Fake door (2026-10-13):** prod has no Meta app yet, so without a
+connected account the items — and the left-nav "Facebook a Instagram"
+entry (`facebook_connected()` Twig fn) — open the in-page "coming soon" modal
+`_social_publish_fake_door.html.twig` (included by `base.html.twig`). Every
+publish entry stays on the page (type="button", modals only) so an unsaved fill
+is never lost; a connected account still gets the real `variant-publish` modal.
 
 **Template groups — "synchronized templates".** A `TemplateGroup` maps 1:1 to
 ONE `Template` whose variants span multiple dimensions; membership is a
