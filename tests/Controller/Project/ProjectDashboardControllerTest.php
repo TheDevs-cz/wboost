@@ -53,6 +53,9 @@ final class ProjectDashboardControllerTest extends WebTestCase
 
         // Owner can edit, so the header offers the edit action.
         self::assertSelectorExists(sprintf('a[href="/edit-project/%s"]', $projectId));
+
+        // Your own project carries no owner line.
+        self::assertSelectorNotExists('[title^="Vlastník:"]');
     }
 
     public function testReadOnlyUserSeesNoEditGatedTiles(): void
@@ -68,6 +71,22 @@ final class ProjectDashboardControllerTest extends WebTestCase
         self::assertSelectorExists(sprintf('a[href="/project/%s/manuals"]', $projectId));
         self::assertSelectorNotExists(sprintf('a[href="/project/%s/gallery"]', $projectId));
         self::assertSelectorNotExists(sprintf('a[href="/edit-project/%s"]', $projectId));
+
+        // Shared with this user, so the header names who shared it.
+        self::assertSelectorTextContains('[title^="Vlastník:"]', 'Sdíleno od');
+    }
+
+    public function testAdminSeesOwnerOfProjectNotSharedWithThem(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        // PROJECT_2 (owned by user2) is not shared with the admin — god-mode access.
+        $client->request('GET', '/project/' . TestDataFixture::PROJECT_2_ID);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[title^="Vlastník:"]');
+        self::assertSelectorTextNotContains('[title^="Vlastník:"]', 'Sdíleno od');
     }
 
     public function testForbiddenForUnrelatedUser(): void
