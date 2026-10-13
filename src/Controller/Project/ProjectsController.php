@@ -35,26 +35,25 @@ final class ProjectsController extends AbstractController
             ]);
         }
 
-        // Relevance tiers: my own projects, then projects shared directly with me,
-        // then (admins only) everyone else's. Shared-with-me outranks the rest.
-        $ownProjects = [];
-        $sharedProjects = [];
-        $otherProjects = [];
+        // One list, ordered by relevance: my own projects, then projects shared
+        // directly with me, then (admins only) everyone else's. The card styles
+        // the tiers apart; there are no section headings.
+        $own = [];
+        $shared = [];
+        $others = [];
 
         foreach ($projects as $project) {
             if ($project->owner->id->equals($user->id)) {
-                $ownProjects[] = $project;
+                $own[] = $project;
             } elseif ($project->getUserSharingLevel($user) !== null) {
-                $sharedProjects[] = $project;
+                $shared[] = $project;
             } else {
-                $otherProjects[] = $project;
+                $others[] = $project;
             }
         }
 
         return $this->render('projects.html.twig', [
-            'ownProjects' => $ownProjects,
-            'sharedProjects' => $sharedProjects,
-            'otherProjects' => $otherProjects,
+            'projects' => [...$own, ...$shared, ...$others],
             'avatars' => $this->getProjectAvatars->forProjects($projects),
         ]);
     }

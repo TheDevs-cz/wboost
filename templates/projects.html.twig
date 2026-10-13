@@ -19,39 +19,9 @@
         </div>
     {% endif %}
 
-    {% if ownProjects is not empty %}
-        <h4 class="header-title mb-3">
-            Moje projekty
-            <span class="badge bg-primary-subtle text-primary ms-1">{{ ownProjects|length }}</span>
-        </h4>
-        <div class="row">
-            {% for project in ownProjects %}
-                {{ include('_project_card.html.twig') }}
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    {% if sharedProjects is not empty %}
-        <h4 class="header-title mb-3 {{ ownProjects is not empty ? 'mt-3' : '' }}">
-            Sdílené se mnou
-            <span class="badge bg-info-subtle text-info ms-1">{{ sharedProjects|length }}</span>
-        </h4>
-        <div class="row">
-            {% for project in sharedProjects %}
-                {{ include('_project_card.html.twig') }}
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    {% if otherProjects is not empty %}
-        <h4 class="header-title mb-3 {{ (ownProjects is not empty or sharedProjects is not empty) ? 'mt-3' : '' }}">
-            Ostatní projekty
-            <span class="badge bg-secondary ms-1">{{ otherProjects|length }}</span>
-        </h4>
-        <div class="row">
-            {% for project in otherProjects %}
-                {{ include('_project_card.html.twig') }}
-            {% endfor %}
-        </div>
-    {% endif %}
+    <div class="row">
+        {% for project in projects %}
+            {{ include('_project_card.html.twig') }}
+        {% endfor %}
+    </div>
 {% endblock %}

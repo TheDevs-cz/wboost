@@ -4230,3 +4230,27 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
 .export-version-rename .input-group .export-version-rename__btn:focus-visible {
     border-color: var(--ct-secondary);
 }
+
+/* Projects list (_project_card.html.twig): one list, own projects first. Own
+   projects are the theme's solid white card; a project someone else owns is an
+   outlined card (transparent, no shadow) with a muted owner line under the
+   name. Scoped two classes deep to beat the theme's `.card`. */
+.project-card .min-width-0 {
+    min-width: 0;
+}
+
+.card.project-card--foreign {
+    background-color: transparent;
+    border: 1px solid var(--ct-border-color);
+    box-shadow: none;
+}
+
+.card.project-card--foreign:hover {
+    background-color: var(--ct-secondary-bg);
+}
+
+.project-card .project-card-owner {
+    margin-top: .25rem;
+    font-size: .8125rem;
+    color: var(--ct-secondary-color);
+}
