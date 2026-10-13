@@ -40,7 +40,7 @@
                     {% if avatar %}
                         {{ include('_project_avatar.html.twig', {'avatar': avatar, 'size': 56, 'font_size': '1.15rem', 'alt': project.name}) }}
                     {% endif %}
-                    <div class="min-width-0">
+                    <div class="min-w-0">
                         <h4 class="m-0 {{ is_own ? '' : 'text-muted' }}">
                             {{ project.name }}
                         </h4>

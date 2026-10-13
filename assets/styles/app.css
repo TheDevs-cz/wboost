@@ -2679,8 +2679,11 @@ button.fill-layer-row__main:focus-visible {
     font-size: 1.25rem;
 }
 
-/* Let the filename column truncate instead of overflowing the row. */
-.gallery-upload-item .min-w-0 {
+/* Utility Bootstrap lacks: a flex child that may shrink below its content, so
+   a nowrap/ellipsis line inside it (upload file names, font specimens, owner
+   lines) truncates instead of pushing out of its card. The theme defines no
+   such class, so the load-order gotcha does not apply. */
+.min-w-0 {
     min-width: 0;
 }
 
@@ -4233,10 +4236,6 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
 
 /* Projects list (_project_card.html.twig): a project someone else owns gets
    a muted owner line under its name. */
-.project-card .min-width-0 {
-    min-width: 0;
-}
-
 .project-card .project-card-owner {
     margin-top: .25rem;
     font-size: .8125rem;
