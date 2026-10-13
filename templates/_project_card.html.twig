@@ -1,8 +1,7 @@
 {% set is_own = project.owner.id.equals(app.user.id) %}
 {% set is_shared = not is_own and project.getUserSharingLevel(app.user) is not null %}
-{# Own projects are solid cards; anyone else's is an outlined card with an owner line. #}
 <div class="col-md-6 col-xxl-3">
-    <div class="card project-card {{ is_own ? '' : 'project-card--foreign' }}">
+    <div class="card project-card {{ is_own ? '' : 'border border-secondary-subtle' }}">
         {% if is_granted('project_edit', project) %}
             <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
                 <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
@@ -42,7 +41,7 @@
                         {{ include('_project_avatar.html.twig', {'avatar': avatar, 'size': 56, 'font_size': '1.15rem', 'alt': project.name}) }}
                     {% endif %}
                     <div class="min-width-0">
-                        <h4 class="m-0">
+                        <h4 class="m-0 {{ is_own ? '' : 'text-muted' }}">
                             {{ project.name }}
                         </h4>
                         {% if not is_own %}

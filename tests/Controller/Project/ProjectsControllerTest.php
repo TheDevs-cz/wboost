@@ -21,11 +21,11 @@ final class ProjectsControllerTest extends WebTestCase
         // Both projects (owned by user1 and user2) are listed for the admin...
         $this->assertSelectorTextContains('body', 'Project 1');
         $this->assertSelectorTextContains('body', 'Project 2');
-        // One list, no tier headings. The admin owns nothing but PROJECT_2 is
-        // shared with them, so it ranks ahead of the un-shared PROJECT_1 — both as
-        // outlined "foreign" cards with an owner line.
+        // One list, no tier headings. The admin owns nothing but PROJECT_1 is
+        // shared with them, so it ranks ahead of the un-shared PROJECT_2 — both
+        // with an owner line.
         $this->assertSelectorNotExists('h4.header-title');
-        $this->assertSelectorCount(2, '.project-card--foreign');
+        $this->assertSelectorCount(2, '.project-card-owner');
         $owners = $crawler->filter('.project-card-owner');
         $this->assertStringContainsString('Sdíleno od', $owners->eq(0)->text());
         $this->assertStringNotContainsString('Sdíleno od', $owners->eq(1)->text());
