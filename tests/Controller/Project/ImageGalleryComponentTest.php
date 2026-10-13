@@ -32,6 +32,8 @@ use WBoost\Web\Value\FileSource;
  *   `#[LiveArg('directoryid')]` binding the data-attribute names require — a
  *   regression guard for the camelCase bug);
  * - deleteFile removes a gallery image;
+ * - startFileRename/renameFile relabel a picture (extension kept, stored
+ *   object untouched; blank and trashed are refused);
  * - a non-owner is rejected by the explicit `guard()` that replaced the broken
  *   class-level `#[IsGranted]`.
  *
@@ -185,6 +187,90 @@ final class ImageGalleryComponentTest extends WebTestCase
         );
     }
 
+    public function testRenameFileKeepsTheExtensionAndOnlyRelabels(): void
+    {
+        $client = self::createClient();
+
+        $file = $this->persistFile(null, 'IMG_4821.png');
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+        $component->call('startFileRename', ['fileid' => $file->id->toString()]);
+
+        $html = (string) $component->render();
+        self::assertStringContainsString('value="IMG_4821"', $html, 'The input holds the name without its extension.');
+        self::assertStringContainsString('.png</span>', $html, 'The extension is a fixed suffix.');
+
+        $component->set('fileRenameValue', '  Skóre 0 ');
+        $component->call('renameFile');
+
+        $this->em()->clear();
+        $renamed = $this->fileRepository()->get($file->id);
+        self::assertSame('Skóre 0.png', $renamed->originalName);
+        self::assertSame($file->path, $renamed->path, 'The stored object is untouched.');
+    }
+
+    public function testRenameFileDoesNotDoubleATypedExtension(): void
+    {
+        $client = self::createClient();
+
+        $file = $this->persistFile(null, 'old.png');
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+        $component->call('startFileRename', ['fileid' => $file->id->toString()]);
+        $component->set('fileRenameValue', 'new.PNG');
+        $component->call('renameFile');
+
+        $this->em()->clear();
+        self::assertSame('new.png', $this->fileRepository()->get($file->id)->originalName);
+    }
+
+    public function testRenamingANamelessUploadUsesTheStoredFormat(): void
+    {
+        $client = self::createClient();
+
+        // Uploads from before names were recorded read "Bez názvu".
+        $file = $this->persistFile(null);
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+        $component->call('startFileRename', ['fileid' => $file->id->toString()]);
+        $component->set('fileRenameValue', 'skore-1');
+        $component->call('renameFile');
+
+        $this->em()->clear();
+        self::assertSame('skore-1.png', $this->fileRepository()->get($file->id)->originalName);
+    }
+
+    public function testBlankRenameKeepsTheOldName(): void
+    {
+        $client = self::createClient();
+
+        $file = $this->persistFile(null, 'keep.png');
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+        $component->call('startFileRename', ['fileid' => $file->id->toString()]);
+        $component->set('fileRenameValue', '   ');
+        $component->call('renameFile');
+
+        $this->em()->clear();
+        self::assertSame('keep.png', $this->fileRepository()->get($file->id)->originalName);
+    }
+
+    public function testTrashedFileCannotBeRenamed(): void
+    {
+        $client = self::createClient();
+
+        $file = $this->persistFile(null, 'trashed.png');
+
+        $component = $this->mount($client, TestDataFixture::USER_1_EMAIL);
+        $component->call('deleteFile', ['fileid' => $file->id->toString()]);
+        $component->call('startFileRename', ['fileid' => $file->id->toString()]);
+        $component->set('fileRenameValue', 'renamed');
+        $component->call('renameFile');
+
+        $this->em()->clear();
+        self::assertSame('trashed.png', $this->fileRepository()->get($file->id)->originalName);
+    }
+
     public function testNonOwnerIsDeniedByGuard(): void
     {
         $client = self::createClient();
@@ -227,7 +313,7 @@ final class ImageGalleryComponentTest extends WebTestCase
         return $directory;
     }
 
-    private function persistFile(null|FileDirectory $directory): FileUpload
+    private function persistFile(null|FileDirectory $directory, null|string $originalName = null): FileUpload
     {
         $file = new FileUpload(
             Uuid::uuid4(),
@@ -236,6 +322,7 @@ final class ImageGalleryComponentTest extends WebTestCase
             FileSource::ProjectImage,
             'file-upload/' . TestDataFixture::PROJECT_1_ID . '/' . Uuid::uuid4()->toString() . '.png',
             $directory,
+            $originalName,
         );
 
         $this->em()->persist($file);

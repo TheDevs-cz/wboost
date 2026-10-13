@@ -2530,17 +2530,38 @@ button.fill-layer-row__main:focus-visible {
    under the thumbnail — the only way to tell two look-alike pictures of
    different sizes apart. Base and extension are separate spans so a long name
    truncates in the MIDDLE ("pozadi-tmave-mo… 1350.png" keeps its tail). */
-.gallery-asset__select {
-    /* The modal tile is a <button class="btn">: undo the button's centring,
-       font sizing and focus/hover chrome so the caption reads like text. */
+.gallery-asset__select,
+.gallery-asset__rename-trigger {
+    /* The modal tile (and the standalone caption, the rename handle) is a
+       <button class="btn">: undo the button's centring, font sizing and
+       focus/hover chrome so the caption reads like text. */
     font-size: inherit;
     line-height: inherit;
     border-radius: inherit;
 }
 
 .gallery-asset__select:hover,
-.gallery-asset__select:focus-visible {
+.gallery-asset__select:focus-visible,
+.gallery-asset__rename-trigger:hover,
+.gallery-asset__rename-trigger:focus-visible {
     background: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.06);
+}
+
+.gallery-asset__rename-trigger {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    cursor: text;
+}
+
+/* Inline rename form in place of the caption. */
+.gallery-asset__rename {
+    padding: 0.3rem 0.4rem 0.4rem;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.gallery-asset__rename .form-control,
+.gallery-asset__rename .input-group-text {
+    font-size: 0.75rem;
 }
 
 .gallery-asset__caption {

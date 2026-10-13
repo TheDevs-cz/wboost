@@ -17,10 +17,12 @@ use WBoost\Web\Message\Image\CreateFileDirectory;
 use WBoost\Web\Message\Image\DeleteFileDirectory;
 use WBoost\Web\Message\Image\MoveFileUpload;
 use WBoost\Web\Message\Image\RenameFileDirectory;
+use WBoost\Web\Message\Image\RenameFileUpload;
 use WBoost\Web\MessageHandler\Image\CreateFileDirectoryHandler;
 use WBoost\Web\MessageHandler\Image\DeleteFileDirectoryHandler;
 use WBoost\Web\MessageHandler\Image\MoveFileUploadHandler;
 use WBoost\Web\MessageHandler\Image\RenameFileDirectoryHandler;
+use WBoost\Web\MessageHandler\Image\RenameFileUploadHandler;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Repository\ProjectRepository;
@@ -89,6 +91,16 @@ final class FileDirectoryHandlersTest extends KernelTestCase
         $this->em()->flush();
 
         self::assertSame('New name', $this->directoryRepository()->get($directory->id)->name);
+    }
+
+    public function testRenameFileUploadDropsControlCharacters(): void
+    {
+        $file = $this->persistFile(null);
+
+        $this->handler(RenameFileUploadHandler::class)(new RenameFileUpload($file->id, " Skóre\t 1/2.png\n"));
+        $this->em()->flush();
+
+        self::assertSame('Skóre 1/2.png', $this->fileRepository()->get($file->id)->originalName);
     }
 
     public function testMoveFileUploadIntoDirectory(): void

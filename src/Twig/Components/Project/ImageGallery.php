@@ -27,6 +27,7 @@ use WBoost\Web\Message\Image\DeleteFileUpload;
 use WBoost\Web\Message\Image\MoveFileUpload;
 use WBoost\Web\Message\Image\PurgeFileUpload;
 use WBoost\Web\Message\Image\RenameFileDirectory;
+use WBoost\Web\Message\Image\RenameFileUpload;
 use WBoost\Web\Message\Image\RestoreFileUpload;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
@@ -123,6 +124,25 @@ final class ImageGallery extends AbstractController
     /** Bound to the inline rename input via data-model. */
     #[LiveProp(writable: true)]
     public string $renameValue = '';
+
+    /**
+     * UUID of the picture whose name is being edited inline, or null. Server-
+     * set by startFileRename() only; renameFile() re-checks ownership.
+     */
+    #[LiveProp]
+    public null|string $renamingFileId = null;
+
+    /**
+     * Bound to the inline picture-rename input: the name WITHOUT its
+     * extension — the extension is kept (see {@see renameExtension()}) and
+     * shown as a fixed suffix, so renaming never "changes the format".
+     */
+    #[LiveProp(writable: true)]
+    public string $fileRenameValue = '';
+
+    /** Display-only suffix next to the rename input (".png"); server-set. */
+    #[LiveProp]
+    public string $fileRenameExtension = '';
 
     /**
      * Whether the special read-only "Koš" (trash bin) view is open instead of
@@ -416,6 +436,8 @@ final class ImageGallery extends AbstractController
     {
         $this->guard();
 
+        $this->cancelRenameState();
+
         $directory = $this->ownedDirectory($directoryId);
         if ($directory !== null) {
             $this->renamingDirectoryId = $directory->id->toString();
@@ -443,6 +465,70 @@ final class ImageGallery extends AbstractController
         }
 
         $this->cancelRenameState();
+    }
+
+    /**
+     * Inline rename of a picture's caption (its uploaded file name). Only the
+     * label changes — the stored object, its URL and every template that
+     * references it stay as they are.
+     */
+    #[LiveAction]
+    public function startFileRename(#[LiveArg('fileid')] string $fileId): void
+    {
+        $this->guard();
+        $this->cancelRenameState();
+
+        $file = $this->ownedFile($fileId);
+        if ($file === null || $file->isTrashed()) {
+            return;
+        }
+
+        $caption = $this->caption->describe($file);
+        $this->renamingFileId = $file->id->toString();
+        $this->fileRenameValue = $caption['nameBase'];
+        $this->fileRenameExtension = self::renameExtension($file, $caption['name'], $caption['nameExt']);
+    }
+
+    #[LiveAction]
+    public function renameFile(): void
+    {
+        $this->guard();
+
+        $file = $this->renamingFileId !== null ? $this->ownedFile($this->renamingFileId) : null;
+        $base = trim($this->fileRenameValue);
+
+        if ($file !== null && !$file->isTrashed() && $base !== '') {
+            $caption = $this->caption->describe($file);
+            $extension = self::renameExtension($file, $caption['name'], $caption['nameExt']);
+
+            // Typing the extension along with the name ("skore-0.png") must
+            // not double it.
+            if ($extension !== '' && mb_strtolower(mb_substr($base, -mb_strlen($extension))) === mb_strtolower($extension)) {
+                $base = trim(mb_substr($base, 0, -mb_strlen($extension)));
+            }
+
+            if ($base !== '') {
+                $this->bus->dispatch(new RenameFileUpload($file->id, $base . $extension));
+            }
+        }
+
+        $this->cancelRenameState();
+    }
+
+    /**
+     * The extension a renamed picture keeps: the one its current name has, or
+     * — for an upload from before names were recorded ("Bez názvu") — the
+     * stored format's, so the new name reads like every other one.
+     */
+    private static function renameExtension(FileUpload $file, null|string $name, string $nameExt): string
+    {
+        if ($name !== null) {
+            return $nameExt;
+        }
+
+        $extension = $file->extension();
+
+        return $extension !== '' ? '.' . $extension : '';
     }
 
     #[LiveAction]
@@ -650,6 +736,9 @@ final class ImageGallery extends AbstractController
     {
         $this->renamingDirectoryId = null;
         $this->renameValue = '';
+        $this->renamingFileId = null;
+        $this->fileRenameValue = '';
+        $this->fileRenameExtension = '';
     }
 
     /**

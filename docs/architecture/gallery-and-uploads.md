@@ -32,6 +32,21 @@ headers itself) — plus `app:gallery:backfill-image-size` for a one-shot sweep
 (`name`, `nameBase`, `nameExt`, `sizeLabel`, `format`, `tooltip`) and rendered
 by the shared `_gallery_asset_caption.html.twig`.
 
+**Pictures are renamable (2026-10-13).** Every live tile (standalone + both
+editor modals — same component) has a pencil next to the move-to-folder
+button; standalone, clicking the caption itself does the same. LiveActions
+`startFileRename` / `renameFile` / `cancelRename` (Enter submits the inline
+`<form>`, Escape cancels; the `image-gallery` controller focuses + selects the
+morphed-in input via its `renameInput` target, which the folder rename uses
+too) dispatch `RenameFileUpload` → `FileUpload::rename()`. Only the name base
+is editable: the extension of the current name stays as a fixed suffix (a
+"Bez názvu" upload gets the stored format's, `.png`), a typed duplicate
+extension is not doubled, a blank name is ignored, and a trashed file is
+refused (the bin is read-only). It is purely a label — `path`, the public URL
+and every template reference stay put, so nothing else needs updating; every
+surface that shows the name (fill pickers, `asset-selected`, MCP
+`list_gallery`) reads it from the row.
+
 **The fill pages' image pickers show the gallery tile 1:1 (2026-10-11).** Both
 the single-variant and the group picker render every picture through
 `_fill_gallery_tile.html.twig` (square thumb + the same caption; the grid CELL
@@ -50,6 +65,7 @@ Stage 8 added a **filesystem-like nested folder tree** on top:
   nullable `directory` FK (`ON DELETE SET NULL`).
 - Navigation/CRUD are **LiveActions** on the component (`openDirectory`,
   `openRoot`, `createDirectory`, `startRename`/`renameDirectory`,
+  `startFileRename`/`renameFile`,
   `deleteDirectory`, `deleteFile`, `moveFile`), each dispatching a CQRS message under
   `Message/Image/` (`CreateFileDirectory`, `RenameFileDirectory`,
   `DeleteFileDirectory`, `DeleteFileUpload`, `MoveFileUpload`). `$currentDirectoryId`

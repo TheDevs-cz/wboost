@@ -26,12 +26,22 @@ import { Controller } from "@hotwired/stimulus";
  * loop is possible.
  */
 export default class extends Controller {
-    static targets = ["refreshTrigger"];
+    static targets = ["refreshTrigger", "renameInput"];
 
     // How long an upload stays eligible for a highlight pulse (Live round
     // trips included), and how long the pulse itself shows.
     static HIGHLIGHT_WINDOW_MS = 10000;
     static HIGHLIGHT_SHOW_MS = 4000;
+
+    /**
+     * An inline rename field (picture or folder) arrives with a Live morph,
+     * where `autofocus` does nothing — focus it and select the text so the
+     * user can type the new name straight away.
+     */
+    renameInputTargetConnected(input) {
+        input.focus();
+        input.select();
+    }
 
     /**
      * Triggered by `data-action="click->image-gallery#select"` on each

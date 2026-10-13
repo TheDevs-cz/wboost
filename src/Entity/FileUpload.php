@@ -96,11 +96,11 @@ class FileUpload
          * row (`path`), and the extension here may disagree with the stored
          * format (an "IMG_4821.HEIC" is stored as a JPEG). Null for uploads
          * from before it was recorded (2026-09) — there is nothing to
-         * backfill it from.
+         * backfill it from. Renamable from the gallery ({@see rename()}).
          */
-        #[Immutable]
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(nullable: true)]
-        readonly public null|string $originalName = null,
+        public null|string $originalName = null,
         null|int $width = null,
         null|int $height = null,
     ) {
@@ -134,6 +134,23 @@ class FileUpload
     public function isSvg(): bool
     {
         return $this->extension() === 'svg';
+    }
+
+    /**
+     * Relabel the picture. The name is only a caption — the stored object
+     * keeps its path, so nothing that references the file moves. Control
+     * characters are dropped and it is cut to the column width; a blank
+     * name is ignored (the caller decides whether that is an error).
+     */
+    public function rename(string $name): void
+    {
+        $name = trim(preg_replace('/[\x00-\x1F\x7F]+/u', '', $name) ?? '');
+
+        if ($name === '') {
+            return;
+        }
+
+        $this->originalName = mb_substr($name, 0, 255);
     }
 
     public function moveToDirectory(null|FileDirectory $directory): void
