@@ -50,6 +50,44 @@ final class CopyTemplateHandlersTest extends KernelTestCase
         self::assertSame([TestDataFixture::FILE_DIRECTORY_ALLOWED_ID], $variantCopy->imageInputs[0]->allowedDirectoryIds);
     }
 
+    public function testCopyGroupedTemplateGetsItsOwnIndependentGroup(): void
+    {
+        $original = self::getContainer()->get(TemplateRepository::class)->get(Uuid::fromString(TestDataFixture::GROUPED_TEMPLATE_ID));
+        $original->arrangeFillFields([TestDataFixture::GROUP_SHARED_INPUT_ID]);
+        $this->em()->flush();
+
+        $newTemplateId = Uuid::uuid4();
+
+        $handler = self::getContainer()->get(CopyTemplateHandler::class);
+        $handler(new CopyTemplate(
+            Uuid::fromString(TestDataFixture::GROUPED_TEMPLATE_ID),
+            $newTemplateId,
+        ));
+        $this->em()->flush();
+        $this->em()->clear();
+
+        $copy = self::getContainer()->get(TemplateRepository::class)->get($newTemplateId);
+
+        self::assertNotNull($copy->group, 'A synchronized template is copied as a synchronized template.');
+        self::assertNotSame(TestDataFixture::TEMPLATE_GROUP_1_ID, $copy->group->id->toString(), 'The copy must not join the original group.');
+        self::assertSame($copy->name, $copy->group->name);
+        self::assertSame([TestDataFixture::GROUP_SHARED_INPUT_ID], $copy->fillFieldOrder);
+
+        $variants = $copy->variants();
+        self::assertCount(3, $variants);
+
+        $grouped = array_filter($variants, static fn ($variant) => $variant->group !== null);
+        self::assertCount(2, $grouped, 'Only the original group members join the new group; manually added variants stay outside.');
+
+        foreach ($grouped as $variant) {
+            self::assertTrue($variant->group?->id->equals($copy->group->id));
+        }
+
+        $originalGroupMembers = self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::GROUPED_PRESET_VARIANT_ID));
+        self::assertSame(TestDataFixture::TEMPLATE_GROUP_1_ID, $originalGroupMembers->group?->id->toString(), 'The original stays in its own group.');
+    }
+
     public function testCopyVariantKeepsDimensionAndImageInputs(): void
     {
         $newVariantId = Uuid::uuid4();

@@ -1,7 +1,8 @@
 {# Two flavors of the template card: a plain template is managed here
    (duplicate/edit/delete, body → variants page), a GROUPED (synchronized)
    template is managed in its group editor — the card only routes there
-   (designers) or to the group fill page (everyone else). #}
+   (designers) or to the group fill page (everyone else). Duplicating a
+   grouped template yields a new, independent group (CopyTemplateHandler). #}
 {% set grouped = template.group is not null %}
 {% set can_group_edit = grouped and is_granted('template_edit', template) and is_granted('ROLE_DESIGNER') %}
 
@@ -24,6 +25,7 @@
                             <a href="{{ path('add_template_group_dimension', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-plus me-1"></i>Přidat rozměr</a>
                             <a href="{{ path('template_group_fill', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-folder-zip-outline me-1"></i>Vyplnit a exportovat</a>
                             <div class="dropdown-divider"></div>
+                            <a href="{{ path('copy_template', {'templateId': template.id}) }}" class="dropdown-item" title="Samostatná kopie se svou vlastní synchronizací — změny se nepropisují do originálu"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
                         {% endif %}
                         <a href="{{ path('edit_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit název a náhled</a>
                         {% if can_group_edit %}

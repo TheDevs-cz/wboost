@@ -77,6 +77,16 @@ fill-preview, export, placeholder upload) delegates to `ProjectVoter::VIEW`
 (admin, owner, any shared user); **`EDIT`** (group editor, add-dimension)
 stays a designer/owner/admin tool.
 
+**Duplicating ("Duplikovat", `copy_template` → `CopyTemplateHandler`).** A deep,
+unaffiliated clone — nothing links the copy back to its source (name gets
+" (kopie)", `fillFieldOrder` is carried over, storage keys are shared, never
+re-uploaded). A grouped template is copied into a **brand-new group of its own**
+(same name as the copy, 1:1 as always): only the variants that were group
+members join it, manually added ones stay outside, mirroring the source. The
+menu item sits in the designer-gated block of the "Synchronizováno" card; the
+controller re-checks `TemplateGroupVoter::EDIT` and lands in the copy's group
+editor. Per-variant "Duplikovat" (`copy_template_variant`) never sets a group.
+
 **Group editor propagation — two target sets (2026-08-07).** `GroupSync` is
 handed `targets()` AND `allTargets()`, and the split is what the rail's UI
 means:
