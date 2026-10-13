@@ -54,7 +54,7 @@
             </small>
         </a>
         {# The inline rename editor — hidden until the pencil; the same
-           partial the banner and the history page use, in its row flavour. #}
+           partial the history page uses, in its row flavour. #}
         <span class="flex-grow-1" style="min-width: 0;" data-export-version-row-target="editor" hidden>
             {{ include('_export_version_rename_form.html.twig', {version: version, redirect_url: redirect_url, turbo: true, row: true}) }}
         </span>

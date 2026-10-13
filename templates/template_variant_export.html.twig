@@ -52,15 +52,7 @@
         </style>
     </div>
 
-    {# Always rendered (an empty placeholder when nothing is loaded): a draft
-       save makes the draft the loaded version and replaces it. #}
-    {{ include('_export_history_banner.html.twig', {
-        loaded_version: loaded_version,
-        clear_url: path('template_variant_export', {'variantId': variant.id}),
-        redirect_url: app.request.requestUri,
-    }) }}
-
-    {# Anchors for the title-row dropdown's and the banner's pin / rename
+    {# Anchors for the title-row dropdown's pin / rename
        controls (they carry no <form> of their own — see the partial),
        Turbo-enabled: a pin / rename re-renders the history chrome in place. #}
     {{ include('_export_version_form_anchors.html.twig', {versions: export_history.menu(loaded_version), loaded_version: loaded_version, turbo: true}) }}

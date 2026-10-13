@@ -46,9 +46,8 @@ version.
   pruned id start a new draft). The answer is a Turbo Stream
   (`ExportVersionTurboStream::draftSaved` → `_fill_draft_saved.stream.html.twig`)
   replacing the WHOLE dropdown `#export-history-menu` (always rendered, empty
-  while there is no history — the first save creates it), the banner
-  (`#export-history-banner`, an empty hidden placeholder when nothing is
-  loaded) and the anchors, with the draft as the loaded version; the
+  while there is no history — the first save creates it; its toggle then
+  names the draft) and the anchors, with the draft as the loaded version; the
   `X-Fill-Draft-Version` header feeds the field + `history.replaceState`
   (`?version=<draft>`). Single page: the controller wraps the deferred Live
   component and the two hidden fields sit OUTSIDE it, joined via
@@ -62,7 +61,8 @@ version.
   (`findDuplicate`) never matches drafts, and the listing queries
   (`latestFor*`, "naposledy exportováno") exclude them. Drafts count toward
   the 100 unpinned cap. Badge "Rozpracováno" in the dropdown and on the
-  history page; the banner words a loaded draft differently.
+  history page; the toggle label reads "Rozpracováno <d.m. H:i>" for an
+  unnamed loaded draft.
 - **Re-loading** (`?version=<id>` on both fill pages; invalid/foreign/pruned
   ids silently ignored): `Services/Template/ExportVersionSeeder` is LENIENT
   where the render resolvers 400 — deleted inputs drop, a rich envelope on a
@@ -109,9 +109,14 @@ version.
   Escape / × cancel, Enter / ✓ save) — rows are `div.dropdown-item` wrapping
   the load `<a>` + the controls, since an `<a>` cannot contain form
   controls; the rows live in `_export_history_menu_body.html.twig`, which
-  owns `#export-history-menu-body`), `_export_history_banner.html.twig`
-  (loaded state, owns `#export-history-banner`, with the inline rename
-  controls + a labelled pin button), the dedicated page
+  owns `#export-history-menu-body`), `_export_history_toggle_label.html.twig`
+  (owns `#export-history-toggle-label`: "Historie exportů", or — with a
+  version loaded — its name, else "Export|Rozpracováno <d.m. H:i>", full
+  details in the `title`). **There is NO loaded-version banner** (removed
+  2026-10-13: a full-width alert repeating the dropdown's controls, which
+  users said they never understood nor used — "Ten velký banner … zrušme
+  to"); the toggle label is the only "what is loaded" signal, and the
+  loaded row (`.active`) carries rename/pin like every row, the dedicated page
   `template_export_history.html.twig` (routes
   `template_variant_export_history` = `/template-variant/{id}/export-history`
   and `template_group_export_history` = `/template-group/{id}/export-history`,
@@ -127,7 +132,7 @@ version.
   the empty, hidden anchors of `_export_version_form_anchors.html.twig`,
   included ONCE per page OUTSIDE every other form (`ExportHistory::menu(loaded)`
   on the fill pages, `all()` on the history page). The group fill page wraps
-  its dropdown and banner in the fill form, and a nested `<form>` tag is not
+  its dropdown in the fill form, and a nested `<form>` tag is not
   merely invalid: browsers AND libxml drop the start tag and its `</form>`
   closes the OUTER form — every fill field below the header ended up outside
   the fill form (boxes `display:none`, overlay targets unreachable, previews
@@ -145,7 +150,7 @@ version.
   not in the anchor). `Services/Template/ExportVersionTurboStream` answers
   a request whose preferred format is `TurboBundle::STREAM_FORMAT` with
   `_export_version_curation.stream.html.twig`: three `replace` actions —
-  the menu body, the banner (when the anchors' `loaded` field names a
+  the menu body, the toggle label (when the anchors' `loaded` field names a
   version of the same surface) and the anchors wrapper
   `#export-version-form-anchors` (a version that just entered the "recent"
   rows needs an anchor of its own). Every fragment partial renders its own

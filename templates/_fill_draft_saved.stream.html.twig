@@ -2,20 +2,13 @@
    ExportVersionTurboStream::draftSaved(). The saved draft is now the page's
    LOADED version: the whole history dropdown (shell included — before the
    first save of a surface there is no dropdown at all, only its empty
-   `#export-history-menu` wrapper), the banner (an empty placeholder until
-   something is loaded) and the anchors re-render around it.
+   `#export-history-menu` wrapper; its toggle now names the draft) and the
+   anchors re-render around it.
 
    Expects the menu's context:
    - history, loaded_version, route_name, route_params, history_url, redirect_url #}
 <turbo-stream action="replace" target="export-history-menu">
     <template>{{ include('_export_history_menu.html.twig') }}</template>
-</turbo-stream>
-<turbo-stream action="replace" target="export-history-banner">
-    <template>{{ include('_export_history_banner.html.twig', {
-        loaded_version: loaded_version,
-        clear_url: path(route_name, route_params),
-        redirect_url: redirect_url,
-    }) }}</template>
 </turbo-stream>
 <turbo-stream action="replace" target="export-version-form-anchors">
     <template>{{ include('_export_version_form_anchors.html.twig', {

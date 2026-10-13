@@ -8,8 +8,8 @@ import { renderStreamMessage } from '@hotwired/turbo';
  * work away.
  *
  * - save() POSTs the fill form as it is to the page's draft endpoint (no
- *   render); the answer is a Turbo Stream re-rendering the history dropdown,
- *   banner and anchors around the saved draft, which becomes the page's
+ *   render); the answer is a Turbo Stream re-rendering the history dropdown
+ *   (its toggle then names the draft) and anchors around the saved draft, which becomes the page's
  *   loaded version: its id lands in the `draftVersionId` field (the next save
  *   overwrites it, an export promotes it) and in the URL (`?version=<id>`),
  *   so a reload or a shared link brings the work back. Ctrl/⌘+S saves too.
@@ -103,7 +103,7 @@ export default class extends Controller {
             }
 
             this._baseline = snapshot;
-            this._toast('Rozpracovaná práce je uložená — najdete ji v Historii exportů.', 'success');
+            this._toast('Uloženo do Historie exportů.', 'success');
         } catch (error) {
             console.error(error);
             this._toast('Uložení se nepodařilo. Zkuste to prosím znovu.', 'warning');

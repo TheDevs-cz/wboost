@@ -11,6 +11,10 @@
    the page with `?version=<id>`; the controller then seeds the whole fill
    state from that version's snapshot.
 
+   The toggle names the LOADED version (`_export_history_toggle_label`) —
+   there is no separate banner; the loaded row is `.active` and carries the
+   same rename / pin controls as every other row.
+
    The whole thing sits in `#export-history-menu`, rendered even while the
    history is empty: "Uložit rozpracované" answers with a stream that
    REPLACES it (the first save of a surface is what creates its dropdown).
@@ -26,7 +30,7 @@
 {% if not history.isEmpty %}
     <div class="dropdown d-inline-block">
         <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-            <i class="mdi mdi-history"></i> Historie exportů
+            <i class="mdi mdi-history"></i> {{ include('_export_history_toggle_label.html.twig') }}
         </button>
         <div class="dropdown-menu dropdown-menu-end shadow" style="min-width: 24rem; max-height: 28rem; overflow-y: auto;">
             {{ include('_export_history_menu_body.html.twig') }}

@@ -132,18 +132,19 @@ final class TemplateVariantExportVersionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $version = $this->soleVersion();
 
-        // Plain visit: history dropdown lists the version, no banner.
+        // Plain visit: history dropdown lists the version, nothing is loaded.
         $crawler = $client->request('GET', $this->fillPageUrl());
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Historie exportů', (string) $client->getResponse()->getContent());
-        self::assertStringNotContainsString('Formulář je předvyplněný', (string) $client->getResponse()->getContent());
+        self::assertSame('Historie exportů', $crawler->filter('#export-history-toggle-label')->text());
         self::assertCount(1, $crawler->filter(sprintf('a[href*="version=%s"]', $version->id->toString())));
 
-        // Loading the version shows the banner (the component seeds arrive via
-        // its deferred Live request, so the banner is the page-level signal).
-        $client->request('GET', $this->fillPageUrl() . '?version=' . $version->id->toString());
+        // Loading the version names it on the dropdown toggle (the component
+        // seeds arrive via its deferred Live request, so the toggle is the
+        // page-level signal).
+        $crawler = $client->request('GET', $this->fillPageUrl() . '?version=' . $version->id->toString());
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Formulář je předvyplněný', (string) $client->getResponse()->getContent());
+        self::assertStringStartsWith('Export ', $crawler->filter('#export-history-toggle-label')->text());
+        self::assertStringStartsWith('Načtená verze:', (string) $crawler->filter('#export-history-toggle-label')->attr('title'));
 
         // A version of ANOTHER variant — and plain garbage — must be ignored.
         $client->request('POST', '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download', [
@@ -153,9 +154,9 @@ final class TemplateVariantExportVersionTest extends WebTestCase
         $foreign = $this->versionForVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
 
         foreach ([$foreign->id->toString(), 'not-a-uuid', Uuid::uuid4()->toString()] as $ignored) {
-            $client->request('GET', $this->fillPageUrl() . '?version=' . $ignored);
+            $crawler = $client->request('GET', $this->fillPageUrl() . '?version=' . $ignored);
             self::assertResponseIsSuccessful();
-            self::assertStringNotContainsString('Formulář je předvyplněný', (string) $client->getResponse()->getContent());
+            self::assertSame('Historie exportů', $crawler->filter('#export-history-toggle-label')->text());
         }
     }
 

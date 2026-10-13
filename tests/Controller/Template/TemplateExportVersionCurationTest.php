@@ -39,14 +39,13 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         $older = $this->export($client, 'Verze první', new DateTimeImmutable('2026-09-01 10:00:00'));
         $newer = $this->export($client, 'Verze druhá', new DateTimeImmutable('2026-09-02 10:00:00'));
 
-        // Loaded-version banner carries the rename form (every dropdown row
-        // carries an inline one too); its token is the real one the page
-        // hands out.
+        // The loaded version's dropdown row carries the rename form (every
+        // row does); its token is the real one the page hands out.
         $crawler = $client->request('GET', $this->fillPageUrl() . '?version=' . $older->id->toString());
         self::assertResponseIsSuccessful();
-        $renameForm = $crawler->filter('#export-history-banner [data-export-version-rename]');
-        self::assertCount(1, $renameForm);
         self::assertCount(2, $crawler->filter('#export-history-menu-body [data-controller="export-version-row"] [data-export-version-rename]'));
+        $renameForm = $crawler->filter('#export-history-menu-body [data-export-version-row="' . $older->id->toString() . '"].active [data-export-version-rename]');
+        self::assertCount(1, $renameForm);
         $renameToken = $renameForm->filter('input[name="_token"]')->attr('value');
         self::assertIsString($renameToken);
 
@@ -124,8 +123,8 @@ final class TemplateExportVersionCurationTest extends WebTestCase
     /**
      * The fill pages curate IN PLACE: their anchors and buttons are
      * Turbo-enabled, and a Turbo-submitted pin / rename is answered with a
-     * Turbo Stream re-rendering the dropdown rows, the loaded-version banner
-     * and the anchors — no redirect, no flash. The history page keeps the
+     * Turbo Stream re-rendering the dropdown rows, the toggle's label (it
+     * names the loaded version) and the anchors — no redirect, no flash. The history page keeps the
      * plain forms and the redirect (the page IS the list).
      */
     public function testFillPageCurationAnswersTurboStreamsInPlace(): void
@@ -142,7 +141,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
 
         // Turbo takes a submission over only when the form AND its submitter
         // opt in (the site is `<html data-turbo="false">`); the anchors carry
-        // the loaded version for the banner the stream re-renders.
+        // the loaded version for the toggle label the stream re-renders.
         $anchors = $crawler->filter('#export-version-form-anchors form');
         self::assertCount(4, $anchors);
         foreach ($anchors as $anchor) {
@@ -174,7 +173,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         $turbo = ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml'];
 
         // Pin from a row: the stream carries the re-rendered rows (a pinned
-        // section now), the banner and the anchors; nothing is redirected.
+        // section now), the toggle label and the anchors; nothing is redirected.
         $client->request('POST', '/export-version/' . $newer->id->toString() . '/pin', [
             '_token' => $pinToken,
             'pinned' => '1',
@@ -185,17 +184,15 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         self::assertStringStartsWith('text/vnd.turbo-stream.html', (string) $client->getResponse()->headers->get('Content-Type'));
         $content = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('<turbo-stream action="replace" target="export-history-menu-body">', $content);
-        self::assertStringContainsString('<turbo-stream action="replace" target="export-history-banner">', $content);
+        self::assertStringContainsString('<turbo-stream action="replace" target="export-history-toggle-label">', $content);
         self::assertStringContainsString('<turbo-stream action="replace" target="export-version-form-anchors">', $content);
         self::assertStringContainsString('Připnuté verze', $content);
-        self::assertStringContainsString('Formulář je předvyplněný hodnotami exportu', $content);
         // The re-rendered controls stay Turbo-enabled and keep the page.
         self::assertStringContainsString('data-turbo="true"', $content);
         self::assertStringContainsString('name="redirect" value="' . $loadedUrl . '"', $content);
         self::assertTrue($this->reload($newer)->isPinned());
 
-        // Rename (the row's or the banner's form, same endpoint): the banner
-        // AND the row relabel in the same answer.
+        // Rename: the toggle label AND the row relabel in the same answer.
         $client->request('POST', '/export-version/' . $older->id->toString() . '/rename', [
             '_token' => $renameToken,
             'name' => 'Jarní kampaň',
@@ -204,11 +201,11 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         ], [], $turbo);
         self::assertResponseIsSuccessful();
         $content = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('<strong>Jarní kampaň</strong>', $content);
+        self::assertMatchesRegularExpression('~<span id="export-history-toggle-label"[^>]*>Jarní kampaň</span>~', $content);
         self::assertStringContainsString('<div class="text-truncate fw-semibold">', $content);
         self::assertSame('Jarní kampaň', $this->reload($older)->name);
 
-        // Without a loaded version there is no banner to re-render.
+        // Without a loaded version the toggle label stays as it is.
         $client->request('POST', '/export-version/' . $newer->id->toString() . '/pin', [
             '_token' => $pinToken,
             'pinned' => '0',
@@ -217,7 +214,7 @@ final class TemplateExportVersionCurationTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $content = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('target="export-history-menu-body"', $content);
-        self::assertStringNotContainsString('target="export-history-banner"', $content);
+        self::assertStringNotContainsString('target="export-history-toggle-label"', $content);
         self::assertStringNotContainsString('Připnuté verze', $content);
         self::assertFalse($this->reload($newer)->isPinned());
 

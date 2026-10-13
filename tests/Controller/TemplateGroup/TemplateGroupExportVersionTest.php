@@ -77,14 +77,14 @@ final class TemplateGroupExportVersionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $content = (string) $client->getResponse()->getContent();
 
-        self::assertStringContainsString('Formulář je předvyplněný', $content);
+        self::assertStringStartsWith('Export ', $crawler->filter('#export-history-toggle-label')->text());
         self::assertSame(
             'Letní kampaň',
             $crawler->filter(sprintf('input[name="textValues[%s]"]', TestDataFixture::GROUP_SHARED_INPUT_ID))->attr('value'),
         );
 
-        // Regression (2026-09-08): the dropdown's pin toggles and the banner's
-        // rename + pin sit INSIDE the fill form. A real <form> there is not
+        // Regression (2026-09-08): the dropdown's pin toggles and rename
+        // forms sit INSIDE the fill form. A real <form> there is not
         // merely invalid — browsers and libxml drop the start tag and its
         // </form> CLOSES THE FILL FORM, stranding every field below the header
         // outside it (no pencils; previews and exports posted nothing). The
@@ -99,7 +99,6 @@ final class TemplateGroupExportVersionTest extends WebTestCase
         $fillForm = $crawler->filter('form.fill-form');
         self::assertCount(1, $fillForm);
         self::assertGreaterThan(0, $fillForm->filter('[data-export-version-pin]')->count());
-        self::assertCount(1, $fillForm->filter('#export-history-banner [data-export-version-rename]'));
         // Every dropdown row carries its inline rename editor too.
         self::assertGreaterThan(0, $fillForm->filter('#export-history-menu-body [data-controller="export-version-row"] [data-export-version-rename]')->count());
         // The loaded version's row is highlighted, and its icons keep their

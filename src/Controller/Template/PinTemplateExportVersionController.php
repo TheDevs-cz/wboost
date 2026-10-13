@@ -19,8 +19,7 @@ use WBoost\Web\Services\Template\ExportVersionTurboStream;
 
 /**
  * Pin / unpin a stored export version (`pinned=1|0`). POST + CSRF from the
- * pin buttons on the history page, the fill page's dropdown rows and its
- * loaded-version banner. A fill page's Turbo-submitted toggle gets a Turbo
+ * pin buttons on the history page and the fill page's dropdown rows. A fill page's Turbo-submitted toggle gets a Turbo
  * Stream re-rendering the history chrome in place (no reload, no flash —
  * the flipped pin IS the confirmation); a plain POST is redirected back
  * where it came from.

@@ -46,8 +46,9 @@ final class FillDraftTest extends WebTestCase
 
         $content = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('target="export-history-menu"', $content);
-        self::assertStringContainsString('target="export-history-banner"', $content);
-        self::assertStringContainsString('Rozpracováno', $content);
+        self::assertStringNotContainsString('export-history-banner', $content);
+        // The toggle names the draft — the only "what is loaded" signal.
+        self::assertMatchesRegularExpression('~<span id="export-history-toggle-label"[^>]*>Rozpracováno \d~', $content);
         self::assertStringContainsString('?version=' . $draftId, $content);
 
         $draft = $this->soleVariantVersion();
@@ -72,11 +73,12 @@ final class FillDraftTest extends WebTestCase
         $latest = self::getContainer()->get(GetExportVersions::class)->latestForTemplateVariants(Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_1_ID));
         self::assertArrayNotHasKey(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, $latest);
 
-        // The loaded draft renders its banner + the page's draft field.
+        // The loaded draft is named on the toggle + fills the page's draft field.
         $crawler = $client->request('GET', $this->variantFillUrl() . '?version=' . $draftId);
         self::assertResponseIsSuccessful();
         self::assertSame($draftId, $crawler->filter('input[name="draftVersionId"][form="variant-fill-form"]')->attr('value'));
-        self::assertStringContainsString('Pracujete na rozpracované verzi', $crawler->filter('#export-history-banner')->text());
+        self::assertStringStartsWith('Rozpracováno ', $crawler->filter('#export-history-toggle-label')->text());
+        self::assertCount(0, $crawler->filter('#export-history-banner'));
     }
 
     public function testExportingTheLoadedDraftPromotesIt(): void

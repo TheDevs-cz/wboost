@@ -19,8 +19,7 @@ use WBoost\Web\Services\Template\ExportVersionTurboStream;
 
 /**
  * Name a stored export version (blank = unname). POST + CSRF from the inline
- * forms on the history page, the fill page's loaded-version banner and its
- * dropdown rows. A fill page's Turbo-submitted form gets a Turbo Stream
+ * forms on the history page and the fill page's dropdown rows. A fill page's Turbo-submitted form gets a Turbo Stream
  * re-rendering the history chrome in place (no reload, no flash — the
  * relabelled row IS the confirmation); a plain POST is redirected back to
  * the surface it came from.

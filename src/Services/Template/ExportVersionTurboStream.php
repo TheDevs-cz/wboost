@@ -23,8 +23,8 @@ use WBoost\Web\Repository\TemplateExportVersionRepository;
  * reload the page and throw away whatever the user has typed into the fill
  * form, the answer is a stream re-rendering the three fragments the change
  * can touch: the dropdown's rows (`#export-history-menu-body` — a pin moves
- * the row between the sections, a rename relabels it), the loaded-version
- * banner (`#export-history-banner` — name, pin label) and the out-of-line
+ * the row between the sections, a rename relabels it), the toggle's
+ * label (`#export-history-toggle-label` — names the loaded version) and the out-of-line
  * form anchors (`#export-version-form-anchors` — a version that just entered
  * the "recent" rows needs an anchor of its own to be curatable at all).
  *
@@ -79,8 +79,8 @@ final readonly class ExportVersionTurboStream
     /**
      * Answer to "Uložit rozpracované" (always a fetch from the fill page): the
      * saved draft becomes the page's LOADED version — the whole dropdown
-     * (shell included: the first save of a surface creates its history), the
-     * banner and the anchors re-render around it, every control returning to
+     * (shell included: the first save of a surface creates its history; its toggle
+     * names the draft) and the anchors re-render around it, every control returning to
      * `?version=<draft>`, the URL the page itself switches to.
      */
     public function draftSaved(TemplateExportVersion $draft): Response
@@ -130,7 +130,7 @@ final readonly class ExportVersionTurboStream
 
     /**
      * The version the page has loaded (`?version=<id>`, carried by the
-     * anchors' `loaded` field): the banner to re-render. Only a version of
+     * anchors' `loaded` field): the toggle label to re-render. Only a version of
      * the SAME fill surface counts — the field is client-supplied.
      */
     private function loadedVersion(Request $request, TemplateExportVersion $version): null|TemplateExportVersion

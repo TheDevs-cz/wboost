@@ -113,7 +113,7 @@
                     {# Saving work in progress never depends on the form being
                        exportable — this button is NOT an exportButton target, so
                        the overflow gate leaves it alone. #}
-                    <button type="button" class="btn btn-outline-primary rounded-pill" data-fill-draft-target="button" data-action="fill-draft#save" title="Uloží rozpracovanou práci do Historie exportů, i když ji zatím nejde exportovat (Ctrl/⌘+S)">
+                    <button type="button" class="btn btn-outline-primary rounded-pill" data-fill-draft-target="button" data-action="fill-draft#save" title="Ctrl/⌘+S">
                         <i class="mdi mdi-content-save-outline"></i> Uložit rozpracované
                     </button>
                     <button type="submit" class="btn btn-primary rounded-pill" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
@@ -127,14 +127,6 @@
                overwrites it, an export promotes it. #}
             <input type="hidden" name="draftVersionId" value="{{ loaded_version ? loaded_version.id : '' }}" data-fill-draft-target="versionField">
             <input type="hidden" name="_fill_draft_token" value="{{ csrf_token('template_fill_draft') }}">
-
-            {# Always rendered (an empty placeholder when nothing is loaded): a
-               draft save makes the draft the loaded version and replaces it. #}
-            {{ include('_export_history_banner.html.twig', {
-                loaded_version: loaded_version,
-                clear_url: path('template_group_fill', {'groupId': group.id}),
-                redirect_url: app.request.requestUri,
-            }) }}
 
             {# ---- Toolbar: the overlay switches + the panel button ----------- #}
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -592,7 +584,7 @@
             {% endfor %}
         </form>
 
-        {# The dropdown's and the banner's pin / rename controls above sit
+        {# The dropdown's pin / rename controls above sit
            INSIDE the fill form and submit through these anchors — which must
            stay OUTSIDE it (a nested <form> would close the fill form and
            strand every field below the header; 2026-09-08). Turbo-enabled:

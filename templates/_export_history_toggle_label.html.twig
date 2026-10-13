@@ -1,0 +1,19 @@
+{# The "Historie exportů" toggle's label — and the ONLY place a fill page
+   says which stored version is loaded (`?version=<id>`): the version's name,
+   else its kind + time. Rename / pin / "Zpět na výchozí hodnoty" live in the
+   dropdown under it (the loaded row is `.active`). Owns
+   `#export-history-toggle-label`, so a rename re-labels it via Turbo Stream
+   while the toggle and the open menu stay untouched.
+
+   Expects:
+   - loaded_version:  null|TemplateExportVersion #}
+<span id="export-history-toggle-label" class="d-inline-block text-truncate align-bottom" style="max-width: 16rem;"
+    {%- if loaded_version %} title="Načtená verze: {{ loaded_version.name ? loaded_version.name ~ ', ' }}{{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}{{ loaded_version.exportedBy ? ', ' ~ loaded_version.exportedBy.displayName }}"{% endif %}>
+    {%- if loaded_version is null -%}
+        Historie exportů
+    {%- elseif loaded_version.name -%}
+        {{ loaded_version.name }}
+    {%- else -%}
+        {{ loaded_version.draft ? 'Rozpracováno' : 'Export' }} {{ loaded_version.lastExportedAt|date('d.m. H:i') }}
+    {%- endif -%}
+</span>
