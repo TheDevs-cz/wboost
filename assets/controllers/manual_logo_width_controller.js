@@ -4,7 +4,7 @@ import { Controller } from '@hotwired/stimulus';
  * The bar that sizes ONE logo card of the manual preview (the top of the
  * width cascade, `Manual::logoDisplayWidth()`). Mounted once on the manual
  * root; every card's pencil (`_manual_logo_image.html.twig`) opens it for its
- * own slot via action params.
+ * own slot via action params, and it is placed just above that card.
  *
  * Dragging / typing previews the width live on the card's `<img>` (found by
  * `data-logo-slot`); Uložit POSTs it to `EditManualLogoSlotWidthController`
@@ -70,9 +70,12 @@ export default class extends Controller {
         button.classList.add('active');
         this.barTarget.hidden = false;
 
-        this.keepCardAboveBar();
-        this.numberTarget.focus();
+        this.placeAboveCard();
+        // preventScroll: the focus jump would yank the bar to the viewport
+        // edge; scrollIntoView below only moves the page when it must.
+        this.numberTarget.focus({ preventScroll: true });
         this.numberTarget.select();
+        this.barTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     slide() {
@@ -169,6 +172,9 @@ export default class extends Controller {
 
     preview(width) {
         applyWidth(this.active.img, width ?? this.active.variantWidth);
+        // A growing logo can grow its row, and a vertically centred card
+        // then moves — keep the bar glued to its top edge.
+        this.placeAboveCard();
     }
 
     close() {
@@ -192,17 +198,29 @@ export default class extends Controller {
     }
 
     /**
-     * The bar is fixed over the bottom of the viewport — a card low on the
-     * screen would hide behind exactly the control that resizes it.
+     * Pins the bar just above the active card, centred on it but kept inside
+     * the manual's content column. Coordinates are relative to the manual
+     * root (`.manual-logo-width-root`, the bar's containing block), so the
+     * bar scrolls with the page. Re-run on window resize: the column is
+     * centred, so a resize moves the card sideways.
      */
-    keepCardAboveBar() {
-        const barTop = this.barTarget.getBoundingClientRect().top;
-        const cardBottom = this.active.card.getBoundingClientRect().bottom;
-        const overlap = cardBottom - barTop + 24;
-
-        if (overlap > 0) {
-            window.scrollBy({ top: overlap, behavior: 'smooth' });
+    placeAboveCard() {
+        if (this.active === null) {
+            return;
         }
+
+        const bar = this.barTarget;
+        const rootRect = this.element.getBoundingClientRect();
+        const cardRect = this.active.card.getBoundingClientRect();
+        const columnRect = (this.active.card.closest('.container-fluid') ?? this.element).getBoundingClientRect();
+        const gap = 12;
+
+        const centred = cardRect.left + (cardRect.width - bar.offsetWidth) / 2;
+        const maxLeft = Math.max(columnRect.left, columnRect.right - bar.offsetWidth);
+        const left = Math.min(Math.max(centred, columnRect.left), maxLeft);
+
+        bar.style.left = `${Math.round(left - rootRect.left)}px`;
+        bar.style.top = `${Math.round(cardRect.top - rootRect.top - bar.offsetHeight - gap)}px`;
     }
 }
 

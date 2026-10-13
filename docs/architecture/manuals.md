@@ -174,9 +174,16 @@ threw the admin back to the top of a manual dozens of screens long. Now:
   the stylesheet stretches the `<img>` box across the card and caps its height,
   and the SVG letterboxes inside it, so the box width (≈100 %) overstates the
   logo and the first nudge would make it jump;
+- the bar is **anchored above the card being sized** (2026-10-13, user
+  feedback — it was fixed to the viewport bottom): `position: absolute`
+  against the manual root (`.manual-logo-width-root { position: relative }`,
+  added only when `manual_edit` is granted), top/left computed by
+  `placeAboveCard()` — centred on the card, clamped to the content column,
+  re-run on window resize and after every live preview (a growing logo can
+  move a vertically centred card). It scrolls with the page;
 - the bar is `.card.manual-logo-width-bar` on purpose — the theme's
   `.card { position: relative }` loads after app.css and beat a plain
-  `.manual-logo-width-bar { position: fixed }` (browser-verified).
+  `.manual-logo-width-bar { position: … }` (browser-verified).
 
 ### Manual page texts — admin-overridable, code-authored defaults
 

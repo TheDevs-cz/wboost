@@ -22,7 +22,7 @@
 
 {% block full_content %}
     {% set can_edit_manual = is_granted('manual_edit', manual) %}
-    <div style="min-width: 1400px;" class="manual-{{ manual.slug }}"
+    <div style="min-width: 1400px;" class="manual-{{ manual.slug }}{{ can_edit_manual ? ' manual-logo-width-root' }}"
         {%- if can_edit_manual %}
             data-controller="manual-logo-width"
             data-manual-logo-width-url-value="{{ path('manual_logo_slot_width', {'manualId': manual.id}) }}"

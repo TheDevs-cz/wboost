@@ -1,12 +1,12 @@
 {# The ONE bar that sizes a logo card — opened by the pencil on any card
    (`_manual_logo_image.html.twig`), driven by `manual_logo_width_controller.js`.
-   Fixed to the bottom of the viewport and non-modal on purpose: the admin
-   watches the card itself change while dragging, and saving never reloads
-   the page (it used to be a modal per card whose save redirected to the top
-   of the manual). #}
+   Positioned just above the card being sized (absolute, so it scrolls with
+   the page) and non-modal on purpose: the admin watches the card itself
+   change while dragging, and saving never reloads the page (it used to be a
+   modal per card whose save redirected to the top of the manual). #}
 <div class="manual-logo-width-bar card shadow-lg mb-0" hidden
      data-manual-logo-width-target="bar"
-     data-action="keydown.esc@window->manual-logo-width#cancel">
+     data-action="keydown.esc@window->manual-logo-width#cancel resize@window->manual-logo-width#placeAboveCard">
     <div class="card-body py-2 px-3">
         <div class="d-flex align-items-center gap-3">
             <div class="text-nowrap">

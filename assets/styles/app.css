@@ -2759,18 +2759,24 @@ button.fill-layer-row__main:focus-visible {
 }
 
 /*
- * The width bar — fixed over the bottom of the viewport and NOT modal: no
- * backdrop, so the card being sized stays in full view while the slider moves.
- * Below Bootstrap's modal layer (1050) so the colour-mapping modals still
- * open over it. `.card.` because the theme's `.card { position: relative }`
- * loads after app.css and would otherwise win.
+ * The width bar — anchored just ABOVE the card being sized (the controller
+ * sets top/left in px against `.manual-logo-width-root`, the manual root), so
+ * it scrolls with the page instead of floating over the viewport. NOT modal:
+ * no backdrop, the card stays in full view while the slider moves. Below
+ * Bootstrap's modal layer (1050) so the colour-mapping modals still open over
+ * it. `.card.` because the theme's `.card { position: relative }` loads after
+ * app.css and would otherwise win.
  */
+.manual-logo-width-root {
+    position: relative;
+}
+
 .card.manual-logo-width-bar {
-    position: fixed;
-    left: 50%;
-    bottom: 1rem;
-    transform: translateX(-50%);
-    width: min(820px, calc(100vw - 2rem));
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 820px;
+    max-width: 100%;
     z-index: 1040;
 }
 
