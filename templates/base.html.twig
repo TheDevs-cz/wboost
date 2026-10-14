@@ -142,6 +142,13 @@
                                 </a>
                             </li>
 
+                            <li class="side-nav-item {{ active_menu_item|default == 'admin_landing_leads' ? 'menuitem-active' }}">
+                                <a href="{{ path('admin_landing_leads') }}" class="side-nav-link">
+                                    <i class="uil-envelope-receive"></i>
+                                    <span> Poptávky z webu </span>
+                                </a>
+                            </li>
+
                             <li class="side-nav-item {{ active_menu_item|default == 'admin_usage' ? 'menuitem-active' }}">
                                 <a href="{{ path('admin_usage') }}" class="side-nav-link">
                                     <i class="uil-chart-line"></i>

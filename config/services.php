@@ -49,6 +49,7 @@ return static function (ContainerConfigurator $container): void {
         ->bind('array $signupNotificationRecipients', '%env(csv:SIGNUP_NOTIFICATION_EMAILS)%')
         // Same admins, notified when a customer switches a project module on.
         ->bind('array $adminNotificationRecipients', '%env(csv:SIGNUP_NOTIFICATION_EMAILS)%')
+        ->bind('array $landingLeadRecipients', '%env(csv:LANDING_LEAD_EMAILS)%')
         // OAuth2 grants this authorization server offers — the SAME list that
         // drives the bundle's `enable_*_grant` switches, so the RFC 8414
         // metadata document cannot advertise a grant that is turned off (or

@@ -70,6 +70,11 @@ return App::config([
                     'adapter' => 'cache.adapter.redis',
                     'default_lifetime' => 7200,
                 ],
+                // Same shape, for the landing_lead limiter (POST /poptavka).
+                'cache.landing_lead' => [
+                    'adapter' => 'cache.adapter.redis',
+                    'default_lifetime' => 7200,
+                ],
             ],
         ],
     ],

@@ -1,0 +1,62 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'admin_landing_leads' %}
+
+{% block title %}Poptávky z webu{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item">Administrace</li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    {% if leads|length == 0 %}
+        <div class="alert alert-info">
+            Zatím nepřišla žádná poptávka z wboost.cz.
+        </div>
+    {% else %}
+        <div class="card shadow-sm rounded-3 overflow-hidden">
+            <div class="card-body p-0">
+                <div class="table-responsive rounded-3">
+                    <table class="table table-hover table-striped mb-0 align-top">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Přišlo</th>
+                                <th>Odkud</th>
+                                <th>Kontakt</th>
+                                <th class="pe-3">Podrobnosti</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lead in leads %}
+                                <tr>
+                                    <td class="ps-3 text-nowrap">{{ lead.createdAt|date('d.m.Y H:i') }}</td>
+                                    <td class="text-nowrap"><span class="badge bg-light text-dark">{{ lead.source.label }}</span></td>
+                                    <td>
+                                        {% if lead.name %}<div class="fw-medium">{{ lead.name }}</div>{% endif %}
+                                        <div><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></div>
+                                        {% if lead.phone %}<div><a href="tel:{{ lead.phone|replace({' ': ''}) }}">{{ lead.phone }}</a></div>{% endif %}
+                                    </td>
+                                    <td class="pe-3">
+                                        {% if lead.company %}<div><span class="text-muted">Firma:</span> {{ lead.company }}</div>{% endif %}
+                                        {% if lead.website %}<div><span class="text-muted">Web / portfolio:</span> {{ lead.website }}</div>{% endif %}
+                                        {% if lead.interests|length > 0 %}<div><span class="text-muted">Chtějí vyzkoušet:</span> {{ lead.interests|join(', ') }}</div>{% endif %}
+                                        {% if lead.hasDesigner is same as(true) %}
+                                            <div><span class="text-muted">Mají grafika:</span> {{ lead.designerName ?? '–' }}{% if lead.designerEmail %} (<a href="mailto:{{ lead.designerEmail }}">{{ lead.designerEmail }}</a>){% endif %}</div>
+                                        {% elseif lead.hasDesigner is same as(false) %}
+                                            <div><span class="text-muted">Mají grafika:</span> ne</div>
+                                        {% endif %}
+                                        {% if lead.message %}<div style="white-space: pre-wrap;">{{ lead.message }}</div>{% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

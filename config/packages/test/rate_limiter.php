@@ -52,6 +52,9 @@ return App::config([
             'oauth2_client_registration' => [
                 'storage_service' => 'limiter.storage.test_in_memory',
             ],
+            'landing_lead' => [
+                'storage_service' => 'limiter.storage.test_in_memory',
+            ],
         ],
     ],
 ]);

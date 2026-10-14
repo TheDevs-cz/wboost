@@ -50,6 +50,22 @@ return App::config([
                 // instead; see config/packages/test/cache.php.
                 'cache_pool' => 'cache.oauth2_client_registration',
             ],
+
+            /*
+             * The public lead endpoint behind the static landing pages
+             * (LandingLeadController, POST /poptavka). It INSERTs and sends an
+             * e-mail with no credential, so it must not become a way to flood
+             * either. Twenty per hour per address leaves room for a visitor
+             * who sends the form and then a few chat messages, or an office
+             * where several people share one public IP.
+             */
+            'landing_lead' => [
+                'policy' => 'sliding_window',
+                'limit' => 20,
+                'interval' => '1 hour',
+
+                'cache_pool' => 'cache.landing_lead',
+            ],
         ],
     ],
 ]);

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nová poptávka z wboost.cz</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    {% set rows = [
+        ['Jméno', lead.name],
+        ['E-mail', lead.email],
+        ['Telefon', lead.phone],
+        ['Firma nebo organizace', lead.company],
+        ['Web nebo portfolio', lead.website],
+        ['Chtějí vyzkoušet', lead.interests|length > 0 ? lead.interests|join(', ') : null],
+        ['Mají grafika', lead.hasDesigner is same as(true) ? 'ano' : (lead.hasDesigner is same as(false) ? 'ne' : null)],
+        ['Jméno grafika', lead.designerName],
+        ['E-mail grafika', lead.designerEmail],
+    ] %}
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f5f7; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+                    <tr>
+                        <td style="background-color: #313a46; padding: 24px 32px;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">Nová poptávka z wboost.cz</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 32px;">
+                            <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
+                                Odkud: <strong>{{ lead.source.label }}</strong>. Na tento e-mail stačí odpovědět – odpověď půjde přímo tazateli.
+                            </p>
+
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 6px; margin-bottom: 24px;">
+                                {% for row in rows %}
+                                    {% if row[1] %}
+                                        <tr>
+                                            <td style="padding: 8px 20px; color: #6c757d; font-size: 14px; width: 180px; vertical-align: top;">{{ row[0] }}</td>
+                                            <td style="padding: 8px 20px 8px 0; color: #333; font-size: 15px; font-weight: 600;">{{ row[1] }}</td>
+                                        </tr>
+                                    {% endif %}
+                                {% endfor %}
+                                {% if lead.message %}
+                                    <tr>
+                                        <td colspan="2" style="padding: 12px 20px 16px; color: #333; font-size: 15px; line-height: 1.5; white-space: pre-wrap;">{{ lead.message }}</td>
+                                    </tr>
+                                {% endif %}
+                            </table>
+
+                            <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                                <tr>
+                                    <td>
+                                        <a href="{{ adminUrl }}" style="display: inline-block; padding: 12px 28px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
+                                            Všechny poptávky v administraci
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 32px; background-color: #f8f9fa; border-top: 1px solid #e9ecef;">
+                            <p style="margin: 0; color: #999; font-size: 12px;">
+                                Tento e-mail byl odeslán automaticky.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

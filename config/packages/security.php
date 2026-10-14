@@ -207,11 +207,16 @@ return App::config([
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [
-                'path' => '^/(ochrana-osobnich-udaju|obchodni-podminky)/?$',
+                'path' => '^/(klienti|ochrana-osobnich-udaju|obchodni-podminky)/?$',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [
                 'path' => '^/(robots\\.txt|sitemap\\.xml)$',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
+            // The static landing pages' lead endpoint (LandingLeadController).
+            [
+                'path' => '^/poptavka$',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
             [
