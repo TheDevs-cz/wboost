@@ -1,17 +1,37 @@
 # `landing/` — the wboost.cz marketing site
 
-A **standalone static site**. Plain HTML, one CSS file, one JS file, three woff2
-faces and one SVG. **No PHP, no Twig, no Symfony, no Node, no build step, no
-framework.** It never imports from `assets/`, never reads `templates/`, never
-calls `path()` and never touches the database — you could delete the whole
-Symfony app and these pages would still open in a browser.
+A **standalone static site**: two marketing pages (`/` for graphic designers,
+`/klienti` for their clients) plus two legal pages. Plain HTML, CSS and JS, two
+self-hosted woff2 faces (Montserrat, normal + italic), one SVG icon sprite and
+three WebP illustrations. **No PHP, no Twig, no Symfony, no Node, no build step,
+no framework, no CDN.** It never imports from `assets/`, never reads
+`templates/`, never calls `path()` — you could delete the whole Symfony app and
+these pages would still open in a browser (the lead forms would just fail
+gracefully with an e-mail fallback).
 
 It shares a domain with the application and nothing else. That creates exactly
-two couplings, and `tests/Controller/LandingContractTest.php` (the only file in
-`tests/` that knows this directory exists) puts an assertion on each:
+three couplings, and `tests/Controller/LandingContractTest.php` (the only file
+in `tests/` that knows this directory exists) puts an assertion on each:
 
-1. the URLs the landing links **into** the app — `/registration`, `/login`, `/ai`;
-2. the paths the app must never claim back — `/`, `/landing/*`, each page slug.
+1. the URLs the landing links **into** the app — today only `/login`;
+2. the form `action`s that post **into** the app — `POST /poptavka`
+   (`src/Controller/Landing/LandingLeadController.php`);
+3. the paths the app must never claim back — `/`, `/landing/*`, each page slug.
+
+## Leads (`POST /poptavka`)
+
+The contact form on `/`, the "Vyzkoušejte si to" form on `/klienti` and the
+"Máte dotaz?" chat bubble on `/klienti` all post to the app's
+`LandingLeadController` (same origin — the path is not in the landing's Traefik
+rule). Each lead is stored in `landing_lead`, e-mailed to `LANDING_LEAD_EMAILS`
+(default `info@wantoo.cz`, Reply-To = the visitor) and listed for admins at
+`/admin/landing-leads` ("Poptávky z webu"). Spam guards: a hidden `fax`
+honeypot and the `landing_lead` rate limiter (20 / hour / IP). The forms submit
+with `fetch()` and `Accept: application/json` (201 / 422 with field errors /
+429); without JS they post natively and come back with `?odeslano` / `?chyba`.
+The chat is not real-time: it holds the first message, asks for an e-mail and
+then delivers it as a `source=chat` lead. On `:8091` in dev the endpoint 404s
+(nginx, not the app) — test it on the app port or via request interception.
 
 ## Look at it
 
@@ -24,7 +44,9 @@ production-only. Opening `src/index.html` off the filesystem does **not** work �
 the assets are root-relative (`/landing/style.css`) because the site is
 multi-page and `/ochrana-osobnich-udaju` sits at a different depth than `/`.
 
-The app links (`/registration`, `/login`, `/ai`) 404 on `:8090` in dev. Expected.
+`:8090` is often taken by another project locally — `LANDING_PORT=8091 docker
+compose up -d landing`. The app link (`/login`) and `POST /poptavka` 404 on the
+landing port in dev. Expected.
 
 ## Layout
 
@@ -34,11 +56,19 @@ landing/
   nginx.conf          caching + gzip only; security headers come from Traefik
   traefik-rule.txt    the router rule the page set implies (asserted by the test)
   src/                the document root, and the only thing inside the image
-    index.html                     →  /
+    index.html                     →  /                (pro grafiky)
+    klienti.html                   →  /klienti         (pro firmy, obce a organizace)
     ochrana-osobnich-udaju.html    →  /ochrana-osobnich-udaju
     obchodni-podminky.html         →  /obchodni-podminky
     robots.txt · sitemap.xml
-    landing/ style.css · script.js · fonts/*.woff2 · img/logo.svg · img/og-cover.png
+    landing/
+      site.css · site.js           shared: tokens, nav, sections, steps, forms, FAQ, footer, lead submit
+      home.css · home.js           `/` only: calculator, tabs, "Co právě tvoříme"
+      klienti.css · klienti.js     `/klienti` only: calculator, dialogs, tag input, chat
+      rz-demo.js                   `/klienti` live poster → every-format mock-ups (verbatim port)
+      icons.svg                    Lucide 0.469 sprite: <svg class="i"><use href="/landing/icons.svg#name"/></svg>
+      fonts/ montserrat(-italic).woff2 (variable, Latin + Latin Ext. subset) · OFL-montserrat.txt
+      img/   wboost-logo-{dark,white}.svg · hero-editor / hero-illustration / ai-mcp .webp · og-cover(-klienti).png
 ```
 
 `src/*.html` is the page set and the filesystem is its source of truth:
@@ -78,34 +108,33 @@ change outside it deploys only the app. See D61 and
 
 ## Design source
 
-`~/pencil/wboost.pen` (exact geometry) · `designs/exports/sections/*.png` (the
-visual target) · `designs/wboost-landing-notes.md` (every decision, plus the
-open **[POTVRDIT]** list). Two artboards are designed — 1440 and 390 — and
-deliberately no third: the layout is built from `min()`, `clamp()`, `auto-fit`
-grids and `flex-wrap`, so the widths between are derived rather than guessed.
-There are exactly **three media queries**, all at 960, and each exists because
-the CONTENT changes there, never merely the geometry:
+Claude Design export `wboost_system` (Jan's `~/Downloads/wboost_system`):
+`ui_kits/landing/Wboost LP v3.html` → `index.html`, `ui_kits/landing/LP -
+klienti.html` → `klienti.html`, tokens from `tokens/*.css`, brand rules in its
+`readme.md` (Montserrat only, indigo `#737EED` action colour, mint for "live",
+Czech quotes, no emoji). The port keeps every value 1:1; the export's inline
+styles and `[style*=…]` media-query hooks became named classes. Verified by
+pixel diff against the export at 1440 / 1024 / 390 (section geometry identical,
+remaining diffs are line breaks from the added `&nbsp;` after one-letter
+prepositions). Deliberate departures from the export:
 
-1. the nav's six anchors are replaced by the drawer toggle;
-2. the hero's format rail, toast, popover and active "Datum" box are removed and
-   the composition becomes the artwork plus two dashed boxes;
-3. the showcase's four-format staircase becomes a swipeable strip and the indigo
-   connector is dropped.
+- copy slips fixed (approved 2026-10-14) and the hero CTA's dead `#s8` → `#kontakt`;
+- the floating "Co právě tvoříme" / chat wrappers no longer swallow clicks over
+  their invisible closed panels (a real bug in the export);
+- "Co právě tvoříme" uses its specified smaller phone size and "Nahrát obrázek"
+  keeps icon + label on one line (both were lost to cascade order in the export);
+- footers carry the legal links; forms carry a one-line privacy note;
+- unreachable "Správně" detail dialogs and dead CSS/JS were dropped.
 
-Budget: JS under 3 KB (2.1 KB) and no images beyond the logo — both met. **The
-CSS misses its 40 KB target: 55 KB uncompressed, 13 KB gzipped.** The dedupe
-pass was done (shared mono-label rule, shared heading rules, dead rules
-removed); what is left is ~9 KB of explanatory comments and one block per
-section for fifteen sections plus a dozen hand-drawn product fragments —
-the fragments are the design, so the only way under 40 KB is to drop either
-the comments or the artwork. Flagged rather than silently traded away.
+Breakpoints are the design's: 1080 (burger), 900 (one column), 860, 820, 560;
+above 1260 the column is `zoom`ed 1.12 → 1.32 exactly as designed.
 
 ## Still open before launch
 
-- **Both legal pages are shells.** Nine headings and `[DOPLNIT]` placeholders,
-  including `Poslední aktualizace: [DOPLNIT DATUM]`. The wording is a legal
-  question, not a design one — the footer already links to them.
-- The **Reference** section is built and commented out in `index.html`; reveal it
-  only when there is at least one real, approved quote.
-- The **light-surface wordmark lockup** (`boost` in ink) is a proposal awaiting
-  sign-off; it is what the nav uses today.
+- **Placeholders shipped on purpose** (Jan, 2026-10-14): client-logo boxes on
+  both pages, the two "Foto" circles in "Kdo za tím stojí?", the FAQ answer
+  "Kolik to stojí?" (green `[DOPLNIT]`). Replace when the content exists.
+- **Both legal pages are still shells** (`[DOPLNIT]`, incl. the date) — now
+  linked from every footer and from the privacy note under the forms.
+- The `/klienti` calculator uses 2 500 Kč / month and 4 formats per output
+  (`klienti.js`, confirmed for launch).

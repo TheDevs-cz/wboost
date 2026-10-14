@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 
 /**
@@ -65,6 +66,38 @@ final class LandingContractTest extends KernelTestCase
                 $matcher->match($href);
             } catch (ResourceNotFoundException) {
                 self::fail(sprintf('The landing links to %s, which no app route matches.', $href));
+            }
+        }
+    }
+
+    /**
+     * 1b. Every form on the landing posts to a route the app answers with POST
+     *     — today only POST /poptavka (LandingLeadController). A renamed route
+     *     would otherwise silently drop every lead.
+     */
+    public function testEveryLandingFormPostsToAnAppRoute(): void
+    {
+        self::bootKernel();
+        $router = self::getContainer()->get('router');
+        $router->getContext()->setMethod('POST');
+
+        $actions = [];
+
+        foreach ($this->pageFiles() as $file) {
+            preg_match_all('~<form\b[^>]*\baction="(/[^"#?]*)"~', (string) file_get_contents($file), $matches);
+
+            foreach ($matches[1] as $action) {
+                $actions[$action] = $action;
+            }
+        }
+
+        self::assertNotEmpty($actions, 'The landing has no form posting to the app — the lead forms are gone.');
+
+        foreach ($actions as $action) {
+            try {
+                $router->match($action);
+            } catch (ResourceNotFoundException|MethodNotAllowedException) {
+                self::fail(sprintf('A landing form posts to %s, which no app route accepts with POST.', $action));
             }
         }
     }
