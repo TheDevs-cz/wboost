@@ -56,6 +56,9 @@
 /* ---- Base (wboost_system/tokens/base.css + page base) ------------------- */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { overflow-x: clip; }
+/* The section washes bleed 240px past their section (inset -240px); clip them at
+   the page end so nothing scrolls on below the footer. */
+body { overflow-y: clip; }
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -123,7 +126,6 @@ button, input, textarea { color: inherit; }
 /* The design scales the whole column up on wide screens. */
 @media (min-width: 1260px) { .s > .wrap, .nav .wrap { zoom: 1.12; } }
 @media (min-width: 1420px) { .s > .wrap, .nav .wrap { zoom: 1.25; } }
-@media (min-width: 1600px) { .s > .wrap, .nav .wrap { zoom: 1.32; } }
 
 .head { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 40px; }
 
@@ -200,6 +202,8 @@ button, input, textarea { color: inherit; }
 .nav nav { display: flex; gap: 4px; margin-left: auto; }
 .nav nav a { white-space: nowrap; color: var(--fg-2); font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 999px; }
 .nav nav a:hover { background: var(--indigo-50); color: var(--fg-1); }
+.nav nav .nav-login { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--fg-1); font-weight: 600; }
+.nav nav .nav-login .i { color: var(--indigo-500); }
 .nav .btn { padding: 11px 18px; font-size: 14px; border-radius: 12px; white-space: nowrap; }
 .burger { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none; border: 0; border-radius: 12px; background: var(--indigo-50); color: var(--indigo-700); cursor: pointer; }
 .burger .i { width: 22px; height: 22px; }
@@ -209,6 +213,7 @@ button, input, textarea { color: inherit; }
   .burger { display: flex; }
   .nav.open nav { display: flex; flex-direction: column; gap: 2px; position: absolute; left: 0; right: 0; top: 100%; margin: 0; padding: 8px var(--side) 16px; background: #FBFBFE; border-bottom: 1px solid var(--border-1); box-shadow: 0 20px 30px -20px rgba(26,28,51,.25); }
   .nav.open nav a { font-size: 16px; padding: 14px 12px; border-radius: 12px; }
+  .nav.open nav .nav-login { margin: 6px 0 0; padding-top: 18px; border-top: 1px solid var(--border-1); border-radius: 0 0 12px 12px; }
   .nav.open .b-o, .nav:not(.open) .b-x { display: none; }
 }
 @media (min-width: 1081px) { .burger .b-x { display: none; } }
