@@ -260,6 +260,7 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         // postMount seeds a font mirror for the fixture's tagline (it offers
         // a font choice) — pin the baseline on an explicit, font-less state.
         $component->fontValues = [];
+        $component->shapeColorValues = [];
 
         // Independently computed djb2 over
         // "T:a-id=pěl\nT:b-id=Žluťoučký kůň\nH:h-id=1" (UTF-8 bytes, sorted keys).
@@ -277,6 +278,13 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         // djb2 over "T:a-id=pěl\nT:b-id=Žluťoučký kůň\nH:h-id=1\nF:f-id=Rubik (Rubik Bold)".
         $component->fontValues = ['f-id' => 'Rubik (Rubik Bold)'];
         self::assertSame('2836775537', $component->fillStateHash());
+
+        // Shape colour picks are "S:<id>=<colour>" lines after the fonts —
+        // fill_state_hash.js lists the shape colour mirrors the same way.
+        // djb2 over "T:a-id=pěl\nT:b-id=Žluťoučký kůň\nH:h-id=1\nS:s-id=#c8102e".
+        $component->fontValues = [];
+        $component->shapeColorValues = ['s-id' => '#c8102e'];
+        self::assertSame('3756147675', $component->fillStateHash());
     }
 
     public function testRenderedTemplateUsesBracketNotationForUuidKeys(): void

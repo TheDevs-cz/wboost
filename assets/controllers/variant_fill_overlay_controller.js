@@ -771,6 +771,38 @@ export default class extends Controller {
         this._scheduleSpinner();
     }
 
+    /** A recolourable shape's swatch (colour = the Stimulus param; "" = the
+     *  designed colour) or its free picker (colour = the input's value):
+     *  write the pick into the shape's mirror — the Live model on the single
+     *  page, the group-fill `changed` hook on the group page — mark the
+     *  picked swatch and show the spinner (a shape colour is a server
+     *  render, nothing echoes it locally). */
+    pickShapeColor(event) {
+        const inputId = event.params?.inputid;
+        if (!inputId) return;
+        const fromPicker = event.target && event.target.type === "color";
+        const color = fromPicker ? event.target.value.toLowerCase() : (event.params?.color || "");
+        const mirror = this.element.querySelector(`[data-shape-color-mirror="${inputId}"]`);
+        if (!mirror || mirror.value === color) return;
+
+        mirror.value = color;
+        mirror.dispatchEvent(new Event("input", { bubbles: true }));
+
+        const swatches = this.element.querySelectorAll(`[data-shape-swatch="${inputId}"]`);
+        const shown = color || (swatches[0] ? swatches[0].dataset.color : "");
+        swatches.forEach((swatch) => {
+            const active = swatch.dataset.color === shown;
+            swatch.classList.toggle("is-active", active);
+            swatch.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        if (!fromPicker) {
+            this.element.querySelectorAll(`[data-shape-picker="${inputId}"]`).forEach((picker) => {
+                picker.value = shown;
+            });
+        }
+        this._scheduleSpinner();
+    }
+
     /** A rich-text WYSIWYG (rich_text_editor_controller) changed its value.
      *  The editor already wrote the mirror + dispatched its `input` (the
      *  page's debounce running); this hook adds the same local echo syncText

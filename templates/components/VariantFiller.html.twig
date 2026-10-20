@@ -47,6 +47,7 @@
 {% set hasImages = this.hasImagePlaceholders() %}
 {% set textPlaceholders = this.textPlaceholders() %}
 {% set imagePlaceholders = hasImages ? this.imagePlaceholders() : [] %}
+{% set shapePlaceholders = this.shapePlaceholders() %}
 {# Render the (slow) server preview ONCE — reused by the preview source span and
    the <img> below. Only the text-only branch has a server preview <img>.
    `src` = the settle render (the on-screen truth at rest); `baseSrc` = the
@@ -213,6 +214,23 @@
             {% endif %}
         {% endfor %}
 
+        {# Recolourable shapes: one Live-bound colour mirror each ("" = the
+           designed colour), written by the shape popover's swatches
+           (variant-fill-overlay#pickShapeColor). A short debounce coalesces a
+           free-picker drag into one render. #}
+        {% for ph in shapePlaceholders %}
+            <input
+                type="text"
+                class="visually-hidden"
+                tabindex="-1"
+                aria-hidden="true"
+                name="shapeColorValues[{{ ph.inputId }}]"
+                data-shape-color-mirror="{{ ph.inputId }}"
+                data-model="on(input)|debounce(400)|shapeColorValues[{{ ph.inputId }}]"
+                value="{{ ph.value }}"
+            >
+        {% endfor %}
+
         {% if hasImages %}
             {# Live-updated backdrop source — read by variant-image-fill by id.
                data-base-src = the echo base (capable texts transparent);
@@ -334,6 +352,10 @@
             {% for ph in textPlaceholders %}
                 {% set textFrames = textFrames|merge({(ph.inputId): ph.frame}) %}
             {% endfor %}
+            {% set shapeFrames = {} %}
+            {% for ph in shapePlaceholders %}
+                {% set shapeFrames = shapeFrames|merge({(ph.inputId): ph.frame}) %}
+            {% endfor %}
             {% set imageFrames = {} %}
             {% set imageHidden = {} %}
             {% for ph in imagePlaceholders %}
@@ -347,6 +369,8 @@
                     text_frames: textFrames,
                     image_frames: imageFrames,
                     image_hidden: imageHidden,
+                    shape_placeholders: shapePlaceholders,
+                    shape_frames: shapeFrames,
                 }) }}
             </div>
         </div>
@@ -380,10 +404,15 @@
             {% for ph in imagePlaceholders %}
                 {% set panelFields = panelFields|merge([{inputId: ph.inputId, kind: 'image', ph: ph}]) %}
             {% endfor %}
+            {% for ph in shapePlaceholders %}
+                {% set panelFields = panelFields|merge([{inputId: ph.inputId, kind: 'shape', ph: ph}]) %}
+            {% endfor %}
             {% for field in panelFields|arrange_fill_fields(this.variant.template.fillFieldOrder) %}
               {% set ph = field.ph %}
               {% if field.kind == 'text' %}
                 {{ include('_fill_text_popover.html.twig', { ph: ph, richToolbar: richToolbar, arrangeable: canArrangeFields }) }}
+              {% elseif field.kind == 'shape' %}
+                {{ include('_fill_shape_popover.html.twig', { ph: ph, arrangeable: canArrangeFields }) }}
               {% else %}
                 {% set seed = ph.seed ?? null %}
                 {% set seedHidden = seed and seed.hide|default(false) %}
@@ -433,7 +462,7 @@
                 </div>
               {% endif %}
             {% endfor %}
-            {% if textPlaceholders|filter(ph => not ph.locked)|length == 0 and imagePlaceholders|length == 0 %}
+            {% if textPlaceholders|filter(ph => not ph.locked)|length == 0 and imagePlaceholders|length == 0 and shapePlaceholders|length == 0 %}
                 <p class="text-muted small mb-0 fill-popovers__empty">Šablona nemá žádné vyplnitelné prvky — export stáhne návrh tak, jak je.</p>
             {% endif %}
         </div>

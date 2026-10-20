@@ -18,6 +18,7 @@ use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
@@ -41,6 +42,7 @@ final class TemplateVariantDownloadController extends AbstractController
         private readonly RecordExportUsage $recordExportUsage,
         private readonly RecordExportVersion $recordExportVersion,
         private readonly ReleaseSessionLock $releaseSessionLock,
+        private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
     ) {
     }
 
@@ -95,7 +97,7 @@ final class TemplateVariantDownloadController extends AbstractController
                 $providedValues,
                 truncateOverflow: true,
                 richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-            );
+            )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $request->request->all('shapeColorValues'), lenient: true));
             $imageOverrides = $this->resolveImageOverrides->resolve(
                 $variant->imageInputs,
                 $variant->template->project->id,
@@ -129,6 +131,7 @@ final class TemplateVariantDownloadController extends AbstractController
             $rawHiddenValues,
             $request->request->all('images'),
             $request->request->all('fontValues'),
+            $request->request->all('shapeColorValues'),
         ), $request->request->getString('draftVersionId'));
 
         return $response;

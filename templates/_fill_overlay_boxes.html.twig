@@ -14,6 +14,9 @@
       px — a placeholder without a frame here gets no box (the popover stays
       reachable from the panel / layers list)
     - image_hidden: inputId → bool, the initial eye state of image slots
+    - shape_placeholders / shape_frames: (optional) the recolourable shapes
+      (FillShapePlaceholders rows) + their frames in THIS surface — a box
+      with a palette button opening the shape's colour popover
 
     The dashed BORDER follows the "Zobrazit oblasti k vyplnění" switch, the
     name tag the "Popisky prvků" one (CSS on the form classes).
@@ -82,6 +85,29 @@
                         data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                     ><i class="mdi {{ hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
                 {% endif %}
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}
+{% for ph in shape_placeholders|default([]) %}
+    {% set frame = shape_frames[ph.inputId] ?? null %}
+    {% if frame %}
+        <div
+            class="fill-box fill-box--shape"
+            data-variant-fill-overlay-target="box"
+            data-inputid="{{ ph.inputId }}"
+            data-frame-x="{{ frame.x }}"
+            data-frame-y="{{ frame.y }}"
+            data-frame-width="{{ frame.width }}"
+            data-frame-height="{{ frame.height }}"
+        >
+            <span class="fill-box__name">{{ ph.name ?: 'Barva tvaru' }}</span>
+            <div class="fill-box__tools">
+                <button type="button" class="fill-box__tool fill-box__tool--edit"
+                    title="Změnit barvu" aria-label="Změnit barvu{% if ph.name %}: {{ ph.name }}{% endif %}"
+                    data-action="variant-fill-overlay#openPopover"
+                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                ><i class="mdi mdi-palette-outline" aria-hidden="true"></i></button>
             </div>
         </div>
     {% endif %}

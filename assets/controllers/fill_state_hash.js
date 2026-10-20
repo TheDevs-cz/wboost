@@ -11,7 +11,8 @@
 /**
  * djb2 over the canonical UTF-8 fill state of `root` (the fill form): one
  * `T:<id>=<text>` line per text mirror, then `H:<id>=<0|1>` per hide mirror,
- * then `F:<id>=<family>` per font mirror — each group sorted by inputId,
+ * then `F:<id>=<family>` per font mirror, then `S:<id>=<colour>` per shape
+ * colour mirror — each group sorted by inputId,
  * joined by "\n". The PHP twin is AbstractVariantFiller::fillStateHash() and
  * the two MUST stay byte-identical: the server stamps its value as
  * `data-state-hash` on the settle source element, and the client compares.
@@ -31,6 +32,7 @@ export function fillStateHash(root) {
     collect("[data-text-mirror]", "data-text-mirror", "T", (mirror) => mirror.value);
     collect("[data-hide-mirror]", "data-hide-mirror", "H", (mirror) => (mirror.checked ? "1" : "0"));
     collect("[data-font-mirror]", "data-font-mirror", "F", (mirror) => mirror.value);
+    collect("[data-shape-color-mirror]", "data-shape-color-mirror", "S", (mirror) => mirror.value);
 
     const bytes = new TextEncoder().encode(parts.join("\n"));
     let hash = 5381;

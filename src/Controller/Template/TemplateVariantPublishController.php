@@ -31,6 +31,7 @@ use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\FillFormRequestParser;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
@@ -67,6 +68,7 @@ final class TemplateVariantPublishController extends AbstractController
         private readonly MessageBusInterface $bus,
         private readonly LoggerInterface $logger,
         private readonly ReleaseSessionLock $releaseSessionLock,
+        private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
     ) {
     }
 
@@ -161,6 +163,7 @@ final class TemplateVariantPublishController extends AbstractController
             $request->request->all('hiddenValues'),
             $request->request->all('images'),
             $request->request->all('fontValues'),
+            $request->request->all('shapeColorValues'),
         ), $request->request->getString('draftVersionId'));
 
         return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);
@@ -178,7 +181,7 @@ final class TemplateVariantPublishController extends AbstractController
             $this->fillFormParser->parseTextValues($request),
             truncateOverflow: true,
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        );
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $request->request->all('shapeColorValues'), lenient: true));
 
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,

@@ -78,6 +78,7 @@ final class TemplateGroupExportVariantController extends AbstractController
                 $request->request->all('images'),
                 $request->request->all('imagePlacements'),
                 rawFontValues: $request->request->all('fontValues'),
+                rawShapeColors: $request->request->all('shapeColorValues'),
             );
         } catch (TemplateRenderUnavailable) {
             return $this->renderFailed(
@@ -103,6 +104,7 @@ final class TemplateGroupExportVariantController extends AbstractController
             $request->request->all('images'),
             $request->request->all('imagePlacements'),
             $request->request->all('fontValues'),
+            $request->request->all('shapeColorValues'),
         ), $request->request->getString('draftVersionId'));
 
         $fileName = $this->archive->fileName($group, $variant);

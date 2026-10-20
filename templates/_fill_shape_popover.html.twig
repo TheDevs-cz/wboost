@@ -1,0 +1,56 @@
+{#
+    ONE recolourable shape's popover — the floating card the shape box's
+    palette button opens, and (docked) one row of the "Všechna pole" panel.
+    Shared by the single-variant fill component and the group fill page.
+
+    Every swatch writes into the shape's `[data-shape-color-mirror]` field
+    (Live-bound on the single page, the plain form field on the group page)
+    through variant-fill-overlay#pickShapeColor; the popover carries no form
+    name itself.
+
+    Parameters:
+    - ph: one FillShapePlaceholders row (inputId, name, options, freeColor,
+      defaultColor, current)
+    - arrangeable: (optional) show the admin's panel reorder handle
+#}
+<div class="fill-popover fill-popover--shape card" role="dialog" aria-labelledby="fill-shape-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
+    <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+            <span class="d-inline-flex align-items-center" style="min-width: 0;">
+                <i class="mdi mdi-drag fill-popover__drag fill-popover__chrome me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                {% if arrangeable|default(false) %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
+                <span id="fill-shape-label-{{ ph.inputId }}" class="small fw-bold text-truncate">{{ ph.name ?: 'Barva tvaru' }}</span>
+            </span>
+            <div class="d-flex align-items-center gap-1">
+                <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center fill-popover__chrome" style="font-size: .7rem;" data-action="variant-fill-overlay#close"><i class="mdi mdi-check me-1" aria-hidden="true"></i> Uložit</button>
+                <button type="button" class="btn-close fill-popover__chrome" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
+            </div>
+        </div>
+        <div class="d-flex align-items-center flex-wrap gap-1" role="group" aria-label="Barva">
+            {% for color in ph.options %}
+                <button
+                    type="button"
+                    class="fill-richtext-swatch{{ color == ph.current ? ' is-active' }}"
+                    style="background-color: {{ color }}"
+                    title="{{ color }}{{ loop.first ? ' (výchozí)' }}"
+                    aria-label="{{ color }}{{ loop.first ? ' (výchozí)' }}"
+                    aria-pressed="{{ color == ph.current ? 'true' : 'false' }}"
+                    data-shape-swatch="{{ ph.inputId }}"
+                    data-color="{{ color }}"
+                    data-action="variant-fill-overlay#pickShapeColor"
+                    data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
+                    data-variant-fill-overlay-color-param="{{ loop.first ? '' : color }}"
+                ></button>
+            {% endfor %}
+            {% if ph.freeColor %}
+                <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Vlastní barva">
+                    <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva"
+                           value="{{ ph.current }}"
+                           data-shape-picker="{{ ph.inputId }}"
+                           data-action="input->variant-fill-overlay#pickShapeColor"
+                           data-variant-fill-overlay-inputid-param="{{ ph.inputId }}">
+                </label>
+            {% endif %}
+        </div>
+    </div>
+</div>

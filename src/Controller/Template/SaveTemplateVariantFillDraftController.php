@@ -67,6 +67,7 @@ final class SaveTemplateVariantFillDraftController extends AbstractController
                 $request->request->all('hiddenValues'),
                 $request->request->all('images'),
                 $request->request->all('fontValues'),
+                $request->request->all('shapeColorValues'),
             ),
         ));
 

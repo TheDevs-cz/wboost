@@ -212,3 +212,19 @@ never see any of this.
   execute — the classic scripts + @font-face block load from the PAGE
   template (`template_variant_export.html.twig`), not the component. Anything
   new the component needs as a window global must go there too.
+- **Recolourable shapes (2026-10-20)** — the third field kind next to text
+  and image. `Services/SocialNetwork/FillShapePlaceholders` (shared by both
+  pages) builds one row per `ShapeColorInput` (de-duplicated by inputId over
+  a group's members) + per-dimension `frames()`; each row gets an amber
+  `fill-box--shape` box (palette button → `openPopover`) and a
+  `_fill_shape_popover.html.twig` card (also a "Všechna pole" row, ordered by
+  `fillFieldOrder` like the rest): the designed colour first (writes "" = no
+  override), then the admin's list, plus a free `<input type=color>` when the
+  shape allows any colour. `variant-fill-overlay#pickShapeColor` writes the
+  `[data-shape-color-mirror]` field — Live-bound `shapeColorValues[…]`
+  (debounce 400) on the single page, a plain field with
+  `input->group-fill#changed` on the group page — and marks the swatch. No
+  client echo: a colour is a server render (spinner). State hash: `S:<id>=`
+  lines after the fonts in BOTH `fillStateHash()` and `fill_state_hash.js`.
+  Known v1 gap: a recolourable shape that is a CONTAINER member keeps its box
+  at the designed position (the overlay reflow moves texts only).

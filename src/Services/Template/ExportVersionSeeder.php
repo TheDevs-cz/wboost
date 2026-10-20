@@ -13,6 +13,7 @@ use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -36,6 +37,7 @@ readonly final class ExportVersionSeeder
         private PlaceholderAllowedDirectories $allowedDirectories,
         private UploaderHelper $uploaderHelper,
         private ResolveRichTextOptions $resolveRichTextOptions,
+        private ResolveShapeColorOverrides $resolveShapeColorOverrides,
     ) {
     }
 
@@ -47,6 +49,7 @@ readonly final class ExportVersionSeeder
      *     textValues: array<string, string>,
      *     hiddenValues: array<string, bool>,
      *     fontValues: array<string, string>,
+     *     shapeColorValues: array<string, string>,
      *     imageValues: array<string, array<string, mixed>>,
      * }
      */
@@ -104,6 +107,9 @@ readonly final class ExportVersionSeeder
             'textValues' => $textValues,
             'hiddenValues' => $hiddenValues,
             'fontValues' => $fontValues,
+            // Re-validated leniently: a shape no longer recolourable, or a
+            // colour since dropped from its list, falls back to the design.
+            'shapeColorValues' => $this->resolveShapeColorOverrides->forVariant($variant, $values->shapeColors, lenient: true),
             'imageValues' => $imageValues,
         ];
     }
@@ -119,6 +125,7 @@ readonly final class ExportVersionSeeder
      *     texts: array<string, string>,
      *     hidden: array<string, bool>,
      *     fonts: array<string, string>,
+     *     shapeColors: array<string, string>,
      *     images: array<string, array{imageId: string, url: string}>,
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
@@ -232,10 +239,21 @@ readonly final class ExportVersionSeeder
             }
         }
 
+        // Shape colours validate per dimension; the group page shows a shape's
+        // row from the first dimension carrying it, so the first accepted
+        // pick per id wins the same way.
+        $shapeColors = [];
+        if ($values->shapeColors !== []) {
+            foreach ($memberVariants as $memberVariant) {
+                $shapeColors += $this->resolveShapeColorOverrides->forVariant($memberVariant, $values->shapeColors, lenient: true);
+            }
+        }
+
         return [
             'texts' => $texts,
             'hidden' => $hidden,
             'fonts' => $fonts,
+            'shapeColors' => $shapeColors,
             'images' => $images,
             'imageHidden' => $imageHidden,
             'placements' => $placements,

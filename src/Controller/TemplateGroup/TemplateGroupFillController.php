@@ -18,6 +18,7 @@ use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Repository\TemplateExportVersionRepository;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
+use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\Template\ExportVersionSeeder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
 use WBoost\Web\Services\UploaderHelper;
@@ -38,6 +39,7 @@ final class TemplateGroupFillController extends AbstractController
         readonly private GetExportVersions $getExportVersions,
         readonly private TemplateExportVersionRepository $versionRepository,
         readonly private ExportVersionSeeder $versionSeeder,
+        readonly private FillShapePlaceholders $shapePlaceholders,
     ) {
     }
 
@@ -78,6 +80,8 @@ final class TemplateGroupFillController extends AbstractController
                 // This dimension's overlay payload: the text frames its boxes
                 // are drawn at + the reflow mirror (fonts, containers).
                 'text_layout' => $this->placeholders->layoutData($variant),
+                // Where each recolourable shape sits in THIS dimension.
+                'shape_frames' => $this->shapePlaceholders->frames($variant),
             ];
         }
 
@@ -104,7 +108,7 @@ final class TemplateGroupFillController extends AbstractController
                 array_map(static fn (array $slot) => $slot['input'], $imageInputs),
                 $memberVariants,
             )
-            : ['texts' => [], 'hidden' => [], 'fonts' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
+            : ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
 
         // The group is 1:1 with its template, which stores the admin-arranged
         // order of the "Všechna pole" panel.
@@ -124,6 +128,9 @@ final class TemplateGroupFillController extends AbstractController
             'rich_toolbar' => $this->placeholders->richTextToolbar($memberVariants),
             'layers' => $this->placeholders->layers($memberVariants, $seed['hidden']),
             'image_inputs' => $imageInputs,
+            // Recolourable shapes, one popover per distinct shape (members
+            // share the id), seeded from the loaded version.
+            'shape_placeholders' => $this->shapePlaceholders->placeholders($memberVariants, $seed['shapeColors']),
             'export_history' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,
             'seed' => $seed,

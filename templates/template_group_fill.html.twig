@@ -175,6 +175,18 @@
                 {% endif %}
             {% endfor %}
 
+            {# Recolourable shapes: one colour field each ("" = the designed
+               colour), written by the shape popover's swatches
+               (variant-fill-overlay#pickShapeColor); every dimension
+               re-renders on its input event. #}
+            {% for ph in shape_placeholders %}
+                <input type="hidden"
+                       name="shapeColorValues[{{ ph.inputId }}]"
+                       value="{{ ph.value }}"
+                       data-shape-color-mirror="{{ ph.inputId }}"
+                       data-action="input->group-fill#changed">
+            {% endfor %}
+
             {# Per-dimension placement of every adjustable image slot — what the
                preview POST and the export read. The controller writes them from
                its placement state (drag in the preview, the strip under each
@@ -264,6 +276,8 @@
                                                 text_frames: textFrames,
                                                 image_frames: v.image_frames,
                                                 image_hidden: seed.imageHidden,
+                                                shape_placeholders: shape_placeholders,
+                                                shape_frames: v.shape_frames,
                                             }) }}
                                         </div>
                                         {# Placement toolbars: how a PICKED picture sits in THIS
@@ -349,10 +363,15 @@
                 {% for slot in image_inputs %}
                     {% set panel_fields = panel_fields|merge([{inputId: slot.input.inputId, kind: 'image', slot: slot, index: loop.index}]) %}
                 {% endfor %}
+                {% for ph in shape_placeholders %}
+                    {% set panel_fields = panel_fields|merge([{inputId: ph.inputId, kind: 'shape', ph: ph}]) %}
+                {% endfor %}
 
                 {% for field in panel_fields|arrange_fill_fields(fill_field_order) %}
                   {% if field.kind == 'text' %}
                     {{ include('_fill_text_popover.html.twig', { ph: field.ph, richToolbar: rich_toolbar, arrangeable: can_arrange_fields }) }}
+                  {% elseif field.kind == 'shape' %}
+                    {{ include('_fill_shape_popover.html.twig', { ph: field.ph, arrangeable: can_arrange_fields }) }}
                   {% else %}
                     {% set slot = field.slot %}
                     {% set input = slot.input %}
@@ -417,7 +436,7 @@
                   {% endif %}
                 {% endfor %}
 
-                {% if text_placeholders|length == 0 and image_inputs|length == 0 %}
+                {% if text_placeholders|length == 0 and image_inputs|length == 0 and shape_placeholders|length == 0 %}
                     <p class="text-muted small mb-0 fill-popovers__empty">
                         <i class="mdi mdi-information-outline"></i>
                         Šablony ve skupině nemají žádné vyplnitelné prvky — export stáhne všechny rozměry tak, jak jsou navržené.

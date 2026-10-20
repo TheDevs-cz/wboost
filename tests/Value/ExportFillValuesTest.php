@@ -70,6 +70,31 @@ final class ExportFillValuesTest extends TestCase
         self::assertSame($withFont->toArray(), ExportFillValues::fromArray($withFont->toArray())->toArray());
     }
 
+    public function testShapeColorsArePartOfTheFillOnlyWhenPicked(): void
+    {
+        $plain = ExportFillValues::fromVariantWebForm(['input-a' => 'Hello'], [], []);
+        $designed = ExportFillValues::fromVariantWebForm(['input-a' => 'Hello'], [], [], [], ['shape-a' => '']);
+        $picked = ExportFillValues::fromVariantWebForm(['input-a' => 'Hello'], [], [], [], ['shape-a' => '#C8102E']);
+
+        self::assertArrayNotHasKey('shapeColors', $plain->toArray());
+        self::assertSame($plain->hash(), $designed->hash(), '"" is the designed colour, not a pick');
+        self::assertSame(['shape-a' => '#c8102e'], $picked->toArray()['shapeColors'] ?? null);
+        self::assertNotSame($plain->hash(), $picked->hash());
+        self::assertFalse(ExportFillValues::fromVariantWebForm([], [], [], [], ['shape-a' => '#fff'])->isEmpty());
+
+        // `#FFF` and `#ffffff` are the same fill.
+        self::assertSame(
+            ExportFillValues::fromApiRequest([], [], ['shape-a' => '#FFF'])->hash(),
+            ExportFillValues::fromGroupWebForm([], [], [], [], [], ['shape-a' => '#ffffff'])->hash(),
+        );
+        self::assertSame(
+            ['shape-a' => '#c8102e'],
+            ExportFillValues::fromGroupApiRequest([], [], [], ['shape-a' => '#c8102e'])->toArray()['shapeColors'] ?? null,
+        );
+
+        self::assertSame($picked->toArray(), ExportFillValues::fromArray($picked->toArray())->toArray());
+    }
+
     public function testBothWebFormsKeepEmptyStrings(): void
     {
         // On both fill surfaces an empty text means "blank the text" — part

@@ -1107,6 +1107,12 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background: #0acf97;
 }
 
+/* Recolourable shapes: the palette badge in the theme's warning amber. */
+.fill-box--shape .fill-box__tool--edit {
+    background: #ffbc00;
+    color: #313a46;
+}
+
 .fill-box__tool:hover {
     filter: brightness(0.96);
     transform: scale(1.06);
@@ -1167,6 +1173,11 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
 }
 
+.fill-form.fill-js.fill-highlight-on .fill-box--shape {
+    border-color: #ffbc00;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
 /* Toggle off: hide the pencil/eye clusters too (all boxes, overflow included)
    so the preview is completely undisturbed. */
 .fill-form.fill-js:not(.fill-highlight-on) .fill-box__tools {
@@ -1185,6 +1196,11 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .fill-form.fill-js .fill-box--image.fill-box--layer-hover {
     border-color: #0acf97 !important;
     background: rgba(10, 207, 151, 0.10);
+}
+
+.fill-form.fill-js .fill-box--shape.fill-box--layer-hover {
+    border-color: #ffbc00 !important;
+    background: rgba(255, 188, 0, 0.10);
 }
 
 /* Field-name tag INSIDE the box (never hanging outside like the container
@@ -1214,6 +1230,11 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 .fill-box--image .fill-box__name {
     background: #0acf97;
+}
+
+.fill-box--shape .fill-box__name {
+    background: #ffbc00;
+    color: #313a46;
 }
 
 /* Near the right edge the tool cluster flips to the LEFT (fill-box--tools-left);

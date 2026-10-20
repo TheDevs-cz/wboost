@@ -19,6 +19,9 @@ namespace WBoost\Web\Value;
  *   offsetXRatio?, offsetYRatio?, rotation?, hide?}`.
  * - `placements`: group exports only — variantId → inputId → the
  *   per-dimension placement override (`imagePlacements[…]` fields).
+ * - `shapeColors`: shape inputId → the `#rrggbb` a recolourable shape was
+ *   repainted in (`shapeColorValues[…]` / the API's `shapeColors`); "" (the
+ *   designed colour) is not kept.
  *
  * The array form is CANONICAL — keys sorted recursively, floats rounded to 4
  * decimals, empty entries dropped — so `hash()` is stable across field order,
@@ -26,7 +29,8 @@ namespace WBoost\Web\Value;
  * rests on: the same fill always hashes the same. The `fonts` key is emitted
  * ONLY when a font was picked: it arrived after the first versions were
  * recorded, and an always-present empty key would re-hash every stored
- * font-less fill, duplicating each one on its next identical export.
+ * font-less fill, duplicating each one on its next identical export. The
+ * `shapeColors` key follows the same rule for the same reason.
  *
  * API / MCP exports are converted INTO this shape (rich runs re-encoded as the
  * envelope string) so one history lists every channel's exports uniformly.
@@ -41,6 +45,7 @@ final readonly class ExportFillValues
      * @param array<string, array<string, mixed>> $images
      * @param array<string, array<string, array<string, float>>> $placements
      * @param array<string, string> $fonts
+     * @param array<string, string> $shapeColors
      */
     private function __construct(
         public array $texts,
@@ -48,6 +53,7 @@ final readonly class ExportFillValues
         public array $images,
         public array $placements,
         public array $fonts = [],
+        public array $shapeColors = [],
     ) {
     }
 
@@ -61,8 +67,9 @@ final readonly class ExportFillValues
      * @param array<array-key, mixed> $rawHidden `hiddenValues[…]`
      * @param array<array-key, mixed> $rawImages `images[…]`
      * @param array<array-key, mixed> $rawFonts `fontValues[…]`
+     * @param array<array-key, mixed> $rawShapeColors `shapeColorValues[…]`
      */
-    public static function fromVariantWebForm(array $rawTexts, array $rawHidden, array $rawImages, array $rawFonts = []): self
+    public static function fromVariantWebForm(array $rawTexts, array $rawHidden, array $rawImages, array $rawFonts = [], array $rawShapeColors = []): self
     {
         $texts = [];
         foreach ($rawTexts as $inputId => $value) {
@@ -77,6 +84,7 @@ final readonly class ExportFillValues
             self::imageEntries($rawImages),
             [],
             self::fontEntries($rawFonts),
+            self::shapeColorEntries($rawShapeColors),
         );
     }
 
@@ -91,8 +99,9 @@ final readonly class ExportFillValues
      * @param array<array-key, mixed> $rawImages
      * @param array<array-key, mixed> $rawPlacements `imagePlacements[<variantId>][<inputId>][…]`
      * @param array<array-key, mixed> $rawFonts `fontValues[…]`
+     * @param array<array-key, mixed> $rawShapeColors `shapeColorValues[…]`
      */
-    public static function fromGroupWebForm(array $rawTexts, array $rawHidden, array $rawImages, array $rawPlacements, array $rawFonts = []): self
+    public static function fromGroupWebForm(array $rawTexts, array $rawHidden, array $rawImages, array $rawPlacements, array $rawFonts = [], array $rawShapeColors = []): self
     {
         $texts = [];
         foreach ($rawTexts as $inputId => $value) {
@@ -132,6 +141,7 @@ final readonly class ExportFillValues
             self::imageEntries($rawImages),
             $placements,
             self::fontEntries($rawFonts),
+            self::shapeColorEntries($rawShapeColors),
         );
     }
 
@@ -144,8 +154,9 @@ final readonly class ExportFillValues
      *
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
+     * @param array<array-key, mixed> $shapeColors the request's `shapeColors` map
      */
-    public static function fromApiRequest(array $inputs, array $images): self
+    public static function fromApiRequest(array $inputs, array $images, array $shapeColors = []): self
     {
         $texts = [];
         $hidden = [];
@@ -185,7 +196,7 @@ final readonly class ExportFillValues
             }
         }
 
-        return new self($texts, $hidden, self::imageEntries($images), [], $fonts);
+        return new self($texts, $hidden, self::imageEntries($images), [], $fonts, self::shapeColorEntries($shapeColors));
     }
 
     /**
@@ -198,13 +209,14 @@ final readonly class ExportFillValues
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $placements
+     * @param array<array-key, mixed> $shapeColors
      */
-    public static function fromGroupApiRequest(array $inputs, array $images, array $placements): self
+    public static function fromGroupApiRequest(array $inputs, array $images, array $placements, array $shapeColors = []): self
     {
-        $values = self::fromApiRequest($inputs, $images);
+        $values = self::fromApiRequest($inputs, $images, $shapeColors);
         $group = self::fromGroupWebForm([], [], [], $placements);
 
-        return new self($values->texts, $values->hidden, $values->images, $group->placements, $values->fonts);
+        return new self($values->texts, $values->hidden, $values->images, $group->placements, $values->fonts, $values->shapeColors);
     }
 
     /**
@@ -258,7 +270,14 @@ final readonly class ExportFillValues
             }
         }
 
-        return new self($texts, $hidden, $images, $placements, self::fontEntries(is_array($data['fonts'] ?? null) ? $data['fonts'] : []));
+        return new self(
+            $texts,
+            $hidden,
+            $images,
+            $placements,
+            self::fontEntries(is_array($data['fonts'] ?? null) ? $data['fonts'] : []),
+            self::shapeColorEntries(is_array($data['shapeColors'] ?? null) ? $data['shapeColors'] : []),
+        );
     }
 
     /**
@@ -266,7 +285,7 @@ final readonly class ExportFillValues
      * shape is fixed — except `fonts`, see the class docblock), suitable for
      * storage AND hashing.
      *
-     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>, fonts?: array<string, string>}
+     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>, fonts?: array<string, string>, shapeColors?: array<string, string>}
      */
     public function toArray(): array
     {
@@ -308,6 +327,12 @@ final readonly class ExportFillValues
             $canonical['fonts'] = $fonts;
         }
 
+        if ($this->shapeColors !== []) {
+            $shapeColors = $this->shapeColors;
+            ksort($shapeColors);
+            $canonical['shapeColors'] = $shapeColors;
+        }
+
         return $canonical;
     }
 
@@ -322,7 +347,7 @@ final readonly class ExportFillValues
 
     public function isEmpty(): bool
     {
-        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [] && $this->fonts === [];
+        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [] && $this->fonts === [] && $this->shapeColors === [];
     }
 
     /**
@@ -341,6 +366,27 @@ final readonly class ExportFillValues
         }
 
         return $fonts;
+    }
+
+    /**
+     * Non-empty picks only — "" is the designed colour. Valid hexes are
+     * normalized (lowercase `#rrggbb`) so `#FFF` and `#ffffff` hash the same;
+     * anything else is kept verbatim (an API request is recorded only after
+     * the strict resolver accepted it, a web value is re-validated on seed).
+     *
+     * @param array<array-key, mixed> $raw
+     * @return array<string, string>
+     */
+    private static function shapeColorEntries(array $raw): array
+    {
+        $colors = [];
+        foreach ($raw as $inputId => $value) {
+            if (is_string($value) && $value !== '') {
+                $colors[(string) $inputId] = RichText::normalizeHexColor($value) ?? $value;
+            }
+        }
+
+        return $colors;
     }
 
     /**

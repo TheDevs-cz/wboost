@@ -69,6 +69,7 @@ final class SaveTemplateGroupFillDraftController extends AbstractController
                 $request->request->all('images'),
                 $request->request->all('imagePlacements'),
                 $request->request->all('fontValues'),
+                $request->request->all('shapeColorValues'),
             ),
         ));
 

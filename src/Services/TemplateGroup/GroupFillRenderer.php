@@ -8,6 +8,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Value\RenderImageFormat;
 
@@ -40,6 +41,7 @@ readonly final class GroupFillRenderer
         private ResolveRichTextOptions $resolveRichTextOptions,
         private ResolveImageOverrides $resolveImageOverrides,
         private TemplateVariantImageRendererInterface $renderer,
+        private ResolveShapeColorOverrides $resolveShapeColorOverrides,
     ) {
     }
 
@@ -61,8 +63,14 @@ readonly final class GroupFillRenderer
      * whole-text font choice for inputs the designer opened up; "" means the
      * designed font (no override).
      *
+     * `$rawShapeColors` are the `shapeColorValues[<inputId>]` fields — the
+     * user's recolourable-shape picks; "" means the designed colour. Shapes
+     * keep their inputId across a group's dimensions, so one pick repaints
+     * the shape in every member (validated against each member's own list).
+     *
      * @param list<string> $transparentTextInputIds
      * @param array<array-key, mixed> $rawFontValues
+     * @param array<array-key, mixed> $rawShapeColors
      */
     public function render(
         TemplateVariant $variant,
@@ -73,6 +81,7 @@ readonly final class GroupFillRenderer
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
         array $rawFontValues = [],
+        array $rawShapeColors = [],
     ): string {
         /** @var array<string, array{value?: string, hide?: bool, fontFamily?: string}> $providedValues */
         $providedValues = [];
@@ -112,7 +121,7 @@ readonly final class GroupFillRenderer
             $providedValues,
             truncateOverflow: true,
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        );
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $rawShapeColors, lenient: true));
 
         $variantPlacements = $rawPlacements[$variant->id->toString()] ?? [];
 

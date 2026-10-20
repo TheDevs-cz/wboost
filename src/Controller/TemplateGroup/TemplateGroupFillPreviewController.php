@@ -75,6 +75,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
             format: RenderImageFormat::Webp,
             transparentTextInputIds: $transparentTextInputIds,
             rawFontValues: $request->request->all('fontValues'),
+            rawShapeColors: $request->request->all('shapeColorValues'),
         );
 
         return new Response($bytes, Response::HTTP_OK, [

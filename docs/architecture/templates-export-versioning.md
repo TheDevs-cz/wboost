@@ -63,6 +63,14 @@ version.
   the 100 unpinned cap. Badge "Rozpracováno" in the dropdown and on the
   history page; the toggle label reads "Rozpracováno <d.m. H:i>" for an
   unnamed loaded draft.
+- **Shape colours (2026-10-20)**: `ExportFillValues::$shapeColors` (shape
+  inputId → `#rrggbb`, `shapeColorValues[…]` on the web forms, `shapeColors`
+  on the API) is emitted in the canonical form ONLY when non-empty — the
+  `fonts` rule, so every stored colour-less fill keeps its hash. Hexes are
+  normalized before hashing (`#FFF` ≡ `#ffffff`); "" (the designed colour)
+  is not kept. The seeder re-validates picks leniently through
+  `ResolveShapeColorOverrides` (`shapeColorValues` for the single page,
+  `shapeColors` for the group page, first member carrying the shape wins).
 - **Re-loading** (`?version=<id>` on both fill pages; invalid/foreign/pruned
   ids silently ignored): `Services/Template/ExportVersionSeeder` is LENIENT
   where the render resolvers 400 — deleted inputs drop, a rich envelope on a

@@ -23,7 +23,9 @@ use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
+use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
@@ -34,6 +36,7 @@ use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\RichTextOptions;
+use WBoost\Web\Value\ShapeColorInput;
 
 /**
  * Shared engine of the user-fill / export page behind Template:VariantFiller.
@@ -101,6 +104,17 @@ abstract class AbstractVariantFiller extends AbstractController
     public array $fontValues = [];
 
     /**
+     * inputId → the colour the user repainted a recolourable shape in
+     * ({@see \WBoost\Web\Value\ShapeColorInput}); "" = the designed colour.
+     * Bound through the visually-hidden `data-shape-color-mirror` field the
+     * shape popover's swatches write into — the `fontValues` pattern.
+     *
+     * @var array<string, string>
+     */
+    #[LiveProp(writable: true)]
+    public array $shapeColorValues = [];
+
+    /**
      * Map of inputId UUID → bool (true = hide). Only inputs whose definition
      * has `hidable: true` honor this; others are silently ignored.
      *
@@ -145,6 +159,8 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly EchoCapableTextInputs $echoCapableTextInputs,
         private readonly FileUploadPixelSizeBackfill $pixelSizeBackfill,
         private readonly GalleryImageCaption $caption,
+        private readonly FillShapePlaceholders $fillShapePlaceholders,
+        private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
     ) {
     }
 
@@ -241,6 +257,10 @@ abstract class AbstractVariantFiller extends AbstractController
             if ($input->offersFontChoice()) {
                 $this->fontValues[$input->inputId] ??= '';
             }
+        }
+
+        foreach (ShapeColorInput::collectionFromCanvasJson($variant->canvas) as $shapeInput) {
+            $this->shapeColorValues[$shapeInput->inputId] ??= '';
         }
     }
 
@@ -566,6 +586,26 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
+     * The recolourable shapes ({@see FillShapePlaceholders}) — one popover +
+     * one preview box each, `frame` in canvas px (null = no box, the panel
+     * still lists it).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function shapePlaceholders(): array
+    {
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        $frames = $this->fillShapePlaceholders->frames($variant);
+
+        return array_map(
+            static fn (array $row): array => [...$row, 'frame' => $frames[$row['inputId']] ?? null],
+            $this->fillShapePlaceholders->placeholders([$variant], $this->shapeColorValues),
+        );
+    }
+
+    /**
      * Combined layers list for the "Vrstvy" panel — fillable placeholders
      * only, topmost first ({@see FillTextPlaceholders::layers()}).
      *
@@ -767,6 +807,12 @@ abstract class AbstractVariantFiller extends AbstractController
             $parts[] = 'F:' . $inputId . '=' . $family;
         }
 
+        $shapeColors = $this->shapeColorValues;
+        ksort($shapeColors);
+        foreach ($shapeColors as $inputId => $color) {
+            $parts[] = 'S:' . $inputId . '=' . $color;
+        }
+
         $canonical = implode("\n", $parts);
 
         $hash = 5381;
@@ -800,7 +846,7 @@ abstract class AbstractVariantFiller extends AbstractController
             $this->buildProvidedValues(),
             truncateOverflow: true,
             richTextOptions: $this->fontOptions(),
-        );
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $this->shapeColorValues, lenient: true));
         // Background-less slices are the transparent overlay layers: flat, tiny,
         // and PNG measured FASTER for exactly that shape (0.147s vs 0.220s for
         // WebP, saving only ~7KB). Everything that paints a background is the
