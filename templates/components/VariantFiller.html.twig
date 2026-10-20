@@ -61,7 +61,6 @@
 
 {% set fontFaces = this.fontFaces() %}
 {% set richToolbar = this.richTextToolbar() %}
-{% set layers = this.layers() %}
 
 <div {{ attributes }}>
     {# The shared classic scripts (fabric_break_word, container_layout,
@@ -376,8 +375,6 @@
         </div>
         </div>
 
-        {# ---- Layers panel (Vrstvy) — shared partial, see _fill_layers. #}
-        {{ include('_fill_layers.html.twig', { layers: layers }) }}
         </div>
 
         {# ---- Popovers + the "Všechna pole" panel ----------------------------

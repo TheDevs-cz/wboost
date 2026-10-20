@@ -1184,27 +1184,8 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     display: none;
 }
 
-/* Hovering a row in the layers panel: a solid, filled highlight regardless of
-   the highlight toggle (it's a pointing gesture, not a hint). */
-.fill-form.fill-js .fill-box--layer-hover {
-    border-color: #727cf5 !important;
-    border-style: solid;
-    background: rgba(114, 124, 245, 0.10);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
-}
-
-.fill-form.fill-js .fill-box--image.fill-box--layer-hover {
-    border-color: #0acf97 !important;
-    background: rgba(10, 207, 151, 0.10);
-}
-
-.fill-form.fill-js .fill-box--shape.fill-box--layer-hover {
-    border-color: #ffbc00 !important;
-    background: rgba(255, 188, 0, 0.10);
-}
-
 /* "Náhled" (#fill-preview-toggle): a clean preview as if both switches were
-   off and nothing overflowed — beats the overflow/layer-hover !important rules
+   off and nothing overflowed — beats the overflow !important rule
    and the overflow tag. The overflow signal lives on in the alert + the group
    page's per-dimension header badge. */
 .fill-form.fill-js.fill-preview-on .fill-box {
@@ -1274,10 +1255,10 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     opacity: 1;
 }
 
-/* ---- Layers panel (Vrstvy) on the fill page ------------------------------
-   Sits beside the preview viewport; JS-only chrome (rows drive the overlay
-   controller), hidden in the no-JS fallback. Stacks under the preview on
-   narrow screens. */
+/* Fill-page body: the preview viewport (single page) / dimension grid (group
+   page) as the one flex child taking the full width. It once shared the row
+   with a "Vrstvy" panel (removed 2026-10-21); keep it a ROW — the column
+   variant broke the phone fit zoom (shrink-to-fit width). */
 .fill-body {
     display: flex;
     gap: 1rem;
@@ -1287,153 +1268,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .fill-body .fill-viewport {
     flex: 1 1 auto;
     min-width: 0;
-}
-
-.fill-layers {
-    display: none;
-    flex: 0 0 230px;
-    position: sticky;
-    top: 1rem;
-    padding: 0.6rem 0.65rem;
-    background: #fff;
-    border: 1px solid var(--ct-border-color, #e3e6ef);
-    border-radius: 10px;
-}
-
-.fill-form.fill-js .fill-layers {
-    display: block;
-}
-
-@media (max-width: 767.98px) {
-    /* Stacked layout. `align-items: flex-start` above is what keeps the layers
-       panel from stretching to the preview's height in the ROW layout — but
-       once the direction flips it governs WIDTH instead, and shrink-to-fit
-       made .fill-viewport as wide as its UNSCALED content (1080 px inside a
-       382 px phone). The fit zoom measures that width, so it computed "already
-       fits" (~100 %) and never scaled the artwork down; the max-height cap
-       then sliced the bottom off the design. Stretch both children to the
-       screen width so the fit has something real to fit into. */
-    .fill-body {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .fill-layers {
-        position: static;
-        width: 100%;
-        flex-basis: auto;
-    }
-}
-
-.fill-layers__title {
-    margin: 0 0 0.35rem;
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--ct-secondary-color, #8a969c);
-}
-
-.fill-layers__list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    max-height: 60vh;
-    overflow-y: auto;
-}
-
-.fill-layer-row {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    border-radius: 6px;
-    color: var(--ct-body-color, #4a4a5a);
-    transition: background-color .12s ease;
-}
-
-.fill-layer-row:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.fill-layer-row__main {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 4px 5px 6px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: inherit;
-    font-size: 0.8rem;
-    text-align: left;
-}
-
-button.fill-layer-row__main:focus-visible {
-    outline: 2px solid #727cf5;
-    outline-offset: -2px;
-}
-
-.fill-layer-row__icon {
-    flex: 0 0 auto;
-    font-size: 0.95rem;
-    opacity: 0.75;
-    line-height: 1;
-}
-
-.fill-layer-row__label {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.fill-layer-row__flag {
-    flex: 0 0 auto;
-    font-size: 0.8rem;
-    opacity: 0.6;
-    line-height: 1;
-}
-
-.fill-layer-row__eye {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    margin-right: 2px;
-    padding: 0;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: inherit;
-    opacity: 0.6;
-    line-height: 1;
-}
-
-.fill-layer-row__eye:hover {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.08);
-}
-
-.fill-layer-row__eye:focus-visible {
-    outline: 2px solid #727cf5;
-    outline-offset: -1px;
-    opacity: 1;
-}
-
-.fill-layer-row__eye.is-active {
-    color: #fa5c7c;
-    opacity: 1;
-}
-
-/* A hidden layer reads as switched off in the list too. */
-.fill-layer-row:has(.fill-layer-row__eye.is-active) .fill-layer-row__label {
-    opacity: 0.55;
-    text-decoration: line-through;
 }
 
 /* Fixed in viewport coordinates (the controller positions + clamps it fully
@@ -3740,7 +3574,7 @@ button.fill-layer-row__main:focus-visible {
     margin-bottom: 1.5rem;
 }
 
-/* The dimension grid beside the "Vrstvy" panel (the .fill-body flex row). */
+/* The dimension grid inside the .fill-body flex row. */
 .group-fill-previews {
     flex: 1 1 auto;
     min-width: 0;

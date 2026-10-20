@@ -14,13 +14,16 @@ side panel of single-line `<input>`s (no WYSIWYG, no checklist, no font
 select — the "no rich text on synchronized templates" report), while the
 single page had the click-into-preview overlay. Both pages now render the
 SAME editing surface from shared partials — `_fill_overlay_toggles.html.twig`
-(the two switches + the "Všechna pole" button), `_fill_overlay_boxes.html.twig`
+(the two switches + the "Všechna pole" + "Náhled" buttons), `_fill_overlay_boxes.html.twig`
 (the boxes of ONE surface), `_fill_text_popover.html.twig` (one input's
-popover: textarea / WYSIWYG / checklist / font select), `_fill_layers.html.twig`
-— built server-side by ONE builder, `Services/SocialNetwork/FillTextPlaceholders`
-(`placeholders()` / `layoutData()` / `layers()` / `fontOptions()` /
+popover: textarea / WYSIWYG / checklist / font select) — built server-side by ONE builder, `Services/SocialNetwork/FillTextPlaceholders`
+(`placeholders()` / `layoutData()` / `fontOptions()` /
 `richTextToolbar()`; `AbstractVariantFiller` delegates, `GroupFillPlaceholders`
-unifies over the member dimensions first-wins by inputId). Contracts:
+unifies over the member dimensions first-wins by inputId). The fill pages'
+"Vrstvy" layers panel was REMOVED on 2026-10-21 (user request: noise on the
+export pages); every placeholder stays reachable from its box and from
+"Všechna pole", and hiding lives on the box eye / popover. The admin editor's
+Vrstvy panel and the API `layerIndex` are unaffected. Contracts:
 
 - **Surfaces.** `variant_fill_overlay_controller` draws over N `surface`
   targets, each carrying `data-canvas-width` + `data-layout`

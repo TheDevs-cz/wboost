@@ -606,20 +606,6 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
-     * Combined layers list for the "Vrstvy" panel — fillable placeholders
-     * only, topmost first ({@see FillTextPlaceholders::layers()}).
-     *
-     * @return list<array{kind: 'text'|'image', icon: string, inputId: string, label: string, hidable: bool, hidden: bool, interactive: bool}>
-     */
-    public function layers(): array
-    {
-        $variant = $this->variantEntity();
-        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
-
-        return $this->fillTextPlaceholders->layers($variant, $this->hiddenValues);
-    }
-
-    /**
      * The rich-text toolbar payload (pickable font faces + brand color
      * swatches), or null when the variant has no rich-text input — the
      * template then skips the WYSIWYG chrome entirely.

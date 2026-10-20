@@ -126,7 +126,6 @@ final class TemplateGroupFillController extends AbstractController
             // from the loaded version (else the sample text).
             'text_placeholders' => $this->placeholders->textPlaceholders($memberVariants, $seed['texts'], $seed['hidden'], $seed['fonts']),
             'rich_toolbar' => $this->placeholders->richTextToolbar($memberVariants),
-            'layers' => $this->placeholders->layers($memberVariants, $seed['hidden']),
             'image_inputs' => $imageInputs,
             // Recolourable shapes, one popover per distinct shape (members
             // share the id), seeded from the loaded version.

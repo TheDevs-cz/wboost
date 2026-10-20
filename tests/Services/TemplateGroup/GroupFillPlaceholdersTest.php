@@ -99,13 +99,6 @@ final class GroupFillPlaceholdersTest extends KernelTestCase
         self::assertIsArray($layoutInputs);
         self::assertArrayHasKey(TestDataFixture::ORIENTATION_INPUT_INTRO_ID, $layoutInputs);
         self::assertArrayNotHasKey(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, $layoutInputs);
-
-        // The layers panel lists the first dimension's fillable placeholders.
-        $layers = $service->layers([$orientation, $custom], []);
-        $layerIds = array_map(static fn (array $layer): string => $layer['inputId'], $layers);
-        self::assertContains(TestDataFixture::ORIENTATION_INPUT_INTRO_ID, $layerIds);
-        self::assertContains(TestDataFixture::ORIENTATION_IMAGE_FREE_ID, $layerIds);
-        self::assertNotContains(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, $layerIds);
     }
 
     private function variant(string $id): TemplateVariant

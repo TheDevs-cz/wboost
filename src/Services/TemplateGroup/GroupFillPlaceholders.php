@@ -213,22 +213,6 @@ readonly final class GroupFillPlaceholders
     }
 
     /**
-     * The "Vrstvy" panel rows — the group's object set is identical across
-     * dimensions by contract, so the first dimension's stacking order stands
-     * for all of them.
-     *
-     * @param list<TemplateVariant> $variants
-     * @param array<string, bool> $hiddenValues
-     * @return list<array{kind: 'text'|'image', icon: string, inputId: string, label: string, hidable: bool, hidden: bool, interactive: bool}>
-     */
-    public function layers(array $variants, array $hiddenValues): array
-    {
-        $first = $variants[0] ?? null;
-
-        return $first === null ? [] : $this->fillTextPlaceholders->layers($first, $hiddenValues);
-    }
-
-    /**
      * ONE dimension's overlay reflow payload — the per-dimension text frames
      * the boxes are drawn at plus what the client needs to mirror container
      * reflow ({@see FillTextPlaceholders::layoutData()}).

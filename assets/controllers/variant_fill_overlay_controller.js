@@ -277,7 +277,7 @@ export default class extends Controller {
     /**
      * "Náhled": a clean preview in one click, as if both switches above were
      * off AND no box overflowed — CSS on `fill-preview-on` hides borders,
-     * icon clusters, tags and the layer-hover fill. The switches keep their
+     * icon clusters and tags. The switches keep their
      * state, so leaving restores the editing chrome exactly. The overflow
      * signal survives outside the artwork (the alert + the dimension header
      * badge), and the export stays gated.
@@ -733,26 +733,6 @@ export default class extends Controller {
             delete this._imageFrames[inputId];
         }
         this.reposition();
-    }
-
-    // --- Layers panel (Vrstvy) ------------------------------------------------
-
-    /** Hovering/focusing a layers-panel row highlights the matching box(es)
-     *  over the preview(s). No-op for placeholders without a box (locked / no
-     *  frame). */
-    highlightLayer(event) {
-        this._unhighlightLayers();
-        const inputId = event.params?.inputid;
-        if (!inputId) return;
-        this._boxesFor(inputId).forEach((box) => box.classList.add("fill-box--layer-hover"));
-    }
-
-    unhighlightLayer() {
-        this._unhighlightLayers();
-    }
-
-    _unhighlightLayers() {
-        this.boxTargets.forEach((box) => box.classList.remove("fill-box--layer-hover"));
     }
 
     // --- Text mirroring + Enter guard ----------------------------------------
