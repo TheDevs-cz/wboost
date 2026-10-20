@@ -43,3 +43,18 @@
 >
     <i class="mdi mdi-form-textbox me-1" aria-hidden="true"></i>Všechna pole
 </button>
+
+{# "Náhled": one click to a clean preview — every piece of overlay chrome
+   hidden as if both switches were off (overflow included), without touching
+   the switches, so leaving it restores exactly the editing state. Esc leaves. #}
+<button
+    type="button"
+    class="btn btn-outline-secondary btn-sm"
+    id="fill-preview-toggle"
+    data-action="variant-fill-overlay#togglePreview"
+    data-variant-fill-overlay-target="previewButton"
+    aria-pressed="false"
+    title="Náhled bez rámečků, ikon a popisků (Esc ukončí)"
+>
+    <i class="mdi mdi-eye-outline me-1" aria-hidden="true"></i><span data-preview-label>Náhled</span>
+</button>

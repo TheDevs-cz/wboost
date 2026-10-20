@@ -70,6 +70,7 @@ export default class extends Controller {
     static targets = [
         "stage", "surface", "preview", "previewSource", "box", "popover", "modal", "spinner",
         "zoomLabel", "exportButton", "overflowAlert", "panel", "panelButton", "imageThumb",
+        "previewButton",
     ];
     static values = {
         fonts: Array,
@@ -81,6 +82,7 @@ export default class extends Controller {
         this._modalTrigger = null;
         this._panelOpen = false;
         this._panelTrigger = null;
+        this._previewOn = false;
         this._zoom = 1;
         this._userZoomed = false;
         this.element.classList.add("fill-js");
@@ -240,6 +242,10 @@ export default class extends Controller {
                 this.closePanel();
                 return;
             }
+            if (this._openId === null && this._previewOn) {
+                this.togglePreview();
+                return;
+            }
             this.closePopover();
             return;
         }
@@ -266,6 +272,33 @@ export default class extends Controller {
      */
     toggleCaptions(event) {
         this.element.classList.toggle("fill-captions-on", event.target.checked);
+    }
+
+    /**
+     * "Náhled": a clean preview in one click, as if both switches above were
+     * off AND no box overflowed — CSS on `fill-preview-on` hides borders,
+     * icon clusters, tags and the layer-hover fill. The switches keep their
+     * state, so leaving restores the editing chrome exactly. The overflow
+     * signal survives outside the artwork (the alert + the dimension header
+     * badge), and the export stays gated.
+     */
+    togglePreview() {
+        this._previewOn = !this._previewOn;
+        if (this._previewOn) this.closePopover();
+        this.element.classList.toggle("fill-preview-on", this._previewOn);
+        this.previewButtonTargets.forEach((button) => {
+            button.classList.toggle("btn-outline-secondary", !this._previewOn);
+            button.classList.toggle("btn-secondary", this._previewOn);
+            button.classList.toggle("active", this._previewOn);
+            button.setAttribute("aria-pressed", this._previewOn ? "true" : "false");
+            const icon = button.querySelector(".mdi");
+            if (icon) {
+                icon.classList.toggle("mdi-eye-outline", !this._previewOn);
+                icon.classList.toggle("mdi-eye-off-outline", this._previewOn);
+            }
+            const label = button.querySelector("[data-preview-label]");
+            if (label) label.textContent = this._previewOn ? "Ukončit náhled" : "Náhled";
+        });
     }
 
     // --- "Všechna pole" panel ----------------------------------------------------
@@ -1035,6 +1068,10 @@ export default class extends Controller {
             const data = surface.layout;
             if (!data || !data.inputs) return;
             const surfaceOverflow = this._layoutSurface(surface, data, layoutModule);
+            // Group page: flag WHICH dimension overflows in its card header —
+            // the signal that stays on the screen in "Náhled" mode.
+            const badge = surface.el.closest(".card")?.querySelector("[data-fill-overflow-badge]");
+            if (badge) badge.classList.toggle("d-none", surfaceOverflow === null);
             if (surfaceOverflow !== null && (worstOverflow === null || surfaceOverflow > worstOverflow)) {
                 worstOverflow = surfaceOverflow;
             }

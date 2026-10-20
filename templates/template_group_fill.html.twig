@@ -224,6 +224,11 @@
                                        so the PNG carries exactly what the ZIP entry would. #}
                                     <div class="group-fill-preview-heading d-flex align-items-center justify-content-between gap-2">
                                         <span>{{ v.dimension_label }}</span>
+                                        {# Shown by variant-fill-overlay while a text of THIS
+                                           dimension overflows its container. #}
+                                        <span class="badge bg-danger-subtle text-danger d-none me-auto" data-fill-overflow-badge>
+                                            <i class="mdi mdi-alert-outline" aria-hidden="true"></i> Text přetéká
+                                        </span>
                                         <button type="submit" class="group-fill-variant-download"
                                                 formaction="{{ v.export_variant_url }}"
                                                 data-group-fill-variant-download

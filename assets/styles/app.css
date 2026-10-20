@@ -1203,6 +1203,24 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background: rgba(255, 188, 0, 0.10);
 }
 
+/* "Náhled" (#fill-preview-toggle): a clean preview as if both switches were
+   off and nothing overflowed — beats the overflow/layer-hover !important rules
+   and the overflow tag. The overflow signal lives on in the alert + the group
+   page's per-dimension header badge. */
+.fill-form.fill-js.fill-preview-on .fill-box {
+    border-color: transparent !important;
+    background: none !important;
+    box-shadow: none !important;
+}
+
+.fill-form.fill-js.fill-preview-on .fill-box__tools {
+    display: none;
+}
+
+.fill-form.fill-js.fill-preview-on .fill-box .fill-box__name {
+    opacity: 0;
+}
+
 /* Field-name tag INSIDE the box (never hanging outside like the container
    label, so neighbouring boxes' tags can't collide). Anchored to the top edge
    opposite the tool cluster — left by default, since the tools sit top-right —

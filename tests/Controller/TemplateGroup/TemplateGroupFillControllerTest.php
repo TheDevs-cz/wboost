@@ -48,6 +48,8 @@ final class TemplateGroupFillControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('form.fill-form.fill-highlight-on.fill-captions-on'));
         self::assertCount(1, $crawler->filter('#fill-highlight-toggle[checked]'));
         self::assertCount(1, $crawler->filter('#fill-captions-toggle[checked][data-action="change->variant-fill-overlay#toggleCaptions"]'));
+        // "Náhled" — clean-preview mode next to the switches (shared partial).
+        self::assertCount(1, $crawler->filter('#fill-preview-toggle[aria-pressed="false"][data-action="variant-fill-overlay#togglePreview"]'));
         self::assertCount(1, $crawler->filter('[data-variant-fill-overlay-target="panel"]'));
         self::assertCount(1, $crawler->filter('[data-variant-fill-overlay-target="panelButton"]'));
 

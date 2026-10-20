@@ -100,7 +100,14 @@ the icon clusters, "Popisky prvků" (`#fill-captions-toggle` → `fill-captions-
 the `.fill-box__name` field tags. Both classes are also stamped on the form in
 the Twig markup — the CSS gates on them, so dropping them there loads the page
 with the chrome invisible. An OVERFLOWING box keeps its red border and its tag
-regardless of either toggle: that is a validation signal, not a hint. Box
+regardless of either toggle: that is a validation signal, not a hint. The
+third control, **"Náhled"** (`#fill-preview-toggle` → `fill-preview-on`,
+`togglePreview`, Esc leaves when no popover is open), is a clean-preview MODE
+that hides ALL chrome — overflow border/tag and layer-hover included — without
+touching the two switches, so leaving it restores the editing state exactly;
+the overflow signal survives off-artwork (the alert, the disabled export, and
+on the group page a per-dimension `[data-fill-overflow-badge]` in the card
+header toggled by `_recomputeLayout`). Box
 positions come from the designer frame scaled to the displayed preview
 (`scale = previewWidth / variant.dimension.width()`). The overlay, popovers and
 modals all live in `data-live-ignore` subtrees so a Live re-render never wipes
