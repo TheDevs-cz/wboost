@@ -167,7 +167,17 @@ of the canvas size a design must be authored at.
   "richTextOptions": {     // null unless a fillable richText input exists
     "fonts":  ["Rubik (Rubik Bold)", …],  // the ONLY families a run may name
     "colors": ["#0a7d3f", …]              // suggestions; any hex is accepted
-  }
+  },
+
+  "shapeInputs": [{        // shapes the designer lets you recolour ([] = none)
+    "id",                  // ← the shapeColors map key
+    "name",                // nullable layer name
+    "target",              // "fill" | "stroke" | "both" — what ONE colour repaints
+    "defaultColor",        // the designed colour (= colorOptions[0])
+    "colorOptions",        // the "#rrggbb" values accepted …
+    "freeColor",           // … unless true: then any hex is accepted
+    "frame": { "x", "y", "width", "height" }   // nullable
+  }]
 }
 ```
 
@@ -249,7 +259,7 @@ picture uploaded here can.
 
 ---
 
-## `render_variant(variantId, inputs?, images?)`
+## `render_variant(variantId, inputs?, images?, shapeColors?)`
 
 Reply = a JSON summary block **followed by** the image block.
 
@@ -270,9 +280,15 @@ overflow** — an overflowing fill still returns a picture plus a warning that e
 
 Everything else is as strict as the export.
 
+`shapeColors` is `{"<shapeInputs[].id>": "#rrggbb"}` — repaints that shape's
+fill, border or both (its `target`). A colour outside `colorOptions` on a shape
+without `freeColor` is refused (`shape_color_not_allowed`, naming the allowed
+colours); a non-hex value is `invalid_shape_color`. Omit an id (or send `""`)
+to keep the designed colour.
+
 ---
 
-## `export_variant(variantId, inputs?, images?)`
+## `export_variant(variantId, inputs?, images?, shapeColors?)`
 
 Same arguments, same fill vocabulary. Reply = JSON summary + the PNG.
 
@@ -411,8 +427,9 @@ within the document. Slugs carry input identity across saves.
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
 | `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
-| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `at`, `x`, `y`, `width`, `height` |
+| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to` |
+| `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fillable` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter` |
 
@@ -425,6 +442,7 @@ within the document. Slugs carry input identity across saves.
 | `align` | `left`, `center`, `right`, `justify` |
 | `shape` | `rectangle`, `square`, `circle`, `ellipse`, `triangle`, `line`, `star` |
 | `strokeStyle` | `solid`, `dashed`, `dotted` |
+| `userColor.target` | `fill`, `stroke`, `both` |
 | gradient `fill.type` | `linear`, `radial` |
 
 ### Required, and defaults
@@ -458,8 +476,13 @@ within the document. Slugs carry input identity across saves.
   `0`, because those shapes' radii ARE their size. `opacity` is a fraction
   (`0.6` = 60 % opaque), not a percentage. `locked` is the EDITOR lock — it makes
   the shape click-through for the designer and never affects the export. A shape
-  is decorative: it is never a fillable input and adds nothing to
-  `describe_variant`, but it MAY be a container member.
+  is decorative by default, and it MAY be a container member. `userColor`
+  (default `null`) opens it up for recolouring by whoever fills the template:
+  `{"target": "fill"|"stroke"|"both", "colors": ["#…"], "free": false}` —
+  `colors` are the swatches offered next to the designed colour (default `[]`),
+  `free: true` accepts any colour. Such a shape then appears in
+  `describe_variant` `shapeInputs[]`. A gradient `fill` (or a border with
+  `strokeWidth` 0) cannot be recoloured, so that part is simply not offered.
 - **`background`**: at most **one** per document; it compiles to the single
   background layer pinned to the bottom of the stack. `fillable: true` makes it a
   fillable whole-canvas cover slot.

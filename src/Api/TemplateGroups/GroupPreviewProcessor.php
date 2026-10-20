@@ -42,7 +42,7 @@ final readonly class GroupPreviewProcessor implements ProcessorInterface
         $variant = $this->subjectLoader->member($group, $uriVariables['variantId'] ?? null);
 
         try {
-            $bytes = $this->apiExportRenderer->renderGroupMember($variant, $data->inputs, $data->images, $data->placements, RenderImageFormat::Webp);
+            $bytes = $this->apiExportRenderer->renderGroupMember($variant, $data->inputs, $data->images, $data->placements, RenderImageFormat::Webp, $data->shapeColors);
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error, $variant->id->toString()) ?? throw $error;
         }

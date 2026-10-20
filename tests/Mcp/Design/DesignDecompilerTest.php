@@ -283,6 +283,28 @@ final class DesignDecompilerTest extends TestCase
         self::assertSame(6.0, $rect->height);
     }
 
+    public function testARecolourableShapeDecompilesItsUserColorBlock(): void
+    {
+        $canvas = ['objects' => [
+            [
+                'type' => 'Rect', 'shapeKind' => 'rectangle',
+                'left' => 0, 'top' => 0, 'width' => 400, 'height' => 40,
+                'fill' => '#112233', 'name' => 'Pruh',
+                'colorChoice' => 'stroke', 'allowedColors' => ['#C8102E', 'nope'], 'colorFree' => false,
+            ],
+            ['type' => 'Rect', 'shapeKind' => 'rectangle', 'left' => 0, 'top' => 100, 'width' => 10, 'height' => 10, 'fill' => '#000000'],
+        ]];
+
+        $decompiled = self::decompile($canvas, [], []);
+
+        self::assertSame([], $decompiled->losses);
+        [$band, $plain] = $decompiled->document->elements;
+        self::assertInstanceOf(ShapeElement::class, $band);
+        self::assertInstanceOf(ShapeElement::class, $plain);
+        self::assertSame(['target' => 'stroke', 'colors' => ['#c8102e'], 'free' => false], $band->toArray()['userColor']);
+        self::assertNull($plain->userColor);
+    }
+
     public function testAShapeGradientRoundTripsAsTypeAngleAndTwoStops(): void
     {
         $canvas = ['objects' => [

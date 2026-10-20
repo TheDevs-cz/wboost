@@ -234,6 +234,18 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "isBackground": false                        // true = the variant's BACKGROUND layer (cover-fit top-left fill, no transform; frame = full canvas)
           }
         ],
+        "shapeInputs": [                                 // shapes the user may RECOLOUR (may be empty) — see "Recolourable shapes"
+          {
+            "id": "5f1c…",                               // shape inputId UUID → the KEY you send in `shapeColors`
+            "name": "Pruh",                              // nullable label (the designer's layer name)
+            "target": "fill",                            // what ONE colour repaints: "fill" | "stroke" | "both"
+            "defaultColor": "#112233",                   // the designed colour = colorOptions[0]
+            "colorOptions": ["#112233", "#c8102e"],      // swatches to offer, lowercase #rrggbb
+            "freeColor": false,                          // true = any hex accepted (offer a picker too)
+            "frame": { "x": 10, "y": 20, "width": 100, "height": 40 }, // bounding box in canvas px, nullable
+            "layerIndex": 3                              // stacking order — same index space as inputs[] / imageInputs[]
+          }
+        ],
         "groupMember": false                             // true = a member dimension of the template's group (fill it through the group endpoints)
       }
     ]
@@ -291,6 +303,9 @@ so what previews fine exports fine. The difference is what they ARE:
       { "text": "world", "fontFamily": "Rubik (Rubik Bold)",         // styled run: font face + color + underline
         "color": "#c8102e", "underline": true }
     ] }
+  },
+  "shapeColors": {                                                    // optional — recolourable shapes (variant.shapeInputs)
+    "5f1c…": "#c8102e"                                               // "" or omitted = the designed colour
   }
 }
 ```
@@ -407,6 +422,13 @@ of these codes:
 | `color_not_allowed` | A run's `color` is outside that input's `colorOptions` (or the input has `colorOptions: []` and cannot change colour at all). The body includes `allowedColors`. Inputs with `colorOptions: null` accept any hex — `richTextOptions.colors` are then suggested brand swatches, NOT a whitelist. |
 | `lists_not_allowed` | You sent `lines` list types (`ul`/`ol`/`cb`/`cbx`) for an input whose `lists` is `false`. Drop the `lines` key or send only `"p"` entries. |
 | `checkbox_lists_not_allowed` | You sent checkbox line types (`cb`/`cbx`) for an input whose `listCheckboxes` is `false`. Use `ul`/`ol` items instead. |
+
+**Shape-colour 400s** carry `shapeInputId` instead of `inputId`:
+
+| `code` | Meaning / UI reaction |
+|---|---|
+| `invalid_shape_color` | A `shapeColors` value is not a hex colour. Send `#rrggbb` (or `#rgb`); **no alpha**. |
+| `shape_color_not_allowed` | The colour is outside that shape's `colorOptions` and the shape has `freeColor: false`. The body includes `allowedColors` (= `colorOptions`). |
 
 ---
 
@@ -692,13 +714,34 @@ in a box of that aspect ratio there is no letterboxing, so a single scale factor
 `height = frame.height*scale`. This lets you build a "click the placeholder on the
 preview → edit in a floating panel" UX instead of a disconnected form.
 
-**Layers list (navigation aid).** Merge `inputs[]` and `imageInputs[]` into one
+**Layers list (navigation aid).** Merge `inputs[]`, `imageInputs[]` and `shapeInputs[]` into one
 list and sort it by `layerIndex` descending (topmost first) to show a
 Photoshop-style layers panel next to the preview: hovering a row highlights the
 matching `frame` box, clicking it opens the same editing affordance as clicking
 the box itself. Entries with a `null` `layerIndex` (object not locatable on the
 canvas) belong at the end of the list. The stack is fixed by the designer —
 there is no z-order override on export.
+
+### Recolourable shapes (`variant.shapeInputs`)
+
+A designer can open a vector shape (a band, a badge, a frame line) up for
+recolouring. Each `shapeInputs[]` entry is ONE colour field:
+
+- Label it with `name` (fallback "Barva tvaru"); draw its `frame` on the
+  preview like the other placeholders (it is a bounding box — a circle's frame
+  is its square).
+- Offer `colorOptions` as swatches — `colorOptions[0]` is `defaultColor`, the
+  designed colour, i.e. the "reset" swatch. When `freeColor` is `true` also
+  offer a colour picker; any hex is then accepted and the swatches are only
+  suggestions.
+- `target` tells the user what changes: `fill`, `stroke` (the border) or
+  `both` (fill and border in the SAME colour). It is informational — you
+  always send one colour per shape.
+- Send `shapeColors: { "<id>": "#rrggbb" }` on `/preview` and `/export`
+  (`""` or omitting the id = designed colour). Unknown ids are ignored.
+- There is no client-side echo: a colour change needs a new `/preview`.
+- In a group, member dimensions share a shape's id, so one pick recolours the
+  shape in every dimension (each validates against its own options).
 
 ### Image placeholders (`variant.imageInputs`)
 
@@ -899,7 +942,8 @@ POST {API_BASE}/api/template-groups/{groupId}/export
   "placements": {                                              // per dimension
     "<variantId 1:1>":  { "<imageInputId>": { "scale": 1.4, "offsetXRatio": -0.1, "offsetYRatio": 0.05 } },
     "<variantId 9:16>": { "<imageInputId>": { "scale": 1.0, "offsetXRatio": 0,    "offsetYRatio": 0.2 } }
-  }
+  },
+  "shapeColors": { "<shapeInputId>": "#c8102e" }              // shared, exactly as the variant export
 }
 ```
 
@@ -963,7 +1007,8 @@ shape**, ready to put back into your form and send again:
 "fill": {
   "inputs": { "<inputId>": "text" | { "value"|"runs"+"lines", "hide", "fontFamily" } },
   "images": { "<imageInputId>": { "imageId": "…", "url": "<public store url>", "scale": 1.4, "offsetXRatio": 0.1 } | { "hide": true } },
-  "placements": { "<variantId>": { "<imageInputId>": { … } } }   // group versions only; {} otherwise
+  "placements": { "<variantId>": { "<imageInputId>": { … } } },  // group versions only; {} otherwise
+  "shapeColors": { "<shapeInputId>": "#c8102e" }                  // {} when no shape was recoloured
 }
 ```
 

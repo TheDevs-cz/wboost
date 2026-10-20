@@ -21,6 +21,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Image\DownscaleImage;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -419,6 +420,7 @@ final class RenderVariantTest extends WebTestCase
                 $container->get(ResolveTextOverrides::class),
                 $container->get(ResolveRichTextOptions::class),
                 $container->get(ResolveImageOverrides::class),
+                new ResolveShapeColorOverrides(),
             ),
             $container->get(TemplateVariantImageRenderer::class),
             new DownscaleImage(),

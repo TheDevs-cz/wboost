@@ -42,7 +42,7 @@ final readonly class PreviewProcessor implements ProcessorInterface
         $variant = $this->subjectLoader->variant($uriVariables['id'] ?? null);
 
         try {
-            $bytes = $this->apiExportRenderer->render($variant, $data->inputs, $data->images, RenderImageFormat::Webp);
+            $bytes = $this->apiExportRenderer->render($variant, $data->inputs, $data->images, RenderImageFormat::Webp, $data->shapeColors);
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
         }

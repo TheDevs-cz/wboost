@@ -17,6 +17,7 @@ use WBoost\Web\Mcp\Design\Dsl\ImageElement;
 use WBoost\Web\Mcp\Design\Dsl\PlacementArea;
 use WBoost\Web\Mcp\Design\Dsl\Rect;
 use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
+use WBoost\Web\Value\ShapeColorTarget;
 use WBoost\Web\Mcp\Design\Dsl\TextAlign;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Value\CanvasShapeGradient;
@@ -176,6 +177,31 @@ final class DslParserTest extends TestCase
         // a proportion (mirrors the compiler's no-asset image rule).
         self::assertNull($shape->placement->height);
         self::assertSame(200.0, ShapeElement::frameHeight($shape->placement->resolve(null)));
+    }
+
+    public function testAShapeUserColorBlockParsesWithDefaultsAndRefusesAnUnknownTarget(): void
+    {
+        $document = DslParser::parse(self::documentWith([
+            'kind' => 'shape', 'id' => 'band', 'shape' => 'rectangle',
+            'x' => 0, 'y' => 0, 'width' => 400, 'height' => 40,
+            'userColor' => ['target' => 'both', 'colors' => ['#C8102E', '#fff', '#c8102e']],
+        ]));
+
+        $shape = $document->element('band');
+        self::assertInstanceOf(ShapeElement::class, $shape);
+        self::assertNotNull($shape->userColor);
+        self::assertSame(ShapeColorTarget::Both, $shape->userColor->target);
+        self::assertSame(['#c8102e', '#ffffff'], $shape->userColor->colors);
+        self::assertFalse($shape->userColor->free);
+        self::assertSame(['target' => 'both', 'colors' => ['#c8102e', '#ffffff'], 'free' => false], $shape->toArray()['userColor']);
+
+        $exception = self::reject(self::documentWith([
+            'kind' => 'shape', 'id' => 'band', 'shape' => 'rectangle',
+            'x' => 0, 'y' => 0, 'width' => 400, 'height' => 40,
+            'userColor' => ['target' => 'outline'],
+        ]));
+        self::assertSame('elements[0].userColor.target', $exception->violations[0]->path);
+        self::assertSame(DslErrorCode::InvalidValue, $exception->violations[0]->code);
     }
 
     public function testARadialGradientIgnoresAnAuthoredAngleSoItsWireFormStaysStable(): void

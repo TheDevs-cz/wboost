@@ -18,6 +18,7 @@ use WBoost\Web\Mcp\Design\Dsl\Placement;
 use WBoost\Web\Mcp\Design\Dsl\PlacementArea;
 use WBoost\Web\Mcp\Design\Dsl\SemanticPlacement;
 use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
+use WBoost\Web\Mcp\Design\Dsl\ShapeUserColor;
 use WBoost\Web\Mcp\Design\Dsl\TextAlign;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Dsl\TextInputSpec;
@@ -31,6 +32,7 @@ use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\RichText;
+use WBoost\Web\Value\ShapeColorTarget;
 
 /**
  * Fabric canvas + `inputs[]` + `imageInputs[]` → DSL. The inverse of
@@ -1044,7 +1046,33 @@ readonly final class DesignDecompiler
                 $height,
                 $canvas,
             ),
+            userColor: self::shapeUserColor($object),
         );
+    }
+
+    /**
+     * The shape's "Barva pro uživatele" setup, read back the way the editor
+     * writes it (`colorChoice` + `allowedColors` + `colorFree`).
+     *
+     * @param array<array-key, mixed> $object
+     */
+    private static function shapeUserColor(array $object): null|ShapeUserColor
+    {
+        $target = is_string($object['colorChoice'] ?? null) ? ShapeColorTarget::tryFrom($object['colorChoice']) : null;
+
+        if ($target === null) {
+            return null;
+        }
+
+        $colors = [];
+        foreach (is_array($object['allowedColors'] ?? null) ? $object['allowedColors'] : [] as $color) {
+            $normalized = is_string($color) ? self::normalizeColor($color) : null;
+            if ($normalized !== null && !in_array($normalized, $colors, true)) {
+                $colors[] = $normalized;
+            }
+        }
+
+        return new ShapeUserColor($target, $colors, ($object['colorFree'] ?? false) === true);
     }
 
     // -----------------------------------------------------------------

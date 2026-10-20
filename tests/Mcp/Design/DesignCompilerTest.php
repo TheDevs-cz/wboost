@@ -1469,6 +1469,32 @@ final class DesignCompilerTest extends TestCase
         self::assertSame($object['inputId'], $input->inputId);
     }
 
+    public function testAShapeUserColorCompilesToTheEditorsRecolouringProps(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                [
+                    'kind' => 'shape', 'id' => 'band', 'shape' => 'rectangle', 'fill' => '#112233',
+                    'x' => 0, 'y' => 0, 'width' => 400, 'height' => 40,
+                    'userColor' => ['target' => 'fill', 'colors' => ['#c8102e'], 'free' => true],
+                ],
+                ['kind' => 'shape', 'id' => 'plain', 'shape' => 'circle', 'x' => 500, 'y' => 0, 'width' => 40],
+            ],
+        ]);
+
+        [$band, $plain] = $compiled->objects();
+        self::assertSame('fill', $band['colorChoice']);
+        self::assertSame(['#c8102e'], $band['allowedColors']);
+        self::assertTrue($band['colorFree']);
+        self::assertArrayNotHasKey('colorChoice', $plain, 'a decorative shape compiles exactly as before');
+
+        // …and the server reads it like an editor-made one.
+        $inputs = \WBoost\Web\Value\ShapeColorInput::collectionFromCanvas(['objects' => $compiled->objects()]);
+        self::assertCount(1, $inputs);
+        self::assertSame(['#112233', '#c8102e'], $inputs[0]->colorOptions());
+    }
+
     public function testFaceConfigurationAndColourAllowlistReachBothFaces(): void
     {
         $compiled = $this->compile([

@@ -9,6 +9,7 @@ use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Value\RenderImageFormat;
 
@@ -33,12 +34,14 @@ readonly final class ApiExportRenderer
         private ResolveRichTextOptions $resolveRichTextOptions,
         private ResolveImageOverrides $resolveImageOverrides,
         private TemplateVariantImageRendererInterface $renderer,
+        private ResolveShapeColorOverrides $resolveShapeColorOverrides,
     ) {
     }
 
     /**
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
+     * @param array<array-key, mixed> $shapeColors shape inputId → `#rrggbb`
      *
      * @throws \WBoost\Web\Exceptions\InvalidRichTextValue
      * @throws InvalidExportValue
@@ -50,12 +53,13 @@ readonly final class ApiExportRenderer
         array $inputs,
         array $images,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $shapeColors = [],
     ): string {
         $overrides = $this->resolveTextOverrides->resolve(
             $variant->inputs,
             self::stringKeyed($inputs),
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        );
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, self::stringKeyed($shapeColors), lenient: false));
 
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,
@@ -79,6 +83,7 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $placements variantId → imageInputId → transform
+     * @param array<array-key, mixed> $shapeColors shared by every dimension (members share shape ids)
      */
     public function renderGroupMember(
         TemplateVariant $variant,
@@ -86,12 +91,14 @@ readonly final class ApiExportRenderer
         array $images,
         array $placements,
         RenderImageFormat $format = RenderImageFormat::Png,
+        array $shapeColors = [],
     ): string {
         return $this->render(
             $variant,
             $inputs,
             self::imagesForVariant($images, $placements, $variant->id->toString()),
             $format,
+            $shapeColors,
         );
     }
 

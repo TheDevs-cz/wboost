@@ -110,7 +110,8 @@ readonly final class ExportVariantTool
      * [...]}; and for a picture slot a gallery image id, a placement object
      * {"imageId": "...", "scale": 1, "offsetX": 0, "offsetY": 0, "rotation":
      * 0}, or {"hide": true}. An id left out renders the designer's sample
-     * value; an empty string renders nothing for it.
+     * value; an empty string renders nothing for it. shapeColors repaints the
+     * shapes describe_variant lists in shapeInputs[] ("#rrggbb" per id).
      *
      * Text that overflows its container is REFUSED here rather than drawn: the
      * error names the inputs sharing that container and by how many pixels the
@@ -128,6 +129,7 @@ readonly final class ExportVariantTool
      * @param string $variantId UUID of the template variant to export, as returned by describe_variant or by find_templates in templates[].variants[].id.
      * @param array<array-key, mixed> $inputs Map of text input id (describe_variant inputs[].id) to the value to render. Omit entirely to export the variant's own sample texts.
      * @param array<array-key, mixed> $images Map of image slot id (describe_variant imageInputs[].id) to a gallery image id, a placement object, or {"hide": true}. Omit entirely to keep every stand-in picture.
+     * @param array<array-key, mixed> $shapeColors Map of recolourable shape id (describe_variant shapeInputs[].id) to the "#rrggbb" to repaint it in — one of that shape's colorOptions unless freeColor is true. Omit to keep the designed colours.
      */
     #[McpTool(name: 'export_variant')]
     public function __invoke(
@@ -136,15 +138,18 @@ readonly final class ExportVariantTool
         array $inputs = [],
         #[Schema(type: 'object', additionalProperties: true)]
         array $images = [],
+        #[Schema(type: 'object', additionalProperties: true)]
+        array $shapeColors = [],
     ): CallToolResult {
         $variant = $this->fill->variant($variantId);
 
         $providedInputs = VariantFill::stringKeyed($inputs);
         $providedImages = VariantFill::stringKeyed($images);
+        $providedShapeColors = VariantFill::stringKeyed($shapeColors);
 
-        $warnings = VariantFill::warnings($variant, $providedInputs, $providedImages);
+        $warnings = VariantFill::warnings($variant, $providedInputs, $providedImages, $providedShapeColors);
 
-        $overrides = $this->fill->texts($variant, $providedInputs);
+        $overrides = $this->fill->withShapeColors($variant, $this->fill->texts($variant, $providedInputs), $providedShapeColors);
         $imageOverrides = $this->fill->images($variant, $providedImages);
 
         $png = $this->render($variant, $overrides, $imageOverrides);
@@ -155,7 +160,7 @@ readonly final class ExportVariantTool
         $this->recordExportVersion->recordVariant(
             $variant,
             ExportChannel::Mcp,
-            ExportFillValues::fromApiRequest($providedInputs, $providedImages),
+            ExportFillValues::fromApiRequest($providedInputs, $providedImages, $providedShapeColors),
         );
 
         $summary = new ExportVariantResponse(

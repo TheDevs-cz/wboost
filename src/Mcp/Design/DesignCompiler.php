@@ -148,6 +148,10 @@ readonly final class DesignCompiler
      * is decorative, so none of the input machinery applies to it. `shapeKind`
      * is what keeps a čtverec from decompiling as an obdélník (both are a
      * `Rect`), and `editorLocked` is the same editor-only lock images use.
+     * The recolouring trio (`colorChoice`, `allowedColors`, `colorFree`) is
+     * written ONLY for a shape with a `userColor` block — exactly when the
+     * editor writes it, so a decorative shape compiles to the same object as
+     * before.
      *
      * Everything else about a shape — fill, stroke, dash, corner radius,
      * opacity — is a NATIVE Fabric property and therefore not listed here.
@@ -156,6 +160,7 @@ readonly final class DesignCompiler
      */
     public const array SHAPE_CUSTOM_PROPERTIES = [
         'inputId', 'shapeKind', 'name', 'editorLocked',
+        'colorChoice', 'allowedColors', 'colorFree',
     ];
 
     /**
@@ -733,6 +738,12 @@ readonly final class DesignCompiler
             'name' => $element->name,
             'editorLocked' => $element->locked,
         ];
+
+        if ($element->userColor !== null) {
+            $object['colorChoice'] = $element->userColor->target->value;
+            $object['allowedColors'] = $element->userColor->colors;
+            $object['colorFree'] = $element->userColor->free;
+        }
 
         return match ($element->shape->fabricType()) {
             'Rect' => $object + ['rx' => $element->cornerRadius, 'ry' => $element->cornerRadius],

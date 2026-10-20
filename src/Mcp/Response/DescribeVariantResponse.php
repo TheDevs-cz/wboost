@@ -31,6 +31,7 @@ readonly final class DescribeVariantResponse
      * @param list<VariantTextInputResponse> $inputs
      * @param list<VariantImageInputResponse> $imageInputs
      * @param list<VariantContainerResponse> $containers
+     * @param list<VariantShapeInputResponse> $shapeInputs
      */
     public function __construct(
         public string $variantId,
@@ -44,6 +45,7 @@ readonly final class DescribeVariantResponse
         public array $imageInputs,
         public array $containers,
         public null|VariantRichTextOptionsResponse $richTextOptions,
+        public array $shapeInputs = [],
     ) {
     }
 }

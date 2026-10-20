@@ -17,7 +17,8 @@ use DateTimeImmutable;
  * string | `{value|runs,lines, hide, fontFamily}`), `images` (imageInputId →
  * `{imageId, url, scale?, offsetXRatio?, …}` | `{hide: true}`; `url` is the
  * picture's public store URL for the picker) and, for group versions,
- * `placements` (variantId → imageInputId → transform). It is seeded
+ * `placements` (variantId → imageInputId → transform), plus `shapeColors`
+ * (shape inputId → `#rrggbb`, the export's own map). It is seeded
  * LENIENTLY against the CURRENT design: inputs that no longer exist or got
  * locked are dropped, a rich value on a now-plain input degrades to its text,
  * fonts / pictures / transforms the slot no longer allows are dropped — so a
@@ -56,7 +57,7 @@ final readonly class ExportVersionDetailResponse
     /**
      * Empty maps arrive as `ArrayObject` so they serialize as JSON objects (`{}`), never `[]`.
      *
-     * @param array{inputs: array<string, mixed>|\ArrayObject<string, mixed>, images: array<string, mixed>|\ArrayObject<string, mixed>, placements: array<string, array<string, array<string, float>>>|\ArrayObject<string, mixed>} $fill
+     * @param array{inputs: array<string, mixed>|\ArrayObject<string, mixed>, images: array<string, mixed>|\ArrayObject<string, mixed>, placements: array<string, array<string, array<string, float>>>|\ArrayObject<string, mixed>, shapeColors: array<string, string>|\ArrayObject<string, mixed>} $fill
      */
     public function __construct(
         public string $id,

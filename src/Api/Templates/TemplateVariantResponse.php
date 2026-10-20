@@ -18,6 +18,7 @@ final readonly class TemplateVariantResponse
      * @param list<TemplateVariantInputResponse> $inputs
      * @param list<TemplateVariantImageInputResponse> $imageInputs
      * @param list<TemplateVariantContainerResponse> $containers
+     * @param list<TemplateVariantShapeInputResponse> $shapeInputs
      */
     public function __construct(
         public string $id,
@@ -46,6 +47,9 @@ final readonly class TemplateVariantResponse
         // grouped template is NOT a member: fill it on its own via
         // `/api/template-variants/{id}/…`.
         public bool $groupMember = false,
+        // Shapes the user may recolour (`shapeColors` on preview / export).
+        // Empty when the designer opened none up.
+        public array $shapeInputs = [],
     ) {
     }
 }

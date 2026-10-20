@@ -34,4 +34,13 @@ final class GroupExportRequest
      * @var array<string, mixed>
      */
     public array $placements = [];
+
+    /**
+     * Shape recolouring shared by every dimension (shape inputId →
+     * `"#rrggbb"`) — the single-variant export's `shapeColors`. Members share
+     * their shape ids; each dimension validates against its own shape.
+     *
+     * @var array<string, mixed>
+     */
+    public array $shapeColors = [];
 }

@@ -47,7 +47,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         $variant = $this->subjectLoader->variant($uriVariables['id'] ?? null);
 
         try {
-            $bytes = $this->apiExportRenderer->render($variant, $data->inputs, $data->images);
+            $bytes = $this->apiExportRenderer->render($variant, $data->inputs, $data->images, shapeColors: $data->shapeColors);
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
         }
@@ -56,7 +56,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         $this->recordExportVersion->recordVariant(
             $variant,
             ExportChannel::Api,
-            ExportFillValues::fromApiRequest($data->inputs, $data->images),
+            ExportFillValues::fromApiRequest($data->inputs, $data->images, $data->shapeColors),
         );
 
         return new Response($bytes, Response::HTTP_OK, [

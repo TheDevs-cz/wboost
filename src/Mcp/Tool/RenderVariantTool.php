@@ -164,6 +164,7 @@ readonly final class RenderVariantTool
      * @param string $variantId UUID of the template variant to render, as returned by describe_variant or by find_templates in templates[].variants[].id.
      * @param array<array-key, mixed> $inputs Map of text input id (describe_variant inputs[].id) to the value to render. Omit entirely to render the variant's own sample texts.
      * @param array<array-key, mixed> $images Map of image slot id (describe_variant imageInputs[].id) to a gallery image id, a placement object, or {"hide": true}. Omit entirely to keep every stand-in picture.
+     * @param array<array-key, mixed> $shapeColors Map of recolourable shape id (describe_variant shapeInputs[].id) to the "#rrggbb" to repaint it in — one of that shape's colorOptions unless freeColor is true. Omit to keep the designed colours.
      */
     #[McpTool(name: 'render_variant')]
     public function __invoke(
@@ -172,15 +173,18 @@ readonly final class RenderVariantTool
         array $inputs = [],
         #[Schema(type: 'object', additionalProperties: true)]
         array $images = [],
+        #[Schema(type: 'object', additionalProperties: true)]
+        array $shapeColors = [],
     ): CallToolResult {
         $variant = $this->fill->variant($variantId);
 
         $providedInputs = VariantFill::stringKeyed($inputs);
         $providedImages = VariantFill::stringKeyed($images);
+        $providedShapeColors = VariantFill::stringKeyed($shapeColors);
 
-        $warnings = VariantFill::warnings($variant, $providedInputs, $providedImages);
+        $warnings = VariantFill::warnings($variant, $providedInputs, $providedImages, $providedShapeColors);
 
-        $overrides = $this->fill->texts($variant, $providedInputs);
+        $overrides = $this->fill->withShapeColors($variant, $this->fill->texts($variant, $providedInputs), $providedShapeColors);
         $imageOverrides = $this->fill->images($variant, $providedImages);
 
         $render = $this->renderPreview($variant, $overrides, $imageOverrides);

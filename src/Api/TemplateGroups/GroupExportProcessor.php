@@ -72,7 +72,7 @@ final readonly class GroupExportProcessor implements ProcessorInterface
 
         foreach ($variants as $variant) {
             try {
-                $renders[] = [$variant, $this->apiExportRenderer->renderGroupMember($variant, $data->inputs, $data->images, $data->placements)];
+                $renders[] = [$variant, $this->apiExportRenderer->renderGroupMember($variant, $data->inputs, $data->images, $data->placements, shapeColors: $data->shapeColors)];
             } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
                 return ExportErrorResponse::fromThrowable($error, $variant->id->toString()) ?? throw $error;
             }
@@ -85,7 +85,7 @@ final readonly class GroupExportProcessor implements ProcessorInterface
         $this->recordExportVersion->recordGroup(
             $group,
             ExportChannel::Api,
-            ExportFillValues::fromGroupApiRequest($data->inputs, $data->images, $data->placements),
+            ExportFillValues::fromGroupApiRequest($data->inputs, $data->images, $data->placements, $data->shapeColors),
         );
 
         if ($single) {

@@ -10,6 +10,7 @@ use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\RichText;
+use WBoost\Web\Value\ShapeColorTarget;
 
 /**
  * The strict parser for the design DSL (plan §3.4) — decoded JSON in, a
@@ -80,7 +81,14 @@ final class DslParser
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
 
     /** @var list<string> */
-    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'name', 'locked', 'at', 'x', 'y', 'width', 'height'];
+    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'name', 'locked', 'userColor', 'at', 'x', 'y', 'width', 'height'];
+
+    /**
+     * The keys of a shape's `userColor` block ({@see ShapeUserColor}).
+     *
+     * @var list<string>
+     */
+    public const array SHAPE_USER_COLOR_KEYS = ['target', 'colors', 'free'];
 
     /**
      * A gradient `fill` object. `angle` is accepted (and ignored) for a radial
@@ -420,6 +428,7 @@ final class DslParser
         $opacity = $this->readOpacity($path, $raw);
         $name = $this->readString($path, $raw, 'name');
         $locked = $this->readBool($path, $raw, 'locked', false);
+        $userColor = $this->readShapeUserColor($path, $raw);
         $placement = $this->parsePlacement($path, $raw, allowHeight: true);
 
         // Rounding is a rectangle affordance. On an Ellipse (and on the Circle
@@ -457,6 +466,54 @@ final class DslParser
             name: $name,
             locked: $locked,
             placement: $placement,
+            userColor: $userColor,
+        );
+    }
+
+    /**
+     * `userColor: {target, colors?, free?}` — absent / null = decorative.
+     * Whether the targeted part is actually paintable (a gradient fill, a
+     * width-less border) is NOT refused here: the editor lets a designer set
+     * it up the same way and {@see \WBoost\Web\Value\ShapeColorInput}
+     * simply does not offer what cannot be painted.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readShapeUserColor(string $path, array $raw): null|ShapeUserColor
+    {
+        $value = $raw['userColor'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $blockPath = self::join($path, 'userColor');
+
+        if (!is_array($value) || array_is_list($value)) {
+            $this->wrongType($path, 'userColor', sprintf('an object {%s} (or null)', implode(', ', self::SHAPE_USER_COLOR_KEYS)), $value);
+
+            return null;
+        }
+
+        $this->checkKeys($blockPath, $value, self::SHAPE_USER_COLOR_KEYS, 'a shape\'s userColor');
+
+        $rawTarget = $value['target'] ?? null;
+        $target = is_string($rawTarget) ? ShapeColorTarget::tryFrom($rawTarget) : null;
+
+        if ($target === null) {
+            $this->invalidValue($blockPath, 'target', sprintf(
+                'must be one of %s — what one picked colour repaints — got %s',
+                implode(', ', array_map(static fn (ShapeColorTarget $case): string => '"' . $case->value . '"', ShapeColorTarget::cases())),
+                self::describe($rawTarget),
+            ));
+
+            return null;
+        }
+
+        return new ShapeUserColor(
+            target: $target,
+            colors: $this->readColorList($blockPath, $value, 'colors') ?? [],
+            free: $this->readBool($blockPath, $value, 'free', false),
         );
     }
 

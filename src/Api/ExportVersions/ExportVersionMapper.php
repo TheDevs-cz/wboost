@@ -35,7 +35,7 @@ final class ExportVersionMapper
 
     /**
      * @param array{texts: list<array{label: string, value: string}>, pictures: int, hidden: int} $summary
-     * @param array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>} $fill
+     * @param array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>} $fill
      */
     public static function detail(TemplateExportVersion $version, array $summary, array $fill): ExportVersionDetailResponse
     {
@@ -59,6 +59,7 @@ final class ExportVersionMapper
                 'inputs' => $fill['inputs'] === [] ? self::emptyMap() : $fill['inputs'],
                 'images' => $fill['images'] === [] ? self::emptyMap() : $fill['images'],
                 'placements' => $fill['placements'] === [] ? self::emptyMap() : $fill['placements'],
+                'shapeColors' => $fill['shapeColors'] === [] ? self::emptyMap() : $fill['shapeColors'],
             ],
         );
     }

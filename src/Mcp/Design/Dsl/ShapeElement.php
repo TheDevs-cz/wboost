@@ -12,9 +12,9 @@ use WBoost\Web\Value\CanvasShapeStroke;
  * A vector shape — the DSL face of the editor's "Přidat tvar" primitive
  * (rectangle / square / circle / ellipse / triangle / line / star).
  *
- * Shapes are **decorative by definition**: they carry no input spec, never
- * reach `inputs[]` / `imageInputs[]`, and add nothing to the fill or export
- * API. What they do carry is an `inputId` like every other drawable element,
+ * Shapes are **decorative by default**: they carry no input spec and never
+ * reach `inputs[]` / `imageInputs[]`. The one fill-time affordance is
+ * recolouring, opted into per shape through {@see $userColor}. What they do carry is an `inputId` like every other drawable element,
  * because that is the join key group sync propagates on and containers address
  * members by — which is also why a shape MAY be a container member (a rule
  * under a heading rides along with it) while a fillable image placeholder may
@@ -66,6 +66,8 @@ readonly final class ShapeElement implements DesignElement
          *  the canvas. Never reaches the render. */
         public bool $locked,
         public Placement $placement,
+        /** End-user recolouring ("Barva pro uživatele"); null = the shape is purely decorative. */
+        public null|ShapeUserColor $userColor = null,
     ) {
     }
 
@@ -105,6 +107,7 @@ readonly final class ShapeElement implements DesignElement
             'opacity' => $this->opacity,
             'name' => $this->name,
             'locked' => $this->locked,
+            'userColor' => $this->userColor?->toArray(),
             'at' => $placement['at'],
             'x' => $placement['x'],
             'y' => $placement['y'],

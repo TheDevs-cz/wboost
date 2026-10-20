@@ -11,17 +11,20 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\ContainerOverflow;
+use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateVariantNotFound;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
+use WBoost\Web\Value\ShapeColorInput;
 
 /**
  * Everything `render_variant` and `export_variant` do IDENTICALLY: find the
@@ -60,6 +63,7 @@ readonly final class VariantFill
         private ResolveTextOverrides $resolveTextOverrides,
         private ResolveRichTextOptions $resolveRichTextOptions,
         private ResolveImageOverrides $resolveImageOverrides,
+        private ResolveShapeColorOverrides $resolveShapeColorOverrides,
     ) {
     }
 
@@ -111,6 +115,26 @@ readonly final class VariantFill
             // maxLength — already phrased for a human ("Input "Nadpis" exceeds
             // max length of 24 characters."), so it is passed through as-is.
             throw new ToolCallException($badRequest->getMessage());
+        }
+    }
+
+    /**
+     * Shape recolouring, resolved STRICTLY like the REST export: a colour
+     * outside a list-only shape's options names the options it may use.
+     *
+     * @param array<string, mixed> $providedShapeColors
+     */
+    public function withShapeColors(TemplateVariant $variant, ResolvedInputOverrides $overrides, array $providedShapeColors): ResolvedInputOverrides
+    {
+        try {
+            return $overrides->withShapeColors(
+                $this->resolveShapeColorOverrides->forVariant($variant, $providedShapeColors, lenient: false),
+            );
+        } catch (InvalidExportValue $invalid) {
+            throw new ToolCallException(self::withContext(
+                sprintf('%s (%s)', $invalid->getMessage(), $invalid->errorCode),
+                array_diff_key($invalid->context, ['shapeInputId' => true]),
+            ));
         }
     }
 
@@ -188,10 +212,11 @@ readonly final class VariantFill
      *
      * @param array<string, mixed> $providedInputs
      * @param array<string, mixed> $providedImages
+     * @param array<string, mixed> $providedShapeColors
      *
      * @return list<string>
      */
-    public static function warnings(TemplateVariant $variant, array $providedInputs, array $providedImages): array
+    public static function warnings(TemplateVariant $variant, array $providedInputs, array $providedImages, array $providedShapeColors = []): array
     {
         $warnings = [];
 
@@ -236,6 +261,21 @@ readonly final class VariantFill
             $warnings[] = sprintf(
                 'These image slot ids match no image placeholder on this variant and were ignored: %s. Image slots are addressed by describe_variant imageInputs[].id.',
                 implode(', ', $unknownImages),
+            );
+        }
+
+        $knownShapes = [];
+
+        foreach (ShapeColorInput::collectionFromCanvasJson($variant->canvas) as $shapeInput) {
+            $knownShapes[$shapeInput->inputId] = true;
+        }
+
+        $unknownShapes = array_values(array_diff(array_keys($providedShapeColors), array_keys($knownShapes)));
+
+        if ($unknownShapes !== []) {
+            $warnings[] = sprintf(
+                'These shapeColors ids match no recolourable shape on this variant and were ignored: %s. Shapes are addressed by describe_variant shapeInputs[].id.',
+                implode(', ', $unknownShapes),
             );
         }
 

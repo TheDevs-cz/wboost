@@ -19,6 +19,7 @@ use WBoost\Web\Mcp\Response\VariantImageDirectoryResponse;
 use WBoost\Web\Mcp\Response\VariantImageInputResponse;
 use WBoost\Web\Mcp\Response\VariantInputFrameResponse;
 use WBoost\Web\Mcp\Response\VariantRichTextOptionsResponse;
+use WBoost\Web\Mcp\Response\VariantShapeInputResponse;
 use WBoost\Web\Mcp\Response\VariantTextInputResponse;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
@@ -34,6 +35,7 @@ use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\PlaceholderFrame;
 use WBoost\Web\Value\ResolvedCanvasContainer;
 use WBoost\Web\Value\RichTextFontOption;
+use WBoost\Web\Value\ShapeColorInput;
 
 /**
  * `describe_variant` — the orientation call before touching one variant, and
@@ -122,6 +124,12 @@ readonly final class DescribeVariantTool
      * limit the adjustments a fill may carry. isBackground marks the background
      * layer — always cover-fitted over the whole canvas, no transform accepted.
      *
+     * shapeInputs[] are shapes the designer lets you recolour: send
+     * shapeColors {"<id>": "#rrggbb"} to render_variant / export_variant.
+     * target says what one colour repaints (fill, stroke or both);
+     * colorOptions[0] is the designed colour, and unless freeColor is true
+     * only colorOptions are accepted.
+     *
      * containers[] are smart text areas: their members reflow vertically, so a
      * text that wraps to more lines pushes the ones below it down, and content
      * that cannot fit maxHeight fails the export rather than overflowing. Each
@@ -168,7 +176,43 @@ readonly final class DescribeVariantTool
             imageInputs: $this->buildImageInputs($variant, $canvas),
             containers: self::buildContainers($definitions, $frames, $variant->inputs),
             richTextOptions: $this->buildRichTextOptions($variant),
+            shapeInputs: $this->buildShapeInputs($canvas),
         );
+    }
+
+    /**
+     * @param array<array-key, mixed> $canvas
+     * @return list<VariantShapeInputResponse>
+     */
+    private function buildShapeInputs(array $canvas): array
+    {
+        $objects = is_array($canvas['objects'] ?? null) ? $canvas['objects'] : [];
+        $result = [];
+
+        foreach ($objects as $object) {
+            if (!is_array($object)) {
+                continue;
+            }
+
+            $input = ShapeColorInput::fromObject($object);
+            if ($input === null || isset($result[$input->inputId])) {
+                continue;
+            }
+
+            $frame = $this->placeholderGeometry->frameFromObject($object);
+
+            $result[$input->inputId] = new VariantShapeInputResponse(
+                id: $input->inputId,
+                name: $input->name,
+                target: $input->target->value,
+                defaultColor: $input->defaultColor,
+                colorOptions: $input->colorOptions(),
+                freeColor: $input->freeColor,
+                frame: $frame !== null ? new VariantInputFrameResponse($frame->x, $frame->y, $frame->width, $frame->height) : null,
+            );
+        }
+
+        return array_values($result);
     }
 
     /**

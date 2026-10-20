@@ -31,6 +31,7 @@ use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedCanvasContainer;
 use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichTextFontOption;
+use WBoost\Web\Value\ShapeColorInput;
 
 /**
  * @implements ProviderInterface<TemplateResponse>
@@ -156,7 +157,46 @@ final readonly class TemplatesProvider implements ProviderInterface
             containers: $this->buildContainers($containers, $frames, $variant->inputs),
             richTextOptions: $this->buildRichTextOptions($variant),
             groupMember: $variant->group !== null,
+            shapeInputs: $this->buildShapeInputs($canvas),
         );
+    }
+
+    /**
+     * @param array<string, mixed> $canvas
+     * @return list<TemplateVariantShapeInputResponse>
+     */
+    private function buildShapeInputs(array $canvas): array
+    {
+        $objects = is_array($canvas['objects'] ?? null) ? $canvas['objects'] : [];
+        $result = [];
+
+        foreach ($objects as $index => $object) {
+            if (!is_array($object)) {
+                continue;
+            }
+
+            $input = ShapeColorInput::fromObject($object);
+            if ($input === null || isset($result[$input->inputId])) {
+                continue;
+            }
+
+            $frame = $this->placeholderGeometry->frameFromObject($object);
+
+            $result[$input->inputId] = new TemplateVariantShapeInputResponse(
+                id: $input->inputId,
+                name: $input->name,
+                target: $input->target->value,
+                defaultColor: $input->defaultColor,
+                colorOptions: $input->colorOptions(),
+                freeColor: $input->freeColor,
+                frame: $frame !== null
+                    ? new TemplateVariantImageInputFrameResponse($frame->x, $frame->y, $frame->width, $frame->height)
+                    : null,
+                layerIndex: (int) $index,
+            );
+        }
+
+        return array_values($result);
     }
 
     /**

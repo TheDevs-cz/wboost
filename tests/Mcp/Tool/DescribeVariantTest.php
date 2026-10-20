@@ -232,6 +232,43 @@ final class DescribeVariantTest extends WebTestCase
         $result = $this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
 
         self::assertSame([], $result['containers']);
+        self::assertSame([], $result['shapeInputs'], 'no shape is opened up for recolouring');
+    }
+
+    /**
+     * A shape the designer opened up ("Barva pro uživatele") is the third
+     * fillable kind: describe_variant names it with exactly what the
+     * shapeColors map accepts.
+     */
+    public function testRecolourableShapesAreDescribedWithTheirOptions(): void
+    {
+        $this->browser();
+        $variant = self::getContainer()->get(\WBoost\Web\Repository\TemplateVariantRepository::class)
+            ->get(\Ramsey\Uuid\Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
+        $canvas = json_decode($variant->canvas, true);
+        $canvas = is_array($canvas) ? $canvas : [];
+        $objects = is_array($canvas['objects'] ?? null) ? $canvas['objects'] : [];
+        $objects[] = [
+            'type' => 'Rect', 'left' => 10, 'top' => 20, 'width' => 100, 'height' => 40, 'originX' => 'left', 'originY' => 'top',
+            'fill' => '#112233', 'inputId' => '55555555-5555-4555-8555-555555555555', 'name' => 'Pruh',
+            'colorChoice' => 'fill', 'allowedColors' => ['#c8102e'],
+        ];
+        $canvas['objects'] = $objects;
+        $canvas['version'] ??= '7.0.0';
+        $variant->editCanvas((string) json_encode($canvas), $variant->inputs, $variant->previewImagePath, $variant->imageInputs);
+        self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class)->flush();
+
+        $result = $this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+
+        self::assertEquals([[
+            'id' => '55555555-5555-4555-8555-555555555555',
+            'name' => 'Pruh',
+            'target' => 'fill',
+            'defaultColor' => '#112233',
+            'colorOptions' => ['#112233', '#c8102e'],
+            'freeColor' => false,
+            'frame' => ['x' => 10, 'y' => 20, 'width' => 100, 'height' => 40],
+        ]], $result['shapeInputs']);
     }
 
     /**

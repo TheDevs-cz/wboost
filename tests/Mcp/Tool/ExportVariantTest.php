@@ -23,6 +23,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
@@ -452,6 +453,7 @@ final class ExportVariantTest extends WebTestCase
                 $container->get(ResolveTextOverrides::class),
                 $container->get(ResolveRichTextOptions::class),
                 $container->get(ResolveImageOverrides::class),
+                new ResolveShapeColorOverrides(),
             ),
             $container->get(TemplateVariantImageRenderer::class),
             $container->get(RecordExportUsage::class),

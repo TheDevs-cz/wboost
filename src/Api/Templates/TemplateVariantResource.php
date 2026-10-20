@@ -249,6 +249,11 @@ MD,
                                             ],
                                         ],
                                     ],
+                                    'shapeColors' => [
+                                        'type' => 'object',
+                                        'description' => "Keyed by the variant's shapeInputs[].id: the \"#rrggbb\" to repaint that shape in (its fill, border or both — see the shape's `target`). Must be one of `colorOptions` unless the shape has `freeColor`. Empty string = designed colour.",
+                                        'additionalProperties' => ['type' => 'string', 'pattern' => '^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$|^$'],
+                                    ],
                                 ],
                             ],
                             'examples' => [

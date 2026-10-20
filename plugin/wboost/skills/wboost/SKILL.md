@@ -298,6 +298,16 @@ Pictures (`images`, keyed by `imageInputs[].id`):
   `includesRoot: true`, at the gallery root). `list_gallery` walks that tree one
   level at a time; omit `directoryId` for the root, which holds real pictures and
   is not merely a folder container.
+
+Shape colours (`shapeColors`, keyed by `shapeInputs[].id`):
+
+```jsonc
+"e5f6…": "#c8102e"                              // repaints fill / border / both per the shape's target
+```
+
+- Without `freeColor` the colour must be one of that shape's `colorOptions`
+  (`colorOptions[0]` is the designed colour); otherwise the call is refused
+  naming the allowed colours.
 - Slots you leave out keep the designer's stand-in picture.
 
 ## The design DSL, in brief
@@ -323,9 +333,10 @@ A `text` element with an `input` block becomes a fillable placeholder; without
 one it is fixed copy. An `image` element with an `input` block is a fillable
 picture slot; without one it is decorative. A `shape` element is a vector block —
 `rectangle`, `square`, `circle`, `ellipse`, `triangle`, `line` or `star` — filled
-with a flat colour or a two-stop gradient; it is always decorative, never
-fillable, and it is how you author panels, rules and scrims rather than uploading
-a picture of one. A `container` groups `members` (texts, shapes and decorative
+with a flat colour or a two-stop gradient; it is decorative unless you give it a
+`userColor` block, which lets whoever fills the template recolour it (it then
+shows up in `describe_variant` `shapeInputs[]`). Shapes are how you author panels,
+rules and scrims rather than uploading a picture of one. A `container` groups `members` (texts, shapes and decorative
 images) and `children` (nested containers) into one vertical flow — a **top-level
 container must carry `maxHeight`**, a nested one must not need it.
 

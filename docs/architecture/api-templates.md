@@ -67,3 +67,19 @@ export PNG is the variant's exact dimensions. The mfkfm backoffice consumer
 (`~/www/mfkfm/backoffice`) implements this overlay; see
 [`docs/api/consumer-prompt.md`](../api/consumer-prompt.md). v1 limitation:
 rotated placeholders are reported as their axis-aligned bounding box.
+
+### Recolourable shapes over the API (2026-10-20)
+
+`variants[].shapeInputs[]` (`TemplateVariantShapeInputResponse`: `id`, `name`,
+`target` fill|stroke|both, `defaultColor`, `colorOptions` — designed colour
+first —, `freeColor`, `frame`, `layerIndex`) is built straight from the canvas
+via `ShapeColorInput` — there is no column. Every render body (`ExportRequest`,
+`GroupExportRequest`: variant preview/export, group preview/ZIP/PNG) takes
+`shapeColors` (shape inputId → `#rrggbb`), resolved STRICTLY in
+`ApiExportRenderer` (`ResolveShapeColorOverrides`, 400 `invalid_shape_color` /
+`shape_color_not_allowed` + `allowedColors`, tagged `shapeInputId`); a group
+passes the same map to every member. Versions record it
+(`ExportFillValues::fromApiRequest(…, $shapeColors)`) and
+`GET /api/export-versions/{id}` returns it as `fill.shapeColors` (`{}` when
+empty). MCP mirrors all of it: `describe_variant.shapeInputs[]`,
+`render_variant` / `export_variant` `shapeColors`, DSL shape `userColor`.

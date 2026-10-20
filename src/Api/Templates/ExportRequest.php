@@ -50,4 +50,18 @@ final class ExportRequest
      * @var array<string, mixed>
      */
     public array $images = [];
+
+    /**
+     * Map of shape inputId UUID → `"#rrggbb"`: repaint a shape the designer
+     * opened up for recolouring (`variants[].shapeInputs[]`) — its fill, its
+     * border or both, as the shape's `target` says. Without `freeColor` the
+     * colour must be one of the shape's `colorOptions` (400
+     * `shape_color_not_allowed` with `allowedColors`); anything that is not a
+     * hex colour is a 400 `invalid_shape_color`. Both carry `shapeInputId`.
+     * An empty string or an omitted id keeps the designed colour; unknown ids
+     * are silently ignored.
+     *
+     * @var array<string, mixed>
+     */
+    public array $shapeColors = [];
 }

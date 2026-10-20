@@ -34,7 +34,7 @@ readonly final class ExportVersionApiView
     }
 
     /**
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>}
      */
     public function variantFill(TemplateExportVersion $version, TemplateVariant $variant): array
     {
@@ -44,19 +44,20 @@ readonly final class ExportVersionApiView
             'inputs' => $this->inputs($seed['textValues'], $seed['hiddenValues'], $seed['fontValues']),
             'images' => $seed['imageValues'],
             'placements' => [],
+            'shapeColors' => $seed['shapeColorValues'],
         ];
     }
 
     /**
      * @param list<TemplateVariant> $members
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>}
      */
     public function groupFill(TemplateExportVersion $version, array $members): array
     {
         $group = $version->group;
 
         if ($group === null) {
-            return ['inputs' => [], 'images' => [], 'placements' => []];
+            return ['inputs' => [], 'images' => [], 'placements' => [], 'shapeColors' => []];
         }
 
         /** @var array<string, \WBoost\Web\Value\EditorTextInput> $textInputs */
@@ -98,6 +99,7 @@ readonly final class ExportVersionApiView
             'inputs' => $this->inputs($seed['texts'], $seed['hidden'], $seed['fonts']),
             'images' => $images,
             'placements' => $seed['placements'],
+            'shapeColors' => $seed['shapeColors'],
         ];
     }
 
