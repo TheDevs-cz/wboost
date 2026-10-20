@@ -108,6 +108,7 @@ readonly final class DesignCompiler
         'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
         'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
         'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
+        'colorChoice', 'colorFree',
     ];
 
     /**

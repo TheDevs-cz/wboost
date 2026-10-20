@@ -24,8 +24,11 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  * - `image_not_allowed` — the image does not exist, is trashed, belongs to
  *   another project or sits outside the slot's allowed folders
  * - `image_unreadable` — the picked file is not a readable raster image
+ * - `invalid_shape_color` — a shape colour that is not a `#rgb` / `#rrggbb` hex
+ * - `shape_color_not_allowed` — a colour outside the shape's list while the
+ *   admin did not allow any colour (context: `allowedColors`)
  *
- * The resolvers add `inputId` / `imageInputId` to the context.
+ * The resolvers add `inputId` / `imageInputId` / `shapeInputId` to the context.
  */
 final class InvalidExportValue extends BadRequestHttpException
 {
@@ -72,6 +75,26 @@ final class InvalidExportValue extends BadRequestHttpException
     public static function imageUnreadable(string $message): self
     {
         return new self('image_unreadable', $message);
+    }
+
+    public static function invalidShapeColor(string $shapeLabel): self
+    {
+        return new self(
+            'invalid_shape_color',
+            sprintf('Shape "%s" expects a hex colour (#rrggbb).', $shapeLabel),
+        );
+    }
+
+    /**
+     * @param list<string> $allowedColors lowercase `#rrggbb`, the designed colour first
+     */
+    public static function shapeColorNotAllowed(string $shapeLabel, string $color, array $allowedColors): self
+    {
+        return new self(
+            'shape_color_not_allowed',
+            sprintf('Colour %s is not allowed for shape "%s".', $color, $shapeLabel),
+            ['allowedColors' => $allowedColors],
+        );
     }
 
     /**

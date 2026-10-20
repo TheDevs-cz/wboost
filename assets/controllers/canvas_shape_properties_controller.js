@@ -16,8 +16,12 @@ import {
  * Everything it writes is a NATIVE Fabric property (fill, stroke, strokeWidth,
  * strokeDashArray, rx/ry, opacity), so it round-trips through the canvas JSONB
  * and re-renders identically in the headless export with no server-side work.
- * The one custom property involved is `editorLocked`, shared verbatim with
- * images.
+ * The custom properties involved are `editorLocked`, shared verbatim with
+ * images, and the "Barva pro uživatele" trio — `colorChoice` ('fill' |
+ * 'stroke' | 'both' | null), `allowedColors` (the swatch list, manual colours
+ * pre-ticked + custom hexes) and `colorFree` (any colour on top) — which open
+ * the shape up for recolouring on the fill page / API (ShapeColorInput is the
+ * server-side reader and the authority on what is actually paintable).
  *
  * These fields live inside the floating shape popover; the popover's visibility
  * is owned by canvas-floating-toolbar, so this controller only populates and
@@ -39,6 +43,7 @@ export default class extends Controller {
         "cornerRadiusRow", "cornerRadius",
         "opacity", "opacityValue",
         "editorLocked",
+        "colorChoice", "colorChoiceWarning", "colorChoiceList", "colorChoiceSwatches", "colorChoiceCustom", "colorFree",
     ];
 
     canvasEditorOutletConnected(outlet) {
@@ -87,6 +92,136 @@ export default class extends Controller {
         const opacityPercent = Math.round((typeof shape.opacity === 'number' ? shape.opacity : 1) * 100);
         if (this.hasOpacityTarget) this.opacityTarget.value = String(opacityPercent);
         if (this.hasOpacityValueTarget) this.opacityValueTarget.textContent = `${opacityPercent} %`;
+
+        this._syncColorChoice(shape);
+    }
+
+    // --- "Barva pro uživatele" (end-user recolouring) ---------------------
+
+    /** Turn recolouring on/off and pick which part a pick repaints. Turning
+     *  it on for the first time pre-ticks the manual's colours — the designer
+     *  then only narrows down (the text input's colour allowlist does the
+     *  same). */
+    updateColorChoice(event) {
+        const shape = this._activeShape();
+        if (!shape) return;
+        const value = event.target.value;
+        shape.colorChoice = ['fill', 'stroke', 'both'].includes(value) ? value : null;
+        if (shape.colorChoice && !Array.isArray(shape.allowedColors)) {
+            shape.allowedColors = this._brandColors();
+        }
+        this._syncColorChoice(shape);
+        this._commit(shape, { history: true });
+    }
+
+    updateColorFree(event) {
+        const shape = this._activeShape();
+        if (!shape) return;
+        shape.colorFree = event.target.checked === true;
+        this._commit(shape, { history: true });
+    }
+
+    customColorKeydown(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.addCustomColor();
+        }
+    }
+
+    /** "#rrggbb" typed by the admin — normalized like the server does
+     *  (RichText::normalizeHexColor), appended to the list ticked. */
+    addCustomColor() {
+        const shape = this._activeShape();
+        if (!shape || !this.hasColorChoiceCustomTarget) return;
+        const color = normalizeHexInput(this.colorChoiceCustomTarget.value);
+        if (!color) {
+            this.colorChoiceCustomTarget.classList.add('is-invalid');
+            return;
+        }
+        this.colorChoiceCustomTarget.classList.remove('is-invalid');
+        this.colorChoiceCustomTarget.value = '';
+        const allowed = Array.isArray(shape.allowedColors) ? shape.allowedColors.slice() : [];
+        if (!allowed.includes(color)) allowed.push(color);
+        shape.allowedColors = allowed;
+        this._renderColorSwatches(shape);
+        this._commit(shape, { history: true });
+    }
+
+    _toggleAllowedColor(color) {
+        const shape = this._activeShape();
+        if (!shape) return;
+        const allowed = Array.isArray(shape.allowedColors) ? shape.allowedColors.slice() : [];
+        const index = allowed.indexOf(color);
+        if (index === -1) {
+            allowed.push(color);
+        } else {
+            allowed.splice(index, 1);
+        }
+        shape.allowedColors = allowed;
+        this._renderColorSwatches(shape);
+        this._commit(shape, { history: true });
+    }
+
+    _brandColors() {
+        const colors = this.hasCanvasEditorOutlet && Array.isArray(this.canvasEditorOutlet.brandColorsValue)
+            ? this.canvasEditorOutlet.brandColorsValue
+            : [];
+        return colors.map((color) => String(color).toLowerCase());
+    }
+
+    _syncColorChoice(shape) {
+        const choice = ['fill', 'stroke', 'both'].includes(shape.colorChoice) ? shape.colorChoice : '';
+        if (this.hasColorChoiceTarget) this.colorChoiceTarget.value = choice;
+        if (this.hasColorChoiceListTarget) this.colorChoiceListTarget.classList.toggle('d-none', choice === '');
+        if (this.hasColorFreeTarget) this.colorFreeTarget.checked = shape.colorFree === true;
+        if (choice !== '') this._renderColorSwatches(shape);
+        this._syncColorChoiceWarning(shape);
+    }
+
+    /** Brand swatches first (toggleable), then any custom colour the admin
+     *  added that the manual does not carry. The designed colour is always
+     *  available to the user, so it is not a chip here. */
+    _renderColorSwatches(shape) {
+        if (!this.hasColorChoiceSwatchesTarget) return;
+        const allowed = Array.isArray(shape.allowedColors) ? shape.allowedColors : [];
+        const brand = this._brandColors();
+        const palette = [...brand, ...allowed.filter((color) => !brand.includes(color))];
+        this.colorChoiceSwatchesTarget.textContent = '';
+        palette.forEach((color) => {
+            const on = allowed.includes(color);
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'color-choice-swatch' + (on ? ' color-choice-swatch--on' : '');
+            chip.style.backgroundColor = color;
+            chip.title = color + (on ? ' — povoleno (kliknutím odeberete)' : ' — kliknutím povolíte');
+            chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+            chip.addEventListener('click', () => this._toggleAllowedColor(color));
+            this.colorChoiceSwatchesTarget.appendChild(chip);
+        });
+    }
+
+    /** Say when the chosen part is not paintable with one colour — the
+     *  server (ShapeColorInput) then recolours only the paintable part, or
+     *  offers nothing at all. Re-run on every fill / stroke edit. */
+    _syncColorChoiceWarning(shape) {
+        if (!this.hasColorChoiceWarningTarget) return;
+        const choice = shape.colorChoice;
+        const gradientFill = describeFill(shape).mode === 'gradient';
+        const hasStroke = Boolean(shape.stroke) && (Number(shape.strokeWidth) || 0) > 0;
+        let message = '';
+        if (choice === 'fill' && gradientFill) {
+            message = 'Výplň je přechod — uživatel ji zatím přebarvit nemůže. Nastavte plnou barvu.';
+        } else if (choice === 'stroke' && !hasStroke) {
+            message = 'Tvar nemá obrys — uživatel nemá co přebarvit.';
+        } else if (choice === 'both' && gradientFill && !hasStroke) {
+            message = 'Výplň je přechod a tvar nemá obrys — uživatel nemá co přebarvit.';
+        } else if (choice === 'both' && gradientFill) {
+            message = 'Výplň je přechod — uživatel přebarví jen obrys.';
+        } else if (choice === 'both' && !hasStroke) {
+            message = 'Tvar nemá obrys — uživatel přebarví jen výplň.';
+        }
+        this.colorChoiceWarningTarget.textContent = message;
+        this.colorChoiceWarningTarget.classList.toggle('d-none', message === '');
     }
 
     // --- fill: solid colour vs gradient ----------------------------------
@@ -366,6 +501,7 @@ export default class extends Controller {
      */
     _commit(shape, { history = false } = {}) {
         if (typeof shape.setCoords === 'function') shape.setCoords();
+        this._syncColorChoiceWarning(shape);
         const canvas = this.canvasEditorOutlet.canvas;
         canvas.requestRenderAll();
         this.canvasEditorOutlet.markUnsaved();

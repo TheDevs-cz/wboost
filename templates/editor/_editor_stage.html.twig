@@ -548,6 +548,34 @@
 
             <hr class="my-2">
 
+            {# --- Barva pro uživatele: the end user may recolour this shape
+               (fill / border / both) on the fill page + API. Custom props
+               colorChoice / allowedColors / colorFree, resolved server-side by
+               ShapeColorInput. #}
+            <div class="mb-1">
+                <label for="shape-color-choice-control" class="form-label small mb-1">Barva pro uživatele <i class="mdi mdi-information-outline text-muted" title="Uživatel může při vyplňování šablony tvar přebarvit jednou barvou. Navržená barva je k dispozici vždy (návrat k původní)."></i></label>
+                <select id="shape-color-choice-control" class="form-select form-select-sm" data-canvas-shape-properties-target="colorChoice" data-action="change->canvas-shape-properties#updateColorChoice">
+                    <option value="">Uživatel barvu nemění</option>
+                    <option value="fill">Může měnit barvu výplně</option>
+                    <option value="stroke">Může měnit barvu obrysu</option>
+                    <option value="both">Může měnit výplň i obrys (jednou barvou)</option>
+                </select>
+                <div class="form-text small text-warning d-none" data-canvas-shape-properties-target="colorChoiceWarning"></div>
+                <div class="d-none mt-1" data-canvas-shape-properties-target="colorChoiceList">
+                    <div class="d-flex align-items-center flex-wrap gap-1" role="group" aria-label="Barvy pro uživatele" data-canvas-shape-properties-target="colorChoiceSwatches"></div>
+                    <div class="input-group input-group-sm mt-1" style="max-width: 12rem;">
+                        <input type="text" class="form-control" placeholder="#rrggbb" aria-label="Přidat vlastní barvu" data-canvas-shape-properties-target="colorChoiceCustom" data-action="keydown->canvas-shape-properties#customColorKeydown">
+                        <button type="button" class="btn btn-outline-secondary" title="Přidat barvu do výběru" data-action="canvas-shape-properties#addCustomColor"><i class="mdi mdi-plus"></i></button>
+                    </div>
+                    <div class="form-check mt-1 mb-0">
+                        <input type="checkbox" id="shape-color-free-control" class="form-check-input" data-canvas-shape-properties-target="colorFree" data-action="change->canvas-shape-properties#updateColorFree">
+                        <label for="shape-color-free-control" class="form-check-label small">Povolit i libovolnou barvu <span class="text-muted">(vybrané barvy jsou pak jen návrh)</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-2">
+
             <div class="row g-2">
                 {# Zaoblení = rx/ry, a rectangle affordance only: on an Ellipse
                    the same two keys ARE the radii, so offering it there would
@@ -564,7 +592,7 @@
                 </div>
 
                 <div class="col-12">
-                    <label for="shape-name-control" class="form-label small mb-1">Název vrstvy <i class="mdi mdi-information-outline text-muted" title="Jen pro orientaci v panelu Vrstvy — tvar není vyplňovací pole."></i></label>
+                    <label for="shape-name-control" class="form-label small mb-1">Název vrstvy <i class="mdi mdi-information-outline text-muted" title="Pro orientaci v panelu Vrstvy. Když uživatel může tvar přebarvit, zobrazí se mu tento název u výběru barvy."></i></label>
                     <input type="text" id="shape-name-control" class="form-control form-control-sm" placeholder="např. Podklad, Linka…" data-canvas-shape-properties-target="name" data-action="input->canvas-shape-properties#updateName">
                 </div>
 

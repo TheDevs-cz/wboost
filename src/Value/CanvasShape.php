@@ -10,8 +10,10 @@ namespace WBoost\Web\Value;
  * `assets/controllers/canvas_shapes.js` (and its dependency-free copy in
  * `assets/editor/container_layout.js`, which must stay a classic script).
  *
- * Shapes are DECORATIVE: they carry no fillable-input metadata, never reach the
- * `inputs` / `imageInputs` DTOs and add nothing to the API contract. Nothing
+ * Shapes are DECORATIVE by default: they never reach the `inputs` /
+ * `imageInputs` DTOs. The one way a user touches one is recolouring, which the
+ * designer opts into per shape and which is read straight off the canvas object
+ * ({@see ShapeColorInput}). Nothing
  * server-side has to know how to DRAW them either — `canvas.loadFromJSON`
  * enlivens every built-in Fabric type, so the headless export renders them for
  * free. The handful of places that do care are the ones that reason about an

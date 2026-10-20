@@ -300,6 +300,30 @@ final class TemplateVariantImageRendererTest extends TestCase
         self::assertSame('Headline', $objects[0]['text'] ?? null);
     }
 
+    public function testApplyShapeColorsRepaintsOnlyOpenedUpShapes(): void
+    {
+        $shapeId = '11111111-1111-4111-8111-111111111111';
+        $canvas = [
+            'objects' => [
+                ['type' => 'Rect', 'inputId' => $shapeId, 'fill' => '#112233', 'stroke' => '#000000', 'strokeWidth' => 2, 'colorChoice' => 'both'],
+                ['type' => 'Rect', 'inputId' => '22222222-2222-4222-8222-222222222222', 'fill' => '#112233', 'colorChoice' => null],
+                ['type' => 'Textbox', 'inputId' => $shapeId, 'fill' => '#112233'],
+            ],
+        ];
+
+        $result = TemplateVariantImageRenderer::applyShapeColors($canvas, [
+            $shapeId => '#abcdef',
+            '22222222-2222-4222-8222-222222222222' => '#abcdef',
+        ]);
+
+        /** @var list<array<string, mixed>> $objects */
+        $objects = $result['objects'];
+        self::assertSame('#abcdef', $objects[0]['fill']);
+        self::assertSame('#abcdef', $objects[0]['stroke']);
+        self::assertSame('#112233', $objects[1]['fill'], 'a decorative shape is never repainted');
+        self::assertSame('#112233', $objects[2]['fill'], 'a text sharing the id is never repainted');
+    }
+
     public function testReferencedFontFamiliesCollectsObjectAndOverrideFaces(): void
     {
         $canvas = json_encode([

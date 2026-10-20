@@ -35,6 +35,7 @@ use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverride;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
+use WBoost\Web\Value\ShapeColorInput;
 use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichText;
 
@@ -488,7 +489,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             }
         }
 
-        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice, $transparentTextInputIds);
+        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice, $transparentTextInputIds, $overrides->shapeColors);
 
         // Disjoint override maps for the template: a rich input's plain
         // concatenation lives in overrides->texts too (for every plain-text
@@ -629,8 +630,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * behind its objects (transparent export).
      *
      * @param list<string> $transparentTextInputIds
+     * @param array<string, string> $shapeColors see {@see ResolvedInputOverrides::$shapeColors}
      */
-    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = []): string
+    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = [], array $shapeColors = []): string
     {
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
@@ -680,6 +682,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         if ($transparentTextInputIds !== []) {
             $canvas = self::applyTransparentTexts($canvas, $transparentTextInputIds);
         }
+        if ($shapeColors !== []) {
+            $canvas = self::applyShapeColors($canvas, $shapeColors);
+        }
         // Slice BEFORE placeholder processing: sliced-out image objects get a
         // stub src (and lose their assetPath), so applyImagePlaceholders never
         // wastes a Minio read inlining a picture that renders at opacity 0.
@@ -694,6 +699,44 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         );
 
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Repaint the recolourable shapes the user picked a colour for — fill,
+     * border or both, as each shape's {@see ShapeColorInput} decides. Baked
+     * into the document like the image placeholders, so the headless template
+     * needs no shape-specific code.
+     *
+     * Cache safety: shapes always carry an `inputId`, so a render range with a
+     * visible shape is never override-independent
+     * ({@see renderIsOverrideIndependent()}) and is never served from the
+     * slice cache — the colour cannot be stale.
+     *
+     * @param array<string, mixed> $canvas
+     * @param array<string, string> $shapeColors inputId → validated `#rrggbb`
+     * @return array<string, mixed>
+     */
+    public static function applyShapeColors(array $canvas, array $shapeColors): array
+    {
+        if (!isset($canvas['objects']) || !is_array($canvas['objects'])) {
+            return $canvas;
+        }
+
+        foreach ($canvas['objects'] as $index => $object) {
+            if (!is_array($object)) {
+                continue;
+            }
+
+            $input = ShapeColorInput::fromObject($object);
+            $color = $input !== null ? ($shapeColors[$input->inputId] ?? null) : null;
+
+            if ($input !== null && $color !== null) {
+                /** @var array<string, mixed> $object */
+                $canvas['objects'][$index] = $input->paint($object, $color);
+            }
+        }
+
+        return $canvas;
     }
 
     /**

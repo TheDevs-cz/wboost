@@ -44,11 +44,34 @@ on the canvas through its own floating popover, Canva-style.
   is half of one design and a speck in the other. New shapes take the project's
   first brand colour, cascaded a few percent per add so the second one is not
   hidden behind the first.
-- **Decorative by definition.** Shapes carry no fillable-input metadata, so the
-  `textInputs` / `imageInputs` filters in `buildVariantPayload` exclude them by
-  type and **the API contract is untouched**. They DO carry an `inputId` — the
-  join key group sync propagates on and containers address members by — minted
-  in `createShapeObject` and defensively in `restoreCustomProperties`.
+- **Decorative by default.** Shapes never reach the `textInputs` /
+  `imageInputs` save payload (filtered by type in `buildVariantPayload`). They
+  DO carry an `inputId` — the join key group sync propagates on and containers
+  address members by — minted in `createShapeObject` and defensively in
+  `restoreCustomProperties`.
+- **Recolourable shapes ("Barva pro uživatele", 2026-10-20).** The shape
+  popover can open a shape up for END-USER recolouring: custom props
+  `colorChoice` (`null` | `'fill'` | `'stroke'` | `'both'` — one pick repaints
+  that part, `both` paints fill AND border in one colour), `allowedColors` (the
+  swatch list: the manual's colours pre-ticked when switched on, plus custom
+  hexes; the designed colour is always allowed and is not a chip) and
+  `colorFree` ("Povolit i libovolnou barvu" — the list becomes a suggestion).
+  **No column and no payload key**: `Value/ShapeColorInput` derives the
+  definition from the canvas on demand (`collectionFromCanvas[Json]`), which
+  keeps save, copy, group sync (`colorChoice`/`colorFree` ∈ META_KEYS) and the
+  MCP compiler on their existing paths. It is also the single authority on
+  eligibility: visible shapes only, and only a SOLID part is paintable — a
+  gradient fill (until gradient recolouring lands) or a width-less border
+  drops out, `both` degrading to whichever part is left (the popover warns via
+  the JS mirror `_syncColorChoiceWarning`). Picks are validated by
+  `ResolveShapeColorOverrides` (strict 400 `invalid_shape_color` /
+  `shape_color_not_allowed` + `allowedColors`, tagged `shapeInputId`; lenient
+  drop; the designed colour = no override) into
+  `ResolvedInputOverrides::$shapeColors`, which the renderer bakes into the
+  canvas JSON (`TemplateVariantImageRenderer::applyShapeColors`) before the
+  Gotenberg render — the headless template needs no shape code. Slice-cache
+  safe: a bound (= every) shape in range already makes a render
+  override-dependent.
 - **Nothing server-side has to know how to draw them.** The render template's
   `canvas.loadFromJSON` enlivens every built-in Fabric type, and fill / stroke /
   `rx` / `opacity` / `strokeDashArray` are native serialized props. The PHP that

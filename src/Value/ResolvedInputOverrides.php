@@ -24,12 +24,26 @@ readonly final class ResolvedInputOverrides
      *   input's font options). Applied BEFORE the text override, so a rich
      *   value's unstyled runs inherit it and a list stack takes it as its
      *   base font.
+     * @param array<string, string> $shapeColors shape inputId → the `#rrggbb`
+     *   the user repainted a recolourable shape in ({@see ShapeColorInput}),
+     *   already validated by
+     *   {@see \WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides}.
+     *   Baked into the canvas JSON server-side before the render.
      */
     public function __construct(
         public array $texts,
         public array $hidden,
         public array $richTexts = [],
         public array $fonts = [],
+        public array $shapeColors = [],
     ) {
+    }
+
+    /**
+     * @param array<string, string> $shapeColors
+     */
+    public function withShapeColors(array $shapeColors): self
+    {
+        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $shapeColors);
     }
 }

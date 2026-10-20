@@ -54,6 +54,9 @@ const META_KEYS = [
     // Shapes: cosmetic layers-panel label only, but it keeps a re-synced
     // sibling from reading as a different element than the one it mirrors.
     'shapeKind',
+    // Shape recolouring ("Uživatel může měnit barvu"): the part + the free
+    // flag copy exactly (allowedColors is already above).
+    'colorChoice', 'colorFree',
 ];
 
 function isTextboxObject(obj) {

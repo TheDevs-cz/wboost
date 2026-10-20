@@ -39,6 +39,11 @@
 // allowedColors is the rich input's colour allowlist (null = any colour,
 // [] = colour locked, list = only those swatches). All resolved per input
 // server-side (ResolveRichTextOptions).
+// colorChoice (shapes): null = decorative, 'fill' | 'stroke' | 'both' = the
+// end user may recolour that part ("Uživatel může měnit barvu"); the shape's
+// allowedColors is then its swatch list (manual + custom hexes) and colorFree
+// lets the user pick any colour on top. Resolved server-side by
+// ShapeColorInput (which also drops a gradient fill / width-less border).
 // missingSrc (images) is SESSION-ONLY: the original src of a picture whose
 // file is gone for good (404 — purged from the gallery), set by the
 // missing-picture loader (canvas_missing_images.js) when it swaps the object
@@ -54,6 +59,7 @@ export const CANVAS_CUSTOM_PROPERTIES = [
     'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
     'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
+    'colorChoice', 'colorFree',
 ];
 
 /**
