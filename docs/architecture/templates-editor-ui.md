@@ -195,6 +195,9 @@ the property controllers above only populate/mutate their (relocated) fields.
 - The top-bar toggle "Zobrazit editovatelné prvky" (`toggleHighlight`) draws
   one **DOM** `.editable-outline` per selectable object (NOT on the canvas
   bitmap, so it never leaks into the saved preview thumbnail or the server PNG).
+  An outline follows its object's `visible` flag live in the `after:render`
+  loop (`display:none` while the layers eye hides it) — the eye fires no
+  add/remove, so the rebuild path never sees it.
 
 **Overlay chrome toggles** (`templates/editor/_editor_toggles.html.twig`, the
 top bar shared by the single-variant and the group editor). All five live

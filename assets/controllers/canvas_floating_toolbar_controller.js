@@ -367,6 +367,15 @@ export default class extends Controller {
         const offX = g.contRect.left - g.layerRect.left;
         const offY = g.contRect.top - g.layerRect.top;
         this._outlines.forEach((entry) => {
+            // A layer hidden via the eye keeps its outline element (the eye
+            // fires no add/remove), so follow `visible` here — this loop runs
+            // on the render that every visibility flip requests.
+            const hidden = entry.obj.visible === false;
+            if (entry.hidden !== hidden) {
+                entry.hidden = hidden;
+                entry.el.style.display = hidden ? 'none' : '';
+            }
+            if (hidden) return;
             const r = entry.obj.getBoundingRect();
             // Runs on every after:render frame while the highlight is on —
             // with many layers the unconditional style writes (one layout
