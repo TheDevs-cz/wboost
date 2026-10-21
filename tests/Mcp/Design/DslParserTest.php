@@ -128,6 +128,27 @@ final class DslParserTest extends TestCase
         self::assertSame([self::DIRECTORY], $input->allowedDirectories);
     }
 
+    public function testADecorativeImageCanBeMirroredButAPlaceholderCannot(): void
+    {
+        $plain = DslParser::parse(self::documentWith(self::imageElement(['asset' => self::ASSET_2])))->element('photo');
+        self::assertInstanceOf(ImageElement::class, $plain);
+        self::assertFalse($plain->mirror, 'Mirroring is opt-in.');
+
+        $mirrored = DslParser::parse(self::documentWith(self::imageElement(['asset' => self::ASSET_2, 'mirror' => true])))->element('photo');
+        self::assertInstanceOf(ImageElement::class, $mirrored);
+        self::assertTrue($mirrored->mirror);
+
+        $exception = self::reject(self::documentWith(self::imageElement([
+            'mirror' => true,
+            'input' => ['name' => 'Foto', 'placeholder' => true],
+        ])));
+        self::assertSame('elements[0].mirror', $exception->violations[0]->path);
+        self::assertSame(DslErrorCode::InvalidValue, $exception->violations[0]->code);
+
+        $exception = self::reject(self::documentWith(self::imageElement(['mirror' => 'yes'])));
+        self::assertSame('elements[0].mirror', $exception->violations[0]->path);
+    }
+
     public function testParsesAShapeElementWithEveryField(): void
     {
         $shape = DslParser::parse(self::fullDocument())->element('scrim');
@@ -717,7 +738,7 @@ final class DslParserTest extends TestCase
             self::documentWith(self::imageElement(['src' => 'x.png'])),
             'elements[0].src',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, asset, at, x, y, width, height, input.',
+            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror.',
         ];
         yield 'unknown background key' => [
             self::documentWith(['kind' => 'background', 'id' => 'bg', 'cover' => true]),

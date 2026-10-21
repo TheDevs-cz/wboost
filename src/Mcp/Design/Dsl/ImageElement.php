@@ -19,6 +19,11 @@ namespace WBoost\Web\Mcp\Design\Dsl;
  * fills nothing. That is a LINT (S4-T6), not a parse error: it is a judgement
  * about intent, and unlike a 1-member container it survives the compile
  * intact, so the agent can still see it in the preview it gets back.
+ *
+ * {@see $mirror} flips a DECORATIVE picture horizontally (Fabric `flipX`, the
+ * editor's "Zrcadlit vodorovně"). A fillable placeholder cannot carry it: a
+ * fill re-places the picture and resets its flip (`ImagePlacement`), so the
+ * parser rejects the combination instead of compiling a no-op.
  */
 readonly final class ImageElement implements DesignElement
 {
@@ -29,6 +34,7 @@ readonly final class ImageElement implements DesignElement
         public Placement $placement,
         /** Null = decorative image (never fillable). */
         public null|ImageInputSpec $input,
+        public bool $mirror = false,
     ) {
     }
 
@@ -65,6 +71,7 @@ readonly final class ImageElement implements DesignElement
             'width' => $placement['width'],
             'height' => $placement['height'],
             'input' => $this->input?->toArray(),
+            'mirror' => $this->mirror,
         ];
     }
 }

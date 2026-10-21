@@ -75,7 +75,7 @@ final class DslParser
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
-    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input'];
+    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror'];
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
@@ -398,12 +398,24 @@ final class DslParser
         $assetId = $this->readAssetId($path, $raw, 'asset');
         $placement = $this->parsePlacement($path, $raw, allowHeight: true);
         $input = $this->parseImageInput($path, $raw['input'] ?? null);
+        $mirror = $this->readBool($path, $raw, 'mirror', false);
+
+        // A fill re-places a placeholder's picture and resets its flip
+        // (ImagePlacement) — a mirrored placeholder would preview a state no
+        // export reproduces.
+        if ($mirror && $input !== null && $input->placeholder) {
+            $this->violation(self::join($path, 'mirror'), DslErrorCode::InvalidValue, sprintf(
+                '%s: only a decorative image can be mirrored. A fillable placeholder\'s picture is re-placed when it is filled, which resets any mirroring — drop "mirror" or make the image decorative.',
+                self::join($path, 'mirror'),
+            ));
+            $mirror = false;
+        }
 
         if ($id === null || $placement === null) {
             return null;
         }
 
-        return new ImageElement($id, $assetId, $placement, $input);
+        return new ImageElement($id, $assetId, $placement, $input, $mirror);
     }
 
     /**

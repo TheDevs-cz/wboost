@@ -187,6 +187,17 @@ the property controllers above only populate/mutate their (relocated) fields.
   **popover** holding the full text / image property form (the relocated
   `#font-controls` / `#image-controls` markup — **`id="font-family-control"` must
   stay**, the orchestrator's `populateFontSelect` does `getElementById`).
+- **Mirror** (`mdi-flip-horizontal`, "Zrcadlit vodorovně", 2026-10-22):
+  `canvas-image-properties#toggleMirror` flips plain Fabric `flipX` — no
+  custom prop; it serializes with the canvas JSON and the headless render
+  honours it, and Fabric flips around the centre so the box is unchanged.
+  DECORATIVE images only: `refreshContextToggle` hides it on placeholders and
+  the background, because a fill re-places a placeholder's picture and resets
+  its flip (`ImagePlacement`); marking a mirrored image as a placeholder
+  un-mirrors it. Group sync carries `flipX` as an absolute STYLE_KEYS copy
+  (mode-gated like any edit; "zrcadlení" in the re-sync toast). MCP DSL mirror:
+  image `mirror: true` (rejected on placeholders; the decompiler round-trips a
+  decorative `flipX` and still reports `flipY` / a placeholder flip as lost).
 - It re-anchors on Fabric `object:moving/scaling/rotating/modified`,
   `canvas-editor:selection:changed`, `canvas-zoom:changed` and window resize;
   hides during inline text editing (`text:editing:entered/exited`); flips the

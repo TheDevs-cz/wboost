@@ -31,6 +31,10 @@
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-image-edit-outline"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout obrázek v editoru (proti posunutí)" data-canvas-floating-toolbar-target="editorLockButton" data-action="canvas-image-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
+        {# Horizontal mirror (Fabric flipX) — decorative images only: a fill
+           re-places a placeholder's picture and resets its flip server-side
+           (ImagePlacement), so the toolbar hides it there. #}
+        <button type="button" class="btn btn-sm btn-light d-none" title="Zrcadlit vodorovně" data-canvas-floating-toolbar-target="mirrorButton" data-action="canvas-image-properties#toggleMirror canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-flip-horizontal"></i></button>
         {# Shapes carry the same EDITOR lock as images, but the action has to
            reach canvas-shape-properties so its popover checkbox follows. #}
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout tvar v editoru (proti posunutí)" data-canvas-floating-toolbar-target="shapeLockButton" data-action="canvas-shape-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>

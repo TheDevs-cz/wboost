@@ -425,7 +425,7 @@ within the document. Slugs carry input identity across saves.
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
 | `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `at`, `x`, `y`, `width`, `input` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
-| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
 | `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to` |
@@ -483,6 +483,9 @@ within the document. Slugs carry input identity across saves.
   `free: true` accepts any colour. Such a shape then appears in
   `describe_variant` `shapeInputs[]`. A gradient `fill` (or a border with
   `strokeWidth` 0) cannot be recoloured, so that part is simply not offered.
+- **`image` `mirror`**: `true` flips a **decorative** image horizontally (default
+  `false`). Rejected on a fillable placeholder — filling re-places the picture
+  and resets any mirroring.
 - **`background`**: at most **one** per document; it compiles to the single
   background layer pinned to the bottom of the stack. `fillable: true` makes it a
   fillable whole-canvas cover slot.

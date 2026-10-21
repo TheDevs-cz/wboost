@@ -154,6 +154,8 @@ tests/Mcp/
       "input": { "name": "Foto", "placeholder": true, "allowMove": true,
                  "allowResize": true, "allowRotate": false, "hidable": true,
                  "allowedDirectories": [] } },
+    // "mirror": true flips a DECORATIVE image horizontally (editor "Zrcadlit
+    // vodorovně", Fabric flipX); rejected on a fillable placeholder.
 
     { "kind": "shape", "id": "panel",             // vector block; always decorative
       "shape": "rectangle",                       // rectangle|square|circle|ellipse|triangle|line|star

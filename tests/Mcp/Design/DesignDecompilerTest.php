@@ -408,7 +408,7 @@ final class DesignDecompilerTest extends TestCase
                 'charSpacing' => 40,
                 'fill' => ['type' => 'linear'],
             ]),
-            self::image(['flipX' => true, 'cropX' => 20, 'filters' => ['grayscale'], 'opacity' => 0.5, 'editorLocked' => true]),
+            self::image(['flipY' => true, 'cropX' => 20, 'filters' => ['grayscale'], 'opacity' => 0.5, 'editorLocked' => true]),
         ]];
 
         $decompiled = self::decompile($canvas, [], []);
@@ -567,6 +567,23 @@ final class DesignDecompilerTest extends TestCase
 
         self::assertSame([DesignLossCode::TransformDropped], self::codes($decompiled));
         self::assertStringContainsString('contain-fits', $decompiled->losses[0]->message);
+    }
+
+    public function testADecorativeImagesHorizontalMirrorRoundTripsButAPlaceholdersIsReported(): void
+    {
+        $canvas = ['objects' => [
+            self::image(['flipX' => true, 'assetPath' => 'gallery/logo.png']),
+            self::image(['inputId' => 'slot', 'imagePlaceholder' => true, 'flipX' => true, 'assetPath' => 'gallery/pic.png']),
+        ]];
+
+        $decompiled = self::decompile($canvas, [], [self::imageInput('slot', 'Foto')], self::context());
+        $images = $decompiled->document->imageElements();
+
+        self::assertTrue($images[0]->mirror, 'The editor\'s "Zrcadlit vodorovně" must survive an MCP round-trip.');
+        self::assertFalse($images[1]->mirror);
+        self::assertSame([DesignLossCode::TransformDropped], self::codes($decompiled));
+        self::assertCount(1, $decompiled->losses);
+        self::assertStringContainsString('elements[1]', $decompiled->losses[0]->path);
     }
 
     public function testADecorativeImageKeepsItsDesignerNameThroughAnOptedOutInputBlock(): void

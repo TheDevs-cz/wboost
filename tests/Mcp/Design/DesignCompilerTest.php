@@ -94,7 +94,7 @@ final class DesignCompilerTest extends TestCase
      */
     private const array FABRIC_PROPERTIES = [
         'type', 'version', 'originX', 'originY', 'left', 'top', 'width', 'height',
-        'scaleX', 'scaleY', 'angle', 'cropX', 'cropY',
+        'scaleX', 'scaleY', 'angle', 'cropX', 'cropY', 'flipX',
         'text', 'fontFamily', 'fontSize', 'fill', 'textAlign', 'lineHeight', 'charSpacing', 'editable',
         'src', 'crossOrigin',
         // Shape painting + per-type geometry. All native Fabric keys, which is
@@ -598,6 +598,21 @@ final class DesignCompilerTest extends TestCase
      * until the Gotenberg timeout, so it gets the same transparent-pixel stub
      * the renderer's slicer uses.
      */
+    public function testAMirroredDecorativeImageCompilesToFlipX(): void
+    {
+        $objects = $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                ['kind' => 'image', 'id' => 'plain', 'x' => 0, 'y' => 0, 'width' => 400, 'height' => 400],
+                ['kind' => 'image', 'id' => 'flipped', 'x' => 0, 'y' => 400, 'width' => 400, 'height' => 400, 'mirror' => true],
+            ],
+        ])->objects();
+
+        self::assertFalse($objects[0]['flipX']);
+        self::assertTrue($objects[1]['flipX']);
+        self::assertSame($objects[0]['left'], $objects[1]['left'], 'Fabric flips around the centre, so the box is unaffected.');
+    }
+
     public function testInvariant9ImageObjectsCarrySrcAssetPathAndAssetId(): void
     {
         $compiled = $this->compile($this->interleavedDesign());

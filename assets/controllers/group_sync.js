@@ -34,6 +34,9 @@ const STYLE_KEYS = [
     'text', 'fontFamily', 'fill', 'textAlign', 'underline', 'linethrough',
     'overline', 'lineHeight', 'charSpacing',
     'stroke', 'strokeDashArray', 'strokeLineCap', 'rx', 'ry', 'opacity',
+    // Mirror (decorative images): orientation, not geometry — Fabric flips
+    // around the centre, so it copies absolutely in every dimension.
+    'flipX',
 ];
 const META_KEYS = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable',
@@ -164,7 +167,8 @@ const RESYNC_CHANGE_GROUPS = [
     { label: 'velikost', keys: ['width', 'scaleX', 'scaleY', 'fontSize', 'strokeWidth'] },
     { label: 'otočení', keys: ['angle'] },
     { label: 'text', keys: ['text'] },
-    { label: 'styl', keys: STYLE_KEYS.filter((key) => key !== 'text') },
+    { label: 'zrcadlení', keys: ['flipX'] },
+    { label: 'styl', keys: STYLE_KEYS.filter((key) => key !== 'text' && key !== 'flipX') },
     { label: 'nastavení', keys: META_KEYS.filter((key) => key !== 'visible') },
 ];
 

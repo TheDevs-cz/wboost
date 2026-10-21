@@ -657,6 +657,9 @@ readonly final class DesignCompiler
             'scaleX' => $scaleX,
             'scaleY' => $scaleY,
             'angle' => 0,
+            // Decorative mirror (editor "Zrcadlit vodorovně"). Fabric flips
+            // around the centre, so the box above is unaffected.
+            'flipX' => $element->mirror,
             // §4.2-9: `src` is the public URL and `assetPath` the storage key.
             // Without the latter AssetInliner cannot inline the picture and
             // headless Chromium — which has no route to Minio — paints nothing.

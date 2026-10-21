@@ -699,7 +699,13 @@ readonly final class DesignDecompiler
                 continue;
             }
 
-            self::reportSharedTransforms($path, $object, $losses);
+            self::reportSharedTransforms(
+                $path,
+                $object,
+                $losses,
+                // A decorative image words its own horizontal mirror.
+                allowFlipX: $slot['kind'] === 'image' && ($object['imagePlaceholder'] ?? false) !== true,
+            );
             // A shape words its own opacity, stroke and editor lock.
             $isShape = $slot['kind'] === 'shape';
             self::reportSharedStyles(
@@ -967,7 +973,13 @@ readonly final class DesignDecompiler
             $canvas,
         );
 
-        return new ImageElement($slug, $assetId, $placement, self::imageInputSpec($object, $input, $placeholder, $path, $losses));
+        return new ImageElement(
+            $slug,
+            $assetId,
+            $placement,
+            self::imageInputSpec($object, $input, $placeholder, $path, $losses),
+            mirror: !$placeholder && ($object['flipX'] ?? false) === true,
+        );
     }
 
     /**
@@ -1648,7 +1660,7 @@ readonly final class DesignDecompiler
      * @param array<array-key, mixed> $object
      * @param list<DesignLoss> $losses
      */
-    private static function reportSharedTransforms(string $path, array $object, array &$losses): void
+    private static function reportSharedTransforms(string $path, array $object, array &$losses, bool $allowFlipX = false): void
     {
         $angle = self::number($object, 'angle') ?? 0.0;
 
@@ -1661,6 +1673,10 @@ readonly final class DesignDecompiler
         }
 
         foreach (['flipX', 'flipY'] as $key) {
+            if ($key === 'flipX' && $allowFlipX) {
+                continue;
+            }
+
             if (($object[$key] ?? false) === true) {
                 $losses[] = new DesignLoss($path, DesignLossCode::TransformDropped, sprintf(
                     '%s is mirrored (%s); the DSL has no word for it and saving un-mirrors it.',

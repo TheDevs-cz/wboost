@@ -29,7 +29,7 @@ export default class extends Controller {
     static targets = [
         "layer", "miniToolbar", "multiBar",
         "lockButton", "placeholderButton", "editorLockButton", "replaceImageButton",
-        "shapeLockButton",
+        "shapeLockButton", "mirrorButton",
         "textPopover", "imagePopover", "shapePopover",
     ];
 
@@ -286,6 +286,19 @@ export default class extends Controller {
             this.editorLockButtonTarget.setAttribute('aria-pressed', String(locked));
             const icon = this.editorLockButtonTarget.querySelector('i');
             if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
+        }
+
+        if (this.hasMirrorButtonTarget) {
+            // Re-evaluated here (not only in _showFor) because the placeholder
+            // toggle right next to it changes whether mirroring applies.
+            const mirrorable = type === 'image' && !obj.imagePlaceholder && obj.isBackground !== true;
+            this.mirrorButtonTarget.classList.toggle('d-none', !mirrorable);
+            const mirrored = obj.flipX === true;
+            const label = mirrored ? 'Zrušit zrcadlení' : 'Zrcadlit vodorovně';
+            this.mirrorButtonTarget.classList.toggle('active', mirrorable && mirrored);
+            this.mirrorButtonTarget.title = label;
+            this.mirrorButtonTarget.setAttribute('aria-label', label);
+            this.mirrorButtonTarget.setAttribute('aria-pressed', String(mirrored));
         }
 
         if (isShapeObject(obj) && this.hasShapeLockButtonTarget) {

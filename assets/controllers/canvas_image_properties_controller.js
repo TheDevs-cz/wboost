@@ -72,6 +72,13 @@ export default class extends Controller {
         if (image.imagePlaceholder && !image.inputId) {
             image.inputId = crypto.randomUUID();
         }
+        // A fill re-places a placeholder's picture and resets its flip
+        // (ImagePlacement), so a mirrored stand-in would preview a state no
+        // export reproduces — mirroring is a decorative-image feature.
+        if (image.imagePlaceholder && image.flipX) {
+            image.set('flipX', false);
+            this.canvasEditorOutlet.canvas.renderAll();
+        }
 
         this._toggleDetails(image.imagePlaceholder);
         this._refreshWarning(image.imagePlaceholder);
@@ -117,6 +124,24 @@ export default class extends Controller {
         applyEditorLock(image);
         if (this.hasEditorLockedTarget) this.editorLockedTarget.checked = image.editorLocked === true;
         this.canvasEditorOutlet.canvas.renderAll();
+        this.canvasEditorOutlet.markUnsaved();
+    }
+
+    /**
+     * Horizontal mirror from the floating mini-toolbar (decorative images
+     * only — the toolbar hides the button on placeholders and backgrounds).
+     * Plain Fabric `flipX`: it serializes with the canvas JSON and the
+     * headless render honours it, and Fabric flips around the object's centre
+     * so the bounding box (left/top/size) stays put. `object:modified` lets
+     * the group editor's diff pass carry it to the other variants.
+     */
+    toggleMirror() {
+        const image = this._getActiveImage();
+        if (!image || image.imagePlaceholder || image.isBackground === true) return;
+        image.set('flipX', !image.flipX);
+        const canvas = this.canvasEditorOutlet.canvas;
+        canvas.renderAll();
+        canvas.fire('object:modified', { target: image });
         this.canvasEditorOutlet.markUnsaved();
     }
 
