@@ -80,7 +80,7 @@
             {{ include('_background_gallery_picker.html.twig', { field: form.backgroundImageId }) }}
             <p class="text-muted small mt-1">Bez vlastního výběru nový rozměr převezme stávající pozadí skupiny.</p>
 
-            <p class="text-muted small">Nová varianta vznikne s prázdným plátnem — prvky do ní přenesete ve skupinovém editoru tlačítkem „Srovnat podle skupiny".</p>
+            <p class="text-muted small">Nová varianta vznikne jen s pozadím — prvky skupiny se do ní doplní automaticky, jakmile otevřete skupinový editor (poté uložte).</p>
 
             {{ form_rest(form) }}
 

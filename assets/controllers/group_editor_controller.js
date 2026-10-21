@@ -848,14 +848,194 @@ export default class extends Controller {
 
         this._enqueueStructural(() => {
             const touched = new Set();
+            const reports = [];
             objects.forEach((obj) => {
-                if (!obj.inputId) {
+                if (!isSyncable(obj)) {
+                    reports.push({ obj, notSyncable: true, report: [] });
                     return;
                 }
-                this.sync.resync(obj).forEach((id) => touched.add(id));
+                const result = this.sync.resync(obj);
+                result.touched.forEach((id) => touched.add(id));
+                reports.push({ obj, notSyncable: false, report: result.report });
             });
+            // The push lands on canvases the designer is not looking at —
+            // without this the click reads as "the button does nothing".
+            this._showResyncFeedback(reports, touched);
             return touched;
         });
+    }
+
+    /**
+     * Toast listing, per sibling variant, what the explicit re-sync did
+     * there (or why it had no effect), plus a brief flash on the rail chips
+     * that changed so the designer knows where to look.
+     */
+    _showResyncFeedback(reports, touched) {
+        // Merge across a multi-object push: a variant counts as updated when
+        // ANY object changed there; otherwise the most telling reason wins.
+        const rank = { updated: 4, hidden: 3, missing: 2, unchanged: 1 };
+        const byVariant = new Map();
+        reports.forEach(({ report }) => {
+            report.forEach((entry) => {
+                const current = byVariant.get(entry.id);
+                if (!current) {
+                    byVariant.set(entry.id, { status: entry.status, changes: [...entry.changes] });
+                    return;
+                }
+                entry.changes.forEach((c) => {
+                    if (!current.changes.includes(c)) {
+                        current.changes.push(c);
+                    }
+                });
+                if (rank[entry.status] > rank[current.status]) {
+                    current.status = entry.status;
+                }
+            });
+        });
+
+        const rows = [];
+        this.variants.forEach((variant) => {
+            if (variant.id === this.activeId) {
+                return;
+            }
+            const entry = byVariant.get(variant.id);
+            if (!entry) {
+                // allTargets() skips shadow-less variants — say so instead of
+                // silently leaving them out of the list.
+                if (!variant.shadow && reports.some((r) => !r.notSyncable)) {
+                    rows.push({ variant, icon: 'mdi-alert-circle-outline', tone: 'danger', text: 'variantu se nepodařilo načíst — nepřeneseno' });
+                }
+                return;
+            }
+            switch (entry.status) {
+                case 'updated':
+                    rows.push({ variant, icon: 'mdi-check-circle', tone: 'success', text: `změněno: ${entry.changes.join(', ')}` });
+                    break;
+                case 'unchanged':
+                    rows.push({ variant, icon: 'mdi-equal', tone: 'muted', text: 'beze změny — už odpovídá' });
+                    break;
+                case 'hidden':
+                    rows.push({ variant, icon: 'mdi-eye-off-outline', tone: 'warning', text: 'prvek je zde skrytý (oko ve Vrstvách) — nepřeneseno' });
+                    break;
+                default:
+                    rows.push({ variant, icon: 'mdi-alert-outline', tone: 'warning', text: 'prvek zde chybí — doplní se automaticky při uložení' });
+            }
+        });
+
+        let title;
+        let note = null;
+        if (reports.every((r) => r.notSyncable)) {
+            const background = reports.some((r) => r.obj.isBackground === true);
+            title = 'Prvek nelze přenést';
+            note = background
+                ? 'Pozadí je v každé variantě samostatné (přizpůsobuje se jejímu rozměru) — vyberte jej z galerie, výběr se propíše do variant.'
+                : 'Tento prvek není propojený s ostatními variantami.';
+        } else if (touched.size > 0) {
+            title = `${this._resyncSubject(reports)} přeneseno do ${touched.size} ${touched.size === 1 ? 'varianty' : 'variant'}`;
+            note = 'Změny se projeví po uložení. Krok vrátíte tlačítkem Zpět.';
+        } else {
+            title = `${this._resyncSubject(reports)} — žádná varianta se nezměnila`;
+        }
+        if (rows.length === 0 && note === null) {
+            note = 'Skupina nemá žádné další varianty.';
+        }
+
+        this._showResyncToast({ title, rows, note, success: touched.size > 0 });
+
+        touched.forEach((id) => {
+            this.cardTargets
+                .filter((card) => card.dataset.variantId === id)
+                .forEach((card) => {
+                    card.classList.remove('group-variant-flash');
+                    // Restart the animation on a repeated click.
+                    void card.offsetWidth;
+                    card.classList.add('group-variant-flash');
+                    setTimeout(() => card.classList.remove('group-variant-flash'), 1600);
+                });
+        });
+    }
+
+    _resyncSubject(reports) {
+        const synced = reports.filter((r) => !r.notSyncable);
+        if (synced.length !== 1) {
+            return 'Prvky';
+        }
+        const obj = synced[0].obj;
+        if (obj.name) {
+            return `„${obj.name}“`;
+        }
+        if (typeof obj.text === 'string' && obj.text.trim() !== '') {
+            const text = obj.text.trim().replace(/\s+/g, ' ');
+            return `„${text.length > 30 ? `${text.slice(0, 30)}…` : text}“`;
+        }
+        return 'Prvek';
+    }
+
+    _showResyncToast({ title, rows, note, success }) {
+        let container = document.getElementById('gallery-toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'gallery-toast-container';
+            container.className = 'gallery-toast-container';
+            document.body.appendChild(container);
+        }
+
+        // One feedback toast at a time — a repeated click replaces it.
+        if (this._resyncToast) {
+            this._resyncToast.remove();
+            clearTimeout(this._resyncToastTimer);
+        }
+
+        const toast = document.createElement('div');
+        toast.className = `gallery-toast group-resync-toast ${success ? 'group-resync-toast--success' : 'group-resync-toast--neutral'}`;
+        toast.setAttribute('role', 'status');
+
+        const head = document.createElement('div');
+        head.className = 'group-resync-toast__head';
+        const heading = document.createElement('strong');
+        heading.textContent = title;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'btn-close btn-close-sm';
+        close.setAttribute('aria-label', 'Zavřít');
+        close.addEventListener('click', () => toast.remove());
+        head.append(heading, close);
+        toast.appendChild(head);
+
+        if (rows.length > 0) {
+            const list = document.createElement('ul');
+            list.className = 'group-resync-toast__list';
+            rows.forEach((row) => {
+                const item = document.createElement('li');
+                item.className = `group-resync-toast__row group-resync-toast__row--${row.tone}`;
+                const icon = document.createElement('i');
+                icon.className = `mdi ${row.icon}`;
+                icon.setAttribute('aria-hidden', 'true');
+                const label = document.createElement('span');
+                label.className = 'group-resync-toast__variant';
+                label.textContent = row.variant.label;
+                const text = document.createElement('span');
+                text.textContent = ` ${row.text}`;
+                item.append(icon, label, text);
+                list.appendChild(item);
+            });
+            toast.appendChild(list);
+        }
+
+        if (note) {
+            const small = document.createElement('div');
+            small.className = 'group-resync-toast__note';
+            small.textContent = note;
+            toast.appendChild(small);
+        }
+
+        container.appendChild(toast);
+        this._resyncToast = toast;
+        requestAnimationFrame(() => toast.classList.add('gallery-toast--show'));
+        this._resyncToastTimer = setTimeout(() => {
+            toast.classList.remove('gallery-toast--show');
+            setTimeout(() => toast.remove(), 300);
+        }, 9000);
     }
 
     // ------------------------------------------------------------------ history (global)

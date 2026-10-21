@@ -71,7 +71,7 @@ export function applyGeometryDelta(base, cur, target, rx, ry) {
 
 /**
  * Absolute projection of active geometry into a target's pixel space — used
- * for newly added elements and for the explicit "Srovnat podle skupiny"
+ * for newly added elements and for the explicit "Přenést do ostatních variant"
  * re-sync (which deliberately overwrites target fine-tunes).
  *
  * @param {Object} geom     absolute geometry of the active object

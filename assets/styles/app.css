@@ -3269,6 +3269,74 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background: var(--bs-danger, #fa5c7c);
 }
 
+/* "Přenést do ostatních variant" feedback: the chips the push changed pulse
+   once, so the designer knows which tab to open to check the result. */
+.group-variant-chip.group-variant-flash {
+    animation: group-variant-flash 1.5s ease-out;
+}
+
+@keyframes group-variant-flash {
+    0%, 30% { box-shadow: 0 0 0 0.25rem rgba(10, 207, 151, 0.55); background: rgba(10, 207, 151, 0.18); }
+    100% { box-shadow: 0 0 0 0 rgba(10, 207, 151, 0); }
+}
+
+/* Re-sync report toast — reuses the gallery toast container/animation but is
+   a light multi-line card (per-variant rows) rather than a one-line pill. */
+.gallery-toast.group-resync-toast {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    max-width: 28rem;
+    background: var(--bs-body-bg, #fff);
+    color: var(--bs-body-color, #313a46);
+    border-left: 4px solid var(--bs-secondary, #6c757d);
+    pointer-events: auto;
+}
+
+.gallery-toast.group-resync-toast--success {
+    border-left-color: var(--bs-success, #0acf97);
+}
+
+.group-resync-toast__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.group-resync-toast__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+}
+
+.group-resync-toast__row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.1rem 0;
+}
+
+.group-resync-toast__row .mdi {
+    flex: 0 0 auto;
+}
+
+.group-resync-toast__variant {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.group-resync-toast__row--success .mdi { color: var(--bs-success, #0acf97); }
+.group-resync-toast__row--warning .mdi { color: var(--bs-warning, #ffbc00); }
+.group-resync-toast__row--danger .mdi { color: var(--bs-danger, #fa5c7c); }
+.group-resync-toast__row--muted { color: var(--bs-secondary-color, #6c757d); }
+
+.group-resync-toast__note {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
 /* The per-variant opt-in switches are chrome of the multi-variant mode:
    with the mode off there is nothing to opt into, so they are not rendered
    at all (never merely dimmed — a visible switch that changes nothing is

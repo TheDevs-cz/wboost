@@ -105,8 +105,15 @@ means:
   `_flushPendingSync` — flushing (or plain-rebaselining) earlier would fan
   the diff to the hydrated subset only, or consume it entirely.
 - **STRUCTURE** (`projectNewObject`, `removeObject` and the explicit
-  per-element "Srovnat podle skupiny" `resync`) goes to
-  `allTargets()` — every dimension, no opt-out, mode or not. The background
+  per-element "Přenést do ostatních variant" `resync`, renamed from
+  "Srovnat podle skupiny" 2026-10-22) goes to
+  `allTargets()` — every dimension, no opt-out, mode or not. `resync`
+  skips a target whose match is hidden by the layers-panel eye (and never
+  copies `visible`) and returns a per-target report
+  (`updated` + changed aspects / `unchanged` / `missing` / `hidden`) that the
+  controller renders as a feedback toast + chip flash: the push lands on
+  canvases the designer is not looking at, and with no feedback the button
+  was reported as "not working". The background
   PICTURE is the exception since 2026-08-10: `projectBackgroundLayer` goes to
   `targets()` (mode-gated) so per-variant backgrounds stay authorable — with
   the mode on and everything included (the default) a pick still reaches

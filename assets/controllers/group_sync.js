@@ -157,6 +157,46 @@ function snapshotGeometry(obj) {
     return geom;
 }
 
+// Human-readable buckets for the re-sync feedback toast: which aspects of a
+// target's element the explicit push actually changed.
+const RESYNC_CHANGE_GROUPS = [
+    { label: 'poloha', keys: ['left', 'top'] },
+    { label: 'velikost', keys: ['width', 'scaleX', 'scaleY', 'fontSize', 'strokeWidth'] },
+    { label: 'otočení', keys: ['angle'] },
+    { label: 'text', keys: ['text'] },
+    { label: 'styl', keys: STYLE_KEYS.filter((key) => key !== 'text') },
+    { label: 'nastavení', keys: META_KEYS.filter((key) => key !== 'visible') },
+];
+
+// Sub-pixel float noise from the ratio projection must not read as a change.
+const RESYNC_EPSILON = 0.01;
+
+function resyncComparable(obj) {
+    const values = {};
+    RESYNC_CHANGE_GROUPS.forEach((group) => {
+        group.keys.forEach((key) => {
+            const value = obj[key];
+            values[key] = (value !== null && typeof value === 'object')
+                ? JSON.stringify(serializePaintValue(value))
+                : value;
+        });
+    });
+    return values;
+}
+
+function resyncChanges(before, after) {
+    const differs = (a, b) => {
+        if (typeof a === 'number' && typeof b === 'number') {
+            return Math.abs(a - b) > RESYNC_EPSILON;
+        }
+        return (a ?? null) !== (b ?? null);
+    };
+
+    return RESYNC_CHANGE_GROUPS
+        .filter((group) => group.keys.some((key) => differs(before[key], after[key])))
+        .map((group) => group.label);
+}
+
 function snapshotProps(obj) {
     const props = {};
 
@@ -195,7 +235,7 @@ export class GroupSync {
      *
      * `allTargets` — every non-active variant, no opt-out. STRUCTURE goes
      * here: adding an object, deleting one, and the explicit per-element
-     * "Srovnat podle skupiny". The object set must stay identical across
+     * "Přenést do ostatních variant". The object set must stay identical across
      * dimensions — a dimension silently missing an element renders as a
      * scrambled stack, which is precisely the failure the group model exists
      * to prevent. The background PICTURE is the exception (2026-08-10): its
@@ -544,27 +584,47 @@ export class GroupSync {
     /**
      * Explicit re-sync of ONE active object: overwrite its match in every
      * target with the absolute projection of the active geometry (clobbers
-     * per-variant fine-tunes — this is the user-invoked "Srovnat podle
-     * skupiny" on the mini-toolbar).
+     * per-variant fine-tunes — this is the user-invoked "Přenést do ostatních
+     * variant" on the mini-toolbar).
      *
      * Ungated on purpose: the button's whole point is "push THIS element
      * everywhere", so it obeys the explicit click over the standing mode.
      *
+     * The per-dimension EYE is respected, though: a match hidden in a target
+     * is that designer's "not shown here" decision (see the layers panel), so
+     * it is skipped — and `visible` itself never travels on a re-sync.
+     *
+     * The push lands on canvases the designer is NOT looking at, so the
+     * result is reported per target for the editor's feedback toast:
+     * `{ id, status: 'updated' | 'unchanged' | 'missing' | 'hidden', changes }`
+     * where `changes` lists the RESYNC_CHANGE_GROUPS labels that differed.
+     *
      * @param {Object} obj the active object to project
+     * @returns {{touched: Set<string>, report: Array<Object>}}
      */
     resync(obj) {
         const activeDims = this.activeDims();
         const touched = new Set();
+        const report = [];
 
         if (!isSyncable(obj)) {
-            return touched;
+            return { touched, report };
         }
+
+        const copyKeys = [...STYLE_KEYS, ...META_KEYS].filter((key) => key !== 'visible');
 
         this.allTargets().forEach((target) => {
             const match = target.shadow.getObjects().find((o) => o.inputId === obj.inputId);
             if (!match) {
+                report.push({ id: target.id, status: 'missing', changes: [] });
                 return;
             }
+            if (match.visible === false) {
+                report.push({ id: target.id, status: 'hidden', changes: [] });
+                return;
+            }
+
+            const before = resyncComparable(match);
 
             const { rx, ry } = ratios(activeDims, target);
             match.set(projectGeometry(snapshotGeometry(obj), rx, ry, isTextboxObject(obj)));
@@ -573,7 +633,7 @@ export class GroupSync {
             // snapshotProps already deep-copies gradients, so each target gets
             // its own paint object rather than a shared instance.
             const props = snapshotProps(obj);
-            [...STYLE_KEYS, ...META_KEYS].forEach((key) => {
+            copyKeys.forEach((key) => {
                 const value = props[key];
                 if (value !== undefined) {
                     match.set(key, clonePaintValue(value));
@@ -585,10 +645,17 @@ export class GroupSync {
             }
             match.setCoords();
 
+            const changes = resyncChanges(before, resyncComparable(match));
+            if (changes.length === 0) {
+                report.push({ id: target.id, status: 'unchanged', changes });
+                return;
+            }
+
+            report.push({ id: target.id, status: 'updated', changes });
             touched.add(target.id);
         });
 
-        return touched;
+        return { touched, report };
     }
 
     /**

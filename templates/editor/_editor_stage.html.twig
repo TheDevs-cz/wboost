@@ -2,7 +2,7 @@
    zoom-scaled canvas wrapper, floating mini-toolbar / multi-select bar /
    text + image popovers. Expects: canvas_width, canvas_height (px),
    gallery_directories, and optional group_mode (adds the per-element
-   "Srovnat podle skupiny" re-sync button targeting group-editor). #}
+   "Přenést do ostatních variant" re-sync button targeting group-editor). #}
 {# The viewport is the SCROLL CONTAINER for the stage: panning a zoomed-in
    canvas scrolls here, never the page — the left panel and the sticky toolbar
    must stay put. Max-height (the visible band below the sticky header) is
@@ -35,7 +35,7 @@
            reach canvas-shape-properties so its popover checkbox follows. #}
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout tvar v editoru (proti posunutí)" data-canvas-floating-toolbar-target="shapeLockButton" data-action="canvas-shape-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
         {% if group_mode|default(false) %}
-            <button type="button" class="btn btn-sm btn-light" title="Srovnat podle skupiny (přenést pozici a velikost tohoto prvku do ostatních variant)" data-action="group-editor#resyncActiveObject"><i class="mdi mdi-sync"></i></button>
+            <button type="button" class="btn btn-sm btn-light" title="Přenést do ostatních variant — poloha, velikost, styl a text tohoto prvku přepíšou jejich úpravy" data-action="group-editor#resyncActiveObject"><i class="mdi mdi-sync"></i></button>
         {% endif %}
         <span class="canvas-mini-toolbar-sep"></span>
         <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
