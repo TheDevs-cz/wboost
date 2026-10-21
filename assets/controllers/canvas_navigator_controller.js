@@ -19,7 +19,11 @@ import { Controller } from "@hotwired/stimulus";
  *
  * The panel is ALWAYS visible (explicit user decision — Photoshop keeps its
  * Navigator open too): with the whole canvas in view the rectangle covers
- * the entire map and shrinks into a window as you zoom in.
+ * the entire map and shrinks into a window as you zoom in. Because of that
+ * it must be MOVABLE: the grip bar drags it anywhere inside the window, the
+ * spot is remembered per browser (localStorage, as right/bottom offsets so it
+ * keeps hugging its corner across window resizes) and a double-click on the
+ * grip returns it to the default corner.
  *
  * Thumbnail: drawImage of Fabric's lowerCanvasEl (the composited scene) onto
  * a small canvas, throttled behind after:render — one scaled blit, no Fabric
@@ -32,6 +36,11 @@ export default class extends Controller {
 
     static MAX_THUMB_WIDTH = 190;
     static MAX_THUMB_HEIGHT = 150;
+    static STORAGE_KEY = 'wboost.canvasNavigator.position';
+    // Mirrors the CSS default (right/bottom: 18px) and the minimum margin a
+    // moved panel keeps from the window edges.
+    static EDGE = 18;
+    static MIN_EDGE = 4;
 
     initialize() {
         // Outlet callbacks can fire before connect() — state must exist.
@@ -39,7 +48,11 @@ export default class extends Controller {
         this._dragging = false;
         this._scroller = null;
         this._onScroll = () => this.refresh();
-        this._onResize = () => this.refresh();
+        this._onResize = () => {
+            this._applyPosition();
+            this.refresh();
+        };
+        this._position = this._loadPosition();
     }
 
     connect() {
@@ -102,9 +115,16 @@ export default class extends Controller {
         // ALWAYS visible (user decision) — like Photoshop's Navigator panel.
         // With the whole canvas in view the rectangle simply covers the whole
         // map; it only becomes a partial window once you zoom/scroll.
+        const wasHidden = this.panelTarget.classList.contains('d-none');
         this.panelTarget.classList.remove('d-none');
 
         this._sizeThumb(geo);
+        // The panel's size follows the canvas aspect (a group tab switch can
+        // turn a square map into a tall one) — re-clamp so it never grows
+        // past the window edge from a remembered spot.
+        if (wasHidden || this._position) {
+            this._applyPosition();
+        }
 
         const navScale = this._navScale(geo);
         this.rectTarget.style.left = `${geo.visX * navScale}px`;
@@ -162,6 +182,101 @@ export default class extends Controller {
             top: Math.max(0, window.scrollY + targetY - bandCenterY),
             behavior: 'auto',
         });
+    }
+
+    // --- moving the panel ---------------------------------------------------
+
+    beginMove(event) {
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const panel = this.panelTarget;
+        const start = panel.getBoundingClientRect();
+        const grabX = event.clientX - start.left;
+        const grabY = event.clientY - start.top;
+        const handle = event.currentTarget;
+
+        try {
+            handle.setPointerCapture(event.pointerId);
+        } catch (err) {
+            // synthetic events carry no capturable pointer — move still works
+        }
+        panel.classList.add('canvas-navigator--moving');
+
+        const onMove = (e) => {
+            const left = e.clientX - grabX;
+            const top = e.clientY - grabY;
+            this._position = {
+                right: window.innerWidth - left - panel.offsetWidth,
+                bottom: window.innerHeight - top - panel.offsetHeight,
+            };
+            this._applyPosition();
+        };
+        const onUp = () => {
+            handle.removeEventListener('pointermove', onMove);
+            handle.removeEventListener('pointerup', onUp);
+            handle.removeEventListener('pointercancel', onUp);
+            panel.classList.remove('canvas-navigator--moving');
+            this._savePosition();
+        };
+        handle.addEventListener('pointermove', onMove);
+        handle.addEventListener('pointerup', onUp);
+        handle.addEventListener('pointercancel', onUp);
+    }
+
+    resetPosition(event) {
+        if (event) event.preventDefault();
+        this._position = null;
+        this._applyPosition();
+        this._savePosition();
+    }
+
+    /** Apply the remembered offsets, clamped so the whole panel stays inside
+     *  the window. Null = the stylesheet's default corner. */
+    _applyPosition() {
+        if (!this.hasPanelTarget) return;
+        const panel = this.panelTarget;
+        if (!this._position) {
+            panel.style.right = '';
+            panel.style.bottom = '';
+            return;
+        }
+        const { MIN_EDGE } = this.constructor;
+        const maxRight = Math.max(MIN_EDGE, window.innerWidth - panel.offsetWidth - MIN_EDGE);
+        const maxBottom = Math.max(MIN_EDGE, window.innerHeight - panel.offsetHeight - MIN_EDGE);
+        const right = Math.min(maxRight, Math.max(MIN_EDGE, this._position.right));
+        const bottom = Math.min(maxBottom, Math.max(MIN_EDGE, this._position.bottom));
+        panel.style.right = `${right}px`;
+        panel.style.bottom = `${bottom}px`;
+    }
+
+    // Per-viewer convenience only: storage may be unavailable (private
+    // window, blocked site data) — the panel then simply starts in its corner.
+    _loadPosition() {
+        try {
+            const raw = window.localStorage.getItem(this.constructor.STORAGE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (parsed && Number.isFinite(parsed.right) && Number.isFinite(parsed.bottom)) {
+                return { right: parsed.right, bottom: parsed.bottom };
+            }
+        } catch (err) {
+            // ignore — default corner
+        }
+        return null;
+    }
+
+    _savePosition() {
+        try {
+            if (this._position) {
+                window.localStorage.setItem(this.constructor.STORAGE_KEY, JSON.stringify(this._position));
+            } else {
+                window.localStorage.removeItem(this.constructor.STORAGE_KEY);
+            }
+        } catch (err) {
+            // ignore — position just won't persist
+        }
     }
 
     // --- thumbnail ----------------------------------------------------------

@@ -3670,6 +3670,31 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
+/* Grip bar: drags the whole panel (canvas_navigator_controller#beginMove). */
+.canvas-navigator__handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 14px;
+    margin: -4px -2px 4px;
+    color: #98a6ad;
+    font-size: 16px;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    border-radius: 4px;
+}
+
+.canvas-navigator__handle:hover {
+    color: #6c757d;
+    background: #f1f3fa;
+}
+
+.canvas-navigator--moving .canvas-navigator__handle {
+    cursor: grabbing;
+}
+
 .canvas-navigator__map {
     position: relative;
     line-height: 0;
