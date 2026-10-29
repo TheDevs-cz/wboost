@@ -42,7 +42,7 @@ use WBoost\Web\Repository\McpAccessTokenRepository;
  * The 401 speaks the protocol the MCP spec expects, so a client can discover
  * where to get a token:
  *
- *     WWW-Authenticate: Bearer resource_metadata="https://…/.well-known/oauth-protected-resource", scope="templates:read"
+ *     WWW-Authenticate: Bearer resource_metadata="https://…/.well-known/oauth-protected-resource", scope="templates:read templates:export templates:design gallery:write"
  *
  * Two shapes, per RFC 6750 §3.1: a request that presented NO usable credentials
  * gets the bare challenge (no `error=`), a request whose `wb_mcp_` token did not

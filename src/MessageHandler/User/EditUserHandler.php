@@ -27,5 +27,6 @@ readonly final class EditUserHandler
 
         $user->editProfile($message->name);
         $user->changeRoles($message->roles);
+        $user->changeMcpScopes($message->mcpScopes);
     }
 }

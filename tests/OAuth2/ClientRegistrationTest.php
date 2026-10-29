@@ -90,6 +90,39 @@ final class ClientRegistrationTest extends WebTestCase
     }
 
     /**
+     * Our metadata advertises client_secret_basic/post (for the REST API's
+     * client_credentials clients), so a connector may ask for one. Refusing
+     * that was the "Couldn't register with Wboost's sign-in service" dead end
+     * in Claude's custom connectors; RFC 7591 §3.2.1 lets us substitute, and
+     * the answer — `none`, no secret — is what tells the client to go public.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function confidentialAuthMethods(): iterable
+    {
+        yield 'client_secret_basic' => ['client_secret_basic'];
+        yield 'client_secret_post' => ['client_secret_post'];
+    }
+
+    #[DataProvider('confidentialAuthMethods')]
+    public function testARequestForAConfidentialClientIsRegisteredAsPublic(string $method): void
+    {
+        $client = self::createClient();
+
+        $registration = self::register($client, [
+            'client_name' => 'Claude',
+            'redirect_uris' => [self::CONNECTOR_REDIRECT_URI],
+            'grant_types' => ['authorization_code', 'refresh_token'],
+            'response_types' => ['code'],
+            'token_endpoint_auth_method' => $method,
+        ]);
+
+        self::assertSame(Response::HTTP_CREATED, $client->getResponse()->getStatusCode());
+        self::assertSame('none', $registration['token_endpoint_auth_method'] ?? null);
+        self::assertArrayNotHasKey('client_secret', $registration);
+    }
+
+    /**
      * `oauth2_client.identifier` is the table's PRIMARY KEY and it is
      * `VARCHAR(32)` — hard-coded in the bundle's mapping driver. A minted id
      * one character over would not fail here; it would fail on INSERT, in
@@ -403,11 +436,11 @@ final class ClientRegistrationTest extends WebTestCase
             ClientRegistrationFailed::INVALID_CLIENT_METADATA,
         ];
 
-        // Confidential clients are not registered: a secret minted for an
-        // anonymous caller is a credential we then have to protect, and it
-        // makes PKCE optional.
-        yield 'a request for a confidential client' => [
-            $ok + ['token_endpoint_auth_method' => 'client_secret_basic'],
+        // A confidential METHOD is substituted (see
+        // testARequestForAConfidentialClientIsRegisteredAsPublic), but a value
+        // that is not even a string is malformed metadata.
+        yield 'a non-string auth method' => [
+            $ok + ['token_endpoint_auth_method' => ['client_secret_basic']],
             ClientRegistrationFailed::INVALID_CLIENT_METADATA,
         ];
 

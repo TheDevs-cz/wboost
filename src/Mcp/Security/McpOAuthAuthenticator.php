@@ -18,6 +18,7 @@ use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
+use WBoost\Web\Entity\User;
 
 /**
  * The SECOND credential `/_mcp` accepts (S8-T6): an OAuth 2.1 bearer token
@@ -160,14 +161,21 @@ final class McpOAuthAuthenticator extends AbstractAuthenticator
     public function createToken(Passport $passport, string $firewallName): TokenInterface
     {
         $token = parent::createToken($passport, $firewallName);
+        $scopes = self::stringList($passport->getAttribute(self::PASSPORT_SCOPES));
+        $user = $passport->getUser();
+
+        // The admin-set ceiling, re-applied on EVERY request: the token was
+        // capped when issued, but an admin narrowing the ceiling afterwards
+        // must not wait out the token (or its refresh chain). PATs are not
+        // capped here — an admin chose their scopes when minting them.
+        if ($user instanceof User) {
+            $scopes = McpScopeCeiling::cap($user, $scopes);
+        }
 
         // THE SEAM (S1-T2), fed identically to the PAT path: raw wire strings,
         // so McpScopeChecker owns every parsing decision — including dropping
         // the REST API's `api` scope, which is not an MCP scope.
-        $token->setAttribute(
-            McpScopeChecker::TOKEN_ATTRIBUTE,
-            self::stringList($passport->getAttribute(self::PASSPORT_SCOPES)),
-        );
+        $token->setAttribute(McpScopeChecker::TOKEN_ATTRIBUTE, $scopes);
 
         return $token;
     }

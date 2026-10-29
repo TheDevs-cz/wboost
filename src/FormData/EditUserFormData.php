@@ -13,11 +13,15 @@ final class EditUserFormData
 
     public string $role = User::ROLE_DESIGNER;
 
+    /** @var list<string> */
+    public array $mcpScopes = User::DEFAULT_MCP_SCOPES;
+
     public static function fromUser(User $user): self
     {
         $data = new self();
         $data->name = $user->name;
         $data->role = UserRoleChoice::fromRoles($user->getRoles());
+        $data->mcpScopes = $user->mcpScopes;
 
         return $data;
     }

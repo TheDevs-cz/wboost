@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Mcp\Security\McpScopeCeiling;
 use WBoost\Web\Repository\OAuthClientApprovalRepository;
 use WBoost\Web\Value\ConsentDecision;
 use WBoost\Web\Value\PendingAuthorization;
@@ -91,7 +92,20 @@ final readonly class ResolveAuthorizationRequestListener
 
         $client = $event->getClient();
         $clientIdentifier = $client->getIdentifier();
-        $requested = self::requestedScopes($event);
+        $asked = self::requestedScopes($event);
+
+        // The admin-set ceiling, applied BEFORE anything else looks at the
+        // scopes: the consent screen, the decision fingerprint and the stored
+        // approval all see the capped list, so the user is never asked to
+        // approve something they could not get. The issued token is capped
+        // again by CapScopesToUserCeilingListener — this is the UX half.
+        $requested = McpScopeCeiling::cap($user, $asked);
+
+        if (McpScopeCeiling::leftNothing($asked, $requested)) {
+            $event->resolveAuthorization(AuthorizationRequestResolveEvent::AUTHORIZATION_DENIED);
+
+            return;
+        }
 
         $decision = $this->consentSession->takeDecision($user->id->toString(), $clientIdentifier, $requested);
 

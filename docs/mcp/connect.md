@@ -147,9 +147,21 @@ bin/console app:mcp:token:revoke <id>   # kill one; idempotent
 
 ## Scopes
 
-The same four scopes apply to both credential types. With OAuth you approve them
-on the consent screen; with a PAT they are the comma-separated `--scopes`. Pick
-the narrowest that does the job.
+The same four scopes apply to both credential types, and **an admin decides
+which ones each person can get**:
+
+- **PAT** — the comma-separated `--scopes` the operator passes when minting it.
+- **OAuth** — capped by the user's **"Oprávnění AI aplikací"** setting in
+  *Administrace → Uživatelé → Upravit* (`user.mcp_scopes`, default
+  `templates:read` + `templates:export`). The `/_mcp` 401 asks every client for
+  all four scopes, the consent screen then offers only what is inside that
+  setting, the issued token is capped to it, and every MCP request is capped
+  again — so **narrowing it applies on the next call**, not when the token
+  expires. A scope above the setting falls back to what it implies (design →
+  read); a request that leaves nothing (e.g. `gallery:write` alone for a
+  default user) is refused with `access_denied`. PATs are not affected by it.
+
+Pick the narrowest that does the job.
 
 | scope | what it unlocks | notes |
 |---|---|---|
@@ -236,6 +248,15 @@ A 401 carries a `WWW-Authenticate: Bearer resource_metadata="…"` header even w
 nothing was sent, so its presence only proves you reached the right endpoint, not
 that a credential was read.
 
+**Claude Desktop / claude.ai: "Couldn't register with Wboost's sign-in service".**
+Fixed 2026-10-29: registration used to refuse a client that asked for a
+`client_secret_*` auth method (which our metadata advertises for the REST API),
+and Claude's custom connector does not retry. It is now registered as a public
+client (`none`, PKCE) instead. In the *Add custom connector* dialog leave the
+OAuth fields empty, or choose **Register automatically** — not "Use Claude's
+published identity", which wboost does not support. The skill can be uploaded
+separately (zip `plugin/wboost/skills/wboost`, *Customize → Skills*).
+
 **401 and the browser flow never starts.**
 Something is sending an `Authorization` header. A client that thinks it is
 authenticating will not fall back to OAuth, so an empty or stale header is a dead
@@ -245,8 +266,9 @@ end rather than a retry. Remove the header (or drop and re-add the server with n
 **A tool the docs mention is missing from `/mcp`'s list.**
 Your credential lacks that tool's scope. `export_variant` needs
 `templates:export`; `preview_design` / `set_design` need `templates:design`;
-`upload_image` needs `gallery:write`. With OAuth, re-authorize and approve the
-missing permission. With a PAT, mint a new one — scopes cannot be edited on an
+`upload_image` needs `gallery:write`. With OAuth, ask an admin to widen your
+"Oprávnění AI aplikací" setting, then re-authorize and approve the new
+permission. With a PAT, mint a new one — scopes cannot be edited on an
 existing token.
 
 **The tool list is empty but the server is connected.**

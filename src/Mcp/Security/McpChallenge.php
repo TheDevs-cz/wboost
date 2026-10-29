@@ -23,8 +23,9 @@ use Symfony\Component\HttpFoundation\Response;
  * - **401** — the request could not be authenticated. Per RFC 6750 §3.1 the
  *   `error` code is OMITTED when nothing was presented (an error code implies a
  *   request that actually tried) and is `invalid_token` when a `wb_mcp_` token
- *   was presented but did not resolve. The advertised `scope` is the MINIMUM to
- *   get in at all.
+ *   was presented but did not resolve. The advertised `scope` is EVERY MCP
+ *   scope (space-separated), because clients authorize exactly what it names
+ *   — see {@see unauthorized()}.
  * - **403** — authentication succeeded, the token's scopes did not cover the
  *   tool. `error="insufficient_scope"` and the advertised `scope` is the one
  *   that was REQUIRED, so the agent can tell its user exactly which scope to
@@ -45,9 +46,16 @@ final readonly class McpChallenge
             Response::HTTP_UNAUTHORIZED,
             $error,
             $description,
-            // The floor: every MCP token carries at least this much, so it is
-            // the honest thing to ask an unauthenticated client to obtain.
-            McpScope::TemplatesRead,
+            // EVERY scope, not the `templates:read` floor this used to name.
+            // Clients take the 401's `scope` literally as what to authorize
+            // (claude.ai does, per its connector docs), and a tool the token
+            // lacks is never even listed — so a client that asked for the
+            // floor never meets the 403 that would make it ask again, and its
+            // user is stuck read-only for good. Narrowing is the consent
+            // screen's job, where a human sees each scope; McpScope::values()
+            // is derived from the enum, so a new scope is asked for the day it
+            // is declared.
+            implode(' ', McpScope::values()),
         );
     }
 
@@ -58,7 +66,7 @@ final readonly class McpChallenge
      */
     public function insufficientScope(Request $request, null|McpScope $required, string $description): JsonResponse
     {
-        return $this->challenge($request, Response::HTTP_FORBIDDEN, 'insufficient_scope', $description, $required);
+        return $this->challenge($request, Response::HTTP_FORBIDDEN, 'insufficient_scope', $description, $required?->value);
     }
 
     /**
@@ -71,7 +79,7 @@ final readonly class McpChallenge
         int $status,
         null|string $error,
         string $description,
-        null|McpScope $scope,
+        null|string $scope,
     ): JsonResponse {
         $parameters = [];
         $body = [
@@ -86,8 +94,8 @@ final readonly class McpChallenge
         $parameters[] = sprintf('resource_metadata="%s"', $this->resourceMetadataUrl($request));
 
         if ($scope !== null) {
-            $parameters[] = sprintf('scope="%s"', $scope->value);
-            $body['scope'] = $scope->value;
+            $parameters[] = sprintf('scope="%s"', $scope);
+            $body['scope'] = $scope;
         }
 
         return new JsonResponse(

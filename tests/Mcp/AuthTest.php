@@ -44,7 +44,12 @@ final class AuthTest extends WebTestCase
             sprintf('resource_metadata="%s"', self::EXPECTED_RESOURCE_METADATA),
             $challenge,
         );
-        self::assertStringContainsString('scope="templates:read"', $challenge);
+        // Every scope, not the read floor: a client authorizes exactly what the
+        // 401 names, and one that asked for read only never sees the other tools.
+        self::assertStringContainsString(
+            sprintf('scope="%s"', implode(' ', McpScope::values())),
+            $challenge,
+        );
 
         // Nothing was presented, so RFC 6750 §3.1 says no error code.
         self::assertStringNotContainsString('error=', $challenge);

@@ -41,6 +41,7 @@ final class EditUserController extends AbstractController
                 $user->id->toString(),
                 $data->name,
                 UserRoleChoice::toRoles($data->role),
+                $data->mcpScopes,
             ));
 
             $this->addFlash('success', 'Uživatel byl upraven.');

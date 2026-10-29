@@ -140,7 +140,8 @@ final readonly class DynamicClientRegistrar
      * security in exchange for a credential we then have to protect. RFC 7591
      * §3.2.1 lets the server substitute metadata, and the response says `none`,
      * so a caller that omitted the field (whose RFC default would be
-     * `client_secret_basic`) is told what it actually got.
+     * `client_secret_basic`) — or that ASKED for a secret — is told what it
+     * actually got.
      */
     private const string TOKEN_ENDPOINT_AUTH_METHOD_NONE = 'none';
 
@@ -264,15 +265,21 @@ final readonly class DynamicClientRegistrar
     {
         $method = $metadata['token_endpoint_auth_method'] ?? null;
 
-        if ($method === null || $method === self::TOKEN_ENDPOINT_AUTH_METHOD_NONE) {
+        // A request for a confidential method is SUBSTITUTED, not refused. It
+        // used to be refused, and that silently broke Claude's custom
+        // connectors ("Couldn't register with Wboost's sign-in service"): our
+        // metadata advertises client_secret_basic/post for the REST API's
+        // client_credentials clients, a connector reasonably picks one, and a
+        // 400 here is a dead end it does not retry. Answering `none` with no
+        // secret is what RFC 7591 §3.2.1 allows, and a conformant client then
+        // authenticates as public — with PKCE, which is the point.
+        if ($method === null || is_string($method)) {
             return;
         }
 
-        throw ClientRegistrationFailed::invalidClientMetadata(sprintf(
-            'Only public clients can be registered dynamically, so '
-            . '"token_endpoint_auth_method" must be "%s".',
-            self::TOKEN_ENDPOINT_AUTH_METHOD_NONE,
-        ));
+        throw ClientRegistrationFailed::invalidClientMetadata(
+            'The "token_endpoint_auth_method" field must be a string.',
+        );
     }
 
     /**

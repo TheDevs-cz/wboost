@@ -324,6 +324,10 @@ final class TestDataFixture extends Fixture
             $date,
             true,
         );
+        // Every MCP scope: the OAuth suites exercise consent and implication
+        // with design/gallery scopes as USER_1. Everyone else keeps the
+        // read + export default, which OAuthScopeCeilingTest covers as USER_2.
+        $user1->changeMcpScopes(McpScope::values());
         $manager->persist($user1);
 
         // The token is REALLY encrypted (test env key) — destination/publish

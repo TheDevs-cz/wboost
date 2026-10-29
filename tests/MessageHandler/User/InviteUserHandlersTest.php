@@ -114,12 +114,13 @@ final class InviteUserHandlersTest extends KernelTestCase
     public function testEditUserUpdatesNameAndRoles(): void
     {
         $handler = self::getContainer()->get(EditUserHandler::class);
-        $handler(new EditUser(TestDataFixture::USER_2_ID, 'Edited Name', [User::ROLE_ADMIN]));
+        $handler(new EditUser(TestDataFixture::USER_2_ID, 'Edited Name', [User::ROLE_ADMIN], ['templates:design']));
         $this->flushAndClear();
 
         $user = self::getContainer()->get(UserRepository::class)->getById(Uuid::fromString(TestDataFixture::USER_2_ID));
         self::assertSame('Edited Name', $user->name);
         self::assertContains(User::ROLE_ADMIN, $user->getRoles());
+        self::assertSame(['templates:design'], $user->mcpScopes);
     }
 
     public function testResendInvitationSendsEmailForPendingUser(): void
