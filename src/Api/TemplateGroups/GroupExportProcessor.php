@@ -21,6 +21,7 @@ use WBoost\Web\Services\TemplateGroup\GroupExportArchive;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
+use WBoost\Web\Value\ExportFormat;
 
 /**
  * The group EXPORT — both operations of the web fill page's download buttons:
@@ -67,19 +68,49 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             throw new NotFoundHttpException('The group has no variants to export.');
         }
 
+        $format = $data->format === null ? ExportFormat::Png : ExportFormat::tryFrom(strtolower($data->format));
+
+        if ($format === null) {
+            return ExportErrorResponse::invalidFormat();
+        }
+
+        if ($format === ExportFormat::Pdf) {
+            // Print formats only: a single screen dimension is refused, the
+            // ZIP carries the print members (none at all → refused too).
+            if ($single && !$variants[0]->dimension->isPrintFormat()) {
+                return ExportErrorResponse::pdfNotAvailable($variants[0]->id->toString());
+            }
+
+            $variants = array_values(array_filter(
+                $variants,
+                static fn (TemplateVariant $variant): bool => $variant->dimension->isPrintFormat(),
+            ));
+
+            if ($variants === []) {
+                return ExportErrorResponse::pdfNotAvailable();
+            }
+        }
+
         /** @var list<array{TemplateVariant, string}> $renders */
         $renders = [];
 
         foreach ($variants as $variant) {
             try {
-                $renders[] = [$variant, $this->apiExportRenderer->renderGroupMember($variant, $data->inputs, $data->images, $data->placements, shapeColors: $data->shapeColors)];
+                $renders[] = [$variant, $this->apiExportRenderer->renderExport(
+                    $format,
+                    $variant,
+                    $this->archive->documentTitle($group, $variant),
+                    $data->inputs,
+                    ApiExportRenderer::imagesForVariant($data->images, $data->placements, $variant->id->toString()),
+                    $data->shapeColors,
+                )];
             } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
                 return ExportErrorResponse::fromThrowable($error, $variant->id->toString()) ?? throw $error;
             }
         }
 
         foreach ($variants as $variant) {
-            $this->recordExportUsage->record($variant, ExportChannel::Api);
+            $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
         }
 
         $this->recordExportVersion->recordGroup(
@@ -92,15 +123,15 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             [$variant, $bytes] = $renders[0];
 
             return new Response($bytes, Response::HTTP_OK, [
-                'Content-Type' => 'image/png',
-                'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->fileName($group, $variant)),
+                'Content-Type' => $format->contentType(),
+                'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->fileName($group, $variant, $format)),
                 'Cache-Control' => 'no-store',
             ]);
         }
 
-        return new Response($this->archive->build($group, $renders), Response::HTTP_OK, [
+        return new Response($this->archive->build($group, $renders, $format), Response::HTTP_OK, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->archiveName($group)),
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->archiveName($group, $format)),
             'Cache-Control' => 'no-store',
         ]);
     }

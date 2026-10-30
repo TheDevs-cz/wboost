@@ -42,7 +42,16 @@ readonly final class CompilationContext
     public function __construct(
         public array $allowedFonts,
         public array $assets,
+        // The target variant's print bleed per side in canvas px (0 for
+        // screen formats): the background covers the bleed box, and artwork
+        // reaching into the bleed is not "off canvas".
+        public int $bleed = 0,
     ) {
+    }
+
+    public function withBleed(int $bleed): self
+    {
+        return new self($this->allowedFonts, $this->assets, max(0, $bleed));
     }
 
     /**

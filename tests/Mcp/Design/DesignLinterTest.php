@@ -572,6 +572,31 @@ final class DesignLinterTest extends KernelTestCase
     // helpers
     // -----------------------------------------------------------------
 
+    /**
+     * A print variant's bleed is printed and trimmed off — artwork reaching
+     * into it is the point, not an overflow. Only past its outer edge counts.
+     */
+    public function testArtworkInThePrintBleedIsNotOutOfBounds(): void
+    {
+        $document = self::document([
+            self::image('photo', -35.0, -35.0, self::CANVAS_SIDE + 70.0, self::CANVAS_SIDE + 70.0, placeholder: true),
+        ]);
+        $linter = self::getContainer()->get(DesignLinter::class);
+        $codes = static fn (LintReport $report): array => array_map(
+            static fn ($finding) => $finding->code,
+            $report->findings,
+        );
+
+        $withBleed = new LintContext(
+            self::projectId(),
+            new CompilationContext([self::FAMILY, self::UNMEASURABLE_FAMILY], [], bleed: 35),
+            [self::BRAND_PRIMARY, self::BRAND_SECONDARY],
+        );
+
+        self::assertNotContains(LintCode::OutOfCanvasBounds, $codes($linter->lint($document, $withBleed)));
+        self::assertContains(LintCode::OutOfCanvasBounds, $codes($linter->lint($document, self::context())));
+    }
+
     private function lint(DesignDocument $document): LintReport
     {
         return self::getContainer()->get(DesignLinter::class)->lint($document, self::context());

@@ -100,15 +100,17 @@ readonly final class GetProjectTemplateStats
               v.dimension_unit_width AS unit_width,
               v.dimension_unit_height AS unit_height,
               v.dimension_preset AS preset,
+              v.dimension_bleed_mm AS bleed_mm,
+              v.dimension_crop_marks AS crop_marks,
               COUNT(*) AS variant_count
             FROM template_variant v
             INNER JOIN template t ON t.id = v.template_id
             WHERE t.project_id IN (:projectIds)
-            GROUP BY t.project_id, v.dimension_unit, v.dimension_unit_width, v.dimension_unit_height, v.dimension_preset
-            ORDER BY t.project_id, COUNT(*) DESC, v.dimension_unit, v.dimension_unit_width, v.dimension_unit_height, v.dimension_preset
+            GROUP BY t.project_id, v.dimension_unit, v.dimension_unit_width, v.dimension_unit_height, v.dimension_preset, v.dimension_bleed_mm, v.dimension_crop_marks
+            ORDER BY t.project_id, COUNT(*) DESC, v.dimension_unit, v.dimension_unit_width, v.dimension_unit_height, v.dimension_preset, v.dimension_bleed_mm, v.dimension_crop_marks
         SQL;
 
-        /** @var list<array{project_id: string, unit: string, unit_width: float|string, unit_height: float|string, preset: null|string, variant_count: int|string}> $rows */
+        /** @var list<array{project_id: string, unit: string, unit_width: float|string, unit_height: float|string, preset: null|string, bleed_mm: float|string, crop_marks: bool|int|string, variant_count: int|string}> $rows */
         $rows = $this->entityManager->getConnection()
             ->executeQuery($sql, ['projectIds' => $projectIds], ['projectIds' => ArrayParameterType::STRING])
             ->fetchAllAssociative();
@@ -125,6 +127,8 @@ readonly final class GetProjectTemplateStats
                     unitWidth: (float) $row['unit_width'],
                     unitHeight: (float) $row['unit_height'],
                     preset: $preset === null ? null : DimensionPreset::from($preset),
+                    bleedMm: (float) $row['bleed_mm'],
+                    cropMarks: in_array($row['crop_marks'], [true, 1, '1', 't', 'true'], true),
                 ),
                 variantCount: (int) $row['variant_count'],
             );

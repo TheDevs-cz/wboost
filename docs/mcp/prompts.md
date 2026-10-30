@@ -77,7 +77,12 @@ long edge, and not counted as an export. Iterate here as much as you like.
 
 `export_variant` — full-size lossless PNG at the variant's designed size (2480 ×
 3508 for A4 at 300 DPI). Needs the `templates:export` scope, and **is** recorded
-in the project's usage report, so ask for it once, at the end.
+in the project's usage report, so ask for it once, at the end. For a print
+format (mm / cm) ask for **"PDF pro tisk"** and the assistant passes
+`format: "pdf"`: the print PDF (PDF/X-1a, CMYK FOGRA39, the variant's bleed +
+crop marks) comes back as an embedded file. Artwork meant to reach the paper
+edge should extend into the bleed (`dimension.bleedPx` past every canvas edge)
+— the design linter accepts it there.
 
 `/wboost:export` runs prompts 2 → 6 as one command:
 

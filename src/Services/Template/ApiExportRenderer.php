@@ -7,11 +7,15 @@ namespace WBoost\Web\Services\Template;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\RenderImageFormat;
+use WBoost\Web\Value\ResolvedImageOverrides;
+use WBoost\Web\Value\ResolvedInputOverrides;
 
 /**
  * The API's render core — every API render (variant preview + export, group
@@ -35,7 +39,34 @@ readonly final class ApiExportRenderer
         private ResolveImageOverrides $resolveImageOverrides,
         private TemplateVariantImageRendererInterface $renderer,
         private ResolveShapeColorOverrides $resolveShapeColorOverrides,
+        private PrintPdfRenderer $printPdfRenderer,
     ) {
+    }
+
+    /**
+     * The exported FILE in either format: the PNG of {@see render()} or the
+     * print PDF (strict like every API render). The caller checks that a PDF
+     * is only asked of a print format.
+     *
+     * @param array<array-key, mixed> $inputs
+     * @param array<array-key, mixed> $images
+     * @param array<array-key, mixed> $shapeColors
+     */
+    public function renderExport(
+        ExportFormat $exportFormat,
+        TemplateVariant $variant,
+        string $title,
+        array $inputs,
+        array $images,
+        array $shapeColors = [],
+    ): string {
+        if ($exportFormat === ExportFormat::Png) {
+            return $this->render($variant, $inputs, $images, shapeColors: $shapeColors);
+        }
+
+        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors);
+
+        return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title, strictContainerOverflow: true);
     }
 
     /**
@@ -55,17 +86,7 @@ readonly final class ApiExportRenderer
         RenderImageFormat $format = RenderImageFormat::Png,
         array $shapeColors = [],
     ): string {
-        $overrides = $this->resolveTextOverrides->resolve(
-            $variant->inputs,
-            self::stringKeyed($inputs),
-            richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, self::stringKeyed($shapeColors), lenient: false));
-
-        $imageOverrides = $this->resolveImageOverrides->resolve(
-            $variant->imageInputs,
-            $variant->template->project->id,
-            self::stringKeyed($images),
-        );
+        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors);
 
         return $this->renderer->renderToBytes(
             $variant,
@@ -153,6 +174,29 @@ readonly final class ApiExportRenderer
         }
 
         return $merged;
+    }
+
+    /**
+     * @param array<array-key, mixed> $inputs
+     * @param array<array-key, mixed> $images
+     * @param array<array-key, mixed> $shapeColors
+     * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
+     */
+    private function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors): array
+    {
+        $overrides = $this->resolveTextOverrides->resolve(
+            $variant->inputs,
+            self::stringKeyed($inputs),
+            richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, self::stringKeyed($shapeColors), lenient: false));
+
+        $imageOverrides = $this->resolveImageOverrides->resolve(
+            $variant->imageInputs,
+            $variant->template->project->id,
+            self::stringKeyed($images),
+        );
+
+        return [$overrides, $imageOverrides];
     }
 
     /**

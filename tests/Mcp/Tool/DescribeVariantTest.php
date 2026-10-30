@@ -52,7 +52,7 @@ final class DescribeVariantTest extends WebTestCase
         self::assertFalse($result['grouped']);
 
         self::assertSame(
-            ['label' => '1:1', 'preset' => '1:1', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1080, 'width' => 1080, 'height' => 1080],
+            ['label' => '1:1', 'preset' => '1:1', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1080, 'width' => 1080, 'height' => 1080, 'printFormat' => false, 'bleedMm' => 0, 'bleedPx' => 0, 'cropMarks' => false],
             $result['dimension'],
             'Dimensions read with the same keys get_context and find_templates already used.',
         );

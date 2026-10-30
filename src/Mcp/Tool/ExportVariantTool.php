@@ -7,6 +7,7 @@ namespace WBoost\Web\Mcp\Tool;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Mcp\Schema\Content\EmbeddedResource;
 use Mcp\Schema\Content\ImageContent;
 use Mcp\Schema\Result\CallToolResult;
 use WBoost\Web\Entity\TemplateVariant;
@@ -17,11 +18,13 @@ use WBoost\Web\Mcp\Response\ExportVariantResponse;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
+use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
@@ -94,6 +97,7 @@ readonly final class ExportVariantTool
         private TemplateVariantImageRendererInterface $renderer,
         private RecordExportUsage $recordExportUsage,
         private RecordExportVersion $recordExportVersion,
+        private PrintPdfRenderer $printPdfRenderer,
     ) {
     }
 
@@ -122,14 +126,22 @@ readonly final class ExportVariantTool
      * an invalid colour, a list or checkbox line on an input that does not
      * allow them, a picture from a folder the slot does not accept.
      *
-     * The reply is a JSON summary followed by the PNG. Nothing about the
-     * template is changed — this only draws. A variant id this account cannot
+     * format "pdf" exports the PRINT PDF instead — PDF/X-1a, CMYK (Coated
+     * FOGRA39), with the variant's bleed and crop marks (describe_variant
+     * reports them under print) — and is only available for print formats
+     * (mm / cm, print.printFormat true). Design artwork that should reach the
+     * paper edge to extend into the bleed (negative coordinates / past the
+     * canvas size by print.bleedPx).
+     *
+     * The reply is a JSON summary followed by the PNG (or the PDF as an
+     * embedded resource). Nothing about the template is changed — this only draws. A variant id this account cannot
      * see reports exactly the same failure as an id that does not exist.
      *
      * @param string $variantId UUID of the template variant to export, as returned by describe_variant or by find_templates in templates[].variants[].id.
      * @param array<array-key, mixed> $inputs Map of text input id (describe_variant inputs[].id) to the value to render. Omit entirely to export the variant's own sample texts.
      * @param array<array-key, mixed> $images Map of image slot id (describe_variant imageInputs[].id) to a gallery image id, a placement object, or {"hide": true}. Omit entirely to keep every stand-in picture.
      * @param array<array-key, mixed> $shapeColors Map of recolourable shape id (describe_variant shapeInputs[].id) to the "#rrggbb" to repaint it in — one of that shape's colorOptions unless freeColor is true. Omit to keep the designed colours.
+     * @param string $format "png" (default) or "pdf" — the print PDF, print formats (mm / cm) only.
      */
     #[McpTool(name: 'export_variant')]
     public function __invoke(
@@ -140,8 +152,16 @@ readonly final class ExportVariantTool
         array $images = [],
         #[Schema(type: 'object', additionalProperties: true)]
         array $shapeColors = [],
+        #[Schema(enum: ['png', 'pdf'])]
+        string $format = 'png',
     ): CallToolResult {
         $variant = $this->fill->variant($variantId);
+        $exportFormat = ExportFormat::tryFrom(strtolower($format))
+            ?? throw new ToolCallException('format must be "png" or "pdf".');
+
+        if ($exportFormat === ExportFormat::Pdf && !$variant->dimension->isPrintFormat()) {
+            throw new ToolCallException('The print PDF exists only for print formats (mm / cm); this variant is a screen (px) format — export it as "png".');
+        }
 
         $providedInputs = VariantFill::stringKeyed($inputs);
         $providedImages = VariantFill::stringKeyed($images);
@@ -152,11 +172,11 @@ readonly final class ExportVariantTool
         $overrides = $this->fill->withShapeColors($variant, $this->fill->texts($variant, $providedInputs), $providedShapeColors);
         $imageOverrides = $this->fill->images($variant, $providedImages);
 
-        $png = $this->render($variant, $overrides, $imageOverrides);
+        $bytes = $this->render($variant, $overrides, $imageOverrides, $exportFormat);
 
         // Last step before the reply, and only on the success path — see the
         // class docblock.
-        $this->recordExportUsage->record($variant, ExportChannel::Mcp);
+        $this->recordExportUsage->record($variant, ExportChannel::Mcp, $exportFormat);
         $this->recordExportVersion->recordVariant(
             $variant,
             ExportChannel::Mcp,
@@ -167,16 +187,22 @@ readonly final class ExportVariantTool
             variantId: $variant->id->toString(),
             templateName: $variant->template->name,
             projectName: $variant->template->project->name,
-            format: self::FORMAT->contentType(),
+            format: $exportFormat === ExportFormat::Pdf ? $exportFormat->contentType() : self::FORMAT->contentType(),
             width: $variant->dimension->width(),
             height: $variant->dimension->height(),
-            sizeBytes: strlen($png),
+            sizeBytes: strlen($bytes),
             warnings: $warnings,
         );
 
         return new CallToolResult([
             VariantFill::summary($summary),
-            ImageContent::fromString($png, self::FORMAT->contentType()),
+            $exportFormat === ExportFormat::Pdf
+                ? EmbeddedResource::fromBlob(
+                    sprintf('wboost://exports/%s.pdf', $variant->id->toString()),
+                    base64_encode($bytes),
+                    $exportFormat->contentType(),
+                )
+                : ImageContent::fromString($bytes, self::FORMAT->contentType()),
         ]);
     }
 
@@ -192,8 +218,19 @@ readonly final class ExportVariantTool
         TemplateVariant $variant,
         ResolvedInputOverrides $overrides,
         ResolvedImageOverrides $imageOverrides,
+        ExportFormat $exportFormat,
     ): string {
         try {
+            if ($exportFormat === ExportFormat::Pdf) {
+                return $this->printPdfRenderer->render(
+                    $variant,
+                    $overrides,
+                    $imageOverrides,
+                    sprintf('%s – %s', $variant->template->name, $variant->dimension->label()),
+                    strictContainerOverflow: true,
+                );
+            }
+
             return $this->renderer->renderToBytes(
                 $variant,
                 $overrides,

@@ -171,7 +171,7 @@ readonly final class DesignLinter
             }
 
             if ($element instanceof ImageElement) {
-                foreach ($this->checkImage($element, $index, $rects[$element->id], $heights[$element->id], $canvas) as $finding) {
+                foreach ($this->checkImage($element, $index, $rects[$element->id], $heights[$element->id], $canvas, $context->compilation->bleed) as $finding) {
                     $findings[] = $finding;
                 }
 
@@ -179,7 +179,7 @@ readonly final class DesignLinter
             }
 
             if ($element instanceof ShapeElement) {
-                foreach (self::checkShape($element, $index, $rects[$element->id], $heights[$element->id], $canvas) as $finding) {
+                foreach (self::checkShape($element, $index, $rects[$element->id], $heights[$element->id], $canvas, $context->compilation->bleed) as $finding) {
                     $findings[] = $finding;
                 }
             }
@@ -377,7 +377,7 @@ readonly final class DesignLinter
             $findings[] = $maxLengthFinding;
         }
 
-        $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, heightIsEstimated: true);
+        $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, $context->compilation->bleed, heightIsEstimated: true);
 
         if ($bounds !== null) {
             $findings[] = $bounds;
@@ -389,7 +389,7 @@ readonly final class DesignLinter
     /**
      * @return list<LintFinding>
      */
-    private function checkShape(ShapeElement $element, int $index, Rect $rect, float $height, CanvasSpec $canvas): array
+    private function checkShape(ShapeElement $element, int $index, Rect $rect, float $height, CanvasSpec $canvas, int $bleed): array
     {
         $path = sprintf('elements[%d]', $index);
 
@@ -402,7 +402,7 @@ readonly final class DesignLinter
         // deliberate off-brand device (a neutral panel, a scrim over a photo),
         // so warning on every one would train the agent to ignore the code
         // that matters on text.
-        $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, heightIsEstimated: false);
+        $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, $bleed, heightIsEstimated: false);
 
         if ($bounds !== null) {
             $findings[] = $bounds;
@@ -414,7 +414,7 @@ readonly final class DesignLinter
     /**
      * @return list<LintFinding>
      */
-    private function checkImage(ImageElement $element, int $index, Rect $rect, float $height, CanvasSpec $canvas): array
+    private function checkImage(ImageElement $element, int $index, Rect $rect, float $height, CanvasSpec $canvas, int $bleed): array
     {
         $path = sprintf('elements[%d]', $index);
 
@@ -434,7 +434,7 @@ readonly final class DesignLinter
             );
         }
 
-        $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, heightIsEstimated: false);
+        $bounds = self::checkBounds($element->id, $path, $rect, $height, $canvas, $bleed, heightIsEstimated: false);
 
         if ($bounds !== null) {
             $findings[] = $bounds;
@@ -513,25 +513,29 @@ readonly final class DesignLinter
         Rect $rect,
         float $height,
         CanvasSpec $canvas,
+        int $bleed,
         bool $heightIsEstimated,
     ): null|LintFinding {
         $overflows = [];
+        // A print variant's bleed is printed and then trimmed off: artwork is
+        // MEANT to reach into it, so only past its outer edge is "off canvas".
+        $tolerance = self::EDGE_TOLERANCE + $bleed;
 
-        if ($rect->x < -self::EDGE_TOLERANCE) {
+        if ($rect->x < -$tolerance) {
             $overflows[] = sprintf('%s px past the left edge', self::number(-$rect->x));
         }
 
-        if ($rect->y < -self::EDGE_TOLERANCE) {
+        if ($rect->y < -$tolerance) {
             $overflows[] = sprintf('%s px past the top edge', self::number(-$rect->y));
         }
 
-        if ($rect->right() > $canvas->width + self::EDGE_TOLERANCE) {
+        if ($rect->right() > $canvas->width + $tolerance) {
             $overflows[] = sprintf('%s px past the right edge', self::number($rect->right() - $canvas->width));
         }
 
         $bottom = $rect->y + $height;
 
-        if ($bottom > $canvas->height + self::EDGE_TOLERANCE) {
+        if ($bottom > $canvas->height + $tolerance) {
             $overflows[] = sprintf(
                 '%s px past the bottom edge%s',
                 self::number($bottom - $canvas->height),
@@ -551,12 +555,13 @@ readonly final class DesignLinter
             $slug,
             $path,
             sprintf(
-                '%s ("%s") extends %s of the %d × %d canvas. Nothing is clamped anywhere in the pipeline, so whatever hangs over is cropped out of the export — move it inside, or place it with "at" so it scales with the canvas.',
+                '%s ("%s") extends %s of the %d × %d canvas%s. Nothing is clamped anywhere in the pipeline, so whatever hangs over is cropped out of the export — move it inside, or place it with "at" so it scales with the canvas.',
                 $path,
                 $slug,
                 self::joinList($overflows),
                 $canvas->width,
                 $canvas->height,
+                $bleed > 0 ? sprintf(' (beyond its %d px print bleed)', $bleed) : '',
             ),
         );
     }

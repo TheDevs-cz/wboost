@@ -458,6 +458,7 @@ readonly final class DesignCompiler
             (float) $document->canvas->width,
             (float) $document->canvas->height,
             $inputIds[$slug] ?? null,
+            $context->bleed,
         );
 
         // `assetId` is not BackgroundLayer's to know (its other callers write a

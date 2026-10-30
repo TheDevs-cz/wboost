@@ -87,7 +87,8 @@ readonly final class DesignPreflight
         $issues = self::fitsTheVariant($document, $variant);
 
         $project = $variant->template->project;
-        $compilation = $this->compilationContextFactory->forProject($project, $document);
+        $compilation = $this->compilationContextFactory->forProject($project, $document)
+            ->withBleed($variant->dimension->bleedPixels());
 
         $report = $this->linter->lint($document, LintContext::forProject(
             $project->id,

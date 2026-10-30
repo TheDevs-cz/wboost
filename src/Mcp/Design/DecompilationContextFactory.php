@@ -55,7 +55,8 @@ readonly final class DecompilationContextFactory
         /** @var mixed $decoded */
         $decoded = $variant->canvas === '' ? [] : json_decode($variant->canvas, true);
 
-        return $this->forCanvas($variant->template->project, is_array($decoded) ? $decoded : []);
+        return $this->forCanvas($variant->template->project, is_array($decoded) ? $decoded : [])
+            ->withBleed($variant->dimension->bleedPixels());
     }
 
     /**

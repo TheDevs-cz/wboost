@@ -838,11 +838,13 @@ readonly final class DesignDecompiler
         $scaleX = self::number($object, 'scaleX') ?? 1.0;
         $scaleY = self::number($object, 'scaleY') ?? 1.0;
 
-        $offGrid = abs($left) > self::GEOMETRY_EPSILON || abs($top) > self::GEOMETRY_EPSILON;
+        // The cover fit is over the print bleed box: anchored at (-bleed, -bleed).
+        $bleed = $context->bleed;
+        $offGrid = abs($left + $bleed) > self::GEOMETRY_EPSILON || abs($top + $bleed) > self::GEOMETRY_EPSILON;
 
         if (!$offGrid && $asset !== null && $asset->hasNaturalSize()) {
             assert($asset->width !== null && $asset->height !== null);
-            $cover = max($canvas->width / $asset->width, $canvas->height / $asset->height);
+            $cover = max(($canvas->width + 2 * $bleed) / $asset->width, ($canvas->height + 2 * $bleed) / $asset->height);
             $offGrid = abs($scaleX - $cover) > 1.0e-4 || abs($scaleY - $cover) > 1.0e-4;
         }
 

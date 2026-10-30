@@ -83,3 +83,23 @@ passes the same map to every member. Versions record it
 `GET /api/export-versions/{id}` returns it as `fill.shapeColors` (`{}` when
 empty). MCP mirrors all of it: `describe_variant.shapeInputs[]`,
 `render_variant` / `export_variant` `shapeColors`, DSL shape `userColor`.
+
+### Print PDF over the API + MCP (2026-10-30)
+
+`ExportRequest` / `GroupExportRequest` carry an optional `format`
+(`"png"` default | `"pdf"`); `ApiExportRenderer::renderExport()` routes PDF
+through `Services/Print/PrintPdfRenderer` with STRICT container overflow, like
+every API render. Print formats only (`TemplateDimension::isPrintFormat()`):
+a px variant → 400 `pdf_not_available` (`ExportErrorResponse`), an unknown
+value → 400 `invalid_format`; the group PDF ZIP filters to the print members.
+The listing exposes `printFormat`, `bleedMm`, `cropMarks`; a background slot's
+`frame` is `PlaceholderFrame::backgroundCover()` — negative origin by the
+bleed. MCP mirrors it: `export_variant` `format: "pdf"` returns an
+`EmbeddedResource` blob (`wboost://exports/{id}.pdf`), the variant/context
+dimension responses carry `printFormat`/`bleedMm`/`bleedPx`/`cropMarks`
+(kept field-for-field identical, `GetProjectTemplateStats` groups by them),
+and the design pipeline knows the bleed (`CompilationContext::withBleed()` in
+`DesignPreflight`, `DecompilationContextFactory::forVariant`): the compiler's
+background covers the bleed box, the decompiler's cover check expects it, and
+`DesignLinter::checkBounds` tolerates artwork inside the bleed.
+

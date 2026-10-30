@@ -159,6 +159,9 @@ final readonly class TemplatesProvider implements ProviderInterface
             richTextOptions: $this->buildRichTextOptions($variant),
             groupMember: $variant->group !== null,
             shapeInputs: $this->buildShapeInputs($canvas),
+            printFormat: $variant->dimension->isPrintFormat(),
+            bleedMm: $variant->dimension->bleedMm,
+            cropMarks: $variant->dimension->cropMarks,
         );
     }
 

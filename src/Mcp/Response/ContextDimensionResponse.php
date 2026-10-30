@@ -33,6 +33,13 @@ readonly final class ContextDimensionResponse
         public float $unitHeight,
         public int $width,
         public int $height,
+        // The print setup, as on VariantDimensionResponse: a print format
+        // (mm / cm) also exports a print PDF; its bleed (per side, in canvas
+        // px) is drawn past the canvas edges. 0 / false for screen formats.
+        public bool $printFormat,
+        public float $bleedMm,
+        public int $bleedPx,
+        public bool $cropMarks,
         public int $variantCount,
     ) {
     }

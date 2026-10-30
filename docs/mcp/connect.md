@@ -328,7 +328,7 @@ Nine tools:
 | `describe_variant` | `templates:read` | one variant's fillable surface — input ids, their rules, image slots, containers |
 | `list_gallery` | `templates:read` | one level of a project's picture library |
 | `render_variant` | `templates:read` | a cheap downscaled WebP preview of a filled variant |
-| `export_variant` | `templates:export` | the deliverable — full-size lossless PNG, recorded as an export |
+| `export_variant` | `templates:export` | the deliverable — full-size lossless PNG (or `format: "pdf"`: the print PDF, print formats only), recorded as an export |
 | `upload_image` | `gallery:write` | add a picture to a project's gallery and get its id back |
 | `preview_design` | `templates:design` | compile and draw a design document without saving anything |
 | `set_design` | `templates:design` | replace a variant's design, guarded against destroying what it cannot express |

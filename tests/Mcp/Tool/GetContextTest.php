@@ -167,15 +167,15 @@ final class GetContextTest extends WebTestCase
         // the encode flags. JSON has one number type, so this is a formatting
         // detail, not a contract change — but it is what a consumer sees.
         self::assertSame(
-            ['label' => '1:1', 'preset' => '1:1', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1080, 'width' => 1080, 'height' => 1080, 'variantCount' => 5],
+            ['label' => '1:1', 'preset' => '1:1', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1080, 'width' => 1080, 'height' => 1080, 'printFormat' => false, 'bleedMm' => 0, 'bleedPx' => 0, 'cropMarks' => false, 'variantCount' => 5],
             $byLabel['1:1'],
         );
         self::assertSame(
-            ['label' => '210 × 297 mm', 'preset' => null, 'unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'width' => 2480, 'height' => 3508, 'variantCount' => 2],
+            ['label' => '210 × 297 mm', 'preset' => null, 'unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'width' => 2480, 'height' => 3508, 'printFormat' => true, 'bleedMm' => 0, 'bleedPx' => 0, 'cropMarks' => false, 'variantCount' => 2],
             $byLabel['210 × 297 mm'],
         );
         self::assertSame(
-            ['label' => '9:16', 'preset' => '9:16', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1920, 'width' => 1080, 'height' => 1920, 'variantCount' => 1],
+            ['label' => '9:16', 'preset' => '9:16', 'unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1920, 'width' => 1080, 'height' => 1920, 'printFormat' => false, 'bleedMm' => 0, 'bleedPx' => 0, 'cropMarks' => false, 'variantCount' => 1],
             $byLabel['9:16'],
         );
     }

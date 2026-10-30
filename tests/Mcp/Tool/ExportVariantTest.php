@@ -27,6 +27,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
+use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\Mcp\TestingMcpClient;
@@ -364,6 +365,27 @@ final class ExportVariantTest extends WebTestCase
     }
 
     /**
+     * `format: "pdf"` hands back the print PDF as an embedded resource — for
+     * print formats only; a px variant is refused with the way out.
+     */
+    public function testPrintFormatsExportThePrintPdf(): void
+    {
+        $result = $this->call(TestDataFixture::MCP_TOKEN_EXPORT_ONLY, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, ['format' => 'pdf']);
+
+        self::assertFalse($result['isError'], $result['text']);
+        self::assertSame('application/pdf', $result['summary']['format']);
+        self::assertSame('resource', $result['image']['type']);
+        self::assertIsArray($result['image']['resource']);
+        self::assertSame('application/pdf', $result['image']['resource']['mimeType']);
+        self::assertIsString($result['image']['resource']['blob']);
+        self::assertStringStartsWith('%PDF-1.3', (string) base64_decode($result['image']['resource']['blob'], true));
+
+        $refused = $this->call(TestDataFixture::MCP_TOKEN_EXPORT_ONLY, TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID, ['format' => 'pdf']);
+        self::assertTrue($refused['isError']);
+        self::assertStringContainsString('only for print formats', $refused['text']);
+    }
+
+    /**
      * The description is what makes an agent reach for the EXPENSIVE tool only
      * when it is done iterating, so the load-bearing sentences are locked here
      * — together with the generated schema, which is derived from reflection at
@@ -458,6 +480,7 @@ final class ExportVariantTest extends WebTestCase
             $container->get(TemplateVariantImageRenderer::class),
             $container->get(RecordExportUsage::class),
             $container->get(RecordExportVersion::class),
+            $container->get(PrintPdfRenderer::class),
         );
 
         $result = $tool(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, [

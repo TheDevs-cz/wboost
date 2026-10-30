@@ -164,6 +164,9 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
         "unitHeight": 1080,
         "width": 1080,                                 // canvas PIXELS (mm/cm rasterize at 300 DPI) — the coordinate space of frames/offsets
         "height": 1080,                                // use width/height for the preview box aspect ratio
+        "printFormat": false,                          // true for mm / cm variants — they ALSO export a print PDF (`format: "pdf"`, see Step 3)
+        "bleedMm": 0,                                  // print bleed per side in mm (0 = none; always 0 for px) — drawn PAST the canvas edges, see "Background slots"
+        "cropMarks": false,                            // the print PDF carries crop marks
         "previewImageUrl": null,                        // nullable — cached DEFAULT render (zero user input), store URL
         "backgroundImageUrl": "http://localhost:19000/.../background-....png",  // store URL, nullable (layer-mode variants may have none)
         "thumbnailUrl": "http://localhost:8099/api/template-variants/0191f2be-.../thumbnail",  // ALWAYS present — API-served thumbnail (bearer token required; 404s when the variant has neither preview nor background)
@@ -285,6 +288,16 @@ so what previews fine exports fine. The difference is what they ARE:
 - **`/export`** is the user's download — a lossless PNG that counts in usage
   and is snapshotted into the variant's **export history** (see "Export
   history"). Call it only when the user actually downloads.
+- **`/export` with `"format": "pdf"`** (2026-10-30) returns the **print PDF**
+  instead (`application/pdf`): PDF/X-1a:2001, CMYK Coated FOGRA39, with the
+  variant's bleed (`bleedMm`) and crop marks (`cropMarks`). Same body, same
+  strict validation, same usage/history recording. Only for print formats
+  (`printFormat: true`, i.e. mm / cm); a px variant answers 400
+  `pdf_not_available`, any other `format` value 400 `invalid_format`. Offer
+  a "PDF pro tisk" download next to the PNG only where `printFormat` is true.
+  The group export (`/api/template-groups/{id}/export[/{variantId}]`) takes
+  the same `format`; its PDF ZIP (`{group}-pdf.zip`) holds the print-format
+  members only.
 
 > Build this URL from `API_BASE` + the variant `id`. Don't reuse the response's
 > `exportUrl` string from a container (its host is `localhost`).
@@ -360,10 +373,13 @@ their background as a fillable layer. The fill is deterministic: **cover-fit
 over the whole canvas** (least scale that covers it), **anchored top-left**
 (overflow crops away bottom-right). No transform is accepted — the limit flags
 are always `false`; send the shorthand string or `{ "imageId": "..." }` only
-(`{ "hide": true }` works when `hidable`). `frame` is the full canvas rect, so
-your preview overlay can treat it like any other slot; just draw the fill with
+(`{ "hide": true }` works when `hidable`). `frame` is the full canvas rect —
+**plus the print bleed on every side for a print variant with `bleedMm > 0`**
+(then `frame.x`/`frame.y` are NEGATIVE, e.g. -35 for 3 mm, and width/height
+exceed the canvas), so your preview overlay can treat it like any other slot;
+just draw the fill with
 `scale = max(frame.width / naturalWidth, frame.height / naturalHeight)` from the
-frame's top-left corner instead of the contain math. A variant may have **no
+frame's top-left corner instead of the contain math, and clip to the canvas. A variant may have **no
 background at all**: `backgroundImageUrl` is then `null` and the export PNG has
 real alpha where nothing is drawn.
 

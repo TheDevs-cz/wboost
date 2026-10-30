@@ -48,7 +48,15 @@ readonly final class DecompilationContext
     public function __construct(
         public array $assetsByPath,
         public array $assetsByUrl = [],
+        // The variant's print bleed per side in canvas px — the background's
+        // cover fit is over the bleed box (BackgroundLayer::buildObject).
+        public int $bleed = 0,
     ) {
+    }
+
+    public function withBleed(int $bleed): self
+    {
+        return new self($this->assetsByPath, $this->assetsByUrl, max(0, $bleed));
     }
 
     /**

@@ -50,6 +50,15 @@ final readonly class TemplateVariantResponse
         // Shapes the user may recolour (`shapeColors` on preview / export).
         // Empty when the designer opened none up.
         public array $shapeInputs = [],
+        // Print format (mm / cm): the variant also exports a print PDF
+        // (`format: "pdf"` on export). False for px (screen) formats.
+        public bool $printFormat = false,
+        // Print setup of the PDF: bleed per side in mm (0 = none) and whether
+        // crop marks are drawn. Always 0 / false for screen formats. The
+        // bleed is drawn past the canvas edges — canvas coordinates stay the
+        // trim's, so the background slot's frame starts at -bleed px.
+        public float $bleedMm = 0.0,
+        public bool $cropMarks = false,
     ) {
     }
 }

@@ -21,6 +21,12 @@ namespace WBoost\Web\Mcp\Response;
  * `preset` is non-null only for the fixed social formats (`1:1`, `4:5`,
  * `9:16`) — which is also the flag that says a variant may be published
  * straight to Facebook/Instagram.
+ *
+ * `printFormat` (mm / cm) says the variant also exports a print PDF
+ * (`export_variant` format "pdf"). Its bleed is printed and trimmed off:
+ * `bleedPx` per side, in the same canvas pixels — artwork meant to reach the
+ * paper edge must extend past the canvas by that much (negative x/y, or
+ * width/height + bleedPx). 0 for screen formats.
  */
 readonly final class VariantDimensionResponse
 {
@@ -32,6 +38,10 @@ readonly final class VariantDimensionResponse
         public float $unitHeight,
         public int $width,
         public int $height,
+        public bool $printFormat = false,
+        public float $bleedMm = 0.0,
+        public int $bleedPx = 0,
+        public bool $cropMarks = false,
     ) {
     }
 }

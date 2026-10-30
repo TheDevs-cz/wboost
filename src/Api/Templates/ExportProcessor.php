@@ -17,11 +17,11 @@ use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
-use WBoost\Web\Value\RenderImageFormat;
+use WBoost\Web\Value\ExportFormat;
 
 /**
  * `POST /api/template-variants/{id}/export` — the FINAL render: a lossless PNG
- * that counts as an export (usage + a re-loadable version in the variant's
+ * (or, with `format: "pdf"` on a print format, the print PDF) that counts as an export (usage + a re-loadable version in the variant's
  * "Historie exportů"). Live previews must use the `/preview` sibling
  * ({@see PreviewProcessor}), which records nothing.
  *
@@ -46,13 +46,30 @@ final readonly class ExportProcessor implements ProcessorInterface
     {
         $variant = $this->subjectLoader->variant($uriVariables['id'] ?? null);
 
+        $format = $data->format === null ? ExportFormat::Png : ExportFormat::tryFrom(strtolower($data->format));
+
+        if ($format === null) {
+            return ExportErrorResponse::invalidFormat();
+        }
+
+        if ($format === ExportFormat::Pdf && !$variant->dimension->isPrintFormat()) {
+            return ExportErrorResponse::pdfNotAvailable();
+        }
+
         try {
-            $bytes = $this->apiExportRenderer->render($variant, $data->inputs, $data->images, shapeColors: $data->shapeColors);
+            $bytes = $this->apiExportRenderer->renderExport(
+                $format,
+                $variant,
+                sprintf('%s – %s', $variant->template->name, $variant->dimension->label()),
+                $data->inputs,
+                $data->images,
+                $data->shapeColors,
+            );
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
         }
 
-        $this->recordExportUsage->record($variant, ExportChannel::Api);
+        $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
         $this->recordExportVersion->recordVariant(
             $variant,
             ExportChannel::Api,
@@ -60,8 +77,8 @@ final readonly class ExportProcessor implements ProcessorInterface
         );
 
         return new Response($bytes, Response::HTTP_OK, [
-            'Content-Type' => RenderImageFormat::Png->contentType(),
-            'Content-Disposition' => sprintf('inline; filename="%s.png"', $variant->id->toString()),
+            'Content-Type' => $format->contentType(),
+            'Content-Disposition' => sprintf('inline; filename="%s.%s"', $variant->id->toString(), $format->extension()),
             'Cache-Control' => 'no-store',
         ]);
     }

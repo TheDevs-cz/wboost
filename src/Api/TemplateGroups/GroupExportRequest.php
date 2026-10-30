@@ -43,4 +43,13 @@ final class GroupExportRequest
      * @var array<string, mixed>
      */
     public array $shapeColors = [];
+
+    /**
+     * `"png"` (default — the lossless image) or `"pdf"`: the print PDF —
+     * PDF/X-1a:2001, CMYK (Coated FOGRA39), the variant's bleed + crop marks.
+     * PDF exists only for print formats (`variants[].printFormat`); a screen
+     * format answers 400 `pdf_not_available`, any other value 400
+     * `invalid_format`.
+     */
+    public null|string $format = null;
 }

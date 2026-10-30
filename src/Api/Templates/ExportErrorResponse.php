@@ -20,6 +20,23 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
  */
 final class ExportErrorResponse
 {
+    public static function invalidFormat(): JsonResponse
+    {
+        return new JsonResponse([
+            'error' => 'format must be "png" or "pdf".',
+            'code' => 'invalid_format',
+        ], Response::HTTP_BAD_REQUEST);
+    }
+
+    public static function pdfNotAvailable(null|string $variantId = null): JsonResponse
+    {
+        return new JsonResponse([
+            'error' => 'The print PDF exists only for print formats (mm / cm); this variant is a screen (px) format.',
+            'code' => 'pdf_not_available',
+            ...($variantId !== null ? ['variantId' => $variantId] : []),
+        ], Response::HTTP_BAD_REQUEST);
+    }
+
     /**
      * @return null|JsonResponse null when the throwable is not a render-contract failure (let it bubble)
      */

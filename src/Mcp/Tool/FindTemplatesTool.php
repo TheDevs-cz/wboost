@@ -189,6 +189,10 @@ readonly final class FindTemplatesTool
                     unitHeight: $variant->dimension->unitHeight,
                     width: $variant->dimension->width(),
                     height: $variant->dimension->height(),
+                    printFormat: $variant->dimension->isPrintFormat(),
+                    bleedMm: $variant->dimension->bleedMm,
+                    bleedPx: $variant->dimension->bleedPixels(),
+                    cropMarks: $variant->dimension->cropMarks,
                 ),
                 thumbnailUrl: $this->thumbnailUrl($variant),
                 // One entry per row of the API listing's `inputs[]`, which maps
