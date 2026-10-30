@@ -68,6 +68,18 @@ final class TemplateDimension
      * Physical units = a print format: the PDF export, bleed and crop marks
      * exist only for these.
      */
+    /**
+     * Same physical size (unit + both sides) — what a multi-page document
+     * matches its pages on. The preset and the print setup are ignored: an
+     * A4 page is an A4 page whatever its bleed.
+     */
+    public function hasSameSizeAs(self $other): bool
+    {
+        return $this->unit === $other->unit
+            && abs($this->unitWidth - $other->unitWidth) < 0.001
+            && abs($this->unitHeight - $other->unitHeight) < 0.001;
+    }
+
     public function isPrintFormat(): bool
     {
         return $this->unit !== DimensionUnit::Px;

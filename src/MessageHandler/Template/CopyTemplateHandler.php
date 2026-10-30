@@ -45,7 +45,7 @@ readonly final class CopyTemplateHandler
     public function __invoke(CopyTemplate $message): void
     {
         $originalTemplate = $this->templateRepository->get($message->originalTemplateId);
-        $nextPosition = $this->templateRepository->count($originalTemplate->project->id);
+        $nextPosition = $this->templateRepository->nextPosition($originalTemplate->project->id);
 
         $newTemplate = new Template(
             $message->newTemplateId,

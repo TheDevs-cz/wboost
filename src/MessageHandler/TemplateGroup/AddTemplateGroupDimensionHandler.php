@@ -56,7 +56,7 @@ readonly final class AddTemplateGroupDimensionHandler
                 $this->clock->now(),
                 $group->name,
                 null,
-                $this->templateRepository->count($group->project->id),
+                $this->templateRepository->nextPosition($group->project->id),
             );
 
             $template->assignToGroup($group);

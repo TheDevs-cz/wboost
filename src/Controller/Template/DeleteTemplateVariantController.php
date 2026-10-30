@@ -7,7 +7,9 @@ namespace WBoost\Web\Controller\Template;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use WBoost\Web\Exceptions\InvalidTemplateDocumentChange;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
@@ -29,11 +31,25 @@ final class DeleteTemplateVariantController extends AbstractController
     ): Response {
         $template = $variant->template;
 
-        $this->bus->dispatch(
-            new DeleteTemplateVariant(
-                $variant->id,
-            ),
-        );
+        try {
+            $this->bus->dispatch(
+                new DeleteTemplateVariant(
+                    $variant->id,
+                ),
+            );
+        } catch (HandlerFailedException $failedException) {
+            $realException = $failedException->getPrevious();
+
+            if (!$realException instanceof InvalidTemplateDocumentChange) {
+                throw $failedException;
+            }
+
+            $this->addFlash('danger', $realException->getMessage());
+
+            return $this->redirectToRoute('template_variants', [
+                'templateId' => $template->id,
+            ]);
+        }
 
         $this->addFlash('success', 'Varianta šablony smazána!');
 

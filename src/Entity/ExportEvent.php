@@ -75,7 +75,7 @@ class ExportEvent
         #[Column(type: UuidType::NAME, nullable: true)]
         readonly public null|UuidInterface $triggeredByUserId,
 
-        #[Column(type: 'string', length: 8, enumType: ExportFormat::class, options: ['default' => 'png'])]
+        #[Column(type: 'string', length: 16, enumType: ExportFormat::class, options: ['default' => 'png'])]
         readonly public ExportFormat $format = ExportFormat::Png,
     ) {
     }

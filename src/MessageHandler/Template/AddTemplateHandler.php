@@ -47,7 +47,7 @@ readonly final class AddTemplateHandler
             $this->filesystem->write($imagePath, $image->getContent());
         }
 
-        $nextPosition = $this->templateRepository->count($project->id);
+        $nextPosition = $this->templateRepository->nextPosition($project->id);
         $category = $message->categoryId !== null
             ? $this->templateCategoryRepository->get($message->categoryId)
             : null;

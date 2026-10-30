@@ -79,7 +79,7 @@ readonly final class CreateTemplateGroupHandler
             $now,
             $message->name,
             null,
-            $this->templateRepository->count($project->id),
+            $this->templateRepository->nextPosition($project->id),
         );
 
         $template->assignToGroup($group);

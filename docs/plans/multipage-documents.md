@@ -231,4 +231,4 @@ Browser verification (house reality: interactive JS is often left unverified —
 - Verified as correct by the review: `Template::$variants` EAGER without cascade; positional text binding; placements keyed `[variantId][inputId]`; `group === null` sufficient at attach; `export_event.format` varchar(8); no editor `beforeunload`; storage index unaffected; API Platform write conventions match.
 
 ## 13. Progress log
-- [ ] Phase 1 …
+- [x] Phase 1 — entities + migration (`Version20261030145218`), `TemplateDocumentRules` / `TemplateDocumentPageList` (diffing), voter, 7 handlers, shared `TemplateRepository::nextPosition()`, page-variant delete guard; `tests/MessageHandler/TemplateDocument/` (12).
