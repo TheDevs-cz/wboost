@@ -80,6 +80,11 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         $text = $ink(35.5039 + 40 / 300 * 72 + 6, 630.7795 - (60 + 90) / 300 * 72);
         self::assertGreaterThanOrEqual(97, $text['k'], 'black text prints as solid K');
         self::assertGreaterThan(50, $text['c'], 'black text overprints, it does not knock out the blue');
+
+        // Inside the large black area: K100 KNOCKING OUT the blue (no ghosting).
+        $area = $ink(35.5039 + 500 / 300 * 72, 630.7795 - 1800 / 300 * 72);
+        self::assertGreaterThanOrEqual(97, $area['k'], 'black areas print as solid K too');
+        self::assertLessThan(5, $area['c'], 'black areas knock the background out');
     }
 
     private function craftedVariant(): TemplateVariant
@@ -108,6 +113,8 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
             'objects' => [
                 // Full-bleed blue, drawn past the trim on every side.
                 ['type' => 'Rect', 'left' => -$bleed, 'top' => -$bleed, 'width' => $width + 2 * $bleed, 'height' => $height + 2 * $bleed, 'fill' => '#17375f', 'originX' => 'left', 'originY' => 'top'],
+                // A large black AREA (bottom half of the page, inside the trim).
+                ['type' => 'Rect', 'left' => 100, 'top' => 1500, 'width' => 800, 'height' => 600, 'fill' => '#000000', 'originX' => 'left', 'originY' => 'top'],
                 // A solid black block inside a big black word.
                 ['type' => 'Textbox', 'left' => 40, 'top' => 60, 'width' => $width - 80, 'height' => 220, 'fontSize' => 200, 'fontFamily' => 'Arial', 'fontWeight' => 'bold', 'fill' => '#000000', 'text' => '██████', 'originX' => 'left', 'originY' => 'top'],
             ],

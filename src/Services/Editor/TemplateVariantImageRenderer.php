@@ -1017,9 +1017,21 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
 
         $suppress = array_flip($printLayer->suppressIndexes);
         $only = $printLayer->onlyIndexes !== null ? array_flip($printLayer->onlyIndexes) : null;
+        $whiten = array_flip($printLayer->whitenIndexes);
 
         foreach ($objects as $index => $object) {
             if (!is_int($index) || !is_array($object)) {
+                continue;
+            }
+
+            if (isset($whiten[$index])) {
+                // Knockout: paper white under the K100 the mask pass adds.
+                $object['fill'] = '#ffffff';
+                if (is_string($object['stroke'] ?? null) && $object['stroke'] !== '') {
+                    $object['stroke'] = '#ffffff';
+                }
+                $objects[$index] = $object;
+
                 continue;
             }
 

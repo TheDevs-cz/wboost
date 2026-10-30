@@ -131,12 +131,14 @@ structure of the Illustrator-exported reference file.
   replaced object's opacity** (it used to leak through any suppression).
 - **`PrintPdfRenderer`**: pass 1 = composite WITHOUT the black-ink objects,
   pass 2 = ONLY them, background-less (its alpha is the K mask; skipped when
-  there are none). `BlackInkObjects` decides by role: texts whose every
-  colour is black (base fill / designed styles / the user's rich runs, as
-  the render applies them) and shapes that are lines or ≤ 2 mm thick — NOT
-  large black areas (K100 alone prints as flat grey there; they go through
-  ICC as rich black). "Black" = `#000000` + every brand colour whose manual
-  CMYK is 0/0/0/100.
+  there are none). Every black object prints K100 (the studio's call —
+  large black areas are not part of their designs); `BlackInkObjects`
+  decides HOW by role: texts whose every colour is black (base fill /
+  designed styles / the user's rich runs, as the render applies them) and
+  shapes that are lines or ≤ 2 mm thick OVERPRINT (suppressed in pass 1);
+  larger black shapes KNOCK OUT (painted white in pass 1 — no ink under
+  them, so the picture beneath cannot ghost through the black). "Black" =
+  `#000000` + every brand colour whose manual CMYK is 0/0/0/100.
 - **`PrintColorConverter`** (Imagick + lcms): flatten on white → sRGB
   (`resources/icc/sRGB-v4.icc`, CC0 compact profile) → `CoatedFOGRA39.icc`
   relative colorimetric + BPC → **brand colours keep the manual's numbers**

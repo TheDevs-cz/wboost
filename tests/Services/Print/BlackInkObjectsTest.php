@@ -16,10 +16,10 @@ final class BlackInkObjectsTest extends TestCase
 {
     private const array BLACK = ['#000000', '#1d1d1b'];
 
-    public function testBlackTextsAndHairlinesButNotAreas(): void
+    public function testTextsAndHairlinesOverprintBlackAreasKnockOut(): void
     {
         $canvas = ['objects' => [
-            ['type' => 'Rect', 'width' => 1000, 'height' => 1000, 'fill' => '#000000'],                  // 0 big black area → rich black
+            ['type' => 'Rect', 'width' => 1000, 'height' => 1000, 'fill' => '#000000'],                  // 0 big black area → K100 knockout
             ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Black'],                                // 1 ✓
             ['type' => 'Textbox', 'fill' => '#1d1d1b', 'text' => 'Brand black'],                          // 2 ✓ (manual K100)
             ['type' => 'Textbox', 'fill' => '#ff0000', 'text' => 'Red'],                                  // 3
@@ -32,6 +32,10 @@ final class BlackInkObjectsTest extends TestCase
         ]];
 
         self::assertSame([1, 2, 4, 5], BlackInkObjects::indexes($canvas, new ResolvedInputOverrides([], []), self::BLACK, 24));
+        self::assertSame(
+            ['overprint' => [1, 2, 4, 5], 'knockout' => [0]],
+            BlackInkObjects::classify($canvas, new ResolvedInputOverrides([], []), self::BLACK, 24),
+        );
     }
 
     public function testDesignedStylesAndUserRunsDecide(): void

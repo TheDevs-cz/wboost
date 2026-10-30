@@ -25,8 +25,9 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  * Two raster passes through the ordinary Gotenberg render, both over the
  * bleed box and laid out identically (suppression is `opacity: 0`):
  *
- *  - the composite, WITHOUT the black-ink objects ({@see BlackInkObjects});
- *  - only those objects, background-less — its alpha is the K mask.
+ *  - the composite, WITHOUT the overprinting black-ink objects and with the
+ *    knockout ones painted white ({@see BlackInkObjects});
+ *  - only the black-ink objects, background-less — its alpha is the K mask.
  *
  * {@see PrintColorConverter} turns them into one CMYK raster (ICC, brand
  * CMYK, black overprint) and {@see PdfX1aWriter} wraps it. A design without
@@ -67,12 +68,14 @@ final readonly class PrintPdfRenderer
             }
         }
 
-        $blackInk = BlackInkObjects::indexes(
+        $blackInk = BlackInkObjects::classify(
             $canvas,
             $overrides,
             array_values(array_unique($blackHexes)),
             DimensionUnit::Mm->toPixels(BlackInkObjects::HAIRLINE_MM),
         );
+        $allBlackInk = array_merge($blackInk['overprint'], $blackInk['knockout']);
+        sort($allBlackInk);
 
         $bleedPx = $variant->dimension->bleedPixels();
 
@@ -82,16 +85,16 @@ final readonly class PrintPdfRenderer
             $imageOverrides,
             $strictContainerOverflow,
             format: RenderImageFormat::Png,
-            printLayer: new PrintLayer($bleedPx, suppressIndexes: $blackInk),
+            printLayer: new PrintLayer($bleedPx, suppressIndexes: $blackInk['overprint'], whitenIndexes: $blackInk['knockout']),
         );
 
-        $mask = $blackInk === [] ? null : $this->renderer->renderToBytes(
+        $mask = $allBlackInk === [] ? null : $this->renderer->renderToBytes(
             $variant,
             $overrides,
             $imageOverrides,
             $strictContainerOverflow,
             format: RenderImageFormat::Png,
-            printLayer: new PrintLayer($bleedPx, onlyIndexes: $blackInk),
+            printLayer: new PrintLayer($bleedPx, onlyIndexes: $allBlackInk),
         );
 
         $raster = $this->colorConverter->toCmykJpeg(

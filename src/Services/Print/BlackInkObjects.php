@@ -9,19 +9,23 @@ use WBoost\Web\Value\ResolvedInputOverrides;
 use WBoost\Web\Value\RichText;
 
 /**
- * Which canvas objects print in BLACK INK ONLY (K100, overprinting what lies
- * under them) instead of going through the ICC conversion.
+ * Which canvas objects print in BLACK INK ONLY (K100) instead of going
+ * through the ICC conversion.
  *
  * Converted from RGB, black becomes four-colour "rich" black; on small type
  * and hairlines the four plates never register perfectly, so letters get
- * coloured fringes. Prepress practice is K100 for text and thin lines — and
- * NOT for large areas, where black ink alone prints as a flat dark grey —
- * so the rule is per object, by role:
+ * coloured fringes. The studio's call (2026-10-30): black is K100, areas
+ * included (large black areas are not part of their designs). How the K
+ * meets what lies under it depends on the object's role:
  *
- *  - texts whose every colour is black (base fill, designed per-character
- *    styles or the user's rich-text runs, whichever applies);
- *  - shapes that are lines ("čára") or at most {@see HAIRLINE_MM} thick,
- *    filled black with no non-black border.
+ *  - OVERPRINT — texts whose every colour is black (base fill, designed
+ *    per-character styles or the user's rich-text runs, whichever applies)
+ *    and shapes that are lines ("čára") or at most {@see HAIRLINE_MM} thick:
+ *    printed ON TOP of the background, so misregistration can never open a
+ *    white halo around a letter;
+ *  - KNOCKOUT — every other black shape (filled black, no non-black
+ *    border): the background is removed under it, because black ink alone
+ *    over a large area lets the picture beneath show through (ghosting).
  *
  * "Black" is `#000000` plus every brand colour whose manual CMYK is 0/0/0/100
  * (the typical brand black is a near-black hex such as #1d1d1b).
@@ -36,20 +40,33 @@ final class BlackInkObjects
     private const array TEXT_TYPES = ['textbox', 'text', 'i-text', 'itext'];
 
     /**
+     * The OVERPRINT objects (texts + hairlines).
+     *
      * @param array<string, mixed> $canvas decoded canvas, input ids aligned
      * @param list<string> $blackHexes lowercase `#rrggbb`
      * @return list<int> object indexes
      */
     public static function indexes(array $canvas, ResolvedInputOverrides $overrides, array $blackHexes, int $hairlinePx): array
     {
+        return self::classify($canvas, $overrides, $blackHexes, $hairlinePx)['overprint'];
+    }
+
+    /**
+     * @param array<string, mixed> $canvas decoded canvas, input ids aligned
+     * @param list<string> $blackHexes lowercase `#rrggbb`
+     * @return array{overprint: list<int>, knockout: list<int>} object indexes
+     */
+    public static function classify(array $canvas, ResolvedInputOverrides $overrides, array $blackHexes, int $hairlinePx): array
+    {
         $objects = $canvas['objects'] ?? null;
 
         if (!is_array($objects) || $blackHexes === []) {
-            return [];
+            return ['overprint' => [], 'knockout' => []];
         }
 
         $black = array_flip($blackHexes);
         $indexes = [];
+        $knockout = [];
 
         foreach ($objects as $index => $object) {
             if (!is_int($index) || !is_array($object)) {
@@ -62,18 +79,24 @@ final class BlackInkObjects
 
             $type = is_string($object['type'] ?? null) ? strtolower($object['type']) : null;
 
-            $isBlackInk = match (true) {
-                in_array($type, self::TEXT_TYPES, true) => self::isBlackText($object, $overrides, $black),
-                CanvasShape::isShapeType($type) => self::isBlackHairline($object, $black, $hairlinePx),
-                default => false,
-            };
+            if (in_array($type, self::TEXT_TYPES, true)) {
+                if (self::isBlackText($object, $overrides, $black)) {
+                    $indexes[] = $index;
+                }
 
-            if ($isBlackInk) {
-                $indexes[] = $index;
+                continue;
+            }
+
+            if (CanvasShape::isShapeType($type) && self::isBlackShape($object, $black)) {
+                if (self::isHairline($object, $hairlinePx)) {
+                    $indexes[] = $index;
+                } else {
+                    $knockout[] = $index;
+                }
             }
         }
 
-        return $indexes;
+        return ['overprint' => $indexes, 'knockout' => $knockout];
     }
 
     /**
@@ -115,12 +138,16 @@ final class BlackInkObjects
      * @param array<mixed> $object
      * @param array<string, int> $black
      */
-    private static function isBlackHairline(array $object, array $black, int $hairlinePx): bool
+    private static function isBlackShape(array $object, array $black): bool
     {
-        if (!self::isBlack($object['fill'] ?? null, $black) || !self::strokeIsBlackOrAbsent($object, $black)) {
-            return false;
-        }
+        return self::isBlack($object['fill'] ?? null, $black) && self::strokeIsBlackOrAbsent($object, $black);
+    }
 
+    /**
+     * @param array<mixed> $object
+     */
+    private static function isHairline(array $object, int $hairlinePx): bool
+    {
         if (($object['shapeKind'] ?? null) === 'line') {
             return true;
         }
