@@ -14,6 +14,7 @@ use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Query\GetTemplates;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
+use WBoost\Web\Services\TemplateDocument\DocumentFieldsView;
 use WBoost\Web\Services\TemplateDocument\TemplateDocumentRules;
 use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 
@@ -29,6 +30,7 @@ final class TemplateDocumentController extends AbstractController
         readonly private GetTemplates $getTemplates,
         readonly private TemplateDocumentRules $rules,
         readonly private TemplateDocumentsFeature $feature,
+        readonly private DocumentFieldsView $fieldsView,
     ) {
     }
 
@@ -63,6 +65,8 @@ final class TemplateDocumentController extends AbstractController
             'can_edit' => $canEdit,
             'attachable' => $canEdit ? $this->attachable($document) : [],
             'open_attach' => $request->query->getBoolean('attach'),
+            // "Společná pole" — designers only (the fill page shows the values).
+            'shared_fields' => $canEdit ? $this->fieldsView->build($document) : null,
         ]);
     }
 

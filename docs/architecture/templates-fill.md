@@ -22,6 +22,18 @@ popover: textarea / WYSIWYG / checklist / font select) — built server-side by 
 unifies over the member dimensions first-wins by inputId). The fill pages'
 "Vrstvy" layers panel was REMOVED on 2026-10-21 (user request: noise on the
 export pages); every placeholder stays reachable from its box and from
+
+**A THIRD fill surface exists (2026-10-30): the multi-page document fill page**
+(`template_document_fill.html.twig`, copied from the group page — see
+`templates-documents.md` "Fill page"). It mounts the same `group-fill` +
+`variant-fill-overlay` pair and the same partials, one surface per document
+PAGE, everything in FILL-KEY space (a page's inputIds re-keyed so colliding
+pages stay independent). `group_fill_controller` gained a `lazy` mode
+(render on scroll-into-view) and per-variant `keys` (re-render only the pages
+carrying the edited key) — both inert on the group page. A change to the
+shared partials, the overlay or `group_fill_controller` is now a THREE-way
+contract: check the document page too.
+
 "Všechna pole", and hiding lives on the box eye / popover. The admin editor's
 Vrstvy panel and the API `layerIndex` are unaffected. Contracts:
 

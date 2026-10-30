@@ -4324,3 +4324,64 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     background: #fff;
     box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
 }
+
+/* ======================================================================
+   Multi-page documents — fill page (template_document_fill.html.twig):
+   a sticky page sidebar + the pages stacked like Preview. Scoped under
+   .document-fill (app.css loads BEFORE the theme — CLAUDE.md).
+   ====================================================================== */
+.document-fill .document-fill-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.document-fill .document-fill-sidebar {
+    position: sticky;
+    top: 1rem;
+    flex: 0 0 120px;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding-right: .25rem;
+}
+
+.document-fill .document-fill-sidebar .document-pages__thumb {
+    padding: .25rem;
+}
+
+.document-fill .document-fill-pages {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* The page cards carry scroll targets: keep the heading clear of the top. */
+.document-fill .document-fill-page {
+    scroll-margin-top: 1rem;
+}
+
+@media (max-width: 767.98px) {
+    .document-fill .document-fill-sidebar {
+        display: none;
+    }
+}
+
+/* "Všechna pole" section headings ("Společná pole", "Strana n — …"): only
+   in the docked panel — floating popovers are per field. */
+.fill-form.fill-js .fill-popovers .document-fill-panel-heading {
+    display: none;
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading {
+    display: block;
+    margin: .5rem 0 0;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--ct-secondary-color, #8a969c);
+}
+
+.fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading.is-shared {
+    color: var(--bs-primary, #727cf5);
+}

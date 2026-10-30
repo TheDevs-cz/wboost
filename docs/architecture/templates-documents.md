@@ -67,3 +67,110 @@ Strana n", a strip of sibling pages, and redirects a non-JSON save back to the
 document. `document_page_strip_controller` asks before leaving with the
 editor's "Neuložené změny" badge visible — the editor itself has no leave
 guard.
+
+**Shared fields — designer UI** (document page, EDIT only,
+`_document_shared_fields.html.twig` + `DocumentFieldsView`): the "Společná
+pole" card lists each field (name, kind, bound pages) with a stale badge when
+a binding no longer resolves (`isBindable` fails — input deleted / changed in
+the editor). Add / edit / delete in a modal: name, kind, and per page ONE
+select listing that page's bindable texts and image slots as two `<optgroup
+data-kind>` (`document_field_form_controller` enables the group of the chosen
+kind; without JS the server refuses a mismatch). **Suggestions**: unbound
+inputs sharing an inputId (duplicated pages) or a real, non-fallback name on
+≥ 2 pages, one hidden-field form each. Everything POSTs to ONE controller,
+`TemplateDocumentFieldsController` (`template_document_fields`, CSRF
+`template_document`; form `fieldId` ("" = new), `name`, `kind`,
+`bindings[<templateId>]` = inputId | "", `delete`=1): it rebuilds the FULL
+list from `DocumentFieldsView::currentDefinitions()` — which drops stale
+bindings, because the full-replace handler re-validates every field and an
+unrelated stale binding would otherwise refuse the edit — applies the one
+change and dispatches `SetTemplateDocumentFields` (ids kept) through
+`DispatchDocumentChange` (refusal → flash).
+
+**Fill keys** (`Value/DocumentFillKeys`, plan §3): the fill machinery keys
+everything by inputId globally, but pages may share inputIds and must not
+share values. Every `(page, inputId)` gets a fill key: the field id when
+bound to a shared field, else `uuid5(templateId, inputId)` (deterministic,
+UUID-shaped, stable across reloads and detach + re-attach). The web form is
+in fill-key space; `valuesForPage()` turns it back into ONE page's real-inputId
+maps (shared values fanned out; other pages' keys dropped;
+`imagePlacements` stays `[variantId][key]` → `[variantId][inputId]`).
+Renderer, cache, print pipeline, API and stored versions never see fill keys.
+
+- **`Services/TemplateDocument/DocumentPageView::rekeyed(variant, keys,
+  templateId)`** gives the EXISTING placeholder builders (`GroupFillPlaceholders`,
+  `FillTextPlaceholders`, `FillShapePlaceholders`) a re-keyed in-memory copy.
+  Hard rules: `clone` FIRST and `editCanvas()` the clone — never the managed
+  original (the fill page flushes mid-request via `FileUploadPixelSizeBackfill`
+  and would persist the keys; the clone is outside the identity map and
+  nothing cascade-persists it); re-key EVERY location — `inputs[]` (order
+  kept: text binding is positional), `imageInputs[]`, canvas objects'
+  `inputId` (nested group objects too), `containers[].memberInputIds`
+  (a stale member makes `CanvasContainer` drop the container and the overlay
+  reflow diverge); readonly inputs via `fromArray(['inputId' => key] +
+  toArray())`; NEVER hand the clone to a renderer/resolver/message.
+  Pinned by `DocumentPageViewTest` (incl. a flush) and the fill controller
+  test (stored canvas byte-identical after the page renders).
+- Binding two inputs of ONE page to one field is forbidden (§2) — the clone
+  would carry a duplicate key and first-wins would drop a box.
+
+**Fill page** (`GET /template-document/{documentId}/fill`,
+`template_document_fill`, VIEW, 404 with the feature switch off;
+`TemplateDocumentFillController` → `DocumentFillPage::build()` →
+`template_document_fill.html.twig`): the THIRD fill surface (single variant,
+group, document — see `templates-fill.md`), copied from the group page.
+- One `.fill-surface` per PAGE, stacked (continuous scroll), a sticky
+  thumbnail sidebar (`document_fill_controller`: instant jump on click —
+  Bootstrap's `:root{scroll-behavior:smooth}` would sweep every page in
+  between into view and start its render — thumbs follow each page's latest
+  render, overflow badge mirrored, current page highlighted).
+- All builder data comes from the re-keyed clones, so every mirror / popover /
+  box / echo object / image frame carries the fill key. A shared field = ONE
+  mirror and ONE popover, a box on every bound page ("Společné: <name>").
+  Post-processing in `DocumentFillPage`: a shared TEXT field is plain text
+  (no WYSIWYG / font choice), shows the MIN `maxLength` of its bindings and is
+  hidable only if every binding is; a shared IMAGE field's picker offers the
+  INTERSECTION of the bound slots' `allowedDirectoryIds` (an empty
+  intersection of restricted lists becomes a never-existing folder id — `[]`
+  would mean "any folder"), placement flags AND-ed over the bound slots.
+  Each page still enforces its own rules at render.
+- "Všechna pole": "Společná pole" first, then one section per page in that
+  template's `fillFieldOrder` (real ids mapped to keys). No admin drag-reorder
+  here (order is per template — arrange it on the template's own fill page).
+- Placements: `imagePlacements[<page variantId>][<key>][…]` only for each
+  page's OWN adjustable slots (the group page emits slot × every variant).
+- Uploads: per slot through `template_variant_placeholder_upload` of the
+  page's variant with the REAL inputId (a shared field: its first binding —
+  the offered folders are the intersection, so any pick is allowed there too).
+- Export split button → `template_document_export` (same form): `format` =
+  `pdf` (print documents only — primary there), `pdf-screen` (primary
+  otherwise), `png`. The worst overflow of ANY page disables all of them.
+- **Form field contract** (what preview + export read, all in fill-key space):
+  `textValues[key]`, `fontValues[key]`, `hiddenValues[key]`,
+  `shapeColorValues[key]`, `images[key][imageId|hide]`,
+  `imagePlacements[variantId][key][scale|rotation|offsetXRatio|offsetYRatio]`,
+  `format`.
+- **Lazy previews**: `group_fill_controller` with `lazy: true` renders a page
+  when it comes within 200 px of the viewport (IntersectionObserver), not N
+  renders on load. `variants[].keys` (each page's fill keys) narrows an edit's
+  re-render to the pages carrying the edited key; off-screen ones just go
+  STALE (veil kept) and render when scrolled to; the echo lights up on
+  visible pages only. The group page passes neither, so it behaves as before
+  (scope coalescing is now a union instead of "widen to all").
+- **Preview** `POST /template-document/{documentId}/fill-preview/{pageId}`
+  (`template_document_fill_preview`, pageId = `TemplateDocumentPage` id; 404
+  unless it belongs to the document): the group preview's twin — session lock
+  released, WebP, `?base=1` echo base (real echo-capable ids) — rendering the
+  REAL variant with `valuesForPage()` through `GroupFillRenderer::render()`.
+  The client's single-flight-per-page + 2-concurrent queue is unchanged.
+- **`max_input_vars` decision: raised to 10000** for every environment
+  (`.docker/php/wboost.ini` → `conf.d/zz-wboost.ini`: Dockerfile COPY for
+  prod, read-only mounts in `compose.yaml` / `compose.prod-mirror.yaml`).
+  PHP drops fields past the limit SILENTLY (the export would render
+  defaults). Worst case counted: a page of 12 hidable texts + 2 adjustable,
+  hidable image slots posts 36 fields → 30 pages ≈ 1080, past the default
+  1000; `TemplateDocumentFillControllerTest` builds exactly that and pins the
+  form against the shipped ini. Chosen over a single JSON field because the
+  export / preview / drafts share the group page's field names and the native
+  form submit (download) keeps working without JS serialisation. A running
+  dev container picks the mount up on `docker compose up -d web`.

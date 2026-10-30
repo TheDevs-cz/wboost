@@ -1,0 +1,529 @@
+{% extends 'base.html.twig' %}
+
+{% set active_menu_item = 'templates' %}
+
+{% block title %}Vyplnit a exportovat — {{ document.name }}{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
+        {% if can_edit %}
+            <li class="breadcrumb-item"><a href="{{ path('template_document', {'documentId': document.id}) }}">{{ document.name }}</a></li>
+            <li class="breadcrumb-item active">Vyplnit</li>
+        {% else %}
+            <li class="breadcrumb-item active">{{ document.name }}</li>
+        {% endif %}
+    </ol>
+{% endblock %}
+
+{#
+    Document fill & export page — the THIRD fill surface (after the single
+    variant page and the group page; see docs/architecture/templates-fill.md
+    and templates-documents.md "Fill page"). Every page of the document is a
+    fill SURFACE of the shared variant-fill-overlay controller, stacked
+    vertically like Preview, with a thumbnail sidebar (document-fill).
+
+    EVERYTHING here is in FILL-KEY space (DocumentFillKeys): mirrors,
+    popovers, boxes, echo objects, image frames and placement fields carry
+    the page's fill key instead of the inputId, so two pages with the same
+    inputId fill independently and a shared field ("Společné pole") is ONE
+    mirror edited from every bound box. The preview + export controllers
+    translate back per page (`valuesForPage`).
+
+    Form field contract (what `template_document_export` and the per-page
+    preview read): `textValues[key]`, `fontValues[key]`, `hiddenValues[key]`,
+    `shapeColorValues[key]`, `images[key][imageId|hide]`,
+    `imagePlacements[<page variantId>][key][scale|rotation|offsetXRatio|offsetYRatio]`
+    (ONLY for that page's own adjustable slots — max_input_vars), `format`.
+
+    group-fill runs in LAZY mode: a page renders when scrolled into view and
+    an edit re-renders only the pages carrying the edited key.
+#}
+{% block content %}
+    {% if fill.pages|length == 0 %}
+        <div class="card">
+            <div class="card-body text-center text-muted py-5">
+                <i class="mdi mdi-book-open-page-variant-outline" style="font-size: 2rem;"></i>
+                <p class="mb-1 mt-2"><strong>Dokument zatím nemá žádné stránky.</strong></p>
+                {% if can_edit %}
+                    <p class="mb-0"><a href="{{ path('template_document', {'documentId': document.id}) }}">Připojte stránky</a>, potom tu půjde dokument vyplnit a stáhnout.</p>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        {# Shared editor modules + project fonts — on the PAGE template (a
+           <script> inserted by a Live morph never executes): the overlay
+           measures wrapped text for the container reflow of every page, the
+           echo canvases draw with the render's Fabric + glyphs. #}
+        <div hidden>
+            <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
+            <script src="{{ asset('editor/container_layout.js') }}"></script>
+            <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
+            <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
+            <script src="{{ asset('editor/fill_text_echo.js') }}"></script>
+            <style>
+                {% for face in font_faces %}
+                    @font-face {
+                        font-family: '{{ face.family }}';
+                        src: url('{{ face.url }}');
+                    }
+                {% endfor %}
+            </style>
+        </div>
+
+        {% set imagePlaceholders = fill.image_inputs|map(slot => {
+            inputId: slot.input.inputId,
+            name: slot.input.name,
+            hidable: slot.input.hidable,
+        }) %}
+        {% set page_count = fill.pages|length %}
+        {% set is_print = document.dimension.isPrintFormat %}
+
+        <form method="post" action="{{ path('template_document_export', {'documentId': document.id}) }}" data-turbo="false"
+              class="fill-form fill-highlight-on fill-captions-on document-fill"
+              data-controller="group-fill variant-fill-overlay document-fill"
+              data-group-fill-lazy-value="true"
+              data-group-fill-debounce-value="{{ fill.has_echo ? 1500 : 900 }}"
+              data-group-fill-slots-value="{{ fill.placement_slots|json_encode }}"
+              data-group-fill-variants-value="{{ fill.placement_variants|json_encode }}"
+              data-group-fill-fonts-value="{{ font_faces|map(face => face.family)|json_encode }}"
+              data-variant-fill-overlay-fonts-value="{{ font_faces|map(face => face.family)|json_encode }}"
+              data-action="keydown->group-fill#blockEnter submit->group-fill#exportStarted rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged">
+
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div>
+                    <h3 class="my-0">{{ document.name }}</h3>
+                    <p class="text-muted my-0">
+                        {{ page_count }} {{ page_count == 1 ? 'strana' : (page_count >= 2 and page_count <= 4 ? 'strany' : 'stran') }} · {{ document.dimension.label }}.
+                        Každá stránka se vyplňuje zvlášť{{ fill.sections|filter(s => s.shared)|length > 0 ? ', společná pole se propíší do všech propojených stránek' : '' }}.
+                    </p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if can_edit %}
+                        <a href="{{ path('template_document', {'documentId': document.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit dokument</a>
+                    {% endif %}
+                    {# Split export: every item posts the SAME form with its
+                       `format`; the print PDF only exists for print sizes. A
+                       text overflowing on ANY page disables them all
+                       (variant-fill-overlay exportButton targets). #}
+                    <div class="btn-group">
+                        {% if is_print %}
+                            <button type="submit" name="format" value="pdf" class="btn btn-primary" style="border-radius: 50rem 0 0 50rem;"
+                                    data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton" data-group-fill-zip-format="pdf">
+                                <i class="mdi mdi-file-pdf-box"></i> Stáhnout PDF pro tisk
+                            </button>
+                        {% else %}
+                            <button type="submit" name="format" value="pdf-screen" class="btn btn-primary" style="border-radius: 50rem 0 0 50rem;"
+                                    data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton" data-group-fill-zip-format="pdf-screen">
+                                <i class="mdi mdi-file-pdf-box"></i> Stáhnout PDF k odeslání
+                            </button>
+                        {% endif %}
+                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" style="border-radius: 0 50rem 50rem 0;" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Další možnosti stažení">
+                            <span class="visually-hidden">Další možnosti stažení</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% if is_print %}
+                                <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-printer-outline me-1" aria-hidden="true"></i>PDF pro tisk (CMYK, spadávka)</button></li>
+                            {% endif %}
+                            <li><button type="submit" name="format" value="pdf-screen" class="dropdown-item" data-group-fill-zip-format="pdf-screen" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-email-outline me-1" aria-hidden="true"></i>PDF k odeslání</button></li>
+                            <li><button type="submit" name="format" value="png" class="dropdown-item" data-group-fill-zip-format="png" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-folder-zip-outline me-1" aria-hidden="true"></i>Stránky jako PNG (ZIP)</button></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                {{ include('_fill_overlay_toggles.html.twig') }}
+            </div>
+
+            <div class="alert alert-danger py-1 px-2 small d-none" role="alert" aria-live="polite"
+                 data-variant-fill-overlay-target="overflowAlert"></div>
+
+            {# ---- Form fields = the popovers' mirrors (one per FILL KEY) -------
+               Pre-filled with the sample text (the render's own fallback); an
+               EMPTY field blanks the text. A shared field is one mirror for
+               every bound page. #}
+            {% for ph in fill.text_placeholders %}
+                <input type="hidden"
+                       name="textValues[{{ ph.inputId }}]"
+                       value="{{ ph.value }}"
+                       data-text-mirror="{{ ph.inputId }}"
+                       data-input-id="{{ ph.inputId }}"
+                       data-action="input->group-fill#changed">
+                {% if ph.fontChoice %}
+                    <input type="hidden"
+                           name="fontValues[{{ ph.inputId }}]"
+                           value="{{ ph.fontValue }}"
+                           data-font-mirror="{{ ph.inputId }}"
+                           data-input-id="{{ ph.inputId }}"
+                           data-action="input->group-fill#changed">
+                {% endif %}
+                {% if ph.hidable %}
+                    <input type="checkbox" class="visually-hidden" tabindex="-1" aria-hidden="true"
+                           name="hiddenValues[{{ ph.inputId }}]"
+                           value="1"
+                           data-hide-mirror="{{ ph.inputId }}"
+                           data-input-id="{{ ph.inputId }}"
+                           {{ ph.hidden ? 'checked' }}
+                           data-action="change->group-fill#changed">
+                {% endif %}
+            {% endfor %}
+
+            {% for ph in fill.shape_placeholders %}
+                <input type="hidden"
+                       name="shapeColorValues[{{ ph.inputId }}]"
+                       value="{{ ph.value }}"
+                       data-shape-color-mirror="{{ ph.inputId }}"
+                       data-action="input->group-fill#changed">
+            {% endfor %}
+
+            {# Placement of each page's OWN adjustable slots only (the group
+               page's slot × every variant would blow past max_input_vars on
+               a long document). #}
+            {% for entry in fill.pages %}
+                {% for slot in entry.adjustable %}
+                    {% for field in slot.fields %}
+                        <input type="hidden" name="imagePlacements[{{ entry.variant.id }}][{{ slot.inputId }}][{{ field }}]" value=""
+                               data-group-fill-target="overrideField"
+                               data-variant-id="{{ entry.variant.id }}" data-input-id="{{ slot.inputId }}" data-field="{{ field }}">
+                    {% endfor %}
+                {% endfor %}
+            {% endfor %}
+
+            <div class="document-fill-layout">
+                {# ---- Page sidebar: thumbnails follow each page's latest render. #}
+                <nav class="document-fill-sidebar" aria-label="Stránky dokumentu">
+                    <ol class="document-pages">
+                        {% for entry in fill.pages %}
+                            {% set thumb = entry.variant.previewImagePath ?: entry.variant.backgroundImage %}
+                            <li class="document-pages__item {{ loop.first ? 'is-active' : '' }}" data-document-fill-target="thumb" data-variant-id="{{ entry.variant.id }}">
+                                <a class="document-pages__thumb" href="#document-page-{{ entry.number }}"
+                                   data-action="document-fill#scrollTo" data-variant-id="{{ entry.variant.id }}"
+                                   title="Strana {{ entry.number }} — {{ entry.page.template.name }}">
+                                    <img src="{{ thumb ? uploaded_asset(thumb) : asset('images/manual-placeholder.png') }}" alt="" loading="lazy"
+                                         data-document-fill-target="thumbImage" data-variant-id="{{ entry.variant.id }}">
+                                </a>
+                                <div class="small mt-1">
+                                    <strong>{{ entry.number }}</strong>
+                                    <span class="badge bg-danger-subtle text-danger d-none" data-document-fill-target="thumbBadge" data-variant-id="{{ entry.variant.id }}" title="Text přetéká"><i class="mdi mdi-alert-outline" aria-hidden="true"></i></span>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </nav>
+
+                {# ---- Pages, stacked (continuous scroll). #}
+                <div class="document-fill-pages">
+                    {% for entry in fill.pages %}
+                        {% set variantId = entry.variant.id %}
+                        <section class="card group-fill-preview-card document-fill-page" id="document-page-{{ entry.number }}"
+                                 data-document-fill-target="page" data-variant-id="{{ variantId }}">
+                            <div class="group-fill-preview-heading d-flex align-items-center justify-content-between gap-2">
+                                <span><strong>Strana {{ entry.number }}</strong> — {{ entry.page.template.name }}</span>
+                                <span class="badge bg-danger-subtle text-danger d-none me-auto" data-fill-overflow-badge>
+                                    <i class="mdi mdi-alert-outline" aria-hidden="true"></i> Text přetéká
+                                </span>
+                            </div>
+                            <div class="fill-surface"
+                                 data-variant-fill-overlay-target="surface"
+                                 data-variant-id="{{ variantId }}"
+                                 data-canvas-width="{{ entry.width }}"
+                                 data-layout="{{ entry.text_layout|json_encode }}">
+                                <div class="group-fill-preview-frame" style="aspect-ratio: {{ entry.width }} / {{ entry.height }};">
+                                    <img src="{{ (entry.variant.previewImagePath ?: entry.variant.backgroundImage) ? uploaded_asset(entry.variant.previewImagePath ?: entry.variant.backgroundImage) : asset('images/manual-placeholder.png') }}"
+                                         alt="Strana {{ entry.number }}"
+                                         data-group-fill-target="preview"
+                                         data-variant-fill-overlay-target="preview"
+                                         data-variant-id="{{ variantId }}"
+                                         data-preview-endpoint="{{ entry.preview_endpoint }}">
+                                    {% if entry.echo %}
+                                        <img class="group-fill-echo-base" data-group-fill-target="echoBase" data-variant-id="{{ variantId }}" alt="" aria-hidden="true">
+                                        <canvas class="group-fill-echo-canvas" data-group-fill-target="echoCanvas" data-variant-id="{{ variantId }}" aria-hidden="true"></canvas>
+                                    {% endif %}
+                                    <div class="group-fill-placement-layer"
+                                         data-group-fill-target="placementLayer"
+                                         data-variant-id="{{ variantId }}"></div>
+                                    <div class="group-fill-preview-spinner">
+                                        <div class="fill-spinner__badge">
+                                            <span class="fill-spinner__icon" role="status" aria-label="Generuji náhled…"></span>
+                                        </div>
+                                    </div>
+                                    <div class="group-fill-preview-error">Náhled se nepodařilo načíst</div>
+                                </div>
+                                <div class="fill-overlay">
+                                    {{ include('_fill_overlay_boxes.html.twig', {
+                                        text_placeholders: fill.text_placeholders,
+                                        image_placeholders: imagePlaceholders,
+                                        text_frames: entry.text_frames,
+                                        image_frames: entry.image_frames,
+                                        image_hidden: {},
+                                        shape_placeholders: fill.shape_placeholders,
+                                        shape_frames: entry.shape_frames,
+                                    }) }}
+                                </div>
+                                {% for slot in entry.adjustable %}
+                                    {% set slot_name = slot.name ?: 'Obrázek' %}
+                                    <div class="group-fill-placement-toolbar" hidden
+                                         role="group" aria-label="{{ slot_name }} — úprava na straně {{ entry.number }}"
+                                         data-group-fill-target="placementToolbar"
+                                         data-variant-id="{{ variantId }}" data-input-id="{{ slot.inputId }}">
+                                        <div class="d-flex align-items-center justify-content-between gap-2">
+                                            <span class="group-fill-placement-toolbar__name text-truncate"><i class="mdi mdi-image-outline"></i> {{ slot_name }}</span>
+                                            <span class="d-inline-flex align-items-center gap-2">
+                                                <button type="button" class="btn btn-link btn-sm p-0 font-12"
+                                                        data-action="group-fill#resetVariantPlacement"
+                                                        data-group-fill-variantid-param="{{ variantId }}"
+                                                        data-group-fill-inputid-param="{{ slot.inputId }}">Vycentrovat</button>
+                                                <button type="button" class="btn-close group-fill-placement-toolbar__close" aria-label="Zavřít"
+                                                        data-action="group-fill#deselectPlacement"></button>
+                                            </span>
+                                        </div>
+                                        {% if slot.allowResize %}
+                                            <div class="group-fill-placement-control">
+                                                <label for="doc-fill-zoom-{{ variantId }}-{{ slot.inputId }}" title="Zvětšení"><i class="mdi mdi-magnify-plus-outline"></i><span class="visually-hidden">Zvětšení</span></label>
+                                                <input type="range" class="form-range" id="doc-fill-zoom-{{ variantId }}-{{ slot.inputId }}"
+                                                       min="1" max="4" step="0.01" value="1"
+                                                       data-group-fill-target="variantZoomRange"
+                                                       data-variant-id="{{ variantId }}" data-input-id="{{ slot.inputId }}"
+                                                       data-action="input->group-fill#variantZoomChanged">
+                                                <span class="group-fill-placement-control__value" data-group-fill-target="variantZoomLabel" data-variant-id="{{ variantId }}" data-input-id="{{ slot.inputId }}">100 %</span>
+                                            </div>
+                                        {% endif %}
+                                        {% if slot.allowRotate %}
+                                            <div class="group-fill-placement-control">
+                                                <label for="doc-fill-rotation-{{ variantId }}-{{ slot.inputId }}" title="Otočení"><i class="mdi mdi-rotate-right"></i><span class="visually-hidden">Otočení</span></label>
+                                                <input type="range" class="form-range" id="doc-fill-rotation-{{ variantId }}-{{ slot.inputId }}"
+                                                       min="-180" max="180" step="1" value="0"
+                                                       data-group-fill-target="variantRotationRange"
+                                                       data-variant-id="{{ variantId }}" data-input-id="{{ slot.inputId }}"
+                                                       data-action="input->group-fill#variantRotationChanged">
+                                                <span class="group-fill-placement-control__value" data-group-fill-target="variantRotationLabel" data-variant-id="{{ variantId }}" data-input-id="{{ slot.inputId }}">0°</span>
+                                            </div>
+                                        {% endif %}
+                                        {% if slot.allowMove %}
+                                            <p class="font-11 text-muted mb-0 mt-1"><i class="mdi mdi-cursor-move"></i> Posunete tažením obrázku{{ slot.allowResize ? ', kolečkem myši přiblížíte' }}.</p>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </section>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# ---- Popovers + the "Všechna pole" panel ----------------------------
+               ONE popover per fill key: "Společná pole" first, then a section
+               per page in that template's admin-arranged order. Sections are
+               headings only — popovers are found by data-inputid, never by
+               position. (Field order is arranged on each template's own fill
+               page, not here.) #}
+            <div class="fill-panel-backdrop" data-action="click->variant-fill-overlay#closePanel"></div>
+            <div class="fill-popovers" data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title">
+                {{ include('_fill_panel_header.html.twig', { arrangeable: false }) }}
+
+                {% for section in fill.sections %}
+                    {% if section.fields is not empty %}
+                        <h6 class="document-fill-panel-heading{{ section.shared ? ' is-shared' : '' }}">
+                            {% if section.shared %}<i class="mdi mdi-link-variant me-1" aria-hidden="true"></i>{% endif %}{{ section.title }}
+                        </h6>
+                    {% endif %}
+                    {% for field in section.fields %}
+                      {% if field.kind == 'text' %}
+                        {{ include('_fill_text_popover.html.twig', { ph: field.ph, richToolbar: fill.rich_toolbar, arrangeable: false }) }}
+                      {% elseif field.kind == 'shape' %}
+                        {{ include('_fill_shape_popover.html.twig', { ph: field.ph, arrangeable: false }) }}
+                      {% else %}
+                        {% set slot = field.slot %}
+                        {% set input = slot.input %}
+                        <div class="fill-popover fill-popover--image card" data-inputid="{{ input.inputId }}">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <span class="small fw-bold text-truncate">{{ input.name ?: 'Obrázek' }}</span>
+                                    {% if input.hidable %}
+                                        <button type="button"
+                                            class="fill-popover__eye"
+                                            data-hide-toggle="{{ input.inputId }}"
+                                            aria-pressed="false"
+                                            title="Schovat prvek"
+                                            aria-label="Schovat prvek"
+                                            data-action="variant-fill-overlay#toggleHide"
+                                            data-variant-fill-overlay-inputid-param="{{ input.inputId }}"
+                                        ><i class="mdi mdi-eye-outline" aria-hidden="true"></i></button>
+                                    {% endif %}
+                                </div>
+                                {% if input.description %}<p class="small text-muted mb-1">{{ input.description }}</p>{% endif %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fill-image-card__thumb"
+                                          data-group-fill-target="imageThumb"
+                                          data-input-id="{{ input.inputId }}"
+                                          {% if slot.defaultImageUrl %}style="background-image: url('{{ slot.defaultImageUrl }}');"{% endif %}></span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-action="variant-fill-overlay#openImageModal"
+                                            data-variant-fill-overlay-inputid-param="{{ input.inputId }}">
+                                        <i class="mdi mdi-image-search-outline"></i> {{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
+                                    </button>
+                                </div>
+                                <input type="hidden" name="images[{{ input.inputId }}][imageId]" value=""
+                                       data-group-fill-target="imageValue" data-input-id="{{ input.inputId }}">
+                                {% if input.hidable %}
+                                    <input type="checkbox" class="visually-hidden" tabindex="-1" aria-hidden="true"
+                                           value="1"
+                                           name="images[{{ input.inputId }}][hide]"
+                                           data-image-hide="{{ input.inputId }}"
+                                           data-action="change->group-fill#changed">
+                                {% endif %}
+                                {% if input.allowMove or input.allowResize or input.allowRotate %}
+                                    <p class="font-11 text-muted mt-2 mb-0">
+                                        <i class="mdi mdi-information-outline"></i>
+                                        Velikost, otočení a posun upravíte po kliknutí na obrázek v náhledu{{ slot.shared ? ' — na každé stránce zvlášť' : '' }}.
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </div>
+                      {% endif %}
+                    {% endfor %}
+                {% endfor %}
+
+                {% if fill.text_placeholders|length == 0 and fill.image_inputs|length == 0 and fill.shape_placeholders|length == 0 %}
+                    <p class="text-muted small mb-0 fill-popovers__empty">
+                        <i class="mdi mdi-information-outline"></i>
+                        Stránky dokumentu nemají žádné vyplnitelné prvky — export stáhne dokument tak, jak je navržený.
+                    </p>
+                {% endif %}
+            </div>
+
+            {# Image pickers: one Bootstrap modal per fill key. Uploads go
+               through the page variant's own route with the REAL inputId
+               (slot.uploadUrl); a shared field offers the intersection of the
+               bound slots' folders. #}
+            {% for slot in fill.image_inputs %}
+                {% set input = slot.input %}
+                <div class="modal fade" id="documentFillImageModal-{{ input.inputId }}" data-image-modal="{{ input.inputId }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h4 class="modal-title">{{ input.name ?: 'Vybrat obrázek' }}{% if slot.pageNumber and not slot.shared %} <small class="text-muted">— strana {{ slot.pageNumber }}</small>{% endif %}</h4>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                            </div>
+                            <div class="modal-body"
+                                 {% if slot.canUpload %}
+                                 data-controller="fill-gallery"
+                                 data-fill-gallery-upload-url-value="{{ slot.uploadUrl }}"
+                                 data-fill-gallery-includes-root-value="{{ slot.includesRoot ? 'true' : 'false' }}"
+                                 {% endif %}>
+                                {% if slot.images|length == 0 and not slot.canUpload %}
+                                    <p class="text-warning small mb-0">Tento obrázek zatím nelze vyplnit — {{ slot.shared ? 'propojené stránky nemají žádnou společnou složku galerie' : 'šablona nemá nastavenou složku galerie' }}. Kontaktujte správce šablony.</p>
+                                {% else %}
+                                    {% if slot.canUpload %}
+                                        <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
+                                            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none fw-bold text-body"
+                                                    data-fill-gallery-target="rootCrumb" data-action="fill-gallery#openRoot"><i class="mdi mdi-folder-home"></i> Galerie</button>
+                                            <span class="text-muted d-none" data-fill-gallery-target="crumbSep">/</span>
+                                            <span class="fw-bold d-none" data-fill-gallery-target="crumbName"></span>
+                                        </nav>
+
+                                        {% if slot.directories is not empty %}
+                                            <div class="d-flex flex-wrap gap-2 mb-2" data-fill-gallery-target="folders">
+                                                {% for directory in slot.directories %}
+                                                    <button type="button" class="btn border rounded p-2 d-flex align-items-center gap-1 text-start"
+                                                            data-fill-gallery-target="folderCard" data-action="fill-gallery#openFolder"
+                                                            data-fill-gallery-id-param="{{ directory.id }}" data-fill-gallery-name-param="{{ directory.name }}"
+                                                            title="{{ directory.name }}">
+                                                        <i class="mdi mdi-folder text-warning fs-4"></i>
+                                                        <span class="text-truncate">{{ directory.name }}</span>
+                                                    </button>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+
+                                    <div class="row g-2"
+                                         data-group-fill-target="imageOptions"
+                                         {% if slot.canUpload %}data-fill-gallery-target="grid"{% endif %}
+                                         data-input-id="{{ input.inputId }}">
+                                        <div class="col-6 col-sm-4 col-md-3" data-fill-gallery-target="thumb" data-always-visible="true">
+                                            <div class="position-relative border rounded gallery-asset h-100">
+                                                <button type="button" class="btn p-0 w-100 h-100 text-start gallery-asset__select group-fill-image-option selected"
+                                                        data-action="group-fill#pickImage"
+                                                        data-input-id="{{ input.inputId }}"
+                                                        data-image-id=""
+                                                        data-image-url="{{ slot.defaultImageUrl ?: '' }}"
+                                                        data-bs-dismiss="modal"
+                                                        title="Ponechat obrázek ze šablony">
+                                                    <div class="p-1">
+                                                        {% if slot.defaultImageUrl %}
+                                                            <img crossorigin="anonymous" src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy" class="img-fluid" style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;">
+                                                        {% else %}
+                                                            <div class="d-flex align-items-center justify-content-center text-muted rounded" style="aspect-ratio: 1; background: #f8f9fa;"><i class="mdi mdi-image-off-outline fs-2"></i></div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="gallery-asset__caption">
+                                                        <div class="gallery-asset__name"><span class="gallery-asset__name-base">Výchozí</span></div>
+                                                        <div class="gallery-asset__meta"><span class="gallery-asset__size">Obrázek ze šablony</span></div>
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {% for image in slot.images %}
+                                            {{ include('_fill_gallery_tile.html.twig', {
+                                                asset: image,
+                                                class: 'group-fill-image-option',
+                                                attrs: {
+                                                    'data-action': 'group-fill#pickImage',
+                                                    'data-input-id': input.inputId,
+                                                    'data-image-id': image.id,
+                                                    'data-image-url': image.url,
+                                                    'data-bs-dismiss': 'modal',
+                                                },
+                                            }) }}
+                                        {% endfor %}
+                                    </div>
+
+                                    {% if slot.canUpload %}
+                                        <p class="text-muted small mt-2 mb-0 d-none" data-fill-gallery-target="emptyNote">Zatím tu nejsou žádné obrázky — nahrajte vlastní níže.</p>
+
+                                        <template data-fill-gallery-target="thumbTemplate">
+                                            {{ include('_fill_gallery_tile.html.twig', {
+                                                class: 'group-fill-image-option',
+                                                attrs: {
+                                                    'data-action': 'group-fill#pickImage',
+                                                    'data-input-id': input.inputId,
+                                                    'data-image-id': '__ID__',
+                                                    'data-image-url': '__URL__',
+                                                    'data-bs-dismiss': 'modal',
+                                                },
+                                            }) }}
+                                        </template>
+
+                                        <hr class="my-3">
+
+                                        <p class="text-muted small mb-0 d-none" data-fill-gallery-target="pickFolderHint">Pro nahrání vlastního obrázku otevřete složku.</p>
+                                        {# Unnamed file input: never part of the export POST. #}
+                                        <div data-fill-gallery-target="uploadWrap">
+                                            <div class="gallery-dropzone"
+                                                 data-fill-gallery-target="dropzone"
+                                                 data-action="click->fill-gallery#browse keydown->fill-gallery#keydown dragover->fill-gallery#dragOver dragleave->fill-gallery#dragLeave drop->fill-gallery#drop"
+                                                 role="button" tabindex="0">
+                                                <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
+                                                <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
+                                                <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
+                                                <div class="text-muted small mt-1">
+                                                    Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> <span data-fill-gallery-target="uploadTargetLabel"></span></strong>
+                                                    &middot; max. 10&nbsp;MB / soubor
+                                                </div>
+                                            </div>
+                                            <input type="file" class="d-none" accept="image/*" multiple data-fill-gallery-target="fileInput" data-action="change->fill-gallery#filesChosen">
+                                            <div class="mt-2 d-flex flex-column gap-2" data-fill-gallery-target="queue" aria-live="polite"></div>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </form>
+    {% endif %}
+{% endblock %}

@@ -290,31 +290,69 @@ readonly final class GroupFillPlaceholders
         $result = [];
 
         foreach ($unified as $inputId => $input) {
-            $directories = $this->allowedDirectories->resolve($input, $projectId);
-            $includesRoot = $this->allowedDirectories->includesRoot($input);
-
-            $result[] = [
-                'input' => $input,
-                'defaultImageUrl' => $defaultUrls[$inputId] ?? null,
-                'images' => $this->allowedImages($projectId, $directories, $includesRoot),
-                // Upload targets, mirroring the per-variant fill page: with
-                // several possible targets the user picks one (the server
-                // refuses to guess); a single folder — or the root of an
-                // unrestricted slot — is resolved server-side. Only a
-                // restricted slot whose every folder was deleted is a dead end.
-                'directories' => array_map(
-                    static fn (FileDirectory $directory): array => [
-                        'id' => $directory->id->toString(),
-                        'name' => $directory->name,
-                    ],
-                    $directories,
-                ),
-                'includesRoot' => $includesRoot,
-                'canUpload' => $directories !== [] || $includesRoot,
-            ];
+            $result[] = $this->imageSlot($input, $defaultUrls[$inputId] ?? null, $projectId);
         }
 
         return $result;
+    }
+
+    /**
+     * The designer's stand-in picture of every image slot of ONE variant
+     * (the picker's "keep default" tile), keyed by inputId.
+     *
+     * @return array<string, null|string>
+     */
+    public function defaultImageUrls(TemplateVariant $variant): array
+    {
+        $decoded = json_decode($variant->canvas, true);
+        $canvas = is_array($decoded) ? $decoded : [];
+        $urls = [];
+
+        foreach ($this->placeholderGeometry->placeholderObjectsByInputId($canvas) as $inputId => $object) {
+            $urls[(string) $inputId] = $this->defaultImageUrl($object);
+        }
+
+        return $urls;
+    }
+
+    /**
+     * ONE image slot's picker payload for an explicit input definition — the
+     * document fill page builds a shared image field's slot from a synthetic
+     * input (its allowed folders = the intersection over the bound slots).
+     *
+     * @return array{
+     *     input: EditorImageInput,
+     *     defaultImageUrl: null|string,
+     *     images: list<array{id: string, url: string, directoryId: string, uploadedAt: string, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>,
+     *     directories: list<array{id: string, name: string}>,
+     *     includesRoot: bool,
+     *     canUpload: bool
+     * }
+     */
+    public function imageSlot(EditorImageInput $input, null|string $defaultImageUrl, UuidInterface $projectId): array
+    {
+        $directories = $this->allowedDirectories->resolve($input, $projectId);
+        $includesRoot = $this->allowedDirectories->includesRoot($input);
+
+        return [
+            'input' => $input,
+            'defaultImageUrl' => $defaultImageUrl,
+            'images' => $this->allowedImages($projectId, $directories, $includesRoot),
+            // Upload targets, mirroring the per-variant fill page: with
+            // several possible targets the user picks one (the server
+            // refuses to guess); a single folder — or the root of an
+            // unrestricted slot — is resolved server-side. Only a
+            // restricted slot whose every folder was deleted is a dead end.
+            'directories' => array_map(
+                static fn (FileDirectory $directory): array => [
+                    'id' => $directory->id->toString(),
+                    'name' => $directory->name,
+                ],
+                $directories,
+            ),
+            'includesRoot' => $includesRoot,
+            'canUpload' => $directories !== [] || $includesRoot,
+        ];
     }
 
     /**

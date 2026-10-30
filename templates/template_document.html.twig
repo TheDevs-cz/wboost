@@ -31,6 +31,9 @@
         {% endif %}
 
         <div class="ms-auto d-flex flex-wrap gap-2">
+            {% if pages is not empty %}
+                <a href="{{ path('template_document_fill', {'documentId': document.id}) }}" class="btn btn-sm btn-primary rounded-pill"><i class="mdi mdi-file-document-edit-outline"></i> Vyplnit a exportovat</a>
+            {% endif %}
             {% if can_edit %}
                 <a href="{{ path('edit_template_document', {'documentId': document.id}) }}" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit název</a>
                 {% if document.dimension.isPrintFormat %}
@@ -134,7 +137,13 @@
                         </div>
                     </div>
                 {% endif %}
-            {% else %}
+            {% endif %}
+
+            {% if shared_fields %}
+                {{ include('_document_shared_fields.html.twig', {document: document, shared_fields: shared_fields, csrf: csrf}) }}
+            {% endif %}
+
+            {% if not selected_page %}
                 <div class="card">
                     <div class="card-body text-center text-muted py-5">
                         <i class="mdi mdi-book-open-page-variant-outline" style="font-size: 2rem;"></i>

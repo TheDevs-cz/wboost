@@ -7,6 +7,7 @@ ENV APP_ENV="prod" \
 RUN rm $PHP_INI_DIR/conf.d/docker-php-ext-xdebug.ini
 
 COPY --link --chmod=755 .docker/on-startup.sh /docker-entrypoint.d/
+COPY --link .docker/php/wboost.ini $PHP_INI_DIR/conf.d/zz-wboost.ini
 
 COPY composer.json composer.lock symfony.lock ./
 RUN composer install --no-dev --no-interaction --no-scripts

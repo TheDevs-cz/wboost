@@ -14,6 +14,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Message\TemplateDocument\CreateTemplateDocument;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\DimensionUnit;
+use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\TemplateDimension;
 
@@ -25,6 +26,9 @@ final class TemplateDocumentTestData
 {
     /** Every helper page carries THIS input id — like duplicated templates do. */
     public const string SHARED_INPUT_ID = '22222222-0000-0000-0000-000000000001';
+
+    /** The image slot every {@see richA4Template()} page carries (also colliding). */
+    public const string IMAGE_INPUT_ID = '22222222-0000-0000-0000-0000000000a1';
 
     /**
      * @return array{template: UuidInterface, variant: UuidInterface}
@@ -70,5 +74,54 @@ final class TemplateDocumentTestData
         $em->clear();
 
         return $documentId;
+    }
+
+    /**
+     * A page closer to a real one: `$texts` hidable text inputs (the first
+     * one is {@see SHARED_INPUT_ID}, the rest deterministic per index — so
+     * every rich page collides on ALL of them, like duplicates do), `$images`
+     * adjustable + hidable image slots (the first is {@see IMAGE_INPUT_ID})
+     * and a container over the first two texts.
+     *
+     * @return array{template: UuidInterface, variant: UuidInterface}
+     */
+    public static function richA4Template(EntityManagerInterface $em, string $name, int $texts = 2, int $images = 1): array
+    {
+        $project = $em->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        assert($project instanceof Project);
+
+        $template = new Template(Uuid::uuid7(), $project, null, new \DateTimeImmutable(), $name, null, 0);
+        $variant = new TemplateVariant(Uuid::uuid7(), $template, new TemplateDimension(DimensionUnit::Mm, 210, 297), null, new \DateTimeImmutable());
+
+        $objects = [];
+        $inputs = [];
+        $textIds = [];
+        for ($i = 0; $i < $texts; $i++) {
+            $inputId = $i === 0 ? self::SHARED_INPUT_ID : sprintf('22222222-0000-0000-0001-%012d', $i);
+            $textIds[] = $inputId;
+            $objects[] = ['type' => 'Textbox', 'inputId' => $inputId, 'left' => 100, 'top' => 100 + $i * 130, 'width' => 800, 'height' => 120, 'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top', 'text' => 'Text ' . $i, 'fontSize' => 40];
+            $inputs[] = EditorTextInput::fromArray(['inputId' => $inputId, 'name' => $i === 0 ? 'Jméno' : 'Pole ' . $i, 'maxLength' => $i === 0 ? 60 : null, 'locked' => false, 'hidable' => true, 'sampleValue' => 'Ukázka ' . $i]);
+        }
+
+        $imageInputs = [];
+        for ($i = 0; $i < $images; $i++) {
+            $inputId = $i === 0 ? self::IMAGE_INPUT_ID : sprintf('22222222-0000-0000-0002-%012d', $i);
+            $objects[] = ['type' => 'Image', 'imagePlaceholder' => true, 'inputId' => $inputId, 'left' => 1000, 'top' => 100 + $i * 400, 'width' => 400, 'height' => 300, 'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top', 'src' => 'https://example.test/stand-in.png'];
+            $imageInputs[] = EditorImageInput::fromArray(['inputId' => $inputId, 'name' => 'Foto ' . $i, 'allowMove' => true, 'allowResize' => true, 'allowRotate' => true, 'hidable' => true, 'allowedDirectoryIds' => []]);
+        }
+
+        $canvas = ['version' => '5.2.4', 'objects' => $objects];
+        if (count($textIds) >= 2) {
+            $canvas['containers'] = [['id' => 'container-1', 'maxHeight' => 900.0, 'memberInputIds' => [$textIds[0], $textIds[1]], 'memberContainerIds' => []]];
+        }
+
+        $variant->editCanvas((string) json_encode($canvas), $inputs, null, $imageInputs);
+
+        $em->persist($template);
+        $em->persist($variant);
+        $em->flush();
+        $em->clear();
+
+        return ['template' => $template->id, 'variant' => $variant->id];
     }
 }

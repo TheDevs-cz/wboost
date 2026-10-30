@@ -1,6 +1,8 @@
 {# A multi-page document on the Šablony listing: ONE card for all its pages
    (the page templates themselves are hidden from the listing). The body
-   leads to the document page (designers arrange pages there). Delete is two-mode, like a synchronized template. #}
+   leads designers to the document page (they arrange pages there) and
+   everyone else to the fill page. Delete is two-mode, like a synchronized
+   template. #}
 {% set can_edit_document = is_granted('template_document_edit', document) %}
 {% set pages = document.pages %}
 
@@ -13,13 +15,16 @@
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
                     <a href="{{ path('template_document', {'documentId': document.id}) }}" class="dropdown-item"><i class="mdi mdi-book-open-page-variant-outline me-1"></i>Upravit stránky</a>
+                    {% if pages is not empty %}
+                        <a href="{{ path('template_document_fill', {'documentId': document.id}) }}" class="dropdown-item"><i class="mdi mdi-file-document-edit-outline me-1"></i>Vyplnit a exportovat</a>
+                    {% endif %}
                     <a href="{{ path('edit_template_document', {'documentId': document.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit název</a>
                     <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteDocumentModal-{{ document.id }}"><i class="mdi mdi-delete me-1"></i>Smazat…</a>
                 </div>
             </div>
         {% endif %}
 
-        <a href="{{ path('template_document', {'documentId': document.id}) }}" class="text-body">
+        <a href="{{ (can_edit_document or pages is empty) ? path('template_document', {'documentId': document.id}) : path('template_document_fill', {'documentId': document.id}) }}" class="text-body">
             <div class="card-body pb-0">
                 <h4 class="m-0 ps-3">
                     {% if can_edit_document %}

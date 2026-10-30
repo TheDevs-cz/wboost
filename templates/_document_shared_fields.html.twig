@@ -1,0 +1,130 @@
+{#
+    "Společná pole" on the document page (designers only): the shared fields
+    with their bound pages, one-click suggestions, and the add / edit modal.
+    Every action POSTs to `template_document_fields` (the full list is rebuilt
+    server-side), carrying the `template_document` CSRF token. Each modal is
+    its own <form> — none is nested in another.
+
+    Parameters: document, shared_fields (DocumentFieldsView::build()), csrf.
+#}
+<div class="card" id="shared-fields">
+    <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+            <h5 class="header-title m-0">Společná pole</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill ms-auto" data-bs-toggle="modal" data-bs-target="#documentFieldModal-new"><i class="mdi mdi-plus"></i> Přidat pole</button>
+        </div>
+        <p class="text-muted small">Stránky se vyplňují každá zvlášť — i když mají stejná pole. Společné pole se vyplní jednou a propíše se do všech propojených stránek.</p>
+
+        {% if shared_fields.fields is empty %}
+            <p class="text-muted small mb-2">Zatím žádná společná pole.</p>
+        {% else %}
+            <ul class="list-group mb-2">
+                {% for entry in shared_fields.fields %}
+                    {% set field = entry.field %}
+                    <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-document-field="{{ field.id }}">
+                        <span class="fw-bold">{{ field.name }}</span>
+                        <span class="badge bg-light text-dark">{{ field.kind.label }}</span>
+                        {% if entry.stale > 0 %}
+                            <span class="badge bg-warning-subtle text-warning" data-document-field-stale title="Propojený prvek na stránce už neexistuje — při příštím uložení pole se propojení odstraní.">
+                                <i class="mdi mdi-alert-outline"></i> {{ entry.stale }}× neplatné propojení
+                            </span>
+                        {% endif %}
+                        <span class="small text-muted w-100">
+                            {% for binding in entry.bindings %}
+                                <span class="{{ binding.stale ? 'text-decoration-line-through' : '' }}">{% if binding.pageNumber %}Strana {{ binding.pageNumber }}{% else %}{{ binding.pageName }}{% endif %} · {{ binding.inputName }}</span>{{ not loop.last ? ', ' }}
+                            {% else %}
+                                Nepropojeno s žádnou stránkou.
+                            {% endfor %}
+                        </span>
+                        <span class="ms-auto d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-link p-0" data-bs-toggle="modal" data-bs-target="#documentFieldModal-{{ field.id }}"><i class="mdi mdi-pencil"></i> Upravit</button>
+                        </span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% if shared_fields.suggestions is not empty %}
+            <div class="small text-muted mb-1"><i class="mdi mdi-lightbulb-on-outline"></i> Návrhy — stejné pole na více stránkách:</div>
+            <div class="d-flex flex-wrap gap-2">
+                {% for suggestion in shared_fields.suggestions %}
+                    <form method="post" action="{{ path('template_document_fields', {'documentId': document.id}) }}" data-document-field-suggestion>
+                        <input type="hidden" name="_token" value="{{ csrf }}">
+                        <input type="hidden" name="name" value="{{ suggestion.name }}">
+                        <input type="hidden" name="kind" value="{{ suggestion.kind }}">
+                        {% for binding in suggestion.bindings %}
+                            <input type="hidden" name="bindings[{{ binding.templateId }}]" value="{{ binding.inputId }}">
+                        {% endfor %}
+                        <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill" title="Vytvořit společné pole „{{ suggestion.name }}" ({{ suggestion.label }})">
+                            <i class="mdi mdi-link-variant"></i> {{ suggestion.name }} <span class="text-muted">({{ suggestion.label }})</span>
+                        </button>
+                    </form>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% set field_modals = [{id: 'new', field: null, selected: {}}] %}
+{% for entry in shared_fields.fields %}
+    {% set field_modals = field_modals|merge([{id: entry.field.id ~ '', field: entry.field, selected: entry.selected}]) %}
+{% endfor %}
+
+{% for modal in field_modals %}
+    {% set field = modal.field %}
+    {% set kind = field ? field.kind.value : 'text' %}
+    <div class="modal fade" id="documentFieldModal-{{ modal.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <form class="modal-content" method="post" action="{{ path('template_document_fields', {'documentId': document.id}) }}"
+                  data-controller="document-field-form">
+                <input type="hidden" name="_token" value="{{ csrf }}">
+                <input type="hidden" name="fieldId" value="{{ field ? field.id : '' }}">
+                <div class="modal-header">
+                    <h4 class="modal-title">{{ field ? 'Upravit společné pole' : 'Nové společné pole' }}</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label" for="documentFieldName-{{ modal.id }}">Název</label>
+                    <input class="form-control mb-2" id="documentFieldName-{{ modal.id }}" type="text" name="name" maxlength="100" required value="{{ field ? field.name : '' }}" placeholder="např. Jméno klienta">
+
+                    <label class="form-label" for="documentFieldKind-{{ modal.id }}">Typ</label>
+                    <select class="form-select mb-3" id="documentFieldKind-{{ modal.id }}" name="kind"
+                            data-document-field-form-target="kind" data-action="document-field-form#kindChanged">
+                        <option value="text" {{ kind == 'text' ? 'selected' }}>Text (prostý text)</option>
+                        <option value="image" {{ kind == 'image' ? 'selected' }}>Obrázek</option>
+                    </select>
+
+                    <div class="form-label">Propojení se stránkami</div>
+                    {% for page in shared_fields.pages %}
+                        {% set current = modal.selected[page.templateId] ?? '' %}
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <label class="small text-muted text-nowrap" style="min-width: 5.5rem;" for="documentFieldBinding-{{ modal.id }}-{{ page.number }}">Strana {{ page.number }}</label>
+                            <select class="form-select form-select-sm" id="documentFieldBinding-{{ modal.id }}-{{ page.number }}" name="bindings[{{ page.templateId }}]"
+                                    data-document-field-form-target="binding" title="{{ page.name }}">
+                                <option value="">nepropojeno</option>
+                                <optgroup label="Texty — {{ page.name }}" data-kind="text">
+                                    {% for input in page.text %}
+                                        <option value="{{ input.inputId }}" {{ kind == 'text' and current == input.inputId ? 'selected' }}>{{ input.name }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                <optgroup label="Obrázky — {{ page.name }}" data-kind="image">
+                                    {% for input in page.image %}
+                                        <option value="{{ input.inputId }}" {{ kind == 'image' and current == input.inputId ? 'selected' }}>{{ input.name }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            </select>
+                        </div>
+                    {% endfor %}
+                    <p class="text-muted small mb-0">Na každé stránce lze pole propojit nejvýš s jedním prvkem. Text je společný jen jako prostý text (bez formátování a volby písma); obrázek se vybírá jednou, umístění se upravuje na každé stránce zvlášť.</p>
+                </div>
+                <div class="modal-footer">
+                    {% if field %}
+                        <button type="submit" name="delete" value="1" class="btn btn-outline-danger me-auto" formnovalidate>Odstranit pole</button>
+                    {% endif %}
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                    <button type="submit" class="btn btn-primary">Uložit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endfor %}

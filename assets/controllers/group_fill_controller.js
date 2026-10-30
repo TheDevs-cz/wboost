@@ -54,6 +54,16 @@ const MAX_CONCURRENT_RENDERS = 2;
  * FormData(this.element)` always carries the exact state the export POST
  * would send — previews and the ZIP can never disagree.
  *
+ * ## Lazy mode (the multi-page document fill page)
+ *
+ * `lazy: true` — a document may have 30 pages, so nothing renders on load:
+ * an IntersectionObserver renders a page's preview when it scrolls into view
+ * (and again whenever it comes back STALE). Edits re-render only the pages
+ * that carry the edited key (`variants[].keys`, fill keys) — the visible ones
+ * now, the rest when they are scrolled to. The echo lights up on visible
+ * pages only. Without `keys` (the group page) every edit still re-renders
+ * every dimension, as before.
+ *
  * ## Image placement
  *
  * A picture in an adjustable slot is placed by DRAGGING IT IN THE PREVIEW (plus
@@ -95,6 +105,8 @@ export default class extends Controller {
         // in connect() AFTER the neutral reset — the server-rendered hidden
         // fields alone would be wiped by it.
         seed: { type: Object, default: {} },
+        // Render on scroll-into-view instead of on load (see the docblock).
+        lazy: { type: Boolean, default: false },
     };
 
     initialize() {
@@ -118,6 +130,12 @@ export default class extends Controller {
         // both dedupe and FIFO order).
         this._renderQueue = new Map();
         this._activeRenders = 0;
+        // --- Lazy mode (document page) ------------------------------------
+        // variantIds whose preview is (near) the viewport, and those whose
+        // pixels are behind the form state and wait to be scrolled to.
+        this._visible = new Set();
+        this._stale = new Set();
+        this._observer = null;
         // Identity of the current connect()..disconnect() span. A settling
         // fetch from a PREVIOUS connection (Stimulus reuses controller
         // instances across reconnects) must not touch the fresh state.
@@ -199,9 +217,52 @@ export default class extends Controller {
         // page has never had this — it renders server-side on mount — so render
         // for real here too, straight away, and let the thumbnail sit under the
         // spinner until the truth lands.
-        this._refreshAllNow();
+        if (this.lazyValue) {
+            this._observeVisibility();
+        } else {
+            this._refreshAllNow();
+        }
 
         this._initEcho();
+    }
+
+    /**
+     * Lazy mode: every preview starts STALE (the stored thumbnail under the
+     * pending veil) and renders the first time it comes near the viewport.
+     */
+    _observeVisibility() {
+        this._visible.clear();
+        this._stale.clear();
+
+        if (!('IntersectionObserver' in window)) {
+            this._refreshAllNow();
+            return;
+        }
+
+        this.previewTargets.forEach((img) => {
+            this._stale.add(img.dataset.variantId);
+            img.closest('.group-fill-preview-frame')?.classList.add('is-pending');
+        });
+
+        this._observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                const variantId = entry.target.dataset.variantId;
+                if (!entry.isIntersecting) {
+                    this._visible.delete(variantId);
+                    return;
+                }
+                this._visible.add(variantId);
+                if (this._stale.delete(variantId)) {
+                    this._enqueueRender(entry.target);
+                }
+            });
+        }, { rootMargin: '200px 0px' });
+
+        this.previewTargets.forEach((img) => this._observer.observe(img));
+    }
+
+    _isOffscreen(variantId) {
+        return this.lazyValue && this._observer !== null && !this._visible.has(variantId);
     }
 
     /** Render every dimension immediately (no debounce): the initial paint has
@@ -213,6 +274,10 @@ export default class extends Controller {
 
     disconnect() {
         this._connectionToken = null;
+        if (this._observer) {
+            this._observer.disconnect();
+            this._observer = null;
+        }
         window.removeEventListener('pageshow', this._onPageShow);
         document.removeEventListener('pointerdown', this._onOutsidePress, true);
         document.removeEventListener('keydown', this._onEscape, true);
@@ -239,7 +304,7 @@ export default class extends Controller {
      *  hide edits additionally light up the instant echo (per dimension where
      *  the edited input is echo-capable); anything else — an image pick —
      *  changes the pixels UNDER the echo, so the cached bases go stale. */
-    changed(event) {
+    changed(event, keyHint = null) {
         this._editSeq += 1;
 
         const target = event ? event.target : null;
@@ -247,14 +312,33 @@ export default class extends Controller {
         const hiddenFor = target && typeof target.name === 'string' && target.name.startsWith('hiddenValues[')
             ? target.name.slice('hiddenValues['.length, -1)
             : null;
+        // Which input changed — narrows the re-render to the pages carrying
+        // it where the variants declare their keys (document page).
+        const key = inputId || hiddenFor || keyHint
+            || (target && target.dataset ? (target.dataset.imageHide || target.dataset.shapeColorMirror || null) : null);
+        const scope = this._scopeForKey(key);
 
         if (inputId || hiddenFor) {
             this._echoEditedInput(inputId || hiddenFor);
-        } else {
+        } else if (scope === null) {
             this._invalidateEchoBases(null);
+        } else {
+            scope.forEach((variantId) => this._invalidateEchoBases(variantId));
         }
 
-        this._scheduleRefresh(null);
+        this._scheduleRefresh(scope);
+    }
+
+    /** The variantIds carrying `key`, or null (= all) when unknown or when
+     *  the variants don't declare their keys (the group page). */
+    _scopeForKey(key) {
+        if (!key || !this.variantsValue.some((variant) => Array.isArray(variant.keys))) {
+            return null;
+        }
+
+        return this.variantsValue
+            .filter((variant) => Array.isArray(variant.keys) && variant.keys.includes(key))
+            .map((variant) => variant.variantId);
     }
 
     /**
@@ -270,20 +354,26 @@ export default class extends Controller {
         this._scheduleRefresh(variantId);
     }
 
-    _scheduleRefresh(variantId) {
+    /** `scope`: null = every dimension, a variantId, or a list of them. */
+    _scheduleRefresh(scope) {
         clearTimeout(this.refreshTimer);
 
-        // Coalescing across the debounce window: a pending refresh for a
-        // DIFFERENT scope widens to all. Narrowing instead would leave the
-        // other previews marked pending with pixels nobody is going to redraw.
-        const scope = this._pendingScope === undefined || this._pendingScope === variantId
-            ? variantId
-            : null;
-        this._pendingScope = scope;
+        // Coalescing across the debounce window: scopes UNION (null = all
+        // absorbs everything). Narrowing instead would leave the other
+        // previews marked pending with pixels nobody is going to redraw.
+        const ids = scope === null ? null : new Set(Array.isArray(scope) ? scope : [scope]);
+        if (this._pendingScope === undefined) {
+            this._pendingScope = ids;
+        } else if (this._pendingScope === null || ids === null) {
+            this._pendingScope = null;
+        } else {
+            ids.forEach((id) => this._pendingScope.add(id));
+        }
+        const pending = this._pendingScope;
 
-        const previews = scope === null
+        const previews = pending === null
             ? this.previewTargets
-            : this.previewTargets.filter((img) => img.dataset.variantId === scope);
+            : this.previewTargets.filter((img) => pending.has(img.dataset.variantId));
 
         previews.forEach((img) => img.closest('.group-fill-preview-frame')?.classList.add('is-pending'));
         this.refreshTimer = setTimeout(() => {
@@ -342,7 +432,7 @@ export default class extends Controller {
         // different photo by coordinates that meant something only for the old one.
         this._setPicture(inputId, imageId, imageUrl);
 
-        this.changed();
+        this.changed(null, inputId);
     }
 
     // Uploading into a picker modal is owned by the shared fill-gallery
@@ -380,7 +470,7 @@ export default class extends Controller {
 
         // The "Stáhnout vše" menu's items submit too (format=pdf for the
         // print PDFs); the busy state always shows on the main button.
-        const label = submitter && submitter.dataset.groupFillZipFormat === 'pdf'
+        const label = submitter && (submitter.dataset.groupFillZipFormat || '').startsWith('pdf')
             ? 'Generuji PDF…'
             : 'Generuji ZIP…';
         const button = this.exportButtonTarget;
@@ -406,7 +496,15 @@ export default class extends Controller {
     }
 
     refreshAll(previews = null) {
-        (previews ?? this.previewTargets).forEach((img) => this._enqueueRender(img));
+        (previews ?? this.previewTargets).forEach((img) => {
+            // Lazy mode: a page out of view only goes stale — it renders
+            // when scrolled to (its pending veil stays up meanwhile).
+            if (this._isOffscreen(img.dataset.variantId)) {
+                this._stale.add(img.dataset.variantId);
+                return;
+            }
+            this._enqueueRender(img);
+        });
     }
 
     /**
@@ -515,7 +613,12 @@ export default class extends Controller {
                     frame?.classList.remove('is-loading');
                     this._renderQueue.set(endpoint, img);
                 } else {
-                    frame?.classList.remove('is-loading', 'is-pending');
+                    frame?.classList.remove('is-loading');
+                    // A page that went stale off-screen keeps its veil
+                    // until it is rendered on scroll-in.
+                    if (!this._stale.has(img.dataset.variantId)) {
+                        frame?.classList.remove('is-pending');
+                    }
                 }
                 this._pumpRenders();
             }
@@ -574,6 +677,8 @@ export default class extends Controller {
         if (this._echo.size === 0 || !window.WBoostFillTextEcho) return;
         this._echo.forEach((entry, variantId) => {
             if (!entry.payload.inputs[inputId]) return;
+            // Lazy mode: no base renders for pages nobody is looking at.
+            if (this._isOffscreen(variantId)) return;
             this._activateEcho(variantId, entry);
         });
         this._scheduleEchoRepaint();

@@ -14,6 +14,7 @@ services:
             - .:/app
             - .docker/on-startup.sh:/docker-entrypoint.d/on-startup.sh
             - ./.docker/on-startup.sh:/docker-entrypoint.d/on-startup.sh
+            - ./.docker/php/wboost.ini:/usr/local/etc/php/conf.d/zz-wboost.ini:ro
             - caddy_data:/data
             - caddy_config:/config
         depends_on:
