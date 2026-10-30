@@ -7,6 +7,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetTemplates;
+use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 use WBoost\Web\Query\GetEmailSignatureTemplates;
 use WBoost\Web\Query\GetFontUsage;
 use WBoost\Web\Query\GetFonts;
@@ -26,6 +27,7 @@ final class ProjectDashboardController extends AbstractController
         readonly private GetFonts $getFonts,
         readonly private GetFontUsage $getFontUsage,
         readonly private GetTemplates $getTemplates,
+        readonly private TemplateDocumentsFeature $templateDocumentsFeature,
         readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
         readonly private GetWeeklyMenus $getWeeklyMenus,
         readonly private FileUploadRepository $fileUploadRepository,
@@ -37,7 +39,7 @@ final class ProjectDashboardController extends AbstractController
     public function __invoke(Project $project): Response
     {
         // Single source since the module merge: grouped and plain templates alike.
-        $templates = $this->getTemplates->allForProject($project->id);
+        $templates = $this->getTemplates->allForProject($project->id, $this->templateDocumentsFeature->isEnabled());
 
         $recentTemplates = $templates;
         usort(

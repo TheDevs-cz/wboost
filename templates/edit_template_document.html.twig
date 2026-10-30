@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Upravit dokument{% endblock %}
+{% set active_menu_item = 'templates' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('template_document', {'documentId': document.id}) }}">{{ document.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(form) }}
+            {{ form_row(form.name) }}
+            {{ form_row(form.category) }}
+            <p class="text-muted small">Formát stránek ({{ document.dimension.label }}) po vytvoření měnit nelze — každá stránka je pro něj navržená.</p>
+            <button class="btn btn-primary" type="submit">Uložit</button>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

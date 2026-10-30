@@ -22,6 +22,7 @@ use WBoost\Web\Query\GetManuals;
 use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Repository\FileDirectoryRepository;
+use WBoost\Web\Repository\TemplateDocumentRepository;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -37,6 +38,7 @@ final class TemplateVariantEditorController extends AbstractController
         readonly private FileDirectoryRepository $fileDirectoryRepository,
         readonly private ResolveRichTextOptions $resolveRichTextOptions,
         readonly private ResolveEditorFontDefaults $resolveEditorFontDefaults,
+        readonly private TemplateDocumentRepository $documentRepository,
     ) {
     }
 
@@ -59,6 +61,16 @@ final class TemplateVariantEditorController extends AbstractController
         }
 
         $template = $variant->template;
+
+        // Opened from a multi-page document (`?document=<id>`): the page strip
+        // + breadcrumb lead back to it and to the sibling pages. Only honoured
+        // when this variant really is a page of that document.
+        $documentPage = $this->documentRepository->pageOfVariant($variant->id);
+
+        if ($documentPage !== null && $request->query->getString('document') !== $documentPage->document->id->toString()) {
+            $documentPage = null;
+        }
+
         $formData = new TemplateVariantEditorFormData();
         $editorForm = $this->createForm(TemplateVariantEditorFormType::class, $formData);
 
@@ -89,6 +101,13 @@ final class TemplateVariantEditorController extends AbstractController
             }
 
             $this->addFlash('success', 'Editor uložen!');
+
+            if ($documentPage !== null) {
+                return $this->redirectToRoute('template_document', [
+                    'documentId' => $documentPage->document->id,
+                    'page' => $template->id,
+                ]);
+            }
 
             return $this->redirectToRoute('template_variants', [
                 'templateId' => $template->id,
@@ -134,6 +153,8 @@ final class TemplateVariantEditorController extends AbstractController
             'edit_variant_url' => $this->generateUrl('edit_template_variant', ['variantId' => $variant->id]),
             'export_url' => $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
             'dimension_label' => sprintf('%s (%dx%dpx)', $variant->dimension->label(), $variant->dimension->width(), $variant->dimension->height()),
+            'document_page' => $documentPage,
+            'document_pages' => $documentPage?->document->pages() ?? [],
         ]);
     }
 }

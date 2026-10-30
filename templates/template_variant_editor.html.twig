@@ -34,8 +34,13 @@
         <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ module_templates_url }}">{{ module_label }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ module_variants_url }}">{{ template.name }}</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
+        {% if document_page %}
+            <li class="breadcrumb-item"><a href="{{ path('template_document', {'documentId': document_page.document.id, 'page': template.id}) }}">{{ document_page.document.name }}</a></li>
+            <li class="breadcrumb-item active">Strana {{ document_page.position + 1 }} — {{ template.name }}</li>
+        {% else %}
+            <li class="breadcrumb-item"><a href="{{ module_variants_url }}">{{ template.name }}</a></li>
+            <li class="breadcrumb-item active">{{ block('title') }}</li>
+        {% endif %}
     </ol>
 {% endblock %}
 
@@ -122,6 +127,22 @@
                     <p class="d-inline-block my-0 small text-muted" data-canvas-zoom-target="scaleDisplay">100%</p>
 
                     {{ include('editor/_editor_toggles.html.twig') }}
+
+                    {% if document_page %}
+                        {# Multi-page document page strip: back to the document,
+                           jump to a sibling page. Leaving with unsaved changes
+                           asks first (document-page-strip). #}
+                        <span class="document-page-strip ms-2" data-controller="document-page-strip">
+                            <a href="{{ path('template_document', {'documentId': document_page.document.id, 'page': template.id}) }}" class="btn btn-sm btn-outline-secondary" data-action="document-page-strip#navigate" title="Zpět do dokumentu"><i class="mdi mdi-arrow-left"></i> {{ document_page.document.name }}</a>
+                            {% for sibling in document_pages %}
+                                {% if sibling.id == document_page.id %}
+                                    <span class="btn btn-sm btn-primary disabled" title="{{ sibling.template.name }}">{{ loop.index }}</span>
+                                {% else %}
+                                    <a href="{{ path('template_variant_editor', {'variantId': sibling.variant.id, 'document': document_page.document.id}) }}" class="btn btn-sm btn-outline-secondary" data-action="document-page-strip#navigate" title="{{ sibling.template.name }}">{{ loop.index }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </span>
+                    {% endif %}
 
                     {% if variant.group and is_granted('ROLE_DESIGNER') %}
                         <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="badge bg-info-lighten text-info ms-2" title="Tato varianta vznikla ve skupině — otevřít skupinový editor"><i class="uil-layer-group"></i> Skupina: {{ variant.group.name }}</a>

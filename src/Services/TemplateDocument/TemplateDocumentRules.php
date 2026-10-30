@@ -41,6 +41,37 @@ readonly final class TemplateDocumentRules
      */
     public function attachable(TemplateDocument $document, UuidInterface $templateId): array
     {
+        $template = $this->attachableTemplate($document, $templateId);
+        $variant = $this->matchingVariant($document, $template);
+
+        if ($variant === null) {
+            throw InvalidTemplateDocumentChange::noMatchingVariant($templateId->toString(), $document->dimension->label());
+        }
+
+        return [$template, $variant];
+    }
+
+    /**
+     * Same checks for an EXPLICIT variant (a page duplicate attaches the copy
+     * of the page's own variant — the template was created in this request,
+     * so its in-memory variants collection is still empty).
+     *
+     * @throws InvalidTemplateDocumentChange
+     */
+    public function assertAttachableVariant(TemplateDocument $document, TemplateVariant $variant): void
+    {
+        $this->attachableTemplate($document, $variant->template->id);
+
+        if (!$variant->dimension->hasSameSizeAs($document->dimension)) {
+            throw InvalidTemplateDocumentChange::noMatchingVariant($variant->template->id->toString(), $document->dimension->label());
+        }
+    }
+
+    /**
+     * @throws InvalidTemplateDocumentChange
+     */
+    private function attachableTemplate(TemplateDocument $document, UuidInterface $templateId): Template
+    {
         try {
             $template = $this->templateRepository->get($templateId);
         } catch (TemplateNotFound) {
@@ -61,13 +92,7 @@ readonly final class TemplateDocumentRules
             throw InvalidTemplateDocumentChange::alreadyAPage($templateId->toString());
         }
 
-        $variant = $this->matchingVariant($document, $template);
-
-        if ($variant === null) {
-            throw InvalidTemplateDocumentChange::noMatchingVariant($templateId->toString(), $document->dimension->label());
-        }
-
-        return [$template, $variant];
+        return $template;
     }
 
     /**

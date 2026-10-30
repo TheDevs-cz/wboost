@@ -77,7 +77,7 @@ readonly final class CopyTemplateHandler
 
         foreach ($originalTemplate->variants() as $originalVariant) {
             $newVariant = new TemplateVariant(
-                $this->provideIdentity->next(),
+                $message->variantIds[$originalVariant->id->toString()] ?? $this->provideIdentity->next(),
                 $newTemplate,
                 $originalVariant->dimension,
                 $originalVariant->backgroundImage,

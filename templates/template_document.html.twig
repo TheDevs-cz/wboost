@@ -1,0 +1,258 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ document.name }}{% endblock %}
+{% set active_menu_item = 'templates' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{#
+    The document page — Apple Preview style: page thumbnails on the left
+    (drag to reorder via the shared Sortable `dragula` controller, which posts
+    the template ids in order), the selected page large on the right. Every
+    action is a plain POST form carrying the `template_document` CSRF token;
+    pages ARE templates, so "Upravit stránku" opens the ordinary editor with
+    the document's page strip (`?document=`).
+#}
+{% block content %}
+    {% set csrf = csrf_token('template_document') %}
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <span class="badge bg-primary-lighten text-primary font-13"><i class="mdi mdi-book-open-page-variant-outline"></i> Dokument {{ document.dimension.label }}</span>
+        <span class="text-muted">{{ pages|length }} {{ pages|length == 1 ? 'strana' : (pages|length >= 2 and pages|length <= 4 ? 'strany' : 'stran') }}</span>
+        {% if document.dimension.isPrintFormat and (document.dimension.bleedMm > 0 or document.dimension.cropMarks) %}
+            <span class="text-muted small">· spadávka {{ document.dimension.bleedMm }} mm{{ document.dimension.cropMarks ? ', ořezové značky' : '' }}</span>
+        {% endif %}
+
+        <div class="ms-auto d-flex flex-wrap gap-2">
+            {% if can_edit %}
+                <a href="{{ path('edit_template_document', {'documentId': document.id}) }}" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit název</a>
+                {% if document.dimension.isPrintFormat %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#documentPrintSettingsModal"><i class="mdi mdi-printer-outline"></i> Tiskové nastavení</button>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" data-bs-toggle="modal" data-bs-target="#deleteDocumentModal"><i class="mdi mdi-delete"></i> Smazat…</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-3 col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="header-title mb-3">Stránky</h5>
+
+                    {% if pages is empty %}
+                        <p class="text-muted small">Dokument zatím nemá žádné stránky.</p>
+                    {% endif %}
+
+                    <ol class="document-pages"
+                        {% if can_edit %}
+                            data-controller="dragula"
+                            data-dragula-sort-url-value="{{ path('sort_template_document_pages', {'documentId': document.id}) }}"
+                            data-dragula-target="container"
+                        {% endif %}
+                    >
+                        {% for page in pages %}
+                            {% set thumb = page.variant.previewImagePath ?: page.variant.backgroundImage %}
+                            <li class="document-pages__item {{ selected_page and selected_page.id == page.id ? 'is-active' : '' }}" data-entity-id="{{ page.template.id }}">
+                                {% if can_edit %}<span class="dragula-handle text-lighter" title="Přetažením změníte pořadí"></span>{% endif %}
+                                <a class="document-pages__thumb" href="{{ path('template_document', {'documentId': document.id, 'page': page.template.id}) }}" title="{{ page.template.name }}">
+                                    <img src="{{ thumb ? uploaded_asset(thumb) : asset('images/manual-placeholder.png') }}" alt="" loading="lazy">
+                                </a>
+                                <div class="small mt-1"><strong>{{ loop.index }}</strong> <span class="text-muted">{{ page.template.name }}</span></div>
+                            </li>
+                        {% endfor %}
+                    </ol>
+
+                    {% if can_edit %}
+                        <div class="d-grid gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#attachPagesModal"><i class="mdi mdi-link-variant-plus"></i> Připojit existující</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#newPageModal"><i class="mdi mdi-plus"></i> Nová stránka</button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9 col-md-8">
+            {% if selected_page %}
+                {% set page = selected_page %}
+                {% set thumb = page.variant.previewImagePath ?: page.variant.backgroundImage %}
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                            <h4 class="m-0">Strana {{ page.position + 1 }} — {{ page.template.name }}</h4>
+
+                            {% if can_edit %}
+                                <div class="ms-auto d-flex flex-wrap gap-2">
+                                    <a href="{{ path('template_variant_editor', {'variantId': page.variant.id, 'document': document.id}) }}" class="btn btn-sm btn-primary rounded-pill"><i class="mdi mdi-pencil-ruler"></i> Upravit stránku</a>
+
+                                    <form method="post" action="{{ path('duplicate_template_document_page', {'documentId': document.id, 'templateId': page.template.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="mdi mdi-content-copy"></i> Duplikovat</button>
+                                    </form>
+
+                                    <form method="post" action="{{ path('detach_template_document_page', {'documentId': document.id, 'templateId': page.template.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill" title="Stránka se vrátí mezi šablony jako samostatná šablona"><i class="mdi mdi-link-variant-off"></i> Odpojit</button>
+                                    </form>
+
+                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" data-bs-toggle="modal" data-bs-target="#deletePageModal"><i class="mdi mdi-delete"></i> Smazat stránku</button>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="document-page-preview">
+                            <img src="{{ thumb ? uploaded_asset(thumb) : asset('images/manual-placeholder.png') }}" alt="{{ page.template.name }}">
+                        </div>
+                    </div>
+                </div>
+
+                {% if can_edit %}
+                    <div class="modal fade" id="deletePageModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <form class="modal-content" method="post" action="{{ path('delete_template_document_page', {'documentId': document.id, 'templateId': page.template.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf }}">
+                                <div class="modal-header">
+                                    <h4 class="modal-title">Smazat stránku „{{ page.template.name }}"?</h4>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="mb-0">Šablona stránky se nevratně smaže. Chcete-li ji jen vyjmout z dokumentu a ponechat mezi šablonami, použijte <strong>Odpojit</strong>.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                                    <button type="submit" class="btn btn-danger">Smazat stránku</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center text-muted py-5">
+                        <i class="mdi mdi-book-open-page-variant-outline" style="font-size: 2rem;"></i>
+                        <p class="mb-1 mt-2"><strong>Dokument je zatím prázdný.</strong></p>
+                        <p class="mb-0">Připojte existující šablony ve formátu {{ document.dimension.label }}, nebo založte novou stránku.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if can_edit %}
+        <div class="modal fade" id="attachPagesModal" tabindex="-1" aria-hidden="true"
+             {% if open_attach and attachable is not empty %}data-controller="auto-open-modal"{% endif %}>
+            <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                <form class="modal-content" method="post" action="{{ path('attach_template_document_pages', {'documentId': document.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf }}">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Připojit existující šablony</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                    </div>
+                    <div class="modal-body">
+                        {% if attachable is empty %}
+                            <p class="text-muted mb-0">Žádná další šablona nemá variantu ve formátu {{ document.dimension.label }}. (Synchronizované šablony a stránky jiných dokumentů připojit nelze.)</p>
+                        {% else %}
+                            <p class="text-muted">Vybrané šablony se připojí na konec dokumentu v pořadí, v jakém jsou zde. Z přehledu šablon zmizí, dokud je neodpojíte.{% if document.dimension.isPrintFormat %} Převezmou tiskové nastavení dokumentu.{% endif %}</p>
+                            <div class="row g-3">
+                                {% for entry in attachable %}
+                                    <div class="col-6 col-md-3">
+                                        <label class="d-block text-center" style="cursor: pointer;">
+                                            <img class="img-fluid shadow-sm mb-1" src="{{ entry.thumbnail ? uploaded_asset(entry.thumbnail) : asset('images/manual-placeholder.png') }}" alt="" loading="lazy">
+                                            <span class="form-check d-inline-block">
+                                                <input class="form-check-input" type="checkbox" name="templateIds[]" value="{{ entry.template.id }}">
+                                                <span class="form-check-label">{{ entry.template.name }}</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zavřít</button>
+                        {% if attachable is not empty %}
+                            <button type="submit" class="btn btn-primary">Připojit vybrané</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="newPageModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" action="{{ path('add_template_document_page', {'documentId': document.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf }}">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Nová stránka</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label" for="newPageName">Název stránky</label>
+                        <input class="form-control" id="newPageName" type="text" name="name" maxlength="30" placeholder="Strana {{ pages|length + 1 }}">
+                        <p class="text-muted small mt-2 mb-0">Prázdná stránka ve formátu {{ document.dimension.label }} se otevře v editoru.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                        <button type="submit" class="btn btn-primary">Vytvořit a upravit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if document.dimension.isPrintFormat %}
+            <div class="modal fade" id="documentPrintSettingsModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <form class="modal-content" method="post" action="{{ path('template_document_print_settings', {'documentId': document.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf }}">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Tiskové nastavení dokumentu</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                        </div>
+                        <div class="modal-body">
+                            <label class="form-label" for="documentBleed">Spadávka (mm)</label>
+                            <input class="form-control" id="documentBleed" type="number" name="bleed" min="0" max="20" step="any" value="{{ document.dimension.bleedMm }}">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" id="documentCropMarks" type="checkbox" name="cropMarks" value="1" {{ document.dimension.cropMarks ? 'checked' : '' }}>
+                                <label class="form-check-label" for="documentCropMarks">Ořezové značky</label>
+                            </div>
+                            <p class="text-muted small mt-2 mb-0">Platí pro celý dokument — uloží se i do všech jeho stránek, aby tiskové PDF nemíchalo různá nastavení.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                            <button type="submit" class="btn btn-primary">Uložit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="modal fade" id="deleteDocumentModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" action="{{ path('delete_template_document', {'documentId': document.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf }}">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Smazat dokument „{{ document.name }}"?</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2"><strong>Zrušit pouze dokument</strong> — všechny stránky zůstanou zachovány a vrátí se mezi šablony jako samostatné šablony.</p>
+                        <p class="mb-0 text-danger"><strong>Smazat včetně stránek</strong> — nevratně smaže dokument i všechny šablony jeho stránek.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                        <button type="submit" name="deletePages" value="0" class="btn btn-secondary">Zrušit pouze dokument</button>
+                        <button type="submit" name="deletePages" value="1" class="btn btn-danger">Smazat včetně stránek</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

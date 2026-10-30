@@ -4254,3 +4254,73 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
     font-size: .8125rem;
     color: var(--ct-secondary-color);
 }
+
+/* ======================================================================
+   Multi-page documents — listing card page stack + document page sidebar
+   ====================================================================== */
+.document-card-stack {
+    position: relative;
+    aspect-ratio: 210 / 297;
+    max-height: 420px;
+    margin: 0 auto;
+}
+
+.document-card-stack__page {
+    position: absolute;
+    inset: 1rem 1.5rem 1.5rem 1rem;
+    width: calc(100% - 2.5rem);
+    height: calc(100% - 2.5rem);
+    object-fit: contain;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
+}
+
+/* The front page sits bottom-left; the ones behind peek out up and right. */
+.document-card-stack__page--1 { transform: translate(.5rem, -.5rem); }
+.document-card-stack__page--2 { transform: translate(1rem, -1rem); }
+
+.document-pages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.document-pages__item {
+    position: relative;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.document-pages__thumb {
+    display: block;
+    padding: .5rem;
+    border: 2px solid transparent;
+    border-radius: .5rem;
+}
+
+.document-pages__item.is-active .document-pages__thumb {
+    border-color: var(--bs-primary);
+    background: rgba(var(--bs-primary-rgb), .08);
+}
+
+.document-pages__thumb img {
+    display: block;
+    width: 100%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
+}
+
+.document-pages__item .dragula-handle {
+    position: absolute;
+    top: .75rem;
+    left: .75rem;
+}
+
+.document-page-preview img {
+    display: block;
+    max-width: 100%;
+    max-height: 75vh;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
+}

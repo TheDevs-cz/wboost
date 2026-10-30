@@ -75,16 +75,21 @@ final class TemplateVariantFormType extends AbstractType
 
         // Filled by the background gallery picker widget
         // (_background_gallery_picker.html.twig) with the picked gallery
-        // file's id; uploads happen through the gallery itself.
-        $builder->add('backgroundImageId', HiddenType::class, [
-            'required' => false,
-        ]);
+        // file's id; uploads happen through the gallery itself. A document's
+        // page size has no background (`with_background: false`).
+        if ($options['with_background'] === true) {
+            $builder->add('backgroundImageId', HiddenType::class, [
+                'required' => false,
+            ]);
+        }
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
             'data_class' => TemplateVariantFormData::class,
+            'with_background' => true,
         ]);
+        $resolver->setAllowedTypes('with_background', 'bool');
     }
 }

@@ -58,6 +58,7 @@ commit when you change a contract described there — not this file.
 | `templates-image-placeholders.md` | image placeholders: `allowedDirectoryIds`, upload target, `ResolveImageOverrides`, `ImagePlacement`, hybrid backdrop + overlay slices |
 | `api-templates.md` | `/api/template-variants/{id}/export|preview`, structured 400s, group render API, export-history API, input `frame` |
 | `manuals.md` | mockup page grid + attachments, logo own-page variants, colours (RAL), logo width cascade, page texts |
+| `templates-documents.md` | multi-page documents: `TemplateDocument` / pages / shared fields, invariants (`TemplateDocumentRules`), diffing page list, rollout switch, listing cards, document page, editor page strip, fill keys, multi-page PDF export |
 | `storage-inventory.md` | `storage_object` scan, `BuildStorageReferenceIndex` (add every new path-storing column there!), project deletion storage cleanup |
 
 Other docs: `docs/api/authentication.md` (OAuth2), `docs/api/consumer-prompt.md`

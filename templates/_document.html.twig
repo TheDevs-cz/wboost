@@ -1,0 +1,74 @@
+{# A multi-page document on the Šablony listing: ONE card for all its pages
+   (the page templates themselves are hidden from the listing). The body
+   leads to the document page (designers arrange pages there). Delete is two-mode, like a synchronized template. #}
+{% set can_edit_document = is_granted('template_document_edit', document) %}
+{% set pages = document.pages %}
+
+<div class="col-md-6 col-xxl-3">
+    <div class="card" data-entity-id="{{ document.id }}">
+        {% if can_edit_document %}
+            <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
+                <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ri-more-fill text-lighter"></i>
+                </a>
+                <div class="dropdown-menu dropdown-menu-end">
+                    <a href="{{ path('template_document', {'documentId': document.id}) }}" class="dropdown-item"><i class="mdi mdi-book-open-page-variant-outline me-1"></i>Upravit stránky</a>
+                    <a href="{{ path('edit_template_document', {'documentId': document.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit název</a>
+                    <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteDocumentModal-{{ document.id }}"><i class="mdi mdi-delete me-1"></i>Smazat…</a>
+                </div>
+            </div>
+        {% endif %}
+
+        <a href="{{ path('template_document', {'documentId': document.id}) }}" class="text-body">
+            <div class="card-body pb-0">
+                <h4 class="m-0 ps-3">
+                    {% if can_edit_document %}
+                        <span class="dragula-handle text-lighter position-absolute" style="left: 0;top: 20px;"></span>
+                    {% endif %}
+
+                    {{ document.name }}
+
+                    <span class="badge bg-primary-lighten text-primary font-12" title="Vícestránkový dokument"><i class="mdi mdi-book-open-page-variant-outline"></i> {{ pages|length }} {{ pages|length == 1 ? 'strana' : (pages|length >= 2 and pages|length <= 4 ? 'strany' : 'stran') }}</span>
+                </h4>
+            </div>
+
+            <div class="document-card-stack p-3" aria-hidden="true">
+                {% for page in pages|slice(0, 3)|reverse %}
+                    {% set thumb = page.variant.previewImagePath ?: page.variant.backgroundImage %}
+                    <img class="document-card-stack__page document-card-stack__page--{{ loop.revindex0 }}"
+                         src="{{ thumb ? uploaded_asset(thumb) : asset('images/manual-placeholder.png') }}"
+                         alt="">
+                {% else %}
+                    <img class="document-card-stack__page document-card-stack__page--0" src="{{ asset('images/manual-placeholder.png') }}" alt="">
+                {% endfor %}
+            </div>
+
+            <div class="card-body pt-0 pb-2">
+                <h5 class="font-13 text-muted my-0">Dokument {{ document.dimension.label }}</h5>
+            </div>
+        </a>
+    </div>
+
+    {% if can_edit_document %}
+        <div class="modal fade" id="deleteDocumentModal-{{ document.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" action="{{ path('delete_template_document', {'documentId': document.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('template_document') }}">
+                    <div class="modal-header">
+                        <h4 class="modal-title">Smazat dokument „{{ document.name }}"?</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2"><strong>Zrušit pouze dokument</strong> — všechny stránky zůstanou zachovány a vrátí se mezi šablony jako samostatné šablony.</p>
+                        <p class="mb-0 text-danger"><strong>Smazat včetně stránek</strong> — nevratně smaže dokument i všechny šablony jeho stránek.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
+                        <button type="submit" name="deletePages" value="0" class="btn btn-secondary">Zrušit pouze dokument</button>
+                        <button type="submit" name="deletePages" value="1" class="btn btn-danger">Smazat včetně stránek</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+</div>

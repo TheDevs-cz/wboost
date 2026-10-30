@@ -232,3 +232,4 @@ Browser verification (house reality: interactive JS is often left unverified —
 
 ## 13. Progress log
 - [x] Phase 1 — entities + migration (`Version20261030145218`), `TemplateDocumentRules` / `TemplateDocumentPageList` (diffing), voter, 7 handlers, shared `TemplateRepository::nextPosition()`, page-variant delete guard; `tests/MessageHandler/TemplateDocument/` (12).
+- [x] Phase 2 — listing (`GetTemplateListing`, `_document.html.twig`, mixed sort), "Nový dokument", document page + 7 page actions, editor page strip + leave confirm, `TemplateDocumentsFeature` (admin-only), dashboard exclusion; `tests/Controller/TemplateDocument/` (8). Doc: `docs/architecture/templates-documents.md`.

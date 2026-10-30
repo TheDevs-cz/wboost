@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nový dokument{% endblock %}
+{% set active_menu_item = 'templates' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    {{ form_start(form) }}
+
+    <div class="card">
+        <div class="card-body">
+            <h4 class="header-title mb-1">Dokument</h4>
+            <p class="text-muted">Vícestránkový dokument spojí několik šablon do jednoho souboru — vyplníte je na jedné stránce a stáhnete jako jedno PDF (pro tisk i k odeslání) nebo ZIP obrázků.</p>
+
+            {{ form_row(form.name) }}
+            {{ form_row(form.category) }}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body" data-controller="template-dimension">
+            <h4 class="header-title mb-1">Formát stránek</h4>
+            <p class="text-muted">Všechny stránky dokumentu mají stejný formát. Připojit lze šablony, které mají variantu v tomto formátu.</p>
+
+            <label class="form-label">Tiskové formáty:</label>
+            <div class="mb-2">
+                {% for preset in [
+                    {label: 'A5', width: 148, height: 210},
+                    {label: 'A4', width: 210, height: 297},
+                    {label: 'A3', width: 297, height: 420},
+                ] %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="mm"
+                        data-template-dimension-width-param="{{ preset.width }}"
+                        data-template-dimension-height-param="{{ preset.height }}"
+                    >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
+                {% endfor %}
+            </div>
+
+            <label class="form-label">Sociální sítě (karusel):</label>
+            <div class="mb-3">
+                {% for preset in enum('WBoost\\Web\\Value\\DimensionPreset').cases() %}
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="px"
+                        data-template-dimension-width-param="{{ preset.width }}"
+                        data-template-dimension-height-param="{{ preset.height }}"
+                        data-template-dimension-preset-param="{{ preset.value }}"
+                    >{{ preset.label }}</button>
+                {% endfor %}
+            </div>
+
+            {{ form_widget(form.dimension.preset, { attr: { 'data-template-dimension-target': 'preset' } }) }}
+
+            <div class="row">
+                <div class="col-md-2">
+                    {{ form_row(form.dimension.unit, { attr: {
+                        'data-template-dimension-target': 'unit',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.dimension.width, { attr: {
+                        'data-template-dimension-target': 'width',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+                <div class="col-md-2">
+                    {{ form_row(form.dimension.height, { attr: {
+                        'data-template-dimension-target': 'height',
+                        'data-action': 'input->template-dimension#clearPreset',
+                    } }) }}
+                </div>
+            </div>
+
+            {{ include('_print_settings_fields.html.twig', { bleed_field: form.dimension.bleed, crop_marks_field: form.dimension.cropMarks }) }}
+        </div>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Vytvořit a připojit stránky</button>
+
+    {{ form_end(form) }}
+{% endblock %}
