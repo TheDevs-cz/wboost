@@ -28,7 +28,7 @@
                     <a href="{{ path('template_group_from_template', {'projectId': project.id}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="mdi mdi-content-copy"></i> Vytvořit z existující</a>
                 {% endif %}
 
-                {% if template_documents_enabled() and is_granted('ROLE_DESIGNER') %}
+                {% if is_granted('ROLE_DESIGNER') %}
                     <a href="{{ path('add_template_document', {'projectId': project.id}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="mdi mdi-book-open-page-variant-outline"></i> Nový dokument</a>
                 {% endif %}
 

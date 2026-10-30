@@ -1,0 +1,5 @@
+{# Turbo Stream answer to "Uložit rozpracované" on the document fill page —
+   the saved draft is now the page's loaded version. #}
+<turbo-stream action="replace" target="export-history-menu">
+    <template>{{ include('_document_history_menu.html.twig') }}</template>
+</turbo-stream>

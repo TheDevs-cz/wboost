@@ -18,7 +18,7 @@ use WBoost\Web\Tests\TestingLogin;
 /**
  * The web surface of multi-page documents: the listing card (pages hidden
  * behind it), the document page and its page actions, the editor strip and
- * the admin-only rollout switch.
+ * who may see what.
  */
 final class TemplateDocumentPagesControllerTest extends WebTestCase
 {
@@ -39,7 +39,7 @@ final class TemplateDocumentPagesControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('a[href="/project/' . TestDataFixture::PROJECT_1_ID . '/add-template-document"]'));
     }
 
-    public function testWithTheSwitchOffPagesAreOrdinaryTemplates(): void
+    public function testNonDesignersSeeTheCardButCannotArrange(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
@@ -49,11 +49,16 @@ final class TemplateDocumentPagesControllerTest extends WebTestCase
         $crawler = $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID . '/templates');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-entity-id="' . $page['template'] . '"]'), 'Non-admins still see the page as a template until rollout.');
-        self::assertCount(0, $crawler->filter('[data-entity-id="' . $documentId . '"]'));
+        self::assertCount(0, $crawler->filter('[data-entity-id="' . $page['template'] . '"]'));
+        self::assertCount(1, $crawler->filter('[data-entity-id="' . $documentId . '"]'));
+        self::assertCount(0, $crawler->filter('a[href$="/add-template-document"]'), 'Creating documents is a designer tool.');
 
-        $client->request('GET', '/template-document/' . $documentId);
-        self::assertResponseStatusCodeSame(404);
+        $crawler = $client->request('GET', '/template-document/' . $documentId);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('#attachPagesModal'), 'Viewers get no arranging chrome.');
+
+        $client->request('POST', '/template-document/' . $documentId . '/attach', ['_token' => 'x']);
+        self::assertResponseStatusCodeSame(403);
     }
 
     public function testCreateFormMakesADocumentAndOpensTheAttachDialog(): void

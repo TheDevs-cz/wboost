@@ -15,7 +15,6 @@ use WBoost\Web\Services\FormatFileSize;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\SvgColorsMapper;
 use WBoost\Web\Services\Template\FillFieldOrder;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\ManualPage;
 
@@ -30,7 +29,6 @@ final class TwigExtension extends AbstractExtension
         readonly private FillFieldOrder $fillFieldOrder,
         readonly private GetFacebookDestinations $facebookDestinations,
         readonly private Security $security,
-        readonly private TemplateDocumentsFeature $templateDocumentsFeature,
     ) {
     }
 
@@ -52,8 +50,6 @@ final class TwigExtension extends AbstractExtension
             // The left navigation's Facebook / Instagram entry: a connected
             // user goes to the profile, anyone else gets the "coming soon" modal.
             new TwigFunction('facebook_connected', $this->facebookConnected(...)),
-            // Multi-page documents rollout switch (admins only until complete).
-            new TwigFunction('template_documents_enabled', $this->templateDocumentsFeature->isEnabled(...)),
         ];
     }
 

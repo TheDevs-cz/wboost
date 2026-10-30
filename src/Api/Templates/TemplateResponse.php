@@ -54,6 +54,11 @@ final readonly class TemplateResponse
         // `/api/template-groups/{group.id}/…` endpoints. Only variants with
         // `groupMember: true` belong to the group fill.
         public null|TemplateGroupRefResponse $group = null,
+        // Non-null when the template is a PAGE of a multi-page document: fill
+        // + export it as part of the document
+        // (`/api/template-documents/{document.id}/…`). Pages stay listed here
+        // so existing consumers keep working.
+        public null|TemplateDocumentRefResponse $document = null,
     ) {
     }
 }

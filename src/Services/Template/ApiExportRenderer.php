@@ -185,8 +185,12 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $shapeColors
      * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
+     *
+     * Public (STRICT, like every API render) for multi-page documents: all
+     * pages are resolved before any is rendered, so a 400 on the last page
+     * never arrives after minutes of renders.
      */
-    private function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors): array
+    public function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors): array
     {
         $overrides = $this->resolveTextOverrides->resolve(
             $variant->inputs,

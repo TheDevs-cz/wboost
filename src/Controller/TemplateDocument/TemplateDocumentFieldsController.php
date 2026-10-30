@@ -17,7 +17,6 @@ use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
 use WBoost\Web\Services\TemplateDocument\DispatchDocumentChange;
 use WBoost\Web\Services\TemplateDocument\DocumentFieldsView;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 use WBoost\Web\Value\DocumentFieldBinding;
 use WBoost\Web\Value\DocumentFieldDefinition;
 use WBoost\Web\Value\DocumentFieldKind;
@@ -38,7 +37,6 @@ final class TemplateDocumentFieldsController extends AbstractController
         readonly private DispatchDocumentChange $dispatch,
         readonly private DocumentFieldsView $fieldsView,
         readonly private ProvideIdentity $provideIdentity,
-        readonly private TemplateDocumentsFeature $feature,
     ) {
     }
 
@@ -49,9 +47,6 @@ final class TemplateDocumentFieldsController extends AbstractController
         TemplateDocument $document,
         Request $request,
     ): Response {
-        if (!$this->feature->isEnabled()) {
-            throw $this->createNotFoundException();
-        }
 
         if (!$this->isCsrfTokenValid('template_document', $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Invalid CSRF token.');

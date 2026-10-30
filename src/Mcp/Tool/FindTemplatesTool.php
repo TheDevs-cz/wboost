@@ -9,9 +9,12 @@ use Mcp\Exception\ToolCallException;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\SecurityBundle\Security;
 use WBoost\Web\Entity\Project;
+use Doctrine\ORM\EntityManagerInterface;
 use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\ProjectNotFound;
+use WBoost\Web\Mcp\Fill\DocumentPresenter;
 use WBoost\Web\Mcp\Response\FindTemplatesResponse;
 use WBoost\Web\Mcp\Response\TemplateSummaryResponse;
 use WBoost\Web\Mcp\Response\TemplateVariantSummaryResponse;
@@ -55,6 +58,8 @@ readonly final class FindTemplatesTool
         private ProjectRepository $projectRepository,
         private GetTemplates $getTemplates,
         private UploaderHelper $uploaderHelper,
+        private EntityManagerInterface $entityManager,
+        private DocumentPresenter $documentPresenter,
     ) {
     }
 
@@ -79,6 +84,10 @@ readonly final class FindTemplatesTool
      * a rendered preview or a background image, and inputCount — how many text
      * inputs the variant defines, locked ones included.
      *
+     * Also lists the project's multi-page documents (`documents`): ordered
+     * templates filled together and exported as ONE file (export_document).
+     * A template that is a page of one carries its `documentId`.
+     *
      * Reads only; nothing is changed. A project id this account cannot see
      * reports exactly the same failure as an id that does not exist.
      *
@@ -97,6 +106,31 @@ readonly final class FindTemplatesTool
         usort($templates, static fn (Template $a, Template $b): int =>
             [$a->position, $a->name, $a->id->toString()] <=> [$b->position, $b->name, $b->id->toString()]);
 
+        // Multi-page documents (and which template is a page of which).
+        $documents = [];
+        $documentOfTemplate = [];
+
+        /** @var list<TemplateDocument> $projectDocuments */
+        $projectDocuments = $this->entityManager->createQueryBuilder()
+            ->select('d')
+            ->from(TemplateDocument::class, 'd')
+            ->where('d.project = :project')
+            ->setParameter('project', $project->id->toString())
+            ->orderBy('d.position', 'ASC')
+            ->addOrderBy('d.name', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        foreach ($projectDocuments as $document) {
+            foreach ($document->pages() as $page) {
+                $documentOfTemplate[$page->template->id->toString()] = $document->id->toString();
+            }
+
+            if ($needle === null || mb_stripos($document->name, $needle) !== false) {
+                $documents[] = $this->documentPresenter->present($document);
+            }
+        }
+
         /** @var list<TemplateSummaryResponse> $summaries */
         $summaries = [];
 
@@ -114,6 +148,7 @@ readonly final class FindTemplatesTool
                 groupId: $template->group?->id->toString(),
                 groupName: $template->group?->name,
                 variants: $this->buildVariants($template),
+                documentId: $documentOfTemplate[$template->id->toString()] ?? null,
             );
         }
 
@@ -122,6 +157,7 @@ readonly final class FindTemplatesTool
             projectName: $project->name,
             query: $needle,
             templates: $summaries,
+            documents: $documents,
         );
     }
 

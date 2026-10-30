@@ -61,9 +61,17 @@ readonly final class DocumentFillPage
      *     placement_variants: list<array<string, mixed>>,
      *     has_echo: bool
      * }
+     *
+     * `$seed` (fill-key space, {@see DocumentVersionSeeder}) pre-fills the
+     * popovers + shapes from a loaded version; pictures + placements are
+     * replayed client-side from the template's seed value.
+     *
+     * @param null|array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>} $seed
      */
-    public function build(TemplateDocument $document): array
+    public function build(TemplateDocument $document, null|array $seed = null): array
     {
+        $seed ??= ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
+
         $keys = DocumentFillKeys::forDocument($document);
         $projectId = $document->project->id;
 
@@ -95,7 +103,7 @@ readonly final class DocumentFillPage
 
             $pageKeys = [];
 
-            foreach ($this->placeholders->textPlaceholders([$clone], [], [], []) as $placeholder) {
+            foreach ($this->placeholders->textPlaceholders([$clone], $seed['texts'], $seed['hidden'], $seed['fonts']) as $placeholder) {
                 /** @var string $key */
                 $key = $placeholder['inputId'];
                 $texts[$key] ??= $placeholder;
@@ -114,7 +122,7 @@ readonly final class DocumentFillPage
                 $pageKeys[] = $input->inputId;
             }
 
-            foreach ($this->shapePlaceholders->placeholders([$clone], []) as $shape) {
+            foreach ($this->shapePlaceholders->placeholders([$clone], $seed['shapeColors']) as $shape) {
                 $shapes[$shape['inputId']] ??= $shape;
                 $pageKeys[] = $shape['inputId'];
             }

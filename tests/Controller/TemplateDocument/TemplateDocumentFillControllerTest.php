@@ -186,19 +186,20 @@ final class TemplateDocumentFillControllerTest extends WebTestCase
         self::assertSame([], $this->renderer()->calls, 'Nothing renders for a page of another document.');
     }
 
-    public function testTheFillPageIs404WithTheSwitchOff(): void
+    public function testAnyProjectViewerFillsButOutsidersDoNot(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
         $first = TemplateDocumentTestData::a4Template($this->em(), 'Strana A');
         $documentId = TemplateDocumentTestData::document($this->em(), $this->bus(), [$first['template']]);
-        $pageId = $this->document($documentId)->pages()[0]->id;
 
+        // The project owner without the designer role fills and exports.
         $client->request('GET', '/template-document/' . $documentId . '/fill');
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseIsSuccessful();
 
-        $client->request('POST', '/template-document/' . $documentId . '/fill-preview/' . $pageId);
-        self::assertResponseStatusCodeSame(404);
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
+        $client->request('GET', '/template-document/' . $documentId . '/fill');
+        self::assertResponseStatusCodeSame(403);
     }
 
     /**

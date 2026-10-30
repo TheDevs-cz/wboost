@@ -34,6 +34,8 @@ readonly final class TemplateSummaryResponse
         public null|string $groupId,
         public null|string $groupName,
         public array $variants,
+        /** Non-null when the template is a PAGE of a multi-page document (see `documents`). */
+        public null|string $documentId = null,
     ) {
     }
 }

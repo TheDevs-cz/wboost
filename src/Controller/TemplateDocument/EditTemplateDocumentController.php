@@ -18,14 +18,12 @@ use WBoost\Web\FormType\TemplateDocumentFormType;
 use WBoost\Web\Message\TemplateDocument\EditTemplateDocument;
 use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 
 final class EditTemplateDocumentController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private GetTemplateCategories $getTemplateCategories,
-        readonly private TemplateDocumentsFeature $feature,
     ) {
     }
 
@@ -36,9 +34,6 @@ final class EditTemplateDocumentController extends AbstractController
         TemplateDocument $document,
         Request $request,
     ): Response {
-        if (!$this->feature->isEnabled()) {
-            throw $this->createNotFoundException();
-        }
 
         $data = new TemplateDocumentFormData();
         $data->name = $document->name;

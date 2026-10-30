@@ -1,6 +1,6 @@
 ---
 name: wboost
-description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the nine wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, upload_image, preview_design, set_design), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
+description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the eleven wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, upload_image, preview_design, set_design, manage_document), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
 ---
 
 # wboost templates
@@ -9,14 +9,15 @@ wboost is a brand-manual and template platform. A designer authors a **template
 variant** — a canvas with text placeholders, picture slots and brand assets —
 and it is filled with the user's copy and exported as a finished image.
 
-This connector gives you nine tools across three jobs:
+This connector gives you eleven tools across three jobs:
 
 - **read** what the account holds (`get_context`, `find_templates`,
   `describe_variant`, `list_gallery`);
 - **fill and deliver** a design somebody already made (`render_variant`,
-  `export_variant`);
-- **author** — add pictures to the gallery and write a variant's design yourself
-  (`upload_image`, `preview_design`, `set_design`).
+  `export_variant`, and `export_document` for a multi-page document);
+- **author** — add pictures to the gallery, write a variant's design yourself
+  and arrange multi-page documents (`upload_image`, `preview_design`,
+  `set_design`, `manage_document`).
 
 Which of those you can actually do depends on the scopes the connection was
 granted; `get_context` echoes them back and a tool you lack the scope for is not
@@ -250,6 +251,37 @@ iterate. A second `set_design` on your own design is clean.
 Non-destructive findings (today: the canvas-level background of a legacy
 variant, which lives on the row and survives any canvas write) are reported as
 warnings whether acknowledged or not. They never block.
+
+## Multi-page documents
+
+`find_templates` also returns `documents[]`: ordinary templates bound into ONE
+ordered document (e.g. a 4-page price offer), one page size, exported as ONE
+file. Each page carries its `variantId` — `describe_variant`,
+`render_variant` and `set_design` work on it unchanged. Page templates carry a
+`documentId`.
+
+- **Fill + export:** `export_document(documentId, fields?, pages?, format?)`.
+  - `pages` is keyed by `pageId`; each value is exactly `export_variant`'s body
+    for that page's variant.
+  - `fields` fills the document's **shared fields** (one value written into
+    the bound input on every page).
+  - **Pages never share values on their own**, not even duplicated pages with
+    identical input ids. Only a shared field joins them.
+- **Formats:**
+  - `"pdf-screen"` (default): for sending.
+  - `"pdf"`: print, CMYK, bleed + crop marks. mm / cm documents only, at most
+    8 pages from a chat.
+  - `"png"`: a ZIP.
+- **Preview** single pages with `render_variant` first; `export_document`
+  renders every page in full.
+- **Arrange:** `manage_document(action, …)`, with these actions:
+  - `create`: projectId, name, dimension, templateIds.
+  - `rename`
+  - `set_pages`: the WHOLE ordered list; detaching keeps the template.
+  - `add_page`: a blank page; its `variantId` is in the answer, design it with
+    `set_design`.
+  - `set_fields`: the WHOLE list of shared fields, at most one binding per page.
+  - There is no delete.
 
 ## Fill value shapes
 

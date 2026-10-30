@@ -20,7 +20,6 @@ use WBoost\Web\Message\TemplateDocument\CreateTemplateDocument;
 use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 
 /**
  * "Nový dokument": name, category and the page size. Pages are attached on
@@ -32,7 +31,6 @@ final class AddTemplateDocumentController extends AbstractController
         readonly private MessageBusInterface $bus,
         readonly private ProvideIdentity $provideIdentity,
         readonly private GetTemplateCategories $getTemplateCategories,
-        readonly private TemplateDocumentsFeature $feature,
     ) {
     }
 
@@ -44,9 +42,6 @@ final class AddTemplateDocumentController extends AbstractController
         Project $project,
         Request $request,
     ): Response {
-        if (!$this->feature->isEnabled()) {
-            throw $this->createNotFoundException();
-        }
 
         $data = new TemplateDocumentFormData();
         $form = $this->createForm(TemplateDocumentFormType::class, $data, [

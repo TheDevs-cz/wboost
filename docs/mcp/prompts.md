@@ -213,6 +213,21 @@ what became the inputs, but their UUIDs come from `describe_variant`.
 
 ---
 
+## 15. A multi-page document as one PDF
+
+> In Pokojný malíř, make a document "Cenová nabídka" from Pro koho je, Co je
+> součástí, Ostatní podmínky and Reference (in that order), link the customer
+> name on every page as one shared field, fill it for Lucie Svobodová and give
+> me the PDF to send.
+
+`manage_document` "create" with the four `templateIds` (each needs a variant of
+the document's size), then "set_fields" binding the name input of each page
+(input ids from `describe_variant` of every page's `variantId`), then
+`export_document` with `fields` and `format: "pdf-screen"`. Ask for
+`format: "pdf"` instead for the printer (mm / cm documents, up to 8 pages from
+a chat; longer ones from the web fill page). Pages never share values on their
+own — only through a shared field.
+
 ## Two things to say out loud in any prompt
 
 - **The project or template name.** The account may hold dozens of projects;

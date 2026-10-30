@@ -16,7 +16,7 @@ use WBoost\Web\Value\TemplateListingItem;
  * The Šablony listing: per category (+ the uncategorized bucket) ONE ordered
  * list of cards — templates and multi-page documents share the sort space.
  * Templates attached to a document as pages are left out (the document card
- * stands for them) unless documents are switched off for the viewer.
+ * stands for them).
  */
 readonly final class GetTemplateListing
 {
@@ -30,10 +30,10 @@ readonly final class GetTemplateListing
      *
      * @return array{categories: list<array{category: TemplateCategory, items: list<TemplateListingItem>}>, uncategorized: list<TemplateListingItem>}
      */
-    public function forProject(UuidInterface $projectId, array $categories, bool $withDocuments): array
+    public function forProject(UuidInterface $projectId, array $categories): array
     {
-        $templates = $this->templates($projectId, $withDocuments);
-        $documents = $withDocuments ? $this->documents($projectId) : [];
+        $templates = $this->templates($projectId);
+        $documents = $this->documents($projectId);
 
         $items = [];
         foreach ($templates as $template) {
@@ -69,17 +69,14 @@ readonly final class GetTemplateListing
     /**
      * @return list<Template>
      */
-    private function templates(UuidInterface $projectId, bool $excludePages): array
+    private function templates(UuidInterface $projectId): array
     {
         $query = $this->entityManager->createQueryBuilder()
             ->from(Template::class, 'template')
             ->select('template')
             ->where('template.project = :projectId')
+            ->andWhere(sprintf('NOT EXISTS (SELECT page.id FROM %s page WHERE page.template = template)', TemplateDocumentPage::class))
             ->setParameter('projectId', $projectId->toString());
-
-        if ($excludePages) {
-            $query->andWhere(sprintf('NOT EXISTS (SELECT page.id FROM %s page WHERE page.template = template)', TemplateDocumentPage::class));
-        }
 
         /** @var list<Template> $templates */
         $templates = $query->getQuery()->getResult();

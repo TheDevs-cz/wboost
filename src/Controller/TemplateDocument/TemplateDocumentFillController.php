@@ -6,6 +6,8 @@ namespace WBoost\Web\Controller\TemplateDocument;
 
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Ramsey\Uuid\Uuid;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -13,7 +15,8 @@ use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
 use WBoost\Web\Services\TemplateDocument\DocumentFillPage;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
+use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
+use WBoost\Web\Services\TemplateDocument\DocumentVersionSeeder;
 use WBoost\Web\Services\UploaderHelper;
 
 /**
@@ -30,7 +33,8 @@ final class TemplateDocumentFillController extends AbstractController
         readonly private DocumentFillPage $fillPage,
         readonly private GetFonts $getFonts,
         readonly private UploaderHelper $uploaderHelper,
-        readonly private TemplateDocumentsFeature $feature,
+        readonly private TemplateDocumentExportVersionRepository $versionRepository,
+        readonly private DocumentVersionSeeder $versionSeeder,
     ) {
     }
 
@@ -39,16 +43,29 @@ final class TemplateDocumentFillController extends AbstractController
     public function __invoke(
         #[MapEntity(id: 'documentId')]
         TemplateDocument $document,
+        Request $request,
     ): Response {
-        if (!$this->feature->isEnabled()) {
-            throw $this->createNotFoundException();
+
+        // `?version=<id>` seeds the whole form from a stored version (a draft
+        // or an export) — invalid / foreign / pruned ids are silently ignored
+        // so stale links still land on a working page.
+        $versionId = $request->query->getString('version');
+        $loadedVersion = Uuid::isValid($versionId) ? $this->versionRepository->find(Uuid::fromString($versionId)) : null;
+
+        if ($loadedVersion !== null && !$loadedVersion->document->id->equals($document->id)) {
+            $loadedVersion = null;
         }
+
+        $seed = $loadedVersion !== null ? $this->versionSeeder->seed($loadedVersion, $document) : null;
 
         return $this->render('template_document_fill.html.twig', [
             'project' => $document->project,
             'document' => $document,
             'menu_item' => 'templates',
-            'fill' => $this->fillPage->build($document),
+            'fill' => $this->fillPage->build($document, $seed),
+            'seed' => $seed ?? ['images' => [], 'imageHidden' => [], 'placements' => []],
+            'loaded_version' => $loadedVersion,
+            'versions' => $this->versionRepository->forDocument($document->id),
             'font_faces' => $this->fontFaces($document),
             'can_edit' => $this->isGranted(TemplateDocumentVoter::EDIT, $document),
         ]);

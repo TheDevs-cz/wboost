@@ -103,3 +103,37 @@ and the design pipeline knows the bleed (`CompilationContext::withBleed()` in
 background covers the bleed box, the decompiler's cover check expects it, and
 `DesignLinter::checkBounds` tolerates artwork inside the bleed.
 
+
+### Multi-page documents over the API + MCP (2026-10-30)
+
+`src/Api/TemplateDocuments/`:
+- `TemplateDocumentResponse` carries every CRUD operation: `GET` collection /
+  item via `TemplateDocumentsProvider`; POST / PATCH / PUT pages / POST page /
+  PUT fields / DELETE via `TemplateDocumentWriteProcessor`, which dispatches
+  the web's own messages and maps `InvalidTemplateDocumentChange` → 400
+  `{error, code: reason, templateId?}`.
+- `TemplateDocumentRenderResource` holds the page preview + whole-document
+  export (`TemplateDocumentRenderProcessor`).
+- Pages are addressed by `pageId` (the API also accepts the page's templateId
+  leniently). Each page's fill is in the API shape with REAL inputIds;
+  `DocumentApiValues::forPage` applies the shared fields. Every page is
+  resolved strictly (`ApiExportRenderer::resolve`, now public) BEFORE any
+  render; `TemplateDocumentExporter` writes the file.
+- `ApiSubjectLoader::document()` / `writableDocument()` / `documentPage()`:
+  - VIEW vs EDIT voter checks.
+  - A document the caller cannot see answers 404.
+- The page variant shape is `TemplatesProvider::buildVariant()`, now public.
+- `TemplateResponse::$document` (`TemplateDocumentRefResponse`) is additive.
+  Page templates are still listed.
+
+MCP:
+- `find_templates` reports `documents[]` (`DocumentPresenter`) plus a
+  `documentId` on page templates.
+- `manage_document` (`templates:design`; actions: create, rename, set_pages,
+  add_page, set_fields; no delete).
+- `export_document` (`templates:export`):
+  - Strict, via `VariantFill` per page.
+  - The print PDF is capped at 8 pages, for the chat-client time budget.
+  - A file over 25 MB is refused and the reply points to the fill URL.
+  - The file comes back as an `EmbeddedResource` blob.
+- Body parsing shared with the API: `Services/TemplateDocument/DocumentWriteInput`.

@@ -16,7 +16,6 @@ use WBoost\Web\Query\GetTemplates;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
 use WBoost\Web\Services\TemplateDocument\DocumentFieldsView;
 use WBoost\Web\Services\TemplateDocument\TemplateDocumentRules;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 
 /**
  * The document page (Apple-Preview style): a sidebar of page thumbnails
@@ -29,7 +28,6 @@ final class TemplateDocumentController extends AbstractController
     public function __construct(
         readonly private GetTemplates $getTemplates,
         readonly private TemplateDocumentRules $rules,
-        readonly private TemplateDocumentsFeature $feature,
         readonly private DocumentFieldsView $fieldsView,
     ) {
     }
@@ -41,9 +39,6 @@ final class TemplateDocumentController extends AbstractController
         TemplateDocument $document,
         Request $request,
     ): Response {
-        if (!$this->feature->isEnabled()) {
-            throw $this->createNotFoundException();
-        }
 
         $pages = $document->pages();
         $selected = $pages[0] ?? null;

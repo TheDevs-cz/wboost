@@ -57,9 +57,11 @@ readonly final class DescribeMcpCapabilities
         'list_gallery',
         'render_variant',
         'export_variant',
+        'export_document',
         'upload_image',
         'preview_design',
         'set_design',
+        'manage_document',
     ];
 
     /**
@@ -198,6 +200,13 @@ readonly final class DescribeMcpCapabilities
                 . 've 300 DPI je to 2480 × 3508 px. Tohle je ten výsledek, který si odnesete; '
                 . 'započítá se do statistik exportů projektu.',
             ],
+            'export_document' => [
+                'Vyexportovat vícestránkový dokument',
+                'Vyplní všechny stránky dokumentu (třeba čtyřstránkovou cenovou nabídku) a vrátí '
+                . 'je jako jeden soubor: PDF k odeslání, tiskové PDF se spadávkou a ořezovými '
+                . 'značkami (z chatu nejvýš 8 stran) nebo ZIP obrázků. Společná pole, jako jméno '
+                . 'zákazníka, stačí vyplnit jednou. Započítá se do statistik exportů.',
+            ],
             'upload_image' => [
                 'Nahrát nový obrázek do galerie',
                 'Přidá do galerie projektu obrázek, který asistentovi pošlete, a vrátí jeho id, '
@@ -219,6 +228,13 @@ readonly final class DescribeMcpCapabilities
                 . 've skupinovém editoru — a když by uložení zahodilo něco, co návrh neumí '
                 . 'popsat (typicky pozadí nahrané mimo galerii), server ho nejdřív odmítne a '
                 . 'vypíše, o co byste přišli.',
+            ],
+            'manage_document' => [
+                'Sestavit vícestránkový dokument',
+                'Asistent může z existujících šablon složit dokument, změnit pořadí stran, přidat '
+                . 'prázdnou stranu k navržení nebo propojit společná pole napříč stranami. Skládat '
+                . 'dokumenty může jen ten, kdo projekt vlastní a má roli grafika; mazat odsud nejde '
+                . '— odpojená strana zůstane mezi šablonami.',
             ],
             default => null,
         };

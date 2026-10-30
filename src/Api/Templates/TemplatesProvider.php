@@ -14,6 +14,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use WBoost\Web\Entity\Template;
+use WBoost\Web\Entity\TemplateDocumentPage;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\User;
@@ -95,13 +96,28 @@ final readonly class TemplatesProvider implements ProviderInterface
             ->getQuery()
             ->getResult();
 
+        /** @var list<TemplateDocumentPage> $pages */
+        $pages = $this->entityManager->createQueryBuilder()
+            ->select('page', 'document')
+            ->from(TemplateDocumentPage::class, 'page')
+            ->join('page.document', 'document')
+            ->where('document.project = :project')
+            ->setParameter('project', $project->id->toString())
+            ->getQuery()
+            ->getResult();
+
+        $pageByTemplate = [];
+        foreach ($pages as $page) {
+            $pageByTemplate[$page->template->id->toString()] = $page;
+        }
+
         return array_map(
-            fn (Template $template): TemplateResponse => $this->buildTemplate($template),
+            fn (Template $template): TemplateResponse => $this->buildTemplate($template, $pageByTemplate[$template->id->toString()] ?? null),
             $templates,
         );
     }
 
-    private function buildTemplate(Template $template): TemplateResponse
+    private function buildTemplate(Template $template, null|TemplateDocumentPage $page = null): TemplateResponse
     {
         return new TemplateResponse(
             id: $template->id->toString(),
@@ -117,10 +133,17 @@ final readonly class TemplatesProvider implements ProviderInterface
             group: $template->group !== null
                 ? new TemplateGroupRefResponse($template->group->id->toString(), $template->group->name)
                 : null,
+            document: $page !== null
+                ? new TemplateDocumentRefResponse($page->document->id->toString(), $page->document->name, $page->position, $page->id->toString())
+                : null,
         );
     }
 
-    private function buildVariant(TemplateVariant $variant): TemplateVariantResponse
+    /**
+     * Public: the multi-page documents API presents each page's variant in
+     * exactly this shape.
+     */
+    public function buildVariant(TemplateVariant $variant): TemplateVariantResponse
     {
         $decoded = json_decode($variant->canvas, true);
         /** @var array<string, mixed> $canvas */

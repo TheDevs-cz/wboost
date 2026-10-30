@@ -41,17 +41,19 @@ controllers surface them as flash via `DispatchDocumentChange`.
   (`TemplateRepository::nextPosition()` counts both; `SortTemplatesHandler`
   resolves either kind of id).
 
-**Rollout switch — `TemplateDocumentsFeature`** (Twig `template_documents_enabled()`):
-admin-only until the feature is complete. It gates the entry points AND the
-hiding of pages: with it off, a page is an ordinary template on the listing
-and the dashboard, and the document routes 404.
+**Rollout** — built behind an admin-only switch (`TemplateDocumentsFeature`)
+while the phases landed on prod; the switch was REMOVED on 2026-10-30 when web,
+API and MCP were complete. Documents are visible to every project viewer;
+arranging them is a designer + owner tool (`TemplateDocumentVoter::EDIT`).
 
 **Listing** (`GetTemplateListing` → `TemplateListingItem`): per category one
 ordered list of template | document cards; pages excluded via `NOT EXISTS`
 on `template_document_page`. `_document.html.twig` = stacked page thumbnails
 + "N stran" + two-mode delete (`deletePages` 0 = dissolve, 1 = delete page
 templates). `GetTemplates::allForProject(…, excludeDocumentPages:)` for the
-dashboard and the attach dialog.
+dashboard and the attach dialog. `GetGalleryImageUsage` still links a picture
+used on a page to that template's variants page (reachable, just not on the
+listing).
 
 **Document page** (`/template-document/{id}`, `template_document.html.twig`):
 sidebar of page thumbnails (the shared Sortable `dragula` controller posts
@@ -174,3 +176,54 @@ group, document — see `templates-fill.md`), copied from the group page.
   export / preview / drafts share the group page's field names and the native
   form submit (download) keeps working without JS serialisation. A running
   dev container picks the mount up on `docker compose up -d web`.
+
+**Export** (`TemplateDocumentExporter` + `DocumentExportArchive`): ONE file for
+the whole document from pages ALREADY resolved by the caller.
+- `ExportFormat::Pdf` → `PrintPdfRenderer::renderDocument` (multi-page
+  PDF/X-1a; print formats only).
+- `PdfScreen` → `ScreenPdfRenderer::renderDocument`.
+- `Png` → ZIP of `{nn}-{page}.png`.
+- Files are named `{document}.pdf` / `{document}.zip`.
+
+The three callers:
+- **Web** — `TemplateDocumentExportController`, POST `format`. The form is
+  in fill-key space, translated by `DocumentFillKeys::valuesForPage`, and
+  resolved LENIENTLY via `GroupFillRenderer::resolve` (now public).
+- **API** — `TemplateDocumentRenderProcessor`. It resolves STRICTLY via
+  `ApiExportRenderer::resolve` (now public), **every page before any
+  render**.
+- **MCP** — `export_document`. Strict per page through `VariantFill`, so
+  page errors are prefixed with the page.
+
+Usage is recorded per page variant. `set_time_limit(600)` covers a 30-page
+print PDF. A print PDF is refused for px documents (`pdf_not_available`).
+
+**Export history + drafts** (`TemplateDocumentExportVersion`, own table): the
+`TemplateExportVersion` semantics over a document fill.
+- **Same semantics:** dedup by hash, drafts promoted / merged on export,
+  names, pins, 100 unpinned cap.
+- **Why its own entity:** the single-subject one (variant XOR group,
+  `template` NOT NULL, the `ExportFillValues` column type, the seeder, the
+  API view and the history page) is read everywhere as ONE variant's input
+  space.
+- **Fill shape:** `DocumentFillValues` = per page (keyed by **templateId**,
+  stable across detach + re-attach) the ordinary `ExportFillValues` with
+  REAL inputIds, shared values fanned out into every bound input. NEVER
+  fill keys: a key flips between uuid5 and a field id when an input is
+  (un)bound.
+- **Recording:** `RecordDocumentExportVersion` (swallow + log, after the
+  render), called from all three exports.
+- **Drafts:** `SaveTemplateDocumentFillDraft`.
+- **Seeding:** `DocumentVersionSeeder`. Each page goes through the lenient
+  `ExportVersionSeeder::forGroupValues()` (split out of `forGroup`), then is
+  re-keyed into fill-key space. A shared field takes its first bound page's
+  value.
+
+**History UI** (`template_document_fill.html.twig`): `_document_history_menu.html.twig`
+(pinned + 15 recent, each row = `?version=<id>`; drafts badged
+"Rozpracováno"), "Uložit rozpracované" via the shared `fill_draft_controller`
+→ `template_document_fill_draft` (CSRF `template_fill_draft`, Turbo Stream
+replacing `#export-history-menu` + `X-Fill-Draft-Version`). Seeding: texts /
+hides / fonts / shape colours go through the builders (`DocumentFillPage::build($document, $seed)`),
+pictures + placements through `data-group-fill-seed-value` (`_applySeed`).
+v1 gap: no inline rename / pin of document versions (the entity supports both).

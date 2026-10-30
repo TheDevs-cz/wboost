@@ -16,7 +16,6 @@ use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Query\GetTemplateListing;
 use WBoost\Web\Services\Security\ProjectVoter;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 
 #[RequiresProjectModule(ProjectModule::Templates)]
 final class TemplatesController extends AbstractController
@@ -25,7 +24,6 @@ final class TemplatesController extends AbstractController
         readonly private GetTemplateCategories $getTemplateCategories,
         readonly private GetExportVersions $getExportVersions,
         readonly private GetTemplateListing $getTemplateListing,
-        readonly private TemplateDocumentsFeature $templateDocumentsFeature,
     ) {
     }
 
@@ -38,7 +36,6 @@ final class TemplatesController extends AbstractController
         $listing = $this->getTemplateListing->forProject(
             $project->id,
             array_values($this->getTemplateCategories->allForProject($project->id)),
-            $this->templateDocumentsFeature->isEnabled(),
         );
 
         return $this->render('templates.html.twig', [

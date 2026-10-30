@@ -8,6 +8,7 @@ use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\TemplateExportVersion;
+use WBoost\Web\Value\ExportFillValues;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Repository\FileUploadRepository;
@@ -138,7 +139,33 @@ readonly final class ExportVersionSeeder
         array $imageInputs,
         array $memberVariants,
     ): array {
-        $values = $version->fillValues;
+        return $this->forGroupValues($version->fillValues, $projectId, $textInputs, $imageInputs, $memberVariants);
+    }
+
+    /**
+     * {@see forGroup()} over bare fill values — a multi-page document seeds
+     * each page from its own stored values this way.
+     *
+     * @param list<EditorTextInput> $textInputs
+     * @param list<EditorImageInput> $imageInputs
+     * @param list<TemplateVariant> $memberVariants
+     * @return array{
+     *     texts: array<string, string>,
+     *     hidden: array<string, bool>,
+     *     fonts: array<string, string>,
+     *     shapeColors: array<string, string>,
+     *     images: array<string, array{imageId: string, url: string}>,
+     *     imageHidden: array<string, bool>,
+     *     placements: array<string, array<string, array<string, float>>>,
+     * }
+     */
+    public function forGroupValues(
+        ExportFillValues $values,
+        UuidInterface $projectId,
+        array $textInputs,
+        array $imageInputs,
+        array $memberVariants,
+    ): array {
         $hiddenIds = array_flip($values->hidden);
 
         $texts = [];
@@ -217,7 +244,7 @@ readonly final class ExportVersionSeeder
 
         $placements = [];
 
-        foreach ($version->fillValues->placements as $variantId => $slots) {
+        foreach ($values->placements as $variantId => $slots) {
             if (!isset($memberIds[$variantId])) {
                 continue;
             }

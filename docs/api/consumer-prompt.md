@@ -1036,3 +1036,81 @@ allows is dropped — a loaded version always exports again.
 `PATCH` curates the shared list: `{ "name": "Finální" }` renames (trimmed; a
 blank or `null` name clears it), `{ "pinned": true|false }` pins / unpins;
 absent keys are left alone. It answers the updated version (with `fill`).
+
+## Multi-page documents (`template.document` non-null)
+
+A **document** binds ordinary templates into ONE ordered, exportable unit —
+e.g. a 4-page price offer. One page size per document; each page is a
+template + its variant of that size. Pages are listed in
+`GET /api/projects/{projectId}/templates` as usual, with
+`document: {id, name, position, pageId}` (null for ordinary templates) —
+hide them from a "templates" list and present the document instead.
+
+- `GET /api/projects/{projectId}/template-documents` / `GET /api/template-documents/{id}`
+  → `{id, name, position, categoryId, categoryName, createdAt, dimension,
+  preset, unit, unitWidth, unitHeight, width, height, printFormat, bleedMm,
+  cropMarks, pages[], fields[]}`.
+  - `pages[]`: `{id (pageId), position, templateId, templateName, variant}`, where
+    `variant` has exactly the `variants[]` shape of the templates listing
+    (inputs, frames, imageInputs, shapeInputs …).
+  - `fields[]` (**shared fields**): `{id, name, kind: "text"|"image",
+    bindings: [{pageId, templateId, inputId, valid}], maxLength}`. One value
+    fills the bound input on every page. `valid: false` = the input was
+    deleted from the page; ignore it.
+- **Pages never share values implicitly.** Two pages may carry the SAME
+  inputId (a duplicated template); their values are still per page. Only a
+  shared field joins them.
+- **Preview one page**: `POST /api/template-documents/{id}/preview/{pageId}` →
+  WebP, recorded nowhere.
+- **Export the whole document**: `POST /api/template-documents/{id}/export` →
+  ONE file.
+
+  Body:
+
+  ```json
+  {
+    "format": "pdf-screen",
+    "fields": { "<fieldId>": "Lucie Svobodová" },
+    "pages": {
+      "<pageId>": { "inputs": { "<inputId>": "…" }, "images": { … }, "shapeColors": { … } }
+    }
+  }
+  ```
+
+  - `format`:
+    - `"pdf-screen"` (default): sRGB, ~150 ppi, for sending.
+    - `"pdf"`: multi-page PDF/X-1a with bleed + crop marks. Print documents
+      only (`printFormat: true`); otherwise 400 `pdf_not_available`.
+    - `"png"`: a ZIP of `{nn}-{page}.png`, in page order.
+  - Each `pages` entry is the single-variant export body of that page's
+    variant. A shared field's value WINS over the page's own value for its
+    bound input. For a shared image field, a page may send only a transform
+    (`images[inputId] = {scale, …}`); the shared pick supplies the `imageId`.
+  - Strict like every API render: every page is resolved before any renders.
+    400 bodies are the usual `{error, code, …}` plus `pageId` (and
+    `variantId`).
+  - `invalid_format` / `pdf_not_available` / `document_empty` are
+    document-level codes.
+- **Writes** (designer + project owner; others get 403). Each answers the
+  document as it is afterwards:
+  - `POST /api/projects/{projectId}/template-documents`
+    `{name, categoryId?, dimension {unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}, templateIds?}` → 201.
+  - `PATCH /api/template-documents/{id}` `{name?, categoryId?}` — an absent key
+    is left untouched; `categoryId: null` removes the category.
+  - `PUT /api/template-documents/{id}/pages` `{templateIds: [...]}` — the WHOLE
+    ordered list: attach, detach and reorder in one call. A detached template
+    returns to the listing.
+  - `POST /api/template-documents/{id}/pages` `{name, position?}` — a blank
+    page in the document size.
+  - `PUT /api/template-documents/{id}/fields` `{fields: [{id?, name, kind, bindings: [{pageId, inputId}]}]}` —
+    the WHOLE list. Keep `id` to keep a field. At most one binding per page.
+  - `DELETE /api/template-documents/{id}` — dissolves the document only (the
+    pages return to the listing) → 204.
+  - Refusals → 400 `{error, code, templateId?}`:
+    - `template_grouped`: synchronized templates can't be pages.
+    - `template_not_found`: other project or unknown id.
+    - `no_matching_variant`: no variant of the document size.
+    - `template_in_other_document`
+    - `duplicate_page`
+    - `too_many_pages`: 30 max.
+    - `invalid_binding`

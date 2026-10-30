@@ -143,8 +143,11 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawFontValues
      * @param array<array-key, mixed> $rawShapeColors
      * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
+     *
+     * Public for multi-page documents, which resolve every page first and
+     * hand the results to the multi-page PDF writers in one go.
      */
-    private function resolve(
+    public function resolve(
         TemplateVariant $variant,
         array $rawTextValues,
         array $rawHiddenValues,

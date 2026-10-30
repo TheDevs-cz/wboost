@@ -17,12 +17,14 @@ readonly final class FindTemplatesResponse
 {
     /**
      * @param list<TemplateSummaryResponse> $templates
+     * @param list<DocumentSummaryResponse> $documents
      */
     public function __construct(
         public string $projectId,
         public string $projectName,
         public null|string $query,
         public array $templates,
+        public array $documents = [],
     ) {
     }
 }

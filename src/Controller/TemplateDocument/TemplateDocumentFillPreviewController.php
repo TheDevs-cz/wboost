@@ -14,7 +14,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
-use WBoost\Web\Services\TemplateDocument\TemplateDocumentsFeature;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Value\DocumentFillKeys;
@@ -39,7 +38,6 @@ final class TemplateDocumentFillPreviewController extends AbstractController
         readonly private GroupFillRenderer $groupFillRenderer,
         readonly private ReleaseSessionLock $releaseSessionLock,
         readonly private GroupFillPlaceholders $placeholders,
-        readonly private TemplateDocumentsFeature $feature,
     ) {
     }
 
@@ -51,9 +49,6 @@ final class TemplateDocumentFillPreviewController extends AbstractController
         string $pageId,
         Request $request,
     ): Response {
-        if (!$this->feature->isEnabled()) {
-            throw $this->createNotFoundException();
-        }
 
         // Only a page of THIS document is renderable here (pageId is the
         // TemplateDocumentPage id, never a template / variant id).

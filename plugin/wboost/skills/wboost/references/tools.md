@@ -21,8 +21,8 @@ called anyway.
 | scope | tools |
 |---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` |
-| `templates:export` | `export_variant` |
-| `templates:design` | `preview_design`, `set_design` |
+| `templates:export` | `export_variant`, `export_document` |
+| `templates:design` | `preview_design`, `set_design`, `manage_document` |
 | `gallery:write` | `upload_image` |
 
 Each row lists the tools that **declare** that scope. Implication is separate and
@@ -306,6 +306,42 @@ Strict: container overflow is a refusal, nothing is produced, and nothing is
 recorded. A successful export **is** recorded in the project's usage report.
 
 ---
+
+## `export_document(documentId, fields?, pages?, format?)`
+
+`format`: `"pdf-screen"` (default) | `"pdf"` (print; mm / cm only, ≤ 8 pages
+here) | `"png"` (ZIP). `fields`: shared fieldId → string (text) | image id or
+`{imageId, hide}` (image). `pages`: pageId → `{inputs, images, shapeColors}`,
+exactly `export_variant`'s body for the page's variant; a shared value wins
+over the page's own for its bound input. Every page is resolved before any
+renders; a refusal names the page.
+
+Returns a text summary (`documentId`, `documentName`, `projectName`, `format`,
+`pageCount`, `sizeBytes`, `fileName`, `warnings[]`) plus the file as an
+embedded resource blob. Files over 25 MB are refused with the web fill URL.
+
+## `manage_document(action, projectId?, documentId?, name?, dimension?, templateIds?, position?, fields?)`
+
+The actions:
+- `create`: `projectId`, `name`, `dimension` — either `{unit: "mm"|"cm"|"px",
+  unitWidth, unitHeight, bleedMm?, cropMarks?}` or `{preset}` — and
+  `templateIds?`.
+- `rename`: `documentId`, `name`.
+- `set_pages`: `documentId`, `templateIds` (the whole ordered list).
+- `add_page`: `documentId`, `name?`, `position?`.
+- `set_fields`: `documentId`, `fields: [{id?, name, kind: "text"|"image",
+  bindings: [{pageId, inputId}]}]`.
+
+Every action answers the document:
+- `id`, `name`, `categoryName`, `dimension`, `printFormat`
+- `pages[]`: `{pageId, position, templateId, templateName, variantId,
+  thumbnailUrl}`
+- `fields[]`: `{id, name, kind, bindings[]}`
+- `editorUrl`, `fillUrl`
+
+Refusals name the invariant: `template_grouped`, `template_not_found`,
+`no_matching_variant`, `template_in_other_document`, `duplicate_page`,
+`too_many_pages` (30), `invalid_binding`.
 
 ## `preview_design(variantId, design)`
 
