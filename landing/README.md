@@ -26,9 +26,13 @@ The contact form on `/`, the "Vyzkoušejte si to" form on `/klienti` and the
 rule). Each lead is stored in `landing_lead`, e-mailed to `LANDING_LEAD_EMAILS`
 (default `info@wantoo.cz`, Reply-To = the visitor) and listed for admins at
 `/admin/landing-leads` ("Poptávky z webu"). Spam guards: a hidden `fax`
-honeypot and the `landing_lead` rate limiter (20 / hour / IP). The forms submit
-with `fetch()` and `Accept: application/json` (201 / 422 with field errors /
-429); without JS they post natively and come back with `?odeslano` / `?chyba`.
+honeypot, a `dwell` time trap (`wbSendLead` in `site.js` sends the ms since page
+load; the app silently drops posts under 2 s or without it) and the
+`landing_lead` rate limiter (20 / hour / IP). The forms submit with `fetch()`
+and `Accept: application/json` (201 / 422 with field errors / 429). Without JS
+there is no `dwell`, so a `<noscript>` note points visitors to e-mail instead;
+the native `?odeslano` / `?chyba` redirect is still answered but only matters
+for the dropped-bot case.
 The chat is not real-time: it holds the first message, asks for an e-mail and
 then delivers it as a `source=chat` lead. On `:8091` in dev the endpoint 404s
 (nginx, not the app) — test it on the app port or via request interception.

@@ -127,8 +127,13 @@
     return ok;
   }
 
-  /** Shared with the /klienti chat bubble. Resolves {ok, errors?, status}. */
+  /**
+   * Shared with the /klienti chat bubble. Resolves {ok, errors?, status}.
+   * `dwell` = ms since the page started loading: the endpoint drops posts
+   * that arrive too soon or without it (scripted bots never run this file).
+   */
   window.wbSendLead = function (body) {
+    body.set('dwell', String(Math.round(performance.now())));
     return fetch('/poptavka', { method: 'POST', body: body, headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) {
