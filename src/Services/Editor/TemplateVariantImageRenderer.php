@@ -29,6 +29,7 @@ use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasSlice;
+use WBoost\Web\Value\PrintLayer;
 use WBoost\Web\Value\PlaceholderFrame;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\RenderImageFormat;
@@ -133,11 +134,14 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
+        null|PrintLayer $printLayer = null,
     ): string {
-        $cacheKey = $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
+        $cacheKey = $printLayer === null
+            ? $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds)
+            : null;
 
         if ($cacheKey === null) {
-            return $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
+            return $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer);
         }
 
         return $this->previewCache->get(
@@ -171,6 +175,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|CanvasSlice $slice,
         RenderImageFormat $format,
         array $transparentTextInputIds = [],
+        null|PrintLayer $printLayer = null,
     ): string {
         // Under FrankenPHP max_execution_time counts WALL time, so seconds
         // spent waiting on Gotenberg burn the request's budget — and several
@@ -192,7 +197,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // flush(), so it does not interfere with the outer HTTP response that
         // is still being assembled (headers, cookies, content-type).
         try {
-            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds)
+            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer)
                 ->generate()
                 ->processor(new InMemoryProcessor())
                 ->process();
@@ -442,6 +447,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|CanvasSlice $slice,
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
+        null|PrintLayer $printLayer = null,
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
@@ -489,7 +495,8 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             }
         }
 
-        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice, $transparentTextInputIds, $overrides->shapeColors);
+        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice, $transparentTextInputIds, $overrides->shapeColors, $printLayer);
+        $bleedPx = $printLayer->bleedPx ?? 0;
 
         // Disjoint override maps for the template: a rich input's plain
         // concatenation lives in overrides->texts too (for every plain-text
@@ -559,9 +566,13 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'container_layout_inline_script' => $this->getInlineScript($this->containerLayoutScriptPath),
                 'rich_text_runs_inline_script' => $this->getInlineScript($this->richTextRunsScriptPath),
                 'rich_text_blocks_inline_script' => $this->getInlineScript($this->richTextBlocksScriptPath),
+                'bleed_px' => $bleedPx,
             ])
-            ->width($variant->dimension->width())
-            ->height($variant->dimension->height())
+            // A print pass renders the BLEED BOX: the template widens the
+            // canvas by the bleed and shifts the viewport so canvas
+            // coordinates stay trim-relative.
+            ->width($variant->dimension->width() + 2 * $bleedPx)
+            ->height($variant->dimension->height() + 2 * $bleedPx)
             ->clip(true)
             // No `->quality()`: Gotenberg only honours it for JPEG (verified
             // 2026-08-05 — q50/q85/unset produce byte-identical WebP), and JPEG
@@ -588,6 +599,11 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         if ($slice !== null && !$slice->withBackground) {
             // A background-less slice is an overlay layer: only its objects
             // paint, everything around them must come out with real alpha.
+            $builder->omitBackground();
+        }
+
+        if ($printLayer !== null && $printLayer->isBackgroundless()) {
+            // The black-ink mask pass: its alpha IS the mask.
             $builder->omitBackground();
         }
 
@@ -632,14 +648,15 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * @param list<string> $transparentTextInputIds
      * @param array<string, string> $shapeColors see {@see ResolvedInputOverrides::$shapeColors}
      */
-    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = [], array $shapeColors = []): string
+    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = [], array $shapeColors = [], null|PrintLayer $printLayer = null): string
     {
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
 
         // A background-less slice drops the canvas-level background anyway
         // (sliceCanvas), so skip the inlining work up front.
-        $stripBackground = $slice !== null && !$slice->withBackground;
+        $stripBackground = ($slice !== null && !$slice->withBackground)
+            || ($printLayer !== null && $printLayer->isBackgroundless());
 
         if ($variant->backgroundMode === BackgroundMode::Canvas && !$stripBackground) {
             $backgroundDataUri = $variant->backgroundImage !== null
@@ -690,6 +707,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // wastes a Minio read inlining a picture that renders at opacity 0.
         if ($slice !== null) {
             $canvas = self::sliceCanvas($canvas, $slice);
+        }
+        if ($printLayer !== null) {
+            $canvas = self::applyPrintLayer($canvas, $printLayer);
         }
         $canvas = $this->applyImagePlaceholders(
             $canvas,
@@ -973,6 +993,55 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      */
     private const string TRANSPARENT_PIXEL =
         'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+    /**
+     * Suppress objects for one {@see PrintLayer} pass — the same `opacity: 0`
+     * + stub-src treatment {@see sliceCanvas} uses, so every pass lays the
+     * design out identically and the passes stack pixel-exactly.
+     *
+     * @param array<string, mixed> $canvas
+     * @return array<string, mixed>
+     */
+    public static function applyPrintLayer(array $canvas, PrintLayer $printLayer): array
+    {
+        if ($printLayer->isBackgroundless()) {
+            unset($canvas['backgroundImage'], $canvas['background']);
+        }
+
+        $objects = $canvas['objects'] ?? null;
+        if (!is_array($objects)) {
+            return $canvas;
+        }
+
+        $suppress = array_flip($printLayer->suppressIndexes);
+        $only = $printLayer->onlyIndexes !== null ? array_flip($printLayer->onlyIndexes) : null;
+
+        foreach ($objects as $index => $object) {
+            if (!is_int($index) || !is_array($object)) {
+                continue;
+            }
+
+            $suppressed = isset($suppress[$index]) || ($only !== null && !isset($only[$index]));
+            if (!$suppressed) {
+                continue;
+            }
+
+            $object['opacity'] = 0;
+
+            $type = $object['type'] ?? null;
+            if (is_string($type) && strtolower($type) === 'image') {
+                $object['src'] = self::TRANSPARENT_PIXEL;
+                $object['crossOrigin'] = null;
+                unset($object['assetPath']);
+            }
+
+            $objects[$index] = $object;
+        }
+
+        $canvas['objects'] = $objects;
+
+        return $canvas;
+    }
 
     /**
      * Apply a {@see CanvasSlice} to a decoded canvas document: objects outside

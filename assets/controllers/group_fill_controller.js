@@ -378,12 +378,17 @@ export default class extends Controller {
             return;
         }
 
+        // The "Stáhnout vše" menu's items submit too (format=pdf for the
+        // print PDFs); the busy state always shows on the main button.
+        const label = submitter && submitter.dataset.groupFillZipFormat === 'pdf'
+            ? 'Generuji PDF…'
+            : 'Generuji ZIP…';
         const button = this.exportButtonTarget;
         this.exportButtonHtml ??= button.innerHTML;
 
         setTimeout(() => {
             button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Generuji ZIP…';
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> ' + label;
         }, 0);
 
         clearTimeout(this.exportTimer);

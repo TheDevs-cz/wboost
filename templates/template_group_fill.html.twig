@@ -116,9 +116,21 @@
                     <button type="button" class="btn btn-outline-primary rounded-pill" data-fill-draft-target="button" data-action="fill-draft#save" title="Ctrl/⌘+S">
                         <i class="mdi mdi-content-save-outline"></i> Uložit rozpracované
                     </button>
-                    <button type="submit" class="btn btn-primary rounded-pill" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
-                        <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
-                    </button>
+                    {# Split: the primary half is the PNG ZIP, the menu the print
+                       PDFs (each member with its own bleed + crop marks) —
+                       the pressed submitter posts format=pdf. #}
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary" style="border-radius: 50rem 0 0 50rem;" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
+                            <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
+                        </button>
+                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" style="border-radius: 0 50rem 50rem 0;" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Další možnosti stažení">
+                            <span class="visually-hidden">Další možnosti stažení</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button type="submit" class="dropdown-item" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-file-image-outline me-1" aria-hidden="true"></i>Vše jako PNG (ZIP)</button></li>
+                            <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-file-pdf-box me-1" aria-hidden="true"></i>Vše jako PDF pro tisk (ZIP)</button></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
 
@@ -220,8 +232,8 @@
                                 <div class="card group-fill-preview-card">
                                     {# Which dimension this is, ABOVE the image: a caption under a
                                        preview reads as belonging to whatever comes next. The
-                                       download button submits the SAME fill form (formaction),
-                                       so the PNG carries exactly what the ZIP entry would. #}
+                                       download buttons submit the SAME fill form (formaction),
+                                       so the file carries exactly what the ZIP entry would. #}
                                     <div class="group-fill-preview-heading d-flex align-items-center justify-content-between gap-2">
                                         <span>{{ v.dimension_label }}</span>
                                         {# Shown by variant-fill-overlay while a text of THIS
@@ -229,12 +241,21 @@
                                         <span class="badge bg-danger-subtle text-danger d-none me-auto" data-fill-overflow-badge>
                                             <i class="mdi mdi-alert-outline" aria-hidden="true"></i> Text přetéká
                                         </span>
-                                        <button type="submit" class="group-fill-variant-download"
-                                                formaction="{{ v.export_variant_url }}"
-                                                data-group-fill-variant-download
-                                                title="Stáhnout tento rozměr jako PNG">
-                                            <i class="mdi mdi-download"></i> PNG
-                                        </button>
+                                        <span class="d-inline-flex gap-1">
+                                            <button type="submit" class="group-fill-variant-download"
+                                                    formaction="{{ v.export_variant_url }}"
+                                                    data-group-fill-variant-download
+                                                    title="Stáhnout tento rozměr jako PNG">
+                                                <i class="mdi mdi-download"></i> PNG
+                                            </button>
+                                            <button type="submit" class="group-fill-variant-download"
+                                                    formaction="{{ v.export_variant_url }}"
+                                                    name="format" value="pdf"
+                                                    data-group-fill-variant-download
+                                                    title="Stáhnout tento rozměr jako PDF pro tisk">
+                                                <i class="mdi mdi-download"></i> PDF
+                                            </button>
+                                        </span>
                                     </div>
                                     {# One fill SURFACE per dimension: the overlay controller
                                        scales this dimension's frames to the displayed preview

@@ -100,3 +100,70 @@ repo). The export controllers answer with `export_failed.html.twig` + 503, and
 the fill component degrades to "no preview this round"
 (`AbstractVariantFiller::renderUnavailable()`) rather than 503-ing the Live
 re-render, which would strand the page on its spinner.
+
+**Print PDF export (2026-10-30) — `Services/Print/`**
+
+Every variant exports a print PDF next to its PNG ("Export do PDF" on the
+fill page, a "PDF" button per dimension + "Vše jako PDF pro tisk (ZIP)" on
+the group fill page; the pressed submit button posts `format=pdf` to the
+SAME download routes, `Value/ExportFormat`, and the format is recorded on
+`export_event.format`). Target: what the studio's printers take —
+**PDF/X-1a:2001** (PDF 1.3), output intent **Coated FOGRA39 (ISO 12647-2:2004)**,
+one flattened **300 ppi CMYK raster** + vector crop marks, exactly the
+structure of the Illustrator-exported reference file.
+
+- **Print setup lives on `TemplateDimension`** (`bleedMm`, `cropMarks`;
+  0 / false for every pre-existing variant; add forms default to 3 mm +
+  marks, an Instagram preset clears both; "Tiskové nastavení" page edits an
+  existing variant). It applies to px variants too — px map to paper at
+  300 DPI like every physical unit. **The bleed is not part of the canvas**:
+  coordinates stay trim-relative and the bleed is the area past the edges.
+- **Raster passes go through the ordinary renderer** with a `PrintLayer`
+  (`renderToBytes(..., printLayer:)`, never cached): the render template
+  widens the canvas by `bleed_px` per side and shifts the viewport by it, so
+  whatever the design draws past the trim lands in the bleed; the
+  canvas-mode background covers the bleed box. Suppression is the slice
+  convention (`opacity: 0`, stub image src) so every pass lays out
+  identically — and the rich-text **list block stack now inherits the
+  replaced object's opacity** (it used to leak through any suppression).
+- **`PrintPdfRenderer`**: pass 1 = composite WITHOUT the black-ink objects,
+  pass 2 = ONLY them, background-less (its alpha is the K mask; skipped when
+  there are none). `BlackInkObjects` decides by role: texts whose every
+  colour is black (base fill / designed styles / the user's rich runs, as
+  the render applies them) and shapes that are lines or ≤ 2 mm thick — NOT
+  large black areas (K100 alone prints as flat grey there; they go through
+  ICC as rich black). "Black" = `#000000` + every brand colour whose manual
+  CMYK is 0/0/0/100.
+- **`PrintColorConverter`** (Imagick + lcms): flatten on white → sRGB
+  (`resources/icc/sRGB-v4.icc`, CC0 compact profile) → `CoatedFOGRA39.icc`
+  relative colorimetric + BPC → **brand colours keep the manual's numbers**
+  (pixels whose RGB is EXACTLY a brand hex get its CMYK; only colours the
+  design references are masked, each costs a full-size pass) → **K
+  overprint** `K + a·(1−K)` with C/M/Y untouched, done on separated grey
+  channels because IM's channel-limited composite on a CMYK image is a
+  silent no-op → CMYK JPEG q95, no chroma subsampling. ImageMagick is Q16,
+  so the pixel cache is capped at 256 MB for the conversion (A2 measured
+  1.3 GB resident uncapped → ~640 MB, ~19 s; A4 ~5 s); limits are restored
+  after (process-wide in the FrankenPHP worker).
+- **Manual CMYK is free text** — `CmykColor::fromManualColor` reads it
+  leniently ("100 %", "35,5", blank channel next to filled = 0) and drops
+  entries implausible for their hex (a naive CMYK→RGB distance check — prod
+  had `000000` stored as 0/0/0/0); dropped colours simply take the ICC path.
+  `BrandCmykPalette` = union of the project manuals, first manual wins on a
+  conflicting hex (logged).
+- **`PdfX1aWriter`** writes the file by hand (8 objects): MediaBox /
+  TrimBox / BleedBox, crop marks as Illustrator draws them (1.25 pt white
+  halo + 0.25 pt registration `Separation /All`, 27 pt long, offset
+  max(3 mm, bleed)), OutputIntent with the embedded profile, Info with the
+  GTS keys + `Trapped`, trailer `/ID`. ImageMagick writes Adobe-style
+  INVERTED CMYK JPEGs (APP14) → the image gets `/Decode [1 0 1 0 1 0 1 0]`
+  (detected, not assumed).
+- Tests: `tests/Services/Print/*` (classifier, CMYK parsing, converter ink
+  values, writer structure) + `PrintPdfRendererGotenbergTest` (group
+  `gotenberg`), which rasterizes the real PDF back through Ghostscript
+  `tiff32nc` and asserts INK: bleed filled, paper outside it, marks on all
+  four plates, black text K100 over the untouched cyan.
+- The ICC profile is Adobe's "Coated FOGRA39" (extracted from the studio's
+  reference PDF — the profile the designers' own exports embed). If its
+  licence ever becomes a concern, ECI's ISOcoated_v2 is the FOGRA39-based
+  free alternative.

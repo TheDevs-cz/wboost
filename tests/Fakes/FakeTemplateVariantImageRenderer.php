@@ -8,6 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Value\CanvasSlice;
+use WBoost\Web\Value\PrintLayer;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
@@ -34,7 +35,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     /** Real, decodable 1×1 VP8 WebP (44 bytes): `RIFF` + `WEBP` + `VP8 `. */
     private const string FIXED_WEBP_BASE64 = 'UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=';
 
-    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, fonts: array<string, string>, shapeColors: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string}> */
+    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, fonts: array<string, string>, shapeColors: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string, printLayer: null|array{bleedPx: int, suppressIndexes: list<int>, onlyIndexes: null|list<int>}}> */
     public array $calls = [];
 
     /**
@@ -73,8 +74,9 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
+        null|PrintLayer $printLayer = null,
     ): string {
-        $this->record($variant, $overrides, $imageOverrides, 'renderToBytes', $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
+        $this->record($variant, $overrides, $imageOverrides, $printLayer === null ? 'renderToBytes' : 'printLayer', $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer);
 
         return $this->bytes($format);
     }
@@ -91,6 +93,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         null|CanvasSlice $slice,
         RenderImageFormat $format,
         array $transparentTextInputIds = [],
+        null|PrintLayer $printLayer = null,
     ): void {
         if ($this->throwOnRender !== null) {
             throw $this->throwOnRender;
@@ -154,6 +157,11 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
             'strictContainerOverflow' => $strictContainerOverflow,
             'format' => $format->value,
             'transparentTextInputIds' => $transparentTextInputIds,
+            'printLayer' => $printLayer === null ? null : [
+                'bleedPx' => $printLayer->bleedPx,
+                'suppressIndexes' => $printLayer->suppressIndexes,
+                'onlyIndexes' => $printLayer->onlyIndexes,
+            ],
         ];
     }
 

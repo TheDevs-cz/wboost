@@ -22,7 +22,9 @@ use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
+use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\ExportFillValues;
 
 /**
@@ -43,6 +45,7 @@ final class TemplateVariantDownloadController extends AbstractController
         private readonly RecordExportVersion $recordExportVersion,
         private readonly ReleaseSessionLock $releaseSessionLock,
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
+        private readonly PrintPdfRenderer $printPdfRenderer,
     ) {
     }
 
@@ -109,8 +112,20 @@ final class TemplateVariantDownloadController extends AbstractController
             return $this->renderFailed($variant, $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
 
+        // The pressed submit button says which: "Export do PNG" posts no
+        // format, "Export do PDF" posts format=pdf.
+        $format = ExportFormat::fromRequestValue($request->request->get('format'));
+
         try {
-            $response = $this->renderer->render($variant, $overrides, $imageOverrides);
+            $response = match ($format) {
+                ExportFormat::Png => $this->renderer->render($variant, $overrides, $imageOverrides),
+                ExportFormat::Pdf => new Response($this->printPdfRenderer->render(
+                    $variant,
+                    $overrides,
+                    $imageOverrides,
+                    sprintf('%s – %s', $variant->template->name, $variant->dimension->label()),
+                )),
+            };
         } catch (TemplateRenderUnavailable) {
             return $this->renderFailed(
                 $variant,
@@ -119,13 +134,14 @@ final class TemplateVariantDownloadController extends AbstractController
             );
         }
 
-        $response->headers->set('Content-Type', 'image/png');
+        $response->headers->set('Content-Type', $format->contentType());
         $response->headers->set('Content-Disposition', sprintf(
-            'attachment; filename="%s.png"',
+            'attachment; filename="%s.%s"',
             $variant->id->toString(),
+            $format->extension(),
         ));
 
-        $this->recordExportUsage->record($variant, ExportChannel::Web);
+        $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
         $this->recordExportVersion->recordVariant($variant, ExportChannel::Web, ExportFillValues::fromVariantWebForm(
             $rawTextValues,
             $rawHiddenValues,

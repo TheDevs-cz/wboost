@@ -236,6 +236,30 @@ readonly final class ResolveRichTextOptions
      */
     public static function computeColors(array $manuals): array
     {
+        $ordered = self::orderedManualColors($manuals);
+
+        $colors = [];
+
+        foreach ($ordered as $manualColor) {
+            $normalized = RichText::normalizeHexColor($manualColor->color->hex);
+
+            if ($normalized !== null && !in_array($normalized, $colors, true)) {
+                $colors[] = $normalized;
+            }
+        }
+
+        return $colors;
+    }
+
+    /**
+     * Every manual colour of the given manuals, primary → secondary → untyped
+     * (duplicates kept — callers dedupe by whatever key they need).
+     *
+     * @param array<Manual> $manuals
+     * @return list<ManualColor>
+     */
+    public static function orderedManualColors(array $manuals): array
+    {
         /** @var list<ManualColor> $ordered */
         $ordered = [];
 
@@ -259,16 +283,6 @@ readonly final class ResolveRichTextOptions
             }
         }
 
-        $colors = [];
-
-        foreach ($ordered as $manualColor) {
-            $normalized = RichText::normalizeHexColor($manualColor->color->hex);
-
-            if ($normalized !== null && !in_array($normalized, $colors, true)) {
-                $colors[] = $normalized;
-            }
-        }
-
-        return $colors;
+        return $ordered;
     }
 }

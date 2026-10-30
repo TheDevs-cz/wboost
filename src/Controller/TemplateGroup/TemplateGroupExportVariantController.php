@@ -23,9 +23,10 @@ use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
+use WBoost\Web\Value\ExportFormat;
 
 /**
- * Download ONE member variant of the group as a PNG — the per-dimension
+ * Download ONE member variant of the group as a PNG or print PDF — the per-dimension
  * counterpart of the whole-group ZIP ({@see TemplateGroupExportController}).
  * The fill page's per-variant download buttons submit the SAME fill form via
  * `formaction`, so the unified values (and per-dimension placements) arrive
@@ -68,11 +69,15 @@ final class TemplateGroupExportVariantController extends AbstractController
 
         $this->releaseSessionLock->release($request);
 
+        // The pressed PNG / PDF button posts the format; PNG stays lossless,
+        // the same contract as the ZIP entries.
+        $format = ExportFormat::fromRequestValue($request->request->get('format'));
+
         try {
-            // No format argument: the download must stay lossless PNG, same
-            // contract as the ZIP entries.
-            $bytes = $this->groupFillRenderer->render(
+            $bytes = $this->groupFillRenderer->renderExport(
+                $format,
                 $variant,
+                $this->archive->documentTitle($group, $variant),
                 $request->request->all('textValues'),
                 $request->request->all('hiddenValues'),
                 $request->request->all('images'),
@@ -93,7 +98,7 @@ final class TemplateGroupExportVariantController extends AbstractController
             return $this->renderFailed($group, $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
 
-        $this->recordExportUsage->record($variant, ExportChannel::Web);
+        $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
 
         // The per-dimension download runs on the SAME group fill form as the
         // ZIP, so the version lands on the group (and dedupes against a later
@@ -107,10 +112,10 @@ final class TemplateGroupExportVariantController extends AbstractController
             $request->request->all('shapeColorValues'),
         ), $request->request->getString('draftVersionId'));
 
-        $fileName = $this->archive->fileName($group, $variant);
+        $fileName = $this->archive->fileName($group, $variant, $format);
 
         return new Response($bytes, Response::HTTP_OK, [
-            'Content-Type' => 'image/png',
+            'Content-Type' => $format->contentType(),
             'Content-Disposition' => sprintf('attachment; filename="%s"', $fileName),
             'Cache-Control' => 'no-store',
         ]);

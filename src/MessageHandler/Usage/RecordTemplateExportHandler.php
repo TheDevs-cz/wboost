@@ -35,6 +35,7 @@ readonly final class RecordTemplateExportHandler
             $message->ownerId,
             $message->ownerEmail,
             $message->triggeredByUserId,
+            $message->format,
         ));
     }
 }

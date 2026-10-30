@@ -10,7 +10,11 @@ use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\Print\PrintPdfRenderer;
+use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\RenderImageFormat;
+use WBoost\Web\Value\ResolvedImageOverrides;
+use WBoost\Web\Value\ResolvedInputOverrides;
 
 /**
  * Renders ONE member variant of a template group with the group fill page's
@@ -42,7 +46,40 @@ readonly final class GroupFillRenderer
         private ResolveImageOverrides $resolveImageOverrides,
         private TemplateVariantImageRendererInterface $renderer,
         private ResolveShapeColorOverrides $resolveShapeColorOverrides,
+        private PrintPdfRenderer $printPdfRenderer,
     ) {
+    }
+
+    /**
+     * The downloadable file of one member: the lossless PNG or the print PDF
+     * (the variant's own bleed + crop marks). Same fill resolution as
+     * {@see render()}.
+     *
+     * @param array<array-key, mixed> $rawTextValues
+     * @param array<array-key, mixed> $rawHiddenValues
+     * @param array<array-key, mixed> $rawImages
+     * @param array<array-key, mixed> $rawPlacements
+     * @param array<array-key, mixed> $rawFontValues
+     * @param array<array-key, mixed> $rawShapeColors
+     */
+    public function renderExport(
+        ExportFormat $exportFormat,
+        TemplateVariant $variant,
+        string $title,
+        array $rawTextValues,
+        array $rawHiddenValues,
+        array $rawImages,
+        array $rawPlacements = [],
+        array $rawFontValues = [],
+        array $rawShapeColors = [],
+    ): string {
+        if ($exportFormat === ExportFormat::Png) {
+            return $this->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues, rawShapeColors: $rawShapeColors);
+        }
+
+        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors);
+
+        return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title);
     }
 
     /**
@@ -83,6 +120,35 @@ readonly final class GroupFillRenderer
         array $rawFontValues = [],
         array $rawShapeColors = [],
     ): string {
+        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors);
+
+        return $this->renderer->renderToBytes(
+            $variant,
+            $overrides,
+            $imageOverrides,
+            format: $format,
+            transparentTextInputIds: $transparentTextInputIds,
+        );
+    }
+
+    /**
+     * @param array<array-key, mixed> $rawTextValues
+     * @param array<array-key, mixed> $rawHiddenValues
+     * @param array<array-key, mixed> $rawImages
+     * @param array<array-key, mixed> $rawPlacements
+     * @param array<array-key, mixed> $rawFontValues
+     * @param array<array-key, mixed> $rawShapeColors
+     * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
+     */
+    private function resolve(
+        TemplateVariant $variant,
+        array $rawTextValues,
+        array $rawHiddenValues,
+        array $rawImages,
+        array $rawPlacements,
+        array $rawFontValues,
+        array $rawShapeColors,
+    ): array {
         /** @var array<string, array{value?: string, hide?: bool, fontFamily?: string}> $providedValues */
         $providedValues = [];
 
@@ -131,13 +197,7 @@ readonly final class GroupFillRenderer
             $this->parseImageValues($rawImages, is_array($variantPlacements) ? $variantPlacements : []),
         );
 
-        return $this->renderer->renderToBytes(
-            $variant,
-            $overrides,
-            $imageOverrides,
-            format: $format,
-            transparentTextInputIds: $transparentTextInputIds,
-        );
+        return [$overrides, $imageOverrides];
     }
 
     /**

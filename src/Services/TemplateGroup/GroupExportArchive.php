@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\TemplateGroup;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Slugify;
+use WBoost\Web\Value\ExportFormat;
 use ZipArchive;
 
 /**
@@ -14,35 +15,45 @@ use ZipArchive;
  * (ZIP + per-dimension PNG) and the API group export so both hand the user
  * identically named files: `{group}.zip` holding `{group}-{dimension}.png`
  * entries, and the same `{group}-{dimension}.png` for a single dimension.
+ * The print PDF export mirrors it: `{group}-pdf.zip` with `.pdf` entries.
  */
 final class GroupExportArchive
 {
-    public function archiveName(TemplateGroup $group): string
+    public function archiveName(TemplateGroup $group, ExportFormat $format = ExportFormat::Png): string
     {
-        return $this->groupSlug($group) . '.zip';
+        return $this->groupSlug($group) . ($format === ExportFormat::Png ? '' : '-' . $format->extension()) . '.zip';
     }
 
-    public function fileName(TemplateGroup $group, TemplateVariant $variant): string
+    public function fileName(TemplateGroup $group, TemplateVariant $variant, ExportFormat $format = ExportFormat::Png): string
     {
-        return sprintf('%s-%s.png', $this->groupSlug($group), $this->nonEmptySlug($variant->dimension->label(), 'varianta'));
+        return sprintf('%s-%s.%s', $this->groupSlug($group), $this->nonEmptySlug($variant->dimension->label(), 'varianta'), $format->extension());
     }
 
     /**
-     * @param list<array{TemplateVariant, string}> $renders member variant + its PNG bytes, in archive order
+     * Title embedded in a member's print PDF.
      */
-    public function build(TemplateGroup $group, array $renders): string
+    public function documentTitle(TemplateGroup $group, TemplateVariant $variant): string
     {
-        /** @var array<string, string> $files filename → PNG bytes */
+        return sprintf('%s – %s', $group->name, $variant->dimension->label());
+    }
+
+    /**
+     * @param list<array{TemplateVariant, string}> $renders member variant + its file bytes, in archive order
+     */
+    public function build(TemplateGroup $group, array $renders, ExportFormat $format = ExportFormat::Png): string
+    {
+        /** @var array<string, string> $files filename → file bytes */
         $files = [];
+        $extension = '.' . $format->extension();
 
         foreach ($renders as [$variant, $bytes]) {
-            $fileName = $this->fileName($group, $variant);
-            $baseName = substr($fileName, 0, -4);
+            $fileName = $this->fileName($group, $variant, $format);
+            $baseName = substr($fileName, 0, -strlen($extension));
 
             // Two variants may share a dimension (e.g. two identical custom
             // sizes) — suffix instead of silently overwriting a ZIP entry.
             for ($suffix = 2; isset($files[$fileName]); $suffix++) {
-                $fileName = "$baseName-$suffix.png";
+                $fileName = "$baseName-$suffix$extension";
             }
 
             $files[$fileName] = $bytes;

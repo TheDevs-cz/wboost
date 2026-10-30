@@ -14,6 +14,7 @@ use Doctrine\ORM\Mapping\Table;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\ExportedTemplateType;
 
 /**
@@ -73,6 +74,9 @@ class ExportEvent
 
         #[Column(type: UuidType::NAME, nullable: true)]
         readonly public null|UuidInterface $triggeredByUserId,
+
+        #[Column(type: 'string', length: 8, enumType: ExportFormat::class, options: ['default' => 'png'])]
+        readonly public ExportFormat $format = ExportFormat::Png,
     ) {
     }
 }

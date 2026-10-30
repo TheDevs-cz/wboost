@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\Editor;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Value\CanvasSlice;
+use WBoost\Web\Value\PrintLayer;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
@@ -94,6 +95,9 @@ interface TemplateVariantImageRendererInterface
      *
      * @param list<string> $transparentTextInputIds see {@see render()}
      *
+     * `$printLayer` turns the call into one raster pass of the print PDF
+     * ({@see PrintLayer}): bleed box, object suppression, never cached.
+     *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable when the renderer is overloaded / unreachable
      */
@@ -105,5 +109,6 @@ interface TemplateVariantImageRendererInterface
         null|CanvasSlice $slice = null,
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
+        null|PrintLayer $printLayer = null,
     ): string;
 }

@@ -12,6 +12,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Message\Usage\RecordTemplateExport;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\ExportedTemplateType;
 
 /**
@@ -36,6 +37,7 @@ final readonly class RecordExportUsage
     public function record(
         TemplateVariant $variant,
         ExportChannel $channel,
+        ExportFormat $format = ExportFormat::Png,
     ): void {
         try {
             // Every export now comes from the unified template stack; the
@@ -59,6 +61,7 @@ final readonly class RecordExportUsage
                 $owner->id,
                 $owner->email,
                 $currentUser instanceof User ? $currentUser->id : null,
+                $format,
             ));
         } catch (Throwable $e) {
             $this->logger->error('Failed to record template export usage.', [

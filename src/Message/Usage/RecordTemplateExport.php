@@ -6,6 +6,7 @@ namespace WBoost\Web\Message\Usage;
 
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Value\ExportChannel;
+use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\ExportedTemplateType;
 
 /**
@@ -26,6 +27,7 @@ readonly final class RecordTemplateExport
         public UuidInterface $ownerId,
         public string $ownerEmail,
         public null|UuidInterface $triggeredByUserId,
+        public ExportFormat $format = ExportFormat::Png,
     ) {
     }
 }

@@ -23,11 +23,12 @@ use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
+use WBoost\Web\Value\ExportFormat;
 
 /**
  * Export the WHOLE group at once: every member variant is rendered with the
- * unified fill values ({@see GroupFillRenderer}) and the PNGs come back as
- * one ZIP download.
+ * unified fill values ({@see GroupFillRenderer}) and the PNGs — or the
+ * print PDFs — come back as one ZIP download.
  *
  * The response is fully buffered on purpose — a flushing StreamedResponse
  * corrupts the next request under FrankenPHP's resident process.
@@ -80,14 +81,27 @@ final class TemplateGroupExportController extends AbstractController
         // this app makes; it must not sit on a stale session copy throughout.
         $this->releaseSessionLock->release($request);
 
+        // "Stáhnout vše (ZIP)" / "… PDF (ZIP)": the pressed button posts it.
+        $format = ExportFormat::fromRequestValue($request->request->get('format'));
+
         /** @var list<array{TemplateVariant, string}> $renders */
         $renders = [];
 
         foreach ($variants as $variant) {
             try {
-                // No format argument: the ZIP the user downloads must stay
-                // lossless PNG (entry names below are .png).
-                $bytes = $this->groupFillRenderer->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues, rawShapeColors: $rawShapeColors);
+                // PNG entries stay lossless; PDF entries are each member's
+                // print PDF with its own bleed + crop marks.
+                $bytes = $this->groupFillRenderer->renderExport(
+                    $format,
+                    $variant,
+                    $this->archive->documentTitle($group, $variant),
+                    $rawTextValues,
+                    $rawHiddenValues,
+                    $rawImages,
+                    $rawPlacements,
+                    $rawFontValues,
+                    $rawShapeColors,
+                );
             } catch (TemplateRenderUnavailable) {
                 return $this->renderFailed(
                     $group,
@@ -106,10 +120,10 @@ final class TemplateGroupExportController extends AbstractController
             $renders[] = [$variant, $bytes];
         }
 
-        $zipBytes = $this->archive->build($group, $renders);
+        $zipBytes = $this->archive->build($group, $renders, $format);
 
         foreach ($variants as $variant) {
-            $this->recordExportUsage->record($variant, ExportChannel::Web);
+            $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
         }
 
         $this->recordExportVersion->recordGroup($group, ExportChannel::Web, ExportFillValues::fromGroupWebForm(
@@ -123,7 +137,7 @@ final class TemplateGroupExportController extends AbstractController
 
         return new Response($zipBytes, Response::HTTP_OK, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->archiveName($group)),
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->archiveName($group, $format)),
             'Cache-Control' => 'no-store',
         ]);
     }

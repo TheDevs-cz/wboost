@@ -52,7 +52,7 @@ commit when you change a contract described there — not this file.
 | `templates-text-inputs.md` | font choice / allowlists, colour allowlist, manual-driven font defaults, font usage scan + rename, rich text runs, lists, checkbox lists, checklist component, sample text (`sampleValue`) |
 | `templates-fill.md` | fill pages (single + group), `AbstractVariantFiller`, shared fill partials, click-into-preview overlay, client-side text echo, `render:finished` settle |
 | `gallery-and-uploads.md` | `Project:ImageGallery`, folders, Koš (trash) + purge guard, tile metadata, 10 MB decimal upload limit and its mirrors, `NormalizeImageFormat` (HEIC) |
-| `templates-render.md` | `TemplateVariantImageRenderer`, Gotenberg, render template, WebP vs PNG, slice cache, `TemplateRenderUnavailable` |
+| `templates-render.md` | `TemplateVariantImageRenderer`, Gotenberg, render template, WebP vs PNG, slice cache, `TemplateRenderUnavailable`, print PDF export (`Services/Print/`, bleed + crop marks, CMYK / FOGRA39, PDF/X-1a) |
 | `templates-export-versioning.md` | `TemplateExportVersion`, dedup hash, seeder, pins/names, history page, Turbo Stream curation, form anchors (no nested forms!) |
 | `templates-module-and-groups.md` | the 2026-08 module merge, `TemplateDimension` / presets, publish gating, template groups, group editor propagation, structural reliability, network-flake hardening, missing-image stand-ins, routes, unmoved namespaces |
 | `templates-image-placeholders.md` | image placeholders: `allowedDirectoryIds`, upload target, `ResolveImageOverrides`, `ImagePlacement`, hybrid backdrop + overlay slices |

@@ -33,7 +33,12 @@
     <script>{{ rich_text_blocks_inline_script|raw }}</script>
 </head>
 <body>
-    <canvas id="c" width="{{ variant.dimension.width }}" height="{{ variant.dimension.height }}"></canvas>
+    {# A print pass (PrintLayer) renders the BLEED BOX: the element grows by
+       the bleed on every side and the viewport shifts by it, so canvas
+       coordinates stay trim-relative and whatever the design draws past the
+       trim edge lands in the bleed. bleed_px is 0 for every other render. #}
+    {% set bleed_px = bleed_px|default(0) %}
+    <canvas id="c" width="{{ variant.dimension.width + 2 * bleed_px }}" height="{{ variant.dimension.height + 2 * bleed_px }}"></canvas>
 
     <script>
         (async () => {
@@ -81,15 +86,23 @@
                 // all three surfaces wrap text identically.
                 WBoostFabricBreakWord.enable(fabric.Textbox);
 
+                const designWidth = {{ variant.dimension.width }};
+                const designHeight = {{ variant.dimension.height }};
+                const bleed = {{ bleed_px }};
+
                 const canvas = new fabric.StaticCanvas('c', {
-                    width: {{ variant.dimension.width }},
-                    height: {{ variant.dimension.height }},
+                    width: designWidth + 2 * bleed,
+                    height: designHeight + 2 * bleed,
                     enableRetinaScaling: false,
                 });
 
                 // Fabric v7: loadFromJSON is Promise-based; the callback
                 // form was removed. Await the load, then apply overrides.
                 await canvas.loadFromJSON(canvasJson);
+
+                if (bleed > 0) {
+                    canvas.setViewportTransform([1, 0, 0, 1, bleed, bleed]);
+                }
 
                 // Normalize the background to object-fit: cover / center center,
                 // matching the editor's coverBackgroundImage. Canvases saved
@@ -103,7 +116,9 @@
                     const element = typeof backgroundImage.getElement === 'function' ? backgroundImage.getElement() : null;
                     const naturalWidth = (element && (element.naturalWidth || element.width)) || backgroundImage.width || 1;
                     const naturalHeight = (element && (element.naturalHeight || element.height)) || backgroundImage.height || 1;
-                    const coverScale = Math.max(canvas.width / naturalWidth, canvas.height / naturalHeight);
+                    // Cover the bleed box (= the trim when there is no
+                    // bleed), centred on the trim in canvas coordinates.
+                    const coverScale = Math.max((designWidth + 2 * bleed) / naturalWidth, (designHeight + 2 * bleed) / naturalHeight);
                     backgroundImage.set({
                         width: naturalWidth,
                         height: naturalHeight,
@@ -111,8 +126,8 @@
                         cropY: 0,
                         originX: 'center',
                         originY: 'center',
-                        left: canvas.width / 2,
-                        top: canvas.height / 2,
+                        left: designWidth / 2,
+                        top: designHeight / 2,
                         scaleX: coverScale,
                         scaleY: coverScale,
                     });
@@ -390,7 +405,10 @@
                     });
 
                     const designVisible = obj.visible !== false;
-                    children.forEach((child) => { child.visible = designVisible; });
+                    // Opacity too: a suppressed object (slice / print pass,
+                    // opacity 0) must stay suppressed as its block stack.
+                    const designOpacity = typeof obj.opacity === 'number' ? obj.opacity : 1;
+                    children.forEach((child) => { child.visible = designVisible; child.opacity = designOpacity; });
 
                     const index = canvas.getObjects().indexOf(obj);
                     canvas.remove(obj);
