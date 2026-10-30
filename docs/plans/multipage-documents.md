@@ -238,4 +238,5 @@ Browser verification (house reality: interactive JS is often left unverified —
 - [x] Phase 4 — multi-page PDF/X-1a writer + screen PDF (c1c13bf), `TemplateDocumentExporter`, web export.
 - [x] Phase 5 — API (`src/Api/TemplateDocuments/`) + MCP (`manage_document`, `export_document`, `find_templates` documents); rollout switch REMOVED.
 - [x] Phase 6 — document history + drafts (own entity), `?version=` seeding, history dropdown.
-- [ ] Phase 7 — mfkfm port.
+- [x] Phase 7 — mfkfm port (fotbal-fm.cz fd65d45; follow-ups in JanMikes/fotbal-fm.cz#3). Browser-verified end to end on dev 2026-10-30 (listing, document page, editor strip, fill, 3 export formats, drafts/history).
+- [ ] Follow-ups: `GET /api/template-documents/{id}/export-versions` (history over the API — not built), inline rename/pin of document versions, image placement on the document fill page not browser-clicked.
