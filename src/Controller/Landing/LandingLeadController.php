@@ -26,7 +26,9 @@ use WBoost\Web\Value\LandingLeadSource;
  *
  * No CSRF token: the pages are static files with no session to bind one to,
  * and a forged submission can do nothing a visitor cannot do by hand. Abuse is
- * bounded by the per-address rate limit and a honeypot field.
+ * bounded by the per-address rate limit, a honeypot field and a time trap:
+ * the pages' script sends `dwell` (ms since page load), so a post without it
+ * — or sooner than a person can fill a form — came from a bot (WEB-4S).
  *
  * Invalid input is answered with a plain 422 JSON body rather than an
  * HttpException — every thrown 4xx is booked as a Sentry issue, and a typo in
@@ -42,6 +44,10 @@ final class LandingLeadController extends AbstractController
 
     /** Hidden field real visitors never see; bots fill it. */
     private const string HONEYPOT_FIELD = 'fax';
+
+    /** Set by `wbSendLead` in landing/src/landing/site.js, never a form input. */
+    private const string DWELL_FIELD = 'dwell';
+    private const int MIN_DWELL_MS = 2000;
 
     private const int MAX_LINE = 255;
     private const int MAX_MESSAGE = 5000;
@@ -65,7 +71,7 @@ final class LandingLeadController extends AbstractController
         }
 
         // Pretend success so a bot learns nothing; store and send nothing.
-        if ($this->line($payload, self::HONEYPOT_FIELD) !== null) {
+        if ($this->line($payload, self::HONEYPOT_FIELD) !== null || $this->isTooFast($payload)) {
             return $this->respond($request, $source, []);
         }
 
@@ -173,6 +179,16 @@ final class LandingLeadController extends AbstractController
         )));
 
         return array_slice($interests, 0, self::MAX_INTERESTS);
+    }
+
+    /**
+     * @param InputBag<bool|float|int|string> $payload
+     */
+    private function isTooFast(InputBag $payload): bool
+    {
+        $dwell = $this->line($payload, self::DWELL_FIELD);
+
+        return $dwell === null || ctype_digit($dwell) === false || (int) $dwell < self::MIN_DWELL_MS;
     }
 
     private function isEmail(string $value): bool

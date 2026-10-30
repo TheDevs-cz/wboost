@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Controller\Landing;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +18,9 @@ use WBoost\Web\Value\LandingLeadSource;
  */
 final class LandingLeadControllerTest extends WebTestCase
 {
+    /** What `wbSendLead` sends for a visitor who took 8 s over the form. */
+    private const string DWELL = '8000';
+
     public function testDesignerLeadIsStoredAndEmailed(): void
     {
         $browser = self::createClient();
@@ -161,14 +165,45 @@ final class LandingLeadControllerTest extends WebTestCase
         self::assertEmailCount(0);
     }
 
+    /**
+     * @return iterable<string, array{0: array<string, string>}>
+     */
+    public static function provideBotTimings(): iterable
+    {
+        yield 'no dwell (script never ran)' => [[]];
+        yield 'too fast' => [['dwell' => '1999']];
+        yield 'not a number' => [['dwell' => '5s']];
+        yield 'negative' => [['dwell' => '-5000']];
+    }
+
+    /**
+     * @param array<string, string> $timing
+     */
+    #[DataProvider('provideBotTimings')]
+    public function testTimeTrapPretendsSuccessButStoresNothing(array $timing): void
+    {
+        $browser = self::createClient();
+
+        $browser->request(
+            'POST',
+            '/poptavka',
+            ['source' => 'grafici', 'name' => 'Bot', 'email' => 'bot@example.com'] + $timing,
+            server: ['HTTP_ACCEPT' => 'application/json'],
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame([], $this->leads());
+        self::assertEmailCount(0);
+    }
+
     public function testWithoutJavaScriptTheBrowserIsSentBackToThePage(): void
     {
         $browser = self::createClient();
 
-        $browser->request('POST', '/poptavka', ['source' => 'grafici', 'name' => 'Bez JS', 'email' => 'nojs@example.com']);
+        $browser->request('POST', '/poptavka', ['source' => 'grafici', 'name' => 'Bez JS', 'email' => 'nojs@example.com', 'dwell' => self::DWELL]);
         self::assertResponseRedirects('/?odeslano#kontakt', Response::HTTP_SEE_OTHER);
 
-        $browser->request('POST', '/poptavka', ['source' => 'klienti', 'email' => 'bad']);
+        $browser->request('POST', '/poptavka', ['source' => 'klienti', 'email' => 'bad', 'dwell' => self::DWELL]);
         self::assertResponseRedirects('/klienti?chyba#formular', Response::HTTP_SEE_OTHER);
     }
 
@@ -213,7 +248,7 @@ final class LandingLeadControllerTest extends WebTestCase
      */
     private function post(KernelBrowser $browser, array $fields): void
     {
-        $browser->request('POST', '/poptavka', $fields, server: ['HTTP_ACCEPT' => 'application/json']);
+        $browser->request('POST', '/poptavka', $fields + ['dwell' => self::DWELL], server: ['HTTP_ACCEPT' => 'application/json']);
     }
 
     /**

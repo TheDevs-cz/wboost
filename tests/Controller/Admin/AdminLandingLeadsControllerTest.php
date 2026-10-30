@@ -28,6 +28,7 @@ final class AdminLandingLeadsControllerTest extends WebTestCase
             'name' => 'Obec Lhota',
             'email' => 'starosta@example.com',
             'interests' => 'Zpravodaj',
+            'dwell' => '8000', // the landing time trap drops posts without it
         ], server: ['HTTP_ACCEPT' => 'application/json']);
         $this->assertResponseStatusCodeSame(201);
 
