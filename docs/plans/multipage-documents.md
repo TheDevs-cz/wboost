@@ -182,6 +182,8 @@ Filling a 4-page offer and losing it on reload is not acceptable for long — do
 
 ## 8. MCP (Phase 5) — two new tools (budget raised to a soft ~25 on 2026-10-30, `mcp-server.md` §0.11)
 
+Extend-vs-new per §0.11 of `mcp-server.md`: listing → extend `find_templates`; per-page describe/render/design → existing variant tools unchanged (a page IS a variant); structure writes → new `manage_document`; whole-document export → new `export_document` (different subject + body; merging into `export_variant` would need either-or params).
+
 - **`find_templates`**: + `documents[]` (same summary as the API) and a `document` ref on page templates. No new tool for reading.
 - **`manage_document`** (`templates:design`): `action` = `create` | `rename` | `set_pages` | `add_page` | `set_fields`. `add_page` returns the new `variantId` so the agent continues with the existing `set_design`. No delete (MCP rule "drafts, never destruction"; detaching is non-destructive). Returns the document summary + `editorUrl`/`fillUrl`.
 - **`export_document`** (`templates:export`): same body as the API export.

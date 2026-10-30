@@ -21,7 +21,7 @@
 8. **Buffered responses only. No SSE.** Under FrankenPHP a flushing `StreamedResponse` corrupts the *next* request — already the reason `TemplateVariantImageRenderer::render()` buffers. See §6 R1.
 9. **Auth: personal access tokens now, shaped so OAuth 2.1 drops in later.** Scopes, audience semantics, `WWW-Authenticate` challenges and `/.well-known/oauth-protected-resource` exist from day one. Full OAuth is Stage 8 (backlog).
 10. **Authorisation reuses the existing voters.** The authenticator resolves a real `User`; `isGranted()` then behaves exactly as on the web. **No parallel permission model.** Scopes are a *second, narrowing* axis: effective permission = role ∩ scope.
-11. **Tool budget: ~25 tools, soft (raised from a hard 15 on 2026-10-30).** Every tool's description + schema rides in the host model's context each turn, and overlapping tools cause wrong picks — so the real rule is *distinctness*: a new tool must not plausibly compete with an existing one for the same request. Past ~25, review the surface (merge, or rely on host-side tool search) before adding more.
+11. **Tool budget: ~25 tools, soft (raised from a hard 15 on 2026-10-30).** Every tool's description + schema rides in the host model's context each turn, and overlapping tools cause wrong picks — so the real rule is *distinctness*: a new tool must not plausibly compete with an existing one for the same request. Past ~25, review the surface (merge, or rely on host-side tool search) before adding more. **Extend vs new:** extend an existing tool when it is the same subject with the same parameter shape plus an optional field; add a new tool when the subject or the parameter shape differs (a merged tool would need either-or parameters — the main cause of wrong calls).
 
 ---
 
