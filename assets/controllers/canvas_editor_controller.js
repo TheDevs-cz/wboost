@@ -3,6 +3,7 @@ import { Canvas, IText, Textbox, FabricImage, cache } from "fabric";
 
 import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
+import { applyBleed, bleedOf, designHeight, designWidth } from './canvas_viewport.js';
 import { loadCanvasDocument, reportMissingImages, withStandInsHidden } from './canvas_missing_images.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { createShapeObject, isShapeObject } from './canvas_shapes.js';
@@ -50,6 +51,9 @@ export default class extends Controller {
         // lands on-brand instead of in a placeholder grey the designer then has
         // to correct on every single add.
         brandColors: Array,
+        // Print bleed per side in canvas px (the variant's "spadávka"). The
+        // canvas element is rendered at the bleed box; see canvas_viewport.js.
+        bleed: { type: Number, default: 0 },
     };
 
     connect() {
@@ -70,6 +74,15 @@ export default class extends Controller {
         this.canvas = new Canvas('c', {
             enableRetinaScaling: logicalPixels > 0 && logicalPixels <= 4_000_000,
         });
+        // The element arrives at the bleed box (the template adds the bleed);
+        // shift the viewport so canvas coordinates stay trim-relative.
+        applyBleed(
+            this.canvas,
+            this.canvas.getWidth() - 2 * Math.max(0, this.bleedValue),
+            this.canvas.getHeight() - 2 * Math.max(0, this.bleedValue),
+            this.bleedValue,
+        );
+        this._renderBleedGuide();
 
         // Word-wrap parity with the export: the headless render template
         // patches Textbox wrapping (break-word for over-long words) — apply
@@ -188,6 +201,9 @@ export default class extends Controller {
         if (this._boundHandleKeydown) {
             window.removeEventListener('keydown', this._boundHandleKeydown);
         }
+        if (this._boundBleedZoom) {
+            window.removeEventListener('canvas-zoom:changed', this._boundBleedZoom);
+        }
     }
 
     dispatchSelectionChanged() {
@@ -211,8 +227,8 @@ export default class extends Controller {
      */
     refreshBackdropStates() {
         if (!this.canvas) return;
-        const width = this.canvas.getWidth();
-        const height = this.canvas.getHeight();
+        const width = designWidth(this.canvas);
+        const height = designHeight(this.canvas);
         const active = new Set(this.canvas.getActiveObjects());
         this.canvas.getObjects().forEach((obj) => {
             if ((obj.type || '').toLowerCase() !== 'image' && !isShapeObject(obj)) return;
@@ -241,8 +257,8 @@ export default class extends Controller {
         const up = this._scenePoint(opt);
         if (!up || Math.abs(up.x - press.x) > 3 || Math.abs(up.y - press.y) > 3) return;
 
-        const width = this.canvas.getWidth();
-        const height = this.canvas.getHeight();
+        const width = designWidth(this.canvas);
+        const height = designHeight(this.canvas);
         const objects = this.canvas.getObjects();
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
@@ -316,8 +332,8 @@ export default class extends Controller {
         if (!e.metaKey && !e.ctrlKey) return;
         const point = this._scenePoint(opt);
         if (!point) return;
-        const width = this.canvas.getWidth();
-        const height = this.canvas.getHeight();
+        const width = designWidth(this.canvas);
+        const height = designHeight(this.canvas);
         const objects = this.canvas.getObjects();
         for (let i = objects.length - 1; i >= 0; i--) {
             const obj = objects[i];
@@ -656,7 +672,7 @@ export default class extends Controller {
         const existing = this.canvas.getObjects().find((o) => o.isBackground === true);
 
         const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
-        coverForDimensions(img, this.canvas.width, this.canvas.height, 'top-left');
+        coverForDimensions(img, designWidth(this.canvas), designHeight(this.canvas), 'top-left', bleedOf(this.canvas));
 
         img.isBackground = true;
         img.inputId = existing?.inputId || crypto.randomUUID();
@@ -701,7 +717,7 @@ export default class extends Controller {
      * the editor preview and the exported PNG always match.
      */
     coverBackgroundImage(img) {
-        coverForDimensions(img, this.canvas.width, this.canvas.height);
+        coverForDimensions(img, designWidth(this.canvas), designHeight(this.canvas), 'center', bleedOf(this.canvas));
     }
 
     /**
@@ -1137,8 +1153,8 @@ export default class extends Controller {
 
         const brandColors = Array.isArray(this.brandColorsValue) ? this.brandColorsValue : [];
         const shape = createShapeObject(kind, {
-            canvasWidth: this.canvas.getWidth(),
-            canvasHeight: this.canvas.getHeight(),
+            canvasWidth: designWidth(this.canvas),
+            canvasHeight: designHeight(this.canvas),
             fill: brandColors.length > 0 ? brandColors[0] : null,
             cascade: this._shapesAdded || 0,
         });
@@ -1166,7 +1182,7 @@ export default class extends Controller {
         });
         // Position + scale: contain-fit so the picture is never dropped partly
         // (or almost entirely) outside the canvas. Sets the left/top origins.
-        containForDimensions(img, this.canvas.width, this.canvas.height, IMAGE_DROP_OFFSET);
+        containForDimensions(img, designWidth(this.canvas), designHeight(this.canvas), IMAGE_DROP_OFFSET);
         // Stamp inputId proactively (Stage 2 convention) so it can be promoted
         // to a fillable image placeholder by id.
         if (!img.inputId) {
@@ -1252,14 +1268,73 @@ export default class extends Controller {
             });
     }
 
+    /**
+     * Switch the stage to another design size + bleed (the group editor's tab
+     * switch): element at the bleed box, viewport at the trim, guide redrawn.
+     */
+    setDesignSize(width, height, bleed = 0) {
+        applyBleed(this.canvas, width, height, bleed);
+        this._renderBleedGuide();
+    }
+
+    /**
+     * The bleed zone as chrome over the canvas: the band outside the trim
+     * tinted (it gets cut off), a thin line on the trim and a red one on the
+     * bleed edge, InDesign-style. A DOM overlay inside Fabric's container —
+     * never on the canvas bitmap, so it can't leak into thumbnails — that
+     * scales with the CSS zoom like the canvas itself; line widths are
+     * divided by the zoom so they stay hairlines.
+     */
+    _renderBleedGuide() {
+        const container = this.canvas && this.canvas.wrapperEl;
+        if (!container) return;
+
+        let guide = container.querySelector(':scope > .canvas-bleed-guide');
+        const bleed = bleedOf(this.canvas);
+
+        if (bleed <= 0) {
+            if (guide) guide.remove();
+            return;
+        }
+
+        if (!guide) {
+            guide = document.createElement('div');
+            guide.className = 'canvas-bleed-guide';
+            guide.setAttribute('aria-hidden', 'true');
+            guide.innerHTML = '<div class="canvas-bleed-guide__trim"></div>';
+            container.appendChild(guide);
+
+            this._boundBleedZoom = (event) => {
+                const scale = event && event.detail && event.detail.scale;
+                if (scale > 0) guide.style.setProperty('--bleed-line', `${1 / scale}px`);
+            };
+            window.addEventListener('canvas-zoom:changed', this._boundBleedZoom);
+        }
+
+        // The zoom may have been applied before this guide existed.
+        const rendered = container.getBoundingClientRect().width;
+        if (rendered > 0 && container.offsetWidth > 0) {
+            guide.style.setProperty('--bleed-line', `${container.offsetWidth / rendered}px`);
+        }
+
+        const trim = guide.firstElementChild;
+        trim.style.left = `${bleed}px`;
+        trim.style.top = `${bleed}px`;
+        trim.style.width = `${designWidth(this.canvas)}px`;
+        trim.style.height = `${designHeight(this.canvas)}px`;
+        trim.style.setProperty('--bleed-band', `${bleed}px`);
+    }
+
     getScaledCanvasDataURI(maxWidth) {
         // Deselect all objects to hide controls
         const previousActiveObject = this.canvas.getActiveObject();
         this.canvas.discardActiveObject();
         this.canvas.renderAll();
 
-        const originalWidth = this.canvas.width;
-        const originalHeight = this.canvas.height;
+        // The thumbnail is the TRIM — the bleed band around it is cut off.
+        const bleed = bleedOf(this.canvas);
+        const originalWidth = designWidth(this.canvas);
+        const originalHeight = designHeight(this.canvas);
         const aspectRatio = originalWidth / originalHeight;
 
         // Never upscale: a canvas narrower than the cap has nothing more to
@@ -1273,8 +1348,21 @@ export default class extends Controller {
         offScreenCanvas.height = newHeight;
         const ctx = offScreenCanvas.getContext('2d');
 
-        // Draw the scaled canvas. canvas.getElement() still exists in v7.
-        ctx.drawImage(this.canvas.getElement(), 0, 0, newWidth, newHeight);
+        // Draw the scaled trim area. canvas.getElement() still exists in v7;
+        // its backing store may be retina-scaled, hence the ratio.
+        const element = this.canvas.getElement();
+        const ratio = element.width / this.canvas.getWidth();
+        ctx.drawImage(
+            element,
+            bleed * ratio,
+            bleed * ratio,
+            originalWidth * ratio,
+            originalHeight * ratio,
+            0,
+            0,
+            newWidth,
+            newHeight,
+        );
 
         // Convert the off-screen canvas to a Data URI
         const dataURI = offScreenCanvas.toDataURL('image/png');

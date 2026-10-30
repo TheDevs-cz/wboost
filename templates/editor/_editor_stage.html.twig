@@ -1,6 +1,8 @@
 {# The canvas stage: unscaled overlay layer (floating chrome anchors here),
    zoom-scaled canvas wrapper, floating mini-toolbar / multi-select bar /
-   text + image popovers. Expects: canvas_width, canvas_height (px),
+   text + image popovers. Expects: canvas_width, canvas_height (px; the TRIM),
+   optional canvas_bleed (px per side — the element is the bleed box, see
+   canvas_viewport.js),
    gallery_directories, and optional group_mode (adds the per-element
    "Přenést do ostatních variant" re-sync button targeting group-editor). #}
 {# The viewport is the SCROLL CONTAINER for the stage: panning a zoomed-in
@@ -10,7 +12,7 @@
 <div class="canvas-viewport" data-canvas-zoom-target="viewport">
 <div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage" data-canvas-snapping-target="layer" data-canvas-rulers-target="layer">
     <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
-        <canvas id="c" width="{{ canvas_width }}" height="{{ canvas_height }}"></canvas>
+        <canvas id="c" width="{{ canvas_width + 2 * canvas_bleed|default(0) }}" height="{{ canvas_height + 2 * canvas_bleed|default(0) }}"></canvas>
     </div>
 
     {# Photoshop-style rulers (canvas_rulers_controller): px-scale bars along

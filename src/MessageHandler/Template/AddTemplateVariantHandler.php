@@ -56,6 +56,7 @@ readonly final class AddTemplateVariantHandler
                 $background->naturalHeight,
                 $message->dimension->width(),
                 $message->dimension->height(),
+                bleed: $message->dimension->bleedPixels(),
             ));
         }
 

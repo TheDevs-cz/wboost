@@ -85,6 +85,7 @@ readonly final class AddTemplateGroupDimensionHandler
                 $picked->naturalHeight,
                 $message->dimension->width(),
                 $message->dimension->height(),
+                bleed: $message->dimension->bleedPixels(),
             ));
         } else {
             [$bytes, $extension] = $this->backgroundSource($group->id);
@@ -104,6 +105,7 @@ readonly final class AddTemplateGroupDimensionHandler
                     is_array($size) ? $size[1] : null,
                     $message->dimension->width(),
                     $message->dimension->height(),
+                    bleed: $message->dimension->bleedPixels(),
                 ));
             }
         }

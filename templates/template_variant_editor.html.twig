@@ -59,6 +59,7 @@
         {# Brand palette for freshly added shapes (same list the text popover and the fill WYSIWYG offer). #}
         data-canvas-editor-brand-colors-value='{{ (brand_colors|default([]))|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
+        data-canvas-editor-bleed-value="{{ variant.dimension.bleedPixels }}"
         data-canvas-editor-edit-variant-url-value="{{ edit_variant_url }}"
         data-canvas-history-canvas-editor-outlet="#canvas-container"
         data-canvas-clipboard-canvas-editor-outlet="#canvas-container"
@@ -146,6 +147,7 @@
                 {{ include('editor/_editor_stage.html.twig', {
                     'canvas_width': variant.dimension.width,
                     'canvas_height': variant.dimension.height,
+                    'canvas_bleed': variant.dimension.bleedPixels,
                 }) }}
 
                 {{ form_widget(editor_form.canvas, { attr: { 'data-canvas-editor-target': 'canvas' } }) }}

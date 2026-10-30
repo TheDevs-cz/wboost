@@ -37,6 +37,7 @@ use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\RichTextOptions;
 use WBoost\Web\Value\ShapeColorInput;
+use WBoost\Web\Value\PlaceholderFrame;
 
 /**
  * Shared engine of the user-fill / export page behind Template:VariantFiller.
@@ -497,11 +498,12 @@ abstract class AbstractVariantFiller extends AbstractController
                     // Background slot: the frame IS the canvas — the designed
                     // object's cover-fit bbox overflows it and a fill re-covers
                     // the whole canvas anyway.
+                    $cover = PlaceholderFrame::backgroundCover($variant->dimension);
                     $frame = [
-                        'x' => 0.0,
-                        'y' => 0.0,
-                        'width' => (float) $variant->dimension->width(),
-                        'height' => (float) $variant->dimension->height(),
+                        'x' => $cover->x,
+                        'y' => $cover->y,
+                        'width' => $cover->width,
+                        'height' => $cover->height,
                     ];
                 } else {
                     $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);

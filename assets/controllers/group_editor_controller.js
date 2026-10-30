@@ -396,7 +396,7 @@ export default class extends Controller {
 
             try {
                 const img = await FabricImage.fromURL(url, { crossOrigin: 'anonymous' });
-                coverForDimensions(img, target.width, target.height);
+                coverForDimensions(img, target.width, target.height, 'center', target.bleed || 0);
                 target.shadow.backgroundImage = img;
                 target.backgroundUrl = url;
 
@@ -493,7 +493,9 @@ export default class extends Controller {
     }
 
     _hasOffCanvasObjects(variant) {
-        const TOLERANCE = 2;
+        // Reaching into the print bleed is the point of a bleed, not a stray
+        // element — only past its outer edge counts.
+        const TOLERANCE = 2 + (variant.bleed || 0);
         return variant.shadow.getObjects().some((obj) => {
             // A cover-fitted background ALWAYS overflows one axis whenever
             // the picture's aspect differs from the canvas — that is the
@@ -637,7 +639,7 @@ export default class extends Controller {
         if (variant.backgroundUrl) {
             try {
                 const img = await FabricImage.fromURL(variant.backgroundUrl, { crossOrigin: 'anonymous' });
-                coverForDimensions(img, variant.width, variant.height);
+                coverForDimensions(img, variant.width, variant.height, 'center', variant.bleed || 0);
                 shadow.backgroundImage = img;
             } catch (err) {
                 console.error('Shadow background failed to load:', err);
@@ -746,7 +748,8 @@ export default class extends Controller {
 
             this.activeId = variantId;
 
-            editor.canvas.setDimensions({ width: incoming.width, height: incoming.height });
+            // Element at the variant's bleed box, viewport at its trim.
+            editor.setDesignSize(incoming.width, incoming.height, incoming.bleed || 0);
             editor.editVariantUrlValue = incoming.editVariantUrl;
             // Mode BEFORE load: loadCanvasWithoutHistory branches on it (layer
             // mode clears any leftover canvas-level background instead of
@@ -1146,7 +1149,7 @@ export default class extends Controller {
             const active = this._variant(this.activeId);
 
             if (active) {
-                editor.canvas.setDimensions({ width: active.width, height: active.height });
+                editor.setDesignSize(active.width, active.height, active.bleed || 0);
                 editor.editVariantUrlValue = active.editVariantUrl;
                 // Mode BEFORE load (layer mode clears any leftover canvas-level
                 // background); backgroundUrl is null for layer-mode variants,

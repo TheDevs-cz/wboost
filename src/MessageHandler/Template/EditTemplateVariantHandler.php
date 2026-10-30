@@ -77,6 +77,7 @@ readonly final class EditTemplateVariantHandler
                     is_array($size) ? $size[1] : null,
                     $variant->dimension->width(),
                     $variant->dimension->height(),
+                    bleed: $variant->dimension->bleedPixels(),
                 )),
                 $variant->inputs,
                 $variant->previewImagePath,

@@ -32,6 +32,7 @@ use WBoost\Web\Value\ResolvedCanvasContainer;
 use WBoost\Web\Value\ResolvedListStyle;
 use WBoost\Web\Value\RichTextFontOption;
 use WBoost\Web\Value\ShapeColorInput;
+use WBoost\Web\Value\PlaceholderFrame;
 
 /**
  * @implements ProviderInterface<TemplateResponse>
@@ -408,14 +409,16 @@ final readonly class TemplatesProvider implements ProviderInterface
 
                 if ($object !== null) {
                     if ($input->isBackground) {
-                        // Background slot: the frame IS the canvas — the designed
-                        // object's cover-fit bbox overflows it, and a fill
-                        // re-covers the whole canvas anyway.
+                        // Background slot: the frame IS the canvas (+ its print
+                        // bleed, negative origin) — the designed object's
+                        // cover-fit bbox overflows it, and a fill re-covers
+                        // that whole box anyway.
+                        $cover = PlaceholderFrame::backgroundCover($variant->dimension);
                         $frame = new TemplateVariantImageInputFrameResponse(
-                            0,
-                            0,
-                            $variant->dimension->width(),
-                            $variant->dimension->height(),
+                            $cover->x,
+                            $cover->y,
+                            $cover->width,
+                            $cover->height,
                         );
                     } else {
                         $placeholderFrame = $this->placeholderGeometry->frameFromObject($object);

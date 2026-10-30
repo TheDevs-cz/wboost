@@ -513,7 +513,7 @@ export class GroupSync {
                     }
                 });
 
-                coverForDimensions(clone, target.width, target.height, 'top-left');
+                coverForDimensions(clone, target.width, target.height, 'top-left', target.bleed || 0);
                 // Backgrounds are click-through on the canvas surface — the shadow
                 // is static, but the flags ride the save into the editor.
                 applyEditorLock(clone);

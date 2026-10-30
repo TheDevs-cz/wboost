@@ -241,3 +241,42 @@ still list in the "Kontejnery" panel and still save. It is CSS-driven
 while zones are hidden `_openSettings()` is a no-op, since the popover anchors
 to a zone rect that now measures 0×0 (the panel row still selects the
 container).
+
+**Print bleed zone ("spadávka", 2026-10-30) — `canvas_viewport.js`**
+
+A variant with a print bleed (`TemplateDimension::bleedPixels()` > 0) is
+edited over its BLEED BOX: `_editor_stage` renders `<canvas id="c">` at
+trim + 2 × bleed, and `applyBleed()` shifts Fabric's viewport by the bleed so
+canvas coordinates stay TRIM-relative (saved JSON, renders, fill pages and
+the MCP DSL never change). The group editor re-applies it per tab
+(`canvas-editor#setDesignSize`, `variantsData[].bleed`). Contracts every
+editor module must keep:
+
+- `canvas.getWidth()/getHeight()` are the ELEMENT size — design-size logic
+  (backdrop coverage, shape defaults, image drop, container page height,
+  snapping canvas edges, ruler length/limits) uses `designWidth()/designHeight()`.
+- `obj.getBoundingRect()` is in scene space, so every DOM-chrome `_metrics()`
+  (floating toolbar, containers, layers, rulers, snapping) returns
+  `trimOriginRect(...)` — the element rect re-based on the trim corner. Any new
+  overlay must do the same or it drifts by the bleed.
+- **Fabric's `_getPointerImpl` inverts the viewport BEFORE the CSS-scale
+  correction**, i.e. it treats the viewport translation as CSS px. Our zoom is a
+  CSS transform, so on a bleed variant every click landed ~bleed/zoom off.
+  `applyBleed` patches the canvas to derive the scene point from the (correct)
+  viewport point. Verified in headless Chrome: synthetic drag on an A4 + 3 mm
+  variant moves the object by exactly the dragged distance; outlines sit on
+  their objects; the 1:1 variant of the same group is unaffected.
+- The zone itself is a DOM overlay inside Fabric's container
+  (`.canvas-bleed-guide`: red outline = bleed edge, trim outline, tinted band),
+  never on the bitmap; line widths divide by the zoom (`--bleed-line`). The
+  save-time thumbnail crops to the trim. The bleed edge is a snap target, and
+  the group rail's "Prvky mimo plátno" badge tolerates objects inside the bleed.
+- Backgrounds cover the bleed box everywhere: `coverForDimensions(..., bleed)`
+  (editor + group sync), `BackgroundLayer::buildObject(bleed:)` (add / edit /
+  group create + add-dimension / projector), the render template's canvas-mode
+  cover (in EVERY render, so PNG and PDF crop the same placement), and the
+  background SLOT fill (`PlaceholderFrame::backgroundCover()` — renderer, fill
+  page, API frame with a negative origin). Changing the bleed on "Tiskové
+  nastavení" re-covers a layer background only if it still sits at its
+  automatic cover (`BackgroundLayer::recoverForBleed`) — a hand-placed one is
+  the designer's composition.

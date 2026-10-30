@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { bleedOf, designHeight, designWidth, trimOriginRect } from './canvas_viewport.js';
 
 /**
  * Figma / Canva style smart guides + snapping for the admin canvas editor —
@@ -324,7 +325,7 @@ export default class extends Controller {
             const t = rx.target;
             const fullSpan = t.isCanvas || t.isGuide; // guides span the whole canvas
             const y1 = fullSpan ? 0 : Math.min(fr.top, t.top);
-            const y2 = fullSpan ? this._canvas.getHeight() : Math.max(fr.bottom, t.bottom);
+            const y2 = fullSpan ? designHeight(this._canvas) : Math.max(fr.bottom, t.bottom);
             this._line('v', rx.coord, y1, y2, geo);
             if (!fullSpan) {
                 const gap = this._gap1D(fr.top, fr.bottom, t.top, t.bottom);
@@ -336,7 +337,7 @@ export default class extends Controller {
             const t = ry.target;
             const fullSpan = t.isCanvas || t.isGuide;
             const x1 = fullSpan ? 0 : Math.min(fr.left, t.left);
-            const x2 = fullSpan ? this._canvas.getWidth() : Math.max(fr.right, t.right);
+            const x2 = fullSpan ? designWidth(this._canvas) : Math.max(fr.right, t.right);
             this._line('h', ry.coord, x1, x2, geo);
             if (!fullSpan) {
                 const gap = this._gap1D(fr.left, fr.right, t.left, t.right);
@@ -421,9 +422,16 @@ export default class extends Controller {
         const rects = this._canvas.getObjects()
             .filter((o) => !exclude.has(o) && o.visible !== false && o.isBackground !== true)
             .map((o) => this._rect(o));
-        const W = this._canvas.getWidth();
-        const H = this._canvas.getHeight();
+        const W = designWidth(this._canvas);
+        const H = designHeight(this._canvas);
         rects.push({ left: 0, top: 0, right: W, bottom: H, cx: W / 2, cy: H / 2, isCanvas: true });
+
+        // Print bleed: its outer edge is a snap line too — dragging a picture
+        // out to the red line is exactly what a full-bleed design needs.
+        const bleed = bleedOf(this._canvas);
+        if (bleed > 0) {
+            rects.push({ left: -bleed, top: -bleed, right: W + bleed, bottom: H + bleed, cx: W / 2, cy: H / 2, isCanvas: true });
+        }
 
         // Ruler guides (canvas_rulers_controller) are snap lines too — a
         // vertical guide is a zero-width "rect" spanning the canvas, so the
@@ -502,6 +510,8 @@ export default class extends Controller {
         const layerRect = this.layerTarget.getBoundingClientRect();
         const logicalWidth = (typeof canvas.getWidth === 'function' ? canvas.getWidth() : canvas.width) || canvasEl.width;
         const scale = logicalWidth ? contRect.width / logicalWidth : 1;
-        return { contRect, layerRect, scale };
+        // Scene coordinates start at the TRIM corner (print bleed shifts it
+        // inside the element) — see canvas_viewport.js.
+        return { contRect: trimOriginRect(contRect, canvas, scale), layerRect, scale };
     }
 }

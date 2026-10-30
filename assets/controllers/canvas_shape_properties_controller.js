@@ -8,6 +8,7 @@ import {
     isShapeObject,
     toHexColor,
 } from "./canvas_shapes.js";
+import { designHeight, designWidth } from './canvas_viewport.js';
 
 /**
  * Editor-side styling for SHAPE objects — the third sibling of
@@ -357,8 +358,8 @@ export default class extends Controller {
         shape.set('stroke', hex);
         if ((Number(shape.strokeWidth) || 0) <= 0) {
             const width = defaultStrokeWidth(
-                this.canvasEditorOutlet.canvas.getWidth(),
-                this.canvasEditorOutlet.canvas.getHeight(),
+                designWidth(this.canvasEditorOutlet.canvas),
+                designHeight(this.canvasEditorOutlet.canvas),
             );
             shape.set('strokeWidth', width);
             if (this.hasStrokeWidthTarget) this.strokeWidthTarget.value = String(width);

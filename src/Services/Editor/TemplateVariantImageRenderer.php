@@ -303,6 +303,8 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             'backgroundMode' => $variant->backgroundMode->value,
             'width' => $variant->dimension->width(),
             'height' => $variant->dimension->height(),
+            // The canvas-mode background covers the bleed box in every render.
+            'bleed' => $variant->dimension->bleedPixels(),
             'inputs' => array_map(static fn (EditorTextInput $i): string => serialize($i), $variant->inputs),
             'imageInputs' => array_map(static fn (object $i): string => serialize($i), $variant->imageInputs),
             'imageOverrides' => $imageOverrides === null ? null : serialize($imageOverrides),
@@ -714,8 +716,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         $canvas = $this->applyImagePlaceholders(
             $canvas,
             $imageOverrides ?? ResolvedImageOverrides::none(),
-            $variant->dimension->width(),
-            $variant->dimension->height(),
+            PlaceholderFrame::backgroundCover($variant->dimension),
         );
 
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
@@ -775,7 +776,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * @param array<string, mixed> $canvas
      * @return array<string, mixed>
      */
-    private function applyImagePlaceholders(array $canvas, ResolvedImageOverrides $imageOverrides, int $canvasWidth, int $canvasHeight): array
+    private function applyImagePlaceholders(array $canvas, ResolvedImageOverrides $imageOverrides, PlaceholderFrame $backgroundFrame): array
     {
         if (!isset($canvas['objects']) || !is_array($canvas['objects'])) {
             return $canvas;
@@ -806,11 +807,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             $override = $inputId !== null ? ($imageOverrides->images[$inputId] ?? null) : null;
             if ($override instanceof ResolvedImageOverride) {
                 if (($object['isBackground'] ?? false) === true) {
-                    // Background slot: the frame IS the canvas (the designed
-                    // object's cover-fit bbox overflows it) and the fill is a
-                    // deterministic cover anchored top-left — no user transform.
+                    // Background slot: the frame IS the canvas + its print
+                    // bleed (the designed object's cover-fit bbox overflows
+                    // it) and the fill is a deterministic cover anchored
+                    // top-left — no user transform.
                     $placement = $this->imagePlacement->computeCover(
-                        new PlaceholderFrame(0, 0, $canvasWidth, $canvasHeight),
+                        $backgroundFrame,
                         $override->naturalWidth,
                         $override->naturalHeight,
                     );

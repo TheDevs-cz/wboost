@@ -6,6 +6,7 @@ import { applyEditorLock } from './canvas_custom_properties.js';
 import { SHAPE_KINDS, isShapeObject } from './canvas_shapes.js';
 import { labelLayers } from './canvas_layer_labels.js';
 import { isMissingImage } from './canvas_missing_images.js';
+import { trimOriginRect } from './canvas_viewport.js';
 
 /**
  * Photoshop-style layers panel for the admin canvas editor (left panel).
@@ -529,6 +530,8 @@ export default class extends Controller {
         const layerRect = this.stageTarget.getBoundingClientRect();
         const logicalWidth = (typeof canvas.getWidth === 'function' ? canvas.getWidth() : canvas.width) || canvasEl.width;
         const scale = logicalWidth ? contRect.width / logicalWidth : 1;
-        return { contRect, layerRect, scale };
+        // Scene coordinates start at the TRIM corner (print bleed shifts it
+        // inside the element) — see canvas_viewport.js.
+        return { contRect: trimOriginRect(contRect, canvas, scale), layerRect, scale };
     }
 }

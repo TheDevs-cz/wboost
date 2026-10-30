@@ -3,6 +3,7 @@ import { ActiveSelection } from "fabric";
 
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
 import { applyShapeDefaults, isShapeObject } from './canvas_shapes.js';
+import { designHeight, trimOriginRect } from './canvas_viewport.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -440,7 +441,7 @@ export default class extends Controller {
                 getLeft: (o) => this._absLeft(o),
                 // Logical canvas height = the variant's px height (zoom is a
                 // CSS transform) — gates the page-bottom overflow.
-                canvasHeight: typeof canvas.getHeight === 'function' ? canvas.getHeight() : canvas.height,
+                canvasHeight: typeof canvas.getHeight === 'function' ? designHeight(canvas) : canvas.height,
             },
         );
     }
@@ -1158,7 +1159,9 @@ export default class extends Controller {
         const layerRect = this.layerTarget.getBoundingClientRect();
         const logicalWidth = (typeof canvas.getWidth === 'function' ? canvas.getWidth() : canvas.width) || canvasEl.width;
         const scale = logicalWidth ? contRect.width / logicalWidth : 1;
-        return { contRect, layerRect, scale };
+        // Scene coordinates start at the TRIM corner (print bleed shifts it
+        // inside the element) — see canvas_viewport.js.
+        return { contRect: trimOriginRect(contRect, canvas, scale), layerRect, scale };
     }
 
     // --- settings popover (per-zone ⚙) ---------------------------------------

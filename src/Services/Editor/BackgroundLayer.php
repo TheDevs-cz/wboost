@@ -51,7 +51,16 @@ readonly final class BackgroundLayer
         float $canvasWidth,
         float $canvasHeight,
         null|string $inputId = null,
+        int $bleed = 0,
     ): array {
+        // A print variant's background covers the BLEED BOX — trim + `bleed`
+        // px per side, anchored at (-bleed, -bleed) — so the picture reaches
+        // the cut line ({@see \WBoost\Web\Value\TemplateDimension::bleedPixels()};
+        // the editors' coverForDimensions mirrors it).
+        $bleed = max(0, $bleed);
+        $canvasWidth += 2 * $bleed;
+        $canvasHeight += 2 * $bleed;
+
         if ($naturalWidth === null || $naturalHeight === null || $naturalWidth < 1 || $naturalHeight < 1) {
             // Natural size unknown (unparsable bytes, e.g. some SVGs) → the
             // full-bleed stretch fallback, mirroring the legacy empty-canvas
@@ -70,8 +79,8 @@ readonly final class BackgroundLayer
             'version' => '5.2.4',
             'originX' => 'left',
             'originY' => 'top',
-            'left' => 0,
-            'top' => 0,
+            'left' => -$bleed,
+            'top' => -$bleed,
             'width' => $width,
             'height' => $height,
             'cropX' => 0,
@@ -152,6 +161,61 @@ readonly final class BackgroundLayer
     public function hasBackgroundLayer(string $canvasJson): bool
     {
         return $this->backgroundIndex($this->decode($canvasJson)) !== null;
+    }
+
+    /**
+     * Re-cover the background layer for a CHANGED print bleed — but only when
+     * it still sits exactly where the automatic cover for the old bleed put
+     * it. A background the designer unlocked and moved is their composition
+     * and stays untouched (null = nothing to change).
+     */
+    public function recoverForBleed(string $canvasJson, int $canvasWidth, int $canvasHeight, int $oldBleed, int $newBleed): null|string
+    {
+        if ($oldBleed === $newBleed) {
+            return null;
+        }
+
+        $decoded = $this->decode($canvasJson);
+        $index = $this->backgroundIndex($decoded);
+
+        if ($index === null) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $object */
+        $object = $decoded['objects'][$index];
+        $naturalWidth = $object['width'] ?? null;
+        $naturalHeight = $object['height'] ?? null;
+
+        if (!is_numeric($naturalWidth) || !is_numeric($naturalHeight) || $naturalWidth <= 0 || $naturalHeight <= 0) {
+            return null;
+        }
+
+        $cover = static fn (int $bleed): float => max(
+            ($canvasWidth + 2 * $bleed) / (float) $naturalWidth,
+            ($canvasHeight + 2 * $bleed) / (float) $naturalHeight,
+        );
+
+        $number = static fn (mixed $value): float => is_numeric($value) ? (float) $value : NAN;
+        $atAutoCover = abs($number($object['left'] ?? 0) + $oldBleed) < 0.5
+            && abs($number($object['top'] ?? 0) + $oldBleed) < 0.5
+            && abs($number($object['scaleX'] ?? 1) - $cover($oldBleed)) < 1e-4
+            && abs($number($object['scaleY'] ?? 1) - $cover($oldBleed)) < 1e-4
+            && ($object['originX'] ?? 'left') === 'left'
+            && ($object['originY'] ?? 'top') === 'top'
+            && ($object['angle'] ?? 0) == 0;
+
+        if (!$atAutoCover) {
+            return null;
+        }
+
+        $object['left'] = -$newBleed;
+        $object['top'] = -$newBleed;
+        $object['scaleX'] = $cover($newBleed);
+        $object['scaleY'] = $cover($newBleed);
+        $decoded['objects'][$index] = $object;
+
+        return json_encode($decoded, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     }
 
     /**

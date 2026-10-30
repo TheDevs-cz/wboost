@@ -63,6 +63,7 @@ readonly final class CanvasDesignProjector
         null|int $backgroundNaturalHeight = null,
         BackgroundMode $mode = BackgroundMode::Canvas,
         null|string $backgroundAssetPath = null,
+        int $targetBleed = 0,
     ): string {
         /** @var mixed $decoded */
         $decoded = json_decode($canvasJson, true, 512, JSON_THROW_ON_ERROR);
@@ -82,6 +83,7 @@ readonly final class CanvasDesignProjector
                     $backgroundNaturalHeight,
                     $targetWidth,
                     $targetHeight,
+                    $targetBleed,
                 ));
             }
 
@@ -109,6 +111,7 @@ readonly final class CanvasDesignProjector
                     $backgroundNaturalHeight,
                     $targetWidth,
                     $targetHeight,
+                    $targetBleed,
                 ));
 
                 continue;
@@ -169,6 +172,7 @@ readonly final class CanvasDesignProjector
         null|int $naturalHeight,
         float $targetWidth,
         float $targetHeight,
+        int $targetBleed = 0,
     ): array {
         return $this->backgroundLayer->buildObject(
             $src,
@@ -177,6 +181,7 @@ readonly final class CanvasDesignProjector
             $naturalHeight,
             $targetWidth,
             $targetHeight,
+            bleed: $targetBleed,
         );
     }
 

@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { designHeight, designWidth, trimOriginRect } from './canvas_viewport.js';
 
 /**
  * Photoshop-style rulers + draggable guides for the admin canvas editor
@@ -157,7 +158,7 @@ export default class extends Controller {
         if (!el) return;
         const S = this.constructor.SIZE;
         const lengthScreen = dir === 'h' ? g.contRect.width : g.contRect.height;
-        const lengthCanvas = dir === 'h' ? this._canvas.getWidth() : this._canvas.getHeight();
+        const lengthCanvas = dir === 'h' ? designWidth(this._canvas) : designHeight(this._canvas);
         const dpr = window.devicePixelRatio || 1;
 
         if (dir === 'h') {
@@ -314,7 +315,7 @@ export default class extends Controller {
         const pos = snapped !== null ? snapped : Math.round(raw);
         d.pos = pos;
 
-        const limit = d.guide.axis === 'x' ? this._canvas.getWidth() : this._canvas.getHeight();
+        const limit = d.guide.axis === 'x' ? designWidth(this._canvas) : designHeight(this._canvas);
         d.inside = pos >= 0 && pos <= limit;
 
         // Phantom guide element for creates; live-move for existing ones.
@@ -378,8 +379,8 @@ export default class extends Controller {
     _snapGuidePos(axis, raw, g) {
         const threshold = this.constructor.SNAP_SCREEN_PX / g.scale;
         const lines = [];
-        const W = this._canvas.getWidth();
-        const H = this._canvas.getHeight();
+        const W = designWidth(this._canvas);
+        const H = designHeight(this._canvas);
         if (axis === 'x') lines.push(0, W / 2, W); else lines.push(0, H / 2, H);
         this._canvas.getObjects().forEach((o) => {
             if (o.visible === false) return;
@@ -435,6 +436,8 @@ export default class extends Controller {
         const layerRect = this.layerTarget.getBoundingClientRect();
         const logicalWidth = (typeof canvas.getWidth === 'function' ? canvas.getWidth() : canvas.width) || canvasEl.width;
         const scale = logicalWidth ? contRect.width / logicalWidth : 1;
-        return { contRect, layerRect, scale };
+        // Scene coordinates start at the TRIM corner (print bleed shifts it
+        // inside the element) — see canvas_viewport.js.
+        return { contRect: trimOriginRect(contRect, canvas, scale), layerRect, scale };
     }
 }

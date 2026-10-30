@@ -63,6 +63,7 @@
         {# Brand palette for freshly added shapes (same list the text popover and the fill WYSIWYG offer). #}
         data-canvas-editor-brand-colors-value='{{ (brand_colors|default([]))|json_encode }}'
         data-canvas-editor-canvas-json="{{ first.variant.canvas }}"
+        data-canvas-editor-bleed-value="{{ first.variant.dimension.bleedPixels }}"
         data-canvas-editor-edit-variant-url-value="{{ first.edit_variant_url }}"
         data-group-editor-save-url-value="{{ save_url }}"
         data-group-editor-csrf-value="{{ csrf_token('template_group_editor') }}"
@@ -121,6 +122,7 @@
                     "label": {{ v.dimension_label|json_encode|raw }},
                     "width": {{ v.variant.dimension.width }},
                     "height": {{ v.variant.dimension.height }},
+                    "bleed": {{ v.variant.dimension.bleedPixels }},
                     "canvas": {{ v.variant.canvas|json_encode|raw }},
                     {#- backgroundUrl deliberately null for layer-mode variants: it feeds
                         the canvas-LEVEL background re-apply sites (_loadShadow/_activate/
@@ -226,6 +228,7 @@
                 {{ include('editor/_editor_stage.html.twig', {
                     'canvas_width': first.variant.dimension.width,
                     'canvas_height': first.variant.dimension.height,
+                    'canvas_bleed': first.variant.dimension.bleedPixels,
                     'group_mode': true,
                 }) }}
             </div>

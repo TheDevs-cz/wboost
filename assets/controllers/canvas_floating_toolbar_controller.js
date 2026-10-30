@@ -1,6 +1,7 @@
 import { Controller } from "@hotwired/stimulus";
 import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
 import { isShapeObject } from "./canvas_shapes.js";
+import { trimOriginRect } from './canvas_viewport.js';
 
 /**
  * Floating, element-anchored editing chrome for the admin canvas editor.
@@ -564,7 +565,9 @@ export default class extends Controller {
         // which would halve the scale on a 2x display and offset all chrom/outlines.
         const logicalWidth = (typeof canvas.getWidth === 'function' ? canvas.getWidth() : canvas.width) || canvasEl.width;
         const scale = logicalWidth ? contRect.width / logicalWidth : 1;
-        return { contRect, layerRect, scale };
+        // Scene coordinates start at the TRIM corner (print bleed shifts it
+        // inside the element) — see canvas_viewport.js.
+        return { contRect: trimOriginRect(contRect, canvas, scale), layerRect, scale };
     }
 
     /** Don't let chrome slide under the sticky editor header. */

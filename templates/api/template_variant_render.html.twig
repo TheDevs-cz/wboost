@@ -116,9 +116,12 @@
                     const element = typeof backgroundImage.getElement === 'function' ? backgroundImage.getElement() : null;
                     const naturalWidth = (element && (element.naturalWidth || element.width)) || backgroundImage.width || 1;
                     const naturalHeight = (element && (element.naturalHeight || element.height)) || backgroundImage.height || 1;
-                    // Cover the bleed box (= the trim when there is no
-                    // bleed), centred on the trim in canvas coordinates.
-                    const coverScale = Math.max((designWidth + 2 * bleed) / naturalWidth, (designHeight + 2 * bleed) / naturalHeight);
+                    // Cover the variant's BLEED BOX (= the trim when it has
+                    // no bleed), centred on the trim — in every render, not
+                    // just the print pass, so PNG and PDF crop the very same
+                    // placement (the editor covers it identically).
+                    const coverBleed = {{ variant.dimension.bleedPixels }};
+                    const coverScale = Math.max((designWidth + 2 * coverBleed) / naturalWidth, (designHeight + 2 * coverBleed) / naturalHeight);
                     backgroundImage.set({
                         width: naturalWidth,
                         height: naturalHeight,

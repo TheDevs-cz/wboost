@@ -113,12 +113,16 @@ export function restoreCustomProperties(canvas, sourceCanvas) {
  * or 'top-left' (background LAYERS: pinned to 0,0 so overflow crops away
  * bottom-right; must match the server's `ImagePlacement::computeCover`).
  */
-export function coverForDimensions(img, canvasWidth, canvasHeight, anchor = 'center') {
+export function coverForDimensions(img, canvasWidth, canvasHeight, anchor = 'center', bleed = 0) {
     const { imageWidth, imageHeight } = naturalSize(img);
-    const scale = Math.max(canvasWidth / imageWidth, canvasHeight / imageHeight);
+    // A print variant's background covers the BLEED BOX (trim + `bleed` per
+    // side) so it reaches the cut line — the same box the server covers
+    // (BackgroundLayer::buildObject, the render template).
+    const b = bleed > 0 ? bleed : 0;
+    const scale = Math.max((canvasWidth + 2 * b) / imageWidth, (canvasHeight + 2 * b) / imageHeight);
     img.set({
         ...(anchor === 'top-left'
-            ? { originX: 'left', originY: 'top', left: 0, top: 0 }
+            ? { originX: 'left', originY: 'top', left: -b, top: -b }
             : { originX: 'center', originY: 'center', left: canvasWidth / 2, top: canvasHeight / 2 }),
         cropX: 0,
         cropY: 0,
