@@ -21,7 +21,7 @@
 8. **Buffered responses only. No SSE.** Under FrankenPHP a flushing `StreamedResponse` corrupts the *next* request — already the reason `TemplateVariantImageRenderer::render()` buffers. See §6 R1.
 9. **Auth: personal access tokens now, shaped so OAuth 2.1 drops in later.** Scopes, audience semantics, `WWW-Authenticate` challenges and `/.well-known/oauth-protected-resource` exist from day one. Full OAuth is Stage 8 (backlog).
 10. **Authorisation reuses the existing voters.** The authenticator resolves a real `User`; `isGranted()` then behaves exactly as on the web. **No parallel permission model.** Scopes are a *second, narrowing* axis: effective permission = role ∩ scope.
-11. **Tool budget: ≤ 15 tools.** Tool-count bloat degrades agent selection accuracy. Adding a 16th requires removing one.
+11. **Tool budget: ~25 tools, soft (raised from a hard 15 on 2026-10-30).** Every tool's description + schema rides in the host model's context each turn, and overlapping tools cause wrong picks — so the real rule is *distinctness*: a new tool must not plausibly compete with an existing one for the same request. Past ~25, review the surface (merge, or rely on host-side tool search) before adding more.
 
 ---
 
@@ -110,7 +110,7 @@ skills/wboost-design/         the Skill shipped alongside the connector
 tests/Mcp/
 ```
 
-### 3.3 The tool surface (the public interface — ≤ 15)
+### 3.3 The tool surface (the public interface — soft budget ~25, see §0.11)
 
 | # | Tool | Scope | Voter gate | Returns |
 |---|---|---|---|---|
@@ -128,7 +128,9 @@ tests/Mcp/
 | 12 | `add_variant` | `templates:design` | `TemplateVariantVoter::ADD` | variantId + editorUrl |
 | 13 | `create_group` | `templates:design` | `ROLE_DESIGNER` + `ProjectVoter::EDIT` | groupId + variantIds |
 | 14 | `upload_image` | `gallery:write` | `ProjectVoter::VIEW` | imageId + url |
-| 15 | *(reserved)* | | | Stage 7 `bulk_export` / `get_job` replace this slot |
+| 15 | *(reserved)* | | | Stage 7 `bulk_export` / `get_job` |
+| 16 | `manage_document` | `templates:design` | `TemplateDocumentVoter::EDIT` | document summary + editorUrl/fillUrl — see `multipage-documents.md` §8 |
+| 17 | `export_document` | `templates:export` | `TemplateDocumentVoter::VIEW` | PDF / ZIP — see `multipage-documents.md` §8 |
 
 `tools/list` MUST be filtered by the token's scopes ∩ the user's roles — a read-only token must not learn the design tools exist.
 
@@ -564,7 +566,7 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
 
 - [ ] **S7-T1 — `McpJob` entity + migration** (id, user, type, status, progress, request JSON, result JSON, error, timestamps).
 - [ ] **S7-T2 — `BulkExportRequested` message routed to the existing `async` transport**; handler renders N variants, writes results to Minio, updates progress. Cap N; log what was dropped.
-- [ ] **S7-T3 — `bulk_export` + `get_job` tools** (replace the reserved slot #15; keep the tool budget at 15).
+- [ ] **S7-T3 — `bulk_export` + `get_job` tools** (slot #15).
 
 ### Stage 8 — OAuth 2.1 (backlog; needed only for claude.ai / ChatGPT connectors)
 
@@ -589,7 +591,7 @@ Legend: `[ ]` todo · `[x]` done · **Done when** = the verification an agent ru
 - **R5 — DNS-rebinding `allowed_hosts` defaults to localhost only.** Forgetting it means every production request 400s.
 - **R6 — Positional textbox↔input contract (§4.1).** The most dangerous invariant: violating it silently mis-binds inputs, so exports substitute the wrong text and the fill overlay draws boxes in the wrong places. Test it explicitly, not incidentally.
 - **R7 — `CANVAS_CUSTOM_PROPERTIES` drift.** The authoritative list is in JS (`assets/controllers/canvas_custom_properties.js`). A compiler that emits a stale set loses designer metadata on the next editor save. S4-T4 must include the drift-guard test.
-- **R8 — Tool bloat.** Every added tool degrades selection accuracy. The 15-tool budget is a hard cap, not a target.
+- **R8 — Tool bloat.** Overlapping tools degrade selection accuracy and every tool costs context. The ~25 budget is a review point, not a target; distinctness is the actual rule.
 - **R9 — `sampleValue` / `maxLength` interaction.** A stand-in longer than its own `maxLength` renders fine in the editor but 400s an API consumer who omits the input. The linter must catch it (S4-T6).
 - **R10 — Group-created variants.** `set_design` on one is clobbered by the next group save. Reject explicitly (§4.22).
 

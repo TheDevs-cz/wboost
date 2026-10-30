@@ -180,16 +180,14 @@ Filling a 4-page offer and losing it on reload is not acceptable for long — do
 
 ---
 
-## 8. MCP (Phase 5) — tool budget ≤ 15 (locked in `mcp-server.md` §0.11)
-
-**Budget conflict (review B1) — DECISION PENDING with the product owner.** `mcp-server.md` §3.3 already allocates all 15 slots: 9 built + 5 planned-but-unbuilt (`list_archetypes`, `get_design`, `create_template`, `add_variant`, `create_group`) + #15 reserved for `bulk_export`/`get_job`. Two new tools = 16–17. Recommended: **`manage_document` takes reserved slot #15** (bulk export is better served later as a document-shaped export anyway), and **document export folds into `export_variant`** as an alternative subject (`documentId` + `pages`/`fields` instead of `variantId`) — exactly-one-subject validated, same scope. Alternative: raise the budget to 17.
+## 8. MCP (Phase 5) — two new tools (budget raised to a soft ~25 on 2026-10-30, `mcp-server.md` §0.11)
 
 - **`find_templates`**: + `documents[]` (same summary as the API) and a `document` ref on page templates. No new tool for reading.
 - **`manage_document`** (`templates:design`): `action` = `create` | `rename` | `set_pages` | `add_page` | `set_fields`. `add_page` returns the new `variantId` so the agent continues with the existing `set_design`. No delete (MCP rule "drafts, never destruction"; detaching is non-destructive). Returns the document summary + `editorUrl`/`fillUrl`.
 - **`export_document`** (`templates:export`): same body as the API export.
   - **Chat-client ceiling (~25 s):** print PDF ≈ 5–7 s/page (A4 measured ~5 s in the Imagick step alone), screen ≈ 1–2 s/page. Refuse above a page budget with a structured error that names the fill URL / API.
   - **Payload size:** a print PDF is several MB per page; base64 in a tool result floods the host's context. Return the PDF/ZIP as an `EmbeddedResource` only below a size cap (e.g. 8 MB); above it, error with the fill URL. (A signed short-lived download URL is the proper follow-up — out of scope.)
-- Under the recommended option the count stays 15 (11 built after this work). `describe_variant` / `render_variant` work per page unchanged.
+- 11 built tools after this work (17 counting the still-unbuilt planned ones). `describe_variant` / `render_variant` work per page unchanged.
 - Docs: `docs/mcp/` + the in-app MCP guide (`templates/mcp_guide.html.twig`).
 
 ---
@@ -227,7 +225,7 @@ Browser verification (house reality: interactive JS is often left unverified —
 - **R6 — group fill fork drift:** copying `template_group_fill.html.twig` creates a third fill surface; extract partials where reasonable and note the three-way contract in the docs.
 
 ## 12. Review log
-- 2026-10-30 — independent code-grounded review. Folded in: MCP budget conflict (B1, pending decision), diffing page replace vs UNIQUE (B2), clone-not-original + full re-key surface (containers, fillFieldOrder, readonly inputs), MIN maxLength / directory intersection post-processing, same-page double binding ban, `max_input_vars` silent drop, export-history subject redesign + API-shaped storage, private resolvers, multi-page writer numbering + /ID, memory/timing re-estimate, feature switch covering the exclusion, extra listing audits (category filter, gallery usage, usage counts), API EDIT loader + same-project checks, pageId ownership 404, variant-delete guard, print-setup sync on attach, CopyTemplate variant map, shared position space, strict pre-resolve, per-document palette.
+- 2026-10-30 — independent code-grounded review. Folded in: MCP budget conflict (B1 — resolved: budget raised, two separate tools), diffing page replace vs UNIQUE (B2), clone-not-original + full re-key surface (containers, fillFieldOrder, readonly inputs), MIN maxLength / directory intersection post-processing, same-page double binding ban, `max_input_vars` silent drop, export-history subject redesign + API-shaped storage, private resolvers, multi-page writer numbering + /ID, memory/timing re-estimate, feature switch covering the exclusion, extra listing audits (category filter, gallery usage, usage counts), API EDIT loader + same-project checks, pageId ownership 404, variant-delete guard, print-setup sync on attach, CopyTemplate variant map, shared position space, strict pre-resolve, per-document palette.
 - Verified as correct by the review: `Template::$variants` EAGER without cascade; positional text binding; placements keyed `[variantId][inputId]`; `group === null` sufficient at attach; `export_event.format` varchar(8); no editor `beforeunload`; storage index unaffected; API Platform write conventions match.
 
 ## 13. Progress log
