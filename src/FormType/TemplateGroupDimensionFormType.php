@@ -6,6 +6,7 @@ namespace WBoost\Web\FormType;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
@@ -59,6 +60,20 @@ final class TemplateGroupDimensionFormType extends AbstractType
             'html5' => true,
             'scale' => 2,
             'attr' => ['min' => 0, 'step' => 'any'],
+        ]);
+
+        $builder->add('bleed', NumberType::class, [
+            'label' => 'Spadávka (mm)',
+            'required' => false,
+            'html5' => true,
+            'scale' => 1,
+            'empty_data' => '0',
+            'attr' => ['min' => 0, 'max' => TemplateGroupDimensionFormData::MAX_BLEED_MM, 'step' => 'any'],
+        ]);
+
+        $builder->add('cropMarks', CheckboxType::class, [
+            'label' => 'Ořezové značky',
+            'required' => false,
         ]);
 
         // Filled by the background gallery picker widget; empty = inherit

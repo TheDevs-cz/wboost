@@ -1,0 +1,12 @@
+{# Print setup of one dimension (PDF export): bleed in mm + crop marks.
+   Expects `bleed_field` + `crop_marks_field`; the inputs are
+   template-dimension targets so the preset buttons can reset them. #}
+<div class="row align-items-end">
+    <div class="col-md-2">
+        {{ form_row(bleed_field, { attr: { 'data-template-dimension-target': 'bleed' }, row_attr: { class: 'mb-0' } }) }}
+    </div>
+    <div class="col-md-4">
+        {{ form_row(crop_marks_field, { attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-2' } }) }}
+    </div>
+</div>
+<p class="text-muted small mt-1 mb-0">Pro tiskové PDF: spadávka je přesah grafiky za hranu formátu (obvykle 3&nbsp;mm), ořezové značky ukazují tiskárně, kde řezat. 0&nbsp;mm = PDF přesně ve formátu.</p>

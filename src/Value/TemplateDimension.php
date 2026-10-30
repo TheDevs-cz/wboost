@@ -15,6 +15,14 @@ use Doctrine\ORM\Mapping\Embeddable;
  *
  * Physical units are rasterized at {@see DimensionUnit::PRINT_DPI}
  * (print quality).
+ *
+ * It also carries the variant's print setup for the PDF export: a bleed
+ * ("spadávka") in millimetres and whether crop marks are drawn. Both are
+ * optional (0 / false = plain trim-size PDF) and apply to every unit, px
+ * included — px canvases map to paper at the same 300 DPI. The bleed is
+ * NOT part of the canvas: canvas coordinates stay trim-relative, the bleed
+ * is extra canvas area around them (negative / past-edge coordinates)
+ * that only the print render and the editor's bleed zone show.
  */
 #[Embeddable]
 final class TemplateDimension
@@ -37,7 +45,31 @@ final class TemplateDimension
 
         #[Column(nullable: true)]
         readonly public null|DimensionPreset $preset = null,
+
+        #[Column(options: ['default' => 0])]
+        readonly public float $bleedMm = 0.0,
+
+        #[Column(options: ['default' => false])]
+        readonly public bool $cropMarks = false,
     ) {
+    }
+
+    public function withPrintSettings(float $bleedMm, bool $cropMarks): self
+    {
+        return new self($this->unit, $this->unitWidth, $this->unitHeight, $this->preset, max(0.0, $bleedMm), $cropMarks);
+    }
+
+    public function hasBleed(): bool
+    {
+        return $this->bleedPixels() > 0;
+    }
+
+    /**
+     * Bleed on each side in canvas pixels (300 DPI, like every physical size).
+     */
+    public function bleedPixels(): int
+    {
+        return (int) round($this->bleedMm / 25.4 * DimensionUnit::PRINT_DPI);
     }
 
     public static function fromPreset(DimensionPreset $preset): self

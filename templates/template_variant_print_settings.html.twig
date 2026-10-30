@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Tiskové nastavení{% endblock %}
+{% set active_menu_item = 'templates' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }} – {{ variant.dimension.label }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-body">
+            {{ form_start(form) }}
+
+            <p class="text-muted">Formát <strong>{{ variant.dimension.label }}</strong> ({{ variant.dimension.width }}×{{ variant.dimension.height }} px). Spadávka a ořezové značky se projeví v exportu do PDF; obrázek PNG zůstává přesně ve formátu.</p>
+
+            {{ include('_print_settings_fields.html.twig', { bleed_field: form.bleed, crop_marks_field: form.cropMarks }) }}
+
+            <p class="text-muted small mt-2">Grafiku, která má sahat až k okraji, protáhněte v editoru přes hranu formátu až k červené čáře spadávky.</p>
+
+            {{ form_rest(form) }}
+
+            <button class="btn btn-primary mt-2" type="submit">Uložit</button>
+            <a class="btn btn-link mt-2" href="{{ path('template_variants', {'templateId': template.id}) }}">Zpět</a>
+
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

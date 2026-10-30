@@ -68,8 +68,9 @@ class TemplateVariant
         #[JoinColumn(nullable: false, onDelete: "CASCADE")]
         public Template $template,
 
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Embedded(class: TemplateDimension::class, columnPrefix: 'dimension_')]
-        readonly public TemplateDimension $dimension,
+        public TemplateDimension $dimension,
 
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column(nullable: true)]
@@ -116,6 +117,15 @@ class TemplateVariant
     public function editPreviewImage(null|string $previewImagePath): void
     {
         $this->previewImagePath = $previewImagePath;
+    }
+
+    /**
+     * The size never changes after creation (the whole design is laid out
+     * for it); only the print setup — bleed + crop marks — is editable.
+     */
+    public function changePrintSettings(float $bleedMm, bool $cropMarks): void
+    {
+        $this->dimension = $this->dimension->withPrintSettings($bleedMm, $cropMarks);
     }
 
     public function edit(null|string $backgroundImagePath): void

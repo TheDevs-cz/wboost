@@ -71,4 +71,37 @@ final class TemplateDimensionTest extends TestCase
         self::assertNull($dimension->preset);
         self::assertSame('1080 × 1920 px', $dimension->label());
     }
+
+    public function testPrintSettingsDefaultToNone(): void
+    {
+        $dimension = new TemplateDimension(DimensionUnit::Mm, 210, 297);
+
+        self::assertSame(0.0, $dimension->bleedMm);
+        self::assertFalse($dimension->cropMarks);
+        self::assertFalse($dimension->hasBleed());
+        self::assertSame(0, $dimension->bleedPixels());
+    }
+
+    public function testBleedConvertsAtPrintResolutionForEveryUnit(): void
+    {
+        // 3 mm at 300 DPI = 35.43 px → 35; the same for a px canvas, which
+        // maps to paper at the same 300 DPI.
+        $mm = (new TemplateDimension(DimensionUnit::Mm, 210, 297))->withPrintSettings(3, true);
+        $px = TemplateDimension::fromPreset(DimensionPreset::InstagramPost)->withPrintSettings(3, false);
+
+        self::assertSame(35, $mm->bleedPixels());
+        self::assertTrue($mm->cropMarks);
+        self::assertSame(35, $px->bleedPixels());
+        self::assertSame(DimensionPreset::InstagramPost, $px->preset, 'print setup keeps the preset marker');
+        // Canvas size is the TRIM size — the bleed never enters it.
+        self::assertSame(2480, $mm->width());
+        self::assertSame(3508, $mm->height());
+    }
+
+    public function testNegativeBleedClampsToZero(): void
+    {
+        $dimension = (new TemplateDimension(DimensionUnit::Mm, 210, 297))->withPrintSettings(-2, false);
+
+        self::assertSame(0.0, $dimension->bleedMm);
+    }
 }

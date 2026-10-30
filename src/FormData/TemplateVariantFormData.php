@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\FormData;
 
 use Symfony\Component\Validator\Constraints\Callback;
+use Symfony\Component\Validator\Constraints\Range;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Positive;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -21,6 +22,7 @@ final class TemplateVariantFormData
      */
     private const int MAX_CANVAS_PIXELS = 10000;
     private const int MIN_CANVAS_PIXELS = 16;
+    public const int MAX_BLEED_MM = 20;
 
     /**
      * Set by the preset buttons (Instagram formats). When present it WINS
@@ -41,6 +43,17 @@ final class TemplateVariantFormData
     #[NotNull]
     #[Positive]
     public null|float $height = 297;
+
+    /**
+     * Print setup for the PDF export — bleed ("spadávka") on each side in mm
+     * and crop marks. Defaults to the usual 3 mm + marks; 0 / unticked gives
+     * a plain trim-size PDF. Picking an Instagram preset clears both (JS).
+     */
+    #[NotNull]
+    #[Range(min: 0, max: self::MAX_BLEED_MM)]
+    public null|float $bleed = 3.0;
+
+    public bool $cropMarks = true;
 
     // Project-gallery FileUpload id from the background picker widget —
     // backgrounds are picked from / uploaded into the gallery, never posted
@@ -77,11 +90,13 @@ final class TemplateVariantFormData
     public function dimension(): TemplateDimension
     {
         if ($this->preset !== null) {
-            return TemplateDimension::fromPreset($this->preset);
+            $dimension = TemplateDimension::fromPreset($this->preset);
+        } else {
+            assert($this->unit !== null && $this->width !== null && $this->height !== null);
+
+            $dimension = new TemplateDimension($this->unit, $this->width, $this->height);
         }
 
-        assert($this->unit !== null && $this->width !== null && $this->height !== null);
-
-        return new TemplateDimension($this->unit, $this->width, $this->height);
+        return $dimension->withPrintSettings($this->bleed ?? 0.0, $this->cropMarks);
     }
 }
