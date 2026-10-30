@@ -77,6 +77,10 @@ readonly final class GroupFillRenderer
             return $this->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues, rawShapeColors: $rawShapeColors);
         }
 
+        if ($exportFormat !== ExportFormat::Pdf) {
+            throw new \InvalidArgumentException(sprintf('A group member cannot be exported as "%s".', $exportFormat->value));
+        }
+
         [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors);
 
         return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title);

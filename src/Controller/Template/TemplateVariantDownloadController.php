@@ -68,7 +68,7 @@ final class TemplateVariantDownloadController extends AbstractController
 
         // The pressed submit button says which: "Export do PNG" posts no
         // format, "Export do PDF" posts format=pdf (print formats only).
-        $format = ExportFormat::fromRequestValue($request->request->get('format'));
+        $format = ExportFormat::fromVariantRequestValue($request->request->get('format'));
 
         if ($format === ExportFormat::Pdf && !$variant->dimension->isPrintFormat()) {
             return $this->renderFailed($variant, 'Export do PDF je k dispozici jen pro tiskové formáty (mm / cm).', Response::HTTP_BAD_REQUEST);
@@ -129,6 +129,8 @@ final class TemplateVariantDownloadController extends AbstractController
                     $imageOverrides,
                     sprintf('%s – %s', $variant->template->name, $variant->dimension->label()),
                 )),
+                // fromVariantRequestValue() never yields it.
+                ExportFormat::PdfScreen => throw new \LogicException('A single variant has no screen PDF export.'),
             };
         } catch (TemplateRenderUnavailable) {
             return $this->renderFailed(

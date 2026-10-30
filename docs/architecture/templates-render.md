@@ -156,18 +156,57 @@ structure of the Illustrator-exported reference file.
   had `000000` stored as 0/0/0/0); dropped colours simply take the ICC path.
   `BrandCmykPalette` = union of the project manuals, first manual wins on a
   conflicting hex (logged).
-- **`PdfX1aWriter`** writes the file by hand (8 objects): MediaBox /
-  TrimBox / BleedBox, crop marks as Illustrator draws them (1.25 pt white
-  halo + 0.25 pt registration `Separation /All`, 27 pt long, offset
-  max(3 mm, bleed)), OutputIntent with the embedded profile, Info with the
-  GTS keys + `Trapped`, trailer `/ID`. ImageMagick writes Adobe-style
-  INVERTED CMYK JPEGs (APP14) → the image gets `/Decode [1 0 1 0 1 0 1 0]`
-  (detected, not assumed).
+- **`PdfX1aWriter::write(list<PrintPage>, $profile, $title, $createdAt)`**
+  writes the file by hand, ONE page or MANY (documents): per page MediaBox /
+  TrimBox / BleedBox of its own, crop marks as Illustrator draws them
+  (1.25 pt white halo + 0.25 pt registration `Separation /All`, 27 pt long,
+  offset max(3 mm, bleed)); ONCE per file the OutputIntent with the embedded
+  profile, the registration colour space and Info with the GTS keys +
+  `Trapped`; trailer `/ID` = digest of title + date + EVERY page's JPEG.
+  Object numbers are allocated by **`PdfObjects`** (catalog, pages tree,
+  ICC, registration CS, Info, then page + image + content per page — a
+  single page is still the historical 8 objects), whose `toPdf()` writes a
+  contiguous xref and assembles the file with one `implode()` (stream data
+  is held by reference, never copied per append). `PdfObjects` also owns the
+  shared serialisers (`text()` = ASCII literal or UTF-16BE hex, `number()`,
+  `box()`, `date()`, `deflate()`) — both writers use it, do not re-add
+  private copies. ImageMagick writes Adobe-style INVERTED CMYK JPEGs
+  (APP14) → the image gets `/Decode [1 0 1 0 1 0 1 0]` (detected, not
+  assumed).
+- **`PrintPdfRenderer`** API: `renderPage(variant, overrides, ?imageOverrides,
+  strict = false, ?palette = null): PrintPage` (raster + geometry; the two
+  passes + conversion), `render(…, $title, strict)` = the single-variant
+  file (unchanged for every existing caller), and
+  `renderDocument(list<array{variant, overrides, ?imageOverrides}>, $title,
+  strict = false)` = one multi-page PDF, pages rendered sequentially, the
+  brand palette read ONCE (all pages share a project). Between pages only
+  the encoded CMYK JPEG survives (R3 in `docs/plans/multipage-documents.md`:
+  measure a 30-page A4 under the 512 MB limit before raising page caps).
+  `renderDocument` does not check the unit — refusing a px document
+  (`pdf_not_available`) is the caller's job, like for single variants.
+- **Screen PDF ("PDF k odeslání", `ExportFormat::PdfScreen` = `pdf-screen`,
+  documents only)**: `ScreenPdfRenderer::renderDocument(pages, $title,
+  strict = false)` + `ScreenPdfWriter` (PDF 1.4, via `PdfObjects`). Any
+  dimension, px included. Raster = the ordinary PNG render (NO print layer:
+  no bleed, no black-ink passes), downscaled with Imagick to 150 ppi for
+  mm / cm (px keeps its pixels), flattened on white, sRGB JPEG q85; one
+  DeviceRGB DCT image per page, page = trim size (mm/cm → pt, px × 0.75),
+  no TrimBox / BleedBox / marks / OutputIntent. The JPEG is forced to 3
+  components via the WAND-level `setType(TRUECOLOR)` — IM7's JPEG coder
+  auto-greys a grey-only design and `setImageType()` alone does not stop it.
+  Single-variant / group / API / MCP exports do NOT offer it:
+  `ExportFormat::fromVariantRequestValue()` maps it to PNG on the web forms
+  (like any unknown value), the API + MCP answer `invalid_format`
+  (`isVariantFormat()`), and the renderers' `renderExport()` throw on it.
 - Tests: `tests/Services/Print/*` (classifier, CMYK parsing, converter ink
-  values, writer structure) + `PrintPdfRendererGotenbergTest` (group
-  `gotenberg`), which rasterizes the real PDF back through Ghostscript
-  `tiff32nc` and asserts INK: bleed filled, paper outside it, marks on all
-  four plates, black text K100 over the untouched cyan.
+  values, writer structure incl. 3-page numbering / contiguous xref / one
+  OutputIntent, screen writer structure + raster encoding) +
+  `PrintPdfRendererGotenbergTest` (group `gotenberg`, run with
+  `--group gotenberg --filter Print`), which rasterizes the real PDF back
+  through Ghostscript `tiff32nc` and asserts INK: bleed filled, paper
+  outside it, marks on all four plates, black text K100 over the untouched
+  cyan; a 2-page `renderDocument` (page 2's own ink + marks, separated with
+  `-dFirstPage`), and a 2-page screen PDF.
 - The ICC profile is Adobe's "Coated FOGRA39" (extracted from the studio's
   reference PDF — the profile the designers' own exports embed). If its
   licence ever becomes a concern, ECI's ISOcoated_v2 is the FOGRA39-based

@@ -156,8 +156,12 @@ readonly final class ExportVariantTool
         string $format = 'png',
     ): CallToolResult {
         $variant = $this->fill->variant($variantId);
-        $exportFormat = ExportFormat::tryFrom(strtolower($format))
-            ?? throw new ToolCallException('format must be "png" or "pdf".');
+        $exportFormat = ExportFormat::tryFrom(strtolower($format));
+
+        // The screen PDF is a document format, not a variant export.
+        if ($exportFormat === null || !$exportFormat->isVariantFormat()) {
+            throw new ToolCallException('format must be "png" or "pdf".');
+        }
 
         if ($exportFormat === ExportFormat::Pdf && !$variant->dimension->isPrintFormat()) {
             throw new ToolCallException('The print PDF exists only for print formats (mm / cm); this variant is a screen (px) format — export it as "png".');

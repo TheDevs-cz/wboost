@@ -70,7 +70,9 @@ final readonly class GroupExportProcessor implements ProcessorInterface
 
         $format = $data->format === null ? ExportFormat::Png : ExportFormat::tryFrom(strtolower($data->format));
 
-        if ($format === null) {
+        // The screen PDF is a document format: here it is as unknown as any
+        // other value.
+        if ($format === null || !$format->isVariantFormat()) {
             return ExportErrorResponse::invalidFormat();
         }
 

@@ -64,6 +64,10 @@ readonly final class ApiExportRenderer
             return $this->render($variant, $inputs, $images, shapeColors: $shapeColors);
         }
 
+        if ($exportFormat !== ExportFormat::Pdf) {
+            throw new \InvalidArgumentException(sprintf('A single variant cannot be exported as "%s".', $exportFormat->value));
+        }
+
         [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors);
 
         return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title, strictContainerOverflow: true);

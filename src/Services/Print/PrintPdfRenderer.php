@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Print;
 
-use WBoost\Web\Value\PrintPageGeometry;
-
 use Psr\Clock\ClockInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
@@ -14,12 +12,15 @@ use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Value\CmykColor;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\PrintLayer;
+use WBoost\Web\Value\PrintPage;
+use WBoost\Web\Value\PrintPageGeometry;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
 /**
- * The print PDF of one filled variant — PDF/X-1a:2001, Coated FOGRA39, the
+ * The print PDF of one filled variant — or of a document's ordered pages,
+ * one PDF page each ({@see renderDocument()}) — PDF/X-1a:2001, Coated FOGRA39, the
  * variant's bleed and crop marks ({@see \WBoost\Web\Value\TemplateDimension}).
  *
  * Two raster passes through the ordinary Gotenberg render, both over the
@@ -48,6 +49,8 @@ final readonly class PrintPdfRenderer
     }
 
     /**
+     * The single-variant print PDF (one page).
+     *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable
      */
@@ -58,7 +61,67 @@ final readonly class PrintPdfRenderer
         string $title,
         bool $strictContainerOverflow = false,
     ): string {
-        $palette = $this->brandCmykPalette->forProject($variant->template->project->id);
+        return $this->writer->write(
+            [$this->renderPage($variant, $overrides, $imageOverrides, $strictContainerOverflow)],
+            $this->colorConverter->outputProfile(),
+            $title,
+            $this->clock->now(),
+        );
+    }
+
+    /**
+     * One multi-page print PDF (a document): pages render sequentially, in
+     * the given order, each with its own bleed + crop marks. All pages share
+     * a project, so the brand CMYK palette is read ONCE.
+     *
+     * Only each page's encoded CMYK JPEG is kept between pages (the
+     * Gotenberg PNGs are dropped as soon as the page is converted).
+     *
+     * @param list<array{TemplateVariant, ResolvedInputOverrides, null|ResolvedImageOverrides}> $pages
+     *
+     * @throws \WBoost\Web\Exceptions\ContainerOverflow
+     * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable
+     */
+    public function renderDocument(array $pages, string $title, bool $strictContainerOverflow = false): string
+    {
+        if ($pages === []) {
+            throw new \InvalidArgumentException('A print PDF needs at least one page.');
+        }
+
+        $palette = $this->brandCmykPalette->forProject($pages[0][0]->template->project->id);
+
+        $printPages = [];
+        foreach ($pages as [$variant, $overrides, $imageOverrides]) {
+            $printPages[] = $this->renderPage($variant, $overrides, $imageOverrides, $strictContainerOverflow, $palette);
+        }
+
+        return $this->writer->write(
+            $printPages,
+            $this->colorConverter->outputProfile(),
+            $title,
+            $this->clock->now(),
+        );
+    }
+
+    /**
+     * One print page: the two raster passes, converted to the CMYK raster,
+     * plus the page geometry. `$palette` = the project's brand CMYK palette
+     * when the caller already has it (a document loads it once); null reads
+     * it for the variant's project.
+     *
+     * @param null|array<string, CmykColor> $palette
+     *
+     * @throws \WBoost\Web\Exceptions\ContainerOverflow
+     * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable
+     */
+    public function renderPage(
+        TemplateVariant $variant,
+        ResolvedInputOverrides $overrides,
+        null|ResolvedImageOverrides $imageOverrides,
+        bool $strictContainerOverflow = false,
+        null|array $palette = null,
+    ): PrintPage {
+        $palette ??= $this->brandCmykPalette->forProject($variant->template->project->id);
         $canvas = $this->preparedCanvas($variant, $overrides);
 
         $blackHexes = [self::PURE_BLACK];
@@ -103,13 +166,7 @@ final readonly class PrintPdfRenderer
             self::usedBrandColors($canvas, $overrides, $palette),
         );
 
-        return $this->writer->write(
-            $raster,
-            PrintPageGeometry::fromDimension($variant->dimension),
-            $this->colorConverter->outputProfile(),
-            $title,
-            $this->clock->now(),
-        );
+        return new PrintPage($raster, PrintPageGeometry::fromDimension($variant->dimension));
     }
 
     /**

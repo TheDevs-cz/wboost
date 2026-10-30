@@ -19,6 +19,8 @@ use WBoost\Web\Services\Print\BrandCmykPalette;
 use WBoost\Web\Services\Print\PdfX1aWriter;
 use WBoost\Web\Services\Print\PrintColorConverter;
 use WBoost\Web\Services\Print\PrintPdfRenderer;
+use WBoost\Web\Services\Print\ScreenPdfRenderer;
+use WBoost\Web\Services\Print\ScreenPdfWriter;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
@@ -33,7 +35,7 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  * about INK — what a press would actually lay down — not about our own
  * intermediate images.
  *
- * `vendor/bin/phpunit --group gotenberg --filter PrintPdf`
+ * `vendor/bin/phpunit --group gotenberg --filter Print`
  */
 #[Group('gotenberg')]
 final class PrintPdfRendererGotenbergTest extends KernelTestCase
@@ -87,6 +89,67 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         self::assertLessThan(5, $area['c'], 'black areas knock the background out');
     }
 
+    /**
+     * Two pages through the document path: ONE file, two pages with their
+     * own boxes, and page 2 carries ITS OWN ink (a magenta page after the
+     * blue one) — checked on the plates Ghostscript separates for page 2.
+     */
+    public function testDocumentRendersEveryPageIntoOneFile(): void
+    {
+        self::bootKernel();
+
+        $first = $this->craftedVariant();
+        $second = clone $first;
+        $second->editCanvas(json_encode([
+            'version' => '7.3.1',
+            'objects' => [
+                ['type' => 'Rect', 'left' => 0, 'top' => 0, 'width' => $first->dimension->width(), 'height' => $first->dimension->height(), 'fill' => '#e6007e', 'originX' => 'left', 'originY' => 'top'],
+            ],
+        ], JSON_THROW_ON_ERROR), [], null);
+
+        $none = new ResolvedInputOverrides([], []);
+        $pdf = $this->printRenderer()->renderDocument([[$first, $none, null], [$second, $none, null]], 'Dokument – test');
+
+        self::assertStringStartsWith('%PDF-1.3', $pdf);
+        self::assertStringContainsString('/Count 2', $pdf);
+        self::assertSame(2, substr_count($pdf, '/TrimBox [ 35.5039 35.5039 455.0315 630.7795 ]'));
+        self::assertSame(1, substr_count($pdf, '/Type /OutputIntent'));
+        self::assertStringNotContainsString('/DeviceRGB', $pdf);
+
+        $page1 = $this->separations($pdf, 1);
+        $page2 = $this->separations($pdf, 2);
+        $centre = [35.5039 + 419.528 / 2, 35.5039 + 595.276 / 2];
+
+        self::assertGreaterThan(50, $page1(...$centre)['c'], 'page 1 is the blue design');
+        self::assertGreaterThan(80, $page2(...$centre)['m'], 'page 2 is the magenta design');
+        self::assertLessThan(10, $page2(...$centre)['c'], 'page 2 does not repeat page 1');
+        self::assertGreaterThan(90, min($page2(35.5039 - 8.504 - 13.5, 630.7795)), 'page 2 has its own crop marks');
+    }
+
+    public function testScreenPdf(): void
+    {
+        self::bootKernel();
+
+        $variant = $this->craftedVariant();
+        $none = new ResolvedInputOverrides([], []);
+
+        $container = self::getContainer();
+        $screen = new ScreenPdfRenderer($this->imageRenderer(), new ScreenPdfWriter(), $container->get(ClockInterface::class));
+        $pdf = $screen->renderDocument([[$variant, $none, null], [$variant, $none, null]], 'Dokument – obrazovka');
+
+        self::assertStringStartsWith('%PDF-1.4', $pdf);
+        self::assertStringContainsString('/Count 2', $pdf);
+        // A5 trim, no bleed, no marks; 148 mm at 150 ppi = 874 px.
+        self::assertSame(2, substr_count($pdf, '/MediaBox [ 0 0 419.5276 595.2756 ]'));
+        self::assertSame(2, substr_count($pdf, '/Width 874 /Height 1240 /ColorSpace /DeviceRGB'));
+        self::assertStringNotContainsString('/DeviceCMYK', $pdf);
+        self::assertStringNotContainsString('/TrimBox', $pdf);
+
+        // Ghostscript reads it, and the page shows the design (the blue).
+        $ink = $this->separations($pdf, 1);
+        self::assertGreaterThan(50, $ink(30, 495)['c']);
+    }
+
     private function craftedVariant(): TemplateVariant
     {
         $variant = self::getContainer()->get(TemplateVariantRepository::class)
@@ -127,14 +190,14 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
      * @return \Closure(float, float): array{c: int, m: int, y: int, k: int}
      *   ink percentages at a PDF point (origin bottom-left)
      */
-    private function separations(string $pdf): \Closure
+    private function separations(string $pdf, int $page = 1): \Closure
     {
         $dir = sys_get_temp_dir() . '/print-test-' . bin2hex(random_bytes(4));
         mkdir($dir);
         file_put_contents("$dir/in.pdf", $pdf);
 
         $dpi = 72;
-        exec(sprintf('gs -q -dNOPAUSE -dBATCH -dSAFER -sDEVICE=tiff32nc -r%d -sOutputFile=%s %s 2>&1', $dpi, escapeshellarg("$dir/out.tif"), escapeshellarg("$dir/in.pdf")), $output, $exit);
+        exec(sprintf('gs -q -dNOPAUSE -dBATCH -dSAFER -sDEVICE=tiff32nc -r%d -dFirstPage=%d -dLastPage=%d -sOutputFile=%s %s 2>&1', $dpi, $page, $page, escapeshellarg("$dir/out.tif"), escapeshellarg("$dir/in.pdf")), $output, $exit);
         self::assertSame(0, $exit, implode("\n", $output));
 
         $image = new \Imagick("$dir/out.tif");
@@ -155,10 +218,24 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
     private function printRenderer(): PrintPdfRenderer
     {
         $container = self::getContainer();
+
+        return new PrintPdfRenderer(
+            $this->imageRenderer(),
+            $container->get(BrandCmykPalette::class),
+            $container->get(PrintColorConverter::class),
+            new PdfX1aWriter(),
+            new TextInputObjectBinder(new CanvasPlaceholderGeometry()),
+            $container->get(ClockInterface::class),
+        );
+    }
+
+    private function imageRenderer(): TemplateVariantImageRenderer
+    {
+        $container = self::getContainer();
         $geometry = new CanvasPlaceholderGeometry();
         $projectDir = (string) $container->getParameter('kernel.project_dir');
 
-        $renderer = new TemplateVariantImageRenderer(
+        return new TemplateVariantImageRenderer(
             $container->get(GotenbergScreenshotInterface::class),
             $container->get(GetFonts::class),
             $container->get(AssetInliner::class),
@@ -172,15 +249,6 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
             $projectDir . '/assets/editor/rich_text_runs.js',
             $projectDir . '/assets/editor/rich_text_blocks.js',
             new TagAwareAdapter(new ArrayAdapter()),
-        );
-
-        return new PrintPdfRenderer(
-            $renderer,
-            $container->get(BrandCmykPalette::class),
-            $container->get(PrintColorConverter::class),
-            new PdfX1aWriter(),
-            new TextInputObjectBinder($geometry),
-            $container->get(ClockInterface::class),
         );
     }
 }

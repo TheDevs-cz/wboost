@@ -83,7 +83,7 @@ final class TemplateGroupExportController extends AbstractController
 
         // "Stáhnout vše (ZIP)" / "… PDF (ZIP)": the pressed button posts it.
         // The PDF ZIP holds the print-format (mm / cm) members only.
-        $format = ExportFormat::fromRequestValue($request->request->get('format'));
+        $format = ExportFormat::fromVariantRequestValue($request->request->get('format'));
 
         if ($format === ExportFormat::Pdf) {
             $variants = array_values(array_filter(
