@@ -117,8 +117,11 @@
                         <i class="mdi mdi-content-save-outline"></i> Uložit rozpracované
                     </button>
                     {# Split: the primary half is the PNG ZIP, the menu the print
-                       PDFs (each member with its own bleed + crop marks) —
-                       the pressed submitter posts format=pdf. #}
+                       PDFs of the print-format (mm / cm) members, each with its
+                       own bleed + crop marks — the pressed submitter posts
+                       format=pdf. No print member, no split. #}
+                    {% set has_print_member = variants|filter(v => v.variant.dimension.isPrintFormat)|length > 0 %}
+                    {% if has_print_member %}
                     <div class="btn-group">
                         <button type="submit" class="btn btn-primary" style="border-radius: 50rem 0 0 50rem;" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
                             <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
@@ -128,9 +131,14 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><button type="submit" class="dropdown-item" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-file-image-outline me-1" aria-hidden="true"></i>Vše jako PNG (ZIP)</button></li>
-                            <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-file-pdf-box me-1" aria-hidden="true"></i>Vše jako PDF pro tisk (ZIP)</button></li>
+                            <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-file-pdf-box me-1" aria-hidden="true"></i>Tiskové formáty jako PDF (ZIP)</button></li>
                         </ul>
                     </div>
+                    {% else %}
+                    <button type="submit" class="btn btn-primary rounded-pill" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
+                        <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
+                    </button>
+                    {% endif %}
                 </div>
             </div>
 
@@ -248,6 +256,7 @@
                                                     title="Stáhnout tento rozměr jako PNG">
                                                 <i class="mdi mdi-download"></i> PNG
                                             </button>
+                                            {% if v.variant.dimension.isPrintFormat %}
                                             <button type="submit" class="group-fill-variant-download"
                                                     formaction="{{ v.export_variant_url }}"
                                                     name="format" value="pdf"
@@ -255,6 +264,7 @@
                                                     title="Stáhnout tento rozměr jako PDF pro tisk">
                                                 <i class="mdi mdi-download"></i> PDF
                                             </button>
+                                            {% endif %}
                                         </span>
                                     </div>
                                     {# One fill SURFACE per dimension: the overlay controller

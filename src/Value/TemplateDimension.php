@@ -18,8 +18,9 @@ use Doctrine\ORM\Mapping\Embeddable;
  *
  * It also carries the variant's print setup for the PDF export: a bleed
  * ("spadávka") in millimetres and whether crop marks are drawn. Both are
- * optional (0 / false = plain trim-size PDF) and apply to every unit, px
- * included — px canvases map to paper at the same 300 DPI. The bleed is
+ * optional (0 / false = plain trim-size PDF) and exist only for PRINT
+ * formats (mm / cm) — a px canvas is a screen format: no PDF export, and
+ * {@see withPrintSettings()} keeps it without a print setup. The bleed is
  * NOT part of the canvas: canvas coordinates stay trim-relative, the bleed
  * is extra canvas area around them (negative / past-edge coordinates)
  * that only the print render and the editor's bleed zone show.
@@ -56,7 +57,20 @@ final class TemplateDimension
 
     public function withPrintSettings(float $bleedMm, bool $cropMarks): self
     {
+        if (!$this->isPrintFormat()) {
+            return new self($this->unit, $this->unitWidth, $this->unitHeight, $this->preset);
+        }
+
         return new self($this->unit, $this->unitWidth, $this->unitHeight, $this->preset, max(0.0, $bleedMm), $cropMarks);
+    }
+
+    /**
+     * Physical units = a print format: the PDF export, bleed and crop marks
+     * exist only for these.
+     */
+    public function isPrintFormat(): bool
+    {
+        return $this->unit !== DimensionUnit::Px;
     }
 
     public function hasBleed(): bool

@@ -103,7 +103,7 @@
                             <div class="col-md-4">' ~ include('_background_gallery_picker.html.twig', { field: form.customDimensions.vars.prototype.backgroundImageId }) ~ '</div>
                             <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
                         </div>
-                        <div class="row g-2 mt-1">
+                        <div class="row g-2 mt-1" data-template-dimension-target="printFields">
                             <div class="col-md-2">' ~ form_row(form.customDimensions.vars.prototype.bleed, { value: 3, attr: { 'data-template-dimension-target': 'bleed' }, row_attr: { class: 'mb-0' } }) ~ '</div>
                             <div class="col-md-4 d-flex align-items-end">' ~ form_row(form.customDimensions.vars.prototype.cropMarks, { checked: true, attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-2' } }) ~ '</div>
                         </div>
@@ -135,7 +135,7 @@
                             <div class="col-md-4">{{ include('_background_gallery_picker.html.twig', { field: dimensionForm.backgroundImageId }) }}</div>
                             <div class="col-md-2 d-flex align-items-center"><button type="button" class="btn btn-outline-danger" data-action="form-collection#remove"><i class="uil-trash-alt"></i> Odebrat</button></div>
                         </div>
-                        <div class="row g-2 mt-1">
+                        <div class="row g-2 mt-1" data-template-dimension-target="printFields">
                             <div class="col-md-2">{{ form_row(dimensionForm.bleed, { attr: { 'data-template-dimension-target': 'bleed' }, row_attr: { class: 'mb-0' } }) }}</div>
                             <div class="col-md-4 d-flex align-items-end">{{ form_row(dimensionForm.cropMarks, { attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-2' } }) }}</div>
                         </div>

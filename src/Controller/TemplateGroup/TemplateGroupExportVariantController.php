@@ -70,8 +70,12 @@ final class TemplateGroupExportVariantController extends AbstractController
         $this->releaseSessionLock->release($request);
 
         // The pressed PNG / PDF button posts the format; PNG stays lossless,
-        // the same contract as the ZIP entries.
+        // the same contract as the ZIP entries. PDF = print formats only.
         $format = ExportFormat::fromRequestValue($request->request->get('format'));
+
+        if ($format === ExportFormat::Pdf && !$variant->dimension->isPrintFormat()) {
+            return $this->renderFailed($group, 'Export do PDF je k dispozici jen pro tiskové formáty (mm / cm).', Response::HTTP_BAD_REQUEST);
+        }
 
         try {
             $bytes = $this->groupFillRenderer->renderExport(

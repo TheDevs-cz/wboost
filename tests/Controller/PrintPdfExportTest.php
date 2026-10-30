@@ -31,7 +31,7 @@ final class PrintPdfExportTest extends WebTestCase
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
-        $client->request('POST', '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download', [
+        $client->request('POST', '/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/download', [
             'format' => 'pdf',
         ]);
 
@@ -50,10 +50,28 @@ final class PrintPdfExportTest extends WebTestCase
         }
 
         $event = self::getContainer()->get(EntityManagerInterface::class)->getRepository(ExportEvent::class)->findOneBy([
-            'variantId' => Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID),
+            'variantId' => Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID),
         ]);
         self::assertInstanceOf(ExportEvent::class, $event);
         self::assertSame(ExportFormat::Pdf, $event->format);
+    }
+
+    public function testScreenFormatsHaveNoPdf(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        // 1080 × 1080 px social variant.
+        $client->request('POST', '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/download', [
+            'format' => 'pdf',
+        ]);
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame([], $this->rendererFake()->calls, 'refused before rendering');
+
+        $client->request('POST', '/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/export/' . TestDataFixture::GROUPED_PRESET_VARIANT_ID, [
+            'format' => 'pdf',
+        ]);
+        self::assertResponseStatusCodeSame(400);
     }
 
     public function testPngStaysTheDefault(): void
@@ -114,8 +132,8 @@ final class PrintPdfExportTest extends WebTestCase
         $zip->close();
         unlink($path);
 
-        // The social (px preset) member gets its print PDF too.
-        self::assertSame(['group-campaign-1-1.pdf', 'group-campaign-210-297-mm.pdf'], $names);
+        // Print formats only: the 1:1 social member is left out.
+        self::assertSame(['group-campaign-210-297-mm.pdf'], $names);
     }
 
     private function assertPrintPdf(string $bytes): void

@@ -103,11 +103,13 @@ re-render, which would strand the page on its spinner.
 
 **Print PDF export (2026-10-30) — `Services/Print/`**
 
-Every variant exports a print PDF next to its PNG ("Export do PDF" on the
-fill page, a "PDF" button per dimension + "Vše jako PDF pro tisk (ZIP)" on
-the group fill page; the pressed submit button posts `format=pdf` to the
-SAME download routes, `Value/ExportFormat`, and the format is recorded on
-`export_event.format`). Target: what the studio's printers take —
+Every PRINT-format variant (mm / cm — `TemplateDimension::isPrintFormat()`;
+px is a screen format and gets no PDF, no bleed, no crop marks) exports a
+print PDF next to its PNG ("Export do PDF" on the fill page, a "PDF" button
+per print dimension + "Tiskové formáty jako PDF (ZIP)" on the group fill page,
+whose ZIP holds the print members only; the pressed submit button posts
+`format=pdf` to the SAME download routes, `Value/ExportFormat`, a px variant
+answers 400, and the format is recorded on `export_event.format`). Target: what the studio's printers take —
 **PDF/X-1a:2001** (PDF 1.3), output intent **Coated FOGRA39 (ISO 12647-2:2004)**,
 one flattened **300 ppi CMYK raster** + vector crop marks, exactly the
 structure of the Illustrator-exported reference file.
@@ -115,8 +117,9 @@ structure of the Illustrator-exported reference file.
 - **Print setup lives on `TemplateDimension`** (`bleedMm`, `cropMarks`;
   0 / false for every pre-existing variant; add forms default to 3 mm +
   marks, an Instagram preset clears both; "Tiskové nastavení" page edits an
-  existing variant). It applies to px variants too — px map to paper at
-  300 DPI like every physical unit. **The bleed is not part of the canvas**:
+  existing variant). `withPrintSettings()` keeps px dimensions without a
+  print setup, so the rule cannot be bypassed by a form post. **The bleed is
+  not part of the canvas**:
   coordinates stay trim-relative and the bleed is the area past the edges.
 - **Raster passes go through the ordinary renderer** with a `PrintLayer`
   (`renderToBytes(..., printLayer:)`, never cached): the render template

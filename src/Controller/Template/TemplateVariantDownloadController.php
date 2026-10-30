@@ -66,6 +66,14 @@ final class TemplateVariantDownloadController extends AbstractController
             return $this->redirectToRoute('template_variant_export', ['variantId' => $variant->id]);
         }
 
+        // The pressed submit button says which: "Export do PNG" posts no
+        // format, "Export do PDF" posts format=pdf (print formats only).
+        $format = ExportFormat::fromRequestValue($request->request->get('format'));
+
+        if ($format === ExportFormat::Pdf && !$variant->dimension->isPrintFormat()) {
+            return $this->renderFailed($variant, 'Export do PDF je k dispozici jen pro tiskové formáty (mm / cm).', Response::HTTP_BAD_REQUEST);
+        }
+
         $rawTextValues = $request->request->all('textValues');
         $rawHiddenValues = $request->request->all('hiddenValues');
 
@@ -111,10 +119,6 @@ final class TemplateVariantDownloadController extends AbstractController
             // the reason on a page they can go BACK from with the form intact.
             return $this->renderFailed($variant, $e->getMessage(), Response::HTTP_BAD_REQUEST);
         }
-
-        // The pressed submit button says which: "Export do PNG" posts no
-        // format, "Export do PDF" posts format=pdf.
-        $format = ExportFormat::fromRequestValue($request->request->get('format'));
 
         try {
             $response = match ($format) {

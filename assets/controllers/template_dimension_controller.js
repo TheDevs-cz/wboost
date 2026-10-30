@@ -18,10 +18,11 @@ import { Controller } from '@hotwired/stimulus';
  *
  * The optional `bleed` / `cropMarks` targets (print setup for the PDF
  * export) follow the preset kind: an Instagram preset clears both, a print
- * format restores the usual 3 mm bleed + crop marks.
+ * format restores the usual 3 mm bleed + crop marks. The `printFields`
+ * wrapper only shows for print units (mm / cm) — px is a screen format.
  */
 export default class extends Controller {
-    static targets = ['unit', 'width', 'height', 'preset', 'bleed', 'cropMarks'];
+    static targets = ['unit', 'width', 'height', 'preset', 'bleed', 'cropMarks', 'printFields'];
 
     static DEFAULT_BLEED_MM = 3;
 
@@ -49,6 +50,21 @@ export default class extends Controller {
         [this.unitTarget, this.widthTarget, this.heightTarget].forEach((element) => {
             element.dispatchEvent(new Event('change', { bubbles: true }));
         });
+    }
+
+    connect() {
+        this._syncPrintFields();
+        this._onUnitChange = () => this._syncPrintFields();
+        this.unitTarget.addEventListener('change', this._onUnitChange);
+    }
+
+    disconnect() {
+        this.unitTarget.removeEventListener('change', this._onUnitChange);
+    }
+
+    _syncPrintFields() {
+        if (!this.hasPrintFieldsTarget) return;
+        this.printFieldsTarget.classList.toggle('d-none', this.unitTarget.value === 'px');
     }
 
     clearPreset() {

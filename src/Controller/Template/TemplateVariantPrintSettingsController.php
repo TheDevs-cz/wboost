@@ -35,6 +35,10 @@ final class TemplateVariantPrintSettingsController extends AbstractController
         TemplateVariant $variant,
         Request $request,
     ): Response {
+        if (!$variant->dimension->isPrintFormat()) {
+            throw $this->createNotFoundException('Print settings exist only for print (mm / cm) formats.');
+        }
+
         $data = TemplateVariantPrintSettingsFormData::fromDimension($variant->dimension);
         $form = $this->createForm(TemplateVariantPrintSettingsFormType::class, $data);
         $form->handleRequest($request);

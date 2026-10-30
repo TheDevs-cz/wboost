@@ -82,7 +82,19 @@ final class TemplateGroupExportController extends AbstractController
         $this->releaseSessionLock->release($request);
 
         // "Stáhnout vše (ZIP)" / "… PDF (ZIP)": the pressed button posts it.
+        // The PDF ZIP holds the print-format (mm / cm) members only.
         $format = ExportFormat::fromRequestValue($request->request->get('format'));
+
+        if ($format === ExportFormat::Pdf) {
+            $variants = array_values(array_filter(
+                $variants,
+                static fn (TemplateVariant $variant): bool => $variant->dimension->isPrintFormat(),
+            ));
+
+            if ($variants === []) {
+                return $this->renderFailed($group, 'Skupina nemá žádný tiskový formát (mm / cm) — export do PDF není k dispozici.', Response::HTTP_BAD_REQUEST);
+            }
+        }
 
         /** @var list<array{TemplateVariant, string}> $renders */
         $renders = [];

@@ -67,4 +67,14 @@ final class TemplateVariantPrintSettingsControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(403);
     }
+
+    public function testScreenFormatsHaveNoPrintSettings(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('GET', '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/print-settings');
+
+        self::assertResponseStatusCodeSame(404);
+    }
 }

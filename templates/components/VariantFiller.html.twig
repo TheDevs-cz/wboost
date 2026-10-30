@@ -125,12 +125,15 @@
             <button type="button" class="btn btn-outline-primary btn-sm" data-fill-draft-target="button" data-action="fill-draft#save" title="Ctrl/⌘+S">
                 <i class="mdi mdi-content-save-outline me-1" aria-hidden="true"></i>Uložit rozpracované
             </button>
-            {# Print PDF (PDF/X-1a, CMYK, the variant's bleed + crop marks):
-               the same form, the pressed button posts format=pdf. An
-               exportButton target, so the overflow gate covers it too. #}
+            {# Print PDF (PDF/X-1a, CMYK, the variant's bleed + crop marks) —
+               print formats (mm / cm) only: the same form, the pressed button
+               posts format=pdf. An exportButton target, so the overflow gate
+               covers it too. #}
+            {% if variant.dimension.isPrintFormat %}
             <button type="submit" name="format" value="pdf" class="btn btn-outline-primary btn-sm" data-variant-fill-overlay-target="exportButton" title="PDF pro tisk (CMYK, spadávka a ořezové značky podle nastavení varianty)">
                 <i class="mdi mdi-file-pdf-box me-1" aria-hidden="true"></i>Export do PDF
             </button>
+            {% endif %}
             {% if this.canPublish() %}
                 {# Export = split button: the primary half downloads the PNG,
                    the menu publishes. Every item is type="button" and stays on

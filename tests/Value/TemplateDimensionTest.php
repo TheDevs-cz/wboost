@@ -82,17 +82,22 @@ final class TemplateDimensionTest extends TestCase
         self::assertSame(0, $dimension->bleedPixels());
     }
 
-    public function testBleedConvertsAtPrintResolutionForEveryUnit(): void
+    public function testBleedConvertsAtPrintResolutionForPrintFormatsOnly(): void
     {
-        // 3 mm at 300 DPI = 35.43 px → 35; the same for a px canvas, which
-        // maps to paper at the same 300 DPI.
+        // 3 mm at 300 DPI = 35.43 px → 35.
         $mm = (new TemplateDimension(DimensionUnit::Mm, 210, 297))->withPrintSettings(3, true);
-        $px = TemplateDimension::fromPreset(DimensionPreset::InstagramPost)->withPrintSettings(3, false);
+        $cm = (new TemplateDimension(DimensionUnit::Cm, 21, 29.7))->withPrintSettings(3, true);
+        $px = TemplateDimension::fromPreset(DimensionPreset::InstagramPost)->withPrintSettings(3, true);
 
+        self::assertTrue($mm->isPrintFormat());
         self::assertSame(35, $mm->bleedPixels());
         self::assertTrue($mm->cropMarks);
-        self::assertSame(35, $px->bleedPixels());
-        self::assertSame(DimensionPreset::InstagramPost, $px->preset, 'print setup keeps the preset marker');
+        self::assertSame(35, $cm->bleedPixels());
+        // A px canvas is a screen format: no print setup at all.
+        self::assertFalse($px->isPrintFormat());
+        self::assertSame(0, $px->bleedPixels());
+        self::assertFalse($px->cropMarks);
+        self::assertSame(DimensionPreset::InstagramPost, $px->preset);
         // Canvas size is the TRIM size — the bleed never enters it.
         self::assertSame(2480, $mm->width());
         self::assertSame(3508, $mm->height());
