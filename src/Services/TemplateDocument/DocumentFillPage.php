@@ -538,11 +538,28 @@ readonly final class DocumentFillPage
             $inputs,
         ));
 
+        $options ??= is_array($first['options'] ?? null) ? array_values(array_filter($first['options'], 'is_string')) : [];
+
+        // The popover's FIRST swatch is the reset ("" = the designed colour).
+        // With one designed colour on every page that is options[0] already;
+        // when the pages differ it is not, so a reset swatch is prepended
+        // (painted in the first page's colour) and every common colour keeps
+        // its real value.
+        $designed = array_values(array_unique(array_map(static fn (ShapeColorInput $input): string => $input->defaultColor, $inputs)));
+        $mixed = count($designed) > 1;
+        if ($mixed) {
+            array_unshift($options, $inputs[0]->defaultColor);
+        }
+
+        $value = is_string($first['value'] ?? null) ? $first['value'] : '';
+
         return [
             ...$first,
             'name' => 'Společné: ' . $field->name,
             'freeColor' => $free,
-            'options' => $options ?? (is_array($first['options'] ?? null) ? $first['options'] : []),
+            'options' => $options,
+            'current' => $value !== '' ? strtolower($value) : ($options[0] ?? ''),
+            'resetLabel' => $mixed ? ' (výchozí barva každé stránky)' : ' (výchozí)',
             'shared' => true,
         ];
     }

@@ -114,6 +114,24 @@ final class SharedFieldKindsTest extends KernelTestCase
         }
     }
 
+    public function testDifferentDesignedColoursGetAResetSwatchAndKeepEveryCommonColourPickable(): void
+    {
+        $a = TemplateDocumentTestData::kindA4Template($this->em(), 'A', [], ['#111111', '#222222'], '#ff0000');
+        $b = TemplateDocumentTestData::kindA4Template($this->em(), 'B', [], ['#111111', '#222222'], '#00aa00');
+        $documentId = TemplateDocumentTestData::document($this->em(), $this->bus(), [$a['template'], $b['template']]);
+        $fieldId = $this->bind($documentId, DocumentFieldKind::Shape, [$a['template'], $b['template']], TemplateDocumentTestData::SHAPE_INPUT_ID);
+
+        $fill = self::getContainer()->get(DocumentFillPage::class)->build($this->document($documentId));
+        $row = array_values(array_filter($fill['shape_placeholders'], static fn (array $row): bool => $row['inputId'] === $fieldId))[0];
+
+        // The first swatch is the reset (each page's own designed colour);
+        // both shared colours follow with their real values.
+        self::assertSame(['#ff0000', '#111111', '#222222'], $row['options']);
+        self::assertSame('#ff0000', $row['current'], 'Nothing picked = the reset swatch is active.');
+        self::assertIsString($row['resetLabel'] ?? null);
+        self::assertStringContainsString('každé stránky', $row['resetLabel']);
+    }
+
     /**
      * @param array{richText?: bool, lists?: bool, listCheckboxes?: bool, checklist?: bool, checklistAdd?: bool, allowedColors?: null|list<string>} $first
      * @param array{richText?: bool, lists?: bool, listCheckboxes?: bool, checklist?: bool, checklistAdd?: bool, allowedColors?: null|list<string>} $second

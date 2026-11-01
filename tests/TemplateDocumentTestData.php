@@ -137,7 +137,7 @@ final class TemplateDocumentTestData
      * @param list<string> $shapeColors
      * @return array{template: UuidInterface, variant: UuidInterface}
      */
-    public static function kindA4Template(EntityManagerInterface $em, string $name, array $textFlags, array $shapeColors = ['#111111', '#222222']): array
+    public static function kindA4Template(EntityManagerInterface $em, string $name, array $textFlags, array $shapeColors = ['#111111', '#222222'], string $shapeFill = '#ff0000'): array
     {
         $project = $em->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
         assert($project instanceof Project);
@@ -146,7 +146,7 @@ final class TemplateDocumentTestData
         $variant = new TemplateVariant(Uuid::uuid7(), $template, new TemplateDimension(DimensionUnit::Mm, 210, 297), null, new \DateTimeImmutable());
         $canvas = ['version' => '5.2.4', 'objects' => [
             ['type' => 'Textbox', 'inputId' => self::SHARED_INPUT_ID, 'left' => 100, 'top' => 100, 'width' => 800, 'height' => 120, 'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top', 'text' => 'Ahoj', 'fontSize' => 40],
-            ['type' => 'Rect', 'inputId' => self::SHAPE_INPUT_ID, 'name' => 'Pruh', 'colorChoice' => 'fill', 'fill' => '#ff0000', 'allowedColors' => $shapeColors, 'left' => 0, 'top' => 0, 'width' => 200, 'height' => 50, 'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top'],
+            ['type' => 'Rect', 'inputId' => self::SHAPE_INPUT_ID, 'name' => 'Pruh', 'colorChoice' => 'fill', 'fill' => $shapeFill, 'allowedColors' => $shapeColors, 'left' => 0, 'top' => 0, 'width' => 200, 'height' => 50, 'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top'],
         ]];
         $variant->editCanvas(
             (string) json_encode($canvas),

@@ -10,7 +10,8 @@
 
     Parameters:
     - ph: one FillShapePlaceholders row (inputId, name, options, freeColor,
-      defaultColor, current)
+      defaultColor, current; a document's shared row may add `resetLabel` —
+      its first swatch then stands for EACH page's own designed colour)
     - arrangeable: (optional) show the admin's panel reorder handle
 #}
 <div class="fill-popover fill-popover--shape card" role="dialog" aria-labelledby="fill-shape-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
@@ -32,8 +33,8 @@
                     type="button"
                     class="fill-richtext-swatch{{ color == ph.current ? ' is-active' }}"
                     style="background-color: {{ color }}"
-                    title="{{ color }}{{ loop.first ? ' (výchozí)' }}"
-                    aria-label="{{ color }}{{ loop.first ? ' (výchozí)' }}"
+                    title="{{ color }}{{ loop.first ? (ph.resetLabel ?? ' (výchozí)') }}"
+                    aria-label="{{ color }}{{ loop.first ? (ph.resetLabel ?? ' (výchozí)') }}"
                     aria-pressed="{{ color == ph.current ? 'true' : 'false' }}"
                     data-shape-swatch="{{ ph.inputId }}"
                     data-color="{{ color }}"
