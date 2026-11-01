@@ -145,6 +145,18 @@ export default class extends Controller {
         this._boundHandleKeydown = this.handleKeydown.bind(this);
         window.addEventListener('keydown', this._boundHandleKeydown);
 
+        // A press on the EMPTY editor surface around the canvas element (the
+        // grey viewport/stage, beyond the pasteboard) deselects, exactly like
+        // a press on empty canvas — designers expect "click away" to drop the
+        // selection. Only the bare surface counts: chrome inside the stage
+        // (toolbar, popovers, rulers, guides, SVG handles/move grip — those
+        // stop propagation) keeps the selection.
+        this._viewportEl = this.canvas.wrapperEl ? this.canvas.wrapperEl.closest('.canvas-viewport') : null;
+        if (this._viewportEl) {
+            this._boundSurfaceDeselect = (event) => this.deselectOnSurfacePress(event);
+            this._viewportEl.addEventListener('mousedown', this._boundSurfaceDeselect);
+        }
+
         // Selection lifecycle → broadcast a single semantic event for siblings.
         this._boundDispatchSelection = () => this.dispatchSelectionChanged();
         this.canvas.on('selection:created', this._boundDispatchSelection);
@@ -213,6 +225,19 @@ export default class extends Controller {
         if (this._disposeHandleChrome) {
             this._disposeHandleChrome();
         }
+        if (this._viewportEl && this._boundSurfaceDeselect) {
+            this._viewportEl.removeEventListener('mousedown', this._boundSurfaceDeselect);
+        }
+    }
+
+    deselectOnSurfacePress(event) {
+        if (event.button !== 0 || !this.canvas || this.canvas._currentTransform) return;
+        const target = event.target;
+        const surface = target === this._viewportEl
+            || (target instanceof Element && target.matches('.canvas-stage, .canvas-wrapper'));
+        if (!surface || !this.canvas.getActiveObject()) return;
+        this.canvas.discardActiveObject(event);
+        this.canvas.requestRenderAll();
     }
 
     dispatchSelectionChanged() {
