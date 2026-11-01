@@ -223,25 +223,37 @@ the property controllers above only populate/mutate their (relocated) fields.
   loop (`display:none` while the layers eye hides it) — the eye fires no
   add/remove, so the rebuild path never sees it.
 
-**Transform handles (`canvas_handles.js`, 2026-11-01).** Fabric draws its
-controls ON the canvas in element pixels, and the editors zoom with a CSS
-`scale()`, so stock handles shrank with the zoom (2–3 screen px at a print
-auto-fit) — "I can't hit the handles". `installHandleChrome(canvas)` (wired in
-`canvas_editor_controller#connect`, so both editors) divides everything by the
-live zoom (`canvas-zoom:changed`, measured from the container until the first
-announcement): a 24 px HIT square (`cornerSize`/`touchCornerSize` — Fabric's
-`shouldActivate` polygon), a 10 px DRAWN handle via a custom `control.render`
-(circle at corners + rotation knob, pill on the side handles), a 1.5 px accent
-border and a constant rotation-knob offset. Applied lazily to the ACTIVE object
-(+ ActiveSelection members) from `before:render` — only the active object draws
-or hit-tests controls, and `setActiveObject` fires no selection event but always
-renders. Nothing here serializes. Do not set `cornerSize`/`cornerStyle` on
-created objects any more — they would be overwritten on selection anyway.
-Textboxes keep only `ml`/`mr`: their `lockScalingX` (width-only resize, see
-`applyTextboxDefaults`) made Fabric's stock side-handle cursor handler paint
-`not-allowed` over the WORKING width handles, and the corner/top/bottom/rotate
-handles were dead; the side handles now use an angle-aware resize cursor.
-Handles past the canvas element's edge are still clipped (no pasteboard yet).
+**Transform handles (`canvas_handles.js`, 2026-11-01).** The selection border
+and handles are an **SVG layer in the unscaled `.canvas-stage`** (z 998), not
+Fabric's drawing: Fabric paints them on the CSS-`scale()`-zoomed canvas (they
+shrank to 2–3 screen px at a print auto-fit) and clips them at the element
+edge (an object hanging past the pasteboard lost its handles). Fabric's own
+chrome is off via `canvas.skipControlsDrawing` (Fabric saves/restores it around
+`toCanvasElement`); `after:render` repaints the SVG from `obj.oCoords`
+(viewport px → stage px through the live element rect; multi-selection
+members via `getCoords()` × viewport, dashed). Contracts:
+
+- **Interaction stays Fabric's.** A press on an SVG handle is re-dispatched as
+  a `mousedown` on `upperCanvasEl` at the same client point; Fabric's pointer
+  math has no bounds check, so `findControl` resolves the control even outside
+  the element and its document-level move/up listeners run the transform
+  (snapping, events, undo unchanged). While `_currentTransform` is set,
+  `html.canvas-transforming` pins the transform cursor page-wide.
+- **Hit areas are Fabric's control polygons**, recomputed per frame for the
+  ACTIVE object (`applyHitAreas` in `before:render`; only the active object
+  hit-tests): corners `cornerHitFor(minSide)` = 10–24 screen px (shrinks on
+  small objects), side handles a 20 px strip along the WHOLE edge between the
+  corners. Fabric tests controls in reverse order (rotate, corners, then
+  sides), so fixed 24 px corners used to swallow the side handles of a 30 px
+  tall box.
+- **Cursors** come from the control's nominal axis + object angle
+  (`scaleCursor` → two-way `ew/ns/nwse/nesw`). Fabric 7 derives them from the
+  centre→handle direction, so the corner of a wide box read `w-resize`.
+- **Textboxes** keep only `ml`/`mr`: their `lockScalingX` (width-only resize,
+  `applyTextboxDefaults`) made Fabric paint `not-allowed` over the working
+  width handles, and the corner/top/bottom/rotate handles were dead. While a
+  text is being edited Fabric clears `hasControls` → only its border shows.
+- Do not set `cornerSize`/`cornerStyle` on created objects — overwritten anyway.
 
 **Overlay chrome toggles** (`templates/editor/_editor_toggles.html.twig`, the
 top bar shared by the single-variant and the group editor). All five live
@@ -286,10 +298,10 @@ thumbnail crop all use `viewOffset`; `bleedOf` stays the BLEED alone — covers,
 the bleed guide, the snap line). Contracts:
 
 - The dim (and the bleed band tint) is painted ON THE BITMAP in Fabric's
-  overlay pass with `controlsAboveOverlay = true` (`patchPasteboardPaint`).
-  Fabric draws selection borders and handles on the LOWER canvas, so any DOM
-  mask is either above both (washes the handles out — the first attempt) or
-  below both. Same reason the bleed band's tint left the DOM guide. The save
+  overlay pass (`patchPasteboardPaint`). A DOM mask sat above Fabric's
+  lower-canvas handles and washed them out — moot since the handles moved to
+  the SVG stage layer, but the bitmap dim is also what keeps the DOM chrome
+  stack simple. The save
   thumbnail crops to the trim, so neither ever reaches a preview.
 - Ruler bars hug the ELEMENT edge, not the trim (a bar flush with the trim
   sat right over the handles); 0 stays at the trim corner, the pasteboard

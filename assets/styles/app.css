@@ -116,6 +116,50 @@
     outline: var(--bleed-line, 1px) solid rgba(33, 37, 41, 0.6);
 }
 
+/* Selection border + transform handles (canvas_handles.js): an SVG in the
+   unscaled stage — constant on-screen size, never clipped by the canvas
+   element. Above outlines (900) / guides (940) / rulers (996-997), below
+   snap chrome (1000) and the floating toolbar (1005). Only the handle shapes
+   take the pointer; a press is forwarded to Fabric. */
+.canvas-handles {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 998;
+}
+
+.canvas-handles__border {
+    fill: none;
+    stroke: #727cf5;
+    stroke-width: 1.5px;
+}
+
+.canvas-handles__connector {
+    stroke: #727cf5;
+    stroke-width: 1.5px;
+}
+
+.canvas-handles__handle {
+    fill: #fff;
+    stroke: #727cf5;
+    stroke-width: 1.5px;
+    pointer-events: all;
+}
+
+.canvas-handles__handle:hover {
+    fill: #e7e9fd;
+}
+
+/* While Fabric owns a transform, pin its cursor over the whole page. */
+html.canvas-transforming,
+html.canvas-transforming * {
+    cursor: var(--canvas-transform-cursor) !important;
+}
+
 .canvas-mini-toolbar {
     position: absolute;
     z-index: 1005;

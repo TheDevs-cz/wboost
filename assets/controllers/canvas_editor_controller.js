@@ -85,7 +85,10 @@ export default class extends Controller {
         );
         this._renderStageGuides();
         // Zoom-independent transform handles (see canvas_handles.js).
-        this._disposeHandleChrome = installHandleChrome(this.canvas);
+        this._disposeHandleChrome = installHandleChrome(
+            this.canvas,
+            this.canvas.wrapperEl ? this.canvas.wrapperEl.closest('.canvas-stage') : null,
+        );
 
         // Word-wrap parity with the export: the headless render template
         // patches Textbox wrapping (break-word for over-long words) — apply
