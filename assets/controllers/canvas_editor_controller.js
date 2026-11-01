@@ -145,16 +145,19 @@ export default class extends Controller {
         this._boundHandleKeydown = this.handleKeydown.bind(this);
         window.addEventListener('keydown', this._boundHandleKeydown);
 
-        // A press on the EMPTY editor surface around the canvas element (the
-        // grey viewport/stage, beyond the pasteboard) deselects, exactly like
-        // a press on empty canvas — designers expect "click away" to drop the
-        // selection. Only the bare surface counts: chrome inside the stage
-        // (toolbar, popovers, rulers, guides, SVG handles/move grip — those
-        // stop propagation) keeps the selection.
+        // The bare editor surface around the canvas element (grey viewport /
+        // stage, beyond the pasteboard) behaves like more canvas: a press
+        // there is forwarded to Fabric at the same client point
+        // (`forwardSurfacePress`), so it selects + drags an object whose part
+        // lies out there, and on nothing drops the selection exactly like
+        // empty canvas. Stage chrome (toolbar, popovers, rulers, guides, SVG
+        // handles + move grip) has its own targets, so it is untouched.
         this._viewportEl = this.canvas.wrapperEl ? this.canvas.wrapperEl.closest('.canvas-viewport') : null;
         if (this._viewportEl) {
-            this._boundSurfaceDeselect = (event) => this.deselectOnSurfacePress(event);
-            this._viewportEl.addEventListener('mousedown', this._boundSurfaceDeselect);
+            this._boundSurfacePress = (event) => this.forwardSurfacePress(event);
+            this._boundSurfaceHover = (event) => this.hoverSurface(event);
+            this._viewportEl.addEventListener('mousedown', this._boundSurfacePress);
+            this._viewportEl.addEventListener('mousemove', this._boundSurfaceHover);
         }
 
         // Selection lifecycle → broadcast a single semantic event for siblings.
@@ -225,19 +228,67 @@ export default class extends Controller {
         if (this._disposeHandleChrome) {
             this._disposeHandleChrome();
         }
-        if (this._viewportEl && this._boundSurfaceDeselect) {
-            this._viewportEl.removeEventListener('mousedown', this._boundSurfaceDeselect);
+        if (this._viewportEl && this._boundSurfacePress) {
+            this._viewportEl.removeEventListener('mousedown', this._boundSurfacePress);
+            this._viewportEl.removeEventListener('mousemove', this._boundSurfaceHover);
         }
     }
 
-    deselectOnSurfacePress(event) {
-        if (event.button !== 0 || !this.canvas || this.canvas._currentTransform) return;
-        const target = event.target;
-        const surface = target === this._viewportEl
+    _isBareSurface(target) {
+        return target === this._viewportEl
             || (target instanceof Element && target.matches('.canvas-stage, .canvas-wrapper'));
-        if (!surface || !this.canvas.getActiveObject()) return;
-        this.canvas.discardActiveObject(event);
-        this.canvas.requestRenderAll();
+    }
+
+    /**
+     * Re-dispatch a press on the bare surface to Fabric's upper canvas.
+     * Fabric's pointer math and target search have no element-bounds check,
+     * so the press resolves exactly as on canvas: hit an object (its part
+     * outside the element) → select + move, hit nothing → discard selection.
+     */
+    forwardSurfacePress(event) {
+        if (event.button !== 0 || !this.canvas || this.canvas._currentTransform) return;
+        if (!this._isBareSurface(event.target)) return;
+        const upper = this.canvas.upperCanvasEl;
+        if (!upper) return;
+        event.preventDefault();
+        upper.dispatchEvent(new MouseEvent('mousedown', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            clientX: event.clientX,
+            clientY: event.clientY,
+            screenX: event.screenX,
+            screenY: event.screenY,
+            button: 0,
+            buttons: 1,
+            shiftKey: event.shiftKey,
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+        }));
+    }
+
+    /** Move cursor over the outside part of a grabbable object. */
+    hoverSurface(event) {
+        if (!this.canvas || this.canvas._currentTransform) return;
+        const surface = this._isBareSurface(event.target);
+        let cursor = '';
+        if (surface) {
+            const point = this.canvas.getScenePoint(event);
+            const objects = this.canvas.getObjects();
+            for (let i = objects.length - 1; i >= 0; i--) {
+                const obj = objects[i];
+                if (obj.selectable !== false && this.canvas._checkTarget(obj, point)) {
+                    cursor = obj.lockMovementX && obj.lockMovementY ? '' : (obj.hoverCursor || this.canvas.hoverCursor || 'move');
+                    break;
+                }
+            }
+        }
+        if (this._viewportEl.style.cursor !== cursor) {
+            this._viewportEl.style.cursor = cursor;
+            const stage = this._viewportEl.querySelector('.canvas-stage');
+            if (stage) stage.style.cursor = cursor;
+        }
     }
 
     dispatchSelectionChanged() {
