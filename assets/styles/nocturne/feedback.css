@@ -1,0 +1,92 @@
+/* ==========================================================================
+   Nocturne — alerts, notices, toasts, progress, spinners (spec §3.10).
+
+   .alert (Bootstrap)  compact tinted notice with a 4 px accent bar; colour
+                       from .alert-{success,danger,warning,info,primary,…}
+                       or the kit's .c-* scope. Content stays inline (no flex)
+                       so legacy "text <a>link</a> text" alerts keep flowing.
+   .alert with a direct `> .i` child = the kit look: 40 px solid accent circle
+                       holding the icon, .alert-t title + .alert-d text
+                       (used by _flashes.html.twig).
+   ========================================================================== */
+
+.alert {
+    --a: var(--lav); --a-deep: var(--lav-deep); --a-ink: var(--lav-ink); --a-line: var(--lav-line); --a-glow: var(--lav-glow); --on-a: var(--on-accent);
+    --bs-alert-color: var(--text);
+    --bs-alert-bg: color-mix(in oklab, var(--a-deep) 60%, var(--surface));
+    --bs-alert-border-color: var(--line);
+    --bs-alert-border-radius: 14px;
+    --bs-alert-padding-x: 16px;
+    --bs-alert-padding-y: 13px;
+    --bs-alert-link-color: var(--a-ink);
+    position: relative;
+    overflow: hidden;
+    padding-left: 22px;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.alert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--a); }
+.alert-success { --a: var(--mnt); --a-deep: var(--mnt-deep); --a-ink: var(--mnt-ink); --a-line: var(--mnt-line); --a-glow: var(--mnt-glow); }
+.alert-danger, .alert-error { --a: var(--rose); --a-deep: var(--rose-deep); --a-ink: var(--rose-ink); --a-line: var(--rose-line); --a-glow: var(--rose-glow); }
+.alert-warning { --a: var(--pch); --a-deep: var(--pch-deep); --a-ink: var(--pch-ink); --a-line: var(--pch-line); --a-glow: var(--pch-glow); }
+.alert-secondary, .alert-light, .alert-dark { --a: var(--line-3); --a-deep: var(--surface-2); --a-ink: var(--text-2); }
+/* .c-* wins over the Bootstrap variant when both are present */
+.alert.c-success { --a: var(--mnt); --a-deep: var(--mnt-deep); --a-ink: var(--mnt-ink); }
+.alert.c-danger { --a: var(--rose); --a-deep: var(--rose-deep); --a-ink: var(--rose-ink); }
+.alert.c-warning { --a: var(--pch); --a-deep: var(--pch-deep); --a-ink: var(--pch-ink); }
+.alert.c-info { --a: var(--lav); --a-deep: var(--lav-deep); --a-ink: var(--lav-ink); }
+.alert.quiet { --bs-alert-bg: var(--surface); }
+.alert-link, .alert a:not(.btn) { color: var(--a-ink); font-weight: 600; }
+.alert-heading { color: var(--text); font-size: 15px; font-weight: 600; }
+.alert > :last-child { margin-bottom: 0; }
+.alert-dismissible { padding-right: 52px; }
+.alert-dismissible .btn-close { top: 50%; right: 10px; transform: translateY(-50%); padding: 0; z-index: 2; }
+
+/* Kit alert (icon circle) */
+.alert:has(> .i) { display: flex; align-items: center; gap: 16px; min-height: 72px; padding: 16px 18px 16px 76px; border-radius: 16px; }
+.alert:has(> .i)::after { content: ""; position: absolute; left: 22px; top: 16px; width: 40px; height: 40px; border-radius: 50%; background: var(--a); }
+.alert > .i { position: absolute; left: 32px; top: 26px; width: 20px; height: 20px; z-index: 1; color: var(--on-a, #141218); }
+.alert-t { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.alert-d { font-size: 13px; line-height: 1.55; color: var(--text-2); margin-top: 2px; }
+.alert > .btn { align-self: center; }
+.alert:has(> .i).alert-dismissible { padding-right: 56px; }
+
+/* Inline rose strip for system problems */
+.notice { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--rose-deep); color: var(--text); font-size: 13px; line-height: 1.5; }
+.notice > .i { color: var(--rose-ink); flex: none; }
+
+/* Toasts (kit) */
+.toasts { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 1090; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
+.toasts > * { pointer-events: auto; }
+.toast-n { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); font-size: 13px; animation: tin .3s var(--ease); max-width: min(380px, calc(100vw - 32px)); }
+.toast-n .i { color: var(--mnt-ink); }
+.toast-n.err .i { color: var(--rose-ink); }
+/* Bootstrap .toast */
+.toast {
+    --bs-toast-bg: var(--surface-2);
+    --bs-toast-color: var(--text);
+    --bs-toast-border-color: var(--line-2);
+    --bs-toast-border-radius: 14px;
+    --bs-toast-box-shadow: var(--shadow-3);
+    --bs-toast-header-bg: transparent;
+    --bs-toast-header-color: var(--text);
+    --bs-toast-header-border-color: var(--line);
+    --bs-toast-font-size: 13px;
+}
+
+/* Progress */
+.progress, .progress-stacked {
+    --bs-progress-height: 6px;
+    --bs-progress-bg: var(--surface-3);
+    --bs-progress-border-radius: 999px;
+    --bs-progress-bar-bg: var(--lav);
+    --bs-progress-bar-color: var(--on-accent);
+    --bs-progress-font-size: 10px;
+}
+.progress-bar.bg-success { background-color: var(--mnt) !important; }
+.progress-bar.bg-danger { background-color: var(--rose) !important; }
+.progress-bar.bg-warning { background-color: var(--pch) !important; }
+
+/* Spinners */
+.spinner-border { --bs-spinner-border-width: 2px; color: var(--lav); }
+.spinner-border.text-light, .spinner-border.text-white { color: var(--on-accent) !important; }

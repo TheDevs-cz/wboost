@@ -1,0 +1,177 @@
+{#
+    Nocturne sidebar (docs/architecture/app-shell.md). Rendered by
+    base.html.twig inside `.app`; behaviour = the `shell` Stimulus controller.
+    Context: `project` (optional, inside a project), `active_menu_item` /
+    `active_submenu_item` (set by the page), `shell_projects` (list).
+#}
+{% set route = app.request.attributes.get('_route') %}
+{% set active = active_menu_item|default('') %}
+
+<aside class="sb" id="sidebar" aria-label="Hlavní navigace" data-shell-target="sidebar">
+    <div class="sb-brand">
+        <a href="{{ path('dashboard') }}" class="brand" aria-label="Wboost – všechny projekty">
+            {{ include('_shell/_logo.html.twig', {}, with_context = false) }}
+            {{ include('_shell/_logo_icon.html.twig', {}, with_context = false) }}
+        </a>
+        <button type="button" class="btn icon xs ghost collapse-btn" data-shell-target="collapseButton" data-action="shell#toggleRail" aria-label="Sbalit menu" aria-expanded="true" aria-controls="sidebar">{{ icon('chev-left', 's16') }}</button>
+        <button type="button" class="btn icon xs ghost drawer-close" data-action="shell#closeDrawer" aria-label="Zavřít menu">{{ icon('x', 's16') }}</button>
+    </div>
+
+    <nav aria-label="Sekce">
+        <a href="{{ path('projects') }}" class="nav-i" title="Všechny projekty" aria-current="{{ route == 'projects' or (active == 'projects' and project is not defined) ? 'page' : 'false' }}">
+            {{ icon('grid') }}<span class="nm hide-c">Všechny projekty</span>
+            {% if shell_projects is not empty %}<span class="count hide-c">{{ shell_projects|length }}</span>{% endif %}
+        </a>
+    </nav>
+
+    {% if shell_projects is not empty %}
+        <div class="qn-head hide-c"><span class="lbl">Rychlá navigace</span></div>
+        <button type="button" class="qn-trigger" data-shell-target="qnTrigger" data-action="shell#toggleQuickNav" aria-haspopup="dialog" aria-expanded="false" aria-controls="qnPop" title="Rychlá navigace" aria-label="Rychlá navigace: {{ project is defined ? project.name : 'vybrat projekt' }}">
+            {% if project is defined %}
+                {% set nav_avatar = project_avatar(project) %}
+                {% if nav_avatar.logoPath %}
+                    <span class="sym sm"><img src="{{ uploaded_asset(nav_avatar.logoPath) }}" alt=""></span>
+                {% else %}
+                    <span class="sym sm mono">{{ nav_avatar.initials }}</span>
+                {% endif %}
+                <span class="nm hide-c">{{ project.name }}</span>
+                {{ icon('chev-down', 's16 chev hide-c') }}
+            {% else %}
+                {{ icon('sort', 's18') }}
+                <span class="ph hide-c">Vybrat projekt…</span>
+                {{ icon('chev-down', 's16 chev hide-c') }}
+            {% endif %}
+        </button>
+    {% endif %}
+
+    <div class="sb-scroll">
+        {% if project is defined %}
+            {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
+            <nav aria-label="Moduly projektu" class="sb-group pnav">
+                <div class="sb-sec lbl hide-c">Projekt</div>
+                <span class="sb-div" aria-hidden="true"></span>
+
+                <a href="{{ path('project_dashboard', {'id': project.id}) }}" class="nav-i" title="Přehled" aria-current="{{ route == 'project_dashboard' ? 'page' : 'false' }}">
+                    {{ icon('grid') }}<span class="nm hide-c">Přehled</span>
+                </a>
+
+                {% if project.hasModule(project_module.Manuals) %}
+                    <a href="{{ path('manuals_list', {'id': project.id}) }}" class="nav-i" title="Manuály" aria-current="{{ active == 'manuals' ? 'page' : 'false' }}">
+                        {{ icon('copy') }}<span class="nm hide-c">Manuály</span>
+                    </a>
+                {% endif %}
+
+                {% if project.hasModule(project_module.Templates) %}
+                    <a href="{{ path('templates', {'projectId': project.id}) }}" class="nav-i" title="Šablony" aria-current="{{ active == 'templates' ? 'page' : 'false' }}">
+                        {{ icon('template') }}<span class="nm hide-c">Šablony</span>
+                    </a>
+                {% endif %}
+
+                {% if is_granted('project_edit', project) %}
+                    <a href="{{ path('project_gallery', {'projectId': project.id}) }}" class="nav-i" title="Galerie" aria-current="{{ active == 'gallery' ? 'page' : 'false' }}">
+                        {{ icon('image') }}<span class="nm hide-c">Galerie</span>
+                    </a>
+                {% endif %}
+
+                <a href="{{ path('fonts_list', {'id': project.id}) }}" class="nav-i" title="Fonty" aria-current="{{ active == 'fonts' ? 'page' : 'false' }}">
+                    {{ icon('font') }}<span class="nm hide-c">Fonty</span>
+                </a>
+
+                {% if project.hasModule(project_module.EmailSignatures) %}
+                    <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="nav-i" title="E-maily" aria-current="{{ active == 'emails' ? 'page' : 'false' }}">
+                        {{ icon('mail') }}<span class="nm hide-c">E-maily</span>
+                    </a>
+                {% endif %}
+
+                {% if project.hasModule(project_module.WeeklyMenus) %}
+                    <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="nav-i" title="Jídelníčky" aria-current="{{ active == 'weekly_menus' and active_submenu_item|default('') == '' ? 'page' : 'false' }}">
+                        {{ icon('utensils') }}<span class="nm hide-c">Jídelníčky</span>
+                    </a>
+                    {% if active == 'weekly_menus' %}
+                        {% set sub = active_submenu_item|default('') %}
+                        <div class="nav-sub hide-c">
+                            <a href="{{ path('meals', {'projectId': project.id}) }}" class="nav-i" aria-current="{{ sub == 'meals' ? 'page' : 'false' }}"><span class="nm">Seznam jídel</span></a>
+                            <a href="{{ path('diets', {'projectId': project.id}) }}" class="nav-i" aria-current="{{ sub == 'diets' ? 'page' : 'false' }}"><span class="nm">Diety</span></a>
+                            <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="nav-i" aria-current="{{ sub == 'dish_types' ? 'page' : 'false' }}"><span class="nm">Druhy jídel</span></a>
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                {% if project.disabledModules is not empty %}
+                    <a href="{{ path('project_modules', {'projectId': project.id}) }}" class="nav-i discover side-nav-discover" title="Objevte další moduly" aria-current="{{ active == 'project_modules' ? 'page' : 'false' }}">
+                        {{ icon('sparkle') }}<span class="nm hide-c">Objevte další moduly</span>
+                    </a>
+                {% endif %}
+            </nav>
+        {% endif %}
+
+        {% if is_granted('ROLE_ADMIN') %}
+            <nav aria-label="Administrace" class="sb-group">
+                <div class="sb-sec lbl hide-c">Administrace</div>
+                <span class="sb-div" aria-hidden="true"></span>
+
+                <a href="{{ path('admin_users') }}" class="nav-i" title="Uživatelé" aria-current="{{ active == 'admin_users' ? 'page' : 'false' }}">
+                    {{ icon('users') }}<span class="nm hide-c">Uživatelé</span>
+                </a>
+                {% set pending_requests = pending_registration_requests_count() %}
+                <a href="{{ path('admin_registration_requests') }}" class="nav-i" title="Žádosti o registraci" aria-current="{{ active == 'admin_registration_requests' ? 'page' : 'false' }}">
+                    {{ icon('user-plus') }}<span class="nm hide-c">Žádosti o registraci</span>
+                    {% if pending_requests > 0 %}<span class="count hide-c" title="Nové žádosti o registraci">{{ pending_requests }}</span>{% endif %}
+                </a>
+                <a href="{{ path('admin_landing_leads') }}" class="nav-i" title="Poptávky z webu" aria-current="{{ active == 'admin_landing_leads' ? 'page' : 'false' }}">
+                    {{ icon('inbox-in') }}<span class="nm hide-c">Poptávky z webu</span>
+                </a>
+                <a href="{{ path('admin_usage') }}" class="nav-i" title="Statistiky" aria-current="{{ active == 'admin_usage' ? 'page' : 'false' }}">
+                    {{ icon('trend') }}<span class="nm hide-c">Statistiky</span>
+                </a>
+            </nav>
+        {% endif %}
+
+        <nav aria-label="Propojení" class="sb-group">
+            <span class="sb-div always" aria-hidden="true"></span>
+            {# Facebook / Instagram — a fake door for now (publishing isn't
+               finished): unless already connected, it opens the "coming soon"
+               modal in place, never leaving the page. #}
+            {% if facebook_connected() %}
+                <a href="{{ path('user_profile') }}" class="nav-i" title="Facebook a Instagram">
+                    {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
+                </a>
+            {% else %}
+                <a href="#" class="nav-i" title="Facebook a Instagram" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door" role="button">
+                    {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
+                </a>
+            {% endif %}
+            <a href="{{ path('connected_apps') }}" class="nav-i" title="Propojené aplikace" aria-current="{{ route == 'connected_apps' ? 'page' : 'false' }}">
+                {{ icon('plug') }}<span class="nm hide-c">Propojené aplikace</span>
+            </a>
+            <a href="{{ path('mcp_guide') }}" class="nav-i" title="AI (MCP server)" aria-current="{{ route == 'mcp_guide' ? 'page' : 'false' }}">
+                {{ icon('bot') }}<span class="nm hide-c">AI (MCP server)</span>
+            </a>
+        </nav>
+    </div>
+
+    <div class="sb-theme" role="radiogroup" aria-label="Vzhled">
+        <label class="sb-th" title="Tmavý vzhled"><input type="radio" class="sr" name="wb-theme" value="dark" data-shell-target="themeRadio" data-action="shell#pickTheme">{{ icon('moon', 's16') }}Tmavý</label>
+        <label class="sb-th" title="Světlý vzhled"><input type="radio" class="sr" name="wb-theme" value="light" data-shell-target="themeRadio" data-action="shell#pickTheme">{{ icon('sun', 's16') }}Světlý</label>
+        <button type="button" class="sb-thc" data-action="shell#toggleTheme" title="Přepnout vzhled" aria-label="Přepnout vzhled">{{ icon('moon', 's16 th-dark') }}{{ icon('sun', 's16 th-light') }}</button>
+    </div>
+
+    <div class="sb-user">
+        {% set me_name = app.user.displayName %}
+        {% set me_role = is_granted('ROLE_ADMIN') ? 'Administrátor' : (is_granted('ROLE_DESIGNER') ? 'Designer' : 'Uživatel') %}
+        <button type="button" class="sb-me" data-shell-target="meButton" data-action="shell#toggleMe" aria-haspopup="menu" aria-expanded="false" aria-controls="meMenu" title="{{ me_name }} · {{ me_role }}" aria-label="Profil: {{ me_name }}, {{ me_role }}">
+            <span class="av">{{ initials(me_name) }}</span>
+            <span class="hide-c" style="flex:1;min-width:0;display:flex;flex-direction:column">
+                <span class="who-n">{{ me_name }}</span>
+                <span class="cap">{{ me_role }}</span>
+            </span>
+            {{ icon('chev-up', 's16 chev hide-c') }}
+        </button>
+        <div class="menu me-menu" id="meMenu" role="menu" aria-label="Profil" data-shell-target="meMenu" data-action="keydown->shell#meKey" hidden>
+            <a href="{{ path('user_profile') }}" role="menuitem" class="mi">{{ icon('user', 's16') }}Můj účet</a>
+            <a href="{{ path('change_password') }}" role="menuitem" class="mi">{{ icon('lock', 's16') }}Změnit heslo</a>
+            <div class="menu-sep" role="separator"></div>
+            <a href="{{ path('logout') }}" role="menuitem" class="mi">{{ icon('logout', 's16') }}Odhlásit se</a>
+        </div>
+    </div>
+</aside>

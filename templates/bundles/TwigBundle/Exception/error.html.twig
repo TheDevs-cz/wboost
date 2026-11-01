@@ -25,13 +25,12 @@
 
                         <!-- Logo -->
                         <div class="card-header py-4 text-center bg-dark">
-                            <span><img src="{{ asset('images/logo-lg.svg') }}" alt="logo" height="22"></span>
+                            <span>{{ include('_shell/_logo.html.twig', {}, with_context = false) }}</span>
                         </div>
 
                         <div class="card-body p-4">
 
                             <div class="text-center">
-                                <img src="{{ asset('theme/images/svg/startman.svg') }}" height="120" alt="File not found Image">
 
                                 <h4 class="text-uppercase text-danger mt-3">Něco se pokazilo ... :-(</h4>
 

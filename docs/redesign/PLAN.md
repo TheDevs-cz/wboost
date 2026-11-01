@@ -82,10 +82,10 @@ finish; tick your phase's boxes here.
 
 ## Phases
 
-- [ ] **P1 Foundation** — Nocturne tokens + component layer over Bootstrap,
+- [x] **P1 Foundation** — Nocturne tokens + component layer over Bootstrap,
       Outfit, icons, theme toggle, remove Hyper CSS/JS, keep `window.bootstrap`.
       Every page must still render (restyled via class mapping).
-- [ ] **P2 App shell** — new `base.html.twig` sidebar (logo, Všechny projekty +
+- [x] **P2 App shell** — new `base.html.twig` sidebar (logo, Všechny projekty +
       count, Rychlá navigace switcher, Projekt nav from `project.modules`,
       Administrace, Propojení, theme toggle, profile drop-up), collapse 272/84
       (persisted), drawer + top bar < 860 px, page header pattern
@@ -120,3 +120,6 @@ finish; tick your phase's boxes here.
 ## Status log
 
 (orchestrator updates per phase: started/finished, commit range)
+
+- 2026-11-02 — P1 + P2 done (one agent; see JOURNAL). Editors got the
+  forced icon rail only; their chrome is still P7.

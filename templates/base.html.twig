@@ -1,5 +1,17 @@
 <!DOCTYPE html>
-<html lang="{{ app.request.locale }}" data-turbo="false">
+{#
+    Nocturne app shell — contract in docs/architecture/app-shell.md.
+    Blocks for pages: title, eyebrow, title_count, page_lead, title_actions,
+    breadcrumb, content; full_content replaces the whole shell (auth/error
+    pages); page_title_row = the page header (override empty to drop it);
+    inner_class = extra classes on .inner (`inner-wide` for full-width
+    workspaces); mobile_primary_action = the round + in the phone top bar.
+#}
+{% set shell_route = app.request.attributes.get('_route') %}
+{# The canvas editors open with the sidebar collapsed to the icon rail
+   (prototype `body.ed-on`); toggling it there is not persisted. #}
+{% set shell_force_rail = shell_route in ['template_variant_editor', 'template_group_editor'] %}
+<html lang="{{ app.request.locale }}" data-turbo="false" data-theme="dark" data-bs-theme="dark"{% if shell_force_rail %} class="sb-rail" data-sb-forced="1"{% endif %}>
     <head>
         <meta charset="UTF-8">
         <title>{% apply spaceless %}{% block title %}{% endblock %}{% endapply %} | WBoost</title>
@@ -14,8 +26,14 @@
         <meta name="description" content="{% apply spaceless %}{% block meta_description %}{% endblock %}{% endapply %}">
         <meta name="keywords" content="{% apply spaceless %}{% block meta_keywords %}{% endblock %}{% endapply %}">
 
-        <meta name="msapplication-TileColor" content="#ffffff">
-        <meta name="theme-color" content="#ffffff">
+        <meta name="msapplication-TileColor" content="#0B0A0D">
+        <meta name="theme-color" content="#0B0A0D">
+
+        {# Theme before first paint: localStorage['wb-theme'] ('dark'|'light'),
+           absent → OS preference. Also restores the collapsed sidebar rail. #}
+        {% block theme_script %}
+        <script>(function(){var d=document.documentElement,t=null,c=null;try{t=localStorage.getItem('wb-theme');c=localStorage.getItem('wb-collapsed');}catch(e){}if(t!=='light'&&t!=='dark'){t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';}d.setAttribute('data-theme',t);d.setAttribute('data-bs-theme',t);if(c==='1'){d.classList.add('sb-rail');}})();</script>
+        {% endblock %}
 
         <link rel="apple-touch-icon" sizes="57x57" href="{{ asset('apple-icon-57x57.png') }}">
         <link rel="apple-touch-icon" sizes="60x60" href="{{ asset('apple-icon-60x60.png') }}">
@@ -33,328 +51,103 @@
         <link rel="manifest" href="{{ asset('manifest.json') }}">
         <meta name="msapplication-TileColor" content="#ffffff">
         <meta name="msapplication-TileImage" content="{{ asset('ms-icon-144x144.png') }}">
-        <meta name="theme-color" content="#ffffff">
 
         <link rel="shortcut icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
 
         <link type="text/plain" rel="author" href="{{ asset('humans.txt') }}">
 
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+
         {% block importmap %}
             {{ importmap('app') }}
         {% endblock %}
 
-
-        <!-- Theme Config Js -->
-        <script src="{{ asset('theme/js/hyper-config.js') }}"></script>
-
-        <!-- App css -->
-        <link href="{{ asset('theme/css/app-saas.min.css') }}" rel="stylesheet" type="text/css" id="app-style" />
-
-        <!-- Icons css -->
-        <link href="{{ asset('theme/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
+        {# Legacy icon fonts (MDI / Unicons / Remix) — moved out of the Hyper
+           theme; redesigned screens use {{ icon('…') }} instead. P10 removes. #}
+        <link href="{{ asset('fonts/legacy-icons/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
 
         {% block custom_styles %}{% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}" data-controller="confirm-modal">
+    {# Block definitions rendered through block() below, so the header can be
+       assembled (and skipped) as a whole. Twig hoists blocks out of the if. #}
+    {% if false %}
+        {% block eyebrow %}{% if project is defined %}Projekt · {{ project.name }}{% elseif active_menu_item|default('') starts with 'admin_' %}Administrace{% endif %}{% endblock %}
+        {% block title_count %}{% endblock %}
+        {% block page_lead %}{% endblock %}
+        {% block title_actions %}{% endblock %}
+        {% block breadcrumb %}{% endblock %}
+        {% block inner_class %}{% endblock %}
+        {% block mobile_primary_action %}{% endblock %}
+    {% endif %}
     {% block full_content %}
-        <!-- Begin page -->
-        <div class="wrapper">
+        {% set shell_projects = shell_projects() %}
+        <div class="app" id="app"
+             data-controller="shell"
+             data-shell-persist-value="{{ shell_force_rail ? 'false' : 'true' }}"
+             data-shell-project-id-value="{{ project is defined ? project.id : '' }}"
+             data-action="keydown.esc@window->shell#escape pointerdown@window->shell#outside resize@window->shell#resized">
 
-            <!-- ========== Left Sidebar Start ========== -->
-            <div class="leftside-menu">
+            {{ include('_shell/_sidebar.html.twig') }}
 
-                <!-- Brand Logo Light -->
-                <a href="{{ path('dashboard') }}" class="logo logo-light">
-                    <span class="logo-lg">
-                        <img src="{{ asset('images/logo-lg.svg') }}" alt="logo">
-                    </span>
-                    <span class="logo-sm">
-                        <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                    </span>
-                </a>
-
-                <!-- Brand Logo Dark -->
-                <a href="{{ path('dashboard') }}" class="logo logo-dark">
-                    <span class="logo-lg">
-                        <img src="{{ asset('images/logo-lg.svg') }}" alt="dark logo">
-                    </span>
-                    <span class="logo-sm">
-                        <img src="{{ asset('images/logo-icon.svg') }}" alt="small logo">
-                    </span>
-                </a>
-
-                <!-- Sidebar Hover Menu Toggle Button -->
-                <div class="button-sm-hover" data-bs-toggle="tooltip" data-bs-placement="right" title="Show Full Sidebar">
-                    <i class="ri-checkbox-blank-circle-line align-middle"></i>
+            <main class="main" id="main">
+                <div class="mbar wrap">
+                    <button type="button" class="btn icon ghost" data-action="shell#openDrawer" aria-label="Otevřít menu" aria-controls="sidebar">{{ icon('menu') }}</button>
+                    <a href="{{ path('dashboard') }}" class="brand" aria-label="Wboost – všechny projekty">{{ include('_shell/_logo.html.twig', {}, with_context = false) }}</a>
+                    <div class="mbar-side">{{ block('mobile_primary_action') }}</div>
                 </div>
 
-                <!-- Full Sidebar Menu Close Button -->
-                <div class="button-close-fullsidebar">
-                    <i class="ri-close-fill align-middle"></i>
-                </div>
-
-                <!-- Sidebar -left -->
-                <div class="h-100" id="leftside-menu-container" data-simplebar>
-                    <!--- Sidemenu -->
-                    <ul class="side-nav">
-                        <li class="side-nav-item {{ active_menu_item|default == 'projects' ? 'menuitem-active' }}">
-                            <a href="{{ path('projects') }}" class="side-nav-link">
-                                <i class="uil-home-alt"></i>
-                                <span> Projekty </span>
-                            </a>
-                        </li>
-
-                        {# Facebook / Instagram — a fake door for now (publishing
-                           isn't finished): unless already connected, it opens the
-                           "coming soon" modal in place, never leaving the page. #}
-                        <li class="side-nav-item">
-                            {% if facebook_connected() %}
-                                <a href="{{ path('user_profile') }}" class="side-nav-link">
-                                    <i class="ri-facebook-circle-line"></i>
-                                    <span> Facebook a Instagram </span>
-                                </a>
-                            {% else %}
-                                <a href="#" class="side-nav-link" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door" role="button">
-                                    <i class="ri-facebook-circle-line"></i>
-                                    <span> Facebook a Instagram </span>
-                                </a>
-                            {% endif %}
-                        </li>
-
-                        {% if is_granted('ROLE_ADMIN') %}
-                            <li class="side-nav-title">Administrace</li>
-
-                            <li class="side-nav-item {{ active_menu_item|default == 'admin_users' ? 'menuitem-active' }}">
-                                <a href="{{ path('admin_users') }}" class="side-nav-link">
-                                    <i class="uil-users-alt"></i>
-                                    <span> Uživatelé </span>
-                                </a>
-                            </li>
-
-                            <li class="side-nav-item {{ active_menu_item|default == 'admin_registration_requests' ? 'menuitem-active' }}">
-                                <a href="{{ path('admin_registration_requests') }}" class="side-nav-link">
-                                    <i class="uil-user-plus"></i>
-                                    <span> Žádosti o registraci </span>
-                                    {% set pendingRegistrationRequests = pending_registration_requests_count() %}
-                                    {% if pendingRegistrationRequests > 0 %}
-                                        <span class="badge bg-danger rounded-pill">{{ pendingRegistrationRequests }}</span>
-                                    {% endif %}
-                                </a>
-                            </li>
-
-                            <li class="side-nav-item {{ active_menu_item|default == 'admin_landing_leads' ? 'menuitem-active' }}">
-                                <a href="{{ path('admin_landing_leads') }}" class="side-nav-link">
-                                    <i class="uil-envelope-receive"></i>
-                                    <span> Poptávky z webu </span>
-                                </a>
-                            </li>
-
-                            <li class="side-nav-item {{ active_menu_item|default == 'admin_usage' ? 'menuitem-active' }}">
-                                <a href="{{ path('admin_usage') }}" class="side-nav-link">
-                                    <i class="uil-chart-line"></i>
-                                    <span> Statistiky </span>
-                                </a>
-                            </li>
-                        {% endif %}
-
-                        {% if project is defined %}
-                            {% set nav_avatar = project_avatar(project) %}
-                            {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
-                            <li class="side-nav-title d-flex align-items-center">
-                                {{ include('_project_avatar.html.twig', {'avatar': nav_avatar, 'size': 22, 'font_size': '.6rem', 'alt': ''}) }}
-                                <span class="text-truncate ms-1">{{ project.name }}</span>
-                            </li>
-
-                            {% if project.hasModule(project_module.Manuals) %}
-                                <li class="side-nav-item {{ active_menu_item|default == 'manuals' ? 'menuitem-active' }}">
-                                    <a href="{{ path('manuals_list', {'id': project.id}) }}" class="side-nav-link">
-                                        <i class="uil-copy-alt"></i>
-                                        <span> Manuály </span>
-                                    </a>
-                                </li>
-                            {% endif %}
-
-                            {% if project.hasModule(project_module.Templates) %}
-                                <li class="side-nav-item {{ active_menu_item|default == 'templates' ? 'menuitem-active' }}">
-                                    <a href="{{ path('templates', {'projectId': project.id}) }}" class="side-nav-link">
-                                        <i class="uil-postcard"></i>
-                                        <span> Šablony </span>
-                                    </a>
-                                </li>
-                            {% endif %}
-
-                            {% if is_granted('project_edit', project) %}
-                                <li class="side-nav-item {{ active_menu_item|default == 'gallery' ? 'menuitem-active' }}">
-                                    <a href="{{ path('project_gallery', {'projectId': project.id}) }}" class="side-nav-link">
-                                        <i class="uil-images"></i>
-                                        <span> Galerie </span>
-                                    </a>
-                                </li>
-                            {% endif %}
-
-                            <li class="side-nav-item {{ active_menu_item|default == 'fonts' ? 'menuitem-active' }}">
-                                <a href="{{ path('fonts_list', {'id': project.id}) }}" class="side-nav-link">
-                                    <i class="ri-font-family"></i>
-                                    <span> Fonty</span>
-                                </a>
-                            </li>
-
-                            {% if project.hasModule(project_module.EmailSignatures) %}
-                                <li class="side-nav-item {{ active_menu_item|default == 'emails' ? 'menuitem-active' }}">
-                                    <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="side-nav-link">
-                                        <i class="ri-mail-line"></i>
-                                        <span> E-maily</span>
-                                    </a>
-                                </li>
-                            {% endif %}
-
-                            {% if project.hasModule(project_module.WeeklyMenus) %}
-                                <li class="side-nav-item {{ active_menu_item|default == 'weekly_menus' ? 'menuitem-active' }}">
-                                    <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="side-nav-link">
-                                        <i class="uil-restaurant"></i>
-                                        <span> Jídelníčky</span>
-                                    </a>
-                                    {% if active_menu_item|default == 'weekly_menus' %}
-                                        <ul class="side-nav-second-level">
-                                            <li class="{{ active_submenu_item|default == 'meals' ? 'active' : '' }}">
-                                                <a href="{{ path('meals', {'projectId': project.id}) }}">Seznam jídel</a>
-                                            </li>
-                                            <li class="{{ active_submenu_item|default == 'diets' ? 'active' : '' }}">
-                                                <a href="{{ path('diets', {'projectId': project.id}) }}">Diety</a>
-                                            </li>
-                                            <li class="{{ active_submenu_item|default == 'dish_types' ? 'active' : '' }}">
-                                                <a href="{{ path('dish_types', {'projectId': project.id}) }}">Druhy jídel</a>
-                                            </li>
-                                        </ul>
-                                    {% endif %}
-                                </li>
-                            {% endif %}
-
-                            {% if project.disabledModules is not empty %}
-                                <li class="side-nav-item {{ active_menu_item|default == 'project_modules' ? 'menuitem-active' }}">
-                                    <a href="{{ path('project_modules', {'projectId': project.id}) }}" class="side-nav-link side-nav-discover">
-                                        <i class="ri-sparkling-2-line"></i>
-                                        <span> Objevte další moduly </span>
-                                    </a>
-                                </li>
-                            {% endif %}
-                        {% endif %}
-                    </ul>
-                    <!--- End Sidemenu -->
-
-                    <div class="clearfix"></div>
-                </div>
-
-                {# Account menu — the topbar it used to live in is gone. It sits
-                   OUTSIDE #leftside-menu-container (so the drop-up is never
-                   clipped by simplebar) in the padding the sidebar reserves at
-                   its bottom edge. #}
-                <div class="leftbar-account dropup">
-                    {# offset = 12px skidding so the drop-up insets from the window
-                       edge instead of sitting flush against it. #}
-                    <a href="#" class="leftbar-account__toggle" data-bs-toggle="dropdown" data-bs-offset="12,6" role="button" aria-haspopup="true" aria-expanded="false">
-                        <img src="{{ asset('theme/images/users/avatar-1.jpg') }}" alt="" width="32" height="32" class="rounded-circle flex-shrink-0">
-                        <span class="leftbar-account__name text-truncate">{{ app.user.displayName }}</span>
-                        <i class="mdi mdi-chevron-up leftbar-account__caret"></i>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-animated leftbar-account__menu">
-                        <!-- item-->
-                        <a href="{{ path('user_profile') }}" class="dropdown-item">
-                            <i class="mdi mdi-account-circle me-1"></i>
-                            <span>Můj účet</span>
-                        </a>
-
-                        <!-- item-->
-                        <a href="{{ path('connected_apps') }}" class="dropdown-item">
-                            <i class="mdi mdi-power-plug me-1"></i>
-                            <span>Propojené aplikace</span>
-                        </a>
-
-                        <!-- item-->
-                        <a href="{{ path('mcp_guide') }}" class="dropdown-item">
-                            <i class="mdi mdi-robot-outline me-1"></i>
-                            <span>AI (MCP server)</span>
-                        </a>
-
-                        <!-- item-->
-                        <a href="{{ path('logout') }}" class="dropdown-item">
-                            <i class="mdi mdi-logout me-1"></i>
-                            <span>Odhlásit se</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <!-- ========== Left Sidebar End ========== -->
-
-            <!-- ============================================================== -->
-            <!-- Start Page Content here -->
-            <!-- ============================================================== -->
-
-            <div class="content-page">
-
-                {# Below xl the sidebar collapses (off-canvas under 768px), so the
-                   drawer toggle needs a home now that the topbar is gone. The
-                   theme binds the FIRST .button-toggle-menu it finds. #}
-                <div class="mobile-topbar d-xl-none">
-                    <button class="button-toggle-menu" type="button" aria-label="Menu">
-                        <i class="mdi mdi-menu"></i>
-                    </button>
-                    <a href="{{ path('dashboard') }}" class="mobile-topbar__logo">
-                        <img src="{{ asset('images/logo-lg.svg') }}" alt="logo" height="22">
-                    </a>
-                </div>
-
-                <div class="content">
-
-                    <!-- Start Content-->
-                    <div class="container-fluid">
-
-                        <!-- start page title -->
+                <div class="wrap">
+                    <div class="inner {{ block('inner_class')|trim }}" id="view">
                         {# Overridable so full-height app screens (the canvas
                            editors) can reclaim the vertical space — their
                            breadcrumb already ends with this exact title. #}
-                        {% block page_title_row %}
-                        <div class="row">
-                            <div class="col-sm-6">
-                                <div class="page-title-box">
-                                    <h1 class="page-title">{{ block('title') }}</h1>
-                                </div>
-                            </div>
-                            <div class="col-sm-6 pt-0 pt-sm-4">
-                                {% block title_actions %}{% endblock %}
-                            </div>
-                        </div>
-                        {% endblock %}
-                        <!-- end page title -->
-
-                        {% block breadcrumb %}{% endblock %}
+                        {% set shell_head = block('page_title_row')|trim %}
+                        {% if shell_head is not empty %}
+                            {{ shell_head|raw }}
+                        {% else %}
+                            {{ block('breadcrumb') }}
+                        {% endif %}
 
                         {{ include('_flashes.html.twig') }}
 
-                        {% block content %}{% endblock %}
+                        <div class="page-body">
+                            {% block content %}{% endblock %}
+                        </div>
                     </div>
-                    <!-- container -->
-
                 </div>
-                <!-- content -->
+            </main>
 
-            </div>
+            <div class="scrim" data-shell-target="scrim" data-action="click->shell#closeDrawer" hidden></div>
 
-            <!-- ============================================================== -->
-            <!-- End Page content -->
-            <!-- ============================================================== -->
-
+            {% if shell_projects is not empty %}
+                {{ include('_shell/_quick_nav.html.twig') }}
+            {% endif %}
         </div>
-        <!-- END wrapper -->
 
         {{ include('_social_publish_fake_door.html.twig') }}
     {% endblock %}
 
-    <!-- Vendor js -->
-    <script src="{{ asset('theme/js/vendor.min.js') }}"></script>
-
-    <!-- App js -->
-    <script src="{{ asset('theme/js/app.min.js') }}"></script>
-
+    {% if false %}
+        {% block page_title_row %}
+            {% set shell_crumbs = block('breadcrumb')|trim %}
+            {% if shell_crumbs is not empty %}
+                <nav class="page-crumbs" aria-label="Drobečková navigace">{{ shell_crumbs|raw }}</nav>
+            {% endif %}
+            <header class="head">
+                <div class="head-main">
+                    {% set shell_eyebrow = block('eyebrow')|trim %}
+                    {% if shell_eyebrow is not empty %}<span class="lbl">{{ shell_eyebrow|raw }}</span>{% endif %}
+                    {% set shell_count = block('title_count')|trim %}
+                    <h1 class="page-title">{{ block('title') }}{% if shell_count is not empty %} <small>{{ shell_count|raw }}</small>{% endif %}</h1>
+                    {% set shell_lead = block('page_lead')|trim %}
+                    {% if shell_lead is not empty %}<span class="head-lead">{{ shell_lead|raw }}</span>{% endif %}
+                </div>
+                <div class="head-tools">{{ block('title_actions')|trim|raw }}</div>
+            </header>
+        {% endblock %}
+    {% endif %}
     </body>
 </html>

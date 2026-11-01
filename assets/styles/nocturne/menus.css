@@ -1,0 +1,79 @@
+/* ==========================================================================
+   Nocturne — menus, popovers, tooltips (spec §3.8): the kit .menu/.mi rows
+   and Bootstrap .dropdown-menu/.dropdown-item, .tooltip, .popover on the same
+   surface-2 + line-2 + shadow-3 recipe.
+   ========================================================================== */
+
+.menu { min-width: 220px; padding: 6px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); display: flex; flex-direction: column; gap: 2px; }
+.menu[hidden] { display: none; }
+.mi { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text-2); font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.mi:hover, .mi:focus-visible { background: var(--surface-3); color: var(--text); outline: 0; }
+.mi.danger { color: var(--rose-ink); }
+.mi.danger:hover { background: var(--rose-deep); color: var(--rose-ink); }
+.mi .end { margin-left: auto; display: inline-flex; gap: 4px; align-items: center; color: var(--subtle); font-size: 12px; }
+.mi .i { width: 16px; height: 16px; }
+.menu-sep { height: 1px; background: var(--line-2); margin: 4px 6px; }
+
+/* Bootstrap dropdowns */
+.dropdown-menu {
+    --bs-dropdown-min-width: 220px;
+    --bs-dropdown-padding-x: 6px;
+    --bs-dropdown-padding-y: 6px;
+    --bs-dropdown-spacer: 6px;
+    --bs-dropdown-font-size: 14px;
+    --bs-dropdown-color: var(--text-2);
+    --bs-dropdown-bg: var(--surface-2);
+    --bs-dropdown-border-color: var(--line-2);
+    --bs-dropdown-border-radius: 16px;
+    --bs-dropdown-border-width: 1px;
+    --bs-dropdown-inner-border-radius: 10px;
+    --bs-dropdown-divider-bg: var(--line-2);
+    --bs-dropdown-divider-margin-y: 4px;
+    --bs-dropdown-box-shadow: var(--shadow-3);
+    --bs-dropdown-link-color: var(--text-2);
+    --bs-dropdown-link-hover-color: var(--text);
+    --bs-dropdown-link-hover-bg: var(--surface-3);
+    --bs-dropdown-link-active-color: var(--lav-ink);
+    --bs-dropdown-link-active-bg: var(--lav-deep);
+    --bs-dropdown-link-disabled-color: var(--subtle);
+    --bs-dropdown-item-padding-x: 12px;
+    --bs-dropdown-item-padding-y: 8px;
+    --bs-dropdown-item-border-radius: 10px;
+    --bs-dropdown-header-color: var(--subtle);
+    --bs-dropdown-header-padding-x: 12px;
+    --bs-dropdown-header-padding-y: 8px;
+    box-shadow: var(--shadow-3);
+}
+.dropdown-item { display: flex; align-items: center; gap: 10px; min-height: 40px; border-radius: 10px; font-weight: 500; }
+.dropdown-item + .dropdown-item { margin-top: 2px; }
+.dropdown-item > i[class*="mdi"], .dropdown-item > i[class*="uil"], .dropdown-item > i[class*="ri-"] { font-size: 16px; line-height: 1; color: var(--muted); margin-right: 0 !important; }
+.dropdown-item:hover > i, .dropdown-item:focus > i { color: inherit; }
+.dropdown-item.text-danger, .dropdown-item.danger { color: var(--rose-ink) !important; }
+.dropdown-item.text-danger:hover, .dropdown-item.danger:hover { background: var(--rose-deep); }
+.dropdown-header { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.dropdown-divider { margin: 4px 6px; opacity: 1; }
+.dropdown-toggle::after { border-top-color: currentColor; opacity: .7; }
+
+/* Tooltips + popovers */
+.tooltip {
+    --bs-tooltip-bg: var(--surface-2);
+    --bs-tooltip-color: var(--text-2);
+    --bs-tooltip-opacity: 1;
+    --bs-tooltip-border-radius: 12px;
+    --bs-tooltip-padding-x: 12px;
+    --bs-tooltip-padding-y: 8px;
+    --bs-tooltip-font-size: 12px;
+}
+.tooltip-inner { border: 1px solid var(--line-2); box-shadow: var(--shadow-3); line-height: 1.5; text-align: left; }
+.popover {
+    --bs-popover-bg: var(--surface-2);
+    --bs-popover-border-color: var(--line-2);
+    --bs-popover-border-radius: 18px;
+    --bs-popover-inner-border-radius: 17px;
+    --bs-popover-box-shadow: var(--shadow-3);
+    --bs-popover-header-bg: transparent;
+    --bs-popover-header-color: var(--text);
+    --bs-popover-body-color: var(--text-2);
+    --bs-popover-font-size: 13px;
+    box-shadow: var(--shadow-3);
+}

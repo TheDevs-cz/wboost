@@ -126,12 +126,12 @@
         </div>
 
         {#
-            ApexCharts is shipped standalone with the Hyper theme (no importmap
+            ApexCharts is a standalone copy in public/vendor/apexcharts (no importmap
             entry). Turbo Drive is globally disabled (<html data-turbo="false">),
             so this runs once per full page load; the chart div above is already
             parsed when the inline init executes (synchronous script tag).
         #}
-        <script src="{{ asset('theme/vendor/apexcharts/apexcharts.min.js') }}"></script>
+        <script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
         <script>
             (function () {
                 var el = document.getElementById('usage-chart');
@@ -244,8 +244,8 @@
     </div>
 
     {% if activity.hasActivity %}
-        {# ApexCharts (Hyper theme bundle) — safe to load again if the export chart already did. #}
-        <script src="{{ asset('theme/vendor/apexcharts/apexcharts.min.js') }}"></script>
+        {# ApexCharts (legacy vendor copy in public/vendor) — safe to load again if the export chart already did. #}
+        <script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
         <script>
             (function () {
                 var el = document.getElementById('activity-chart');
@@ -463,8 +463,8 @@
             </div>
         </div>
 
-        {# ApexCharts (Hyper theme bundle) — safe to load again if a chart above already did. #}
-        <script src="{{ asset('theme/vendor/apexcharts/apexcharts.min.js') }}"></script>
+        {# ApexCharts (legacy vendor copy in public/vendor) — safe to load again if a chart above already did. #}
+        <script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
         <script>
             (function () {
                 var el = document.getElementById('storage-chart');

@@ -1,0 +1,90 @@
+/* ==========================================================================
+   Nocturne — cards, boxes, tiles, list groups, empty states, skeletons
+   (spec §3.5, §3.12). Bootstrap .card → Nocturne page card (surface, hairline,
+   22 px radius, no shadow at rest).
+   ========================================================================== */
+
+.card {
+    --bs-card-spacer-y: 20px;
+    --bs-card-spacer-x: 20px;
+    --bs-card-title-spacer-y: 10px;
+    --bs-card-title-color: var(--text);
+    --bs-card-subtitle-color: var(--muted);
+    --bs-card-border-width: 1px;
+    --bs-card-border-color: var(--line);
+    --bs-card-border-radius: 22px;
+    --bs-card-box-shadow: none;
+    --bs-card-inner-border-radius: 21px;
+    --bs-card-cap-padding-y: 16px;
+    --bs-card-cap-padding-x: 20px;
+    --bs-card-cap-bg: transparent;
+    --bs-card-cap-color: var(--text);
+    --bs-card-bg: var(--surface);
+    --bs-card-color: var(--text);
+    --bs-card-group-margin: 20px;
+    box-shadow: none;
+    margin-bottom: 20px;
+}
+.card > .card-header { border-bottom-color: var(--line); font-weight: 600; }
+.card > .card-footer { border-top-color: var(--line); }
+.card-title, .card .header-title { font-size: 16px; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
+.card .header-title { margin-bottom: 14px; }
+.card-subtitle { color: var(--muted); }
+.card.shadow, .card.shadow-sm { box-shadow: none !important; }
+.card.border-0 { --bs-card-border-width: 1px; border: 1px solid var(--line) !important; }
+a.card:hover, .card.card-hover:hover { border-color: var(--line-3); box-shadow: var(--shadow-2); }
+.card.bg-dark { background: var(--surface) !important; }
+
+/* Prototype box / tile primitives (generic; screen agents extend) */
+.pd-box { display: flex; flex-direction: column; gap: 16px; padding: 24px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); }
+.pd-box-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.pd-box-h h2 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.tile { display: flex; flex-direction: column; gap: 6px; padding: 22px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); color: var(--text); text-decoration: none; transition: border-color .2s, transform .2s, box-shadow .2s; }
+a.tile:hover, .tile.link:hover { border-color: var(--line-3); transform: translateY(-2px); color: var(--text); }
+.ico-c { width: 56px; height: 56px; flex: none; border-radius: 50%; background: var(--lav-deep); color: var(--lav-ink); display: inline-flex; align-items: center; justify-content: center; }
+.ico-c .i { width: 26px; height: 26px; }
+.ico-c.danger { background: var(--rose-deep); color: var(--rose-ink); }
+.ico-c.sm { width: 44px; height: 44px; } .ico-c.sm .i { width: 20px; height: 20px; }
+
+/* Empty state */
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 64px 24px; border-radius: 22px; border: 1.5px dashed var(--line-3); text-align: center; }
+.empty h2, .empty h3 { font-size: 18px; font-weight: 600; }
+.empty p { color: var(--muted); max-width: 380px; margin: 0; }
+
+/* Skeleton */
+.sk { border-radius: 22px; height: 196px; background: linear-gradient(90deg, var(--surface), var(--surface-2), var(--surface)); background-size: 200% 100%; animation: sh 1.6s linear infinite; }
+
+/* List groups → hairline rows in a bordered box */
+.list-group {
+    --bs-list-group-color: var(--text);
+    --bs-list-group-bg: var(--surface);
+    --bs-list-group-border-color: var(--line);
+    --bs-list-group-border-radius: 16px;
+    --bs-list-group-item-padding-x: 16px;
+    --bs-list-group-item-padding-y: 12px;
+    --bs-list-group-action-color: var(--text-2);
+    --bs-list-group-action-hover-color: var(--text);
+    --bs-list-group-action-hover-bg: var(--surface-2);
+    --bs-list-group-action-active-color: var(--text);
+    --bs-list-group-action-active-bg: var(--surface-3);
+    --bs-list-group-disabled-color: var(--subtle);
+    --bs-list-group-disabled-bg: var(--surface);
+    --bs-list-group-active-color: var(--lav-ink);
+    --bs-list-group-active-bg: var(--lav-deep);
+    --bs-list-group-active-border-color: var(--lav-line);
+}
+.list-group-flush { --bs-list-group-bg: transparent; }
+
+/* Accordion */
+.accordion {
+    --bs-accordion-color: var(--text);
+    --bs-accordion-bg: var(--surface);
+    --bs-accordion-border-color: var(--line);
+    --bs-accordion-border-radius: 16px;
+    --bs-accordion-inner-border-radius: 15px;
+    --bs-accordion-btn-color: var(--text);
+    --bs-accordion-btn-bg: var(--surface);
+    --bs-accordion-active-color: var(--lav-ink);
+    --bs-accordion-active-bg: var(--lav-deep);
+    --bs-accordion-btn-focus-box-shadow: 0 0 0 3px var(--lav-glow);
+}

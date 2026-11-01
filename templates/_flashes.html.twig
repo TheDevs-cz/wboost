@@ -1,9 +1,15 @@
+{# Flash messages as Nocturne notices (kit .alert: accent circle + icon).
+   Keeps Bootstrap's `alert alert-{label}` classes + data-bs-dismiss — tests
+   and controllers select on them. #}
+{% set flash_icons = {'success': 'check-circle', 'danger': 'alert', 'error': 'alert', 'warning': 'alert', 'info': 'info'} %}
+{% set flash_scopes = {'success': 'c-success', 'danger': 'c-danger', 'error': 'c-danger', 'warning': 'c-warning', 'info': 'c-info'} %}
 {% for label, messages in app.flashes %}
-    <div class="mb-3">
+    <div class="flashes d-flex flex-column gap-2">
         {% for message in messages %}
-            <div class="alert-dismissible fade show alert alert-{{ label }}" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="alert alert-{{ label }} {{ flash_scopes[label]|default('c-info') }} alert-dismissible fade show mb-0" role="alert">
+                {{ icon(flash_icons[label]|default('info')) }}
+                <div class="alert-d mt-0">{{ message }}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zavřít"></button>
             </div>
         {% endfor %}
     </div>

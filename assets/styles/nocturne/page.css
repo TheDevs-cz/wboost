@@ -1,0 +1,173 @@
+/* ==========================================================================
+   Nocturne — page furniture (spec §2.2, §2.3, §3.7): page header (.head),
+   back link + breadcrumb trail, underline tabs, Bootstrap nav-tabs/pills,
+   pagination, in-page toolbar card, and the utility overrides that would
+   otherwise look wrong on the dark theme.
+   ========================================================================== */
+
+/* ---- Page header ---------------------------------------------------------
+   <header class="head">
+     <div class="head-main"><span class="lbl">Eyebrow</span><h1>Title <small>24</small></h1><span class="cap head-lead">…</span></div>
+     <div class="head-tools">…search + exactly one primary…</div>
+   </header>                                                                 */
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; }
+.head-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.head h1 { margin: 0; font-size: clamp(28px, 4vw, 38px); font-weight: 600; letter-spacing: -.025em; line-height: 1.05; text-wrap: balance; overflow-wrap: anywhere; }
+.head h1 small { font-size: .6em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.head-lead { display: block; font-size: 13px; color: var(--muted); max-width: 640px; line-height: 1.5; }
+.head-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.head-tools:empty { display: none; }
+.head-tools .inp { width: 280px; max-width: 100%; }
+/* Legacy `title_actions` content was written for a right-aligned column
+   (`text-sm-end`, `float-end`, `.row` …) — let it sit inline in the tools. */
+.head-tools > .text-sm-end, .head-tools > .text-end, .head-tools > div:only-child { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; text-align: left !important; }
+.head-tools .float-end { float: none !important; }
+.head-tools > .row { margin: 0; }
+
+/* Back link above the head ("← Všechny projekty") */
+.back { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; align-self: flex-start; color: var(--muted); font-size: 13px; font-weight: 500; text-decoration: none; }
+.back:hover { color: var(--text); }
+
+/* Breadcrumb → quiet back-trail above the head. The current page (the
+   `.active` last item) duplicates the h1, so it is hidden there. */
+.page-crumbs { margin-bottom: -16px; }
+.page-crumbs .breadcrumb, .breadcrumb {
+    --bs-breadcrumb-divider: "›";
+    --bs-breadcrumb-divider-color: var(--subtle);
+    --bs-breadcrumb-item-padding-x: 8px;
+    --bs-breadcrumb-item-active-color: var(--text-2);
+    --bs-breadcrumb-margin-bottom: 0;
+    --bs-breadcrumb-font-size: 13px;
+    padding: 0 !important;
+    margin: 0;
+    background: none;
+    align-items: center;
+    row-gap: 4px;
+}
+.breadcrumb-item, .breadcrumb-item a { color: var(--muted); font-weight: 500; text-decoration: none; }
+.breadcrumb-item a:hover { color: var(--text); }
+.breadcrumb-item > i { display: none; }
+.page-crumbs .breadcrumb-item:first-child::before {
+    content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 8px; vertical-align: -3px; float: none; padding: 0;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M19 12H5M11 6l-6 6 6 6'/></svg>") center / contain no-repeat;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M19 12H5M11 6l-6 6 6 6'/></svg>") center / contain no-repeat;
+}
+.page-crumbs .breadcrumb-item.active:last-child:not(:first-child) { display: none; }
+.page-crumbs:has(.breadcrumb-item.active:only-child) { display: none; }
+
+/* ---- Tabs ---------------------------------------------------------------- */
+.tabs-u { display: flex; gap: 28px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.tabs-u button, .tabs-u a { position: relative; height: 48px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; text-decoration: none; }
+.tabs-u button:hover, .tabs-u a:hover { color: var(--text); }
+.tabs-u .on, .tabs-u [aria-selected="true"], .tabs-u [aria-current="page"] { color: var(--text); }
+.tabs-u .on::after, .tabs-u [aria-selected="true"]::after, .tabs-u [aria-current="page"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--a); }
+
+.nav-tabs {
+    --bs-nav-link-color: var(--muted);
+    --bs-nav-link-hover-color: var(--text);
+    --bs-nav-link-font-weight: 600;
+    --bs-nav-link-padding-x: 0;
+    --bs-nav-link-padding-y: 12px;
+    --bs-nav-tabs-border-color: var(--line);
+    --bs-nav-tabs-border-width: 1px;
+    --bs-nav-tabs-border-radius: 0;
+    --bs-nav-tabs-link-hover-border-color: transparent;
+    --bs-nav-tabs-link-active-color: var(--text);
+    --bs-nav-tabs-link-active-bg: transparent;
+    --bs-nav-tabs-link-active-border-color: transparent;
+    gap: 28px;
+}
+.nav-tabs .nav-link { position: relative; border: 0; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; }
+.nav-tabs .nav-link.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--lav); }
+.nav-tabs.nav-bordered { border-bottom: 1px solid var(--line); }
+.nav-pills {
+    --bs-nav-link-color: var(--text-2);
+    --bs-nav-link-hover-color: var(--text);
+    --bs-nav-link-font-weight: 600;
+    --bs-nav-link-padding-x: 16px;
+    --bs-nav-link-padding-y: 8px;
+    --bs-nav-pills-border-radius: 999px;
+    --bs-nav-pills-link-active-color: var(--lav-ink);
+    --bs-nav-pills-link-active-bg: var(--lav-deep);
+    gap: 4px;
+}
+.nav-link { font-size: 14px; }
+.tab-content { padding-top: 16px; }
+
+/* ---- Pagination ---------------------------------------------------------- */
+.pagination {
+    --bs-pagination-padding-x: 12px;
+    --bs-pagination-padding-y: 8px;
+    --bs-pagination-font-size: 13px;
+    --bs-pagination-color: var(--text-2);
+    --bs-pagination-bg: transparent;
+    --bs-pagination-border-width: 1px;
+    --bs-pagination-border-color: var(--line-2);
+    --bs-pagination-border-radius: 999px;
+    --bs-pagination-hover-color: var(--text);
+    --bs-pagination-hover-bg: var(--surface-3);
+    --bs-pagination-hover-border-color: var(--line-3);
+    --bs-pagination-focus-color: var(--text);
+    --bs-pagination-focus-bg: var(--surface-3);
+    --bs-pagination-focus-box-shadow: 0 0 0 3px var(--lav-glow);
+    --bs-pagination-active-color: var(--on-accent);
+    --bs-pagination-active-bg: var(--lav);
+    --bs-pagination-active-border-color: var(--lav);
+    --bs-pagination-disabled-color: var(--subtle);
+    --bs-pagination-disabled-bg: transparent;
+    --bs-pagination-disabled-border-color: var(--line);
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.pagination .page-link { border-radius: 999px !important; min-width: 36px; text-align: center; font-weight: 600; }
+.pagination .page-item:not(:first-child) .page-link { margin-left: 0; }
+
+/* ---- In-page toolbar card (prototype .gal-nav) ---------------------------- */
+.toolbar-card, .gal-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); }
+.toolbar-card .sp, .gal-nav-sp { flex: 1; }
+
+/* ---- Utility overrides that read wrong on the dark theme ---------------- */
+.text-muted, .text-body-secondary { color: var(--muted) !important; }
+.text-secondary { color: var(--muted) !important; }
+.text-dark, .text-black, .text-body, .text-body-emphasis { color: var(--text) !important; }
+.text-primary, .link-primary { color: var(--lav-ink) !important; }
+.text-success, .link-success { color: var(--mnt-ink) !important; }
+.text-danger, .link-danger { color: var(--rose-ink) !important; }
+.text-warning, .link-warning { color: var(--pch-ink) !important; }
+.text-info, .link-info { color: var(--lav-ink) !important; }
+.bg-light, .bg-body-tertiary, .bg-body-secondary { background-color: var(--surface-2) !important; }
+.bg-body { background-color: var(--bg) !important; }
+.bg-dark { background-color: var(--surface-3) !important; color: var(--text); }
+.bg-primary-lighten, .bg-info-lighten { background-color: var(--lav-deep) !important; }
+.bg-success-lighten { background-color: var(--mnt-deep) !important; }
+.bg-danger-lighten { background-color: var(--rose-deep) !important; }
+.bg-warning-lighten { background-color: var(--pch-deep) !important; }
+.border, .border-top, .border-bottom, .border-start, .border-end { border-color: var(--line-2) !important; }
+.border-light, .border-secondary { border-color: var(--line-2) !important; }
+.border-primary { border-color: var(--lav-line) !important; }
+.border-dashed { border-style: dashed !important; }
+.shadow, .shadow-sm { box-shadow: var(--shadow-2) !important; }
+.shadow-lg { box-shadow: var(--shadow-3) !important; }
+.img-thumbnail { background: var(--surface-2); border-color: var(--line-2); border-radius: 14px; }
+.figure-caption { color: var(--subtle); }
+.vr { background-color: var(--line-2); opacity: 1; }
+.font-13 { font-size: 13px !important; } .font-12 { font-size: 12px !important; } .font-14 { font-size: 14px !important; } .font-16 { font-size: 16px !important; } .font-18 { font-size: 18px !important; } .font-20 { font-size: 20px !important; } .font-22 { font-size: 22px !important; } .font-24 { font-size: 24px !important; }
+.fw-semibold { font-weight: 600 !important; }
+/* Hyper avatars still used by a few pages */
+.avatar-xs { height: 24px; width: 24px; } .avatar-sm { height: 36px; width: 36px; } .avatar-md { height: 48px; width: 48px; } .avatar-lg { height: 64px; width: 64px; }
+.avatar-title { align-items: center; display: flex; height: 100%; justify-content: center; width: 100%; background: var(--lav-deep); color: var(--lav-ink); font-weight: 600; }
+
+/* Hyper helper classes still present in screen templates (until their phase) */
+.arrow-none::after { display: none !important; }
+.card-widgets { float: right; height: 16px; }
+.card-widgets > a { color: inherit; font-size: 18px; display: inline-block; line-height: 1; }
+.card-drop { color: var(--muted); font-size: 20px; line-height: 1; display: inline-flex; }
+.card-drop:hover { color: var(--text); }
+.tilebox-one { position: relative; }
+.tilebox-one i { position: absolute; right: 22px; font-size: 32px; opacity: .3; }
+.widget-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 20px; color: var(--lav-ink); background: var(--lav-deep); border-radius: 12px; }
+.font-11 { font-size: 11px !important; }
+.bg-secondary-lighten, .bg-dark-lighten { background-color: var(--surface-3) !important; }
+.badge-warning-lighten { background: var(--pch-deep); color: var(--pch-ink); }
+.text-error { color: var(--lav-ink); font-size: 72px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }

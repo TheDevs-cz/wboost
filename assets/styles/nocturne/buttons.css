@@ -1,0 +1,252 @@
+/* ==========================================================================
+   Nocturne — buttons (spec §3.1). Restyles Bootstrap's .btn variants through
+   Bootstrap's own --bs-btn-* variables (so btn-group corners, .active,
+   :disabled and .btn-check keep working), and adds the prototype modifiers.
+
+   A bare `.btn` with no variant/size class stays an UNSTYLED Bootstrap
+   wrapper (the gallery tiles use `btn p-0` as a click target), so the pill
+   shape only applies once a variant/size/modifier class is present.
+
+   Use in new markup:
+     btn btn-primary            lavender pill, 44 px  (prototype `.btn`)
+     btn btn-tertiary           surface-3 pill        (prototype `.btn.tertiary`)
+     btn btn-ghost              transparent           (prototype `.btn.ghost`)
+     btn btn-danger             rose pill             (prototype `.btn.danger`)
+     btn btn-ghost-danger       transparent rose text
+     btn btn-success            mint pill (save/confirm: .ed-save / .fi-ok)
+     + sm (40) | xs (32) | btn-icon (square)  — prototype names
+       `.sm/.xs/.icon/.ghost/.tertiary/.danger` work too.
+   Legacy Bootstrap sizes: .btn-sm → 32 px (xs), .btn-lg → 48 px.
+   ========================================================================== */
+
+.btn:where([class*="btn-"], .primary, .tertiary, .ghost, .danger, .sm, .xs, .icon) {
+    --bs-btn-padding-x: 18px;
+    --bs-btn-padding-y: 0;
+    --bs-btn-font-family: var(--font);
+    --bs-btn-font-size: 14px;
+    --bs-btn-font-weight: 600;
+    --bs-btn-line-height: 1.2;
+    --bs-btn-border-width: 1px;
+    --bs-btn-border-radius: 999px;
+    --bs-btn-box-shadow: none;
+    --bs-btn-focus-box-shadow: 0 0 0 3px var(--lav-glow);
+    --bs-btn-disabled-opacity: .4;
+    --n-btn-h: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: var(--n-btn-h);
+    white-space: nowrap;
+    transition: background-color .2s, border-color .2s, box-shadow .2s, color .2s, transform .12s;
+}
+.btn:where([class*="btn-"], .primary, .tertiary, .ghost, .danger, .sm, .xs, .icon):active { transform: translateY(1px) scale(.98); }
+.btn:where([class*="btn-"], .primary, .tertiary, .ghost, .danger, .sm, .xs, .icon):disabled,
+.btn:where([class*="btn-"], .primary, .tertiary, .ghost, .danger, .sm, .xs, .icon).disabled { box-shadow: none; transform: none; }
+/* Legacy icon fonts inside buttons: the flex gap already spaces them. */
+.btn > i[class*="mdi"], .btn > i[class*="uil"], .btn > i[class*="ri-"] { line-height: 1; }
+
+/* Sizes */
+.btn.btn-lg { --bs-btn-padding-x: 22px; --bs-btn-font-size: 15px; --n-btn-h: 48px; }
+.btn.sm { --bs-btn-padding-x: 16px; --bs-btn-font-size: 13px; --n-btn-h: 40px; }
+.btn.btn-sm, .btn.xs, .btn.btn-xs { --bs-btn-padding-x: 12px; --bs-btn-font-size: 12px; --n-btn-h: 32px; gap: 6px; }
+.btn.icon, .btn.btn-icon { --bs-btn-padding-x: 0; width: 40px; min-height: 40px; height: 40px; }
+.btn.icon.xs, .btn.btn-icon.xs, .btn.btn-icon.btn-sm, .btn.icon.btn-sm { width: 32px; min-height: 32px; height: 32px; }
+.btn.is-loading { color: transparent !important; pointer-events: none; position: relative; }
+.btn.is-loading::after { content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--on-accent); border-right-color: transparent; animation: spin .8s linear infinite; }
+
+/* Primary — lavender pill with glow */
+.btn-primary, .btn.primary {
+    --bs-btn-color: var(--on-accent);
+    --bs-btn-bg: var(--lav);
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--on-accent);
+    --bs-btn-hover-bg: color-mix(in oklab, var(--lav) 86%, white);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--on-accent);
+    --bs-btn-active-bg: color-mix(in oklab, var(--lav) 86%, white);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--on-accent);
+    --bs-btn-disabled-bg: var(--lav);
+    --bs-btn-disabled-border-color: transparent;
+    box-shadow: 0 8px 24px var(--lav-glow);
+}
+
+/* Tertiary — every "secondary" Bootstrap variant lands here */
+.btn-tertiary, .btn.tertiary,
+.btn-secondary, .btn-light, .btn-dark,
+.btn-outline-secondary, .btn-outline-primary, .btn-outline-light, .btn-outline-dark, .btn-outline-info, .btn-outline-warning,
+.btn-info {
+    --bs-btn-color: var(--text);
+    --bs-btn-bg: var(--surface-3);
+    --bs-btn-border-color: var(--line-2);
+    --bs-btn-hover-color: var(--text);
+    --bs-btn-hover-bg: var(--line-3);
+    --bs-btn-hover-border-color: var(--line-3);
+    --bs-btn-active-color: var(--lav-ink);
+    --bs-btn-active-bg: var(--lav-deep);
+    --bs-btn-active-border-color: var(--lav-line);
+    --bs-btn-disabled-color: var(--text);
+    --bs-btn-disabled-bg: var(--surface-3);
+    --bs-btn-disabled-border-color: var(--line-2);
+}
+
+/* Ghost */
+.btn-ghost, .btn.ghost {
+    --bs-btn-color: var(--text-2);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--text);
+    --bs-btn-hover-bg: var(--surface-3);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--lav-ink);
+    --bs-btn-active-bg: var(--lav-deep);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--text-2);
+    --bs-btn-disabled-bg: transparent;
+    --bs-btn-disabled-border-color: transparent;
+    box-shadow: none;
+}
+
+/* Hyper's soft-primary — tinted lavender */
+.btn-soft-primary {
+    --bs-btn-color: var(--lav-ink);
+    --bs-btn-bg: var(--lav-deep);
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--lav-ink);
+    --bs-btn-hover-bg: color-mix(in oklab, var(--lav-deep) 80%, var(--lav));
+    --bs-btn-hover-border-color: var(--lav-line);
+    --bs-btn-active-color: var(--on-accent);
+    --bs-btn-active-bg: var(--lav);
+    --bs-btn-active-border-color: transparent;
+}
+
+/* Danger — rose pill */
+.btn-danger, .btn.danger {
+    --bs-btn-color: var(--on-accent);
+    --bs-btn-bg: var(--rose);
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--on-accent);
+    --bs-btn-hover-bg: color-mix(in oklab, var(--rose) 86%, white);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--on-accent);
+    --bs-btn-active-bg: color-mix(in oklab, var(--rose) 86%, white);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--on-accent);
+    --bs-btn-disabled-bg: var(--rose);
+    --bs-btn-disabled-border-color: transparent;
+    box-shadow: 0 8px 24px var(--rose-glow);
+}
+.btn.ghost.danger { --bs-btn-bg: transparent; --bs-btn-color: var(--rose-ink); --bs-btn-hover-bg: var(--rose-deep); --bs-btn-hover-color: var(--rose-ink); box-shadow: none; }
+
+/* Ghost danger / outline danger — quiet destructive */
+.btn-ghost-danger, .btn-outline-danger {
+    --bs-btn-color: var(--rose-ink);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: var(--line-2);
+    --bs-btn-hover-color: var(--rose-ink);
+    --bs-btn-hover-bg: var(--rose-deep);
+    --bs-btn-hover-border-color: var(--rose-line);
+    --bs-btn-active-color: var(--on-accent);
+    --bs-btn-active-bg: var(--rose);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--rose-ink);
+    --bs-btn-disabled-bg: transparent;
+    --bs-btn-disabled-border-color: var(--line-2);
+}
+.btn-ghost-danger { --bs-btn-border-color: transparent; }
+
+/* Success — mint pill (save / confirm) */
+.btn-success {
+    --bs-btn-color: var(--on-accent);
+    --bs-btn-bg: var(--mnt);
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--on-accent);
+    --bs-btn-hover-bg: color-mix(in oklab, var(--mnt) 86%, white);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--on-accent);
+    --bs-btn-active-bg: color-mix(in oklab, var(--mnt) 86%, white);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--on-accent);
+    --bs-btn-disabled-bg: var(--mnt);
+    --bs-btn-disabled-border-color: transparent;
+    box-shadow: 0 8px 24px var(--mnt-glow);
+}
+.btn-outline-success {
+    --bs-btn-color: var(--mnt-ink);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: var(--line-2);
+    --bs-btn-hover-color: var(--mnt-ink);
+    --bs-btn-hover-bg: var(--mnt-deep);
+    --bs-btn-hover-border-color: var(--mnt-line);
+    --bs-btn-active-color: var(--on-accent);
+    --bs-btn-active-bg: var(--mnt);
+    --bs-btn-active-border-color: transparent;
+}
+
+/* Warning — peach pill */
+.btn-warning {
+    --bs-btn-color: var(--on-accent);
+    --bs-btn-bg: var(--pch);
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--on-accent);
+    --bs-btn-hover-bg: color-mix(in oklab, var(--pch) 86%, white);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--on-accent);
+    --bs-btn-active-bg: color-mix(in oklab, var(--pch) 86%, white);
+    --bs-btn-active-border-color: transparent;
+}
+
+/* Link — text button, no pill box */
+.btn-link {
+    --bs-btn-color: var(--lav-ink);
+    --bs-btn-hover-color: var(--text);
+    --bs-btn-active-color: var(--text);
+    --bs-btn-disabled-color: var(--muted);
+    --bs-btn-padding-x: 6px;
+    --n-btn-h: 0px;
+    text-decoration: none;
+    font-weight: 600;
+}
+.btn-link:hover { text-decoration: none; }
+
+/* Toggle buttons (aria-pressed / Bootstrap .btn-check) */
+.btn[aria-pressed="true"]:not(.btn-primary):not(.btn-danger):not(.btn-success) { background: var(--lav-deep); border-color: var(--lav-line); color: var(--lav-ink); }
+
+/* Groups: pills only on the outer ends (Bootstrap zeroes the inner corners) */
+.btn-group { gap: 0; }
+.btn-group > .btn:not(:first-child) { margin-left: -1px; }
+.btn-group-sm > .btn { --bs-btn-padding-x: 12px; --bs-btn-font-size: 12px; --n-btn-h: 32px; }
+
+/* Close button — round ghost icon button with the Nocturne x */
+.btn-close {
+    --bs-btn-close-bg: none;
+    --bs-btn-close-opacity: 1;
+    --bs-btn-close-hover-opacity: 1;
+    --bs-btn-close-focus-shadow: 0 0 0 3px var(--lav-glow);
+    position: relative;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 999px;
+    background: transparent none !important;
+    color: var(--text-2);
+    filter: none !important;
+    transition: background-color var(--dur-2), color var(--dur-2);
+    flex: none;
+}
+.btn-close::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M6 6l12 12M18 6L6 18'/></svg>") center / contain no-repeat;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M6 6l12 12M18 6L6 18'/></svg>") center / contain no-repeat;
+}
+.btn-close:hover { background-color: var(--surface-3) !important; color: var(--text); }
+.btn-close-white { color: #fff; }
+/* Bootstrap text alignment utilities on (now flex) buttons */
+.btn.text-start { justify-content: flex-start; }
+.btn.text-end { justify-content: flex-end; }
+/* Full-width legacy buttons in narrow columns may wrap rather than overflow */
+.btn.w-100, .btn.d-block { white-space: normal; }

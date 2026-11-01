@@ -1,0 +1,74 @@
+/* ==========================================================================
+   Nocturne — chips, filter bar, pills, counters, tags, avatars, symbols,
+   selected tick (spec §3.4, §3.5 .sym/.av, §3.6) + Bootstrap .badge mapping.
+   ========================================================================== */
+
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: var(--text-2); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all var(--dur-2); }
+.chip:hover { border-color: var(--line-3); color: var(--text); }
+.chip.on, .chip[aria-pressed="true"] { background: var(--a-deep); border-color: var(--a-line); color: var(--a-ink); }
+.chip.sm { height: 32px; padding: 0 12px; font-size: 12px; }
+.chip .n { font-size: 11px; font-weight: 600; color: var(--subtle); font-variant-numeric: tabular-nums; }
+.chip.on .n, .chip[aria-pressed="true"] .n { color: inherit; opacity: .75; }
+.chip .av { width: 24px; height: 24px; font-size: 10px; margin-left: -10px; border: 0; }
+.fbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fbar .sep { width: 1px; height: 24px; background: var(--line-2); margin: 0 4px; }
+.fdrop { position: relative; }
+.fdrop .menu { position: absolute; left: 0; top: 46px; z-index: 20; width: 260px; }
+
+.count { margin-left: auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--lav); color: var(--on-accent); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.pill { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--lav-deep); color: var(--lav-ink); flex: none; white-space: nowrap; }
+.pill .i { width: 12px; height: 12px; }
+.pill.mint { background: var(--mnt-deep); color: var(--mnt-ink); }
+.pill.pch { background: var(--pch-deep); color: var(--pch-ink); }
+.pill.rose { background: var(--rose-deep); color: var(--rose-ink); }
+.pill.r-user, .pill.neutral { background: var(--surface-3); color: var(--text-2); }
+.pill.solid { background: var(--lav); color: var(--on-accent); }
+.pd-n { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--surface-3); color: var(--muted); font-size: 11px; font-weight: 600; }
+.yn { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--rose-deep); color: var(--rose-ink); }
+.yn.on { background: var(--mnt-deep); color: var(--mnt-ink); }
+
+.chk { width: 20px; height: 20px; flex: none; border-radius: 50%; background: var(--mnt); color: var(--on-accent); display: inline-flex; align-items: center; justify-content: center; }
+.chk .i { width: 12px; height: 12px; }
+.chk.lg { width: 28px; height: 28px; } .chk.lg .i { width: 16px; height: 16px; }
+
+.av { width: 34px; height: 34px; flex: none; border-radius: 50%; background: var(--lav-deep); color: var(--lav-ink); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+.av img { width: 100%; height: 100%; object-fit: cover; }
+.av.req { background: var(--mnt-deep); color: var(--mnt-ink); }
+.av.inv { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-3); color: var(--muted); }
+
+.sym { width: 56px; height: 56px; flex: none; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; letter-spacing: -.02em; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow: hidden; }
+.sym.mono { background: var(--surface-3); color: var(--text-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+.sym img { width: 100%; height: 100%; object-fit: contain; padding: 8px; background: #fff; }
+.sym.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; }
+.sym.sm img { padding: 3px; }
+
+/* ---- Bootstrap .badge → Nocturne pill (tinted, not solid) --------------- */
+.badge {
+    --bs-badge-padding-x: 9px;
+    --bs-badge-padding-y: 0;
+    --bs-badge-font-size: 11px;
+    --bs-badge-font-weight: 600;
+    --bs-badge-color: var(--lav-ink);
+    --bs-badge-border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 22px;
+    line-height: 1.2;
+    background-color: var(--lav-deep);
+    vertical-align: middle;
+}
+.badge.bg-primary, .badge.bg-info, .badge.text-bg-primary, .badge.text-bg-info { background-color: var(--lav-deep) !important; color: var(--lav-ink) !important; }
+.badge.bg-success, .badge.text-bg-success { background-color: var(--mnt-deep) !important; color: var(--mnt-ink) !important; }
+.badge.bg-danger, .badge.text-bg-danger { background-color: var(--rose-deep) !important; color: var(--rose-ink) !important; }
+.badge.bg-warning, .badge.text-bg-warning { background-color: var(--pch-deep) !important; color: var(--pch-ink) !important; }
+.badge.bg-secondary, .badge.bg-light, .badge.bg-dark, .badge.text-bg-secondary, .badge.text-bg-light, .badge.text-bg-dark { background-color: var(--surface-3) !important; color: var(--text-2) !important; }
+.badge.rounded-pill { border-radius: 999px; }
+/* Hyper's *-lighten soft badges */
+.badge[class*="badge-primary-lighten"], .badge[class*="badge-info-lighten"] { background: var(--lav-deep); color: var(--lav-ink); }
+.badge[class*="badge-success-lighten"] { background: var(--mnt-deep); color: var(--mnt-ink); }
+.badge[class*="badge-danger-lighten"] { background: var(--rose-deep); color: var(--rose-ink); }
+.badge[class*="badge-warning-lighten"] { background: var(--pch-deep); color: var(--pch-ink); }
+.badge[class*="badge-secondary-lighten"], .badge[class*="badge-light-lighten"], .badge[class*="badge-dark-lighten"] { background: var(--surface-3); color: var(--text-2); }
+.badge[class*="badge-outline-"] { background: transparent; border: 1px solid var(--line-2); color: var(--text-2); }

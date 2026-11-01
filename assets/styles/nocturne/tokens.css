@@ -1,0 +1,191 @@
+/* ==========================================================================
+   Nocturne — design tokens (docs/redesign/design-system.md §1).
+   Values copied from docs/redesign/prototype/app.css `:root` + the light
+   override. Dark is the default; light = :root[data-theme="light"] (set by
+   the inline <head> script from localStorage['wb-theme']) or the OS
+   preference when no theme is forced.
+
+   Also maps Bootstrap 5.3's custom properties onto the tokens, so every
+   Bootstrap component we have not restyled yet still follows the theme, and
+   keeps a small `--ct-*` shim for the Hyper-era rules still living in
+   assets/styles/app.css (to be removed in P10).
+   ========================================================================== */
+
+:root {
+    --bg: #0B0A0D; --surface: #141317; --surface-2: #1D1B21; --surface-3: #24222A;
+    --line: #24222A; --line-2: #2C2931; --line-3: #3A3640;
+    --text: #F2EEF6; --text-2: #C9C4D0; --muted: #9A95A3; --subtle: #8A8593;
+    --lav: #C7B6F2; --lav-deep: #2A2440; --lav-ink: #C7B6F2; --lav-glow: rgba(199,182,242,.22); --lav-line: rgba(199,182,242,.45);
+    --rose: #F2A7B4; --rose-deep: #3D2228; --rose-ink: #F2A7B4; --rose-glow: rgba(242,167,180,.2);
+    --mnt: #A6E3CC; --mnt-deep: #1E3830; --mnt-ink: #A6E3CC;
+    --pch: #F4C09A; --pch-deep: #3A2A20; --pch-ink: #F4C09A;
+    /* Missing in the prototype (spec §1.3, proposed): same alpha pattern as lavender. */
+    --rose-line: rgba(242,167,180,.45);
+    --mnt-glow: rgba(166,227,204,.2); --mnt-line: rgba(166,227,204,.45);
+    --pch-glow: rgba(244,192,154,.2); --pch-line: rgba(244,192,154,.45);
+    --on-accent: #141218; --scrim: rgba(5,4,7,.66);
+    --shadow-2: 0 8px 24px rgba(0,0,0,.45); --shadow-3: 0 24px 56px rgba(0,0,0,.55); --shadow-4: 0 48px 112px rgba(0,0,0,.7);
+    /* Charts (spec §1.5) */
+    --ch-1: #8C75DB; --ch-2: #D07A3A; --ch-ghost: #24222A;
+    --font: Biotic, "Outfit", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --ease: cubic-bezier(.2,.7,.2,1);
+    --dur-1: 120ms; --dur-2: 200ms; --dur-3: 320ms;
+    /* Accent scope, same names as the kit (.chip, .chk, .alert …); re-scoped by .c-* */
+    --a: var(--lav); --a-deep: var(--lav-deep); --a-ink: var(--lav-ink); --a-line: var(--lav-line); --a-glow: var(--lav-glow); --on-a: var(--on-accent);
+    /* Shell metrics */
+    --sbw-open: 272px; --sbw-rail: 84px; --mbar-h: 60px;
+    color-scheme: dark;
+
+    /* RGB triplets for Bootstrap's rgba(var(--bs-*-rgb)) utilities */
+    --n-bg-rgb: 11,10,13; --n-surface-rgb: 20,19,23; --n-surface-2-rgb: 29,27,33; --n-surface-3-rgb: 36,34,42;
+    --n-text-rgb: 242,238,246; --n-muted-rgb: 154,149,163; --n-line-2-rgb: 44,41,49;
+}
+
+/* Light — keep both blocks in sync (OS preference + forced). */
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+    --bg: #F6F4F8; --surface: #FFFFFF; --surface-2: #F1EEF5; --surface-3: #E8E4EE;
+    --line: #E6E2EC; --line-2: #DAD5E1; --line-3: #C6C0CF;
+    --logo-ink: #29253E; --text: #17151B; --text-2: #3A3640; --muted: #5E5966; --subtle: #6B6673;
+    --lav-deep: #EEE8FC; --lav-ink: #5B47A8; --lav-glow: rgba(91,71,168,.16); --lav-line: rgba(91,71,168,.32);
+    --rose-deep: #FCE4E8; --rose-ink: #A3334B; --rose-glow: rgba(163,51,75,.14); --rose-line: rgba(163,51,75,.32);
+    --mnt-deep: #E0F5EC; --mnt-ink: #1D6E52; --mnt-glow: rgba(29,110,82,.14); --mnt-line: rgba(29,110,82,.32);
+    --pch-deep: #FDEBDD; --pch-ink: #93501F; --pch-glow: rgba(147,80,31,.14); --pch-line: rgba(147,80,31,.32);
+    --scrim: rgba(23,21,27,.4);
+    --shadow-2: 0 8px 24px rgba(23,21,27,.08); --shadow-3: 0 24px 56px rgba(23,21,27,.12); --shadow-4: 0 48px 112px rgba(23,21,27,.18);
+    --ch-1: #5B47A8; --ch-2: #93501F; --ch-ghost: #ECE8F2;
+    --n-bg-rgb: 246,244,248; --n-surface-rgb: 255,255,255; --n-surface-2-rgb: 241,238,245; --n-surface-3-rgb: 232,228,238;
+    --n-text-rgb: 23,21,27; --n-muted-rgb: 94,89,102; --n-line-2-rgb: 218,213,225;
+    color-scheme: light;
+} }
+:root[data-theme="light"] {
+    --bg: #F6F4F8; --surface: #FFFFFF; --surface-2: #F1EEF5; --surface-3: #E8E4EE;
+    --line: #E6E2EC; --line-2: #DAD5E1; --line-3: #C6C0CF;
+    --logo-ink: #29253E; --text: #17151B; --text-2: #3A3640; --muted: #5E5966; --subtle: #6B6673;
+    --lav-deep: #EEE8FC; --lav-ink: #5B47A8; --lav-glow: rgba(91,71,168,.16); --lav-line: rgba(91,71,168,.32);
+    --rose-deep: #FCE4E8; --rose-ink: #A3334B; --rose-glow: rgba(163,51,75,.14); --rose-line: rgba(163,51,75,.32);
+    --mnt-deep: #E0F5EC; --mnt-ink: #1D6E52; --mnt-glow: rgba(29,110,82,.14); --mnt-line: rgba(29,110,82,.32);
+    --pch-deep: #FDEBDD; --pch-ink: #93501F; --pch-glow: rgba(147,80,31,.14); --pch-line: rgba(147,80,31,.32);
+    --scrim: rgba(23,21,27,.4);
+    --shadow-2: 0 8px 24px rgba(23,21,27,.08); --shadow-3: 0 24px 56px rgba(23,21,27,.12); --shadow-4: 0 48px 112px rgba(23,21,27,.18);
+    --ch-1: #5B47A8; --ch-2: #93501F; --ch-ghost: #ECE8F2;
+    --n-bg-rgb: 246,244,248; --n-surface-rgb: 255,255,255; --n-surface-2-rgb: 241,238,245; --n-surface-3-rgb: 232,228,238;
+    --n-text-rgb: 23,21,27; --n-muted-rgb: 94,89,102; --n-line-2-rgb: 218,213,225;
+    color-scheme: light;
+}
+
+/* Accent scope helpers (kit L313-316) */
+.c-lav, .c-info    { --a: var(--lav); --a-deep: var(--lav-deep); --a-ink: var(--lav-ink); --a-line: var(--lav-line); --a-glow: var(--lav-glow); --on-a: var(--on-accent); }
+.c-pch, .c-warning { --a: var(--pch); --a-deep: var(--pch-deep); --a-ink: var(--pch-ink); --a-line: var(--pch-line); --a-glow: var(--pch-glow); --on-a: var(--on-accent); }
+.c-mnt, .c-success { --a: var(--mnt); --a-deep: var(--mnt-deep); --a-ink: var(--mnt-ink); --a-line: var(--mnt-line); --a-glow: var(--mnt-glow); --on-a: var(--on-accent); }
+.c-rose, .c-danger { --a: var(--rose); --a-deep: var(--rose-deep); --a-ink: var(--rose-ink); --a-line: var(--rose-line); --a-glow: var(--rose-glow); --on-a: var(--on-accent); }
+
+/* --------------------------------------------------------------------------
+   Bootstrap 5.3 custom properties → Nocturne. `:root[data-theme]`
+   (0,1,1) beats both Bootstrap's `:root` and `[data-bs-theme=dark]` (0,1,0);
+   the plain `:root` copy covers pages rendered without the theme script.
+   -------------------------------------------------------------------------- */
+:root, :root[data-theme], :root[data-bs-theme] {
+    --bs-font-sans-serif: var(--font);
+    --bs-body-font-family: var(--font);
+    --bs-body-font-size: 14px;
+    --bs-body-line-height: 1.5;
+    --bs-body-bg: var(--bg);
+    --bs-body-bg-rgb: var(--n-bg-rgb);
+    --bs-body-color: var(--text);
+    --bs-body-color-rgb: var(--n-text-rgb);
+    --bs-emphasis-color: var(--text);
+    --bs-emphasis-color-rgb: var(--n-text-rgb);
+    --bs-secondary-color: var(--muted);
+    --bs-secondary-color-rgb: var(--n-muted-rgb);
+    --bs-secondary-bg: var(--surface-2);
+    --bs-secondary-bg-rgb: var(--n-surface-2-rgb);
+    --bs-tertiary-color: var(--subtle);
+    --bs-tertiary-bg: var(--surface-2);
+    --bs-tertiary-bg-rgb: var(--n-surface-2-rgb);
+    --bs-heading-color: var(--text);
+    --bs-link-color: var(--lav-ink);
+    --bs-link-hover-color: var(--text);
+    --bs-link-color-rgb: 199,182,242;
+    --bs-link-hover-color-rgb: var(--n-text-rgb);
+    --bs-code-color: var(--rose-ink);
+    --bs-highlight-bg: var(--pch-deep);
+    --bs-highlight-color: var(--text);
+    --bs-border-color: var(--line-2);
+    --bs-border-color-translucent: var(--line-2);
+    --bs-border-radius: 14px;
+    --bs-border-radius-sm: 10px;
+    --bs-border-radius-lg: 20px;
+    --bs-border-radius-xl: 22px;
+    --bs-border-radius-xxl: 24px;
+    --bs-border-radius-pill: 999px;
+    --bs-box-shadow: var(--shadow-2);
+    --bs-box-shadow-sm: 0 1px 4px rgba(0,0,0,.12);
+    --bs-box-shadow-lg: var(--shadow-3);
+    --bs-focus-ring-color: var(--lav-glow);
+    --bs-form-valid-color: var(--mnt-ink);
+    --bs-form-valid-border-color: var(--mnt);
+    --bs-form-invalid-color: var(--rose-ink);
+    --bs-form-invalid-border-color: var(--rose);
+
+    /* Theme colours: solid pastels (same in both themes, like the prototype). */
+    --bs-primary: #C7B6F2;   --bs-primary-rgb: 199,182,242;
+    --bs-secondary: var(--muted); --bs-secondary-rgb: var(--n-muted-rgb);
+    --bs-success: #A6E3CC;   --bs-success-rgb: 166,227,204;
+    --bs-info: #C7B6F2;      --bs-info-rgb: 199,182,242;
+    --bs-warning: #F4C09A;   --bs-warning-rgb: 244,192,154;
+    --bs-danger: #F2A7B4;    --bs-danger-rgb: 242,167,180;
+    --bs-light: var(--surface-2); --bs-light-rgb: var(--n-surface-2-rgb);
+    --bs-dark: var(--surface-3);  --bs-dark-rgb: var(--n-surface-3-rgb);
+    --bs-white-rgb: 255,255,255;
+    --bs-primary-text-emphasis: var(--lav-ink);
+    --bs-success-text-emphasis: var(--mnt-ink);
+    --bs-danger-text-emphasis: var(--rose-ink);
+    --bs-warning-text-emphasis: var(--pch-ink);
+    --bs-info-text-emphasis: var(--lav-ink);
+    --bs-secondary-text-emphasis: var(--text-2);
+    --bs-light-text-emphasis: var(--text-2);
+    --bs-dark-text-emphasis: var(--text);
+    --bs-primary-bg-subtle: var(--lav-deep);
+    --bs-success-bg-subtle: var(--mnt-deep);
+    --bs-danger-bg-subtle: var(--rose-deep);
+    --bs-warning-bg-subtle: var(--pch-deep);
+    --bs-info-bg-subtle: var(--lav-deep);
+    --bs-secondary-bg-subtle: var(--surface-2);
+    --bs-light-bg-subtle: var(--surface-2);
+    --bs-dark-bg-subtle: var(--surface-3);
+    --bs-primary-border-subtle: var(--lav-line);
+    --bs-success-border-subtle: var(--mnt-line);
+    --bs-danger-border-subtle: var(--rose-line);
+    --bs-warning-border-subtle: var(--pch-line);
+    --bs-info-border-subtle: var(--lav-line);
+    --bs-secondary-border-subtle: var(--line-2);
+    --bs-light-border-subtle: var(--line-2);
+    --bs-dark-border-subtle: var(--line-3);
+
+    /* Legacy Hyper `--ct-*` shim — still read by assets/styles/app.css
+       feature rules and a few inline styles. Remove with the P10 sweep. */
+    --ct-primary: var(--lav);
+    --ct-primary-rgb: 199,182,242;
+    --ct-secondary: var(--muted);
+    --ct-success: var(--mnt-ink);
+    --ct-link-color: var(--lav-ink);
+    --ct-body-color: var(--text);
+    --ct-secondary-color: var(--muted);
+    --ct-text-muted: var(--muted);
+    --ct-border-color: var(--line-2);
+    --ct-input-bg: var(--surface-2);
+    --ct-box-shadow: var(--shadow-2);
+    --ct-menu-bg: var(--surface);
+    --ct-menu-item-color: var(--text-2);
+    --ct-menu-item-hover-color: var(--text);
+    --ct-menu-item-font-size: 14px;
+    --ct-leftbar-width: var(--sbw-open);
+}
+:root[data-theme="light"] {
+    --bs-link-color-rgb: 91,71,168;
+    --ct-primary-rgb: 91,71,168;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme]) {
+    --bs-link-color-rgb: 91,71,168;
+    --ct-primary-rgb: 91,71,168;
+} }
