@@ -132,6 +132,15 @@
     z-index: 998;
 }
 
+.canvas-handles--body {
+    z-index: 950;
+}
+
+.canvas-handles__body {
+    fill: transparent;
+    pointer-events: all;
+}
+
 .canvas-handles__border {
     fill: none;
     stroke: #727cf5;

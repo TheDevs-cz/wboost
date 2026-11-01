@@ -186,6 +186,31 @@ export function installHandleChrome(canvas, layer) {
     svg.setAttribute('aria-hidden', 'true');
     layer.appendChild(svg);
 
+    // Move grip: a transparent copy of the active object's box, CLIPPED to the
+    // part outside the canvas element (inside it Fabric handles hover,
+    // dblclick and text editing itself). A press there is forwarded to Fabric
+    // like a handle press — findTarget has no bounds check, so it starts an
+    // ordinary move (snapping, events, undo). Its own SVG below the rulers
+    // (z 950 < 996), so guides can still be dragged out of a covered ruler.
+    const bodySvg = document.createElementNS(SVG_NS, 'svg');
+    bodySvg.setAttribute('class', 'canvas-handles canvas-handles--body');
+    bodySvg.setAttribute('aria-hidden', 'true');
+    const clipId = `canvas-handles-clip-${Math.random().toString(36).slice(2, 9)}`;
+    const clip = document.createElementNS(SVG_NS, 'clipPath');
+    clip.setAttribute('id', clipId);
+    const clipShape = document.createElementNS(SVG_NS, 'path');
+    clipShape.setAttribute('clip-rule', 'evenodd');
+    clip.appendChild(clipShape);
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    defs.appendChild(clip);
+    bodySvg.appendChild(defs);
+    const body = document.createElementNS(SVG_NS, 'polygon');
+    body.setAttribute('class', 'canvas-handles__body');
+    body.setAttribute('clip-path', `url(#${clipId})`);
+    body.addEventListener('mousedown', (event) => forwardPress(event));
+    bodySvg.appendChild(body);
+    layer.appendChild(bodySvg);
+
     const borders = document.createElementNS(SVG_NS, 'g');
     const connector = document.createElementNS(SVG_NS, 'line');
     connector.setAttribute('class', 'canvas-handles__connector');
@@ -246,6 +271,7 @@ export function installHandleChrome(canvas, layer) {
 
     const hideAll = () => {
         svg.style.display = 'none';
+        bodySvg.style.display = 'none';
     };
 
     const toStage = (geo, x, y) => [geo.offX + x * geo.scale, geo.offY + y * geo.scale];
@@ -279,6 +305,25 @@ export function installHandleChrome(canvas, layer) {
             scale: contRect.width / canvas.getWidth(),
         };
         svg.style.display = '';
+
+        // Move grip outside the element (see bodySvg above).
+        const c0 = active.oCoords;
+        if (c0.tl && c0.tr && c0.br && c0.bl) {
+            const ex = geo.offX;
+            const ey = geo.offY;
+            const ew = contRect.width;
+            const eh = contRect.height;
+            const far = 1e6;
+            clipShape.setAttribute('d', `M${-far},${-far}H${far}V${far}H${-far}Z`
+                + `M${ex},${ey}h${ew}v${eh}h${-ew}Z`);
+            body.setAttribute('points', ['tl', 'tr', 'br', 'bl']
+                .map((k) => toStage(geo, c0[k].x, c0[k].y).join(',')).join(' '));
+            const locked = active.lockMovementX === true && active.lockMovementY === true;
+            body.style.cursor = locked ? 'default' : (active.moveCursor || canvas.moveCursor || 'move');
+            bodySvg.style.display = active.isEditing ? 'none' : '';
+        } else {
+            bodySvg.style.display = 'none';
+        }
         svg.style.opacity = active.isMoving ? String(active.borderOpacityWhenMoving ?? 0.6) : '1';
 
         // Borders: the active object, plus each member of a multi-selection.
@@ -401,5 +446,6 @@ export function installHandleChrome(canvas, layer) {
         window.removeEventListener('resize', onResize);
         root.classList.remove('canvas-transforming');
         svg.remove();
+        bodySvg.remove();
     };
 }

@@ -239,6 +239,14 @@ members via `getCoords()` × viewport, dashed). Contracts:
   the element and its document-level move/up listeners run the transform
   (snapping, events, undo unchanged). While `_currentTransform` is set,
   `html.canvas-transforming` pins the transform cursor page-wide.
+- **Moving from outside the element**: a second SVG (`.canvas-handles--body`,
+  z 950 — below the rulers so guides can still be dragged out of a ruler the
+  object covers) holds a transparent copy of the active object's box, CLIPPED
+  (evenodd `clipPath`) to the part outside the canvas element; a press there
+  is forwarded the same way and Fabric starts a normal move. Inside the
+  element it is clipped away on purpose, so Fabric keeps hover, dblclick and
+  text editing natively. Only the ACTIVE object gets a grip — an unselected
+  object outside the element is reached via the layers panel.
 - **Hit areas are Fabric's control polygons**, recomputed per frame for the
   ACTIVE object (`applyHitAreas` in `before:render`; only the active object
   hit-tests): corners `cornerHitFor(minSide)` = 10–24 screen px (shrinks on
