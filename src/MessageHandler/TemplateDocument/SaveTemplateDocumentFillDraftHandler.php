@@ -43,7 +43,7 @@ readonly final class SaveTemplateDocumentFillDraftHandler
         }
 
         $this->versionRepository->prune($document->id, TemplateDocumentExportVersion::MAX_VERSIONS - 1);
-        $version = new TemplateDocumentExportVersion($message->versionId, $document, $user, ExportChannel::Web, $message->fill, $now);
+        $version = new TemplateDocumentExportVersion($message->versionId, $document, $user, $message->channel, $message->fill, $now);
         $version->markDraft();
         $this->versionRepository->add($version);
     }

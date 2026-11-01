@@ -1,6 +1,6 @@
 ---
 name: wboost
-description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the eleven wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, upload_image, preview_design, set_design, manage_document), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
+description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the twelve wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, preview_design, set_design, manage_document), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
 ---
 
 # wboost templates
@@ -9,12 +9,13 @@ wboost is a brand-manual and template platform. A designer authors a **template
 variant** — a canvas with text placeholders, picture slots and brand assets —
 and it is filled with the user's copy and exported as a finished image.
 
-This connector gives you eleven tools across three jobs:
+This connector gives you twelve tools across three jobs:
 
 - **read** what the account holds (`get_context`, `find_templates`,
   `describe_variant`, `list_gallery`);
 - **fill and deliver** a design somebody already made (`render_variant`,
-  `export_variant`, and `export_document` for a multi-page document);
+  `export_variant`, and `export_document` + `document_history` for a
+  multi-page document);
 - **author** — add pictures to the gallery, write a variant's design yourself
   and arrange multi-page documents (`upload_image`, `preview_design`,
   `set_design`, `manage_document`).
@@ -260,7 +261,7 @@ file. Each page carries its `variantId` — `describe_variant`,
 `render_variant` and `set_design` work on it unchanged. Page templates carry a
 `documentId`.
 
-- **Fill + export:** `export_document(documentId, fields?, pages?, format?)`.
+- **Fill + export:** `export_document(documentId, fields?, pages?, format?, versionId?)`.
   - `pages` is keyed by `pageId`; each value is exactly `export_variant`'s body
     for that page's variant.
   - `fields` fills the document's **shared fields** (one value written into
@@ -276,12 +277,19 @@ file. Each page carries its `variantId` — `describe_variant`,
   renders every page in full.
 - **Arrange:** `manage_document(action, …)`, with these actions:
   - `create`: projectId, name, dimension, templateIds.
-  - `rename`
+  - `rename`: name and / or category.
   - `set_pages`: the WHOLE ordered list; detaching keeps the template.
   - `add_page`: a blank page; its `variantId` is in the answer, design it with
     `set_design`.
   - `set_fields`: the WHOLE list of shared fields, at most one binding per page.
+  - `duplicate_page`: a copy of a page (values stay per page).
+  - `set_print`: bleed + crop marks for the document and every page.
   - There is no delete.
+- **History:** `document_history(action, documentId, …)` — `list` the
+  exports and drafts, `get` one with its fill, `rename`, `pin` / `unpin`,
+  `save_draft` (stores a fill without rendering; give the user its `loadUrl`).
+  Re-export a version with `export_document(…, versionId)` plus only what
+  changes.
 
 ## Fill value shapes
 

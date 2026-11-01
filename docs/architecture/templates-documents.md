@@ -246,7 +246,13 @@ version in the document EXPORT body's shape (`{fields, pages}`; per page
 `ExportVersionApiView::variantFillValues()`, lenient against the current
 design; `pages` complete, `fields` re-collected from the first bound page).
 API: `GET /api/template-documents/{id}/export-versions`,
-`GET|PATCH /api/template-document-export-versions/{id}`.
+`GET|PATCH /api/template-document-export-versions/{id}`. MCP:
+`document_history` (list / get / rename / pin / unpin / save_draft, channel
+`mcp` on its drafts) and `export_document` `versionId` (the stored fill as
+the base, `fields` / `pages` override key by key — `Mcp/Fill/DocumentFillInput`).
+`manage_document` also has `duplicate_page` (the web's CopyTemplate +
+InsertTemplateDocumentPage) and `set_print`. Still no MCP delete (the
+"drafts, never destruction" rule): detach via `set_pages`, delete on the web.
 
 **Shared text vs page-level switches** (`DocumentApiValues::sharedText`): a
 shared value replaces only the TEXT of the bound input; the page's own

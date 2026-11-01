@@ -58,6 +58,7 @@ readonly final class DescribeMcpCapabilities
         'render_variant',
         'export_variant',
         'export_document',
+        'document_history',
         'upload_image',
         'preview_design',
         'set_design',
@@ -207,6 +208,13 @@ readonly final class DescribeMcpCapabilities
                 . 'značkami (z chatu nejvýš 8 stran) nebo ZIP obrázků. Společná pole, jako jméno '
                 . 'zákazníka, stačí vyplnit jednou. Započítá se do statistik exportů.',
             ],
+            'document_history' => [
+                'Historie exportů dokumentu',
+                'Asistent vidí dřívější vyplnění dokumentu (exporty i rozpracované verze), umí '
+                . 'je pojmenovat, připnout a znovu vyexportovat se změnami — třeba stejnou '
+                . 'nabídku pro jiného zákazníka. Rozpracované vyplnění může uložit, abyste ho '
+                . 'dokončili ve WBoostu. Nic se tu nemaže.',
+            ],
             'upload_image' => [
                 'Nahrát nový obrázek do galerie',
                 'Přidá do galerie projektu obrázek, který asistentovi pošlete, a vrátí jeho id, '
@@ -232,7 +240,8 @@ readonly final class DescribeMcpCapabilities
             'manage_document' => [
                 'Sestavit vícestránkový dokument',
                 'Asistent může z existujících šablon složit dokument, změnit pořadí stran, přidat '
-                . 'prázdnou stranu k navržení nebo propojit společná pole napříč stranami. Skládat '
+                . 'prázdnou stranu k navržení, stranu zduplikovat, nastavit spadávku a ořezové '
+                . 'značky nebo propojit společná pole napříč stranami. Skládat '
                 . 'dokumenty může jen ten, kdo projekt vlastní a má roli grafika; mazat odsud nejde '
                 . '— odpojená strana zůstane mezi šablonami.',
             ],

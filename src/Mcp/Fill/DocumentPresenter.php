@@ -40,6 +40,7 @@ readonly final class DocumentPresenter
             id: $document->id->toString(),
             name: $document->name,
             categoryName: $document->category?->name,
+            categoryId: $document->category?->id->toString(),
             dimension: new VariantDimensionResponse(
                 label: $dimension->label(),
                 preset: $dimension->preset?->value,

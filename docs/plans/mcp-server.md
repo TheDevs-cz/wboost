@@ -131,6 +131,7 @@ tests/Mcp/
 | 15 | *(reserved)* | | | Stage 7 `bulk_export` / `get_job` |
 | 16 | `manage_document` | `templates:design` | `TemplateDocumentVoter::EDIT` | document summary + editorUrl/fillUrl — see `multipage-documents.md` §8 |
 | 17 | `export_document` | `templates:export` | `TemplateDocumentVoter::VIEW` | PDF / ZIP — see `multipage-documents.md` §8 |
+| 18 | `document_history` | `templates:export` | `TemplateDocumentVoter::VIEW` | versions list / one with fill (list, get, rename, pin, unpin, save_draft) — see `templates-documents.md` |
 
 `tools/list` MUST be filtered by the token's scopes ∩ the user's roles — a read-only token must not learn the design tools exist.
 

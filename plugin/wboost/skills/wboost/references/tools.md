@@ -21,7 +21,7 @@ called anyway.
 | scope | tools |
 |---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` |
-| `templates:export` | `export_variant`, `export_document` |
+| `templates:export` | `export_variant`, `export_document`, `document_history` |
 | `templates:design` | `preview_design`, `set_design`, `manage_document` |
 | `gallery:write` | `upload_image` |
 
@@ -307,33 +307,61 @@ recorded. A successful export **is** recorded in the project's usage report.
 
 ---
 
-## `export_document(documentId, fields?, pages?, format?)`
+## `export_document(documentId, fields?, pages?, format?, versionId?)`
 
 `format`: `"pdf-screen"` (default) | `"pdf"` (print; mm / cm only, ≤ 8 pages
 here) | `"png"` (ZIP). `fields`: shared fieldId → string (text) | image id or
 `{imageId, hide}` (image). `pages`: pageId → `{inputs, images, shapeColors}`,
 exactly `export_variant`'s body for the page's variant; a shared value wins
-over the page's own for its bound input. Every page is resolved before any
-renders; a refusal names the page.
+over the page's own TEXT for its bound input (the page's own `hide` /
+`fontFamily` for it are kept). `versionId` (from `document_history`) starts
+from that stored fill; `fields` / `pages` override it key by key. Every page
+is resolved before any renders; a refusal names the page. Every export lands
+in the document's history.
 
 Returns a text summary (`documentId`, `documentName`, `projectName`, `format`,
 `pageCount`, `sizeBytes`, `fileName`, `warnings[]`) plus the file as an
 embedded resource blob. Files over 25 MB are refused with the web fill URL.
 
-## `manage_document(action, projectId?, documentId?, name?, dimension?, templateIds?, position?, fields?)`
+## `document_history(action, documentId, versionId?, name?, fields?, pages?)`
+
+The document's "Historie exportů" — exports AND saved drafts, the list the
+web fill page shows (pinned first, then freshest; unpinned beyond 100 are
+pruned). Scope `templates:export`; anyone who may fill the document.
+- `list` → `versions[]`: `{id, name, pinned, draft, lastExportedAt,
+  exportCount, channel, summary: {texts: [{label, value}], pictures, hidden},
+  loadUrl}`.
+- `get` (`versionId`) → `version` with `fill: {fields, pages}` in
+  `export_document`'s shape (seeded leniently against the current design).
+  To re-export: `export_document(documentId, versionId, …only what changes)`.
+- `rename` (`versionId`, `name`; blank clears), `pin` / `unpin` (`versionId`).
+- `save_draft` (`fields?`, `pages?`, `versionId?`) stores the fill WITHOUT
+  rendering as a "Rozpracováno" draft; hand the user its `loadUrl` to finish
+  on the web. With a draft's `versionId` that draft is overwritten; with an
+  export's, the new draft starts from it.
+
+Nothing deletes.
+
+## `manage_document(action, projectId?, documentId?, name?, dimension?, templateIds?, position?, fields?, pageId?, bleedMm?, cropMarks?, categoryId?)`
 
 The actions:
 - `create`: `projectId`, `name`, `dimension` — either `{unit: "mm"|"cm"|"px",
   unitWidth, unitHeight, bleedMm?, cropMarks?}` or `{preset}` — and
   `templateIds?`.
-- `rename`: `documentId`, `name`.
+- `rename`: `documentId`, `name?`, `categoryId?` (`find_templates`
+  `templates[].categoryId`; `""` removes it).
 - `set_pages`: `documentId`, `templateIds` (the whole ordered list).
 - `add_page`: `documentId`, `name?`, `position?`.
 - `set_fields`: `documentId`, `fields: [{id?, name, kind: "text"|"image",
   bindings: [{pageId, inputId}]}]`.
+- `duplicate_page`: `documentId`, `pageId`, `position?` (default: right
+  after the original). The copy is its own template, same design and input
+  ids; values stay per page.
+- `set_print`: `documentId`, `bleedMm?` (0–10), `cropMarks?` — for the
+  document and every page; mm / cm documents only.
 
 Every action answers the document:
-- `id`, `name`, `categoryName`, `dimension`, `printFormat`
+- `id`, `name`, `categoryName`, `categoryId`, `dimension`, `printFormat`
 - `pages[]`: `{pageId, position, templateId, templateName, variantId,
   thumbnailUrl}`
 - `fields[]`: `{id, name, kind, bindings[]}`

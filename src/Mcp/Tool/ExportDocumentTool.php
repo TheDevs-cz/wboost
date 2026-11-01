@@ -9,14 +9,17 @@ use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 use Mcp\Schema\Content\EmbeddedResource;
 use Mcp\Schema\Result\CallToolResult;
+use Ramsey\Uuid\Uuid;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
+use WBoost\Web\Mcp\Fill\DocumentFillInput;
 use WBoost\Web\Mcp\Fill\DocumentLoader;
 use WBoost\Web\Mcp\Fill\VariantFill;
 use WBoost\Web\Mcp\Response\ExportDocumentResponse;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
+use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
 use WBoost\Web\Services\TemplateDocument\DocumentApiValues;
 use WBoost\Web\Services\TemplateDocument\DocumentExportArchive;
 use WBoost\Web\Services\TemplateDocument\RecordDocumentExportVersion;
@@ -53,6 +56,8 @@ readonly final class ExportDocumentTool
         private RecordExportUsage $recordExportUsage,
         private UrlGeneratorInterface $urlGenerator,
         private RecordDocumentExportVersion $recordExportVersion,
+        private DocumentFillInput $fillInput,
+        private TemplateDocumentExportVersionRepository $versionRepository,
     ) {
     }
 
@@ -71,12 +76,18 @@ readonly final class ExportDocumentTool
      *   (print: PDF/X-1a CMYK with bleed + crop marks; mm / cm documents only,
      *   at most 8 pages here) or "png" (ZIP of one PNG per page, page-ordered).
      *
+     * - versionId: re-export a stored version (document_history "list") —
+     *   its fill is the base and `fields` / `pages` given here override it
+     *   key by key ("the March offer, only with a new customer name").
+     *
      * Preview a page first with render_variant (its variantId + the same
      * inputs) — it is fast and lossy; this call renders every page in full.
+     * Every export lands in the document's history (document_history).
      *
      * @param string $documentId find_templates documents[].id
      * @param array<string, mixed> $fields shared fieldId → value
      * @param array<string, mixed> $pages pageId → {inputs, images, shapeColors}
+     * @param null|string $versionId document_history versions[].id to start from
      */
     #[McpTool(name: 'export_document')]
     public function __invoke(
@@ -87,6 +98,7 @@ readonly final class ExportDocumentTool
         array $pages = [],
         #[Schema(enum: ['pdf-screen', 'pdf', 'png'])]
         string $format = 'pdf-screen',
+        null|string $versionId = null,
     ): CallToolResult {
         $document = $this->loader->viewable($documentId);
         $exportFormat = ExportFormat::tryFrom(strtolower($format));
@@ -110,25 +122,24 @@ readonly final class ExportDocumentTool
             throw new ToolCallException(sprintf('A print PDF of %d pages takes too long for a chat tool call (limit %d pages here). Export it on the web fill page (%s) or over the REST API, or use "pdf-screen" here.', count($documentPages), self::MAX_PRINT_PAGES, $fillUrl));
         }
 
-        $known = [];
-        foreach ($documentPages as $page) {
-            $known[$page->id->toString()] = true;
-            $known[$page->template->id->toString()] = true;
+        $warnings = [];
+        $base = null;
+
+        if ($versionId !== null && trim($versionId) !== '') {
+            $base = DocumentFillInput::versionOf(
+                $document,
+                Uuid::isValid(trim($versionId)) ? $this->versionRepository->find(Uuid::fromString(trim($versionId))) : null,
+                trim($versionId),
+            );
         }
 
-        $warnings = [];
-        foreach (array_keys($pages) as $key) {
-            if (!isset($known[(string) $key])) {
-                $warnings[] = sprintf('pages.%s matches no page of this document and was ignored (keys are documents[].pages[].pageId).', $key);
-            }
-        }
+        ['fields' => $fields, 'pages' => $pages] = $this->fillInput->resolve($document, $base, $fields, $pages, $warnings);
 
         // Resolve EVERY page before rendering ANY (strict, like export_variant).
         $resolved = [];
         $pageValues = [];
         foreach ($documentPages as $page) {
-            $entry = $pages[$page->id->toString()] ?? $pages[$page->template->id->toString()] ?? [];
-            $values = DocumentApiValues::forPage($document, $page, $fields, is_array($entry) ? $entry : []);
+            $values = DocumentApiValues::forPage($document, $page, $fields, $pages[$page->id->toString()] ?? []);
             $pageValues[$page->template->id->toString()] = $values;
             $inputs = VariantFill::stringKeyed($values['inputs']);
             $images = VariantFill::stringKeyed($values['images']);

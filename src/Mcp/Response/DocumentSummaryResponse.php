@@ -21,6 +21,8 @@ readonly final class DocumentSummaryResponse
         public string $id,
         public string $name,
         public null|string $categoryName,
+        /** find_templates templates[].categoryId space; set it with manage_document "rename" categoryId. */
+        public null|string $categoryId,
         /** The ONE page size: label, unit size and canvas px. */
         public VariantDimensionResponse $dimension,
         /** mm / cm → `export_document` offers the print PDF. */
