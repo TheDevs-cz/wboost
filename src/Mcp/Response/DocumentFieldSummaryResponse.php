@@ -12,9 +12,11 @@ readonly final class DocumentFieldSummaryResponse
     public function __construct(
         public string $id,
         public string $name,
-        /** `text` (plain string) | `image` (gallery image id or `{imageId, hide}`). */
+        /** `text` (an input value, see textMode) | `image` (gallery image id or `{imageId, hide}`) | `shape` (`#rrggbb`, "" = designed). */
         public string $kind,
         public array $bindings,
+        /** Text: `plain` (string) | `rich` ({runs}) | `list` ({runs, lines}) | `checklist` — what every bound input accepts. Null otherwise. */
+        public null|string $textMode = null,
     ) {
     }
 }

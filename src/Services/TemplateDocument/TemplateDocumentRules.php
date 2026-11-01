@@ -14,6 +14,8 @@ use WBoost\Web\Repository\TemplateDocumentRepository;
 use WBoost\Web\Repository\TemplateRepository;
 use WBoost\Web\Value\DocumentFieldBinding;
 use WBoost\Web\Value\DocumentFieldKind;
+use WBoost\Web\Value\ShapeColorInput;
+use WBoost\Web\Value\DocumentTextMode;
 use WBoost\Web\Value\EditorTextInput;
 
 /**
@@ -143,6 +145,8 @@ readonly final class TemplateDocumentRules
     public function assertBindings(TemplateDocument $document, string $fieldName, DocumentFieldKind $kind, array $bindings): void
     {
         $pages = [];
+        /** @var list<null|EditorTextInput> $textInputs */
+        $textInputs = [];
 
         foreach ($bindings as $binding) {
             if (isset($pages[$binding->templateId])) {
@@ -165,12 +169,21 @@ readonly final class TemplateDocumentRules
             if (!self::isBindable($page->variant, $binding->inputId, $kind)) {
                 throw InvalidTemplateDocumentChange::invalidBinding(sprintf('Pole „%s" nelze propojit s vybraným prvkem stránky „%s".', $fieldName, $page->template->name));
             }
+
+            if ($kind === DocumentFieldKind::Text) {
+                $textInputs[] = self::textInput($page->variant, $binding->inputId);
+            }
+        }
+
+        if (!DocumentTextMode::isCompatible(array_values(array_filter($textInputs)))) {
+            throw InvalidTemplateDocumentChange::invalidBinding(sprintf('Pole „%s": zaškrtávací seznam lze propojit jen s dalšími zaškrtávacími seznamy.', $fieldName));
         }
     }
 
     /**
-     * Text: a user-editable plain-text input (not locked, not a list / checklist —
-     * a shared value is plain text in v1). Image: any image slot.
+     * Text: any user-editable text input (plain, rich, list, checklist —
+     * {@see DocumentTextMode}). Image: any image slot. Shape: a recolourable
+     * shape ({@see ShapeColorInput}).
      */
     public static function isBindable(TemplateVariant $variant, string $inputId, DocumentFieldKind $kind): bool
     {
@@ -184,17 +197,35 @@ readonly final class TemplateDocumentRules
             return false;
         }
 
-        foreach ($variant->inputs as $input) {
-            if ($input->inputId === $inputId) {
-                return self::isBindableText($input);
+        if ($kind === DocumentFieldKind::Shape) {
+            foreach (ShapeColorInput::collectionFromCanvasJson($variant->canvas) as $input) {
+                if ($input->inputId === $inputId) {
+                    return true;
+                }
             }
+
+            return false;
         }
 
-        return false;
+        return self::textInput($variant, $inputId) !== null;
     }
 
     public static function isBindableText(EditorTextInput $input): bool
     {
-        return !$input->locked && !$input->lists && !$input->checklist;
+        return !$input->locked;
+    }
+
+    /**
+     * The bindable text input of that id on the page, or null.
+     */
+    public static function textInput(TemplateVariant $variant, string $inputId): null|EditorTextInput
+    {
+        foreach ($variant->inputs as $input) {
+            if ($input->inputId === $inputId) {
+                return self::isBindableText($input) ? $input : null;
+            }
+        }
+
+        return null;
     }
 }

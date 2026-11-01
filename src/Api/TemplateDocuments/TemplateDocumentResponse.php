@@ -113,7 +113,7 @@ use DateTimeImmutable;
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             normalizationContext: ['skip_null_values' => false],
             name: 'api_template_document_fields',
-            openapi: new OpenApiOperation(summary: 'Replace the shared fields: `{fields: [{id?, name, kind: "text"|"image", bindings: [{pageId, inputId}]}]}` — at most one binding per page; keep `id` to keep a field.'),
+            openapi: new OpenApiOperation(summary: 'Replace the shared fields: `{fields: [{id?, name, kind: "text"|"image"|"shape", bindings: [{pageId, inputId}]}]}` — at most one binding per page; keep `id` to keep a field.'),
         ),
         new Delete(
             uriTemplate: '/template-documents/{documentId}',

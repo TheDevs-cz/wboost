@@ -75,9 +75,11 @@ guard.
 pole" card lists each field (name, kind, bound pages) with a stale badge when
 a binding no longer resolves (`isBindable` fails — input deleted / changed in
 the editor). Add / edit / delete in a modal: name, kind, and per page ONE
-select listing that page's bindable texts and image slots as two `<optgroup
-data-kind>` (`document_field_form_controller` enables the group of the chosen
-kind; without JS the server refuses a mismatch). **Suggestions**: unbound
+select listing that page's bindable texts (with their kind: formátovaný / se
+seznamy / zaškrtávací seznam), image slots and recolourable shapes as three
+`<optgroup data-kind>` (`document_field_form_controller` enables the group of
+the chosen kind; without JS the server refuses a mismatch). A text field's
+badge names its effective `DocumentTextMode`. **Suggestions**: unbound
 inputs sharing an inputId (duplicated pages) or a real, non-fallback name on
 ≥ 2 pages, one hidden-field form each. Everything POSTs to ONE controller,
 `TemplateDocumentFieldsController` (`template_document_fields`, CSRF
@@ -129,9 +131,19 @@ group, document — see `templates-fill.md`), copied from the group page.
 - All builder data comes from the re-keyed clones, so every mirror / popover /
   box / echo object / image frame carries the fill key. A shared field = ONE
   mirror and ONE popover, a box on every bound page ("Společné: <name>").
-  Post-processing in `DocumentFillPage`: a shared TEXT field is plain text
-  (no WYSIWYG / font choice), shows the MIN `maxLength` of its bindings and is
-  hidable only if every binding is; a shared IMAGE field's picker offers the
+  Post-processing in `DocumentFillPage`: a shared TEXT field may bind ANY
+  editable text input and offers the richest editor EVERY binding accepts —
+  `DocumentTextMode::common()`: checklist (all checklists; a checklist binds
+  ONLY to checklists — `TemplateDocumentRules::assertBindings`), list (all
+  rich + lists), rich (all rich), else plain (a seeded rich value degrades to
+  its text). MIN `maxLength`; hidable / listCheckboxes / checklist
+  capabilities AND-ed; font menus (rich faces or the plain whole-text select —
+  only when every binding offers it) and colour allowlists INTERSECTED
+  (`commonColors`: null narrows nothing). The value then goes to every page
+  through the fill key unchanged — valid there because the mode is the common
+  one. A shared SHAPE field (kind `shape`) is ONE colour row: free only when
+  every shape is, otherwise the colours every shape allows; `""` = each
+  page's own designed colour. A shared IMAGE field's picker offers the
   INTERSECTION of the bound slots' `allowedDirectoryIds` (an empty
   intersection of restricted lists becomes a never-existing folder id — `[]`
   would mean "any folder"), placement flags AND-ed over the bound slots.

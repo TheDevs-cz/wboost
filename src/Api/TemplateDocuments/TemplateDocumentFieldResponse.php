@@ -16,7 +16,12 @@ final readonly class TemplateDocumentFieldResponse
     public function __construct(
         public string $id,
         public string $name,
-        /** `text` (a plain string) | `image` (a gallery image id, or `{imageId, hide}`). */
+        /**
+         * `text` (an input value: string | `{value|runs, hide, fontFamily}` | a
+         * checklist — see `textMode`) | `image` (a gallery image id, or
+         * `{imageId, hide}`) | `shape` (a recolourable shape's `#rrggbb`, "" =
+         * each page's designed colour).
+         */
         public string $kind,
         public array $bindings,
         /** The smallest `maxLength` of the bound text inputs (null = unlimited / image). */
@@ -38,6 +43,13 @@ final readonly class TemplateDocumentFieldResponse
          * @var null|list<string>
          */
         public null|array $allowedDirectoryIds = null,
+        /**
+         * Text: the richest value EVERY valid bound input accepts —
+         * `plain` | `rich` (runs) | `list` (runs + list lines) | `checklist`
+         * (checklist items; a checklist binds only to checklists). Null for
+         * image / shape.
+         */
+        public null|string $textMode = null,
     ) {
     }
 }

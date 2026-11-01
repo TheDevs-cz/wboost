@@ -1053,10 +1053,17 @@ hide them from a "templates" list and present the document instead.
   - `pages[]`: `{id (pageId), position, templateId, templateName, variant}`, where
     `variant` has exactly the `variants[]` shape of the templates listing
     (inputs, frames, imageInputs, shapeInputs …).
-  - `fields[]` (**shared fields**): `{id, name, kind: "text"|"image",
+  - `fields[]` (**shared fields**): `{id, name, kind: "text"|"image"|"shape",
     bindings: [{pageId, templateId, inputId, valid}], maxLength, richText,
-    hidable, allowedDirectoryIds}`. One value fills the bound input on every
-    page. `valid: false` = the input was deleted from the page; ignore it.
+    textMode, hidable, allowedDirectoryIds}`. One value fills the bound input
+    on every page. `valid: false` = the input was deleted from the page; ignore it.
+    - `textMode` (text): the richest value EVERY valid bound input accepts —
+      `"plain"` (string / `{value}`), `"rich"` (`{runs}`), `"list"` (`{runs,
+      lines}` with list blocks), `"checklist"` (a checklist value; a
+      checklist binds only to checklists). Send that shape as the field value.
+    - `kind: "shape"`: a recolourable shape on each bound page; the value is
+      `"#rrggbb"` (`""` = each page's designed colour). Offer only colours
+      every bound shape allows (`pages[].variant.shapeInputs`).
     - `richText` (text): EVERY valid bound input is `richText` → the field
       may carry a rich value (`{runs}`); otherwise send a string / `{value}`.
       Font choices stay per input — intersect the bound inputs'
@@ -1117,7 +1124,7 @@ hide them from a "templates" list and present the document instead.
     returns to the listing.
   - `POST /api/template-documents/{id}/pages` `{name, position?}` — a blank
     page in the document size.
-  - `PUT /api/template-documents/{id}/fields` `{fields: [{id?, name, kind, bindings: [{pageId, inputId}]}]}` —
+  - `PUT /api/template-documents/{id}/fields` `{fields: [{id?, name, kind: "text"|"image"|"shape", bindings: [{pageId, inputId}]}]}` —
     the WHOLE list. Keep `id` to keep a field. At most one binding per page.
   - `DELETE /api/template-documents/{id}` — dissolves the document only (the
     pages return to the listing) → 204.

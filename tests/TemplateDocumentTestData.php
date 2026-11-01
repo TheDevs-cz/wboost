@@ -27,6 +27,9 @@ final class TemplateDocumentTestData
     /** Every helper page carries THIS input id — like duplicated templates do. */
     public const string SHARED_INPUT_ID = '22222222-0000-0000-0000-000000000001';
 
+    /** The recolourable shape every {@see kindA4Template()} page carries. */
+    public const string SHAPE_INPUT_ID = '22222222-0000-0000-0000-0000000000b1';
+
     /** The image slot every {@see richA4Template()} page carries (also colliding). */
     public const string IMAGE_INPUT_ID = '22222222-0000-0000-0000-0000000000a1';
 
@@ -116,6 +119,40 @@ final class TemplateDocumentTestData
         }
 
         $variant->editCanvas((string) json_encode($canvas), $inputs, null, $imageInputs);
+
+        $em->persist($template);
+        $em->persist($variant);
+        $em->flush();
+        $em->clear();
+
+        return ['template' => $template->id, 'variant' => $variant->id];
+    }
+
+    /**
+     * A page whose {@see SHARED_INPUT_ID} text input has the given editor
+     * flags (`richText`, `lists`, `checklist`, `allowedColors` …), plus a
+     * recolourable rectangle ({@see SHAPE_INPUT_ID}) allowing `$shapeColors`.
+     *
+     * @param array{richText?: bool, lists?: bool, listCheckboxes?: bool, checklist?: bool, checklistAdd?: bool, allowedColors?: null|list<string>} $textFlags
+     * @param list<string> $shapeColors
+     * @return array{template: UuidInterface, variant: UuidInterface}
+     */
+    public static function kindA4Template(EntityManagerInterface $em, string $name, array $textFlags, array $shapeColors = ['#111111', '#222222']): array
+    {
+        $project = $em->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        assert($project instanceof Project);
+
+        $template = new Template(Uuid::uuid7(), $project, null, new \DateTimeImmutable(), $name, null, 0);
+        $variant = new TemplateVariant(Uuid::uuid7(), $template, new TemplateDimension(DimensionUnit::Mm, 210, 297), null, new \DateTimeImmutable());
+        $canvas = ['version' => '5.2.4', 'objects' => [
+            ['type' => 'Textbox', 'inputId' => self::SHARED_INPUT_ID, 'left' => 100, 'top' => 100, 'width' => 800, 'height' => 120, 'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top', 'text' => 'Ahoj', 'fontSize' => 40],
+            ['type' => 'Rect', 'inputId' => self::SHAPE_INPUT_ID, 'name' => 'Pruh', 'colorChoice' => 'fill', 'fill' => '#ff0000', 'allowedColors' => $shapeColors, 'left' => 0, 'top' => 0, 'width' => 200, 'height' => 50, 'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top'],
+        ]];
+        $variant->editCanvas(
+            (string) json_encode($canvas),
+            [EditorTextInput::fromArray(['inputId' => self::SHARED_INPUT_ID, 'name' => 'Jméno', 'maxLength' => null, 'locked' => false, 'hidable' => true] + $textFlags)],
+            null,
+        );
 
         $em->persist($template);
         $em->persist($variant);

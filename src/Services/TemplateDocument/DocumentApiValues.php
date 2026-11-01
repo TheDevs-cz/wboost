@@ -55,6 +55,11 @@ final readonly class DocumentApiValues
                 continue;
             }
 
+            if ($field->kind === DocumentFieldKind::Shape) {
+                $shapeColors[$binding->inputId] = $value;
+                continue;
+            }
+
             $pick = is_array($value) ? $value : ['imageId' => $value];
             $own = $images[$binding->inputId] ?? null;
             $images[$binding->inputId] = is_array($own) ? array_merge($pick, $own, ['imageId' => $pick['imageId'] ?? null]) : $pick;

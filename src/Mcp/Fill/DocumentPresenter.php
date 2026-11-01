@@ -11,7 +11,11 @@ use WBoost\Web\Mcp\Response\DocumentFieldSummaryResponse;
 use WBoost\Web\Mcp\Response\DocumentPageSummaryResponse;
 use WBoost\Web\Mcp\Response\DocumentSummaryResponse;
 use WBoost\Web\Mcp\Response\VariantDimensionResponse;
+use WBoost\Web\Services\TemplateDocument\TemplateDocumentRules;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\DocumentFieldKind;
+use WBoost\Web\Value\DocumentTextMode;
+use WBoost\Web\Value\EditorTextInput;
 
 /**
  * One multi-page document as every MCP tool reports it (`find_templates`,
@@ -30,8 +34,11 @@ readonly final class DocumentPresenter
         $pages = $document->pages();
         $pageByTemplate = [];
 
+        $variantByTemplate = [];
+
         foreach ($pages as $page) {
             $pageByTemplate[$page->template->id->toString()] = $page->id->toString();
+            $variantByTemplate[$page->template->id->toString()] = $page->variant;
         }
 
         $dimension = $document->dimension;
@@ -67,6 +74,12 @@ readonly final class DocumentPresenter
                             : null,
                         $field->bindings(),
                     ))),
+                    $field->kind === DocumentFieldKind::Text ? DocumentTextMode::common(array_values(array_filter(array_map(
+                        static fn ($binding): null|EditorTextInput => isset($variantByTemplate[$binding->templateId])
+                            ? TemplateDocumentRules::textInput($variantByTemplate[$binding->templateId], $binding->inputId)
+                            : null,
+                        $field->bindings(),
+                    ))))->value : null,
                 ),
                 $document->fields(),
             ),

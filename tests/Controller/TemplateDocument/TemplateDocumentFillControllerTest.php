@@ -95,6 +95,35 @@ final class TemplateDocumentFillControllerTest extends WebTestCase
         self::assertStringContainsString('Společná pole', $crawler->filter('.fill-popovers')->text());
     }
 
+    public function testRichAndShapeSharedFieldsRenderOneEditorEach(): void
+    {
+        $client = $this->adminClient();
+        $first = TemplateDocumentTestData::kindA4Template($this->em(), 'Strana A', ['richText' => true]);
+        $second = TemplateDocumentTestData::kindA4Template($this->em(), 'Strana B', ['richText' => true]);
+        $documentId = TemplateDocumentTestData::document($this->em(), $this->bus(), [$first['template'], $second['template']]);
+        $textId = Uuid::uuid7();
+        $shapeId = Uuid::uuid7();
+        $this->bus()->dispatch(new SetTemplateDocumentFields($documentId, [
+            new DocumentFieldDefinition($textId, 'Klient', DocumentFieldKind::Text, [
+                new DocumentFieldBinding($first['template']->toString(), TemplateDocumentTestData::SHARED_INPUT_ID),
+                new DocumentFieldBinding($second['template']->toString(), TemplateDocumentTestData::SHARED_INPUT_ID),
+            ]),
+            new DocumentFieldDefinition($shapeId, 'Barva pruhu', DocumentFieldKind::Shape, [
+                new DocumentFieldBinding($first['template']->toString(), TemplateDocumentTestData::SHAPE_INPUT_ID),
+                new DocumentFieldBinding($second['template']->toString(), TemplateDocumentTestData::SHAPE_INPUT_ID),
+            ]),
+        ]));
+        $this->em()->clear();
+
+        $crawler = $client->request('GET', '/template-document/' . $documentId . '/fill');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('.fill-popover[data-inputid="' . $textId . '"]'));
+        self::assertCount(1, $crawler->filter('.fill-popover[data-inputid="' . $shapeId . '"]'), 'One colour row for both shapes.');
+        self::assertCount(1, $crawler->filter('[name="shapeColorValues[' . $shapeId . ']"]'));
+        self::assertStringContainsString('Společné: Barva pruhu', $crawler->filter('.fill-popovers')->text());
+    }
+
     public function testRenderingTheFillPageLeavesTheStoredCanvasesByteIdentical(): void
     {
         $client = $this->adminClient();

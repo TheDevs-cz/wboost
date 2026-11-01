@@ -13,7 +13,11 @@ use WBoost\Web\Services\Template\FillFieldOrder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
 use WBoost\Web\Value\DocumentFieldKind;
 use WBoost\Web\Value\DocumentFillKeys;
+use WBoost\Web\Value\DocumentTextMode;
 use WBoost\Web\Value\EditorImageInput;
+use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\RichText;
+use WBoost\Web\Value\ShapeColorInput;
 
 /**
  * The view model of the document fill page (`template_document_fill.html.twig`):
@@ -27,8 +31,11 @@ use WBoost\Web\Value\EditorImageInput;
  * mirror that every bound box edits — the existing first-wins unification by
  * id IS the sharing. On top of that, shared fields are post-processed:
  *
- * - text: plain text only (no WYSIWYG / font choice — v1), the MIN
- *   `maxLength` of its bindings, hidable only when every binding is;
+ * - text: the richest editor every binding accepts ({@see DocumentTextMode}:
+ *   plain / rich / list / checklist), the MIN `maxLength`, hidable +
+ *   checklist capabilities AND-ed, font + colour menus intersected;
+ * - shape: one colour row, free only when every shape is, otherwise the
+ *   colours every shape allows;
  * - image: the picker offers the INTERSECTION of the bound slots'
  *   allowed folders; placement stays per page (and only where the page's own
  *   slot is adjustable — flags AND-ed over the bound slots).
@@ -87,8 +94,12 @@ readonly final class DocumentFillPage
         $texts = [];
         /** @var array<string, list<array<string, mixed>>> $textBindings fill key → every page's own placeholder */
         $textBindings = [];
+        /** @var array<string, list<EditorTextInput>> $textInputs fill key → every page's own input */
+        $textInputs = [];
         /** @var array<string, array<string, mixed>> $shapes */
         $shapes = [];
+        /** @var array<string, list<ShapeColorInput>> $shapeInputs fill key → every page's own shape */
+        $shapeInputs = [];
         /** @var array<string, list<array{input: EditorImageInput, defaultImageUrl: null|string, page: TemplateDocumentPage, realInputId: string}>> $images */
         $images = [];
         /** @var list<array{page: TemplateDocumentPage, number: int, keys: list<string>}> $sectionSources */
@@ -109,6 +120,16 @@ readonly final class DocumentFillPage
                 $texts[$key] ??= $placeholder;
                 $textBindings[$key][] = $placeholder;
                 $pageKeys[] = $key;
+            }
+
+            foreach ($clone->inputs as $input) {
+                if (!$input->locked) {
+                    $textInputs[$input->inputId][] = $input;
+                }
+            }
+
+            foreach (ShapeColorInput::collectionFromCanvasJson($clone->canvas) as $shapeInput) {
+                $shapeInputs[$shapeInput->inputId][] = $shapeInput;
             }
 
             $defaultUrls = $this->placeholders->defaultImageUrls($clone);
@@ -163,7 +184,16 @@ readonly final class DocumentFillPage
                 continue;
             }
 
-            $texts[$key] = self::sharedText($placeholder, $field, $textBindings[$key] ?? []);
+            $texts[$key] = self::sharedText($placeholder, $field, $textBindings[$key] ?? [], $textInputs[$key] ?? []);
+        }
+
+        foreach ($shapes as $key => $shape) {
+            $field = $fieldsById[$key] ?? null;
+            if ($field === null || $field->kind !== DocumentFieldKind::Shape) {
+                continue;
+            }
+
+            $shapes[$key] = self::sharedShape($shape, $field, $shapeInputs[$key] ?? []);
         }
 
         $imageSlots = [];
@@ -335,47 +365,184 @@ readonly final class DocumentFillPage
     }
 
     /**
+     * ONE editor for N bound inputs: the richest value EVERY binding accepts
+     * ({@see DocumentTextMode} — plain, rich, list, checklist), the MIN
+     * `maxLength`, hidable / checklist capabilities AND-ed, and the font +
+     * colour menus narrowed to what every binding allows. The first binding's
+     * placeholder supplies everything else (frame-less: the field is edited
+     * through every bound box and the panel).
+     *
      * @param array<string, mixed> $placeholder the first binding's placeholder
      * @param list<array<string, mixed>> $bindings every bound page's own placeholder
+     * @param list<EditorTextInput> $inputs every bound page's own input
      *
      * @return array<string, mixed>
      */
-    private static function sharedText(array $placeholder, TemplateDocumentField $field, array $bindings): array
+    private static function sharedText(array $placeholder, TemplateDocumentField $field, array $bindings, array $inputs): array
     {
+        $mode = DocumentTextMode::common($inputs);
+        $rich = $mode !== DocumentTextMode::Plain && $mode !== DocumentTextMode::Checklist;
+        $all = static fn (string $flag): bool => $bindings !== [] && array_reduce($bindings, static fn (bool $carry, array $binding): bool => $carry && ($binding[$flag] ?? false) === true, true);
+
         $maxLength = null;
-        $hidable = $bindings !== [];
         foreach ($bindings as $binding) {
             $limit = $binding['maxLength'] ?? null;
             if (is_int($limit) && ($maxLength === null || $limit < $maxLength)) {
                 $maxLength = $limit;
             }
-            $hidable = $hidable && ($binding['hidable'] ?? false) === true;
         }
 
+        // Fonts: the faces EVERY binding offers (the rich face menu, or the
+        // plain whole-text select — offered only when every binding offers it).
+        $fontChoice = !$rich && $mode !== DocumentTextMode::Checklist && $all('fontChoice');
+        $fontOptions = $rich || $fontChoice ? self::commonFonts($bindings) : [];
+        $families = array_column($fontOptions, 'family');
+
         $value = is_string($placeholder['value'] ?? null) ? $placeholder['value'] : '';
+        if ($mode === DocumentTextMode::Plain) {
+            // The first binding may be rich while another is plain: its
+            // seeded envelope degrades to the text every page accepts.
+            $value = self::plainText($value);
+        }
+
+        $fontValue = is_string($placeholder['fontValue'] ?? null) && in_array($placeholder['fontValue'], $families, true) ? $placeholder['fontValue'] : '';
 
         return [
             ...$placeholder,
             'name' => 'Společné: ' . $field->name,
             'description' => null,
             'maxLength' => $maxLength,
-            'value' => $maxLength !== null ? mb_substr($value, 0, $maxLength) : $value,
-            'hidable' => $hidable,
+            'value' => $maxLength !== null && !$rich ? mb_substr($value, 0, $maxLength) : $value,
+            'hidable' => $all('hidable'),
             'hidden' => false,
-            // A shared value is plain text in v1 (one value for N inputs that
-            // may disagree on rich / font settings).
-            'richText' => false,
-            'lists' => false,
-            'listCheckboxes' => false,
-            'checklist' => false,
-            'checklistItems' => null,
-            'runs' => null,
-            'lines' => null,
-            'fontOptions' => [],
-            'fontGroups' => [],
-            'fontChoice' => false,
-            'fontValue' => '',
-            'colorOptions' => null,
+            'richText' => $rich,
+            'lists' => $mode === DocumentTextMode::List,
+            'listCheckboxes' => $mode === DocumentTextMode::List && $all('listCheckboxes'),
+            'checklist' => $mode === DocumentTextMode::Checklist,
+            'checklistAdd' => $mode === DocumentTextMode::Checklist && $all('checklistAdd'),
+            'checklistRemove' => $mode === DocumentTextMode::Checklist && $all('checklistRemove'),
+            'checklistEditText' => $mode === DocumentTextMode::Checklist && $all('checklistEditText'),
+            'checklistToggle' => $mode === DocumentTextMode::Checklist && $all('checklistToggle'),
+            'checklistItems' => $mode === DocumentTextMode::Checklist ? ($placeholder['checklistItems'] ?? []) : null,
+            'runs' => $rich ? ($placeholder['runs'] ?? null) : null,
+            'lines' => $mode === DocumentTextMode::List ? ($placeholder['lines'] ?? null) : null,
+            'fontOptions' => $fontOptions,
+            'fontGroups' => self::groupFonts($fontOptions),
+            'fontChoice' => $fontChoice && $fontOptions !== [],
+            'fontValue' => $fontValue,
+            'colorOptions' => $rich ? self::commonColors(array_map(static fn (array $binding): mixed => $binding['colorOptions'] ?? null, $bindings)) : null,
+            'textMode' => $mode->value,
+            'shared' => true,
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $bindings
+     * @return list<array<array-key, mixed>>
+     */
+    private static function commonFonts(array $bindings): array
+    {
+        /** @var null|array<string, array<array-key, mixed>> $common */
+        $common = null;
+
+        foreach ($bindings as $binding) {
+            $options = is_array($binding['fontOptions'] ?? null) ? $binding['fontOptions'] : [];
+            /** @var array<string, array<array-key, mixed>> $byFamily */
+            $byFamily = [];
+            foreach ($options as $option) {
+                if (is_array($option) && is_string($option['family'] ?? null)) {
+                    $byFamily[$option['family']] = $option;
+                }
+            }
+
+            $common = $common === null ? $byFamily : array_intersect_key($common, $byFamily);
+        }
+
+        return array_values($common ?? []);
+    }
+
+    /**
+     * `RichTextOptions::groupFaces()` over the narrowed option arrays.
+     *
+     * @param list<array<array-key, mixed>> $fontOptions
+     * @return list<array{name: string, faces: list<array{family: string, faceName: string}>}>
+     */
+    private static function groupFonts(array $fontOptions): array
+    {
+        /** @var array<string, list<array{family: string, faceName: string}>> $grouped */
+        $grouped = [];
+        foreach ($fontOptions as $option) {
+            $str = static fn (mixed $value): string => is_string($value) ? $value : '';
+            $grouped[$str($option['fontName'] ?? null)][] = ['family' => $str($option['family'] ?? null), 'faceName' => $str($option['faceName'] ?? null)];
+        }
+
+        $groups = [];
+        foreach ($grouped as $name => $faces) {
+            $groups[] = ['name' => (string) $name, 'faces' => $faces];
+        }
+
+        return $groups;
+    }
+
+    private static function plainText(string $value): string
+    {
+        $envelope = RichText::tryExtractEnvelope($value);
+
+        if ($envelope === null) {
+            return $value;
+        }
+
+        return implode('', array_map(
+            static fn (mixed $run): string => is_array($run) && is_string($run['text'] ?? null) ? $run['text'] : '',
+            $envelope['runs'],
+        ));
+    }
+
+    /**
+     * Colour allowlists AND-ed: null = brand swatches + free picker (narrows
+     * nothing), a list = only those, [] = colour locked.
+     *
+     * @param list<mixed> $lists
+     * @return null|list<string>
+     */
+    public static function commonColors(array $lists): null|array
+    {
+        $common = null;
+
+        foreach ($lists as $list) {
+            if (!is_array($list)) {
+                continue;
+            }
+
+            $colors = array_values(array_filter($list, 'is_string'));
+            $common = $common === null ? $colors : array_values(array_intersect($common, $colors));
+        }
+
+        return $common;
+    }
+
+    /**
+     * One colour row for N bound shapes: free only when every shape is free;
+     * otherwise the colours EVERY restricted shape allows ("" — each page's
+     * designed colour — always stays allowed).
+     *
+     * @param array<string, mixed> $first
+     * @param list<ShapeColorInput> $inputs
+     * @return array<string, mixed>
+     */
+    private static function sharedShape(array $first, TemplateDocumentField $field, array $inputs): array
+    {
+        $free = array_reduce($inputs, static fn (bool $carry, ShapeColorInput $input): bool => $carry && $input->freeColor, true);
+        $options = self::commonColors(array_map(
+            static fn (ShapeColorInput $input): null|array => $input->freeColor ? null : $input->colorOptions(),
+            $inputs,
+        ));
+
+        return [
+            ...$first,
+            'name' => 'Společné: ' . $field->name,
+            'freeColor' => $free,
+            'options' => $options ?? (is_array($first['options'] ?? null) ? $first['options'] : []),
             'shared' => true,
         ];
     }

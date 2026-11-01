@@ -23,7 +23,7 @@
                     {% set field = entry.field %}
                     <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-document-field="{{ field.id }}">
                         <span class="fw-bold">{{ field.name }}</span>
-                        <span class="badge bg-light text-dark">{{ field.kind.label }}</span>
+                        <span class="badge bg-light text-dark" data-document-field-kind>{{ entry.textMode ? entry.textMode.label : field.kind.label }}</span>
                         {% if entry.stale > 0 %}
                             <span class="badge bg-warning-subtle text-warning" data-document-field-stale title="Propojený prvek na stránce už neexistuje — při příštím uložení pole se propojení odstraní.">
                                 <i class="mdi mdi-alert-outline"></i> {{ entry.stale }}× neplatné propojení
@@ -65,6 +65,7 @@
     </div>
 </div>
 
+{% set text_mode_suffix = {rich: ' (formátovaný)', list: ' (se seznamy)', checklist: ' (zaškrtávací seznam)'} %}
 {% set field_modals = [{id: 'new', field: null, selected: {}}] %}
 {% for entry in shared_fields.fields %}
     {% set field_modals = field_modals|merge([{id: entry.field.id ~ '', field: entry.field, selected: entry.selected}]) %}
@@ -90,8 +91,9 @@
                     <label class="form-label" for="documentFieldKind-{{ modal.id }}">Typ</label>
                     <select class="form-select mb-3" id="documentFieldKind-{{ modal.id }}" name="kind"
                             data-document-field-form-target="kind" data-action="document-field-form#kindChanged">
-                        <option value="text" {{ kind == 'text' ? 'selected' }}>Text (prostý text)</option>
+                        <option value="text" {{ kind == 'text' ? 'selected' }}>Text</option>
                         <option value="image" {{ kind == 'image' ? 'selected' }}>Obrázek</option>
+                        <option value="shape" {{ kind == 'shape' ? 'selected' }}>Barva tvaru</option>
                     </select>
 
                     <div class="form-label">Propojení se stránkami</div>
@@ -104,7 +106,7 @@
                                 <option value="">nepropojeno</option>
                                 <optgroup label="Texty — {{ page.name }}" data-kind="text">
                                     {% for input in page.text %}
-                                        <option value="{{ input.inputId }}" {{ kind == 'text' and current == input.inputId ? 'selected' }}>{{ input.name }}</option>
+                                        <option value="{{ input.inputId }}" {{ kind == 'text' and current == input.inputId ? 'selected' }}>{{ input.name }}{{ text_mode_suffix[input.mode] ?? '' }}</option>
                                     {% endfor %}
                                 </optgroup>
                                 <optgroup label="Obrázky — {{ page.name }}" data-kind="image">
@@ -112,10 +114,15 @@
                                         <option value="{{ input.inputId }}" {{ kind == 'image' and current == input.inputId ? 'selected' }}>{{ input.name }}</option>
                                     {% endfor %}
                                 </optgroup>
+                                <optgroup label="Barvy tvarů — {{ page.name }}" data-kind="shape">
+                                    {% for input in page.shape %}
+                                        <option value="{{ input.inputId }}" {{ kind == 'shape' and current == input.inputId ? 'selected' }}>{{ input.name }}</option>
+                                    {% endfor %}
+                                </optgroup>
                             </select>
                         </div>
                     {% endfor %}
-                    <p class="text-muted small mb-0">Na každé stránce lze pole propojit nejvýš s jedním prvkem. Text je společný jen jako prostý text (bez formátování a volby písma); obrázek se vybírá jednou, umístění se upravuje na každé stránce zvlášť.</p>
+                    <p class="text-muted small mb-0">Na každé stránce lze pole propojit nejvýš s jedním prvkem. Společný text nabídne to, co zvládnou všechny propojené prvky: formátování a seznamy jen tehdy, když je mají všechny (jinak prostý text), písma a barvy společné všem. Zaškrtávací seznam lze propojit jen s dalšími zaškrtávacími seznamy. Obrázek se vybírá jednou, umístění se upravuje na každé stránce zvlášť; barva tvaru platí pro všechny propojené tvary.</p>
                 </div>
                 <div class="modal-footer">
                     {% if field %}

@@ -79,6 +79,11 @@ final readonly class DocumentExportVersionApiView
                     break;
                 }
 
+                if ($field->kind === DocumentFieldKind::Shape && array_key_exists($binding->inputId, $source['shapeColors'])) {
+                    $fields[$field->id->toString()] = $source['shapeColors'][$binding->inputId];
+                    break;
+                }
+
                 $image = $source['images'][$binding->inputId] ?? null;
 
                 if ($field->kind === DocumentFieldKind::Image && is_array($image)) {

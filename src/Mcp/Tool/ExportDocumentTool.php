@@ -65,8 +65,9 @@ readonly final class ExportDocumentTool
      * Exports a filled multi-page document (find_templates documents[]) as ONE
      * file and returns it as an embedded resource.
      *
-     * - fields: shared fieldId → value (text: a string; image: a gallery image
-     *   id or {imageId, hide}). It fills the bound input on every page and wins
+     * - fields: shared fieldId → value (text: the field's textMode shape — a
+     *   string, {runs} for rich, …; image: a gallery image id or {imageId,
+     *   hide}; shape: "#rrggbb"). It fills the bound input on every page and wins
      *   over that page's own value.
      * - pages: pageId → that page's fill, exactly like export_variant's body
      *   for the page's variantId: {inputs, images, shapeColors}. Input ids are

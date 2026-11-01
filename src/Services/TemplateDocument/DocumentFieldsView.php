@@ -10,6 +10,8 @@ use WBoost\Web\Entity\TemplateDocumentPage;
 use WBoost\Web\Value\DocumentFieldBinding;
 use WBoost\Web\Value\DocumentFieldDefinition;
 use WBoost\Web\Value\DocumentFieldKind;
+use WBoost\Web\Value\DocumentTextMode;
+use WBoost\Web\Value\ShapeColorInput;
 
 /**
  * The designer's "Společná pole" card on the document page: the fields with
@@ -26,8 +28,8 @@ readonly final class DocumentFieldsView
 {
     /**
      * @return array{
-     *     fields: list<array{field: TemplateDocumentField, bindings: list<array{pageNumber: null|int, pageName: string, inputName: string, stale: bool}>, selected: array<string, string>, stale: int}>,
-     *     pages: list<array{templateId: string, number: int, name: string, text: list<array{inputId: string, name: string, named: bool}>, image: list<array{inputId: string, name: string, named: bool}>}>,
+     *     fields: list<array{field: TemplateDocumentField, bindings: list<array{pageNumber: null|int, pageName: string, inputName: string, stale: bool}>, selected: array<string, string>, stale: int, textMode: null|DocumentTextMode}>,
+     *     pages: list<array{templateId: string, number: int, name: string, text: list<array{inputId: string, name: string, named: bool, mode: string}>, image: list<array{inputId: string, name: string, named: bool}>, shape: list<array{inputId: string, name: string, named: bool}>}>,
      *     suggestions: list<array{name: string, kind: string, bindings: list<array{templateId: string, inputId: string}>, label: string}>
      * }
      */
@@ -41,7 +43,7 @@ readonly final class DocumentFieldsView
             $templateId = $page->template->id->toString();
             $options = self::bindableInputs($page);
             $names = [];
-            foreach ([...$options['text'], ...$options['image']] as $option) {
+            foreach ([...$options['text'], ...$options['image'], ...$options['shape']] as $option) {
                 $names[$option['inputId']] = $option['name'];
             }
 
@@ -51,6 +53,7 @@ readonly final class DocumentFieldsView
                 'name' => $page->template->name,
                 'text' => $options['text'],
                 'image' => $options['image'],
+                'shape' => $options['shape'],
             ];
             $byTemplate[$templateId] = ['number' => $index + 1, 'page' => $page, 'names' => $names];
         }
@@ -63,6 +66,7 @@ readonly final class DocumentFieldsView
             $bindings = [];
             $selected = [];
             $stale = 0;
+            $textInputs = [];
 
             foreach ($field->bindings() as $binding) {
                 $source = $byTemplate[$binding->templateId] ?? null;
@@ -71,6 +75,10 @@ readonly final class DocumentFieldsView
 
                 if ($live) {
                     $selected[$binding->templateId] = $binding->inputId;
+                    $textInput = $field->kind === DocumentFieldKind::Text ? TemplateDocumentRules::textInput($source['page']->variant, $binding->inputId) : null;
+                    if ($textInput !== null) {
+                        $textInputs[] = $textInput;
+                    }
                 } else {
                     $stale++;
                 }
@@ -85,7 +93,15 @@ readonly final class DocumentFieldsView
 
             usort($bindings, static fn (array $a, array $b): int => ($a['pageNumber'] ?? PHP_INT_MAX) <=> ($b['pageNumber'] ?? PHP_INT_MAX));
 
-            $fields[] = ['field' => $field, 'bindings' => $bindings, 'selected' => $selected, 'stale' => $stale];
+            $fields[] = [
+                'field' => $field,
+                'bindings' => $bindings,
+                'selected' => $selected,
+                'stale' => $stale,
+                // What the one shared editor offers — the richest text every
+                // binding accepts (null for images / shapes).
+                'textMode' => $field->kind === DocumentFieldKind::Text ? DocumentTextMode::common($textInputs) : null,
+            ];
         }
 
         return [
@@ -129,15 +145,21 @@ readonly final class DocumentFieldsView
     }
 
     /**
-     * @return array{text: list<array{inputId: string, name: string, named: bool}>, image: list<array{inputId: string, name: string, named: bool}>}
+     * @return array{text: list<array{inputId: string, name: string, named: bool, mode: string}>, image: list<array{inputId: string, name: string, named: bool}>, shape: list<array{inputId: string, name: string, named: bool}>}
      */
     private static function bindableInputs(TemplateDocumentPage $page): array
     {
         $text = [];
         foreach (array_values($page->variant->inputs) as $index => $input) {
             if (TemplateDocumentRules::isBindableText($input)) {
-                $text[] = ['inputId' => $input->inputId, 'name' => self::label($input->name, sprintf('Text %d', $index + 1)), 'named' => trim((string) $input->name) !== ''];
+                $mode = DocumentTextMode::ofInput($input);
+                $text[] = ['inputId' => $input->inputId, 'name' => self::label($input->name, sprintf('Text %d', $index + 1)), 'named' => trim((string) $input->name) !== '', 'mode' => $mode->value];
             }
+        }
+
+        $shape = [];
+        foreach (ShapeColorInput::collectionFromCanvasJson($page->variant->canvas) as $index => $input) {
+            $shape[] = ['inputId' => $input->inputId, 'name' => self::label($input->name, sprintf('Tvar %d', $index + 1)), 'named' => trim((string) $input->name) !== ''];
         }
 
         $image = [];
@@ -145,7 +167,7 @@ readonly final class DocumentFieldsView
             $image[] = ['inputId' => $input->inputId, 'name' => self::label($input->name, sprintf('Obrázek %d', $index + 1)), 'named' => trim((string) $input->name) !== ''];
         }
 
-        return ['text' => $text, 'image' => $image];
+        return ['text' => $text, 'image' => $image, 'shape' => $shape];
     }
 
     private static function label(null|string $name, string $fallback): string
@@ -160,7 +182,7 @@ readonly final class DocumentFieldsView
      * verbatim) or a name on at least two pages — the likely shared fields.
      * One input per page per suggestion; identical binding sets suggested once.
      *
-     * @param list<array{templateId: string, number: int, name: string, text: list<array{inputId: string, name: string, named: bool}>, image: list<array{inputId: string, name: string, named: bool}>}> $pages
+     * @param list<array{templateId: string, number: int, name: string, text: list<array{inputId: string, name: string, named: bool, mode: string}>, image: list<array{inputId: string, name: string, named: bool}>, shape: list<array{inputId: string, name: string, named: bool}>}> $pages
      * @param array<string, true> $bound
      *
      * @return list<array{name: string, kind: string, bindings: list<array{templateId: string, inputId: string}>, label: string}>
@@ -170,8 +192,8 @@ readonly final class DocumentFieldsView
         $result = [];
         $seen = [];
 
-        foreach ([DocumentFieldKind::Text, DocumentFieldKind::Image] as $kind) {
-            /** @var array<string, array<string, array{inputId: string, name: string, number: int}>> $groups group → templateId → input */
+        foreach (DocumentFieldKind::cases() as $kind) {
+            /** @var array<string, array<string, array{inputId: string, name: string, number: int, checklist: bool}>> $groups group → templateId → input */
             $groups = [];
 
             foreach ($pages as $page) {
@@ -180,7 +202,7 @@ readonly final class DocumentFieldsView
                         continue;
                     }
 
-                    $candidate = ['inputId' => $input['inputId'], 'name' => $input['name'], 'number' => $page['number']];
+                    $candidate = ['inputId' => $input['inputId'], 'name' => $input['name'], 'number' => $page['number'], 'checklist' => ($input['mode'] ?? '') === DocumentTextMode::Checklist->value];
                     $groups['id:' . $input['inputId']][$page['templateId']] ??= $candidate;
                     // Fallback labels ("Text 2") are positional, not a name.
                     if ($input['named']) {
@@ -191,6 +213,12 @@ readonly final class DocumentFieldsView
 
             foreach ($groups as $members) {
                 if (count($members) < 2) {
+                    continue;
+                }
+
+                // A checklist shares only with checklists (DocumentTextMode).
+                $checklists = count(array_filter($members, static fn (array $member): bool => $member['checklist']));
+                if ($checklists !== 0 && $checklists !== count($members)) {
                     continue;
                 }
 

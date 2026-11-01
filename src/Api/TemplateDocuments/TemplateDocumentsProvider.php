@@ -20,6 +20,8 @@ use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Services\TemplateDocument\TemplateDocumentRules;
 use WBoost\Web\Value\DocumentFieldKind;
+use WBoost\Web\Value\DocumentTextMode;
+use WBoost\Web\Value\EditorTextInput;
 
 /**
  * `GET /api/projects/{projectId}/template-documents` and
@@ -94,8 +96,9 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
             $bindings = [];
             $maxLength = null;
             $validCount = 0;
-            $richText = true;
             $hidable = true;
+            /** @var list<EditorTextInput> $textInputs */
+            $textInputs = [];
             /** @var null|list<string> $folders */
             $folders = null;
 
@@ -125,10 +128,16 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
                             $maxLength = $maxLength === null ? $input->maxLength : min($maxLength, $input->maxLength);
                         }
 
-                        $richText = $richText && $input->richText;
+                        $textInputs[] = $input;
                         $hidable = $hidable && $input->hidable;
                     }
 
+                    continue;
+                }
+
+                if ($field->kind === DocumentFieldKind::Shape) {
+                    // A shape colour is never hidable.
+                    $hidable = false;
                     continue;
                 }
 
@@ -152,9 +161,10 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
                 $field->kind->value,
                 $bindings,
                 $maxLength,
-                richText: $validCount > 0 && $field->kind === DocumentFieldKind::Text && $richText,
+                richText: $field->kind === DocumentFieldKind::Text && in_array(DocumentTextMode::common($textInputs), [DocumentTextMode::Rich, DocumentTextMode::List], true),
                 hidable: $validCount > 0 && $hidable,
                 allowedDirectoryIds: $field->kind === DocumentFieldKind::Image ? $folders : null,
+                textMode: $field->kind === DocumentFieldKind::Text ? DocumentTextMode::common($textInputs)->value : null,
             );
         }
 

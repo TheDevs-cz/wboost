@@ -310,8 +310,9 @@ recorded. A successful export **is** recorded in the project's usage report.
 ## `export_document(documentId, fields?, pages?, format?, versionId?)`
 
 `format`: `"pdf-screen"` (default) | `"pdf"` (print; mm / cm only, ≤ 8 pages
-here) | `"png"` (ZIP). `fields`: shared fieldId → string (text) | image id or
-`{imageId, hide}` (image). `pages`: pageId → `{inputs, images, shapeColors}`,
+here) | `"png"` (ZIP). `fields`: shared fieldId → a text value in the field's
+`textMode` shape (string, `{runs}`, …) | image id or `{imageId, hide}` (image)
+| `"#rrggbb"` (shape). `pages`: pageId → `{inputs, images, shapeColors}`,
 exactly `export_variant`'s body for the page's variant; a shared value wins
 over the page's own TEXT for its bound input (the page's own `hide` /
 `fontFamily` for it are kept). `versionId` (from `document_history`) starts
@@ -352,8 +353,12 @@ The actions:
   `templates[].categoryId`; `""` removes it).
 - `set_pages`: `documentId`, `templateIds` (the whole ordered list).
 - `add_page`: `documentId`, `name?`, `position?`.
-- `set_fields`: `documentId`, `fields: [{id?, name, kind: "text"|"image",
-  bindings: [{pageId, inputId}]}]`.
+- `set_fields`: `documentId`, `fields: [{id?, name, kind: "text"|"image"|"shape",
+  bindings: [{pageId, inputId}]}]`. `text` binds any editable text input
+  (plain, rich, list, checklist); the field takes the richest value every
+  binding accepts — its `fields[].textMode` (`plain` | `rich` | `list` |
+  `checklist`; a checklist binds only to checklists). `shape` binds
+  recolourable shapes: one `#rrggbb` for all.
 - `duplicate_page`: `documentId`, `pageId`, `position?` (default: right
   after the original). The copy is its own template, same design and input
   ids; values stay per page.
@@ -364,7 +369,7 @@ Every action answers the document:
 - `id`, `name`, `categoryName`, `categoryId`, `dimension`, `printFormat`
 - `pages[]`: `{pageId, position, templateId, templateName, variantId,
   thumbnailUrl}`
-- `fields[]`: `{id, name, kind, bindings[]}`
+- `fields[]`: `{id, name, kind, bindings[], textMode}`
 - `editorUrl`, `fillUrl`
 
 Refusals name the invariant: `template_grouped`, `template_not_found`,

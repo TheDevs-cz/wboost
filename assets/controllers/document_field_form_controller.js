@@ -2,8 +2,8 @@ import { Controller } from '@hotwired/stimulus';
 
 /**
  * The shared-field modal on the document page ("Společná pole"): each page's
- * binding select lists BOTH the page's bindable texts and its image slots
- * (one <optgroup data-kind> each); this keeps only the group matching the
+ * binding select lists the page's bindable texts, image slots and
+ * recolourable shapes (one <optgroup data-kind> each); this keeps only the group matching the
  * chosen kind enabled and drops a pick of the other kind. Without JS the
  * server still refuses a mismatched binding (flash).
  */

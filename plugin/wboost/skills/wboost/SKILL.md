@@ -281,7 +281,9 @@ file. Each page carries its `variantId` — `describe_variant`,
   - `set_pages`: the WHOLE ordered list; detaching keeps the template.
   - `add_page`: a blank page; its `variantId` is in the answer, design it with
     `set_design`.
-  - `set_fields`: the WHOLE list of shared fields, at most one binding per page.
+  - `set_fields`: the WHOLE list of shared fields (`text` — any text input,
+    value shaped by the field's `textMode` —, `image` or `shape`), at most one
+    binding per page.
   - `duplicate_page`: a copy of a page (values stay per page).
   - `set_print`: bleed + crop marks for the document and every page.
   - There is no delete.

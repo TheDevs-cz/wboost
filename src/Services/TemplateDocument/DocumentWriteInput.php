@@ -65,7 +65,7 @@ final class DocumentWriteInput
     }
 
     /**
-     * `[{id?, name, kind: "text"|"image", bindings: [{pageId, inputId}]}]` —
+     * `[{id?, name, kind: "text"|"image"|"shape", bindings: [{pageId, inputId}]}]` —
      * `pageId` may also be the page's templateId. Unknown field ids get a
      * fresh id (a new field).
      *
@@ -85,7 +85,7 @@ final class DocumentWriteInput
             $kind = is_string($field['kind'] ?? null) ? DocumentFieldKind::tryFrom($field['kind']) : null;
 
             if ($kind === null) {
-                throw new \InvalidArgumentException(sprintf('fields[%d].kind must be "text" or "image".', $index));
+                throw new \InvalidArgumentException(sprintf('fields[%d].kind must be "text", "image" or "shape".', $index));
             }
 
             $name = is_string($field['name'] ?? null) ? trim($field['name']) : '';
