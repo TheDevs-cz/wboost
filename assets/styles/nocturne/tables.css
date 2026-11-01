@@ -1,0 +1,41 @@
+/* ==========================================================================
+   Nocturne — tables (spec §3.11): Bootstrap .table → transparent rows with
+   hairlines, uppercase 11 px eyebrow headers, surface-2 hover.
+   ========================================================================== */
+
+.table {
+    --bs-table-color: var(--text);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--line);
+    --bs-table-accent-bg: transparent;
+    --bs-table-striped-color: var(--text);
+    --bs-table-striped-bg: color-mix(in oklab, var(--surface-2) 55%, transparent);
+    --bs-table-active-color: var(--text);
+    --bs-table-active-bg: var(--surface-2);
+    --bs-table-hover-color: var(--text);
+    --bs-table-hover-bg: var(--surface-2);
+    margin-bottom: 0;
+    font-variant-numeric: tabular-nums;
+}
+.table > :not(caption) > * > * { padding: 12px 14px; vertical-align: middle; border-bottom-color: var(--line); }
+.table > thead > tr > th, .table > thead > tr > td, .table th[scope="col"] {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--subtle);
+    white-space: nowrap;
+    border-bottom-color: var(--line-2);
+}
+.table-sm > :not(caption) > * > * { padding: 8px 10px; }
+.table > tbody > tr:last-child > * { border-bottom-width: 0; }
+.table-light, .table > thead.table-light > tr > *, .table-dark, .table > thead.table-dark > tr > * { --bs-table-bg: transparent; --bs-table-color: var(--subtle); --bs-table-border-color: var(--line-2); }
+.table-bordered > :not(caption) > * > * { border-color: var(--line); }
+.table-centered td, .table-centered th { vertical-align: middle !important; }
+.table-responsive { scrollbar-width: thin; }
+.table a:not(.btn) { color: var(--text); font-weight: 600; }
+.table a:not(.btn):hover { color: var(--lav-ink); }
+.table-active, .table > tbody > tr.table-active > * { --bs-table-bg-state: var(--lav-deep); --bs-table-color-state: var(--text); }
+.table-success > *, tr.table-success > * { --bs-table-bg-state: var(--mnt-deep); --bs-table-color-state: var(--text); }
+.table-danger > *, tr.table-danger > * { --bs-table-bg-state: var(--rose-deep); --bs-table-color-state: var(--text); }
+.table-warning > *, tr.table-warning > * { --bs-table-bg-state: var(--pch-deep); --bs-table-color-state: var(--text); }

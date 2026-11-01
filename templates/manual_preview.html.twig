@@ -7,7 +7,20 @@
     <meta name="viewport" content="width=1400, initial-scale=0.25, maximum-scale=1">
 {% endblock %}
 
+{# Customer-facing output — NOT part of the Nocturne redesign (PLAN
+   decision 7): no Nocturne layer (app_plain entrypoint), always light, and
+   the legacy Hyper sheet it was designed against. P10 must localise what this
+   page needs from app-saas.min.css before public/theme/ is deleted. #}
+{% block theme_script %}
+    <script>document.documentElement.setAttribute('data-theme', 'light');document.documentElement.setAttribute('data-bs-theme', 'light');</script>
+{% endblock %}
+
+{% block importmap %}
+    {{ importmap('app_plain') }}
+{% endblock %}
+
 {% block custom_styles %}
+    <link href="{{ asset('theme/css/app-saas.min.css') }}" rel="stylesheet" type="text/css">
     <style>
         {% for manual_font in fonts %}
             {% for font_face in manual_font.font.faces %}

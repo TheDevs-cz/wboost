@@ -203,17 +203,17 @@ final class McpGuideControllerTest extends WebTestCase
         $browser->request('GET', self::PAGE);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.leftbar-account__menu a[href="/ai"]');
-        self::assertSelectorTextContains('.leftbar-account__menu', 'AI (MCP server)');
+        self::assertSelectorExists('.sb nav[aria-label="Propojení"] a[href="/ai"]');
+        self::assertSelectorTextContains('.sb nav[aria-label="Propojení"]', 'AI (MCP server)');
     }
 
     /**
-     * The entry lives in the SHARED account drop-up at the sidebar's bottom
-     * edge, above "Odhlásit se" — so it is reachable from anywhere in the app,
-     * not only from itself. The page it is asserted on is deliberately
-     * somebody else's.
+     * The entry lives in the shared sidebar's "Propojení" section (Nocturne
+     * shell, 2026-11) — so it is reachable from anywhere in the app, not only
+     * from itself — next to "Propojené aplikace". The page it is asserted on
+     * is deliberately somebody else's.
      */
-    public function testTheNavigationEntrySitsInTheAccountMenu(): void
+    public function testTheNavigationEntrySitsInTheConnectionsSection(): void
     {
         $browser = self::createClient();
         TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
@@ -222,16 +222,17 @@ final class McpGuideControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $items = $crawler->filter('.leftbar-account__menu .dropdown-item')->each(
+        $items = $crawler->filter('.sb nav[aria-label="Propojení"] a.nav-i')->each(
             static fn (Crawler $node): string => trim($node->text()),
         );
 
+        $apps = array_search('Propojené aplikace', $items, true);
         $ai = array_search('AI (MCP server)', $items, true);
-        $logout = array_search('Odhlásit se', $items, true);
 
+        self::assertIsInt($apps);
         self::assertIsInt($ai);
-        self::assertIsInt($logout);
-        self::assertLessThan($logout, $ai, 'The AI entry must sit above "Odhlásit se" in the account menu.');
+        self::assertLessThan($ai, $apps, 'The AI entry must sit below "Propojené aplikace".');
+        self::assertSelectorExists('#meMenu a[href="/logout"]');
     }
 
     /**

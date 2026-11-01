@@ -45,7 +45,7 @@ commit when you change a contract described there — not this file.
 
 | File | Read when touching |
 |---|---|
-| `app-shell.md` | `base.html.twig`, left navigation, account drop-up, mobile drawer toggle, project modules (`project.modules`, "Objevte další moduly", module guard) |
+| `app-shell.md` | `base.html.twig` Nocturne shell (`templates/_shell/`, `shell` controller), theme, sidebar/rail/drawer, page header blocks, CSS load order, project modules (`project.modules`, "Objevte další moduly", module guard) |
 | `templates-data-model.md` | `template_variant` columns, canvas JSONB, inputId binding, canvas vs LAYER background mode, `BackgroundLayer`, gallery-picked backgrounds, group background propagation |
 | `templates-editor-ui.md` | admin editor Stimulus controllers (`canvas_*.js`), backdrop targeting, layers panel, vector shapes (+ MCP DSL shapes), floating toolbar/popover, editor shell/zoom, overlay chrome toggles |
 | `templates-containers.md` | containers / smart text areas, `container_layout.js`, nesting, gap, collision-push, `spaceAfter`, overflow 400 contract |
@@ -67,11 +67,11 @@ design DSL), `docs/plans/` (historical plans, not current truth).
 
 ### Cross-cutting rules (apply everywhere)
 
-- **CSS ordering gotcha**: `importmap('app')` injects `assets/styles/app.css`
-  **before** the theme's `app-saas.min.css`, so an equal-specificity rule of ours
-  LOSES to the theme (and to Bootstrap). Rules that compete with theme styles
-  must be scoped one level deeper (`.leftside-menu .leftbar-account`,
-  `.wrapper .leftside-menu`, `.canvas-stage`, `.dropdown-menu.editor-display-menu`).
+- **CSS ordering (Nocturne, 2026-11)**: the Hyper theme is gone. `assets/app.js`
+  imports Bootstrap CSS → `assets/styles/nocturne/*.css` → `assets/styles/app.css`,
+  so the Nocturne layer beats Bootstrap and app.css beats both on equal
+  specificity. Bootstrap stays as the behaviour layer (`window.bootstrap` from
+  `assets/bootstrap_global.js`). Redesign plan/spec: `docs/redesign/`.
 - **Upload limit = 10 MB DECIMAL** (`maxSize: '10m'` = 10 000 000 bytes); every
   JS/PHP mirror must use the same number — see `gallery-and-uploads.md`.
 - **Never return a flushing `StreamedResponse`** for generated binaries — the

@@ -87,6 +87,9 @@ return static function (ContainerConfigurator $container): void {
     // Controllers
     $services->load('WBoost\\Web\\Controller\\', __DIR__ . '/../src/Controller/**/{*Controller.php}');
 
+    // Attribute-based Twig extensions (#[AsTwigFunction]): the app shell helpers.
+    $services->load('WBoost\\Web\\Twig\\', __DIR__ . '/../src/Twig/{*Extension.php}');
+
     // Components
     $services->load('WBoost\\Web\\Twig\\Components\\', __DIR__ . '/../src/Twig/Components/**/{*.php}');
 

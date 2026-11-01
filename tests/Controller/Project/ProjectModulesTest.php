@@ -41,7 +41,7 @@ final class ProjectModulesTest extends WebTestCase
         self::assertSelectorNotExists(sprintf('a[href="/project/%s/calendars"]', self::PROJECT_2));
         // The left-nav item is the only entry point — no dashboard tile.
         self::assertCount(1, $client->getCrawler()->filter(sprintf('a[href="/project/%s/modules"]', self::PROJECT_2)));
-        self::assertSelectorExists(sprintf('.leftside-menu a.side-nav-discover[href="/project/%s/modules"]', self::PROJECT_2));
+        self::assertSelectorExists(sprintf('.sb a.side-nav-discover[href="/project/%s/modules"]', self::PROJECT_2));
     }
 
     public function testProjectUsingEveryModuleHasNothingToDiscover(): void

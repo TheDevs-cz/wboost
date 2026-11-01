@@ -1,0 +1,27 @@
+/* ==========================================================================
+   Nocturne — standalone auth / error pages (login, registration, password,
+   OAuth consent, FB deletion status, error pages). They still use Hyper's
+   markup (`authentication-bg`, `account-pages`, card + bg-dark header); this
+   gives them a centred Nocturne card until P9 rebuilds them.
+   ========================================================================== */
+
+body.authentication-bg { min-height: 100vh; min-height: 100dvh; background: radial-gradient(1200px 600px at 50% -10%, var(--lav-deep), transparent 70%), var(--bg); }
+body.authentication-bg > .position-absolute svg { opacity: .35; }
+.account-pages { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; padding: 32px 0 !important; }
+.account-pages > .container { max-width: 520px; }
+.account-pages .row > [class*="col-"] { width: 100%; flex: 0 0 100%; max-width: 100%; }
+.account-pages .card { border-radius: 24px; border-color: var(--line); background: var(--surface); box-shadow: var(--shadow-3); overflow: hidden; }
+.account-pages .card-header, .account-pages .card-header.bg-dark { background: transparent !important; border-bottom: 0; padding: 32px 32px 0 !important; text-align: left !important; }
+.account-pages .card-header .brand-logo { height: 30px; }
+.account-pages .card-body { padding: 24px 32px 32px !important; }
+.account-pages .card-body h4, .account-pages .card-body .h4 { font-size: 24px; font-weight: 600; letter-spacing: -.01em; color: var(--text); text-align: left !important; }
+.account-pages .text-center.w-75 { width: auto !important; text-align: left !important; margin: 0 !important; }
+.account-pages .btn-primary { width: 100%; }
+.account-pages .text-muted b { color: var(--lav-ink); }
+.input-group-text[data-password] { cursor: pointer; padding: 0 14px; }
+.password-eye { display: inline-block; width: 18px; height: 18px; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z'/><circle cx='12' cy='12' r='3'/></svg>") center / contain no-repeat;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z'/><circle cx='12' cy='12' r='3'/></svg>") center / contain no-repeat; }
+.input-group-text[data-password="true"] { color: var(--lav-ink); }
+/* flashes inside the auth card */
+.account-pages .flashes { margin-bottom: 16px; }

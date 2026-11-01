@@ -1,0 +1,158 @@
+/* ==========================================================================
+   Nocturne — forms (spec §3.2, §3.3): the prototype's .inp/.field/.cb/.rd/
+   .sw/.seg + Bootstrap .form-control/.form-select/.form-check/.form-switch/
+   .input-group/.form-label mapped onto the same look.
+   ========================================================================== */
+
+/* ---- Prototype primitives ---------------------------------------------- */
+.inp { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line-2); color: var(--muted); transition: border-color .2s, box-shadow .2s; }
+.inp:hover { border-color: var(--line-3); }
+.inp:focus-within { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.inp input, .inp select { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; }
+.inp input::placeholder { color: var(--subtle); }
+.inp.sm { height: 36px; border-radius: 10px; padding: 0 10px; font-size: 13px; }
+.inp.err { border-color: var(--rose); box-shadow: 0 0 0 3px var(--rose-glow); }
+.inp.ro { background: transparent; border-style: dashed; color: var(--muted); }
+textarea.inp { height: auto; padding: 8px 10px; border-radius: 10px; resize: vertical; color: var(--text); }
+.inp.sel { position: relative; padding-right: 34px; }
+.inp.sel select { appearance: none; cursor: pointer; }
+.inp.sel select option { background: var(--surface); color: var(--text); }
+.inp.sel > .i-chev-down { position: absolute; right: 10px; pointer-events: none; }
+
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field > span { font-size: 13px; font-weight: 600; color: var(--text); }
+.field-l { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text); }
+.field small, .field-l small { font-weight: 500; color: var(--subtle); }
+
+.cb { width: 20px; height: 20px; flex: none; border-radius: 6px; border: 1.5px solid var(--line-3); background: var(--bg); display: inline-flex; align-items: center; justify-content: center; color: var(--on-a); transition: all var(--dur-2); }
+.cb .i { width: 14px; height: 14px; visibility: hidden; }
+.cb.on, .cb.ind { background: var(--a); border-color: var(--a); }
+.cb.on .i, .cb.ind .i { visibility: visible; }
+.rd { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.5px solid var(--line-3); background: var(--bg); display: inline-flex; align-items: center; justify-content: center; transition: all var(--dur-2); }
+.rd.on { border-color: var(--a); background: var(--a-deep); }
+.rd.on::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--a); }
+.sw { position: relative; width: 48px; height: 28px; flex: none; padding: 0; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface-3); cursor: pointer; transition: all var(--dur-2); }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--subtle); transition: left var(--dur-2) var(--ease), background var(--dur-2); }
+.sw.on { background: var(--a-deep); border-color: var(--a-line); }
+.sw.on::after { left: 23px; background: var(--a); box-shadow: 0 0 12px var(--a-glow); }
+.sw.sm { width: 36px; height: 22px; } .sw.sm::after { width: 14px; height: 14px; } .sw.sm.on::after { left: 17px; }
+.sw.lg { width: 60px; height: 34px; } .sw.lg::after { width: 26px; height: 26px; } .sw.lg.on::after { left: 29px; }
+.seg { display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+.seg button { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background var(--dur-2), color var(--dur-2); }
+.seg button:hover { color: var(--text); }
+.seg button.on { background: var(--a); color: var(--on-a); }
+.seg.soft button.on { background: var(--surface-3); color: var(--text); }
+.seg.full { display: flex; } .seg.full button { flex: 1; justify-content: center; }
+input[type="range"] { accent-color: var(--lav); }
+
+/* ---- Bootstrap mapping -------------------------------------------------- */
+.form-label, .col-form-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.form-label.required::after, .col-form-label.required::after { content: " *"; color: var(--rose-ink); }
+.form-text { font-size: 12px; color: var(--subtle); margin-top: 6px; }
+legend, .col-form-label { font-size: 13px; font-weight: 600; }
+
+.form-control, .form-select {
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background-color: var(--surface-2);
+    border: 1px solid var(--line-2);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.4;
+    transition: border-color .2s, box-shadow .2s, background-color .2s;
+}
+.form-control::placeholder { color: var(--subtle); opacity: 1; }
+.form-control:hover, .form-select:hover { border-color: var(--line-3); }
+.form-control:focus, .form-select:focus { background-color: var(--surface-2); color: var(--text); border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); outline: 0; }
+.form-control:disabled, .form-select:disabled, .form-control[readonly] { background-color: transparent; border-style: dashed; color: var(--muted); opacity: 1; }
+.form-control-plaintext { color: var(--text); }
+textarea.form-control { min-height: 88px; border-radius: 14px; }
+.form-control-sm, .form-select-sm { min-height: 36px; padding: 6px 10px; border-radius: 10px; font-size: 13px; }
+.form-select-sm { padding-right: 32px; }
+.form-control-lg, .form-select-lg { min-height: 48px; font-size: 15px; }
+.form-control-color { min-height: 44px; width: 56px; padding: 6px; }
+.form-control[type="file"] { padding: 0; line-height: 42px; overflow: hidden; }
+.form-control[type="file"]::file-selector-button { height: 100%; margin: 0 14px 0 0; padding: 0 16px; border: 0; border-right: 1px solid var(--line-2); border-radius: 0; background: var(--surface-3); color: var(--text); font-weight: 600; }
+.form-control:hover:not(:disabled):not([readonly])::file-selector-button { background: var(--line-3); }
+
+.form-select {
+    --bs-form-select-bg-img: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A95A3' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    padding-right: 38px;
+    background-position: right 12px center;
+    background-size: 16px 16px;
+}
+.form-select option { background: var(--surface); color: var(--text); }
+
+/* Validation */
+.form-control.is-invalid, .form-select.is-invalid, .was-validated .form-control:invalid { border-color: var(--rose); box-shadow: 0 0 0 3px var(--rose-glow); background-image: none; padding-right: 14px; }
+.form-control.is-valid, .form-select.is-valid { border-color: var(--mnt-line); background-image: none; }
+.invalid-feedback, .form-error-message { font-size: 12px; color: var(--rose-ink); margin-top: 6px; }
+.valid-feedback { font-size: 12px; color: var(--mnt-ink); }
+
+/* Checkbox / radio / switch */
+.form-check { min-height: 22px; padding-left: 30px; margin-bottom: 6px; }
+.form-check .form-check-input { margin-left: -30px; }
+.form-check-label { color: var(--text-2); cursor: pointer; }
+.form-check-input {
+    --bs-form-check-bg: var(--bg);
+    width: 20px;
+    height: 20px;
+    margin-top: 0;
+    vertical-align: middle;
+    border: 1.5px solid var(--line-3);
+    background-color: var(--bg);
+    cursor: pointer;
+    transition: background-color var(--dur-2), border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.form-check-input[type="checkbox"] { border-radius: 6px; }
+.form-check-input:focus { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.form-check-input:checked { background-color: var(--lav); border-color: var(--lav); }
+.form-check-input:checked[type="checkbox"] { --bs-form-check-bg-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141218' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12.5l4.5 4.5L19 7.5'/></svg>"); background-size: 14px 14px; }
+.form-check-input:checked[type="radio"] { --bs-form-check-bg-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'><circle r='2' fill='%23C7B6F2'/></svg>"); background-color: var(--lav-deep); }
+.form-check-input[type="checkbox"]:indeterminate { background-color: var(--lav); border-color: var(--lav); --bs-form-check-bg-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141218' stroke-width='2.4' stroke-linecap='round'><path d='M6 12h12'/></svg>"); }
+.form-check-input:disabled ~ .form-check-label, .form-check-input:disabled { opacity: .45; }
+
+.form-switch { padding-left: 52px; }
+.form-switch .form-check-input {
+    --bs-form-switch-bg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'><circle r='2.9' fill='%238A8593'/></svg>");
+    width: 40px;
+    height: 24px;
+    margin-left: -52px;
+    border-radius: 999px;
+    border: 1px solid var(--line-2);
+    background-color: var(--surface-3);
+}
+.form-switch .form-check-input:focus { --bs-form-switch-bg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'><circle r='2.9' fill='%238A8593'/></svg>"); }
+.form-switch .form-check-input:checked {
+    --bs-form-switch-bg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'><circle r='2.9' fill='%23C7B6F2'/></svg>");
+    background-color: var(--lav-deep);
+    border-color: var(--lav-line);
+    box-shadow: 0 0 12px var(--lav-glow);
+}
+
+/* Input groups */
+.input-group > .form-control, .input-group > .form-select { min-height: 44px; }
+.input-group-text { min-height: 44px; padding: 0 14px; border-radius: 14px; background: var(--surface-3); border: 1px solid var(--line-2); color: var(--muted); font-size: 13px; }
+.input-group-sm > .form-control, .input-group-sm > .form-select, .input-group-sm > .input-group-text, .input-group-sm > .btn { min-height: 36px; border-radius: 10px; font-size: 13px; }
+.input-group > .btn { border-radius: 14px; }
+
+/* Range / colour */
+.form-range::-webkit-slider-thumb { background: var(--lav); }
+.form-range::-moz-range-thumb { background: var(--lav); }
+.form-range::-webkit-slider-runnable-track { background: var(--surface-3); }
+.form-range::-moz-range-track { background: var(--surface-3); }
+
+/* Floating labels */
+.form-floating > label { color: var(--subtle); }
+.form-floating > .form-control:focus ~ label, .form-floating > .form-control:not(:placeholder-shown) ~ label { color: var(--muted); }
+.form-floating > .form-control:focus ~ label::after, .form-floating > .form-control:not(:placeholder-shown) ~ label::after { background: transparent; }
+
+/* Third-party widgets: tom-select (dark-safe surfaces; full polish later) */
+.ts-wrapper .ts-control, .ts-wrapper.single .ts-control, .ts-wrapper .ts-control input { background: var(--surface-2) !important; color: var(--text) !important; }
+.ts-wrapper .ts-control { min-height: 44px; border-radius: 14px; border-color: var(--line-2); padding: 10px 14px; box-shadow: none; }
+.ts-wrapper.focus .ts-control { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.ts-dropdown { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--shadow-3); overflow: hidden; }
+.ts-dropdown .active { background: var(--surface-3); color: var(--text); }
+.ts-wrapper.multi .ts-control > div { background: var(--lav-deep); color: var(--lav-ink); border-radius: 999px; border: 0; }

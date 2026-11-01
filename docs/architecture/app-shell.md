@@ -1,31 +1,111 @@
-# App shell — left navigation only, NO topbar
+# App shell — Nocturne sidebar + phone drawer (2026-11, redesign P2)
 
-### App shell — left navigation only, NO topbar (2026-08-08)
+The Hyper theme is gone (no `app-saas.min.css`, `hyper-config.js`,
+`app.min.js`, `vendor.min.js`). `templates/base.html.twig` renders the
+Nocturne shell from `docs/redesign/prototype/body.html`; partials live in
+`templates/_shell/` and the behaviour is the `shell` Stimulus controller
+(`assets/controllers/shell_controller.js`). CSS: `assets/styles/nocturne/`
+(`shell.css` for the shell, the rest is the component layer).
 
-`base.html.twig` renders the Hyper theme's `.leftside-menu` and nothing above
-the content: the theme's `.navbar-custom` was **deleted**, and the two things it
-carried moved into the left navigation.
+### Loading order / globals
 
-- **Account menu** = `.leftbar-account`, a drop-UP pinned to the sidebar's
-  bottom edge (avatar + display name + the same Můj účet / Propojené aplikace /
-  Odhlásit se items). It lives OUTSIDE `#leftside-menu-container` so simplebar
-  can never clip the menu, and it occupies the bottom padding the sidebar
-  already reserved — `padding-bottom` is retargeted to
-  `--wb-leftbar-account-height`, which keeps the container's `h-100` resolving
-  to exactly the space above it (percentages resolve against the content box),
-  so the scrolling menu and the block can never overlap. Icon-only sidebar
-  states (`condensed`, `compact`, unhovered `sm-hover`) hide the name + caret
-  and the 19px left padding centers the 32px avatar on the 70px rail.
-- **Drawer toggle**: the sidebar still collapses below xl (fully off-canvas
-  under 768px), so `.mobile-topbar` (`d-xl-none`) carries the theme's
-  `.button-toggle-menu` — the theme binds the FIRST one it finds in the DOM, so
-  keep exactly one. It takes the SIDEBAR's colours, because the repo ships one
-  logo asset whose wordmark is white.
-- Nothing else depended on the topbar's height: `.leftside-menu` is
-  `position: fixed; top: 0`, `.content-page` never had a top padding, and the
-  editor shell measures its own offset (`canvas_zoom_controller`) rather than
-  subtracting a constant. The one hard-coded mirror was
-  `.editor-left-panel-card`'s below-lg sticky `top`, now the mobile bar's 56px.
+- `assets/app.js` imports, in this order: Bootstrap 5.3 CSS → GrapesJS CSS →
+  `styles/nocturne/*.css` (tokens, base, icons, buttons, forms, chips, cards,
+  dialogs, menus, tables, feedback, page, shell, auth) → `styles/app.css`
+  (feature rules) → `bootstrap_global.js` → Stimulus. Later wins on equal
+  specificity, so Nocturne beats Bootstrap and `app.css` beats both.
+- `assets/bootstrap_global.js` imports the Bootstrap ESM build (registers the
+  `data-bs-*` data-API) and sets **`window.bootstrap`** — the Stimulus
+  controllers call the global `bootstrap.Modal`. It also inits
+  `[data-bs-toggle=tooltip|popover]` and the auth pages' password eye
+  (`[data-password]`), the bits of Hyper's `app.min.js` we still needed.
+- Legacy icon fonts (MDI / Unicons / Remix) moved to
+  `public/fonts/legacy-icons/` and are still linked from `<head>`;
+  ApexCharts moved to `public/vendor/apexcharts/`. New markup uses
+  `{{ icon('name', 's16') }}` (`src/Twig/ShellExtension.php`) →
+  `<span class="i i-name s16" aria-hidden="true">`, mask icons from
+  `nocturne/icons.css`.
+- `manual_preview.html.twig` (customer output) opts OUT: it overrides the
+  `importmap` block with the `app_plain` entrypoint (no Nocturne), forces
+  light, and links the legacy `theme/css/app-saas.min.css` itself.
+
+### Theme
+
+`<html data-theme="dark|light" data-bs-theme="…">`, set before paint by the
+inline `theme_script` block from `localStorage['wb-theme']` (absent → OS
+preference). Bootstrap's own `--bs-*` variables are remapped onto the
+Nocturne tokens for both themes (`nocturne/tokens.css`), so un-restyled
+Bootstrap components follow the theme; a `--ct-*` shim keeps the old Hyper
+variables in `app.css` working until the P10 sweep. The sidebar's
+Tmavý/Světlý control (`shell#pickTheme`, rail: `shell#toggleTheme`) switches
+and persists; it dispatches `shell:theme` on `<html>`.
+
+### Layout + scrolling
+
+`.app` = grid `var(--sbw) | 1fr`; `aside.sb` (272 px) + `main.main >
+.mbar + .wrap > .inner#view`. **The document scrolls, not `.main`** (a
+deliberate deviation from the prototype): the sidebar is `position: sticky`.
+The canvas editors pin themselves via `body.editor-shell-page` and measure
+against `window.scrollY` (`canvas_zoom_controller`, `canvas_navigator`,
+`variant_fill_overlay`) — keep it that way. `.inner` is max 1320 px, padding
+`32px clamp(0,3vw,24px) 72px`, flex column gap 28 between header / flashes /
+`.page-body` (the `content` block is wrapped in `.page-body`, so legacy
+content keeps its own spacing; redesigned pages can use `.stack`).
+
+- **Collapsed rail** (≥ 861 px): `html.sb-rail`, 84 px, labels hidden via
+  `.hide-c`, section labels become `.sb-div` hairlines, the toggle sits on the
+  sidebar border. Persisted in `localStorage['wb-collapsed']`, restored by
+  the head script. Toggling dispatches a window `resize` after the 250 ms
+  transition (zoom auto-fit / charts re-measure).
+- **Editors** (`template_variant_editor`, `template_group_editor`) render with
+  `html.sb-rail data-sb-forced` server-side and `persist=false`, so the rail
+  toggle there is not remembered. Their `.inner` is still the standard one
+  (editor chrome redesign = P7).
+- **≤ 860 px**: the sidebar is an off-canvas drawer (`html.sb-drawer`, 300 px,
+  scrim, close button, Esc, closes on resize to desktop) and a sticky blurred
+  `.mbar` (60 px: hamburger, centred logo, optional round `+` from the
+  `mobile_primary_action` block). The editors' below-lg sticky panel clears it
+  (`top: 64px` in app.css).
+
+### Sidebar (`templates/_shell/_sidebar.html.twig`)
+
+Top → bottom: logo (inline themable SVG `_shell/_logo.html.twig`, app icon
+`_logo_icon` in the rail) + collapse / drawer-close buttons · **Všechny
+projekty** with the project count (`shell_projects()|length`) · **Rychlá
+navigace** trigger (current project symbol + name, or "Vybrat projekt…") ·
+scroll area with **Projekt** (Přehled, then the module items — see below),
+**Administrace** (ROLE_ADMIN: Uživatelé, Žádosti o registraci + pending
+count `pending_registration_requests_count()`, Poptávky z webu, Statistiky),
+**Propojení** (Facebook a Instagram fake door, Propojené aplikace, AI (MCP
+server)) · Vzhled toggle · profile button `.sb-me` with the drop-up
+`#meMenu` (Můj účet, Změnit heslo, Odhlásit se).
+
+- Current item = `aria-current="page"` from the page's `active_menu_item`
+  (`active_submenu_item` for the Jídelníčky sub-items) or, where pages set
+  none, the route (`project_dashboard` → Přehled, `connected_apps`,
+  `mcp_guide`). "Všechny projekty" is current only outside a project.
+- `shell_projects()` (`GetShellProjects`, one DBAL query: admins = every
+  project, others = owned + shared; Czech-collated) feeds the count and the
+  switcher popover `_shell/_quick_nav.html.twig` (fixed, z 1070, search,
+  ↑/↓/Enter/Esc, current project ticked mint). The controller records opened
+  projects in `localStorage['wb-recent']` and lifts the last 3 into
+  "Naposledy otevřené". Rows show the project icon or a monogram (no manual
+  logo lookup — cheap on every page).
+- `.side-nav-discover` is kept on the "Objevte další moduly" item (tests).
+
+### Page header blocks
+
+`page_title_row` (default) renders, inside `.inner`: the `breadcrumb` block
+as a quiet back-trail (`.page-crumbs`; first item gets a ← arrow, the
+`.active` last item — which duplicates the h1 — is hidden; a breadcrumb that
+is only the current page is hidden entirely), then `header.head` with the
+`eyebrow` block (default: "Projekt · {name}" inside a project,
+"Administrace" on `admin_*` pages), `h1.page-title` = `title` + optional
+`title_count` (`<small>`), optional `page_lead`, and `title_actions` in
+`.head-tools` on the right. A page that overrides `page_title_row` empty (the
+editors) gets its plain breadcrumb instead. `inner_class` adds classes to
+`.inner` (`inner-wide` = no max width). Flashes (`_flashes.html.twig`) render
+under the header as kit alerts (`.alert.alert-{label}` + accent circle icon).
 
 ### Project modules — nav shows only what the project uses (2026-10-11)
 
@@ -43,7 +123,7 @@ discover page (`calendars.html.twig` highlights the discover nav item).
   projects: core two + E-maily / Jídelníčky only where content existed.
 - **Discover / upsell**: `project_modules` (`/project/{id}/modules`, "Objevte
   další moduly") lists the switched-off modules; the left-nav item
-  (`.side-nav-discover`) links to it while any module is off — the only entry
+  (`.nav-i.discover.side-nav-discover`) links to it while any module is off — the only entry
   point (the dashboard tile was dropped 2026-10-12: the nav entry is enough). Anyone with `project_edit` switches a module on there
   (`project_module_enable`, POST + CSRF) and lands on it.
 - **Admin mail**: `EnableProjectModuleHandler` e-mails the
