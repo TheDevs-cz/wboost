@@ -1,0 +1,39 @@
+{# "Historie exportů" of a multi-page document — the look of the variant /
+   group dropdown (`_export_history_menu.html.twig`), over
+   TemplateDocumentExportVersion: every pinned version + the 15 most recent,
+   each row re-opening the fill page with `?version=<id>` (the controller
+   seeds every page from it). Rendered even while empty: "Uložit
+   rozpracované" replaces `#export-history-menu` (its first save creates the
+   dropdown).
+
+   Expects: document, versions (pinned first, freshest first), loaded_version #}
+<div id="export-history-menu" class="d-inline-block">
+{% if versions is not empty %}
+    {% set shown = versions|filter(v => v.pinnedAt is not null)|merge(versions|filter(v => v.pinnedAt is null)|slice(0, 15)) %}
+    <div class="dropdown d-inline-block">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="mdi mdi-history"></i>
+            {% if loaded_version %}
+                {{ loaded_version.name ?: ((loaded_version.draft ? 'Rozpracováno ' : 'Export ') ~ loaded_version.lastExportedAt|date('j.n. H:i')) }}
+            {% else %}
+                Historie exportů
+            {% endif %}
+        </button>
+        <div class="dropdown-menu dropdown-menu-end shadow" style="min-width: 22rem; max-height: 28rem; overflow-y: auto;">
+            <h6 class="dropdown-header">Načíst dřívější vyplnění</h6>
+            {% for version in shown %}
+                <a class="dropdown-item d-flex align-items-center gap-2 {{ loaded_version and loaded_version.id == version.id ? 'active' : '' }}"
+                   href="{{ path('template_document_fill', {'documentId': document.id, 'version': version.id}) }}">
+                    {% if version.pinnedAt %}<i class="mdi mdi-pin" title="Připnuto"></i>{% endif %}
+                    <span class="flex-grow-1 text-truncate">{{ version.name ?: version.lastExportedAt|date('d.m.Y H:i') }}</span>
+                    {% if version.draft %}
+                        <span class="badge bg-warning-lighten text-warning">Rozpracováno</span>
+                    {% else %}
+                        <small class="text-muted">{{ version.exportCount }}×</small>
+                    {% endif %}
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+</div>
