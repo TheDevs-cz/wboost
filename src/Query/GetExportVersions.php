@@ -7,6 +7,7 @@ namespace WBoost\Web\Query;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Entity\TemplateDocumentExportVersion;
 use WBoost\Web\Entity\TemplateExportVersion;
 use WBoost\Web\Value\ExportHistory;
 
@@ -23,14 +24,38 @@ readonly final class GetExportVersions
     ) {
     }
 
+    /** @return ExportHistory<TemplateExportVersion> */
     public function forVariant(UuidInterface $variantId): ExportHistory
     {
         return $this->history('version.variant = :subjectId', $variantId);
     }
 
+    /** @return ExportHistory<TemplateExportVersion> */
     public function forGroup(UuidInterface $groupId): ExportHistory
     {
         return $this->history('version.group = :subjectId', $groupId);
+    }
+
+    /**
+     * A multi-page document's history — its own entity, the same split.
+     *
+     * @return ExportHistory<TemplateDocumentExportVersion>
+     */
+    public function forDocument(UuidInterface $documentId): ExportHistory
+    {
+        /** @var list<TemplateDocumentExportVersion> $versions */
+        $versions = $this->entityManager->createQueryBuilder()
+            ->from(TemplateDocumentExportVersion::class, 'version')
+            ->select('version', 'exportedBy')
+            ->leftJoin('version.exportedBy', 'exportedBy')
+            ->where('version.document = :documentId')
+            ->setParameter('documentId', $documentId->toString())
+            ->orderBy('version.lastExportedAt', 'DESC')
+            ->addOrderBy('version.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        return ExportHistory::fromVersions($versions);
     }
 
     /**
@@ -108,6 +133,8 @@ readonly final class GetExportVersions
      * The whole history of one surface — bounded by the pruning cap plus
      * whatever the users pinned, so no LIMIT: the split/sort into pinned +
      * recent happens in PHP ({@see ExportHistory::fromVersions}).
+     *
+     * @return ExportHistory<TemplateExportVersion>
      */
     private function history(string $subjectCondition, UuidInterface $subjectId): ExportHistory
     {

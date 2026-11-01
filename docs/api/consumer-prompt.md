@@ -1054,9 +1054,19 @@ hide them from a "templates" list and present the document instead.
     `variant` has exactly the `variants[]` shape of the templates listing
     (inputs, frames, imageInputs, shapeInputs …).
   - `fields[]` (**shared fields**): `{id, name, kind: "text"|"image",
-    bindings: [{pageId, templateId, inputId, valid}], maxLength}`. One value
-    fills the bound input on every page. `valid: false` = the input was
-    deleted from the page; ignore it.
+    bindings: [{pageId, templateId, inputId, valid}], maxLength, richText,
+    hidable, allowedDirectoryIds}`. One value fills the bound input on every
+    page. `valid: false` = the input was deleted from the page; ignore it.
+    - `richText` (text): EVERY valid bound input is `richText` → the field
+      may carry a rich value (`{runs}`); otherwise send a string / `{value}`.
+      Font choices stay per input — intersect the bound inputs'
+      `pages[].variant.inputs[].fontOptions` if you offer one for the field.
+    - `hidable`: every valid bound input / slot is hidable → `{hide: true}`
+      as the field value hides it on every page.
+    - `allowedDirectoryIds` (image): the gallery folders a pick may come
+      from — the INTERSECTION of the bound slots' folders. `null` = any
+      folder; `[]` = the slots share no folder (no pick passes every page).
+      Always `null` for text.
 - **Pages never share values implicitly.** Two pages may carry the SAME
   inputId (a duplicated template); their values are still per page. Only a
   shared field joins them.
@@ -1084,7 +1094,10 @@ hide them from a "templates" list and present the document instead.
     - `"png"`: a ZIP of `{nn}-{page}.png`, in page order.
   - Each `pages` entry is the single-variant export body of that page's
     variant. A shared field's value WINS over the page's own value for its
-    bound input. For a shared image field, a page may send only a transform
+    bound input — but only its TEXT: a page's own `hide` / `fontFamily` for
+    that input are kept unless the field value sets them (e.g.
+    `pages[p].inputs[i] = {hide: true}` hides a shared subtitle on page `p`
+    only). For a shared image field, a page may send only a transform
     (`images[inputId] = {scale, …}`); the shared pick supplies the `imageId`.
   - Strict like every API render: every page is resolved before any renders.
     400 bodies are the usual `{error, code, …}` plus `pageId` (and
@@ -1095,8 +1108,10 @@ hide them from a "templates" list and present the document instead.
   document as it is afterwards:
   - `POST /api/projects/{projectId}/template-documents`
     `{name, categoryId?, dimension {unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}, templateIds?}` → 201.
-  - `PATCH /api/template-documents/{id}` `{name?, categoryId?}` — an absent key
-    is left untouched; `categoryId: null` removes the category.
+  - `PATCH /api/template-documents/{id}` `{name?, categoryId?, bleedMm?, cropMarks?}`
+    — an absent key is left untouched; `categoryId: null` removes the
+    category. `bleedMm` (0–10, clamped) / `cropMarks` apply to the document
+    AND every page; print documents only (400 otherwise).
   - `PUT /api/template-documents/{id}/pages` `{templateIds: [...]}` — the WHOLE
     ordered list: attach, detach and reorder in one call. A detached template
     returns to the listing.
@@ -1114,3 +1129,41 @@ hide them from a "templates" list and present the document instead.
     - `duplicate_page`
     - `too_many_pages`: 30 max.
     - `invalid_binding`
+- **Export history** — every document export (web, API, MCP) and every
+  saved draft ("Uložit rozpracované" on the web) is a version; the same
+  shared list the web document fill page shows. Same semantics as the
+  variant history: deduplicated by content, pinned first (most recently
+  pinned on top), then freshest; unpinned versions beyond 100 are pruned.
+
+  ```
+  GET   {API_BASE}/api/template-documents/{documentId}/export-versions
+  GET   {API_BASE}/api/template-document-export-versions/{versionId}
+  PATCH {API_BASE}/api/template-document-export-versions/{versionId}   Content-Type: application/json
+  ```
+
+  List rows: `{id, documentId, name, pinned, pinnedAt, draft, createdAt,
+  lastExportedAt, exportCount, channel, summary: {texts: [{label, value}],
+  pictures, hidden}}` (`draft: true` = saved work, never exported).
+
+  The detail adds `fill` in the **document export body's own shape**, ready
+  to load into your form and send back to `/export`:
+
+  ```jsonc
+  "fill": {
+    "fields": { "<fieldId>": "Lucie Svobodová" },          // text: string | {value|runs, …}; image: {imageId, url} | {hide: true}
+    "pages": {
+      "<pageId>": { "inputs": { … }, "images": { … }, "shapeColors": { … } }
+    }
+  }
+  ```
+
+  `pages` is complete — shared values are already fanned out into every
+  bound input; `fields` re-collects each shared field's value (from its
+  first bound page) for a form that shows the field once. Seeded leniently
+  against the CURRENT design exactly like a variant version (removed /
+  locked inputs dropped, disallowed fonts / pictures / transforms dropped);
+  a page added since is absent (it exports as designed).
+
+  `PATCH` `{name?: string|null, pinned?: bool}` renames / pins; absent keys
+  are left alone; `{}` → 400. Answers the updated detail. Anyone who may
+  export the document may read and curate its history.

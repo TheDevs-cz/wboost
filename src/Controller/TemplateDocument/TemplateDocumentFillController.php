@@ -14,6 +14,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
+use WBoost\Web\Services\TemplateDocument\DocumentExportHistoryView;
 use WBoost\Web\Services\TemplateDocument\DocumentFillPage;
 use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
 use WBoost\Web\Services\TemplateDocument\DocumentVersionSeeder;
@@ -35,6 +36,7 @@ final class TemplateDocumentFillController extends AbstractController
         readonly private UploaderHelper $uploaderHelper,
         readonly private TemplateDocumentExportVersionRepository $versionRepository,
         readonly private DocumentVersionSeeder $versionSeeder,
+        readonly private DocumentExportHistoryView $historyView,
     ) {
     }
 
@@ -65,7 +67,7 @@ final class TemplateDocumentFillController extends AbstractController
             'fill' => $this->fillPage->build($document, $seed),
             'seed' => $seed ?? ['images' => [], 'imageHidden' => [], 'placements' => []],
             'loaded_version' => $loadedVersion,
-            'versions' => $this->versionRepository->forDocument($document->id),
+            'history_chrome' => $this->historyView->context($document, $loadedVersion),
             'font_faces' => $this->fontFaces($document),
             'can_edit' => $this->isGranted(TemplateDocumentVoter::EDIT, $document),
         ]);

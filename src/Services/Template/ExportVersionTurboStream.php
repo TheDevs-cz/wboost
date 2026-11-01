@@ -99,7 +99,7 @@ final readonly class ExportVersionTurboStream
     }
 
     /**
-     * @return null|array{string, array<string, mixed>, string, \WBoost\Web\Value\ExportHistory}
+     * @return null|array{string, array<string, mixed>, string, \WBoost\Web\Value\ExportHistory<TemplateExportVersion>}
      */
     private function surface(TemplateExportVersion $version): null|array
     {

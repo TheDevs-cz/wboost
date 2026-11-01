@@ -93,6 +93,11 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
         foreach ($document->fields() as $field) {
             $bindings = [];
             $maxLength = null;
+            $validCount = 0;
+            $richText = true;
+            $hidable = true;
+            /** @var null|list<string> $folders */
+            $folders = null;
 
             foreach ($field->bindings() as $binding) {
                 $page = $pageByTemplate[$binding->templateId] ?? null;
@@ -104,16 +109,53 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
                 $valid = TemplateDocumentRules::isBindable($page->variant, $binding->inputId, $field->kind);
                 $bindings[] = new TemplateDocumentFieldBindingResponse($page->id->toString(), $binding->templateId, $binding->inputId, $valid);
 
-                if ($valid && $field->kind === DocumentFieldKind::Text) {
+                if (!$valid) {
+                    continue;
+                }
+
+                $validCount++;
+
+                if ($field->kind === DocumentFieldKind::Text) {
                     foreach ($page->variant->inputs as $input) {
-                        if ($input->inputId === $binding->inputId && $input->maxLength !== null) {
+                        if ($input->inputId !== $binding->inputId) {
+                            continue;
+                        }
+
+                        if ($input->maxLength !== null) {
                             $maxLength = $maxLength === null ? $input->maxLength : min($maxLength, $input->maxLength);
                         }
+
+                        $richText = $richText && $input->richText;
+                        $hidable = $hidable && $input->hidable;
+                    }
+
+                    continue;
+                }
+
+                foreach ($page->variant->imageInputs as $input) {
+                    if ($input->inputId !== $binding->inputId) {
+                        continue;
+                    }
+
+                    $hidable = $hidable && $input->hidable;
+
+                    // An empty list = any folder: it narrows nothing.
+                    if ($input->allowedDirectoryIds !== []) {
+                        $folders = $folders === null ? $input->allowedDirectoryIds : array_values(array_intersect($folders, $input->allowedDirectoryIds));
                     }
                 }
             }
 
-            $fields[] = new TemplateDocumentFieldResponse($field->id->toString(), $field->name, $field->kind->value, $bindings, $maxLength);
+            $fields[] = new TemplateDocumentFieldResponse(
+                $field->id->toString(),
+                $field->name,
+                $field->kind->value,
+                $bindings,
+                $maxLength,
+                richText: $validCount > 0 && $field->kind === DocumentFieldKind::Text && $richText,
+                hidable: $validCount > 0 && $hidable,
+                allowedDirectoryIds: $field->kind === DocumentFieldKind::Image ? $folders : null,
+            );
         }
 
         $dimension = $document->dimension;

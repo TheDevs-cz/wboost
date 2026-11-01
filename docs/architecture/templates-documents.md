@@ -219,11 +219,35 @@ print PDF. A print PDF is refused for px documents (`pdf_not_available`).
   re-keyed into fill-key space. A shared field takes its first bound page's
   value.
 
-**History UI** (`template_document_fill.html.twig`): `_document_history_menu.html.twig`
-(pinned + 15 recent, each row = `?version=<id>`; drafts badged
-"Rozpracováno"), "Uložit rozpracované" via the shared `fill_draft_controller`
-→ `template_document_fill_draft` (CSRF `template_fill_draft`, Turbo Stream
-replacing `#export-history-menu` + `X-Fill-Draft-Version`). Seeding: texts /
-hides / fonts / shape colours go through the builders (`DocumentFillPage::build($document, $seed)`),
-pictures + placements through `data-group-fill-seed-value` (`_applySeed`).
-v1 gap: no inline rename / pin of document versions (the entity supports both).
+**History UI** — the SAME chrome as the variant / group fill pages, made
+subject-agnostic: `CuratableExportVersion` (interface on both version
+entities) + generic `ExportHistory<T>` (`GetExportVersions::forDocument`).
+- `DocumentExportHistoryView::context()` feeds `_export_history_menu.html.twig`
+  (pinned + 5 recent, inline rename / pin, "Zobrazit vše"), the curation and
+  draft streams, and the form anchors with the document's own routes
+  (`pin_route` / `rename_route` template vars, default the variant ones).
+  The anchors render AFTER `</form>` — the dropdown sits inside the fill
+  form (never nest forms).
+- Curation: `template_document_export_version_pin|rename` (POST, the variant
+  CSRF ids, `TemplateDocumentExportVersionVoter::MANAGE` = document VIEW),
+  Turbo Stream from the fill page, redirect from the history page.
+- History page `template_document_export_history` reuses
+  `template_export_history.html.twig`; summaries via
+  `SummarizeDocumentExportVersion` (page digests merged, shared values
+  listed once).
+- "Uložit rozpracované" → `template_document_fill_draft` (CSRF
+  `template_fill_draft`), answered by `DocumentExportHistoryView::draftSaved()`
+  + `X-Fill-Draft-Version`. Seeding: texts / hides / fonts / shape colours
+  through the builders (`DocumentFillPage::build($document, $seed)`),
+  pictures + placements through `data-group-fill-seed-value` (`_applySeed`).
+
+**History over the API / MCP** — `DocumentExportVersionApiView` presents a
+version in the document EXPORT body's shape (`{fields, pages}`; per page
+`ExportVersionApiView::variantFillValues()`, lenient against the current
+design; `pages` complete, `fields` re-collected from the first bound page).
+API: `GET /api/template-documents/{id}/export-versions`,
+`GET|PATCH /api/template-document-export-versions/{id}`.
+
+**Shared text vs page-level switches** (`DocumentApiValues::sharedText`): a
+shared value replaces only the TEXT of the bound input; the page's own
+`hide` / `fontFamily` survive unless the shared value sets them.

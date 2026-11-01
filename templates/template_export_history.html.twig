@@ -9,7 +9,8 @@
     same-day versions can be told apart without a render per row.
 
     Expects (from the two history controllers):
-    - project, template (null for a group whose template is gone), variant | group
+    - project, template (null for a group whose template is gone), variant | group | document
+    - pin_route / rename_route: optional (a document's own curation routes)
     - subject_label:      heading
     - history:            ExportHistory
     - history_cap:        the unpinned pruning cap (explained to the user)
@@ -34,6 +35,9 @@
         <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         {% if variant and template %}
             <li class="breadcrumb-item"><a href="{{ path('template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
+        {% endif %}
+        {% if document ?? null %}
+            <li class="breadcrumb-item"><a href="{{ path('template_document', {'documentId': document.id}) }}">{{ document.name }}</a></li>
         {% endif %}
         <li class="breadcrumb-item"><a href="{{ fill_url }}">{{ subject_label }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>

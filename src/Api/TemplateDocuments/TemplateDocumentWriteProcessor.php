@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use WBoost\Web\FormData\TemplateVariantFormData;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -24,6 +25,7 @@ use WBoost\Web\Message\TemplateDocument\AddTemplateDocumentPage;
 use WBoost\Web\Message\TemplateDocument\CreateTemplateDocument;
 use WBoost\Web\Message\TemplateDocument\DeleteTemplateDocument;
 use WBoost\Web\Message\TemplateDocument\EditTemplateDocument;
+use WBoost\Web\Message\TemplateDocument\EditTemplateDocumentPrintSettings;
 use WBoost\Web\Message\TemplateDocument\SetTemplateDocumentFields;
 use WBoost\Web\Message\TemplateDocument\SetTemplateDocumentPages;
 use WBoost\Web\Repository\ProjectRepository;
@@ -139,6 +141,19 @@ final readonly class TemplateDocumentWriteProcessor implements ProcessorInterfac
             : $document->category?->id;
 
         $this->dispatch(new EditTemplateDocument($document->id, $name, $categoryId));
+
+        if (array_key_exists('bleedMm', $provided) || array_key_exists('cropMarks', $provided)) {
+            if (!$document->dimension->isPrintFormat()) {
+                throw new BadRequestHttpException('bleedMm / cropMarks exist only for print documents (mm / cm).');
+            }
+
+            $bleed = array_key_exists('bleedMm', $provided) ? ($data->bleedMm ?? 0.0) : $document->dimension->bleedMm;
+            $this->dispatch(new EditTemplateDocumentPrintSettings(
+                $document->id,
+                max(0.0, min((float) TemplateVariantFormData::MAX_BLEED_MM, $bleed)),
+                array_key_exists('cropMarks', $provided) ? ($data->cropMarks ?? false) : $document->dimension->cropMarks,
+            ));
+        }
 
         return $this->respond($document->id);
     }

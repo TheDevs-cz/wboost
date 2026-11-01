@@ -31,7 +31,7 @@ use WBoost\Web\Value\ExportChannel;
  */
 #[Entity]
 #[Index(name: 'idx_document_export_version_document', columns: ['document_id', 'last_exported_at'])]
-class TemplateDocumentExportVersion
+class TemplateDocumentExportVersion implements CuratableExportVersion
 {
     public const int MAX_VERSIONS = 100;
     public const int NAME_MAX_LENGTH = 120;
@@ -137,5 +137,10 @@ class TemplateDocumentExportVersion
     public function unpin(): void
     {
         $this->pinnedAt = null;
+    }
+
+    public function isPinned(): bool
+    {
+        return $this->pinnedAt !== null;
     }
 }

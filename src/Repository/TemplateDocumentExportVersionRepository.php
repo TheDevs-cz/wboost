@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\TemplateDocumentExportVersion;
+use WBoost\Web\Exceptions\TemplateDocumentExportVersionNotFound;
 
 readonly final class TemplateDocumentExportVersionRepository
 {
@@ -19,6 +20,11 @@ readonly final class TemplateDocumentExportVersionRepository
     public function find(UuidInterface $id): null|TemplateDocumentExportVersion
     {
         return $this->entityManager->find(TemplateDocumentExportVersion::class, $id);
+    }
+
+    public function get(UuidInterface $id): TemplateDocumentExportVersion
+    {
+        return $this->find($id) ?? throw new TemplateDocumentExportVersionNotFound();
     }
 
     public function add(TemplateDocumentExportVersion $version): void

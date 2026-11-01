@@ -12,7 +12,10 @@ use WBoost\Web\Value\DocumentFieldKind;
  * The API shape of a document fill — `{fields: {fieldId: value}, pages:
  * {pageKey: {inputs, images, shapeColors}}}` with REAL inputIds per page —
  * turned into ONE page's single-variant export body. Shared values override
- * the bound inputs: a text field's string replaces `inputs[inputId]`; an image
+ * the bound inputs: a text field's TEXT (string, `value` or `runs`) replaces
+ * the page's, while the page keeps its own `hide` / `fontFamily` for that
+ * input unless the shared value sets them (hide a shared subtitle on one
+ * page only, set its face per page); an image
  * field's pick (`imageId` | `{imageId, hide}`) is merged UNDER the page's own
  * `images[inputId]` entry, so a page may carry only its transform for a
  * shared picture.
@@ -48,7 +51,7 @@ final readonly class DocumentApiValues
             $value = $fields[$fieldId];
 
             if ($field->kind === DocumentFieldKind::Text) {
-                $inputs[$binding->inputId] = $value;
+                $inputs[$binding->inputId] = self::sharedText($value, $inputs[$binding->inputId] ?? null);
                 continue;
             }
 
@@ -58,5 +61,26 @@ final readonly class DocumentApiValues
         }
 
         return ['inputs' => $inputs, 'images' => $images, 'shapeColors' => $shapeColors];
+    }
+
+    /**
+     * The shared text over the page's own entry for the bound input: the
+     * shared value's text wins; `hide` / `fontFamily` fall back to the page's.
+     */
+    private static function sharedText(mixed $shared, mixed $own): mixed
+    {
+        if (!is_array($own)) {
+            return $shared;
+        }
+
+        $kept = array_intersect_key($own, ['hide' => true, 'fontFamily' => true]);
+
+        if ($kept === []) {
+            return $shared;
+        }
+
+        $entry = is_array($shared) ? $shared : ['value' => $shared];
+
+        return $entry + $kept;
     }
 }

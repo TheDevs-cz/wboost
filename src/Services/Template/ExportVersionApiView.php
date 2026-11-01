@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\Template;
 use WBoost\Web\Entity\TemplateExportVersion;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Value\EditorImageInput;
+use WBoost\Web\Value\ExportFillValues;
 use WBoost\Web\Value\RichText;
 
 /**
@@ -38,7 +39,15 @@ readonly final class ExportVersionApiView
      */
     public function variantFill(TemplateExportVersion $version, TemplateVariant $variant): array
     {
-        $seed = $this->seeder->forVariant($version, $variant);
+        return $this->variantFillValues($version->fillValues, $variant);
+    }
+
+    /**
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>}
+     */
+    public function variantFillValues(ExportFillValues $values, TemplateVariant $variant): array
+    {
+        $seed = $this->seeder->forVariantValues($values, $variant);
 
         return [
             'inputs' => $this->inputs($seed['textValues'], $seed['hiddenValues'], $seed['fontValues']),

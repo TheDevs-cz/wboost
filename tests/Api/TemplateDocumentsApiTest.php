@@ -21,6 +21,9 @@ use WBoost\Web\Tests\TestingApiAuthentication;
  * @covers \WBoost\Web\Api\TemplateDocuments\TemplateDocumentsProvider
  * @covers \WBoost\Web\Api\TemplateDocuments\TemplateDocumentWriteProcessor
  * @covers \WBoost\Web\Api\TemplateDocuments\TemplateDocumentRenderProcessor
+ * @covers \WBoost\Web\Api\TemplateDocuments\TemplateDocumentExportVersionsProvider
+ * @covers \WBoost\Web\Api\TemplateDocuments\TemplateDocumentExportVersionProvider
+ * @covers \WBoost\Web\Api\TemplateDocuments\TemplateDocumentExportVersionUpdateProcessor
  */
 final class TemplateDocumentsApiTest extends ApiTestCase
 {
@@ -130,6 +133,57 @@ final class TemplateDocumentsApiTest extends ApiTestCase
         self::assertSame(404, $preview->getStatusCode(), 'A page of no document.');
     }
 
+    public function testExportHistoryListsLoadsAndCurates(): void
+    {
+        [$client, $headers] = $this->designerClient();
+        $a = TemplateDocumentTestData::a4Template($this->em(), 'Úvod');
+        $b = TemplateDocumentTestData::a4Template($this->em(), 'Ceník');
+        $document = self::documentBody($client->request('POST', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/template-documents', [
+            'headers' => $headers,
+            'json' => ['name' => 'Nabídka', 'dimension' => ['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297], 'templateIds' => [$a['template']->toString(), $b['template']->toString()]],
+        ])->toArray());
+        [$pageA, $pageB] = [$document['pages'][0]['id'], $document['pages'][1]['id']];
+        $withField = self::documentBody($client->request('PUT', '/api/template-documents/' . $document['id'] . '/fields', ['headers' => $headers, 'json' => ['fields' => [
+            ['name' => 'Zákazník', 'kind' => 'text', 'bindings' => [['pageId' => $pageA, 'inputId' => TemplateDocumentTestData::SHARED_INPUT_ID], ['pageId' => $pageB, 'inputId' => TemplateDocumentTestData::SHARED_INPUT_ID]]],
+        ]]])->toArray());
+        $field = $withField['fields'][0];
+        self::assertFalse($field['richText'], 'The fixture inputs are plain.');
+        self::assertNull($field['allowedDirectoryIds'], 'Text fields carry no folders.');
+
+        $export = $client->request('POST', '/api/template-documents/' . $document['id'] . '/export', ['headers' => $headers, 'json' => [
+            'format' => 'png',
+            'fields' => [$field['id'] => 'Lucie Svobodová'],
+            'pages' => [$pageB => ['inputs' => [TemplateDocumentTestData::SHARED_INPUT_ID => 'Přebito sdíleným polem']]],
+        ]]);
+        self::assertSame(200, $export->getStatusCode());
+
+        /** @var list<array{id: string, draft: bool, channel: string, pinned: bool, summary: array{texts: list<array{value: string}>}}> $versions */
+        $versions = $client->request('GET', '/api/template-documents/' . $document['id'] . '/export-versions', ['headers' => $headers])->toArray();
+        self::assertCount(1, $versions);
+        self::assertSame('api', $versions[0]['channel']);
+        self::assertFalse($versions[0]['draft']);
+        self::assertSame(['Lucie Svobodová'], array_values(array_unique(array_column($versions[0]['summary']['texts'], 'value'))));
+
+        /** @var array{fill: array{fields: array<string, mixed>, pages: array<string, array{inputs: array<string, mixed>}>}} $detail */
+        $detail = $client->request('GET', '/api/template-document-export-versions/' . $versions[0]['id'], ['headers' => $headers])->toArray();
+        self::assertSame('Lucie Svobodová', $detail['fill']['fields'][$field['id']]);
+        self::assertSame('Lucie Svobodová', $detail['fill']['pages'][$pageB]['inputs'][TemplateDocumentTestData::SHARED_INPUT_ID]);
+
+        /** @var array{name: null|string, pinned: bool} $patched */
+        $patched = $client->request('PATCH', '/api/template-document-export-versions/' . $versions[0]['id'], [
+            'headers' => ['Content-Type' => 'application/json'] + $headers,
+            'body' => (string) json_encode(['name' => 'Finální', 'pinned' => true]),
+        ])->toArray();
+        self::assertSame('Finální', $patched['name']);
+        self::assertTrue($patched['pinned']);
+
+        $empty = $client->request('PATCH', '/api/template-document-export-versions/' . $versions[0]['id'], [
+            'headers' => ['Content-Type' => 'application/json'] + $headers,
+            'body' => '{}',
+        ]);
+        self::assertSame(400, $empty->getStatusCode());
+    }
+
     public function testNonDesignersMayExportButNotArrange(): void
     {
         $client = self::createClient();
@@ -163,14 +217,14 @@ final class TemplateDocumentsApiTest extends ApiTestCase
 
     /**
      * @param array<mixed> $body
-     * @return array{id: string, name: string, printFormat: bool, pages: list<array{id: string, templateName: string, variant: array{id: string, inputs: list<array{id: string}>}}>, fields: list<array{id: string, bindings: list<array{valid: bool}>}>}
+     * @return array{id: string, name: string, printFormat: bool, pages: list<array{id: string, templateName: string, variant: array{id: string, inputs: list<array{id: string}>}}>, fields: list<array{id: string, bindings: list<array{valid: bool}>, richText: bool, hidable: bool, allowedDirectoryIds: null|list<string>}>}
      */
     private static function documentBody(array $body): array
     {
         self::assertIsString($body['id'] ?? null);
         self::assertIsArray($body['pages'] ?? null);
 
-        /** @var array{id: string, name: string, printFormat: bool, pages: list<array{id: string, templateName: string, variant: array{id: string, inputs: list<array{id: string}>}}>, fields: list<array{id: string, bindings: list<array{valid: bool}>}>} $body */
+        /** @var array{id: string, name: string, printFormat: bool, pages: list<array{id: string, templateName: string, variant: array{id: string, inputs: list<array{id: string}>}}>, fields: list<array{id: string, bindings: list<array{valid: bool}>, richText: bool, hidable: bool, allowedDirectoryIds: null|list<string>}>} $body */
         return $body;
     }
 

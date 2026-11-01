@@ -56,7 +56,23 @@ readonly final class ExportVersionSeeder
      */
     public function forVariant(TemplateExportVersion $version, TemplateVariant $variant): array
     {
-        $values = $version->fillValues;
+        return $this->forVariantValues($version->fillValues, $variant);
+    }
+
+    /**
+     * {@see self::forVariant()} over bare values — a document version stores
+     * one {@see ExportFillValues} per page.
+     *
+     * @return array{
+     *     textValues: array<string, string>,
+     *     hiddenValues: array<string, bool>,
+     *     fontValues: array<string, string>,
+     *     shapeColorValues: array<string, string>,
+     *     imageValues: array<string, array<string, mixed>>,
+     * }
+     */
+    public function forVariantValues(ExportFillValues $values, TemplateVariant $variant): array
+    {
         $hiddenIds = array_flip($values->hidden);
         $fontOptions = $values->fonts !== [] ? $this->resolveRichTextOptions->forVariant($variant) : null;
 

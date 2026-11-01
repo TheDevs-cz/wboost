@@ -22,15 +22,20 @@
    Expects:
    - versions:        list<TemplateExportVersion>
    - turbo:           bool (default false)
-   - loaded_version:  null|TemplateExportVersion (fill pages) #}
+   - loaded_version:  null|TemplateExportVersion (fill pages)
+   - pin_route / rename_route: optional — a document history's own routes
+                      (`template_document_export_version_*`); default the
+                      variant / group ones #}
 {% set turbo = turbo ?? false %}
+{% set pin_route = pin_route ?? 'template_export_version_pin' %}
+{% set rename_route = rename_route ?? 'template_export_version_rename' %}
 {% set loaded_version = loaded_version ?? null %}
 <div id="export-version-form-anchors" hidden>
     {% for version in versions %}
-        <form id="export-version-pin-{{ version.id }}" action="{{ path('template_export_version_pin', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-pin-form="{{ version.id }}"{% if turbo %} data-turbo="true"{% endif %}>
+        <form id="export-version-pin-{{ version.id }}" action="{{ path(pin_route, {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-pin-form="{{ version.id }}"{% if turbo %} data-turbo="true"{% endif %}>
             {% if loaded_version %}<input type="hidden" name="loaded" value="{{ loaded_version.id }}">{% endif %}
         </form>
-        <form id="export-version-rename-{{ version.id }}" action="{{ path('template_export_version_rename', {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-rename-form="{{ version.id }}"{% if turbo %} data-turbo="true"{% endif %}>
+        <form id="export-version-rename-{{ version.id }}" action="{{ path(rename_route, {'versionId': version.id}) }}" method="post" class="d-none" data-export-version-rename-form="{{ version.id }}"{% if turbo %} data-turbo="true"{% endif %}>
             {% if loaded_version %}<input type="hidden" name="loaded" value="{{ loaded_version.id }}">{% endif %}
         </form>
     {% endfor %}

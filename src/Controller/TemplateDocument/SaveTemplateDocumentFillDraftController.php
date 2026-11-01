@@ -13,13 +13,13 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\UX\Turbo\TurboStreamResponse;
 use WBoost\Web\Controller\Template\SaveTemplateVariantFillDraftController;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Message\TemplateDocument\SaveTemplateDocumentFillDraft;
 use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
+use WBoost\Web\Services\TemplateDocument\DocumentExportHistoryView;
 use WBoost\Web\Value\DocumentFillValues;
 
 /**
@@ -36,6 +36,7 @@ final class SaveTemplateDocumentFillDraftController extends AbstractController
         readonly private MessageBusInterface $bus,
         readonly private TemplateDocumentExportVersionRepository $versionRepository,
         readonly private Security $security,
+        readonly private DocumentExportHistoryView $historyView,
     ) {
     }
 
@@ -68,11 +69,7 @@ final class SaveTemplateDocumentFillDraftController extends AbstractController
             ]),
         ));
 
-        $response = new TurboStreamResponse($this->renderView('_document_history_menu.stream.html.twig', [
-            'document' => $document,
-            'versions' => $this->versionRepository->forDocument($document->id),
-            'loaded_version' => $this->versionRepository->find($versionId),
-        ]));
+        $response = $this->historyView->draftSaved($this->versionRepository->get($versionId));
         $response->headers->set('X-Fill-Draft-Version', $versionId->toString());
 
         return $response;

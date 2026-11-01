@@ -57,7 +57,7 @@ use WBoost\Web\Value\ExportFillValues;
 #[Index(name: 'idx_export_version_variant', columns: ['variant_id', 'last_exported_at'])]
 #[Index(name: 'idx_export_version_group', columns: ['group_id', 'last_exported_at'])]
 #[Index(name: 'idx_export_version_template', columns: ['template_id', 'last_exported_at'])]
-class TemplateExportVersion
+class TemplateExportVersion implements CuratableExportVersion
 {
     public const int NAME_MAX_LENGTH = 120;
 

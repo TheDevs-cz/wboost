@@ -109,7 +109,7 @@
                     </p>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    {{ include('_document_history_menu.html.twig') }}
+                    {{ include('_export_history_menu.html.twig', history_chrome) }}
                     {% if can_edit %}
                         <a href="{{ path('template_document', {'documentId': document.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit dokument</a>
                     {% endif %}
@@ -542,5 +542,11 @@
                 </div>
             {% endfor %}
         </form>
+        {# The history rows' pin / rename controls sit INSIDE the fill form
+           and submit through these out-of-line anchors (never nest forms). #}
+        {{ include('_export_version_form_anchors.html.twig', history_chrome|merge({
+            versions: history_chrome.history.menu(loaded_version),
+            turbo: true,
+        })) }}
     {% endif %}
 {% endblock %}

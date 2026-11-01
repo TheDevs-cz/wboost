@@ -79,10 +79,13 @@ final readonly class SummarizeExportVersion
     }
 
     /**
+     * inputId → label, in design order (first-wins by inputId across the
+     * variants).
+     *
      * @param list<TemplateVariant> $variants
      * @return array<string, string>
      */
-    private function textLabels(array $variants): array
+    public function textLabels(array $variants): array
     {
         $labels = [];
 
