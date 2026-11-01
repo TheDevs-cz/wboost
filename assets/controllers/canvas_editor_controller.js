@@ -4,6 +4,7 @@ import { Canvas, IText, Textbox, FabricImage, cache } from "fabric";
 import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { applyBleed, bleedOf, designHeight, designWidth } from './canvas_viewport.js';
+import { installHandleChrome } from './canvas_handles.js';
 import { loadCanvasDocument, reportMissingImages, withStandInsHidden } from './canvas_missing_images.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
 import { createShapeObject, isShapeObject } from './canvas_shapes.js';
@@ -83,6 +84,8 @@ export default class extends Controller {
             this.bleedValue,
         );
         this._renderBleedGuide();
+        // Zoom-independent transform handles (see canvas_handles.js).
+        this._disposeHandleChrome = installHandleChrome(this.canvas);
 
         // Word-wrap parity with the export: the headless render template
         // patches Textbox wrapping (break-word for over-long words) — apply
@@ -203,6 +206,9 @@ export default class extends Controller {
         }
         if (this._boundBleedZoom) {
             window.removeEventListener('canvas-zoom:changed', this._boundBleedZoom);
+        }
+        if (this._disposeHandleChrome) {
+            this._disposeHandleChrome();
         }
     }
 
@@ -1036,8 +1042,6 @@ export default class extends Controller {
             lockScalingFlip: true,
             lockRotation: true,
             hasControls: true,
-            cornerStyle: 'circle',
-            cornerSize: 8,
             selectable: true,
             inputId: crypto.randomUUID(),
             name: inputName,
@@ -1099,8 +1103,6 @@ export default class extends Controller {
             lockScalingFlip: true,
             lockRotation: true,
             hasControls: true,
-            cornerStyle: 'circle',
-            cornerSize: 8,
             selectable: true,
             inputId: crypto.randomUUID(),
             name: inputName,
@@ -1174,12 +1176,8 @@ export default class extends Controller {
     async addImageToCanvas(imageUrl, assetPath = null, assetId = null) {
         // Fabric v7: FabricImage.fromURL is Promise-based.
         const img = await FabricImage.fromURL(imageUrl, { crossOrigin: 'anonymous' });
-        img.set({
-            angle: 0,
-            // (`cornersize`/`hasRotatingPoint` were dead props — the casing was
-            // wrong and the rotating point ships by default since Fabric v6.)
-            cornerSize: 10,
-        });
+        // Handle size/style is zoom-driven chrome (canvas_handles.js).
+        img.set({ angle: 0 });
         // Position + scale: contain-fit so the picture is never dropped partly
         // (or almost entirely) outside the canvas. Sets the left/top origins.
         containForDimensions(img, designWidth(this.canvas), designHeight(this.canvas), IMAGE_DROP_OFFSET);

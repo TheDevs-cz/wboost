@@ -69,8 +69,6 @@ const SHAPE_INTERACTION = {
     originX: 'left',
     originY: 'top',
     strokeUniform: true,
-    cornerStyle: 'circle',
-    cornerSize: 10,
     selectable: true,
 };
 
@@ -84,8 +82,6 @@ const SHAPE_INTERACTION = {
 export function applyShapeDefaults(obj) {
     if (!obj) return;
     obj.strokeUniform = true;
-    obj.cornerStyle = 'circle';
-    obj.cornerSize = 10;
     if (typeof obj.setCoords === 'function') obj.setCoords();
 }
 

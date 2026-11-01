@@ -223,6 +223,26 @@ the property controllers above only populate/mutate their (relocated) fields.
   loop (`display:none` while the layers eye hides it) — the eye fires no
   add/remove, so the rebuild path never sees it.
 
+**Transform handles (`canvas_handles.js`, 2026-11-01).** Fabric draws its
+controls ON the canvas in element pixels, and the editors zoom with a CSS
+`scale()`, so stock handles shrank with the zoom (2–3 screen px at a print
+auto-fit) — "I can't hit the handles". `installHandleChrome(canvas)` (wired in
+`canvas_editor_controller#connect`, so both editors) divides everything by the
+live zoom (`canvas-zoom:changed`, measured from the container until the first
+announcement): a 24 px HIT square (`cornerSize`/`touchCornerSize` — Fabric's
+`shouldActivate` polygon), a 10 px DRAWN handle via a custom `control.render`
+(circle at corners + rotation knob, pill on the side handles), a 1.5 px accent
+border and a constant rotation-knob offset. Applied lazily to the ACTIVE object
+(+ ActiveSelection members) from `before:render` — only the active object draws
+or hit-tests controls, and `setActiveObject` fires no selection event but always
+renders. Nothing here serializes. Do not set `cornerSize`/`cornerStyle` on
+created objects any more — they would be overwritten on selection anyway.
+Textboxes keep only `ml`/`mr`: their `lockScalingX` (width-only resize, see
+`applyTextboxDefaults`) made Fabric's stock side-handle cursor handler paint
+`not-allowed` over the WORKING width handles, and the corner/top/bottom/rotate
+handles were dead; the side handles now use an angle-aware resize cursor.
+Handles past the canvas element's edge are still clipped (no pasteboard yet).
+
 **Overlay chrome toggles** (`templates/editor/_editor_toggles.html.twig`, the
 top bar shared by the single-variant and the group editor). All five live
 behind ONE gear button ("Zobrazení") as a Bootstrap dropdown with
