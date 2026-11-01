@@ -4385,3 +4385,42 @@ html[data-sidenav-size=sm-hover]:not([data-layout=topnav]) .leftside-menu:not(:h
 .fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading.is-shared {
     color: var(--bs-primary, #727cf5);
 }
+
+/* Shape popover — gradient stops (canvas-shape-properties#_renderGradientStops).
+   The preview paints the gradient over a checkerboard so a transparent stop
+   reads as transparent, not white. */
+.canvas-stage .shape-gradient-preview {
+    height: 18px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    background:
+        var(--shape-gradient-preview, transparent),
+        repeating-conic-gradient(#d5d5d5 0 25%, #fff 0 50%) 0 0 / 10px 10px;
+}
+
+.canvas-stage .shape-gradient-stop {
+    display: grid;
+    grid-template-columns: 36px 1fr 1fr 20px;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.canvas-stage .shape-gradient-stop--head {
+    margin-bottom: 2px;
+    font-size: .7rem;
+}
+
+.canvas-stage .shape-gradient-stop .shape-gradient-stop__color {
+    width: 36px;
+    height: 30px;
+    padding: 2px;
+}
+
+.canvas-stage .shape-gradient-stop__percent .form-control {
+    min-width: 0;
+}
+
+.canvas-stage .shape-gradient-stop__remove:disabled {
+    opacity: .3;
+}

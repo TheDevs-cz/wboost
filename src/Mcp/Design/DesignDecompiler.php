@@ -1026,7 +1026,7 @@ readonly final class DesignDecompiler
             // A pattern fill, or a gradient too exotic to name. The shape keeps
             // its geometry; only the paint is lost.
             $losses[] = new DesignLoss($path . '.fill', DesignLossCode::StyleDropped, sprintf(
-                '%s.fill is a fill the DSL cannot name (it words flat colours and two-stop gradients only), so saving repaints the shape %s.',
+                '%s.fill is a fill the DSL cannot name (it words flat colours and hex/rgba gradients of 2–8 stops only), so saving repaints the shape %s.',
                 $path,
                 ShapeElement::DEFAULT_FILL,
             ));

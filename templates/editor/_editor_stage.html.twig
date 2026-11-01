@@ -494,18 +494,19 @@
             </div>
 
             <div class="d-none" data-canvas-shape-properties-target="gradientSection">
+                {# Stop rows are rendered by canvas-shape-properties#_renderGradientStops.
+                   Each stop: colour, opacity (Krytí) and position — e.g. white 0 % →
+                   white 100 % is a fade-in overlay over a photo. #}
+                <div class="d-flex align-items-center gap-1 mb-1">
+                    <div class="shape-gradient-preview flex-grow-1" data-canvas-shape-properties-target="gradientPreview" aria-hidden="true"></div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Obrátit přechod" aria-label="Obrátit přechod" data-action="canvas-shape-properties#swapGradient"><i class="mdi mdi-swap-horizontal" aria-hidden="true"></i></button>
+                </div>
+                <div class="shape-gradient-stop shape-gradient-stop--head text-muted small">
+                    <span>Barva</span><span>Krytí</span><span>Pozice</span><span></span>
+                </div>
+                <div data-canvas-shape-properties-target="gradientStops"></div>
+                <button type="button" class="btn btn-sm btn-link px-0 py-0 mb-1" data-canvas-shape-properties-target="gradientAdd" data-action="canvas-shape-properties#addGradientStop"><i class="mdi mdi-plus" aria-hidden="true"></i> Přidat barvu</button>
                 <div class="row g-1 align-items-end">
-                    <div class="col-4">
-                        <label for="shape-gradient-from-control" class="form-label small mb-1">Od</label>
-                        <input type="color" id="shape-gradient-from-control" class="form-control form-control-sm form-control-color w-100" data-canvas-shape-properties-target="gradientFrom" data-action="input->canvas-shape-properties#updateGradient">
-                    </div>
-                    <div class="col-auto pb-1">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Prohodit barvy" data-action="canvas-shape-properties#swapGradient"><i class="mdi mdi-swap-horizontal" aria-hidden="true"></i></button>
-                    </div>
-                    <div class="col-4">
-                        <label for="shape-gradient-to-control" class="form-label small mb-1">Do</label>
-                        <input type="color" id="shape-gradient-to-control" class="form-control form-control-sm form-control-color w-100" data-canvas-shape-properties-target="gradientTo" data-action="input->canvas-shape-properties#updateGradient">
-                    </div>
                     <div class="col-12">
                         <label for="shape-gradient-type-control" class="form-label small mb-1">Typ</label>
                         <select id="shape-gradient-type-control" class="form-select form-select-sm" data-canvas-shape-properties-target="gradientType" data-action="change->canvas-shape-properties#updateGradient">
@@ -517,7 +518,7 @@
                         <label for="shape-gradient-angle-control" class="form-label small mb-1">
                             Úhel <span class="text-muted" data-canvas-shape-properties-target="gradientAngleValue">90°</span>
                         </label>
-                        <input type="range" id="shape-gradient-angle-control" class="form-range" min="0" max="359" step="1" data-canvas-shape-properties-target="gradientAngle" data-action="input->canvas-shape-properties#updateGradient">
+                        <input type="range" id="shape-gradient-angle-control" class="form-range" min="0" max="359" step="1" data-canvas-shape-properties-target="gradientAngle" data-action="input->canvas-shape-properties#updateGradient change->canvas-shape-properties#updateGradient">
                     </div>
                 </div>
             </div>

@@ -335,8 +335,8 @@ final class DesignDecompilerTest extends TestCase
         self::assertInstanceOf(CanvasShapeGradient::class, $fill);
         self::assertSame('linear', $fill->type);
         // Stops arrive out of order; the reader sorts by offset.
-        self::assertSame('#ff0000', $fill->from);
-        self::assertSame('#0000ff', $fill->to);
+        self::assertSame('#ff0000', $fill->from());
+        self::assertSame('#0000ff', $fill->to());
         self::assertSame(90.0, $fill->angle, '0,0 → 0,1 is top-to-bottom, i.e. 90°.');
         self::assertSame(0.0, $element->cornerRadius, 'An ellipse\'s rx/ry are its radii, never a corner radius.');
     }

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 /**
- * A two-stop gradient fill for a canvas shape — the PHP mirror of
- * `buildGradient` / `describeFill` in `assets/controllers/canvas_shapes.js`.
+ * A gradient fill for a canvas shape — the PHP mirror of `buildGradient` /
+ * `describeFill` in `assets/controllers/canvas_shapes.js`.
  *
  * **`gradientUnits` is always `percentage`**, i.e. coordinates are 0…1 of the
  * object's own bounding box. That is load-bearing rather than stylistic: a
@@ -15,15 +15,27 @@ namespace WBoost\Web\Value;
  * the designer resizing it, the group projector fanning it into another
  * dimension, and the export rendering it at print resolution.
  *
- * Two stops only. Fabric supports arbitrarily many, and the canvas JSON would
- * carry them fine, but the editor UI authors exactly two — exposing more
- * through the DSL would create designs the designer cannot then edit.
+ * 2…{@see self::MAX_STOPS} stops, each with its own opacity (a white
+ * 0 % → 100 % fade is the classic overlay over a photo). The opacity rides
+ * INSIDE the Fabric stop colour as `rgba(r,g,b,a)` — Fabric's renderer passes
+ * `color` straight to `CanvasGradient.addColorStop` and ignores a separate
+ * `opacity` key — and that string is byte-identical to the editor's
+ * `gradientStopColor` (see {@see self::stopColor()}).
  */
 readonly final class CanvasShapeGradient
 {
     public const string TYPE_LINEAR = 'linear';
     public const string TYPE_RADIAL = 'radial';
 
+    /** Mirrored by `GRADIENT_MAX_STOPS` in canvas_shapes.js. */
+    public const int MAX_STOPS = 8;
+
+    /** @var non-empty-list<CanvasShapeGradientStop> sorted by offset */
+    public array $stops;
+
+    /**
+     * @param list<CanvasShapeGradientStop> $stops at least two
+     */
     public function __construct(
         /** self::TYPE_LINEAR | self::TYPE_RADIAL */
         public string $type,
@@ -33,16 +45,50 @@ readonly final class CanvasShapeGradient
          * canonical wire form stays stable across a round-trip.
          */
         public float $angle,
-        /** Lowercase `#rrggbb`. */
-        public string $from,
-        /** Lowercase `#rrggbb`. */
-        public string $to,
+        array $stops,
     ) {
+        if (count($stops) < 2) {
+            throw new \InvalidArgumentException('A gradient needs at least two stops.');
+        }
+
+        usort($stops, static fn (CanvasShapeGradientStop $a, CanvasShapeGradientStop $b): int => $a->offset <=> $b->offset);
+        $this->stops = $stops;
+    }
+
+    /** The classic opaque two-colour gradient. */
+    public static function twoStop(string $type, float $angle, string $from, string $to): self
+    {
+        return new self($type, $angle, [
+            CanvasShapeGradientStop::create(0.0, $from),
+            CanvasShapeGradientStop::create(1.0, $to),
+        ]);
     }
 
     public function isRadial(): bool
     {
         return $this->type === self::TYPE_RADIAL;
+    }
+
+    public function from(): string
+    {
+        return $this->stops[0]->color;
+    }
+
+    public function to(): string
+    {
+        return $this->stops[count($this->stops) - 1]->color;
+    }
+
+    /**
+     * Two opaque stops at 0 and 1 — what the DSL words as `{from, to}`.
+     */
+    public function isSimpleTwoStop(): bool
+    {
+        return count($this->stops) === 2
+            && $this->stops[0]->offset === 0.0
+            && $this->stops[1]->offset === 1.0
+            && $this->stops[0]->isOpaque()
+            && $this->stops[1]->isOpaque();
     }
 
     /**
@@ -53,10 +99,13 @@ readonly final class CanvasShapeGradient
      */
     public function toFabric(): array
     {
-        $colorStops = [
-            ['offset' => 0, 'color' => $this->from],
-            ['offset' => 1, 'color' => $this->to],
-        ];
+        $colorStops = array_map(
+            static fn (CanvasShapeGradientStop $stop): array => [
+                'offset' => self::compactNumber($stop->offset),
+                'color' => self::stopColor($stop),
+            ],
+            $this->stops,
+        );
 
         if ($this->isRadial()) {
             return [
@@ -84,13 +133,28 @@ readonly final class CanvasShapeGradient
     }
 
     /**
+     * `#rrggbb` when opaque, `rgba(r,g,b,a)` otherwise — the exact string
+     * `gradientStopColor` in canvas_shapes.js writes.
+     */
+    public static function stopColor(CanvasShapeGradientStop $stop): string
+    {
+        if ($stop->isOpaque()) {
+            return $stop->color;
+        }
+
+        return sprintf(
+            'rgba(%d,%d,%d,%s)',
+            (int) hexdec(substr($stop->color, 1, 2)),
+            (int) hexdec(substr($stop->color, 3, 2)),
+            (int) hexdec(substr($stop->color, 5, 2)),
+            (string) $stop->opacity,
+        );
+    }
+
+    /**
      * Read a canvas object's `fill` back into a gradient, or null when it is a
-     * flat colour (or anything this VO cannot faithfully represent).
-     *
-     * Deliberately lenient about the stop COUNT — a canvas that acquired a
-     * multi-stop gradient from somewhere else still decompiles, keeping its
-     * first and last stops, rather than dropping the whole element. The lint
-     * is where "you will lose the middle stops" belongs, not the reader.
+     * flat colour (or anything this VO cannot faithfully represent: a stop
+     * colour that is neither hex nor rgb[a], or more than MAX_STOPS stops).
      */
     public static function fromFabric(mixed $fill): null|self
     {
@@ -98,28 +162,31 @@ readonly final class CanvasShapeGradient
             return null;
         }
 
-        $stops = $fill['colorStops'] ?? null;
+        $rawStops = $fill['colorStops'] ?? null;
 
-        if (!is_array($stops) || $stops === []) {
+        if (!is_array($rawStops) || count($rawStops) < 2 || count($rawStops) > self::MAX_STOPS) {
             return null;
         }
 
-        $sorted = array_values($stops);
-        usort($sorted, static function (mixed $a, mixed $b): int {
-            $left = is_array($a) && is_numeric($a['offset'] ?? null) ? (float) $a['offset'] : 0.0;
-            $right = is_array($b) && is_numeric($b['offset'] ?? null) ? (float) $b['offset'] : 0.0;
+        $stops = [];
 
-            return $left <=> $right;
-        });
+        foreach ($rawStops as $rawStop) {
+            if (!is_array($rawStop) || !is_string($rawStop['color'] ?? null)) {
+                return null;
+            }
 
-        $first = $sorted[0];
-        $last = $sorted[count($sorted) - 1];
+            $parsed = self::parseColor($rawStop['color']);
 
-        $from = is_array($first) && is_string($first['color'] ?? null) ? $first['color'] : null;
-        $to = is_array($last) && is_string($last['color'] ?? null) ? $last['color'] : null;
+            if ($parsed === null) {
+                return null;
+            }
 
-        if ($from === null || $to === null) {
-            return null;
+            [$hex, $alpha] = $parsed;
+            // An SVG-imported stop may carry its own `opacity`; fold it in.
+            $extraOpacity = is_numeric($rawStop['opacity'] ?? null) ? (float) $rawStop['opacity'] : 1.0;
+            $offset = is_numeric($rawStop['offset'] ?? null) ? (float) $rawStop['offset'] : 0.0;
+
+            $stops[] = CanvasShapeGradientStop::create($offset, $hex, $alpha * $extraOpacity);
         }
 
         $radial = ($fill['type'] ?? null) === self::TYPE_RADIAL;
@@ -128,9 +195,33 @@ readonly final class CanvasShapeGradient
         return new self(
             type: $radial ? self::TYPE_RADIAL : self::TYPE_LINEAR,
             angle: $radial ? 90.0 : self::angleFromCoords(is_array($coords) ? $coords : []),
-            from: strtolower($from),
-            to: strtolower($to),
+            stops: $stops,
         );
+    }
+
+    /**
+     * Hex (`#rgb` / `#rrggbb`) or `rgb()` / `rgba()` → [`#rrggbb`, alpha].
+     *
+     * @return null|array{string, float}
+     */
+    private static function parseColor(string $value): null|array
+    {
+        $hex = RichText::normalizeHexColor($value);
+
+        if ($hex !== null) {
+            return [$hex, 1.0];
+        }
+
+        if (preg_match('/^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)\s*(?:,\s*([0-9.]+)\s*)?\)$/i', trim($value), $matches) !== 1) {
+            return null;
+        }
+
+        $channel = static fn (string $raw): int => max(0, min(255, (int) round((float) $raw)));
+
+        return [
+            sprintf('#%02x%02x%02x', $channel($matches[1]), $channel($matches[2]), $channel($matches[3])),
+            isset($matches[4]) ? (float) $matches[4] : 1.0,
+        ];
     }
 
     /**
@@ -152,18 +243,41 @@ readonly final class CanvasShapeGradient
         return (float) ((((int) $degrees % 360) + 360) % 360);
     }
 
+    /** 0 / 1 as integers (as the editor serializes them), fractions as floats. */
+    private static function compactNumber(float $value): int|float
+    {
+        return floor($value) === $value ? (int) $value : $value;
+    }
+
     /**
-     * Canonical DSL wire form.
+     * Canonical DSL wire form: `{type, angle, from, to}` for a plain opaque
+     * two-colour gradient (the form every design authored before multi-stop
+     * support uses), `{type, angle, stops: [{at, color, opacity}]}` otherwise.
      *
-     * @return array{type: string, angle: float, from: string, to: string}
+     * @return array{type: string, angle: float, from: string, to: string}|array{type: string, angle: float, stops: list<array{at: float, color: string, opacity: float}>}
      */
     public function toArray(): array
     {
+        if ($this->isSimpleTwoStop()) {
+            return [
+                'type' => $this->type,
+                'angle' => $this->angle,
+                'from' => $this->from(),
+                'to' => $this->to(),
+            ];
+        }
+
         return [
             'type' => $this->type,
             'angle' => $this->angle,
-            'from' => $this->from,
-            'to' => $this->to,
+            'stops' => array_map(
+                static fn (CanvasShapeGradientStop $stop): array => [
+                    'at' => $stop->offset,
+                    'color' => $stop->color,
+                    'opacity' => $stop->opacity,
+                ],
+                $this->stops,
+            ),
         ];
     }
 }

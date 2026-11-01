@@ -169,8 +169,49 @@ final class DslParserTest extends TestCase
         self::assertInstanceOf(CanvasShapeGradient::class, $fill);
         self::assertSame('linear', $fill->type);
         self::assertSame(45.0, $fill->angle);
-        self::assertSame('#ff0000', $fill->from);
-        self::assertSame('#0000ff', $fill->to);
+        self::assertSame('#ff0000', $fill->from());
+        self::assertSame('#0000ff', $fill->to());
+    }
+
+    /**
+     * `stops` words what `{from, to}` cannot: more than two colours and a
+     * per-stop opacity — a white 0 % → 100 % fade is the overlay a designer
+     * lays over a photo.
+     */
+    public function testAGradientWithStopsCarriesEveryColourAndItsOpacity(): void
+    {
+        $document = DslParser::parse(self::documentWith([
+            'kind' => 'shape', 'id' => 'scrim', 'shape' => 'rectangle',
+            'x' => 0, 'y' => 0, 'width' => 400, 'height' => 400,
+            'fill' => ['type' => 'linear', 'angle' => 90, 'stops' => [
+                ['at' => 1, 'color' => '#FFF', 'opacity' => 1],
+                ['at' => 0, 'color' => '#ffffff', 'opacity' => 0],
+                ['at' => 0.5, 'color' => '#c8102e', 'opacity' => 0.4],
+            ]],
+        ]));
+
+        $shape = $document->element('scrim');
+        self::assertInstanceOf(ShapeElement::class, $shape);
+        $fill = $shape->fill;
+        self::assertInstanceOf(CanvasShapeGradient::class, $fill);
+        self::assertCount(3, $fill->stops);
+        self::assertSame([
+            'type' => 'linear',
+            'angle' => 90.0,
+            'stops' => [
+                ['at' => 0.0, 'color' => '#ffffff', 'opacity' => 0.0],
+                ['at' => 0.5, 'color' => '#c8102e', 'opacity' => 0.4],
+                ['at' => 1.0, 'color' => '#ffffff', 'opacity' => 1.0],
+            ],
+        ], $fill->toArray(), 'Stops are sorted by position; the canonical form re-parses.');
+
+        $reparsed = DslParser::parse(self::documentWith([
+            'kind' => 'shape', 'id' => 'scrim', 'shape' => 'rectangle',
+            'x' => 0, 'y' => 0, 'width' => 400, 'height' => 400,
+            'fill' => $fill->toArray(),
+        ]))->element('scrim');
+        self::assertInstanceOf(ShapeElement::class, $reparsed);
+        self::assertEquals($fill, $reparsed->fill);
     }
 
     /**
@@ -620,10 +661,34 @@ final class DslParserTest extends TestCase
             'must be "linear" or "radial"',
         ];
         yield 'shape gradient with an unknown key' => [
-            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'from' => '#000000', 'to' => '#ffffff', 'stops' => 3], 'x' => 0, 'y' => 0, 'width' => 100]),
-            'elements[0].fill.stops',
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'from' => '#000000', 'to' => '#ffffff', 'via' => '#888888'], 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].fill.via',
             DslErrorCode::UnknownKey,
+            'elements[0].fill.via',
+        ];
+        yield 'shape gradient with both from/to and stops' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'from' => '#000000', 'to' => '#ffffff', 'stops' => []], 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].fill',
+            DslErrorCode::InvalidValue,
+            'not both',
+        ];
+        yield 'shape gradient with a single stop' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'stops' => [['at' => 0, 'color' => '#000000']]], 'x' => 0, 'y' => 0, 'width' => 100]),
             'elements[0].fill.stops',
+            DslErrorCode::InvalidValue,
+            'needs 2 to 8 stops',
+        ];
+        yield 'shape gradient stop opacity given as a percentage' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'stops' => [['at' => 0, 'color' => '#ffffff', 'opacity' => 40], ['at' => 1, 'color' => '#ffffff']]], 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].fill.stops[0].opacity',
+            DslErrorCode::InvalidValue,
+            'not a percentage',
+        ];
+        yield 'shape gradient stop without a position' => [
+            self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'stops' => [['color' => '#ffffff'], ['at' => 1, 'color' => '#ffffff']]], 'x' => 0, 'y' => 0, 'width' => 100]),
+            'elements[0].fill.stops[0].at',
+            DslErrorCode::MissingKey,
+            'is required',
         ];
         yield 'shape gradient angle out of range' => [
             self::documentWith(['kind' => 'shape', 'id' => 'block', 'shape' => 'square', 'fill' => ['type' => 'linear', 'angle' => 360, 'from' => '#000000', 'to' => '#ffffff'], 'x' => 0, 'y' => 0, 'width' => 100]),

@@ -464,7 +464,8 @@ within the document. Slugs carry input identity across saves.
 | `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
 | `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height` |
-| `shape` gradient fill | `type`, `angle`, `from`, `to` |
+| `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
+| `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fillable` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter` |
@@ -504,10 +505,14 @@ within the document. Slugs carry input identity across saves.
   a shape is whatever size you author it at; omitted, it is square). Everything
   else defaults to a plain black block: `fill` `#000000`, `stroke` `null`,
   `strokeWidth` `0`, `strokeStyle` `solid`, `cornerRadius` `0`, `opacity` `1`,
-  `name` `null`, `locked` `false`. `fill` is either a colour string or a two-stop
-  gradient object `{"type": "linear", "angle": 45, "from": "#…", "to": "#…"}` —
-  `angle` is degrees clockwise, 0 = left to right, 90 = top to bottom, and is
-  ignored for a `radial` gradient, which is always centre-out. `cornerRadius`
+  `name` `null`, `locked` `false`. `fill` is either a colour string or a gradient
+  object: two opaque colours as `{"type": "linear", "angle": 45, "from": "#…", "to": "#…"}`,
+  or 2–8 stops with their own opacity as `{"type": "linear", "angle": 90, "stops":
+  [{"at": 0, "color": "#ffffff", "opacity": 0}, {"at": 1, "color": "#ffffff", "opacity": 1}]}`
+  (a fade-in overlay over a photo) — `at` and `opacity` are fractions 0…1,
+  `opacity` defaults to `1`; use `from`/`to` OR `stops`, not both. `angle` is
+  degrees clockwise, 0 = left to right, 90 = top to bottom, and is ignored for a
+  `radial` gradient, which is always centre-out (`at` 0 = centre). `cornerRadius`
   applies to `rectangle` / `square` / `line` only; on the others it must stay
   `0`, because those shapes' radii ARE their size. `opacity` is a fraction
   (`0.6` = 60 % opaque), not a percentage. `locked` is the EDITOR lock — it makes

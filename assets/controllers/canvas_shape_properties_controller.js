@@ -1,10 +1,12 @@
 import { Controller } from "@hotwired/stimulus";
 import { applyEditorLock } from "./canvas_custom_properties.js";
 import {
+    GRADIENT_MAX_STOPS,
     SHAPE_KINDS,
     buildGradient,
     defaultStrokeWidth,
     describeFill,
+    gradientStopColor,
     isShapeObject,
     toHexColor,
 } from "./canvas_shapes.js";
@@ -39,7 +41,7 @@ export default class extends Controller {
         "kindLabel", "name",
         "solidButton", "gradientButton", "solidSection", "gradientSection",
         "swatch", "fillColor", "fillPicker",
-        "gradientFrom", "gradientTo", "gradientType", "gradientAngle", "gradientAngleValue", "gradientAngleRow",
+        "gradientStops", "gradientPreview", "gradientAdd", "gradientType", "gradientAngle", "gradientAngleValue", "gradientAngleRow",
         "strokeColor", "strokePicker", "strokeWidth", "strokeStyle", "strokeSection", "strokeClear",
         "cornerRadiusRow", "cornerRadius",
         "opacity", "opacityValue",
@@ -68,8 +70,8 @@ export default class extends Controller {
         this._setFillModeUi(fill.mode);
         if (this.hasFillColorTarget) this.fillColorTarget.value = fill.color;
         if (this.hasFillPickerTarget) this.fillPickerTarget.value = fill.color;
-        if (this.hasGradientFromTarget) this.gradientFromTarget.value = fill.from;
-        if (this.hasGradientToTarget) this.gradientToTarget.value = fill.to;
+        this._gradientStops = fill.stops.map((stop) => ({ ...stop }));
+        this._renderGradientStops();
         if (this.hasGradientTypeTarget) this.gradientTypeTarget.value = fill.type;
         if (this.hasGradientAngleTarget) this.gradientAngleTarget.value = String(fill.angle);
         this._syncSwatches(fill.mode === 'solid' ? fill.color : null);
@@ -282,36 +284,214 @@ export default class extends Controller {
         this._commit(shape);
     }
 
-    /** Any of the gradient controls (both colours, type, angle). */
-    updateGradient() {
-        const shape = this._activeShape();
-        if (!shape) return;
-        const gradient = this._gradientFromControls();
-        shape.set('fill', gradient);
+    /** Gradient type / angle controls; a `change` lands one undo step. */
+    updateGradient(event) {
+        this._applyGradient({ history: Boolean(event && event.type === 'change') });
         this._syncGradientAngleUi(
             this.hasGradientTypeTarget ? this.gradientTypeTarget.value : 'linear',
             this.hasGradientAngleTarget ? Number(this.gradientAngleTarget.value) : 90,
         );
-        this._commit(shape);
     }
 
-    /** Swap the gradient's two colours — the fastest way to flip a direction
-     *  without doing angle arithmetic in your head. */
+    /**
+     * One field of one stop row (`color` | `opacity` | `offset`). `input`
+     * previews live; `change` additionally lands one undo step — and, for the
+     * position, re-sorts the rows (never mid-typing, which would steal focus).
+     */
+    updateGradientStop(event) {
+        const index = Number(event.params ? event.params.index : NaN);
+        const field = event.params ? event.params.field : null;
+        const stop = this._gradientStops ? this._gradientStops[index] : null;
+        if (!stop) return;
+
+        if (field === 'color') {
+            stop.color = toHexColor(event.target.value);
+        } else if (field === 'opacity' || field === 'offset') {
+            const raw = event.target.value;
+            if (raw === '' || !Number.isFinite(Number(raw))) return;
+            const percent = Math.min(100, Math.max(0, Math.round(Number(raw))));
+            stop[field] = percent / 100;
+            if (event.type === 'change') event.target.value = String(percent);
+        } else {
+            return;
+        }
+
+        const isChange = event.type === 'change';
+        // Re-render only when the order actually changed: `change` fires on
+        // blur, and rebuilding the rows would steal focus from the field the
+        // designer just tabbed into.
+        if (isChange && field === 'offset' && this._sortGradientStops()) {
+            this._renderGradientStops();
+        } else {
+            this._syncGradientPreview();
+        }
+        this._applyGradient({ history: isChange });
+    }
+
+    /**
+     * "+ Přidat barvu": a new stop in the middle of the widest gap, coloured
+     * as the gradient already is at that point — adding a stop never changes
+     * what the shape looks like until the designer edits it.
+     */
+    addGradientStop() {
+        const stops = this._gradientStops || [];
+        if (stops.length >= GRADIENT_MAX_STOPS || stops.length < 2) return;
+
+        let gapIndex = 0;
+        let widest = -1;
+        for (let i = 0; i < stops.length - 1; i += 1) {
+            const gap = stops[i + 1].offset - stops[i].offset;
+            if (gap > widest) {
+                widest = gap;
+                gapIndex = i;
+            }
+        }
+        const left = stops[gapIndex];
+        const right = stops[gapIndex + 1];
+        stops.splice(gapIndex + 1, 0, {
+            offset: Math.round(((left.offset + right.offset) / 2) * 100) / 100,
+            color: mixHex(left.color, right.color, 0.5),
+            opacity: Math.round(((left.opacity + right.opacity) / 2) * 100) / 100,
+        });
+
+        this._renderGradientStops();
+        this._applyGradient({ history: true });
+    }
+
+    removeGradientStop(event) {
+        const index = Number(event.params ? event.params.index : NaN);
+        const stops = this._gradientStops || [];
+        if (stops.length <= 2 || !stops[index]) return;
+        stops.splice(index, 1);
+        this._renderGradientStops();
+        this._applyGradient({ history: true });
+    }
+
+    /** Mirror the gradient (0 % ↔ 100 %) — the fastest way to flip a
+     *  direction without doing angle arithmetic in your head. */
     swapGradient() {
-        if (!this.hasGradientFromTarget || !this.hasGradientToTarget) return;
-        const from = this.gradientFromTarget.value;
-        this.gradientFromTarget.value = this.gradientToTarget.value;
-        this.gradientToTarget.value = from;
-        this.updateGradient();
+        if (!this._gradientStops) return;
+        this._gradientStops.forEach((stop) => {
+            stop.offset = Math.round((1 - stop.offset) * 100) / 100;
+        });
+        this._sortGradientStops();
+        this._renderGradientStops();
+        this._applyGradient({ history: true });
+    }
+
+    _applyGradient({ history = false } = {}) {
+        const shape = this._activeShape();
+        if (!shape) return;
+        shape.set('fill', this._gradientFromControls());
+        this._commit(shape, { history });
     }
 
     _gradientFromControls() {
         return buildGradient({
             type: this.hasGradientTypeTarget ? this.gradientTypeTarget.value : 'linear',
-            from: this.hasGradientFromTarget ? toHexColor(this.gradientFromTarget.value) : '#000000',
-            to: this.hasGradientToTarget ? toHexColor(this.gradientToTarget.value, '#ffffff') : '#ffffff',
             angle: this.hasGradientAngleTarget ? Number(this.gradientAngleTarget.value) : 90,
+            stops: this._gradientStops,
         });
+    }
+
+    /** Sort stops by position; returns whether the order changed. */
+    _sortGradientStops() {
+        if (!this._gradientStops) return false;
+        const before = [...this._gradientStops];
+        this._gradientStops.sort((a, b) => a.offset - b.offset);
+        return this._gradientStops.some((stop, i) => stop !== before[i]);
+    }
+
+    /**
+     * Rebuild the stop rows from `_gradientStops`. Only on selection / add /
+     * remove / re-sort — never on `input`, so the field being typed in keeps
+     * focus. The rows carry Stimulus action descriptors, which the controller
+     * picks up for nodes it did not render itself.
+     */
+    _renderGradientStops() {
+        if (!this.hasGradientStopsTarget) return;
+        const stops = this._gradientStops || [];
+        const id = this.identifier;
+        const canRemove = stops.length > 2;
+        const container = this.gradientStopsTarget;
+        container.replaceChildren();
+
+        stops.forEach((stop, index) => {
+            const row = document.createElement('div');
+            row.className = 'shape-gradient-stop';
+
+            const color = document.createElement('input');
+            color.type = 'color';
+            color.className = 'form-control form-control-sm form-control-color shape-gradient-stop__color';
+            color.value = stop.color;
+            color.title = 'Barva';
+            color.setAttribute('aria-label', `Barva bodu ${index + 1}`);
+            this._bindStopField(color, index, 'color');
+
+            row.append(
+                color,
+                this._percentField(Math.round(stop.opacity * 100), index, 'opacity', `Krytí bodu ${index + 1}`),
+                this._percentField(Math.round(stop.offset * 100), index, 'offset', `Pozice bodu ${index + 1}`),
+            );
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'btn btn-sm btn-link text-muted p-0 shape-gradient-stop__remove';
+            remove.title = canRemove ? 'Odebrat barvu' : 'Přechod potřebuje alespoň dvě barvy';
+            remove.disabled = !canRemove;
+            remove.setAttribute('aria-label', `Odebrat bod ${index + 1}`);
+            remove.innerHTML = '<i class="mdi mdi-close" aria-hidden="true"></i>';
+            remove.dataset.action = `${id}#removeGradientStop`;
+            remove.setAttribute(`data-${id}-index-param`, String(index));
+            row.append(remove);
+
+            container.append(row);
+        });
+
+        if (this.hasGradientAddTarget) {
+            this.gradientAddTarget.disabled = stops.length >= GRADIENT_MAX_STOPS;
+            this.gradientAddTarget.title = stops.length >= GRADIENT_MAX_STOPS
+                ? `Nejvýše ${GRADIENT_MAX_STOPS} barev`
+                : 'Přidat barvu do přechodu';
+        }
+        this._syncGradientPreview();
+    }
+
+    _percentField(value, index, field, label) {
+        const group = document.createElement('div');
+        group.className = 'input-group input-group-sm shape-gradient-stop__percent';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'form-control';
+        input.min = '0';
+        input.max = '100';
+        input.step = '1';
+        input.value = String(value);
+        input.setAttribute('aria-label', label);
+        this._bindStopField(input, index, field);
+        const suffix = document.createElement('span');
+        suffix.className = 'input-group-text';
+        suffix.textContent = '%';
+        group.append(input, suffix);
+        return group;
+    }
+
+    _bindStopField(input, index, field) {
+        const id = this.identifier;
+        input.dataset.action = `input->${id}#updateGradientStop change->${id}#updateGradientStop`;
+        input.setAttribute(`data-${id}-index-param`, String(index));
+        input.setAttribute(`data-${id}-field-param`, field);
+    }
+
+    /** The bar above the rows: the gradient left→right over a checkerboard,
+     *  so a transparent stop reads as transparent rather than white. */
+    _syncGradientPreview() {
+        if (!this.hasGradientPreviewTarget) return;
+        const stops = [...(this._gradientStops || [])].sort((a, b) => a.offset - b.offset);
+        const css = stops
+            .map((stop) => `${gradientStopColor(stop.color, stop.opacity)} ${Math.round(stop.offset * 100)}%`)
+            .join(', ');
+        this.gradientPreviewTarget.style.setProperty('--shape-gradient-preview', `linear-gradient(90deg, ${css})`);
     }
 
     _setFillModeUi(mode) {
@@ -535,4 +715,11 @@ function normalizeHexInput(raw) {
 /** Round to one decimal — projected values across dimensions are rarely whole. */
 function round(value) {
     return Math.round((Number(value) || 0) * 10) / 10;
+}
+
+/** Linear blend of two `#rrggbb` colours (t = 0 → a, 1 → b). */
+function mixHex(a, b, t) {
+    const channel = (hex, i) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+    const out = [0, 1, 2].map((i) => Math.round(channel(a, i) + (channel(b, i) - channel(a, i)) * t));
+    return `#${out.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }

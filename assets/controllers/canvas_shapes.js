@@ -212,6 +212,9 @@ export function defaultStrokeWidth(canvasWidth, canvasHeight) {
 
 // --- fills: solid colour vs gradient -------------------------------------
 
+/** Most stops one gradient may carry — mirrored by CanvasShapeGradient::MAX_STOPS. */
+export const GRADIENT_MAX_STOPS = 8;
+
 /**
  * Build a Fabric gradient in PERCENTAGE units — coordinates are 0…1 of the
  * object's own bounding box, so the gradient survives every scale the object
@@ -220,17 +223,31 @@ export function defaultStrokeWidth(canvasWidth, canvasHeight) {
  * pixel-unit gradient would be baked to the size the shape happened to have
  * when it was picked and would visibly slide off on any of those.
  *
+ * Any number of stops (2…GRADIENT_MAX_STOPS), each with its own opacity —
+ * "white 0 % → white 100 %" is the overlay a designer lays over a photo. The
+ * opacity is baked INTO the stop colour (`rgba(…)`): Fabric's renderer hands
+ * `color` straight to `CanvasGradient.addColorStop` and ignores any separate
+ * `opacity` key. The string format is a contract with
+ * CanvasShapeGradient::stopColor() (PHP) — keep them byte-identical.
+ *
  * @param {Object} spec
  * @param {string} spec.type   'linear' | 'radial'
- * @param {string} spec.from   start colour
- * @param {string} spec.to     end colour
  * @param {number} spec.angle  degrees, 0 = left→right, 90 = top→bottom (linear only)
+ * @param {Array<{offset: number, color: string, opacity?: number}>} [spec.stops]
+ * @param {string} [spec.from] legacy two-stop start colour (used when `stops` is absent)
+ * @param {string} [spec.to]   legacy two-stop end colour
  */
-export function buildGradient({ type = 'linear', from = '#000000', to = '#ffffff', angle = 90 }) {
-    const colorStops = [
-        { offset: 0, color: from },
-        { offset: 1, color: to },
-    ];
+export function buildGradient({ type = 'linear', from = '#000000', to = '#ffffff', angle = 90, stops = null }) {
+    const source = Array.isArray(stops) && stops.length >= 2
+        ? stops
+        : [{ offset: 0, color: from, opacity: 1 }, { offset: 1, color: to, opacity: 1 }];
+
+    const colorStops = source
+        .map((stop) => ({
+            offset: roundUnit(stop.offset),
+            color: gradientStopColor(stop.color, stop.opacity),
+        }))
+        .sort((a, b) => a.offset - b.offset);
 
     if (type === 'radial') {
         return new Gradient({
@@ -254,35 +271,82 @@ export function buildGradient({ type = 'linear', from = '#000000', to = '#ffffff
 }
 
 /**
+ * A stop's paint: plain `#rrggbb` when fully opaque (so an old two-stop
+ * gradient serializes exactly as before), `rgba(r,g,b,a)` otherwise, with the
+ * alpha rounded to whole percent.
+ */
+export function gradientStopColor(color, opacity = 1) {
+    const hex = toHexColor(color);
+    const alpha = roundUnit(typeof opacity === 'number' ? opacity : 1);
+    if (alpha >= 1) return hex;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Clamp to 0…1 and round to whole percent (the UI's resolution). */
+function roundUnit(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 0;
+    return Math.round(Math.min(1, Math.max(0, number)) * 100) / 100;
+}
+
+/** Alpha (0…1) carried by a CSS colour string; 1 when it has none. */
+function colorAlpha(value) {
+    if (typeof value !== 'string' || value.trim() === '') return 1;
+    try {
+        const alpha = new Color(value).getAlpha();
+        return typeof alpha === 'number' && Number.isFinite(alpha) ? alpha : 1;
+    } catch {
+        return 1;
+    }
+}
+
+/**
  * Read an object's current fill back into the shape of the popover's controls,
  * so opening the popover shows what is actually on the canvas (including a
  * gradient authored in an earlier session).
  *
- * @returns {{mode: 'solid'|'gradient', color: string, type: string, from: string, to: string, angle: number}}
+ * @returns {{mode: 'solid'|'gradient', color: string, type: string, angle: number,
+ *            stops: Array<{offset: number, color: string, opacity: number}>}}
  */
 export function describeFill(obj) {
     const fill = obj ? obj.fill : null;
 
     if (fill && typeof fill === 'object') {
-        const stops = Array.isArray(fill.colorStops)
-            ? [...fill.colorStops].sort((a, b) => (a.offset || 0) - (b.offset || 0))
-            : [];
+        const stops = (Array.isArray(fill.colorStops) ? fill.colorStops : [])
+            .map((stop) => ({
+                offset: roundUnit(stop.offset),
+                color: toHexColor(stop.color),
+                // An SVG-imported stop may carry a separate `opacity`; fold it in.
+                opacity: roundUnit(colorAlpha(stop.color) * (typeof stop.opacity === 'number' ? stop.opacity : 1)),
+            }))
+            .sort((a, b) => a.offset - b.offset);
+        while (stops.length < 2) {
+            stops.push({ offset: stops.length === 0 ? 0 : 1, color: stops.length === 0 ? '#000000' : '#ffffff', opacity: 1 });
+        }
         const coords = fill.coords || {};
         const isRadial = fill.type === 'radial';
 
         return {
             mode: 'gradient',
-            color: toHexColor(stops.length ? stops[0].color : null),
+            color: stops[0].color,
             type: isRadial ? 'radial' : 'linear',
-            from: toHexColor(stops.length ? stops[0].color : null),
-            to: toHexColor(stops.length > 1 ? stops[stops.length - 1].color : null, '#ffffff'),
             angle: isRadial ? 90 : gradientAngle(coords),
+            stops,
         };
     }
 
     const color = toHexColor(typeof fill === 'string' ? fill : null);
 
-    return { mode: 'solid', color, type: 'linear', from: color, to: '#ffffff', angle: 90 };
+    return {
+        mode: 'solid',
+        color,
+        type: 'linear',
+        angle: 90,
+        stops: [{ offset: 0, color, opacity: 1 }, { offset: 1, color: '#ffffff', opacity: 1 }],
+    };
 }
 
 /** Angle (0…359°) of a linear gradient's coordinate pair. */
@@ -297,8 +361,9 @@ function gradientAngle(coords) {
 /**
  * Normalise any CSS colour Fabric accepts (named, rgb(), rgba(), short hex)
  * into `#rrggbb` — `<input type="color">` and the swatch comparison accept
- * nothing else. Alpha is deliberately dropped: shapes express transparency
- * through the `opacity` control, which applies to fill AND stroke together.
+ * nothing else. Alpha is deliberately dropped here: a solid fill expresses
+ * transparency through the `opacity` control (fill AND stroke together), and a
+ * gradient stop carries its own opacity next to the hex (`describeFill`).
  */
 export function toHexColor(value, fallback = '#000000') {
     if (typeof value !== 'string' || value.trim() === '') return fallback;

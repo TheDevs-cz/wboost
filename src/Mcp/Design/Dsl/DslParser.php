@@ -7,6 +7,7 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Exceptions\InvalidDesignDocument;
 use WBoost\Web\Value\CanvasShapeGradient;
+use WBoost\Web\Value\CanvasShapeGradientStop;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\RichText;
@@ -98,7 +99,14 @@ final class DslParser
      *
      * @var list<string>
      */
-    public const array SHAPE_FILL_KEYS = ['type', 'angle', 'from', 'to'];
+    public const array SHAPE_FILL_KEYS = ['type', 'angle', 'from', 'to', 'stops'];
+
+    /**
+     * One entry of a gradient's `stops` list ({@see CanvasShapeGradientStop}).
+     *
+     * @var list<string>
+     */
+    public const array SHAPE_FILL_STOP_KEYS = ['at', 'color', 'opacity'];
 
     /** @var list<string> */
     public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fillable'];
@@ -617,7 +625,8 @@ final class DslParser
     }
 
     /**
-     * A shape's fill: either a hex colour string or a two-stop gradient object.
+     * A shape's fill: either a hex colour string or a gradient object — two
+     * opaque colours as `{from, to}`, or 2…8 `stops` each with its own opacity.
      *
      * Deliberately NOT checked against the project's brand palette. The
      * editor's own swatches are suggestions and its picker takes any colour, so
@@ -639,7 +648,7 @@ final class DslParser
         }
 
         if (!self::isObject($value)) {
-            $this->wrongType($path, 'fill', 'a hex colour string like "#c8102e", or a gradient object {type, from, to, angle}', $value);
+            $this->wrongType($path, 'fill', 'a hex colour string like "#c8102e", or a gradient object {type, angle, from, to} / {type, angle, stops}', $value);
 
             return null;
         }
@@ -661,11 +670,32 @@ final class DslParser
             return null;
         }
 
-        $from = $this->requirePresent($fillPath, $value, 'from', 'The gradient\'s first colour, as a hex string.')
+        // A radial gradient is centre-out, so an authored angle would be a
+        // silent no-op. Pinning it keeps `toArray()` canonical.
+        $angle = $type === CanvasShapeGradient::TYPE_RADIAL
+            ? 90.0
+            : $this->readGradientAngle($fillPath, $value);
+
+        if (array_key_exists('stops', $value)) {
+            if (array_key_exists('from', $value) || array_key_exists('to', $value)) {
+                $this->violation($fillPath, DslErrorCode::InvalidValue, sprintf(
+                    '%s takes either `from` + `to` (two opaque colours) or `stops` (any number of colours with opacity), not both.',
+                    $fillPath,
+                ));
+
+                return null;
+            }
+
+            $stops = $this->readGradientStops($fillPath, $value);
+
+            return $stops === null ? null : new CanvasShapeGradient($type, $angle, $stops);
+        }
+
+        $from = $this->requirePresent($fillPath, $value, 'from', 'The gradient\'s first colour, as a hex string (or use `stops`).')
             ? $this->readHexColor($fillPath, $value, 'from')
             : null;
 
-        $to = $this->requirePresent($fillPath, $value, 'to', 'The gradient\'s second colour, as a hex string.')
+        $to = $this->requirePresent($fillPath, $value, 'to', 'The gradient\'s second colour, as a hex string (or use `stops`).')
             ? $this->readHexColor($fillPath, $value, 'to')
             : null;
 
@@ -673,13 +703,103 @@ final class DslParser
             return null;
         }
 
-        // A radial gradient is centre-out, so an authored angle would be a
-        // silent no-op. Pinning it keeps `toArray()` canonical.
-        $angle = $type === CanvasShapeGradient::TYPE_RADIAL
-            ? 90.0
-            : $this->readGradientAngle($fillPath, $value);
+        return CanvasShapeGradient::twoStop($type, $angle, $from, $to);
+    }
 
-        return new CanvasShapeGradient($type, $angle, $from, $to);
+    /**
+     * `stops`: 2…MAX_STOPS objects `{at, color, opacity}` — `at` and `opacity`
+     * are fractions 0…1 like the shape's own `opacity`; `opacity` defaults to 1.
+     *
+     * @param array<array-key, mixed> $raw
+     * @return null|list<CanvasShapeGradientStop>
+     */
+    private function readGradientStops(string $path, array $raw): null|array
+    {
+        $value = $raw['stops'] ?? null;
+        $stopsPath = self::join($path, 'stops');
+
+        if (!is_array($value) || !array_is_list($value)) {
+            $this->wrongType($path, 'stops', 'an array of stop objects {at, color, opacity}', $value);
+
+            return null;
+        }
+
+        if (count($value) < 2 || count($value) > CanvasShapeGradient::MAX_STOPS) {
+            $this->violation($stopsPath, DslErrorCode::InvalidValue, sprintf(
+                '%s needs 2 to %d stops, got %d.',
+                $stopsPath,
+                CanvasShapeGradient::MAX_STOPS,
+                count($value),
+            ));
+
+            return null;
+        }
+
+        $stops = [];
+        $valid = true;
+
+        foreach ($value as $position => $entry) {
+            $stopPath = sprintf('%s[%d]', $stopsPath, $position);
+
+            if (!self::isObject($entry)) {
+                $this->violation($stopPath, DslErrorCode::InvalidType, sprintf(
+                    '%s must be a stop object {at, color, opacity}, got %s.',
+                    $stopPath,
+                    self::describe($entry),
+                ));
+                $valid = false;
+
+                continue;
+            }
+
+            $this->checkKeys($stopPath, $entry, self::SHAPE_FILL_STOP_KEYS, 'a gradient stop');
+
+            $at = $this->requirePresent($stopPath, $entry, 'at', 'The stop\'s position, a fraction 0…1 (0 = start, 1 = end).')
+                ? $this->readUnitFraction($stopPath, $entry, 'at', 'position along the gradient (0 = start, 0.5 = middle, 1 = end)')
+                : null;
+            $color = $this->requirePresent($stopPath, $entry, 'color', 'The stop\'s colour, as a hex string.')
+                ? $this->readHexColor($stopPath, $entry, 'color')
+                : null;
+            $opacity = array_key_exists('opacity', $entry)
+                ? $this->readUnitFraction($stopPath, $entry, 'opacity', 'opacity (0 = transparent, 0.6 = 60 % opaque, 1 = opaque)')
+                : 1.0;
+
+            if ($at === null || $color === null || $opacity === null) {
+                $valid = false;
+
+                continue;
+            }
+
+            $stops[] = CanvasShapeGradientStop::create($at, $color, $opacity);
+        }
+
+        return $valid ? $stops : null;
+    }
+
+    /**
+     * @param array<array-key, mixed> $raw
+     */
+    private function readUnitFraction(string $path, array $raw, string $key, string $meaning): null|float
+    {
+        $value = $this->readNumber($path, $raw, $key);
+
+        if ($value === null) {
+            return null;
+        }
+
+        if ($value < 0.0 || $value > 1.0) {
+            $this->violation(self::join($path, $key), DslErrorCode::InvalidValue, sprintf(
+                '%s.%s is a fraction between 0 and 1 — the %s — not a percentage. Got %s.',
+                $path,
+                $key,
+                $meaning,
+                self::number($value),
+            ));
+
+            return null;
+        }
+
+        return $value;
     }
 
     /**

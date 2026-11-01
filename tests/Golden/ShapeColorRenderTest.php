@@ -21,6 +21,8 @@ use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
+use WBoost\Web\Value\CanvasShapeGradient;
+use WBoost\Web\Value\CanvasShapeGradientStop;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\ResolvedInputOverrides;
 
@@ -75,6 +77,52 @@ final class ShapeColorRenderTest extends KernelTestCase
         self::assertSame('#e74c3c', self::hexAt($image, 140, 140), 'the fill is repainted');
         self::assertSame('#e74c3c', self::hexAt($image, 40, 140), 'the border is repainted too (both)');
         self::assertSame('#112233', self::hexAt($image, 340, 340), 'the decorative shape keeps its colour');
+    }
+
+    /**
+     * A gradient stop's opacity reaches the real export: a white 0 % → 100 %
+     * fade laid over black reads black at the top, mid-grey in the middle and
+     * white at the bottom. The alpha rides inside the stop colour
+     * (`rgba(…)`, see CanvasShapeGradient::stopColor) — if Fabric ever
+     * dropped it, the whole overlay would render solid white.
+     */
+    public function testATransparentGradientStopFadesOverWhatIsBelow(): void
+    {
+        self::bootKernel();
+
+        $variant = self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID));
+
+        $overlay = new CanvasShapeGradient(CanvasShapeGradient::TYPE_LINEAR, 90.0, [
+            CanvasShapeGradientStop::create(0.0, '#ffffff', 0.0),
+            CanvasShapeGradientStop::create(1.0, '#ffffff', 1.0),
+        ]);
+
+        $variant->canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                ['type' => 'Rect', 'left' => 0, 'top' => 0, 'width' => 400, 'height' => 400, 'fill' => '#000000', 'originX' => 'left', 'originY' => 'top'],
+                [
+                    'type' => 'Rect', 'left' => 0, 'top' => 0, 'width' => 400, 'height' => 400, 'originX' => 'left', 'originY' => 'top',
+                    'shapeKind' => 'rectangle', 'fill' => $overlay->toFabric(),
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+        $variant->inputs = [];
+
+        $png = $this->realRenderer()->renderToBytes($variant, new ResolvedInputOverrides([], []), ResolvedImageOverrides::none());
+
+        $image = new Imagick();
+        $image->readImageBlob($png);
+
+        self::assertLessThan(0x10, self::redAt($image, 200, 2), 'top: fully transparent white, the black shows through');
+        self::assertEqualsWithDelta(0x80, self::redAt($image, 200, 200), 0x14, 'middle: half-transparent white over black is grey');
+        self::assertGreaterThan(0xf0, self::redAt($image, 200, 397), 'bottom: opaque white');
+    }
+
+    private static function redAt(Imagick $image, int $x, int $y): int
+    {
+        return (int) $image->getImagePixelColor($x, $y)->getColor()['r'];
     }
 
     private static function hexAt(Imagick $image, int $x, int $y): string

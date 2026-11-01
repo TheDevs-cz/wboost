@@ -86,6 +86,18 @@ on the canvas through its own floating popover, Canva-style.
   projector's rescale and the print-resolution export alike. Linear angle ⇒
   coords via cos/sin; radial is centre-out at r2 = 0.5. Verified end-to-end
   through Gotenberg.
+- **Multi-stop gradients with per-stop opacity** (2026-11-01): 2…8 stops
+  (`GRADIENT_MAX_STOPS` ↔ `CanvasShapeGradient::MAX_STOPS`), each `{offset,
+  colour, opacity}`, edited as rows (Barva / Krytí / Pozice, "+ Přidat barvu",
+  reverse button) under a checkerboard preview bar. **The alpha lives INSIDE
+  the stop colour** — `#rrggbb` when opaque, `rgba(r,g,b,a)` otherwise —
+  because Fabric's `toLive` passes `color` straight to `addColorStop` and
+  ignores a separate `opacity` key. That string is a byte contract between
+  `gradientStopColor` (JS) and `CanvasShapeGradient::stopColor` (PHP); offsets
+  and alphas are rounded to whole percent on both sides. Opaque two-stop
+  gradients serialize exactly as before, and the DSL keeps `{from, to}` for
+  them (`stops: [{at, color, opacity}]` otherwise). Gotenberg-verified by
+  `ShapeColorRenderTest::testATransparentGradientStopFadesOverWhatIsBelow`.
 - **`strokeUniform: true`** — the border keeps a constant on-screen weight while
   the designer resizes, as in every design tool. The cost is that stroke does
   NOT ride the object's scale, so `strokeWidth` travels as GEOMETRY (projected

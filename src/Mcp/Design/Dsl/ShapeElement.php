@@ -26,7 +26,8 @@ use WBoost\Web\Value\CanvasShapeStroke;
  * and the decompiler reads `shapeKind` straight back, so the round-trip is
  * lossless.
  *
- * {@see $fill} is either a lowercase `#rrggbb` string or a two-stop
+ * {@see $fill} is either a lowercase `#rrggbb` string or a (multi-stop,
+ * per-stop-opacity)
  * {@see CanvasShapeGradient}. Unlike {@see TextElement::$color}, the parser
  * does NOT check it against the project's brand palette: the editor's own
  * swatches are suggestions and its picker accepts any colour, so a DSL that
@@ -44,7 +45,7 @@ readonly final class ShapeElement implements DesignElement
     public function __construct(
         public string $id,
         public CanvasShapeKind $shape,
-        /** Lowercase `#rrggbb`, or a two-stop gradient. */
+        /** Lowercase `#rrggbb`, or a gradient (2–8 stops). */
         public string|CanvasShapeGradient $fill,
         /** Border colour as lowercase `#rrggbb`, or null for no border. */
         public null|string $stroke,

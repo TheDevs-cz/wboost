@@ -365,7 +365,8 @@ A `text` element with an `input` block becomes a fillable placeholder; without
 one it is fixed copy. An `image` element with an `input` block is a fillable
 picture slot; without one it is decorative. A `shape` element is a vector block —
 `rectangle`, `square`, `circle`, `ellipse`, `triangle`, `line` or `star` — filled
-with a flat colour or a two-stop gradient; it is decorative unless you give it a
+with a flat colour or a gradient (2–8 stops, each with its own opacity — e.g.
+a white 0 → 100 % fade as an overlay over a photo); it is decorative unless you give it a
 `userColor` block, which lets whoever fills the template recolour it (it then
 shows up in `describe_variant` `shapeInputs[]`). Shapes are how you author panels,
 rules and scrims rather than uploading a picture of one. A `container` groups `members` (texts, shapes and decorative
