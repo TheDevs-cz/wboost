@@ -96,14 +96,15 @@
     position: relative;
 }
 
-/* Print bleed zone (canvas_editor_controller#_renderBleedGuide): a DOM overlay
+/* Print bleed zone (canvas_editor_controller#_renderStageGuides): a DOM overlay
    inside Fabric's container, which the zoom transform scales with the canvas.
    The red outline is the bleed edge (where the artwork must reach), the inner
-   box the trim; the band between them is tinted because it gets cut off.
-   --bleed-line is 1 screen px whatever the zoom; --bleed-band the bleed. */
+   box the trim. The band between them is tinted (it gets cut off) on the
+   canvas bitmap by canvas_viewport.js, under the selection handles — a DOM
+   tint up here would wash them out. --bleed-line is 1 screen px at any zoom. */
 .canvas-bleed-guide {
     position: absolute;
-    inset: 0;
+    /* left/top/width/height inline: the bleed box, inset by the pasteboard */
     z-index: 2;
     pointer-events: none;
     outline: var(--bleed-line, 1px) solid #e3342f;
@@ -113,7 +114,6 @@
 .canvas-bleed-guide__trim {
     position: absolute;
     outline: var(--bleed-line, 1px) solid rgba(33, 37, 41, 0.6);
-    box-shadow: 0 0 0 var(--bleed-band, 0) rgba(255, 255, 255, 0.4);
 }
 
 .canvas-mini-toolbar {

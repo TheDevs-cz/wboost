@@ -47,9 +47,19 @@ export default class extends Controller {
         window.addEventListener('scroll', this.onPageScroll, { passive: true });
         this.fitToScreen();
 
+        // The editor resizes the canvas element after this controller may
+        // already have fitted it — the pasteboard + bleed are applied in
+        // canvas-editor#connect, and an empty canvas never fires
+        // canvas:loaded. Re-fit whenever the wrapper's LAYOUT size changes
+        // (the zoom transform and the compensation margins don't count).
+        if (typeof ResizeObserver === 'function') {
+            this.resizeObserver = new ResizeObserver(() => this.fitToScreen());
+            this.resizeObserver.observe(this.canvasContainerTarget);
+        }
     }
 
     disconnect() {
+        if (this.resizeObserver) this.resizeObserver.disconnect();
         window.removeEventListener('resize', this.onResize);
         window.removeEventListener('scroll', this.onPageScroll);
         document.body.classList.remove('editor-shell-page');

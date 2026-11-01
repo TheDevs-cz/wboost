@@ -274,6 +274,32 @@ while zones are hidden `_openSettings()` is a no-op, since the popover anchors
 to a zone rect that now measures 0×0 (the panel row still selects the
 container).
 
+**Pasteboard (2026-11-01) — `canvas_viewport.js`**
+
+Around the bleed box the element carries a further `pasteboardFor(w, h)` =
+12 % of the design's longer edge on every side (`canvas.wboostPasteboard`), so
+handles of objects flush with or hanging over the design edge are drawn and
+grabbable, and the overhang stays visible. `applyBleed` sizes it and shifts the
+viewport by `viewOffset()` = bleed + pasteboard; everything below that says
+"bleed shift" is really this offset (`designWidth`, `trimOriginRect`, the
+thumbnail crop all use `viewOffset`; `bleedOf` stays the BLEED alone — covers,
+the bleed guide, the snap line). Contracts:
+
+- The dim (and the bleed band tint) is painted ON THE BITMAP in Fabric's
+  overlay pass with `controlsAboveOverlay = true` (`patchPasteboardPaint`).
+  Fabric draws selection borders and handles on the LOWER canvas, so any DOM
+  mask is either above both (washes the handles out — the first attempt) or
+  below both. Same reason the bleed band's tint left the DOM guide. The save
+  thumbnail crops to the trim, so neither ever reaches a preview.
+- Ruler bars hug the ELEMENT edge, not the trim (a bar flush with the trim
+  sat right over the handles); 0 stays at the trim corner, the pasteboard
+  reads negative / past the design length on a darker strip.
+- `canvas_zoom_controller` re-fits on a `ResizeObserver` of the wrapper: the
+  element grows in `canvas-editor#connect` after the zoom may have fitted it,
+  and an empty canvas fires no `canvas:loaded`. Auto-fit therefore includes the
+  pasteboard (the design shows ~20 % smaller than before).
+- The navigator minimap draws the whole element, dim included.
+
 **Print bleed zone ("spadávka", 2026-10-30) — `canvas_viewport.js`**
 
 A variant with a print bleed (`TemplateDimension::bleedPixels()` > 0) is
@@ -298,9 +324,10 @@ editor module must keep:
   viewport point. Verified in headless Chrome: synthetic drag on an A4 + 3 mm
   variant moves the object by exactly the dragged distance; outlines sit on
   their objects; the 1:1 variant of the same group is unaffected.
-- The zone itself is a DOM overlay inside Fabric's container
-  (`.canvas-bleed-guide`: red outline = bleed edge, trim outline, tinted band),
-  never on the bitmap; line widths divide by the zoom (`--bleed-line`). The
+- The zone's LINES are a DOM overlay inside Fabric's container
+  (`.canvas-bleed-guide` over the bleed box: red outline = bleed edge, trim
+  outline); line widths divide by the zoom (`--bleed-line`). The band tint is
+  painted on the bitmap under the handles (see Pasteboard). The
   save-time thumbnail crops to the trim. The bleed edge is a snap target, and
   the group rail's "Prvky mimo plátno" badge tolerates objects inside the bleed.
 - Backgrounds cover the bleed box everywhere: `coverForDimensions(..., bleed)`

@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { designHeight, designWidth, trimOriginRect } from './canvas_viewport.js';
+import { designHeight, designWidth, trimOriginRect, viewOffset } from './canvas_viewport.js';
 
 /**
  * Photoshop-style rulers + draggable guides for the admin canvas editor
@@ -118,12 +118,18 @@ export default class extends Controller {
 
     // --- ruler bars ---------------------------------------------------------
 
+    /**
+     * The bars hug the canvas ELEMENT, not the design: inside the element the
+     * pasteboard (and print bleed) surround the trim, and a bar flush with the
+     * trim would sit right over the transform handles of every object touching
+     * the design edge. Zero stays at the trim corner (see _drawBar).
+     */
     _placeBars(g) {
         const S = this.constructor.SIZE;
-        const offX = g.contRect.left - g.layerRect.left;
-        const offY = g.contRect.top - g.layerRect.top;
-        const dispW = Math.round(g.contRect.width);
-        const dispH = Math.round(g.contRect.height);
+        const offX = g.elRect.left - g.layerRect.left;
+        const offY = g.elRect.top - g.layerRect.top;
+        const dispW = Math.round(g.elRect.width);
+        const dispH = Math.round(g.elRect.height);
 
         if (this.hasHBarTarget) {
             const el = this.hBarTarget;
@@ -157,8 +163,11 @@ export default class extends Controller {
         const el = dir === 'h' ? (this.hasHBarTarget && this.hBarTarget) : (this.hasVBarTarget && this.vBarTarget);
         if (!el) return;
         const S = this.constructor.SIZE;
-        const lengthScreen = dir === 'h' ? g.contRect.width : g.contRect.height;
+        const lengthScreen = dir === 'h' ? g.elRect.width : g.elRect.height;
         const lengthCanvas = dir === 'h' ? designWidth(this._canvas) : designHeight(this._canvas);
+        // Canvas px between the element edge and the trim (bleed + pasteboard):
+        // the ruler reads negative over it and past the design length after.
+        const off = viewOffset(this._canvas);
         const dpr = window.devicePixelRatio || 1;
 
         if (dir === 'h') {
@@ -175,13 +184,20 @@ export default class extends Controller {
         const W = dir === 'h' ? lengthScreen : S;
         const H = dir === 'h' ? S : lengthScreen;
         ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = '#fafbfe';
+        ctx.fillStyle = '#eef0f4';
         ctx.fillRect(0, 0, W, H);
+        // The design's own span is the bright part of the bar.
+        const startScreen = off * g.scale;
+        const spanScreen = lengthCanvas * g.scale;
+        ctx.fillStyle = '#fafbfe';
+        if (dir === 'h') ctx.fillRect(startScreen, 0, spanScreen, H);
+        else ctx.fillRect(0, startScreen, W, spanScreen);
 
         const steps = [5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000];
         const step = steps.find((s) => s * g.scale >= 46) || steps[steps.length - 1];
         const minor = step / 10;
         const showMinor = minor * g.scale >= 3.5;
+        const toScreen = (v) => (v + off) * g.scale;
 
         ctx.strokeStyle = '#b6bfc9';
         ctx.fillStyle = '#8a96a3';
@@ -190,12 +206,14 @@ export default class extends Controller {
         ctx.beginPath();
 
         // Index-based (v = i·minor) so fractional steps never break the
-        // major/mid classification with float modulo.
-        for (let i = 0; i * minor <= lengthCanvas; i++) {
+        // major/mid classification with float modulo. Negative indices cover
+        // the bleed + pasteboard before the trim.
+        const firstIndex = Math.ceil(-off / minor);
+        for (let i = firstIndex; i * minor <= lengthCanvas + off; i++) {
             const isMajor = i % 10 === 0;
             const isMid = !isMajor && i % 5 === 0;
             if (!isMajor && !isMid && !showMinor) continue;
-            const p = Math.round(i * minor * g.scale) + 0.5;
+            const p = Math.round(toScreen(i * minor)) + 0.5;
             const len = isMajor ? 14 : (isMid ? 8 : 4.5);
             if (dir === 'h') {
                 ctx.moveTo(p, S);
@@ -209,8 +227,8 @@ export default class extends Controller {
 
         // Labels on majors. Horizontal: beside the tick. Vertical: stacked
         // digits (the Photopea/classic ruler look — no rotated text).
-        for (let v = 0; v <= lengthCanvas; v += step) {
-            const p = Math.round(v * g.scale);
+        for (let v = Math.ceil(-off / step) * step; v <= lengthCanvas + off; v += step) {
+            const p = Math.round(toScreen(v));
             const label = String(v);
             if (dir === 'h') {
                 ctx.fillText(label, p + 3, 9);
@@ -436,8 +454,9 @@ export default class extends Controller {
         const layerRect = this.layerTarget.getBoundingClientRect();
         const logicalWidth = (typeof canvas.getWidth === 'function' ? canvas.getWidth() : canvas.width) || canvasEl.width;
         const scale = logicalWidth ? contRect.width / logicalWidth : 1;
-        // Scene coordinates start at the TRIM corner (print bleed shifts it
-        // inside the element) — see canvas_viewport.js.
-        return { contRect: trimOriginRect(contRect, canvas, scale), layerRect, scale };
+        // Scene coordinates start at the TRIM corner (print bleed + the
+        // pasteboard shift it inside the element) — see canvas_viewport.js.
+        // `elRect` is the raw element rect the bars are laid along.
+        return { contRect: trimOriginRect(contRect, canvas, scale), elRect: contRect, layerRect, scale };
     }
 }

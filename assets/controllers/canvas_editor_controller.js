@@ -3,7 +3,7 @@ import { Canvas, IText, Textbox, FabricImage, cache } from "fabric";
 
 import { patchHiddenTextarea } from './canvas_hidden_textarea.js';
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, containForDimensions, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
-import { applyBleed, bleedOf, designHeight, designWidth } from './canvas_viewport.js';
+import { applyBleed, bleedOf, designHeight, designWidth, pasteboardOf, viewOffset } from './canvas_viewport.js';
 import { installHandleChrome } from './canvas_handles.js';
 import { loadCanvasDocument, reportMissingImages, withStandInsHidden } from './canvas_missing_images.js';
 import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canvas_custom_properties.js';
@@ -83,7 +83,7 @@ export default class extends Controller {
             this.canvas.getHeight() - 2 * Math.max(0, this.bleedValue),
             this.bleedValue,
         );
-        this._renderBleedGuide();
+        this._renderStageGuides();
         // Zoom-independent transform handles (see canvas_handles.js).
         this._disposeHandleChrome = installHandleChrome(this.canvas);
 
@@ -1272,23 +1272,28 @@ export default class extends Controller {
      */
     setDesignSize(width, height, bleed = 0) {
         applyBleed(this.canvas, width, height, bleed);
-        this._renderBleedGuide();
+        this._renderStageGuides();
     }
 
     /**
-     * The bleed zone as chrome over the canvas: the band outside the trim
-     * tinted (it gets cut off), a thin line on the trim and a red one on the
-     * bleed edge, InDesign-style. A DOM overlay inside Fabric's container —
+     * The bleed zone as chrome over the canvas: a thin line on the trim and
+     * a red one on the bleed edge, InDesign-style (the band between them is
+     * tinted on the bitmap, under the handles — canvas_viewport.js). A DOM overlay inside Fabric's container —
      * never on the canvas bitmap, so it can't leak into thumbnails — that
      * scales with the CSS zoom like the canvas itself; line widths are
-     * divided by the zoom so they stay hairlines.
+     * divided by the zoom so they stay hairlines. It covers the bleed box,
+     * i.e. sits inset by the pasteboard.
      */
-    _renderBleedGuide() {
+    _renderStageGuides() {
         const container = this.canvas && this.canvas.wrapperEl;
         if (!container) return;
 
-        let guide = container.querySelector(':scope > .canvas-bleed-guide');
         const bleed = bleedOf(this.canvas);
+        const pasteboard = pasteboardOf(this.canvas);
+        const boxWidth = designWidth(this.canvas) + 2 * bleed;
+        const boxHeight = designHeight(this.canvas) + 2 * bleed;
+
+        let guide = container.querySelector(':scope > .canvas-bleed-guide');
 
         if (bleed <= 0) {
             if (guide) guide.remove();
@@ -1315,12 +1320,16 @@ export default class extends Controller {
             guide.style.setProperty('--bleed-line', `${container.offsetWidth / rendered}px`);
         }
 
+        guide.style.left = `${pasteboard}px`;
+        guide.style.top = `${pasteboard}px`;
+        guide.style.width = `${boxWidth}px`;
+        guide.style.height = `${boxHeight}px`;
+
         const trim = guide.firstElementChild;
         trim.style.left = `${bleed}px`;
         trim.style.top = `${bleed}px`;
         trim.style.width = `${designWidth(this.canvas)}px`;
         trim.style.height = `${designHeight(this.canvas)}px`;
-        trim.style.setProperty('--bleed-band', `${bleed}px`);
     }
 
     getScaledCanvasDataURI(maxWidth) {
@@ -1329,8 +1338,9 @@ export default class extends Controller {
         this.canvas.discardActiveObject();
         this.canvas.renderAll();
 
-        // The thumbnail is the TRIM — the bleed band around it is cut off.
-        const bleed = bleedOf(this.canvas);
+        // The thumbnail is the TRIM — the bleed band and the pasteboard
+        // around it are cut off.
+        const offset = viewOffset(this.canvas);
         const originalWidth = designWidth(this.canvas);
         const originalHeight = designHeight(this.canvas);
         const aspectRatio = originalWidth / originalHeight;
@@ -1352,8 +1362,8 @@ export default class extends Controller {
         const ratio = element.width / this.canvas.getWidth();
         ctx.drawImage(
             element,
-            bleed * ratio,
-            bleed * ratio,
+            offset * ratio,
+            offset * ratio,
             originalWidth * ratio,
             originalHeight * ratio,
             0,
