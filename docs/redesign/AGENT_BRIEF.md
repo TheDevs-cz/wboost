@@ -46,7 +46,7 @@ screen, responsive, both themes. Backend business logic stays unchanged.
 - Missing images (local Minio lacks files) must degrade gracefully — logos and
   avatars fall back to the monogram (`initials()`), like the prototype `.sym.mono`.
 - Czech copy; reuse the prototype's wording where the screen exists.
-- After asset changes: `docker compose exec -T web rm -rf var/cache/dev public/assets`.
+- After asset changes: `docs/redesign/tools/gate.sh --clear-assets` (takes the gate lock so it never kills another agent's test run). Never delete `var/cache/test` or the whole `var/cache`.
 
 ## Verify (all required)
 - Gate: `docs/redesign/tools/gate.sh` (PHPStan + full PHPUnit, serialised with a
