@@ -4,38 +4,67 @@
 
 {% block title %}Pozvat uživatele{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item">Administrace</li>
-        <li class="breadcrumb-item"><a href="{{ path('admin_users') }}">Uživatelé</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{# Prototype dialog "Pozvat uživatele" (body.html #dlgInvite) as a page:
+   the same sheet look, field names unchanged (invite_user_form[…]). #}
+
+{% block page_title_row %}
+    <a href="{{ path('admin_users') }}" class="back">{{ icon('arrow-left', 's16') }}Uživatelé</a>
 {% endblock %}
 
 {% block content %}
-    <div class="row">
-        <div class="col-lg-8 col-xl-6">
-            <div class="card">
-                <div class="card-body">
-                    {{ form_start(form) }}
-                    {{ form_row(form.email) }}
-                    {{ form_row(form.name) }}
-                    {{ form_row(form.role) }}
+    {{ form_start(form, {'attr': {'class': 'adm-sheet'}}) }}
+        <div class="adm-sheet-h"><h1 class="page-title adm-sheet-title">Pozvat uživatele</h1></div>
 
-                    {% if form.projectIds|length > 0 %}
-                        {{ form_row(form.projectIds) }}
-                    {% else %}
-                        <p class="text-muted">Zatím nejsou žádné projekty k předsdílení.</p>
-                    {% endif %}
+        <div class="adm-sheet-b">
+            <label class="field" for="{{ form.email.vars.id }}">
+                <span class="field-l">E-mail</span>
+                <span class="inp">{{ icon('mail', 's16') }}<input type="email" id="{{ form.email.vars.id }}" name="{{ form.email.vars.full_name }}" value="{{ form.email.vars.value }}" placeholder="jmeno@firma.cz" autocomplete="off" required{% if not form.email.vars.value %} autofocus{% endif %}></span>
+                <span class="adm-errors">{{ form_errors(form.email) }}</span>
+            </label>
+            {% do form.email.setRendered %}
 
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary">Odeslat pozvánku</button>
-                        <a href="{{ path('admin_users') }}" class="btn btn-outline-secondary">Zpět</a>
-                    </div>
-                    {{ form_end(form) }}
+            <label class="field" for="{{ form.name.vars.id }}">
+                <span class="field-l"><span>Jméno <small>nepovinné</small></span></span>
+                <span class="inp"><input type="text" id="{{ form.name.vars.id }}" name="{{ form.name.vars.full_name }}" value="{{ form.name.vars.value }}" maxlength="80" placeholder="Jinak si ho doplní po přijetí pozvánky" autocomplete="off"></span>
+                <span class="adm-errors">{{ form_errors(form.name) }}</span>
+            </label>
+            {% do form.name.setRendered %}
+
+            {{ include('admin/_role_picker.html.twig', {'field': form.role}) }}
+
+            <div class="field" data-controller="pick-filter">
+                <div class="share-head">
+                    <label class="field-l" for="invProjSearch"><span>Sdílet projekty <small>nepovinné</small></span></label>
+                    <span class="cap" data-pick-filter-target="count"></span>
                 </div>
+                {% if form.projectIds|length > 0 %}
+                    <span class="inp">{{ icon('search', 's16') }}<input type="search" id="invProjSearch" placeholder="Najít projekt" autocomplete="off" data-pick-filter-target="search" data-action="input->pick-filter#filter"></span>
+                    <div class="scopes pick" role="group" aria-label="Projekty ke sdílení">
+                        {% for choice in form.projectIds %}
+                            {% set parts = choice.vars.label|split(' — ', 2) %}
+                            <label class="scope" for="{{ choice.vars.id }}" data-pick-filter-target="item" data-text="{{ choice.vars.label|lower }}">
+                                <input type="checkbox" class="sr" id="{{ choice.vars.id }}" name="{{ choice.vars.full_name }}" value="{{ choice.vars.value }}"{% if choice.vars.checked %} checked{% endif %} data-action="pick-filter#count">
+                                <span class="cb" aria-hidden="true">{{ icon('check') }}</span>
+                                <span class="sym sm mono" aria-hidden="true">{{ initials(parts[0]) }}</span>
+                                <span class="who"><b>{{ parts[0] }}</b>{% if parts[1] is defined %}<span>Vlastník: {{ parts[1] }}</span>{% endif %}</span>
+                            </label>
+                            {% do choice.setRendered %}
+                        {% endfor %}
+                        <p class="share-empty" data-pick-filter-target="none" hidden>Žádný projekt neodpovídá.</p>
+                    </div>
+                    <p class="hint">Pozvanému uživateli se vybrané projekty rovnou nasdílí (pro čtení).</p>
+                {% else %}
+                    <p class="cap">Zatím nejsou žádné projekty k předsdílení.</p>
+                {% endif %}
+                {% do form.projectIds.setRendered %}
             </div>
+
+            <p class="hint">{{ icon('info', 's14') }}Pošleme e-mail s odkazem pro nastavení hesla. Odkaz platí 7 dní.</p>
         </div>
-    </div>
+
+        <div class="adm-sheet-f">
+            <a href="{{ path('admin_users') }}" class="btn btn-secondary sm">Zrušit</a>
+            <button type="submit" class="btn btn-primary sm">Odeslat pozvánku</button>
+        </div>
+    {{ form_end(form) }}
 {% endblock %}

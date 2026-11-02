@@ -1,58 +1,56 @@
 {% extends 'base.html.twig' %}
 
 {% block title %}AI (MCP server){% endblock %}
+{% block eyebrow %}Propojení{% endblock %}
+{% block page_lead %}Připojte k Wboostu AI asistenta (Claude, ChatGPT…) a nechte ho najít šablonu, vyplnit ji a vyexportovat — česky, bez otevírání aplikace.{% endblock %}
+{% block title_actions %}<a href="{{ path('connected_apps') }}" class="btn btn-secondary">{{ icon('plug', 's16') }}Propojené aplikace</a>{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
-{% endblock %}
+{#
+    Designed in the Nocturne language (the prototype only has a placeholder).
+    Copy is unchanged — McpGuideControllerTest asserts on it (scope titles,
+    every registered tool name, the operator-issued token sentence, the link to
+    Propojené aplikace, no token form). Copy buttons: [data-copy-source].
+#}
 
 {% block content %}
-    <div class="row">
-        <div class="col-xl-8">
-
-            {# ---------------------------------------------------------------
-               Co to je
-               --------------------------------------------------------------- #}
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="header-title mb-2"><i class="uil-robot me-1"></i>Co to je</h4>
-                    <p>
-                        WBoost umí mluvit s AI asistenty (Claude Code, claude.ai, ChatGPT a další)
-                        přes takzvaný <strong>MCP server</strong>. Když si asistenta k účtu jednou
-                        připojíte, můžete mu normálně česky napsat, co potřebujete — najít šablonu,
-                        vyplnit do ní texty, ukázat náhled a vyexportovat hotový obrázek — a on to
-                        udělá za vás, aniž byste otevírali WBoost.
-                    </p>
-                    <p class="mb-0">
-                        Asistent přitom pracuje <strong>vaším jménem</strong>: vidí přesně ty
-                        projekty, které vidíte vy, a nemůže udělat nic, co byste sami udělat nesměli.
-                        Připojení kdykoli zrušíte v
-                        <a href="{{ path('connected_apps') }}">Propojených aplikacích</a>.
-                    </p>
+<div class="mg">
+    <div class="mg-main">
+        {# ---- Co to je + adresa serveru ---- #}
+        <section class="mg-hero">
+            <span class="ico-c">{{ icon('bot') }}</span>
+            <div class="mg-hero-b">
+                <h2>Co to je</h2>
+                <p>
+                    WBoost umí mluvit s AI asistenty (Claude Code, claude.ai, ChatGPT a další)
+                    přes takzvaný <strong>MCP server</strong>. Když si asistenta k účtu jednou
+                    připojíte, můžete mu normálně česky napsat, co potřebujete — najít šablonu,
+                    vyplnit do ní texty, ukázat náhled a vyexportovat hotový obrázek — a on to
+                    udělá za vás, aniž byste otevírali WBoost.
+                </p>
+                <p>
+                    Asistent přitom pracuje <strong>vaším jménem</strong>: vidí přesně ty
+                    projekty, které vidíte vy, a nemůže udělat nic, co byste sami udělat nesměli.
+                    Připojení kdykoli zrušíte v
+                    <a href="{{ path('connected_apps') }}">Propojených aplikacích</a>.
+                </p>
+                <div class="mg-url">
+                    <span class="cap">Adresa serveru je jediný údaj, který budete potřebovat:</span>
+                    <div class="mg-code">
+                        <code id="mcp-url">{{ mcpUrl }}</code>
+                        <button type="button" class="btn btn-secondary xs" data-copy-source="mcp-url">{{ icon('copy', 's14') }}Kopírovat</button>
+                    </div>
                 </div>
             </div>
+        </section>
 
-            {# ---------------------------------------------------------------
-               Připojení
-               --------------------------------------------------------------- #}
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="header-title mb-2"><i class="mdi mdi-power-plug me-1"></i>Připojení</h4>
-                    <p class="text-muted">
-                        Adresa serveru je jediný údaj, který budete potřebovat:
-                    </p>
+        {# ---- Připojení ---- #}
+        <section class="st-card" aria-labelledby="mgConnect">
+            <div class="st-card-h"><div><h2 id="mgConnect">Připojení</h2><span class="cap">Tři cesty — vyberte tu, která sedí vašemu nástroji.</span></div></div>
 
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <code id="mcp-url" class="bg-light rounded px-2 py-1 fs-6 text-break">{{ mcpUrl }}</code>
-                        <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" data-copy-source="mcp-url">
-                            <i class="mdi mdi-content-copy me-1"></i>Kopírovat
-                        </button>
-                    </div>
-
-                    <h5 class="mt-4">1. Přihlášením přes WBoost <span class="badge bg-success-subtle text-success align-middle">doporučeno</span></h5>
+            <div class="mg-step">
+                <span class="mg-n">1</span>
+                <div class="mg-step-b">
+                    <h3>Přihlášením přes WBoost <span class="pill mint">doporučeno</span></h3>
                     {% if selfRegistrationEnabled %}
                         <p>
                             Nejjednodušší cesta a <strong>není u ní potřeba žádný token</strong>.
@@ -64,15 +62,13 @@
                             <li>ukáže se obrazovka s tím, co aplikace bude smět — přečtěte si ji a potvrďte;</li>
                             <li>hotovo, asistent je připojený a hned vidí vaše projekty.</li>
                         </ol>
-                        <p class="text-muted mb-0">
+                        <p class="mg-muted">
                             V Claude Code funguje totéž z příkazové řádky — po přidání serveru si
                             přihlášení vyžádá příkazem <code>/mcp</code>:
                         </p>
-                        <div class="d-flex align-items-start gap-2 mt-2">
-                            <pre id="cmd-mcp-add" class="bg-light rounded p-2 mb-0 flex-grow-1 text-break"><code>claude mcp add --transport http wboost {{ mcpUrl }}</code></pre>
-                            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" data-copy-source="cmd-mcp-add">
-                                <i class="mdi mdi-content-copy me-1"></i>Kopírovat
-                            </button>
+                        <div class="mg-code">
+                            <pre id="cmd-mcp-add"><code>claude mcp add --transport http wboost {{ mcpUrl }}</code></pre>
+                            <button type="button" class="btn btn-secondary xs" data-copy-source="cmd-mcp-add">{{ icon('copy', 's14') }}Kopírovat</button>
                         </div>
                     {% else %}
                         <p>
@@ -80,112 +76,98 @@
                             výše; klient vás pak přesměruje na přihlášení do WBoostu a na obrazovku
                             s oprávněními, kterou potvrdíte.
                         </p>
-                        <div class="alert alert-warning" role="alert">
-                            <i class="mdi mdi-alert-circle-outline me-1"></i>
+                        <div class="alert alert-warning mb-0" role="alert">
                             Na tomto prostředí se ale AI klienti zatím nemohou přihlásit sami —
                             konektor musí nejdřív zaregistrovat správce. Než se tak stane, použijte
                             osobní přístupový token níže.
                         </div>
                     {% endif %}
+                </div>
+            </div>
 
-                    <h5 class="mt-4">2. Plugin pro Claude Code (jeden příkaz)</h5>
+            <div class="mg-step">
+                <span class="mg-n">2</span>
+                <div class="mg-step-b">
+                    <h3>Plugin pro Claude Code (jeden příkaz)</h3>
                     <p>
                         Pokud pracujete v Claude Code, vyplatí se místo holého serveru nainstalovat
                         rovnou plugin — kromě nástrojů přinese i návod, podle kterého s nimi Claude
                         umí zacházet, a dva hotové příkazy: <code>/wboost:projects</code> (co všechno
                         v účtu máte) a <code>/wboost:export</code> (od zadání až po hotové PNG).
                     </p>
-                    <div class="d-flex align-items-start gap-2">
-                        <pre id="cmd-plugin" class="bg-light rounded p-2 mb-0 flex-grow-1 text-break"><code>claude plugin marketplace add TheDevs-cz/wboost &amp;&amp; claude plugin install wboost@wboost</code></pre>
-                        <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" data-copy-source="cmd-plugin">
-                            <i class="mdi mdi-content-copy me-1"></i>Kopírovat
-                        </button>
+                    <div class="mg-code">
+                        <pre id="cmd-plugin"><code>claude plugin marketplace add TheDevs-cz/wboost &amp;&amp; claude plugin install wboost@wboost</code></pre>
+                        <button type="button" class="btn btn-secondary xs" data-copy-source="cmd-plugin">{{ icon('copy', 's14') }}Kopírovat</button>
                     </div>
-                    <p class="text-muted mt-2 mb-0">
+                    <p class="mg-muted">
                         Plugin se při instalaci jednou zeptá na <strong>osobní přístupový token</strong>
                         (viz níže). Zadání je skryté a token se ukládá do klíčenky operačního systému,
                         ne do žádného souboru v projektu.
                     </p>
+                </div>
+            </div>
 
-                    <h5 class="mt-4">3. Osobní přístupový token</h5>
+            <div class="mg-step">
+                <span class="mg-n">3</span>
+                <div class="mg-step-b">
+                    <h3>Osobní přístupový token</h3>
                     <p>
                         Token je řetězec začínající <code>wb_mcp_</code>, který se v klientovi vloží
                         do hlavičky <code>Authorization</code>. Chová se stejně jako přihlášení výše:
                         platí za vás a nikdy neumožní víc, než na co máte právo.
                     </p>
-                    <div class="alert alert-info" role="alert">
-                        <i class="mdi mdi-information-outline me-1"></i>
-                        <strong>Tokeny zatím vydává správce WBoostu</strong> — nejde si ho tady
-                        vygenerovat sám. Napište nám, k čemu ho potřebujete, a dostanete ho.
-                        Ukáže se <strong>jen jednou</strong>, při vytvoření: uložte si ho hned,
-                        znovu ho už nikdo nepřečte. Ztracený token se nenahrazuje, ale vydává nový
-                        (a starý se zneplatní).
+                    <div class="mg-note" role="note">
+                        {{ icon('info', 's16') }}
+                        <span>
+                            <strong>Tokeny zatím vydává správce WBoostu</strong> — nejde si ho tady
+                            vygenerovat sám. Napište nám, k čemu ho potřebujete, a dostanete ho.
+                            Ukáže se <strong>jen jednou</strong>, při vytvoření: uložte si ho hned,
+                            znovu ho už nikdo nepřečte. Ztracený token se nenahrazuje, ale vydává nový
+                            (a starý se zneplatní).
+                        </span>
                     </div>
-                    <p class="mb-0">
+                    <p class="mg-muted">
                         Vydané tokeny vidíte i se stavem a datem posledního použití — a můžete je
                         okamžitě zneplatnit — v
                         <a href="{{ path('connected_apps') }}">Propojených aplikacích</a>.
                     </p>
                 </div>
             </div>
+        </section>
 
-            {# ---------------------------------------------------------------
-               Co s tím jde dělat
-               --------------------------------------------------------------- #}
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="header-title mb-2"><i class="mdi mdi-lightbulb-on-outline me-1"></i>Co s tím jde dělat</h4>
-                    <p class="text-muted">
-                        Tohle je úplný seznam toho, co má připojený asistent k dispozici. Nic jiného
-                        z WBoostu udělat neumí — mazat projekty, šablony ani obrázky odsud nejde.
-                    </p>
+        {# ---- Co s tím jde dělat ---- #}
+        <section class="st-card" aria-labelledby="mgCaps">
+            <div class="st-card-h"><div><h2 id="mgCaps">Co s tím jde dělat</h2>
+                <span class="cap">Tohle je úplný seznam toho, co má připojený asistent k dispozici. Nic jiného
+                    z WBoostu udělat neumí — mazat projekty, šablony ani obrázky odsud nejde.</span></div></div>
+            <ul class="mg-caps">
+                {% for capability in capabilities %}
+                    <li class="mg-cap{{ capability.known ? '' : ' unknown' }}">
+                        <div class="mg-cap-b">
+                            <b>{{ capability.title }}</b>
+                            <span>{{ capability.description }}</span>
+                            <code>{{ capability.tool }}</code>
+                        </div>
+                        {% if capability.scopeTitle %}
+                            <span class="pill r-user">{{ capability.scopeTitle }}</span>
+                        {% else %}
+                            <span class="pill rose">nedostupné</span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
 
-                    <div class="table-responsive">
-                        <table class="table table-centered mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Co asistent zvládne</th>
-                                    <th class="text-nowrap">Potřebné oprávnění</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for capability in capabilities %}
-                                    <tr>
-                                        <td>
-                                            <strong class="{{ capability.known ? '' : 'text-danger' }}">{{ capability.title }}</strong>
-                                            <div class="text-muted">{{ capability.description }}</div>
-                                            <code class="text-muted small">{{ capability.tool }}</code>
-                                        </td>
-                                        <td class="text-nowrap">
-                                            {% if capability.scopeTitle %}
-                                                <span class="badge bg-light text-muted">{{ capability.scopeTitle }}</span>
-                                            {% else %}
-                                                <span class="badge bg-danger-subtle text-danger">nedostupné</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        {# ---- Příklady promptů ---- #}
+        <section class="st-card" aria-labelledby="mgPrompts">
+            <div class="st-card-h"><div><h2 id="mgPrompts">Příklady promptů</h2>
+                <span class="cap">Zkopírujte, dosaďte svoje názvy projektů a šablon a pošlete asistentovi.
+                    Vždycky se vyplatí říct <strong>název projektu nebo šablony</strong> a
+                    <strong>co chcete na konci</strong> — jestli náhled k prohlédnutí, nebo
+                    hotový soubor ke stažení. Náhled a export jsou dvě různé věci a do statistik
+                    se počítá jen ten druhý.</span></div></div>
 
-            {# ---------------------------------------------------------------
-               Příklady promptů
-               --------------------------------------------------------------- #}
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="header-title mb-2"><i class="mdi mdi-console me-1"></i>Příklady promptů</h4>
-                    <p class="text-muted">
-                        Zkopírujte, dosaďte svoje názvy projektů a šablon a pošlete asistentovi.
-                        Vždycky se vyplatí říct <strong>název projektu nebo šablony</strong> a
-                        <strong>co chcete na konci</strong> — jestli náhled k prohlédnutí, nebo
-                        hotový soubor ke stažení. Náhled a export jsou dvě různé věci a do statistik
-                        se počítá jen ten druhý.
-                    </p>
-
-                    {% set prompts = [
+            {% set prompts = [
                         {
                             'heading': 'Co všechno v účtu mám',
                             'note': 'Nejrychlejší způsob, jak ověřit, že připojení funguje.',
@@ -243,160 +225,138 @@
                         }
                     ] %}
 
-                    {% for prompt in prompts %}
-                        <div class="{{ loop.last ? '' : 'mb-3 pb-3 border-bottom' }}">
-                            <div class="d-flex justify-content-between align-items-start gap-2">
-                                <h5 class="mb-1">{{ prompt.heading }}</h5>
-                                <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" data-copy-source="prompt-{{ loop.index }}">
-                                    <i class="mdi mdi-content-copy me-1"></i>Kopírovat
-                                </button>
-                            </div>
-                            <blockquote id="prompt-{{ loop.index }}" class="bg-light rounded p-2 mb-1">{{ prompt.text }}</blockquote>
-                            <p class="text-muted small mb-0">{{ prompt.note }}</p>
+            <div class="mg-prompts">
+                {% for prompt in prompts %}
+                    <article class="mg-prompt">
+                        <div class="mg-prompt-h">
+                            <h3>{{ prompt.heading }}</h3>
+                            <button type="button" class="btn btn-ghost icon xs" data-copy-source="prompt-{{ loop.index }}" aria-label="Kopírovat prompt" title="Kopírovat">{{ icon('copy', 's14') }}</button>
                         </div>
-                    {% endfor %}
-                </div>
+                        <blockquote id="prompt-{{ loop.index }}">{{ prompt.text }}</blockquote>
+                        <p class="cap">{{ prompt.note }}</p>
+                    </article>
+                {% endfor %}
             </div>
+        </section>
 
-            {# ---------------------------------------------------------------
-               Řešení potíží
-               --------------------------------------------------------------- #}
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="header-title mb-3"><i class="mdi mdi-alert-circle-outline me-1"></i>Když něco nefunguje</h4>
-
-                    <h5>Klient hlásí chybu 401 nebo že se k serveru nepřipojil</h5>
-                    <p class="text-muted">
-                        Propojení bylo zrušeno, token je neplatný nebo vypršel. Podívejte se do
+        {# ---- Řešení potíží ---- #}
+        <section class="st-card" aria-labelledby="mgFaq">
+            <div class="st-card-h"><div><h2 id="mgFaq">Když něco nefunguje</h2></div></div>
+            <div class="mg-faqs">
+                <details class="mg-faq">
+                    <summary>Klient hlásí chybu 401 nebo že se k serveru nepřipojil{{ icon('chev-down', 's16') }}</summary>
+                    <p>Propojení bylo zrušeno, token je neplatný nebo vypršel. Podívejte se do
                         <a href="{{ path('connected_apps') }}">Propojených aplikací</a>, jestli tam
-                        připojení ještě je a je platné — a případně se připojte znovu.
-                    </p>
-
-                    <h5>Asistent tvrdí, že nějaký nástroj nemá</h5>
-                    <p class="text-muted">
-                        Připojení nemá odpovídající oprávnění. Nástroj, na který oprávnění chybí,
+                        připojení ještě je a je platné — a případně se připojte znovu.</p>
+                </details>
+                <details class="mg-faq">
+                    <summary>Asistent tvrdí, že nějaký nástroj nemá{{ icon('chev-down', 's16') }}</summary>
+                    <p>Připojení nemá odpovídající oprávnění. Nástroj, na který oprávnění chybí,
                         se klientovi vůbec nenabídne. Které oprávnění můžete při připojení získat,
                         určuje správce WBoostu — požádejte ho o rozšíření, pak se připojte znovu
                         a nové oprávnění povolte. U osobního tokenu se rozsah dodatečně měnit nedá —
-                        vydává se nový.
-                    </p>
-
-                    <h5>„Projekt nebyl nalezen, nebo k němu tento účet nemá přístup“</h5>
-                    <p class="text-muted">
-                        Přesně to, co je napsané. Stejná věta záměrně zazní i u projektu, který
+                        vydává se nový.</p>
+                </details>
+                <details class="mg-faq">
+                    <summary>„Projekt nebyl nalezen, nebo k němu tento účet nemá přístup“{{ icon('chev-down', 's16') }}</summary>
+                    <p>Přesně to, co je napsané. Stejná věta záměrně zazní i u projektu, který
                         existuje, ale není váš — aby přes AI klienta nešlo zjišťovat, co mají
-                        v účtu ostatní. Nechte si vypsat projekty a vyberte z nich.
-                    </p>
-
-                    <h5>Export se odmítne, protože se text nevejde</h5>
-                    <p class="text-muted">
-                        Vyplněný text je vyšší, než kolik místa mu grafik vymezil. Náhled ho ukáže
+                        v účtu ostatní. Nechte si vypsat projekty a vyberte z nich.</p>
+                </details>
+                <details class="mg-faq">
+                    <summary>Export se odmítne, protože se text nevejde{{ icon('chev-down', 's16') }}</summary>
+                    <p>Vyplněný text je vyšší, než kolik místa mu grafik vymezil. Náhled ho ukáže
                         i tak, hotový soubor se ale záměrně nevyrobí rozbitý. Řešení jsou tři:
                         zkrátit text, skrýt pole, které jde skrýt, nebo nechat grafika ve WBoostu
-                        zvětšit místo pro text.
-                    </p>
-
-                    <h5>„Vykreslovací služba je vytížená“</h5>
-                    <p class="text-muted">
-                        Dočasné přetížení. Nic se nezměnilo, stačí požádat znovu.
-                    </p>
-
-                    <h5>Ověření, že server běží</h5>
-                    <p class="text-muted mb-0">
-                        Bez jakéhokoli klienta a bez přihlášení otevřete
-                        <a href="{{ metadataUrl }}" target="_blank" rel="noopener">{{ metadataUrl }}</a><i class="mdi mdi-open-in-new ms-1"></i>.
-                        Vypíše se popis serveru včetně seznamu oprávnění, která umí.
-                    </p>
-                </div>
+                        zvětšit místo pro text.</p>
+                </details>
+                <details class="mg-faq">
+                    <summary>„Vykreslovací služba je vytížená“{{ icon('chev-down', 's16') }}</summary>
+                    <p>Dočasné přetížení. Nic se nezměnilo, stačí požádat znovu.</p>
+                </details>
+                <details class="mg-faq">
+                    <summary>Ověření, že server běží{{ icon('chev-down', 's16') }}</summary>
+                    <p>Bez jakéhokoli klienta a bez přihlášení otevřete
+                        <a href="{{ metadataUrl }}" target="_blank" rel="noopener">{{ metadataUrl }}</a>.
+                        Vypíše se popis serveru včetně seznamu oprávnění, která umí.</p>
+                </details>
             </div>
-        </div>
-
-        {# -------------------------------------------------------------------
-           Boční sloupec: oprávnění a bezpečnost
-           ------------------------------------------------------------------- #}
-        <div class="col-xl-4">
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="header-title mb-2"><i class="mdi mdi-key-outline me-1"></i>Oprávnění</h4>
-                    <p class="text-muted">
-                        Při připojení si aplikace řekne o oprávnění a vy je potvrdíte. Nabídnou se
-                        jen ta, která vám povolil správce WBoostu (výchozí je prohlížení a export).
-                        Jsou to tato:
-                    </p>
-
-                    <ul class="list-unstyled mb-0">
-                        {% for scope in scopes %}
-                            <li class="{{ loop.last ? '' : 'mb-3' }}">
-                                <strong class="{{ scope.known ? '' : 'text-danger' }}">
-                                    <i class="mdi {{ scope.known ? 'mdi-check text-success' : 'mdi-help-circle-outline' }} me-1"></i>{{ scope.title }}
-                                </strong>
-                                <div class="text-muted">{{ scope.description }}</div>
-                                <code class="text-muted small">{{ scope.value }}</code>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="header-title mb-2"><i class="mdi mdi-shield-lock-outline me-1"></i>Bezpečnost a správa</h4>
-                    <ul class="mb-3 ps-3">
-                        <li class="mb-2">
-                            <strong>Asistent jedná za vás.</strong> Vidí ty projekty, které vidíte vy,
-                            a v nich smí to, co smíte vy. Oprávnění výše umí přístup jedině
-                            <em>zúžit</em>, nikdy rozšířit — sdílený projekt tedy zůstane jen na
-                            čtení a export, i kdyby aplikace dostala oprávnění navrhovat.
-                        </li>
-                        <li class="mb-2">
-                            <strong>Přístup jde kdykoli useknout.</strong> Odpojení v Propojených
-                            aplikacích platí okamžitě, i pro už vydaný přístup.
-                        </li>
-                        <li class="mb-2">
-                            <strong>Dávejte jen ta oprávnění, která jsou potřeba.</strong> Na
-                            vyplňování a stahování stačí prohlížení a export; návrh designu už umí
-                            přepsat existující šablonu.
-                        </li>
-                        <li class="mb-0">
-                            <strong>Exporty se počítají.</strong> Každý hotový soubor se objeví ve
-                            statistikách projektu — náhledy ne.
-                        </li>
-                    </ul>
-
-                    <a href="{{ path('connected_apps') }}" class="btn btn-primary w-100">
-                        <i class="mdi mdi-power-plug me-1"></i>Propojené aplikace
-                    </a>
-                </div>
-            </div>
-        </div>
+        </section>
     </div>
 
-    <script>
-        (function () {
-            var buttons = document.querySelectorAll('[data-copy-source]');
+    {# ---- Boční sloupec: oprávnění a bezpečnost ---- #}
+    <aside class="mg-side">
+        <section class="st-card" aria-labelledby="mgScopes">
+            <div class="st-card-h"><div><h2 id="mgScopes">Oprávnění</h2>
+                <span class="cap">Při připojení si aplikace řekne o oprávnění a vy je potvrdíte. Nabídnou se
+                    jen ta, která vám povolil správce WBoostu (výchozí je prohlížení a export).
+                    Jsou to tato:</span></div></div>
+            <ul class="mg-scopes">
+                {% for scope in scopes %}
+                    <li class="{{ scope.known ? '' : 'unknown' }}">
+                        <span class="chk{{ scope.known ? '' : ' no' }}" aria-hidden="true">{{ icon(scope.known ? 'check' : 'help') }}</span>
+                        <span class="who"><b>{{ scope.title }}</b><span>{{ scope.description }}</span><code>{{ scope.value }}</code></span>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
 
-            if (buttons.length === 0 || !navigator.clipboard) {
-                return;
-            }
+        <section class="st-card" aria-labelledby="mgSafe">
+            <div class="st-card-h"><div><h2 id="mgSafe">Bezpečnost a správa</h2></div></div>
+            <ul class="mg-safe">
+                <li>{{ icon('shield', 's16') }}<span>
+                    <strong>Asistent jedná za vás.</strong> Vidí ty projekty, které vidíte vy,
+                    a v nich smí to, co smíte vy. Oprávnění výše umí přístup jedině
+                    <em>zúžit</em>, nikdy rozšířit — sdílený projekt tedy zůstane jen na
+                    čtení a export, i kdyby aplikace dostala oprávnění navrhovat.
+                </span></li>
+                <li>{{ icon('x-circle', 's16') }}<span>
+                    <strong>Přístup jde kdykoli useknout.</strong> Odpojení v Propojených
+                    aplikacích platí okamžitě, i pro už vydaný přístup.
+                </span></li>
+                <li>{{ icon('lock', 's16') }}<span>
+                    <strong>Dávejte jen ta oprávnění, která jsou potřeba.</strong> Na
+                    vyplňování a stahování stačí prohlížení a export; návrh designu už umí
+                    přepsat existující šablonu.
+                </span></li>
+                <li>{{ icon('chart', 's16') }}<span>
+                    <strong>Exporty se počítají.</strong> Každý hotový soubor se objeví ve
+                    statistikách projektu — náhledy ne.
+                </span></li>
+            </ul>
+            <a href="{{ path('connected_apps') }}" class="btn btn-primary sm mg-cta">{{ icon('plug', 's16') }}Propojené aplikace</a>
+        </section>
+    </aside>
+</div>
 
-            Array.prototype.forEach.call(buttons, function (button) {
-                button.addEventListener('click', function () {
-                    var source = document.getElementById(button.getAttribute('data-copy-source'));
+<script>
+    (function () {
+        var buttons = document.querySelectorAll('[data-copy-source]');
 
-                    if (source === null) {
-                        return;
-                    }
+        if (buttons.length === 0 || !navigator.clipboard) {
+            return;
+        }
 
-                    navigator.clipboard.writeText(source.textContent.trim()).then(function () {
-                        var original = button.innerHTML;
-                        button.innerHTML = '<i class="mdi mdi-check me-1"></i>Zkopírováno';
+        Array.prototype.forEach.call(buttons, function (button) {
+            button.addEventListener('click', function () {
+                var source = document.getElementById(button.getAttribute('data-copy-source'));
 
-                        window.setTimeout(function () {
-                            button.innerHTML = original;
-                        }, 1500);
-                    });
+                if (source === null) {
+                    return;
+                }
+
+                navigator.clipboard.writeText(source.textContent.trim()).then(function () {
+                    var original = button.innerHTML;
+                    button.classList.add('copied');
+                    button.innerHTML = '<span class="i i-check s14" aria-hidden="true"></span>' + (button.classList.contains('icon') ? '' : 'Zkopírováno');
+
+                    window.setTimeout(function () {
+                        button.innerHTML = original;
+                        button.classList.remove('copied');
+                    }, 1500);
                 });
             });
-        })();
-    </script>
+        });
+    })();
+</script>
 {% endblock %}

@@ -1,37 +1,137 @@
 {% extends 'base.html.twig' %}
+{% import 'admin/_macros.html.twig' as adm %}
 
 {% set active_menu_item = 'admin_users' %}
 
-{% block title %}Upravit uživatele{% endblock %}
+{% block title %}{{ user.displayName }}{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item">Administrace</li>
-        <li class="breadcrumb-item"><a href="{{ path('admin_users') }}">Uživatelé</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{# Prototype user profile (body.html #dlgProf, screenshot 26) as a page:
+   header (avatar, UŽIVATEL, name, role/status/e-mail/date) + flat sections
+   (title + description left, controls right). Field names unchanged
+   (edit_user_form[name|role|mcpScopes][]); projects are read-only here —
+   sharing is managed per project. #}
+
+{% set is_admin = 'ROLE_ADMIN' in user.roles %}
+{% set is_designer = not is_admin and 'ROLE_DESIGNER' in user.roles %}
+{% set is_pending = not user.confirmed %}
+{% set is_me = app.user.id.toString == user.id.toString %}
+{% set scope_descriptions = {
+    'templates:read': 'Základ pro všechno ostatní. Bez něj AI aplikace nic neuvidí.',
+    'templates:export': 'Vyplní šablonu a stáhne výsledný obrázek.',
+    'templates:design': 'Mění design šablon.',
+    'gallery:write': 'Přidává obrázky do galerie projektu.',
+} %}
+{% set owned = projects|filter(p => p.isOwner) %}
+{% set shared = projects|filter(p => not p.isOwner) %}
+
+{% block page_title_row %}
+    <a href="{{ path('admin_users') }}" class="back">{{ icon('arrow-left', 's16') }}Uživatelé</a>
 {% endblock %}
 
 {% block content %}
-    <div class="row">
-        <div class="col-lg-8 col-xl-6">
-            <div class="card">
-                <div class="card-body">
-                    <p class="text-muted">{{ user.email }}</p>
-
-                    {{ form_start(form) }}
-                    {{ form_row(form.name) }}
-                    {{ form_row(form.role) }}
-                    {{ form_row(form.mcpScopes) }}
-
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-primary">Uložit</button>
-                        <a href="{{ path('admin_users') }}" class="btn btn-outline-secondary">Zpět</a>
+    {{ form_start(form, {'attr': {'class': 'up-card', 'novalidate': 'novalidate'}}) }}
+        <div class="up-top">
+            <div class="up-head">
+                {% if is_pending %}
+                    <span class="av inv" aria-hidden="true">{{ icon('mail') }}</span>
+                {% else %}
+                    <span class="av" aria-hidden="true">{{ adm.person_initials(user.name, user.email) }}</span>
+                {% endif %}
+                <div class="up-id">
+                    <span class="lbl">Uživatel</span>
+                    <h1 class="page-title">{{ user.displayName }}</h1>
+                    <div class="up-meta">
+                        {{ adm.role_pill(is_admin, is_designer) }}
+                        {{ adm.status(is_pending, user.registeredAt) }}
+                        {% if user.name %}<span>{{ user.email }}</span>{% endif %}
+                        <span>{{ is_pending ? 'Pozvánka odeslána' : 'Registrován' }} {{ user.registeredAt|date('j. n. Y') }}</span>
                     </div>
-                    {{ form_end(form) }}
                 </div>
             </div>
+            {% if not is_me %}
+                <div class="up-acts">
+                    {% if is_pending %}
+                        <a href="{{ path('admin_resend_invitation', {'id': user.id}) }}" class="btn btn-ghost sm">{{ icon('mail', 's16') }}Znovu poslat pozvánku</a>
+                    {% endif %}
+                    <a href="#" class="btn btn-ghost sm" data-modal-id="{{ user.id }}" data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}{{ is_pending ? 'Stáhnout pozvánku' : 'Odebrat uživatele' }}</a>
+                </div>
+            {% endif %}
         </div>
-    </div>
+
+        <div class="up-body">
+            <section class="up-sec" aria-labelledby="upsP">
+                <div class="up-sec-h"><h3 id="upsP">Profil</h3><p>Jméno a role určují, co uživatel ve Wboostu vidí a co smí dělat.</p></div>
+                <div class="up-sec-b">
+                    <label class="field" for="{{ form.name.vars.id }}">
+                        <span class="field-l">Jméno</span>
+                        <span class="inp"><input type="text" id="{{ form.name.vars.id }}" name="{{ form.name.vars.full_name }}" value="{{ form.name.vars.value }}" maxlength="80" autocomplete="off" placeholder="Uživatel jméno zatím nevyplnil"></span>
+                        <span class="adm-errors">{{ form_errors(form.name) }}</span>
+                    </label>
+                    {% do form.name.setRendered %}
+                    <div class="field">
+                        <span class="field-l">E-mail</span>
+                        <span class="inp ro">{{ icon('mail', 's16') }}<span class="up-email">{{ user.email }}</span></span>
+                        <p class="hint">E-mail si uživatel mění sám v Můj účet.</p>
+                    </div>
+                    {{ include('admin/_role_picker.html.twig', {'field': form.role}) }}
+                </div>
+            </section>
+
+            <section class="up-sec" aria-labelledby="upsJ">
+                <div class="up-sec-h">
+                    <h3 id="upsJ">Projekty</h3>
+                    <p>Projekty, ke kterým má přístup. Sdílení se spravuje v nastavení projektu.</p>
+                    <span class="cap">{{ owned|length }} vlastní · {{ shared|length }} sdílené</span>
+                </div>
+                <div class="up-sec-b">
+                    <ul class="share-list boxed" aria-label="Projekty uživatele">
+                        {% for project in projects %}
+                            <li class="share-row">
+                                {{ include('_project_avatar.html.twig', {'logo_path': project.iconPath, 'initials': project.initials, 'class': 'sm', 'alt': ''}, with_context = false) }}
+                                <span class="who">
+                                    <a href="{{ path('project_dashboard', {'id': project.projectId}) }}">{{ project.projectName }}</a>
+                                    <span>{{ project.isOwner ? 'Vlastní projekt' : 'Vlastník: ' ~ project.ownerName }}</span>
+                                </span>
+                                {% if project.isOwner %}<span class="pill pch">Vlastník</span>{% else %}<span class="pill r-user">Čtení</span>{% endif %}
+                            </li>
+                        {% else %}
+                            <li class="share-empty">Uživatel zatím nemá přístup k žádnému projektu.</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </section>
+
+            <section class="up-sec" aria-labelledby="upsA">
+                <div class="up-sec-h"><h3 id="upsA">AI aplikace</h3><p>Co smí AI aplikace (Claude, ChatGPT…) dělat, když se přihlásí účtem tohoto uživatele.</p></div>
+                <div class="up-sec-b">
+                    <div class="scopes" role="group" aria-label="Oprávnění AI aplikací">
+                        {% for choice in form.mcpScopes %}
+                            {% set title = choice.vars.label|split(' (')|first %}
+                            <label class="scope" for="{{ choice.vars.id }}">
+                                <input type="checkbox" class="sr" id="{{ choice.vars.id }}" name="{{ choice.vars.full_name }}" value="{{ choice.vars.value }}"{% if choice.vars.checked %} checked{% endif %}>
+                                <span class="cb" aria-hidden="true">{{ icon('check') }}</span>
+                                <span class="who"><b>{{ title }}</b><span>{{ scope_descriptions[choice.vars.value] ?? '' }} <code>{{ choice.vars.value }}</code></span></span>
+                            </label>
+                            {% do choice.setRendered %}
+                        {% endfor %}
+                    </div>
+                    {% do form.mcpScopes.setRendered %}
+                    <p class="hint">{{ icon('info', 's14') }}Je to strop pro přihlášení přes OAuth. Tokeny vytvořené administrátorem mají vlastní oprávnění. Zúžení platí okamžitě.</p>
+                </div>
+            </section>
+        </div>
+
+        <div class="up-foot">
+            <a href="{{ path('admin_users') }}" class="btn btn-secondary sm">Zrušit</a>
+            <button type="submit" class="btn btn-primary sm">Uložit změny</button>
+        </div>
+    {{ form_end(form) }}
+
+    {% if not is_me %}
+        <twig:ConfirmModal
+            id="{{ user.id }}"
+            url="{{ path('admin_delete_user', {'id': user.id}) }}"
+            confirmationText="Opravdu chcete smazat uživatele {{ user.displayName }}? Tato akce je nevratná a odstraní i všechny jeho projekty."
+        />
+    {% endif %}
 {% endblock %}

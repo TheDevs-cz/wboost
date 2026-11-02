@@ -1,27 +1,21 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editace profilu{% endblock %}
+{% block title %}Upravit profil{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('user_profile') }}">Můj účet</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{% block page_title_row %}
+    <a href="{{ path('user_profile') }}" class="back">{{ icon('arrow-left', 's16') }}Můj účet</a>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
+    {{ form_start(form, {'attr': {'class': 'adm-sheet'}}) }}
+        <div class="adm-sheet-h"><h1 class="page-title adm-sheet-title">Upravit profil</h1></div>
+        <div class="adm-sheet-b">
             {{ form_row(form.name) }}
-
-            <p>
-                <button class="btn btn-primary" type="submit">Uložit</button>
-            </p>
-            {{ form_end(form) }}
+            <p class="hint">{{ icon('info', 's14') }}Jméno uvidí kolegové ve sdílených projektech. E-mail změnit nejde — slouží k přihlášení.</p>
         </div>
-    </div>
-
+        <div class="adm-sheet-f">
+            <a href="{{ path('user_profile') }}" class="btn btn-secondary sm">Zrušit</a>
+            <button class="btn btn-primary sm" type="submit">Uložit</button>
+        </div>
+    {{ form_end(form) }}
 {% endblock %}
-

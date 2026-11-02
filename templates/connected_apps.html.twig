@@ -1,142 +1,109 @@
 {% extends 'base.html.twig' %}
 
 {% block title %}Propojené aplikace{% endblock %}
+{% block eyebrow %}Propojení{% endblock %}
+{% block title_count %}{{ (apps|length + tokens|length) ?: '' }}{% endblock %}
+{% block page_lead %}Aplikace a nástroje, které mohou pracovat s vašimi projekty i bez toho, abyste byli přihlášení v prohlížeči. Odpojením jim okamžitě přestane fungovat i už vydaný přístup.{% endblock %}
+{% block title_actions %}<a href="{{ path('mcp_guide') }}" class="btn btn-secondary">{{ icon('bot', 's16') }}Jak připojit AI</a>{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('user_profile') }}">Můj účet</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
-{% endblock %}
+{# Designed in the Nocturne language (the prototype only has a placeholder):
+   two record lists — OAuth applications and personal access tokens — with
+   the revoke forms unchanged (same actions, CSRF ids, field names). #}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            <h4 class="header-title mb-1">Aplikace propojené s vaším účtem</h4>
-            <p class="text-muted">
-                Tyto aplikace mohou pracovat s vašimi projekty i bez toho, abyste byli přihlášení v prohlížeči.
-                Odpojením jim okamžitě přestane fungovat i už vydaný přístup.
-            </p>
-
-            {% if apps is empty %}
-                <p class="text-muted mb-0">Zatím nemáte propojenou žádnou aplikaci.</p>
-            {% else %}
-                <div class="table-responsive">
-                    <table class="table table-centered mb-0">
-                        <thead>
-                            <tr>
-                                <th>Aplikace</th>
-                                <th>Oprávnění</th>
-                                <th>Propojeno</th>
-                                <th>Naposledy použito</th>
-                                <th class="text-end">Akce</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for app in apps %}
-                                <tr>
-                                    <td>
-                                        <strong class="text-break">{{ app.clientName }}</strong>
-                                        {% if app.redirectHosts is not empty %}
-                                            <div class="text-muted small text-break">{{ app.redirectHosts|join(', ') }}</div>
-                                        {% endif %}
-                                        {% if app.liveTokenCount > 0 %}
-                                            <span class="badge bg-success-subtle text-success mt-1">aktivní přístup</span>
-                                        {% else %}
-                                            <span class="badge bg-light text-muted mt-1">bez aktivního přístupu</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <ul class="list-unstyled mb-0">
-                                            {% for scope in app.scopes %}
-                                                <li class="{{ scope.known ? '' : 'text-danger' }}">
-                                                    <i class="mdi {{ scope.known ? 'mdi-check text-success' : 'mdi-help-circle-outline' }} me-1"></i>{{ scope.title }}
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    </td>
-                                    <td class="text-nowrap">{{ app.approvedAt|date('d.m.Y H:i') }}</td>
-                                    <td class="text-nowrap">
-                                        {{ app.lastUsedAt ? app.lastUsedAt|date('d.m.Y H:i') : '—' }}
-                                    </td>
-                                    <td class="text-end">
-                                        {# No confirm dialog: disconnecting is recoverable (the app can
-                                           ask again) and an un-dismissable native confirm() is worse
-                                           than the mistake it prevents. #}
-                                        <form action="{{ path('connected_app_revoke') }}" method="post">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('connected_app_revoke') }}">
-                                            <input type="hidden" name="clientIdentifier" value="{{ app.clientIdentifier }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="mdi mdi-link-off me-1"></i>Odpojit
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% endif %}
+<div class="st-page">
+    <section class="st-card ca-card" aria-labelledby="caApps">
+        <div class="st-card-h">
+            <div><h2 id="caApps">Aplikace propojené s vaším účtem</h2>
+                <span class="cap">Připojené přihlášením přes Wboost (OAuth) — například Claude nebo ChatGPT.</span></div>
         </div>
-    </div>
 
-    <div class="card">
-        <div class="card-body">
-            <h4 class="header-title mb-1">Osobní přístupové tokeny</h4>
-            <p class="text-muted">
-                Tokeny, které vám vydal správce pro připojení nástrojů (například Claude Code) k vašim projektům.
-                Nové vydává správce; zde je můžete kdykoli zneplatnit.
-            </p>
+        {% if apps is empty %}
+            <div class="ca-empty">
+                <span class="ico-c sm">{{ icon('plug') }}</span>
+                <p>Zatím nemáte propojenou žádnou aplikaci.</p>
+                <a href="{{ path('mcp_guide') }}" class="btn btn-secondary sm">Jak připojit AI asistenta</a>
+            </div>
+        {% else %}
+            <ul class="ca-list">
+                {% for app in apps %}
+                    <li class="ca-row">
+                        <span class="acc-ico">{{ icon('plug', 's16') }}</span>
+                        <div class="ca-main">
+                            <div class="ca-top">
+                                <b class="ca-name">{{ app.clientName }}</b>
+                                {% if app.liveTokenCount > 0 %}
+                                    <span class="pill mint">aktivní přístup</span>
+                                {% else %}
+                                    <span class="pill r-user">bez aktivního přístupu</span>
+                                {% endif %}
+                            </div>
+                            {% if app.redirectHosts is not empty %}
+                                <span class="ca-sub">{{ app.redirectHosts|join(', ') }}</span>
+                            {% endif %}
+                            <ul class="ca-scopes" aria-label="Oprávnění">
+                                {% for scope in app.scopes %}
+                                    <li class="{{ scope.known ? '' : 'unknown' }}">{{ icon(scope.known ? 'check' : 'help', 's14') }}{{ scope.title }}</li>
+                                {% endfor %}
+                            </ul>
+                            <span class="ca-meta">Propojeno {{ app.approvedAt|date('j. n. Y H:i') }} · naposledy použito {{ app.lastUsedAt ? app.lastUsedAt|date('j. n. Y H:i') : '—' }}</span>
+                        </div>
+                        {# No confirm dialog: disconnecting is recoverable (the app can
+                           ask again) and an un-dismissable native confirm() is worse
+                           than the mistake it prevents. #}
+                        <form action="{{ path('connected_app_revoke') }}" method="post" class="ca-act">
+                            <input type="hidden" name="_token" value="{{ csrf_token('connected_app_revoke') }}">
+                            <input type="hidden" name="clientIdentifier" value="{{ app.clientIdentifier }}">
+                            <button type="submit" class="btn btn-ghost-danger sm">{{ icon('x', 's16') }}Odpojit</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
 
-            {% if tokens is empty %}
-                <p class="text-muted mb-0">Nemáte žádné osobní přístupové tokeny.</p>
-            {% else %}
-                <div class="table-responsive">
-                    <table class="table table-centered mb-0">
-                        <thead>
-                            <tr>
-                                <th>Název</th>
-                                <th>Oprávnění</th>
-                                <th>Vydán</th>
-                                <th>Naposledy použit</th>
-                                <th>Stav</th>
-                                <th class="text-end">Akce</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for token in tokens %}
-                                {% set status = token.status(now) %}
-                                <tr>
-                                    <td><strong class="text-break">{{ token.name }}</strong></td>
-                                    <td class="text-muted small">{{ token.scopes|join(', ') }}</td>
-                                    <td class="text-nowrap">{{ token.createdAt|date('d.m.Y H:i') }}</td>
-                                    <td class="text-nowrap">{{ token.lastUsedAt ? token.lastUsedAt|date('d.m.Y H:i') : '—' }}</td>
-                                    <td>
-                                        {% if status.value == 'active' %}
-                                            <span class="badge bg-success-subtle text-success">platný</span>
-                                        {% elseif status.value == 'revoked' %}
-                                            <span class="badge bg-danger-subtle text-danger">zneplatněn</span>
-                                        {% else %}
-                                            <span class="badge bg-light text-muted">vypršel</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        {% if status.value == 'active' %}
-                                            <form action="{{ path('connected_app_token_revoke', {'tokenId': token.id}) }}" method="post">
-                                                <input type="hidden" name="_token" value="{{ csrf_token('connected_app_token_revoke') }}">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                    <i class="mdi mdi-key-remove me-1"></i>Zneplatnit
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% endif %}
+    <section class="st-card ca-card" aria-labelledby="caTokens">
+        <div class="st-card-h">
+            <div><h2 id="caTokens">Osobní přístupové tokeny</h2>
+                <span class="cap">Tokeny, které vám vydal správce pro připojení nástrojů (například Claude Code) k vašim projektům.
+                    Nové vydává správce; zde je můžete kdykoli zneplatnit.</span></div>
         </div>
-    </div>
+
+        {% if tokens is empty %}
+            <div class="ca-empty">
+                <span class="ico-c sm">{{ icon('lock') }}</span>
+                <p>Nemáte žádné osobní přístupové tokeny.</p>
+            </div>
+        {% else %}
+            <ul class="ca-list">
+                {% for token in tokens %}
+                    {% set status = token.status(now) %}
+                    <li class="ca-row{{ status.value != 'active' ? ' off' }}">
+                        <span class="acc-ico">{{ icon('lock', 's16') }}</span>
+                        <div class="ca-main">
+                            <div class="ca-top">
+                                <b class="ca-name">{{ token.name }}</b>
+                                {% if status.value == 'active' %}
+                                    <span class="pill mint">platný</span>
+                                {% elseif status.value == 'revoked' %}
+                                    <span class="pill rose">zneplatněn</span>
+                                {% else %}
+                                    <span class="pill r-user">vypršel</span>
+                                {% endif %}
+                            </div>
+                            <span class="ca-sub"><code>{{ token.scopes|join(' · ') }}</code></span>
+                            <span class="ca-meta">Vydán {{ token.createdAt|date('j. n. Y H:i') }} · naposledy použit {{ token.lastUsedAt ? token.lastUsedAt|date('j. n. Y H:i') : '—' }}</span>
+                        </div>
+                        {% if status.value == 'active' %}
+                            <form action="{{ path('connected_app_token_revoke', {'tokenId': token.id}) }}" method="post" class="ca-act">
+                                <input type="hidden" name="_token" value="{{ csrf_token('connected_app_token_revoke') }}">
+                                <button type="submit" class="btn btn-ghost-danger sm">{{ icon('x', 's16') }}Zneplatnit</button>
+                            </form>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+</div>
 {% endblock %}

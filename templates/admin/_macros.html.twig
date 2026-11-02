@@ -1,0 +1,46 @@
+{# Shared bits of the Nocturne admin screens (users list, user profile,
+   registration requests, landing leads) — prototype renderUsers helpers
+   (ago, uInit, roleHTML, rolePill, stHTML). #}
+
+{# "dnes" / "včera" / "před N dny" / date — calendar days, like the prototype's ago(). #}
+{% macro ago(dt) -%}
+    {%- set days = (((date('today')|date('U')) - (date(dt|date('Y-m-d'))|date('U'))) / 86400)|round -%}
+    {%- if days <= 0 %}dnes{% elseif days == 1 %}včera{% elseif days < 30 %}před {{ days }} dny{% else %}{{ dt|date('j. n. Y') }}{% endif -%}
+{%- endmacro %}
+
+{# Monogram for a person: the name, or the e-mail's local part split on . _ - #}
+{% macro person_initials(name, email) -%}
+    {{- initials(name ?: (email|split('@')|first|replace({'.': ' ', '_': ' ', '-': ' '}))) -}}
+{%- endmacro %}
+
+{# Role in a list row: icon + label (Uživatel has no icon). #}
+{% macro role(is_admin, is_designer) -%}
+    {%- if is_admin -%}
+        <span class="u-role">{{ icon('shield') }}Administrátor</span>
+    {%- elseif is_designer -%}
+        <span class="u-role">{{ icon('edit') }}Designer</span>
+    {%- else -%}
+        <span class="u-role">Uživatel</span>
+    {%- endif -%}
+{%- endmacro %}
+
+{# Role tag in a header: Uživatel neutral, Designer lavender, Administrátor solid. #}
+{% macro role_pill(is_admin, is_designer) -%}
+    {%- if is_admin -%}
+        <span class="pill r-admin">{{ icon('shield') }}Administrátor</span>
+    {%- elseif is_designer -%}
+        <span class="pill r-designer">{{ icon('edit') }}Designer</span>
+    {%- else -%}
+        <span class="pill r-user">Uživatel</span>
+    {%- endif -%}
+{%- endmacro %}
+
+{# Status: "Aktivní" mint dot, or "Pozvánka · před N dny". #}
+{% macro status(is_pending, since) -%}
+    {%- import _self as m -%}
+    {%- if is_pending -%}
+        <span class="u-st"><span class="pill">Pozvánka</span><span class="cap">{{ m.ago(since) }}</span></span>
+    {%- else -%}
+        <span class="u-st"><span class="dot"></span>Aktivní</span>
+    {%- endif -%}
+{%- endmacro %}

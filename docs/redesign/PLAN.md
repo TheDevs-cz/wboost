@@ -106,7 +106,7 @@ finish; tick your phase's boxes here.
 - [ ] **P7 Editors** — variant + group editor chrome (top bar, format tabs,
       tool row, layers panel, inspector, navigator, display menu), icon-rail
       sidebar. Chrome only.
-- [ ] **P8 Admin & account** — users (table rows + filter chips), invite /
+- [x] **P8 Admin & account** — users (table rows + filter chips), invite /
       edit user, registration requests, landing leads (Poptávky z webu),
       statistiky (`admin_usage`, KPI tiles + charts restyled), storage files,
       profile / change password / connected apps / MCP guide.

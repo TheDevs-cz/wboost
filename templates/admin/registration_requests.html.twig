@@ -1,75 +1,56 @@
 {% extends 'base.html.twig' %}
+{% import 'admin/_macros.html.twig' as adm %}
 
 {% set active_menu_item = 'admin_registration_requests' %}
 
 {% block title %}Žádosti o registraci{% endblock %}
-
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item">Administrace</li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
-{% endblock %}
+{% block title_count %}{{ requests|filter(r => r.status.value == 'pending')|length }}{% endblock %}
+{% block page_lead %}Nové žádosti najdete i nahoře v seznamu uživatelů. Povolením otevřete pozvánku s předvyplněným e-mailem.{% endblock %}
 
 {% block content %}
     {% if requests|length == 0 %}
-        <div class="alert alert-info">
-            Zatím nejsou žádné žádosti o registraci.
+        <div class="empty">
+            <span class="ico-c">{{ icon('user-plus') }}</span>
+            <h2 class="empty-t">Zatím nejsou žádné žádosti o registraci.</h2>
+            <p>Jakmile někdo požádá o přístup přes registrační formulář, objeví se tady.</p>
         </div>
     {% else %}
-        <div class="card shadow-sm rounded-3 overflow-hidden">
-            <div class="card-body p-0">
-                <div class="table-responsive rounded-3">
-                    <table class="table table-hover table-striped mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">E-mail</th>
-                                <th>Požádáno</th>
-                                <th>Stav</th>
-                                <th class="pe-3" style="width: 200px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for request in requests %}
-                                <tr>
-                                    <td class="ps-3 fw-medium">{{ request.email }}</td>
-                                    <td>{{ request.createdAt|date('d.m.Y H:i') }}</td>
-                                    <td>
-                                        {% if request.status.value == 'pending' %}
-                                            <span class="badge bg-warning">Čeká</span>
-                                        {% elseif request.status.value == 'invited' %}
-                                            <span class="badge bg-success">Pozván</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Zamítnuto</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end pe-3">
-                                        {% if request.status.value == 'pending' %}
-                                            <div class="btn-group btn-group-sm">
-                                                <a href="{{ path('admin_invite_user', {'email': request.email}) }}" class="btn btn-outline-primary">
-                                                    <i class="mdi mdi-account-plus"></i> Pozvat
-                                                </a>
-                                                <a href="#"
-                                                   class="btn btn-outline-danger"
-                                                   data-modal-id="{{ request.id }}"
-                                                   data-action="click->confirm-modal#showModal">
-                                                    <i class="mdi mdi-close"></i> Zamítnout
-                                                </a>
-                                            </div>
-
-                                            <twig:ConfirmModal
-                                                id="{{ request.id }}"
-                                                url="{{ path('admin_dismiss_registration_request', {'id': request.id}) }}"
-                                                confirmationText="Opravdu chcete zamítnout tuto žádost o registraci?" />
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <div class="u-card">
+            <div class="u-lh" aria-hidden="true"><span>E-mail</span><span class="u-tags"><span>Požádáno</span><span>Stav</span></span><span></span></div>
+            <ul class="u-list" aria-label="Žádosti o registraci">
+                {% for request in requests %}
+                    {% set status = request.status.value %}
+                    <li class="u-row{{ status == 'pending' ? ' req' : (status == 'dismissed' ? ' rej' : '') }}">
+                        <div class="u-who">
+                            <span class="av {{ status == 'pending' ? 'req' : 'inv' }}" aria-hidden="true">{{ icon(status == 'invited' ? 'mail' : 'user-plus') }}</span>
+                            <span class="who"><span class="u-nm">{{ request.email }}</span></span>
+                        </div>
+                        <div class="u-tags">
+                            <span class="u-role">{{ request.createdAt|date('j. n. Y H:i') }}</span>
+                            {% if status == 'pending' %}
+                                <span class="u-st"><span class="pill mint">Nová žádost</span><span class="cap">{{ adm.ago(request.createdAt) }}</span></span>
+                            {% elseif status == 'invited' %}
+                                <span class="u-st"><span class="pill">Pozván</span></span>
+                            {% else %}
+                                <span class="u-st off"><span class="dot"></span>Zamítnuto</span>
+                            {% endif %}
+                        </div>
+                        <div class="u-acts req-acts">
+                            {% if status == 'pending' %}
+                                <a href="#" class="btn btn-secondary xs" data-modal-id="{{ request.id }}" data-action="click->confirm-modal#showModal">Zamítnout</a>
+                                <a href="{{ path('admin_invite_user', {'email': request.email}) }}" class="btn btn-primary xs">{{ icon('check', 's14') }}Povolit</a>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
         </div>
+
+        {% for request in requests|filter(r => r.status.value == 'pending') %}
+            <twig:ConfirmModal
+                id="{{ request.id }}"
+                url="{{ path('admin_dismiss_registration_request', {'id': request.id}) }}"
+                confirmationText="Opravdu chcete zamítnout tuto žádost o registraci?" />
+        {% endfor %}
     {% endif %}
 {% endblock %}

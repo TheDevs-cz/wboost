@@ -1,113 +1,111 @@
 {% extends 'base.html.twig' %}
+{% import 'admin/_macros.html.twig' as adm %}
 
 {% block title %}Můj účet{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
-{% endblock %}
+{# Můj účet — the same profile language as the admin user page (prototype
+   dialog 27): header + flat sections, title + description left. #}
+
+{% set me = app.user %}
+{% set is_admin = 'ROLE_ADMIN' in me.roles %}
+{% set is_designer = not is_admin and 'ROLE_DESIGNER' in me.roles %}
+
+{% block page_title_row %}{% endblock %}
 
 {% block content %}
-    <div class="row">
-        <div class="col-sm-12">
-            <!-- Profile -->
-            <div class="card bg-primary">
-                <div class="card-body profile-user-box">
-                    <div class="row">
-                        <div class="col-sm-8">
-                            <div class="row align-items-center">
-                                <div class="col-auto">
-                                    <div class="avatar-md">
-                                        <img src="{{ asset('images/legacy/avatar-2.jpg') }}" alt="" class="rounded-circle img-thumbnail">
-                                    </div>
-                                </div>
-                                <div class="col">
-                                    <div>
-                                        <h4 class="mt-1 mb-1 text-white">{{ app.user.displayName }}</h4>
-                                    </div>
-                                </div>
-                            </div>
-                        </div> <!-- end col-->
-
-                        <div class="col-sm-4">
-                            <div class="text-center mt-sm-0 mt-3 text-sm-end">
-                                <a href="{{ path('change_password') }}" type="button" class="btn btn-light me-1">
-                                    <i class="mdi mdi-key me-1"></i> Změnit heslo
-                                </a>
-                                <a href="{{ path('edit_profile') }}" type="button" class="btn btn-light me-1">
-                                    <i class="mdi mdi-account-edit me-1"></i> Upravit profil
-                                </a>
-                                <a href="{{ path('connected_apps') }}" type="button" class="btn btn-light">
-                                    <i class="mdi mdi-power-plug me-1"></i> Propojené aplikace
-                                </a>
-                            </div>
-                        </div> <!-- end col-->
-                    </div> <!-- end row -->
-
-                </div> <!-- end card-body/ profile-user-box-->
-            </div><!--end profile/ card -->
-        </div> <!-- end col-->
-    </div>
-
-    <div class="card">
-        <div class="card-body">
-            <div class="text-start">
-                <p class="text-muted"><strong>E-mail:</strong> <span class="ms-2">{{ app.user.email }}</span></p>
-                <p class="text-muted"><strong>Jméno:</strong> <span class="ms-2">{{ app.user.name ?: '-' }}</span></p>
-                <p class="text-muted"><strong>Registrován:</strong> <span class="ms-2">{{ app.user.registeredAt|date('H:i d.m.Y') }}</span></p>
-            </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-body">
-            <h4 class="header-title mb-3">Propojené účty</h4>
-
-            {% if facebookAccount %}
-                {% if facebookAccount.needsReconnect %}
-                    <div class="alert alert-warning">
-                        Připojení k Facebooku vypršelo nebo bylo odvoláno — pro publikování je potřeba účet znovu propojit.
-                    </div>
-                {% endif %}
-
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div>
-                        <i class="mdi mdi-facebook text-primary me-1 font-18 align-middle"></i>
-                        <strong>Facebook</strong>
-                        <span class="text-muted ms-2">{{ facebookAccount.displayName ?: 'propojeno' }}</span>
-                        <span class="text-muted ms-2 small">od {{ facebookAccount.connectedAt|date('d.m.Y') }}</span>
-                    </div>
-                    <div>
-                        {% if facebookAccount.needsReconnect %}
-                            <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-sm btn-primary me-1">
-                                <i class="mdi mdi-refresh me-1"></i>Znovu propojit
-                            </a>
-                        {% else %}
-                            <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-sm btn-outline-primary me-1" title="Obnovit oprávnění a token">
-                                <i class="mdi mdi-refresh me-1"></i>Obnovit propojení
-                            </a>
-                        {% endif %}
-                        <a href="{{ path('facebook_disconnect') }}" class="btn btn-sm btn-outline-danger">
-                            <i class="mdi mdi-link-off me-1"></i>Odpojit
-                        </a>
+    <div class="up-card">
+        <div class="up-top">
+            <div class="up-head">
+                <span class="av" aria-hidden="true">{{ adm.person_initials(me.name, me.email) }}</span>
+                <div class="up-id">
+                    <span class="lbl">Můj účet</span>
+                    <h1 class="page-title">{{ me.displayName }}</h1>
+                    <div class="up-meta">
+                        {{ adm.role_pill(is_admin, is_designer) }}
+                        {% if me.name %}<span>{{ me.email }}</span>{% endif %}
+                        <span>Registrován {{ me.registeredAt|date('j. n. Y') }}</span>
                     </div>
                 </div>
-                <p class="text-muted small mt-2 mb-0">
-                    Přes propojený facebookový účet lze publikovat šablony na vaše facebookové stránky
-                    a instagramové profesionální účty (propojené se stránkou).
-                </p>
-            {% else %}
-                <p class="text-muted">
-                    Propojte svůj facebookový účet a publikujte vyplněné šablony přímo na facebookové
-                    stránky a Instagram — bez stahování PNG.
-                </p>
-                <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-primary">
-                    <i class="mdi mdi-facebook me-1"></i> Propojit Facebook
-                </a>
-            {% endif %}
+            </div>
+            <div class="up-acts">
+                <a href="{{ path('edit_profile') }}" class="btn btn-ghost sm">{{ icon('edit', 's16') }}Upravit profil</a>
+                <a href="{{ path('change_password') }}" class="btn btn-ghost sm">{{ icon('lock', 's16') }}Změnit heslo</a>
+            </div>
+        </div>
+
+        <div class="up-body">
+            <section class="up-sec" aria-labelledby="mySecP">
+                <div class="up-sec-h"><h3 id="mySecP">Profil</h3><p>Jméno se ukazuje kolegům ve sdílených projektech. E-mail slouží k přihlášení.</p></div>
+                <div class="up-sec-b">
+                    <dl class="kv">
+                        <div><dt>Jméno</dt><dd>{{ me.name ?: '—' }}</dd></div>
+                        <div><dt>E-mail</dt><dd>{{ me.email }}</dd></div>
+                        <div><dt>Registrován</dt><dd>{{ me.registeredAt|date('j. n. Y H:i') }}</dd></div>
+                    </dl>
+                    <div><a href="{{ path('edit_profile') }}" class="btn btn-secondary sm">{{ icon('edit', 's16') }}Upravit profil</a></div>
+                </div>
+            </section>
+
+            <section class="up-sec" aria-labelledby="mySecL">
+                <div class="up-sec-h"><h3 id="mySecL">Přihlášení</h3><p>Heslo, kterým se přihlašujete do Wboostu.</p></div>
+                <div class="up-sec-b">
+                    <div class="acc-row">
+                        <span class="acc-ico">{{ icon('lock', 's16') }}</span>
+                        <span class="who"><b>Heslo</b><span>Nastavené heslo se nikde nezobrazuje.</span></span>
+                        <a href="{{ path('change_password') }}" class="btn btn-secondary sm">Změnit heslo</a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="up-sec" aria-labelledby="mySecF">
+                <div class="up-sec-h"><h3 id="mySecF">Propojené účty</h3><p>Publikování vyplněných šablon přímo na Facebook a Instagram.</p></div>
+                <div class="up-sec-b">
+                    {% if facebookAccount %}
+                        {% if facebookAccount.needsReconnect %}
+                            <div class="alert alert-warning mb-0">
+                                Připojení k Facebooku vypršelo nebo bylo odvoláno — pro publikování je potřeba účet znovu propojit.
+                            </div>
+                        {% endif %}
+                        <div class="acc-row">
+                            <span class="acc-ico fb">{{ icon('facebook', 's16') }}</span>
+                            <span class="who"><b>Facebook</b><span>{{ facebookAccount.displayName ?: 'propojeno' }} · od {{ facebookAccount.connectedAt|date('j. n. Y') }}</span></span>
+                            <span class="acc-acts">
+                                {% if facebookAccount.needsReconnect %}
+                                    <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-primary sm">{{ icon('refresh', 's16') }}Znovu propojit</a>
+                                {% else %}
+                                    <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-secondary sm" title="Obnovit oprávnění a token">{{ icon('refresh', 's16') }}Obnovit propojení</a>
+                                {% endif %}
+                                <a href="{{ path('facebook_disconnect') }}" class="btn btn-ghost-danger sm">Odpojit</a>
+                            </span>
+                        </div>
+                        <p class="hint">Přes propojený facebookový účet lze publikovat šablony na vaše facebookové stránky
+                            a instagramové profesionální účty (propojené se stránkou).</p>
+                    {% else %}
+                        <div class="acc-row">
+                            <span class="acc-ico fb">{{ icon('facebook', 's16') }}</span>
+                            <span class="who"><b>Facebook a Instagram</b><span>Propojte svůj facebookový účet a publikujte vyplněné šablony přímo na facebookové
+                                stránky a Instagram — bez stahování PNG.</span></span>
+                            <a href="{{ path('oauth_facebook_connect') }}" class="btn btn-primary sm">{{ icon('facebook', 's16') }}Propojit Facebook</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section class="up-sec" aria-labelledby="mySecA">
+                <div class="up-sec-h"><h3 id="mySecA">AI a aplikace</h3><p>Aplikace a AI asistenti, kteří s vašimi projekty pracují vaším jménem.</p></div>
+                <div class="up-sec-b">
+                    <a href="{{ path('connected_apps') }}" class="acc-row acc-link">
+                        <span class="acc-ico">{{ icon('plug', 's16') }}</span>
+                        <span class="who"><b>Propojené aplikace</b><span>Kdo má přístup k vašemu účtu a osobní přístupové tokeny.</span></span>
+                        {{ icon('chev-right', 's16') }}
+                    </a>
+                    <a href="{{ path('mcp_guide') }}" class="acc-row acc-link">
+                        <span class="acc-ico">{{ icon('bot', 's16') }}</span>
+                        <span class="who"><b>AI (MCP server)</b><span>Jak připojit Claude, ChatGPT a další asistenty.</span></span>
+                        {{ icon('chev-right', 's16') }}
+                    </a>
+                </div>
+            </section>
         </div>
     </div>
-
 {% endblock %}

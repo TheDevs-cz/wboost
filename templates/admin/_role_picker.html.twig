@@ -1,0 +1,23 @@
+{# Role picker (prototype .rpick / .rcard): the form's single-choice "role"
+   field rendered as radio cards. Real <input type="radio"> elements carry the
+   form name/value (the ChoiceType accepts the scalar value either way); the
+   card look follows :checked in CSS, so no JS is needed. Var: field. #}
+{% set role_descriptions = {
+    'user': 'Vidí jen projekty sdílené s ním. Vyplňuje šablony a stahuje exporty.',
+    'ROLE_DESIGNER': 'Zakládá vlastní projekty, navrhuje šablony a sdílí je klientům.',
+    'ROLE_ADMIN': 'Spravuje uživatele, žádosti a celý systém.',
+} %}
+<div class="field">
+    <span class="field-l" id="{{ field.vars.id }}_label">Role</span>
+    <div class="rpick" role="radiogroup" aria-labelledby="{{ field.vars.id }}_label">
+        {% for choice in field.vars.choices %}
+            <label class="rcard" for="{{ field.vars.id }}_{{ loop.index0 }}">
+                <input type="radio" class="sr" id="{{ field.vars.id }}_{{ loop.index0 }}" name="{{ field.vars.full_name }}" value="{{ choice.value }}"{% if choice.value == field.vars.value %} checked{% endif %}>
+                <span class="rd" aria-hidden="true"></span>
+                <span class="rtx"><span class="rt">{{ choice.label }}</span><span class="rsub">{{ role_descriptions[choice.value] ?? '' }}</span></span>
+            </label>
+        {% endfor %}
+    </div>
+    {{ form_errors(field) }}
+</div>
+{% do field.setRendered %}

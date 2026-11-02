@@ -1,103 +1,183 @@
 {% extends 'base.html.twig' %}
+{% import 'admin/_macros.html.twig' as adm %}
 
 {% set active_menu_item = 'admin_users' %}
 
 {% block title %}Uživatelé{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item">Administrace</li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{#
+    Prototype renderUsers / renderUserRows / reqRowHTML. One list (.u-card):
+    pending registration requests pinned on top (mint rows, inline Zamítnout /
+    Povolit over the existing dismiss + invite endpoints), then me, pending
+    invitations, everyone else A–Z (ordered by AdminUsersController). Dismissed
+    requests only show under "Zamítnuté". Search, chips and the Projekt ▾
+    filter run client-side (users_filter_controller) over data-* on the rows.
+#}
+
+{% set pending_requests = requests|filter(r => r.status.value == 'pending') %}
+{% set dismissed_requests = requests|filter(r => r.status.value == 'dismissed') %}
+{% set count_admin = users|filter(u => u.isAdmin)|length %}
+{% set count_designer = users|filter(u => not u.isAdmin and u.isDesigner)|length %}
+{% set count_user = users|length - count_admin - count_designer %}
+{% set count_invited = users|filter(u => u.isPending)|length %}
+{% set total = users|length + pending_requests|length %}
+
+{% block page_title_row %}
+    <header class="head">
+        <div class="head-main">
+            <span class="lbl">Administrace</span>
+            <h1 class="page-title">Uživatelé <small id="uTotal">{{ users|length }}</small></h1>
+        </div>
+        <div class="head-tools">
+            <label class="inp" for="uSearch">
+                {{ icon('search', 's16') }}
+                <input type="search" id="uSearch" placeholder="Hledat jméno nebo e-mail" autocomplete="off">
+            </label>
+            <a href="{{ path('admin_invite_user') }}" class="btn btn-primary head-primary">{{ icon('user-plus', 's16') }}Pozvat uživatele</a>
+        </div>
+    </header>
+{% endblock %}
+
+{% block mobile_primary_action %}
+    <a href="{{ path('admin_invite_user') }}" class="btn btn-primary icon" aria-label="Pozvat uživatele">{{ icon('user-plus', 's18') }}</a>
 {% endblock %}
 
 {% block content %}
-    <div class="row mb-2">
-        <div class="col-sm-12">
-            <a href="{{ path('admin_invite_user') }}" class="btn btn-outline-primary rounded-pill mb-3">
-                <i class="mdi mdi-account-plus"></i> Pozvat uživatele
-            </a>
-        </div>
-    </div>
-
-    {% if users|length == 0 %}
-        <div class="alert alert-info">
-            Zatím nejsou žádní uživatelé.
-        </div>
-    {% else %}
-        <div class="card shadow-sm rounded-3 overflow-hidden">
-            <div class="card-body p-0">
-                <div class="table-responsive rounded-3">
-                    <table class="table table-hover table-striped mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">E-mail</th>
-                                <th>Jméno</th>
-                                <th>Role</th>
-                                <th>Stav</th>
-                                <th class="text-center">Vlastní projekty</th>
-                                <th class="text-center">Sdílené</th>
-                                <th>Registrován</th>
-                                <th class="pe-3" style="width: 80px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for user in users %}
-                                <tr>
-                                    <td class="ps-3 fw-medium">{{ user.email }}</td>
-                                    <td>{{ user.name ?? '—' }}</td>
-                                    <td>
-                                        {% if user.isAdmin %}
-                                            <span class="badge bg-danger">Administrátor</span>
-                                        {% elseif user.isDesigner %}
-                                            <span class="badge bg-primary">Designer</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Uživatel</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if user.isPending %}
-                                            <span class="badge bg-warning">Čeká na aktivaci</span>
-                                        {% else %}
-                                            <span class="badge bg-success">Aktivní</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">{{ user.ownedCount }}</td>
-                                    <td class="text-center">{{ user.sharedCount }}</td>
-                                    <td>{{ user.registeredAt|date('d.m.Y') }}</td>
-                                    <td class="text-end pe-3">
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{{ path('admin_edit_user', {'id': user.id}) }}" class="btn btn-outline-secondary" title="Upravit">
-                                                <i class="mdi mdi-pencil"></i>
-                                            </a>
-                                            {% if user.isPending %}
-                                                <a href="{{ path('admin_resend_invitation', {'id': user.id}) }}" class="btn btn-outline-primary" title="Znovu poslat pozvánku">
-                                                    <i class="mdi mdi-email-sync"></i>
-                                                </a>
-                                            {% endif %}
-                                            {% if user.id != currentUserId %}
-                                                <a href="#" class="btn btn-outline-danger" title="Smazat"
-                                                   data-modal-id="{{ user.id }}"
-                                                   data-action="click->confirm-modal#showModal">
-                                                    <i class="mdi mdi-trash-can-outline"></i>
-                                                </a>
-                                            {% endif %}
-                                        </div>
-                                        {% if user.id != currentUserId %}
-                                            <twig:ConfirmModal
-                                                id="{{ user.id }}"
-                                                url="{{ path('admin_delete_user', {'id': user.id}) }}"
-                                                confirmationText="Opravdu chcete smazat uživatele {{ user.displayName }}? Tato akce je nevratná a odstraní i všechny jeho projekty."
-                                            />
-                                        {% endif %}
-                                    </td>
-                                </tr>
+    <div class="adm-users" data-controller="users-filter">
+        <div class="fbar" role="toolbar" aria-label="Filtr uživatelů">
+            <button type="button" class="chip on" aria-pressed="true" data-uf="all" data-action="users-filter#chip">Vše <span class="n">{{ total }}</span></button>
+            <button type="button" class="chip req-chip{{ pending_requests|length ? ' has' }}" aria-pressed="false" data-uf="requests" data-action="users-filter#chip">{{ icon('user-plus', 's14') }}Žádosti <span class="n">{{ pending_requests|length }}</span></button>
+            {% if dismissed_requests|length > 0 %}
+                <button type="button" class="chip" aria-pressed="false" data-uf="rejected" data-action="users-filter#chip">Zamítnuté <span class="n">{{ dismissed_requests|length }}</span></button>
+            {% endif %}
+            <span class="sep" aria-hidden="true"></span>
+            <button type="button" class="chip" aria-pressed="false" data-uf="admin" data-action="users-filter#chip">Administrátoři <span class="n">{{ count_admin }}</span></button>
+            <button type="button" class="chip" aria-pressed="false" data-uf="designer" data-action="users-filter#chip">Designeři <span class="n">{{ count_designer }}</span></button>
+            <button type="button" class="chip" aria-pressed="false" data-uf="user" data-action="users-filter#chip">Uživatelé <span class="n">{{ count_user }}</span></button>
+            {% if count_invited > 0 %}
+                <span class="sep" aria-hidden="true"></span>
+                <button type="button" class="chip" aria-pressed="false" data-uf="invited" data-action="users-filter#chip">{{ icon('mail', 's14') }}Čekají na přijetí <span class="n">{{ count_invited }}</span></button>
+            {% endif %}
+            {% set projects = shell_projects() %}
+            {% if projects|length > 0 %}
+                <span class="sep" aria-hidden="true"></span>
+                <div class="fdrop" data-users-filter-target="pfDrop">
+                    <button type="button" class="chip pf-chip" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false"
+                            data-users-filter-target="pfChip" data-action="users-filter#togglePf">
+                        <span class="pf-ico">{{ icon('grid', 's14') }}</span><span class="nm" data-users-filter-target="pfLabel">Projekt</span>{{ icon('chev-down', 's14') }}
+                    </button>
+                    <div class="menu pf-menu" role="dialog" aria-label="Vybrat projekt" data-users-filter-target="pfMenu" hidden>
+                        <label class="inp sm" for="pfSearch">
+                            {{ icon('search', 's14') }}
+                            <input type="search" id="pfSearch" placeholder="Najít projekt" autocomplete="off"
+                                   data-users-filter-target="pfSearch" data-action="input->users-filter#searchPf keydown->users-filter#pfKeydown">
+                        </label>
+                        <div class="pf-list" role="listbox" aria-label="Projekty">
+                            <button type="button" role="option" class="qn" aria-selected="true" data-pf="" data-pf-name="" data-users-filter-target="pfOption" data-action="users-filter#pickPf">
+                                <span class="sym sm mono" aria-hidden="true">{{ icon('grid', 's14') }}</span><span class="nm">Všechny projekty</span>
+                                <span class="end"><span class="chk">{{ icon('check') }}</span></span>
+                            </button>
+                            <div class="menu-sep"></div>
+                            {% for project in projects %}
+                                <button type="button" role="option" class="qn" aria-selected="false" data-pf="{{ project.id }}" data-pf-name="{{ project.name }}" data-users-filter-target="pfOption" data-action="users-filter#pickPf">
+                                    {{ include('_project_avatar.html.twig', {'logo_path': project.iconPath, 'initials': project.initials, 'class': 'sm', 'alt': ''}, with_context = false) }}
+                                    <span class="nm">{{ project.name }}</span>
+                                    <span class="end"><span class="chk">{{ icon('check') }}</span></span>
+                                </button>
                             {% endfor %}
-                        </tbody>
-                    </table>
+                            <p class="cap pf-none" data-users-filter-target="pfNone" hidden>Žádný projekt neodpovídá hledání.</p>
+                        </div>
+                    </div>
                 </div>
+            {% endif %}
+        </div>
+
+        <div class="u-card">
+            <div class="u-lh" aria-hidden="true"><span>Uživatel</span><span class="u-tags"><span>Role</span><span>Stav</span></span><span></span></div>
+            <ul class="u-list" aria-label="Uživatelé">
+                {% for request in requests %}
+                    {% set rejected = request.status.value == 'dismissed' %}
+                    <li class="u-row {{ rejected ? 'rej' : 'req' }}" data-users-filter-target="row"
+                        data-kind="{{ rejected ? 'rejected' : 'request' }}" data-search="{{ request.email|lower }}"{% if rejected %} hidden{% endif %}>
+                        <div class="u-who">
+                            <span class="av {{ rejected ? 'inv' : 'req' }}" aria-hidden="true">{{ icon('user-plus') }}</span>
+                            <span class="who"><span class="u-nm">{{ request.email }}</span><span class="u-sub">Požádáno {{ request.createdAt|date('j. n. Y H:i') }}</span></span>
+                        </div>
+                        <div class="u-tags">
+                            <span class="u-role u-role-req">Žádost o registraci</span>
+                            {% if rejected %}
+                                <span class="u-st off"><span class="dot"></span>Zamítnuto</span>
+                            {% else %}
+                                <span class="u-st"><span class="pill mint">Nová žádost</span><span class="cap">{{ adm.ago(request.createdAt) }}</span></span>
+                            {% endif %}
+                        </div>
+                        <div class="u-acts req-acts">
+                            {% if not rejected %}
+                                <a href="{{ path('admin_dismiss_registration_request', {'id': request.id, 'back': 'users'}) }}" class="btn btn-secondary xs">Zamítnout</a>
+                            {% endif %}
+                            <a href="{{ path('admin_invite_user', {'email': request.email}) }}" class="btn btn-primary xs">{{ icon('check', 's14') }}Povolit</a>
+                        </div>
+                    </li>
+                {% endfor %}
+
+                {% for user in users %}
+                    {% set is_me = user.id == currentUserId %}
+                    {% set role_key = user.isAdmin ? 'admin' : (user.isDesigner ? 'designer' : 'user') %}
+                    {% set user_projects = access[user.id] ?? {} %}
+                    <li class="u-row" data-users-filter-target="row"
+                        data-kind="{{ user.isPending ? 'invited' : 'user' }}" data-role="{{ role_key }}"
+                        data-search="{{ (user.name ?? '')|lower }} {{ user.email|lower }}"
+                        data-projects="{{ user_projects|keys|join(' ') }}"
+                        data-owns="{{ user_projects|filter(o => o)|keys|join(' ') }}">
+                        <div class="u-who">
+                            {% if user.isPending %}
+                                <span class="av inv" aria-hidden="true">{{ icon('mail') }}</span>
+                            {% else %}
+                                <span class="av" aria-hidden="true">{{ adm.person_initials(user.name, user.email) }}</span>
+                            {% endif %}
+                            <span class="who u-who-t">
+                                <a class="u-name" href="{{ is_me ? path('user_profile') : path('admin_edit_user', {'id': user.id}) }}">{{ user.displayName }}{% if is_me %} <span class="u-me">(vy)</span>{% endif %}</a>
+                                {% if user.name %}<span class="u-sub">{{ user.email }}</span>{% endif %}
+                            </span>
+                            <span class="pill pch u-own" hidden>Vlastník</span>
+                        </div>
+                        <div class="u-tags">
+                            {{ adm.role(user.isAdmin, user.isDesigner) }}
+                            {{ adm.status(user.isPending, user.registeredAt) }}
+                        </div>
+                        {% if is_me %}
+                            <span></span>
+                        {% else %}
+                            <div class="u-acts dropdown">
+                                <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="menu" aria-label="Akce: {{ user.displayName }}">{{ icon('more', 's16') }}</button>
+                                <div class="dropdown-menu dropdown-menu-end" role="menu">
+                                    <a href="{{ path('admin_edit_user', {'id': user.id}) }}" class="dropdown-item" role="menuitem">{{ icon('edit', 's16') }}Upravit profil</a>
+                                    {% if user.isPending %}
+                                        <a href="{{ path('admin_resend_invitation', {'id': user.id}) }}" class="dropdown-item" role="menuitem">{{ icon('mail', 's16') }}Znovu poslat pozvánku</a>
+                                    {% endif %}
+                                    <div class="dropdown-divider"></div>
+                                    <a href="#" class="dropdown-item danger" role="menuitem"
+                                       data-modal-id="{{ user.id }}"
+                                       data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}{{ user.isPending ? 'Stáhnout pozvánku' : 'Odebrat uživatele' }}</a>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+                <li class="u-empty" data-users-filter-target="empty" hidden>Nikdo neodpovídá hledání ani filtru.</li>
+            </ul>
+            <div class="u-foot">
+                <span>Zobrazeno <span data-users-filter-target="shown">{{ users|length + pending_requests|length }}</span> z {{ total }}</span>
+                <span data-users-filter-target="pfFoot" hidden></span>
             </div>
         </div>
-    {% endif %}
+
+        {% for user in users|filter(u => u.id != currentUserId) %}
+            <twig:ConfirmModal
+                id="{{ user.id }}"
+                url="{{ path('admin_delete_user', {'id': user.id}) }}"
+                confirmationText="Opravdu chcete smazat uživatele {{ user.displayName }}? Tato akce je nevratná a odstraní i všechny jeho projekty."
+            />
+        {% endfor %}
+    </div>
 {% endblock %}

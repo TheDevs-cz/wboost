@@ -1,60 +1,97 @@
 {% extends 'base.html.twig' %}
+{% import 'admin/_macros.html.twig' as adm %}
 
 {% set active_menu_item = 'admin_landing_leads' %}
 
 {% block title %}Poptávky z webu{% endblock %}
+{% block title_count %}{{ leads|length }}{% endblock %}
+{% block page_lead %}Kontakty z formulářů na wboost.cz. Každá poptávka zároveň odešla e-mailem — tady se neztratí, ani když e-mail nedorazí.{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item">Administrace</li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
-{% endblock %}
+{#
+    Designed in the Nocturne language (the prototype only has a placeholder):
+    "rows for people and records" — one bordered list, a row per lead with the
+    contact, what they want and the message excerpt; source chips filter
+    client-side (chip_filter_controller). "Nová" = arrived in the last 7 days
+    (there is no read/handled state on LandingLead).
+#}
 
 {% block content %}
     {% if leads|length == 0 %}
-        <div class="alert alert-info">
-            Zatím nepřišla žádná poptávka z wboost.cz.
+        <div class="empty">
+            <span class="ico-c">{{ icon('inbox-in') }}</span>
+            <h2>Zatím nepřišla žádná poptávka z wboost.cz.</h2>
+            <p>Jakmile někdo vyplní formulář na webu nebo napíše do chatu, uvidíte ho tady.</p>
         </div>
     {% else %}
-        <div class="card shadow-sm rounded-3 overflow-hidden">
-            <div class="card-body p-0">
-                <div class="table-responsive rounded-3">
-                    <table class="table table-hover table-striped mb-0 align-top">
-                        <thead class="table-light">
-                            <tr>
-                                <th class="ps-3">Přišlo</th>
-                                <th>Odkud</th>
-                                <th>Kontakt</th>
-                                <th class="pe-3">Podrobnosti</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for lead in leads %}
-                                <tr>
-                                    <td class="ps-3 text-nowrap">{{ lead.createdAt|date('d.m.Y H:i') }}</td>
-                                    <td class="text-nowrap"><span class="badge bg-light text-dark">{{ lead.source.label }}</span></td>
-                                    <td>
-                                        {% if lead.name %}<div class="fw-medium">{{ lead.name }}</div>{% endif %}
-                                        <div><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></div>
-                                        {% if lead.phone %}<div><a href="tel:{{ lead.phone|replace({' ': ''}) }}">{{ lead.phone }}</a></div>{% endif %}
-                                    </td>
-                                    <td class="pe-3">
-                                        {% if lead.company %}<div><span class="text-muted">Firma:</span> {{ lead.company }}</div>{% endif %}
-                                        {% if lead.website %}<div><span class="text-muted">Web / portfolio:</span> {{ lead.website }}</div>{% endif %}
-                                        {% if lead.interests|length > 0 %}<div><span class="text-muted">Chtějí vyzkoušet:</span> {{ lead.interests|join(', ') }}</div>{% endif %}
-                                        {% if lead.hasDesigner is same as(true) %}
-                                            <div><span class="text-muted">Mají grafika:</span> {{ lead.designerName ?? '–' }}{% if lead.designerEmail %} (<a href="mailto:{{ lead.designerEmail }}">{{ lead.designerEmail }}</a>){% endif %}</div>
-                                        {% elseif lead.hasDesigner is same as(false) %}
-                                            <div><span class="text-muted">Mají grafika:</span> ne</div>
+        {% set sources = {} %}
+        {% for lead in leads %}
+            {% set sources = sources|merge({(lead.source.value): {'label': lead.source.label, 'n': (sources[lead.source.value].n ?? 0) + 1}}) %}
+        {% endfor %}
+
+        <div class="adm-users" data-controller="chip-filter">
+            {% if sources|length > 1 %}
+                <div class="fbar" role="toolbar" aria-label="Filtr poptávek">
+                    <button type="button" class="chip on" aria-pressed="true" data-value="" data-action="chip-filter#pick">Vše <span class="n">{{ leads|length }}</span></button>
+                    <span class="sep" aria-hidden="true"></span>
+                    {% for value, source in sources %}
+                        <button type="button" class="chip" aria-pressed="false" data-value="{{ value }}" data-action="chip-filter#pick">{{ source.label }} <span class="n">{{ source.n }}</span></button>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="u-card">
+                <ul class="ld-list" aria-label="Poptávky">
+                    {% for lead in leads %}
+                        {% set is_new = (('now'|date('U')) - (lead.createdAt|date('U'))) < 7 * 86400 %}
+                        <li class="ld-row" data-chip-filter-target="item" data-group="{{ lead.source.value }}">
+                            <span class="av{{ is_new ? ' req' }}" aria-hidden="true">{{ adm.person_initials(lead.name, lead.email) }}</span>
+                            <div class="ld-main">
+                                <div class="ld-top">
+                                    <b class="ld-name">{{ lead.name ?: lead.email }}</b>
+                                    {% if lead.company %}<span class="ld-co">{{ lead.company }}</span>{% endif %}
+                                    <span class="pill r-user">{{ lead.source.label }}</span>
+                                    {% if is_new %}<span class="pill mint">Nová</span>{% endif %}
+                                </div>
+                                <div class="ld-contact">
+                                    <a href="mailto:{{ lead.email }}">{{ icon('mail', 's14') }}{{ lead.email }}</a>
+                                    {% if lead.phone %}<a href="tel:{{ lead.phone|replace({' ': ''}) }}">{{ lead.phone }}</a>{% endif %}
+                                    {% if lead.website %}<span>{{ icon('link', 's14') }}{{ lead.website }}</span>{% endif %}
+                                </div>
+                                {% if lead.interests|length > 0 or lead.hasDesigner is not null %}
+                                    <div class="ld-tags">
+                                        {% if lead.interests|length > 0 %}
+                                            <span class="ld-k">Chtějí vyzkoušet:</span>
+                                            {% for interest in lead.interests %}<span class="tag">{{ interest }}</span>{% endfor %}
                                         {% endif %}
-                                        {% if lead.message %}<div style="white-space: pre-wrap;">{{ lead.message }}</div>{% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                                        {% if lead.hasDesigner is same as(true) %}
+                                            <span class="ld-k">Mají grafika:</span>
+                                            <span class="ld-v">{{ lead.designerName ?? '–' }}{% if lead.designerEmail %} (<a href="mailto:{{ lead.designerEmail }}">{{ lead.designerEmail }}</a>){% endif %}</span>
+                                        {% elseif lead.hasDesigner is same as(false) %}
+                                            <span class="ld-k">Mají grafika:</span><span class="ld-v">ne</span>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                                {% if lead.message %}
+                                    {% if lead.message|length > 220 %}
+                                        <details class="ld-msg">
+                                            <summary><span class="ld-ex">{{ lead.message|slice(0, 220)|trim }}…</span><span class="ld-more">Zobrazit celou zprávu</span></summary>
+                                            <p>{{ lead.message }}</p>
+                                        </details>
+                                    {% else %}
+                                        <p class="ld-msg">{{ lead.message }}</p>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="ld-when">
+                                <span class="ld-ago">{{ adm.ago(lead.createdAt) }}</span>
+                                <span class="cap">{{ lead.createdAt|date('j. n. Y H:i') }}</span>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+                <div class="u-foot">
+                    <span>Zobrazeno <span data-chip-filter-target="shown">{{ leads|length }}</span> z {{ leads|length }}</span>
+                    <span>Nejnovější nahoře</span>
                 </div>
             </div>
         </div>
