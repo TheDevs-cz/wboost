@@ -2,16 +2,22 @@
 
 {% set active_menu_item = 'templates' %}
 
-{% block title %}Vyplnit a exportovat{% endblock %}
+{% block title %}{{ group.name }} — vyplnit a exportovat{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
-        <li class="breadcrumb-item active">{{ group.name }}</li>
-    </ol>
+{# The prototype fill header (back eyebrow, name, actions) is rendered INSIDE
+   the fill form below (its buttons submit / save that form); the empty-group
+   state gets its own. #}
+{% block page_title_row %}
+    {% if variants|length == 0 %}
+        <header class="head fi-head">
+            <div class="fi-title">
+                <a class="lbl fi-back" href="{{ path('templates', {'projectId': project.id}) }}">{{ icon('arrow-left', 's14') }}{{ project.name }} · Šablony</a>
+                <h1 class="page-title">{{ group.name }}</h1>
+            </div>
+        </header>
+    {% endif %}
 {% endblock %}
+{% block breadcrumb %}{% endblock %}
 
 {#
     Group fill & export page — the single-variant fill page's UX over EVERY
@@ -36,16 +42,14 @@
 #}
 {% block content %}
     {% if variants|length == 0 %}
-        <div class="card">
-            <div class="card-body text-center text-muted py-5">
-                <i class="uil-layer-group" style="font-size: 2rem;"></i>
-                <p class="mb-1 mt-2"><strong>Skupina zatím nemá žádné varianty.</strong></p>
-                {% if is_granted('template_group_edit', group) %}
-                    <p class="mb-0">Nejdřív <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}">přidejte rozměr</a>, potom tu půjde vše najednou vyplnit a stáhnout.</p>
-                {% else %}
-                    <p class="mb-0">Jakmile správce šablony přidá rozměry, půjde tu vše najednou vyplnit a stáhnout.</p>
-                {% endif %}
-            </div>
+        <div class="empty">
+            {{ icon('layers', 's32') }}
+            <b>Skupina zatím nemá žádné varianty.</b>
+            {% if is_granted('template_group_edit', group) %}
+                <span class="cap">Nejdřív <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}">přidejte rozměr</a>, potom tu půjde vše najednou vyplnit a stáhnout.</span>
+            {% else %}
+                <span class="cap">Jakmile správce šablony přidá rozměry, půjde tu vše najednou vyplnit a stáhnout.</span>
+            {% endif %}
         </div>
     {% else %}
         {# Shared editor modules + project fonts (the same set the
@@ -77,7 +81,7 @@
 
         <form method="post" action="{{ export_url }}" data-turbo="false"
               class="fill-form fill-highlight-on fill-captions-on"
-              data-controller="group-fill variant-fill-overlay fill-draft"
+              data-controller="group-fill variant-fill-overlay fill-draft fill-formats"
               data-fill-draft-url-value="{{ path('template_group_fill_draft', {groupId: group.id}) }}"
               {# With the instant echo covering the gap, the settle render can
                  afford to be lazier than the echo-less 900ms. #}
@@ -93,12 +97,13 @@
               data-variant-fill-overlay-fonts-value="{{ font_faces|map(face => face.family)|json_encode }}"
               data-action="keydown->group-fill#blockEnter submit->group-fill#exportStarted rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged">
 
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                <div>
-                    <h3 class="my-0">{{ group.name }}</h3>
-                    <p class="text-muted my-0">Vyplňte obsah jednou — propíše se do všech rozměrů najednou.</p>
+            <header class="head fi-head">
+                <div class="fi-title">
+                    <a class="lbl fi-back" href="{{ path('templates', {'projectId': project.id}) }}">{{ icon('arrow-left', 's14') }}{{ project.name }} · Šablony</a>
+                    <h1 class="page-title">{{ group.name }}</h1>
+                    <span class="head-lead">Vyplňte obsah jednou — propíše se do všech rozměrů najednou.</span>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="head-tools">
                     {{ include('_export_history_menu.html.twig', {
                         history: export_history,
                         loaded_version: loaded_version,
@@ -108,39 +113,38 @@
                         redirect_url: app.request.requestUri,
                     }) }}
                     {% if is_granted('template_group_edit', group) %}
-                        <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit design</a>
+                        <a href="{{ path('template_group_editor', {'groupId': group.id}) }}" class="btn btn-ghost sm">{{ icon('edit', 's16') }}Upravit design</a>
                     {% endif %}
-                    {# Saving work in progress never depends on the form being
-                       exportable — this button is NOT an exportButton target, so
-                       the overflow gate leaves it alone. #}
-                    <button type="button" class="btn btn-outline-primary rounded-pill" data-fill-draft-target="button" data-action="fill-draft#save" title="Ctrl/⌘+S">
-                        <i class="mdi mdi-content-save-outline"></i> Uložit rozpracované
-                    </button>
+                    {# Publishing a group is not built yet: the "coming soon"
+                       fake door (base.html.twig), never a navigation. #}
+                    <button type="button" class="btn btn-tertiary sm" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door">{{ icon('share', 's16') }}Sdílet na sítě</button>
+                    {{ include('_fill_draft_button.html.twig') }}
                     {# Split: the primary half is the PNG ZIP, the menu the print
                        PDFs of the print-format (mm / cm) members, each with its
                        own bleed + crop marks — the pressed submitter posts
                        format=pdf. No print member, no split. #}
                     {% set has_print_member = variants|filter(v => v.variant.dimension.isPrintFormat)|length > 0 %}
+                    {% set zip_label %}{{ icon('download', 's16') }}Stáhnout vše (ZIP){% if variants|length > 1 %} <span class="fi-n">{{ variants|length }}</span>{% endif %}{% endset %}
                     {% if has_print_member %}
-                    <div class="btn-group">
-                        <button type="submit" class="btn btn-primary" style="border-radius: 50rem 0 0 50rem;" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
-                            <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
+                    <div class="btn-group fi-split">
+                        <button type="submit" class="btn btn-primary sm" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton" title="Stáhne všechny rozměry v jednom ZIP">
+                            {{ zip_label }}
                         </button>
-                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" style="border-radius: 0 50rem 50rem 0;" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Další možnosti stažení">
+                        <button type="button" class="btn btn-primary sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Další možnosti stažení">
                             <span class="visually-hidden">Další možnosti stažení</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><button type="submit" class="dropdown-item" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-file-image-outline me-1" aria-hidden="true"></i>Vše jako PNG (ZIP)</button></li>
-                            <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-file-pdf-box me-1" aria-hidden="true"></i>Tiskové formáty jako PDF (ZIP)</button></li>
+                            <li><button type="submit" class="dropdown-item" data-variant-fill-overlay-target="exportButton">{{ icon('image', 's16') }}Vše jako PNG (ZIP)</button></li>
+                            <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton">{{ icon('file', 's16') }}Tiskové formáty jako PDF (ZIP)</button></li>
                         </ul>
                     </div>
                     {% else %}
-                    <button type="submit" class="btn btn-primary rounded-pill" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton">
-                        <i class="mdi mdi-folder-zip-outline"></i> Stáhnout vše (ZIP)
+                    <button type="submit" class="btn btn-primary sm" data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton" title="Stáhne všechny rozměry v jednom ZIP">
+                        {{ zip_label }}
                     </button>
                     {% endif %}
                 </div>
-            </div>
+            </header>
 
             {# The page's draft: the loaded version (the server only ever updates
                it when it IS a draft of this group) — "Uložit rozpracované"
@@ -148,9 +152,13 @@
             <input type="hidden" name="draftVersionId" value="{{ loaded_version ? loaded_version.id : '' }}" data-fill-draft-target="versionField">
             <input type="hidden" name="_fill_draft_token" value="{{ csrf_token('template_fill_draft') }}">
 
-            {# ---- Toolbar: the overlay switches + the panel button ----------- #}
-            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+            {# ---- Toolbar (prototype `.fi-bar`): the overlay switches + the
+               panel button, then the on-screen format controls (fill-formats:
+               which dimensions are on screen + preview size — presentation
+               only, the ZIP always carries every dimension). #}
+            <div class="fi-bar">
                 {{ include('_fill_overlay_toggles.html.twig') }}
+                {{ include('_fill_format_controls.html.twig', {formats: variants|map(v => {id: v.variant.id, label: v.variant.dimension.label})}) }}
             </div>
 
             {# Container-overflow validation (variant-fill-overlay): shown — and
@@ -226,8 +234,7 @@
             {% endfor %}
 
             <div class="fill-body">
-                <div class="group-fill-previews">
-                    <div class="row">
+                <div class="group-fill-previews fi-grid" data-fill-formats-target="grid">
                         {% for v in variants %}
                             {% set variantId = v.variant.id %}
                             {# This dimension's text frames — the boxes are drawn where
@@ -236,37 +243,34 @@
                             {% for inputId, def in v.text_layout.inputs %}
                                 {% set textFrames = textFrames|merge({(inputId): def.frame}) %}
                             {% endfor %}
-                            <div class="col-sm-6 col-xl-4">
-                                <div class="card group-fill-preview-card">
+                                <article class="fi-card group-fill-preview-card" data-fill-formats-target="card" data-format="{{ variantId }}" data-ratio="{{ v.width }}/{{ v.height }}">
                                     {# Which dimension this is, ABOVE the image: a caption under a
                                        preview reads as belonging to whatever comes next. The
                                        download buttons submit the SAME fill form (formaction),
                                        so the file carries exactly what the ZIP entry would. #}
-                                    <div class="group-fill-preview-heading d-flex align-items-center justify-content-between gap-2">
-                                        <span>{{ v.dimension_label }}</span>
+                                    <header class="fi-ch group-fill-preview-heading">
+                                        <b>{{ v.variant.dimension.label }}</b>
+                                        <span class="cap">{{ v.width }} × {{ v.height }} px</span>
                                         {# Shown by variant-fill-overlay while a text of THIS
                                            dimension overflows its container. #}
-                                        <span class="badge bg-danger-subtle text-danger d-none me-auto" data-fill-overflow-badge>
-                                            <i class="mdi mdi-alert-outline" aria-hidden="true"></i> Text přetéká
-                                        </span>
-                                        <span class="d-inline-flex gap-1">
-                                            <button type="submit" class="group-fill-variant-download"
-                                                    formaction="{{ v.export_variant_url }}"
-                                                    data-group-fill-variant-download
-                                                    title="Stáhnout tento rozměr jako PNG">
-                                                <i class="mdi mdi-download"></i> PNG
-                                            </button>
-                                            {% if v.variant.dimension.isPrintFormat %}
-                                            <button type="submit" class="group-fill-variant-download"
-                                                    formaction="{{ v.export_variant_url }}"
-                                                    name="format" value="pdf"
-                                                    data-group-fill-variant-download
-                                                    title="Stáhnout tento rozměr jako PDF pro tisk">
-                                                <i class="mdi mdi-download"></i> PDF
-                                            </button>
-                                            {% endif %}
-                                        </span>
-                                    </div>
+                                        <span class="badge pill rose d-none" data-fill-overflow-badge>{{ icon('alert', 's12') }}Text přetéká</span>
+                                        <span class="fi-sp" aria-hidden="true"></span>
+                                        <button type="submit" class="btn btn-tertiary xs"
+                                                formaction="{{ v.export_variant_url }}"
+                                                data-group-fill-variant-download
+                                                title="Stáhnout tento rozměr jako PNG">
+                                            {{ icon('download', 's14') }}PNG
+                                        </button>
+                                        {% if v.variant.dimension.isPrintFormat %}
+                                        <button type="submit" class="btn btn-tertiary xs"
+                                                formaction="{{ v.export_variant_url }}"
+                                                name="format" value="pdf"
+                                                data-group-fill-variant-download
+                                                title="Stáhnout tento rozměr jako PDF pro tisk">
+                                            {{ icon('download', 's14') }}PDF
+                                        </button>
+                                        {% endif %}
+                                    </header>
                                     {# One fill SURFACE per dimension: the overlay controller
                                        scales this dimension's frames to the displayed preview
                                        and reflows its boxes with its own layout payload. #}
@@ -331,9 +335,9 @@
                                                      data-group-fill-target="placementToolbar"
                                                      data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">
                                                     <div class="d-flex align-items-center justify-content-between gap-2">
-                                                        <span class="group-fill-placement-toolbar__name text-truncate"><i class="mdi mdi-image-outline"></i> {{ slot_name }}</span>
+                                                        <span class="group-fill-placement-toolbar__name text-truncate">{{ icon('image', 's14') }} {{ slot_name }}</span>
                                                         <span class="d-inline-flex align-items-center gap-2">
-                                                            <button type="button" class="btn btn-link btn-sm p-0 font-12"
+                                                            <button type="button" class="btn btn-link btn-sm group-fill-placement-toolbar__center"
                                                                     data-action="group-fill#resetVariantPlacement"
                                                                     data-group-fill-variantid-param="{{ variantId }}"
                                                                     data-group-fill-inputid-param="{{ input.inputId }}">Vycentrovat</button>
@@ -343,7 +347,7 @@
                                                     </div>
                                                     {% if input.allowResize %}
                                                         <div class="group-fill-placement-control">
-                                                            <label for="group-fill-zoom-{{ variantId }}-{{ input.inputId }}" title="Zvětšení"><i class="mdi mdi-magnify-plus-outline"></i><span class="visually-hidden">Zvětšení</span></label>
+                                                            <label for="group-fill-zoom-{{ variantId }}-{{ input.inputId }}" title="Zvětšení">{{ icon('search', 's16') }}<span class="visually-hidden">Zvětšení</span></label>
                                                             <input type="range" class="form-range" id="group-fill-zoom-{{ variantId }}-{{ input.inputId }}"
                                                                    min="1" max="4" step="0.01" value="1"
                                                                    data-group-fill-target="variantZoomRange"
@@ -354,7 +358,7 @@
                                                     {% endif %}
                                                     {% if input.allowRotate %}
                                                         <div class="group-fill-placement-control">
-                                                            <label for="group-fill-rotation-{{ variantId }}-{{ input.inputId }}" title="Otočení"><i class="mdi mdi-rotate-right"></i><span class="visually-hidden">Otočení</span></label>
+                                                            <label for="group-fill-rotation-{{ variantId }}-{{ input.inputId }}" title="Otočení">{{ icon('refresh', 's16') }}<span class="visually-hidden">Otočení</span></label>
                                                             <input type="range" class="form-range" id="group-fill-rotation-{{ variantId }}-{{ input.inputId }}"
                                                                    min="-180" max="180" step="1" value="0"
                                                                    data-group-fill-target="variantRotationRange"
@@ -364,16 +368,14 @@
                                                         </div>
                                                     {% endif %}
                                                     {% if input.allowMove %}
-                                                        <p class="font-11 text-muted mb-0 mt-1"><i class="mdi mdi-cursor-move"></i> Posunete tažením obrázku{{ input.allowResize ? ', kolečkem myši přiblížíte' }}.</p>
+                                                        <p class="cap group-fill-placement-toolbar__hint">{{ icon('grip', 's12') }} Posunete tažením obrázku{{ input.allowResize ? ', kolečkem myši přiblížíte' }}.</p>
                                                     {% endif %}
                                                 </div>
                                             {% endif %}
                                         {% endfor %}
                                     </div>
-                                </div>
-                            </div>
+                                </article>
                         {% endfor %}
-                    </div>
                 </div>
 
             </div>
@@ -413,11 +415,11 @@
                     {% set seededImage = seed.images[input.inputId]|default(null) %}
                     {% set hidden = seed.imageHidden[input.inputId] is defined %}
                     <div class="fill-popover fill-popover--image card" data-inputid="{{ input.inputId }}">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-start mb-1">
-                                <span class="d-inline-flex align-items-center" style="min-width: 0;">
+                        <div class="card-body">
+                            <div class="fill-popover__head">
+                                <span class="fill-popover__lead">
                                     {% if can_arrange_fields %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
-                                    <span class="small fw-bold text-truncate">{{ input.name ?: 'Obrázek ' ~ field.index }}</span>
+                                    <span class="fill-popover__name">{{ input.name ?: 'Obrázek ' ~ field.index }}</span>
                                 </span>
                                 {% if input.hidable %}
                                     <button type="button"
@@ -428,20 +430,20 @@
                                         aria-label="{{ hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
                                         data-action="variant-fill-overlay#toggleHide"
                                         data-variant-fill-overlay-inputid-param="{{ input.inputId }}"
-                                    ><i class="mdi {{ hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                                    >{{ icon(hidden ? 'eye-off' : 'eye', 's14') }}</button>
                                 {% endif %}
                             </div>
-                            {% if input.description %}<p class="small text-muted mb-1">{{ input.description }}</p>{% endif %}
-                            <div class="d-flex align-items-center gap-2">
+                            {% if input.description %}<p class="cap fill-popover__desc">{{ input.description }}</p>{% endif %}
+                            <div class="fill-image-card">
                                 <span class="fill-image-card__thumb"
                                       data-group-fill-target="imageThumb"
                                       data-input-id="{{ input.inputId }}"
                                       {% if seededImage %}style="background-image: url('{{ seededImage.url }}');"
                                       {% elseif slot.defaultImageUrl %}style="background-image: url('{{ slot.defaultImageUrl }}');"{% endif %}></span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                <button type="button" class="btn btn-tertiary xs"
                                         data-action="variant-fill-overlay#openImageModal"
                                         data-variant-fill-overlay-inputid-param="{{ input.inputId }}">
-                                    <i class="mdi mdi-image-search-outline"></i> {{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
+                                    {{ icon('image', 's14') }}{{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
                                 </button>
                             </div>
                             <input type="hidden" name="images[{{ input.inputId }}][imageId]" value="{{ seededImage ? seededImage.imageId : '' }}"
@@ -461,8 +463,8 @@
                                dimension's preview (the toolbar) — not here, behind the
                                "Všechna pole" button. #}
                             {% if input.allowMove or input.allowResize or input.allowRotate %}
-                                <p class="font-11 text-muted mt-2 mb-0">
-                                    <i class="mdi mdi-information-outline"></i>
+                                <p class="cap fill-image-card__hint">
+                                    {{ icon('info', 's14') }}
                                     Velikost, otočení a posun upravíte po kliknutí na obrázek v náhledu — v každém rozměru zvlášť.
                                 </p>
                             {% endif %}
@@ -473,7 +475,7 @@
 
                 {% if text_placeholders|length == 0 and image_inputs|length == 0 and shape_placeholders|length == 0 %}
                     <p class="text-muted small mb-0 fill-popovers__empty">
-                        <i class="mdi mdi-information-outline"></i>
+                        {{ icon('info', 's16') }}
                         Šablony ve skupině nemají žádné vyplnitelné prvky — export stáhne všechny rozměry tak, jak jsou navržené.
                     </p>
                 {% endif %}
@@ -504,30 +506,30 @@
                                     <p class="text-warning small mb-0">Tento obrázek zatím nelze vyplnit — šablona nemá nastavenou složku galerie. Kontaktujte správce šablony.</p>
                                 {% else %}
                                     {% if slot.canUpload %}
-                                        <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
+                                        <nav class="fi-gnav" aria-label="Složky galerie">
                                             <button
                                                 type="button"
-                                                class="btn btn-sm btn-link p-0 text-decoration-none fw-bold text-body"
+                                                class="fi-gcrumb"
                                                 data-fill-gallery-target="rootCrumb"
                                                 data-action="fill-gallery#openRoot"
-                                            ><i class="mdi mdi-folder-home"></i> Galerie</button>
-                                            <span class="text-muted d-none" data-fill-gallery-target="crumbSep">/</span>
-                                            <span class="fw-bold d-none" data-fill-gallery-target="crumbName"></span>
+                                            >{{ icon('image', 's14') }}Galerie</button>
+                                            <span class="fi-gsep d-none" data-fill-gallery-target="crumbSep" aria-hidden="true">/</span>
+                                            <span class="fi-gcrumb on d-none" data-fill-gallery-target="crumbName"></span>
                                         </nav>
 
                                         {% if slot.directories is not empty %}
-                                            <div class="d-flex flex-wrap gap-2 mb-2" data-fill-gallery-target="folders">
+                                            <div class="fi-gfolders" data-fill-gallery-target="folders">
                                                 {% for directory in slot.directories %}
                                                     <button
                                                         type="button"
-                                                        class="btn border rounded p-2 d-flex align-items-center gap-1 text-start"
+                                                        class="fi-gfold"
                                                         data-fill-gallery-target="folderCard"
                                                         data-action="fill-gallery#openFolder"
                                                         data-fill-gallery-id-param="{{ directory.id }}"
                                                         data-fill-gallery-name-param="{{ directory.name }}"
                                                         title="{{ directory.name }}"
                                                     >
-                                                        <i class="mdi mdi-folder text-warning fs-4"></i>
+                                                        {{ icon('folder', 's18') }}
                                                         <span class="text-truncate">{{ directory.name }}</span>
                                                     </button>
                                                 {% endfor %}
@@ -535,29 +537,29 @@
                                         {% endif %}
                                     {% endif %}
 
-                                    <div class="row g-2"
+                                    <div class="fi-ggrid"
                                          data-group-fill-target="imageOptions"
                                          {% if slot.canUpload %}data-fill-gallery-target="grid"{% endif %}
                                          data-input-id="{{ input.inputId }}">
                                         {# The keep-designed option belongs to no folder — visible in
                                            every view (data-always-visible). Same tile as the
                                            gallery pictures, captioned instead of a file name. #}
-                                        <div class="col-6 col-sm-4 col-md-3" data-fill-gallery-target="thumb" data-always-visible="true">
-                                            <div class="position-relative border rounded gallery-asset h-100">
-                                                <button type="button" class="btn p-0 w-100 h-100 text-start gallery-asset__select group-fill-image-option selected"
+                                        <div class="fi-gcell" data-fill-gallery-target="thumb" data-always-visible="true">
+                                            <div class="gallery-asset fi-gt">
+                                                <button type="button" class="gallery-asset__select fi-gsel group-fill-image-option selected"
                                                         data-action="group-fill#pickImage"
                                                         data-input-id="{{ input.inputId }}"
                                                         data-image-id=""
                                                         data-image-url="{{ slot.defaultImageUrl ?: '' }}"
                                                         data-bs-dismiss="modal"
                                                         title="Ponechat obrázek ze šablony">
-                                                    <div class="p-1">
+                                                    <span class="fi-gi">
                                                         {% if slot.defaultImageUrl %}
-                                                            <img crossorigin="anonymous" src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy" class="img-fluid" style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;">
+                                                            <img crossorigin="anonymous" src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy">
                                                         {% else %}
-                                                            <div class="d-flex align-items-center justify-content-center text-muted rounded" style="aspect-ratio: 1; background: #f8f9fa;"><i class="mdi mdi-image-off-outline fs-2"></i></div>
+                                                            {{ icon('image', 's32') }}
                                                         {% endif %}
-                                                    </div>
+                                                    </span>
                                                     <div class="gallery-asset__caption">
                                                         <div class="gallery-asset__name"><span class="gallery-asset__name-base">Výchozí</span></div>
                                                         <div class="gallery-asset__meta"><span class="gallery-asset__size">Obrázek ze šablony</span></div>
@@ -598,15 +600,13 @@
                                             }) }}
                                         </template>
 
-                                        <hr class="my-3">
-
-                                        <p class="text-muted small mb-0 d-none" data-fill-gallery-target="pickFolderHint">Pro nahrání vlastního obrázku otevřete složku.</p>
+                                                                                <p class="text-muted small mb-0 d-none" data-fill-gallery-target="pickFolderHint">Pro nahrání vlastního obrázku otevřete složku.</p>
                                         {# The dropzone's file input is deliberately UNNAMED so it
                                            never lands in the export FormData — the upload POSTs
                                            separately and the form only carries the resulting imageId. #}
                                         <div data-fill-gallery-target="uploadWrap">
                                             <div
-                                                class="gallery-dropzone"
+                                                class="gallery-dropzone gal-drop gal-drop-compact"
                                                 data-fill-gallery-target="dropzone"
                                                 data-action="
                                                     click->fill-gallery#browse
@@ -618,16 +618,16 @@
                                                 role="button"
                                                 tabindex="0"
                                             >
-                                                <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
-                                                <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
-                                                <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
-                                                <div class="text-muted small mt-1">
-                                                    Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> <span data-fill-gallery-target="uploadTargetLabel"></span></strong>
+                                                {{ icon('upload', 's24') }}
+                                                <b>Přetáhněte obrázky sem</b>
+                                                <span class="cap">nebo klikněte pro výběr z počítače</span>
+                                                <span class="cap">
+                                                    Nahraje se do: <b>{{ icon('folder', 's12') }}<span data-fill-gallery-target="uploadTargetLabel"></span></b>
                                                     &middot; max. 10&nbsp;MB / soubor
-                                                </div>
+                                                </span>
                                             </div>
                                             <input type="file" class="d-none" accept="image/*" multiple data-fill-gallery-target="fileInput" data-action="change->fill-gallery#filesChosen">
-                                            <div class="mt-2 d-flex flex-column gap-2" data-fill-gallery-target="queue" aria-live="polite"></div>
+                                            <div class="gal-queue" data-fill-gallery-target="queue" aria-live="polite"></div>
                                         </div>
                                     {% endif %}
                                 {% endif %}

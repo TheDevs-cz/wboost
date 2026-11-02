@@ -4,19 +4,23 @@
    so opening it never navigates away and an unsaved fill survives. #}
 <div class="modal fade" id="social-publish-fake-door" tabindex="-1" aria-labelledby="social-publish-fake-door-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
+        <div class="modal-content fi-door">
             <div class="modal-header">
-                <h5 class="modal-title" id="social-publish-fake-door-title">
-                    <i class="mdi mdi-facebook text-primary" aria-hidden="true"></i><i class="mdi mdi-instagram text-danger me-1" aria-hidden="true"></i>Publikování na Facebook a Instagram
-                </h5>
+                <h5 class="modal-title" id="social-publish-fake-door-title">Sdílet na sítě</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
             </div>
             <div class="modal-body">
+                <div class="fi-door-nets" aria-hidden="true">
+                    <span class="fi-door-net">{{ icon('facebook', 's24') }}</span>
+                    <span class="fi-door-net">{{ icon('instagram', 's24') }}</span>
+                    <span class="fi-door-net ai">{{ icon('sparkle', 's24') }}</span>
+                </div>
+                <p class="fi-door-lead">Publikování na Facebook a Instagram připravujeme.</p>
                 <p>
                     Brzy budete moci publikovat vyplněné šablony přímo na své facebookové stránky
                     a instagramové profesionální účty — bez stahování PNG.
                 </p>
-                <p class="mb-0 text-muted">
+                <p class="mb-0 cap">
                     Publikování vyžaduje propojený facebookový účet. Propojení právě připravujeme —
                     dáme vám vědět, jakmile bude k dispozici.
                 </p>

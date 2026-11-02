@@ -7,7 +7,7 @@
 
    Expects:
    - loaded_version:  null|TemplateExportVersion #}
-<span id="export-history-toggle-label" class="d-inline-block text-truncate align-bottom" style="max-width: 16rem;"
+<span id="export-history-toggle-label" class="fi-hlabel"
     {%- if loaded_version %} title="Načtená verze: {{ loaded_version.name ? loaded_version.name ~ ', ' }}{{ loaded_version.lastExportedAt|date('d.m.Y H:i') }}{{ loaded_version.exportedBy ? ', ' ~ loaded_version.exportedBy.displayName }}"{% endif %}>
     {%- if loaded_version is null -%}
         Historie exportů

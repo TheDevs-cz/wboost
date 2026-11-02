@@ -20,17 +20,17 @@
    Expects:
    - version:       TemplateExportVersion (its anchor must be on the page)
    - redirect_url:  local path to return to after the toggle
-   - tone:          optional icon colour class
-                    (defaults to primary when pinned, muted otherwise)
+   - tone:          optional extra class on the button (the pinned state
+                    itself is `.on` — lavender, tilted pin)
    - turbo:         bool (default false) — see above #}
 {% set turbo = turbo ?? false %}
 {% set form_id = 'export-version-pin-' ~ version.id %}
 {% set title = version.pinned ? 'Odepnout verzi' : 'Připnout verzi – zůstane nahoře v historii a nikdy se nepromaže' %}
-<span class="d-inline-flex align-items-center" data-export-version-pin="{{ version.id }}">
+<span class="fi-hpin" data-export-version-pin="{{ version.id }}">
     <input type="hidden" name="_token" value="{{ csrf_token('template_export_version_pin') }}" form="{{ form_id }}">
     <input type="hidden" name="pinned" value="{{ version.pinned ? '0' : '1' }}" form="{{ form_id }}">
     <input type="hidden" name="redirect" value="{{ redirect_url }}" form="{{ form_id }}">
-    <button type="submit" form="{{ form_id }}" class="btn btn-link btn-sm p-0 px-1 lh-1 {{ tone ?? (version.pinned ? 'text-primary' : 'text-muted') }}" title="{{ title }}" aria-label="{{ title }}"{% if turbo %} data-turbo="true"{% endif %}>
-        <i class="mdi {{ version.pinned ? 'mdi-pin' : 'mdi-pin-outline' }} font-16"></i>
+    <button type="submit" form="{{ form_id }}" class="fi-hb{{ version.pinned ? ' on' }}{{ tone is defined ? ' ' ~ tone }}" title="{{ title }}" aria-label="{{ title }}" aria-pressed="{{ version.pinned ? 'true' : 'false' }}"{% if turbo %} data-turbo="true"{% endif %}>
+        {{ icon('pin', 's14') }}
     </button>
 </span>

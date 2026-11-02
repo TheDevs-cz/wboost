@@ -462,3 +462,82 @@ previews showed the placeholder).
 category-delete "move to" picker (prototype) need backend. Document cards have
 no "naposledy exportováno" (document export versions are not in
 `latestForProjectTemplates`). P6 should restyle the shared pin/rename partials.
+
+---
+
+## 2026-11-02 — P6 Fill pages (single / group / document)
+
+**What.** The three fill pages in the prototype's "Vyplnit a exportovat" look
+(renderTpFill / fiHist): back eyebrow "← PROJEKT · ŠABLONY", h1 = template /
+group / document name, actions row, `.fi-bar` toggles row, format cards, the
+export-history popover, restyled pop-ups, "Všechna pole" panel, image pickers,
+placement toolbar, document page strip, fake-door share dialog. Overlay
+contract (ids, targets, data-* hooks, Live/ignore subtrees, popovers fixed
+outside the stage, fit zoom, echo, settle) untouched.
+
+**How / files.**
+- CSS `assets/styles/nocturne/fill.css`, imported in `assets/app.js` AFTER
+  `app.css` (it re-skins app.css's fill-overlay rules; equal specificity wins).
+- Single page (`template_variant_export`, `components/VariantFiller`): header
+  rendered in the content block INSIDE the fill-draft wrapper (so the draft
+  button can live in the header): Historie exportů ▾ · Upravit design ·
+  draft status button. Toolbar: switches, Všechna pole, Náhled, zoom −/%/+,
+  "Přizpůsobit obrazovce" (new `variant-fill-overlay#zoomFit` + `fitButton`
+  target: back to the auto fit). The preview sits in a full-width `.fi-card`
+  whose header holds "1:1 · 1080 × 1080 px" + Sdílet na sítě (FB/IG publish
+  menu when connected, else the fake door — as before) + PDF pro tisk +
+  primary "Stáhnout PNG" (all still exportButton targets inside the form).
+  The export split dropdown is gone (its items moved into "Sdílet").
+- Group page: header inside the form (history, Upravit design, Sdílet na
+  sítě → fake door (new, trivially cheap), draft, primary "Stáhnout vše (ZIP) n"
+  split with the print PDFs). Cards `.fi-grid`/`.fi-card` with `.fi-ch`
+  header (label, px, overflow pill, PNG/PDF pills). New
+  `fill_formats_controller.js` + `_fill_format_controls.html.twig`:
+  "Přizpůsobit obrazovce" (prototype fiAuto formula; phones ≤700 px fit by
+  width), format chips (on-screen only — ZIP still carries every format; the
+  last chip cannot be switched off), size slider 240–820 (`wb-fisize`).
+- Document page: same header/bar; page strip + pages restyled.
+- Shared partials: `_fill_overlay_toggles` (`.fi-sw` switches around the
+  same `#fill-*-toggle` checkboxes; label "Oblasti k vyplnění"),
+  `_fill_overlay_boxes` (mask icons; lavender text / mint image / peach
+  colour boxes, tags and dots via CSS; tags counter-scaled by `--fill-zoom`
+  so they stay readable on the zoomed single page), `_fill_text_popover`,
+  `_fill_shape_popover`, `_fill_panel_header` (Hotovo + ×, deliberately not
+  `.btn` — openPanel focuses the first `button.btn`), `_fill_gallery_tile`
+  (prototype `.fi-gt` tile; caption partial + selectors kept),
+  `_fill_field_reorder_handle`, new `_fill_draft_button` (label doubles as
+  status: fill_draft_controller sets `data-saved` after a save, drops it when
+  the form differs again).
+- History: `_export_history_menu*` = `.fi-hpop` (header, pinned rows on
+  lavender, loaded row with lavender edge, rename/pin `.fi-hb` icons,
+  "Zobrazit vše (N)", "Zpět na výchozí hodnoty"); Bootstrap dropdown,
+  `#export-history-*` ids, Turbo Stream targets and the "Připnuté verze" /
+  `text-truncate fw-semibold` strings kept. `_export_version_pin_button` /
+  `_rename_form` (also on the history page) → mask icons, `.fi-hb.on`.
+- `_social_publish_fake_door`: Nocturne dialog ("Sdílet na sítě", FB/IG/AI
+  tiles). The full AI share UI (screen 24) stays a new feature (#31).
+- JS changed minimally: `variant_fill_overlay_controller` (preview toggle no
+  longer swaps Bootstrap btn classes, icon swaps on `.i` mask icons for the
+  preview button and every eye; `zoomFit`), `fill_draft_controller`
+  (`data-saved`).
+
+**Tests changed.** None.
+
+**Verified.** Gate green. Own puppeteer scripts (isMobile:false) on the single
+page (2 variants incl. an image slot), group (3 formats) and document page at
+390/820/1440 × dark/light: no overflow, no JS errors. Clicked: history open,
+rename pencil + Esc (menu stays open), text pop-up + typing (echo), Uložit,
+"Všechna pole" (focus lands in the first field) + Hotovo, Náhled (aria +
+icon), image picker modal, eye toggle (icon swap), fake door, format chip
+off/on, draft save (Turbo stream relabels the history toggle, button →
+"Rozpracované uloženo"; this left one draft on variant 01a18d6e-e0a6 in the
+dev DB).
+
+**Not verified.** Real FB/IG publish modal (no connected account locally),
+rich-text / checklist pop-ups (no such inputs in local data), group image
+placement toolbar + group image picker pick, admin drag-reorder in the panel,
+fonts/images (Minio 403 → Live previews render with fallback fonts).
+
+**Follow-ups.** ZIP of only the chip-selected formats needs a backend param;
+prototype multi-column "Všechna pole" dialog with live thumbnails, container
+"+ Řádek" / hidden-rows pills, eyedropper (#29), AI share dialog (#31).

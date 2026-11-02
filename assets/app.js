@@ -28,6 +28,8 @@ import './styles/nocturne/templates.css';
 import './styles/nocturne/admin.css';
 
 import './styles/app.css';
+// Fill pages re-skin app.css's fill-overlay rules, so they load after it.
+import './styles/nocturne/fill.css';
 
 // window.bootstrap before Stimulus starts.
 import './bootstrap_global.js';

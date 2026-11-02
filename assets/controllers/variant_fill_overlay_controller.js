@@ -70,7 +70,7 @@ export default class extends Controller {
     static targets = [
         "stage", "surface", "preview", "previewSource", "box", "popover", "modal", "spinner",
         "zoomLabel", "exportButton", "overflowAlert", "panel", "panelButton", "imageThumb",
-        "previewButton",
+        "previewButton", "fitButton",
     ];
     static values = {
         fonts: Array,
@@ -287,14 +287,12 @@ export default class extends Controller {
         if (this._previewOn) this.closePopover();
         this.element.classList.toggle("fill-preview-on", this._previewOn);
         this.previewButtonTargets.forEach((button) => {
-            button.classList.toggle("btn-outline-secondary", !this._previewOn);
-            button.classList.toggle("btn-secondary", this._previewOn);
-            button.classList.toggle("active", this._previewOn);
+            // The pressed look comes from aria-pressed (fill.css).
             button.setAttribute("aria-pressed", this._previewOn ? "true" : "false");
-            const icon = button.querySelector(".mdi");
+            const icon = button.querySelector(".i");
             if (icon) {
-                icon.classList.toggle("mdi-eye-outline", !this._previewOn);
-                icon.classList.toggle("mdi-eye-off-outline", this._previewOn);
+                icon.classList.toggle("i-eye", !this._previewOn);
+                icon.classList.toggle("i-eye-off", this._previewOn);
             }
             const label = button.querySelector("[data-preview-label]");
             if (label) label.textContent = this._previewOn ? "Ukončit náhled" : "Náhled";
@@ -387,12 +385,28 @@ export default class extends Controller {
         this._applyZoom(1);
     }
 
+    /** "Přizpůsobit obrazovce": back to the automatic fit (the state the page
+     *  loads in) — the fit then follows resizes again until the next manual
+     *  zoom. */
+    zoomFit() {
+        this._userZoomed = false;
+        this._fitToScreen();
+        this._updateFitButton();
+    }
+
+    _updateFitButton() {
+        this.fitButtonTargets.forEach((button) => {
+            button.setAttribute("aria-pressed", this._userZoomed ? "false" : "true");
+        });
+    }
+
     _applyZoom(z) {
         this._userZoomed = true;
         // Low floor so a tall canvas can be zoomed out far enough to see all of it
         // (the old hard 50 % floor was the "can't go below 50 %" complaint).
         this._zoom = Math.min(3, Math.max(0.1, Math.round(z * 100) / 100));
         this._updateZoomLabel();
+        this._updateFitButton();
         this.reposition();
     }
 
@@ -710,8 +724,11 @@ export default class extends Controller {
             btn.setAttribute("aria-pressed", hidden ? "true" : "false");
             btn.setAttribute("title", label);
             btn.setAttribute("aria-label", label);
-            const icon = btn.querySelector("i");
-            if (icon) icon.className = hidden ? "mdi mdi-eye-off-outline" : "mdi mdi-eye-outline";
+            const icon = btn.querySelector(".i");
+            if (icon) {
+                icon.classList.toggle("i-eye", !hidden);
+                icon.classList.toggle("i-eye-off", hidden);
+            }
         });
     }
 

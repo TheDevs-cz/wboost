@@ -15,19 +15,15 @@
     - arrangeable: (optional) show the admin's panel reorder handle
 #}
 <div class="fill-popover fill-popover--shape card" role="dialog" aria-labelledby="fill-shape-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
-    <div class="card-body p-2">
-        <div class="d-flex justify-content-between align-items-start mb-1">
-            <span class="d-inline-flex align-items-center" style="min-width: 0;">
-                <i class="mdi mdi-drag fill-popover__drag fill-popover__chrome me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
-                {% if arrangeable|default(false) %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
-                <span id="fill-shape-label-{{ ph.inputId }}" class="small fw-bold text-truncate">{{ ph.name ?: 'Barva tvaru' }}</span>
-            </span>
-            <div class="d-flex align-items-center gap-1">
-                <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center fill-popover__chrome" style="font-size: .7rem;" data-action="variant-fill-overlay#close"><i class="mdi mdi-check me-1" aria-hidden="true"></i> Uložit</button>
-                <button type="button" class="btn-close fill-popover__chrome" style="font-size: .6rem;" aria-label="Zavřít" data-action="variant-fill-overlay#close"></button>
-            </div>
+    <div class="card-body">
+        <div class="fill-popover__head">
+            <span class="i i-grip s14 fill-popover__drag fill-popover__chrome" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></span>
+            {% if arrangeable|default(false) %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
+            <span id="fill-shape-label-{{ ph.inputId }}" class="fill-popover__name">{{ ph.name ?: 'Barva tvaru' }}</span>
+            <button type="button" class="btn btn-success xs fill-popover__ok fill-popover__chrome" data-action="variant-fill-overlay#close">{{ icon('check', 's14') }}Uložit</button>
+            <button type="button" class="btn btn-ghost icon xs fill-popover__x fill-popover__chrome" aria-label="Zavřít" data-action="variant-fill-overlay#close">{{ icon('x', 's16') }}</button>
         </div>
-        <div class="d-flex align-items-center flex-wrap gap-1" role="group" aria-label="Barva">
+        <div class="fill-popover__swatches" role="group" aria-label="Barva">
             {% for color in ph.options %}
                 <button
                     type="button"

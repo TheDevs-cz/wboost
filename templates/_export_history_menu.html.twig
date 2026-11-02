@@ -26,13 +26,14 @@
    - route_params:    the fill page's route params (version id gets merged in)
    - history_url:     the dedicated history page
    - redirect_url:    local path a pin / rename returns to (this page) #}
-<div id="export-history-menu" class="d-inline-block">
+<div id="export-history-menu" class="fi-hw">
 {% if not history.isEmpty %}
-    <div class="dropdown d-inline-block">
-        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-            <i class="mdi mdi-history"></i> {{ include('_export_history_toggle_label.html.twig') }}
+    <div class="dropdown">
+        <button class="btn btn-tertiary sm fi-hbtn dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            {{ icon('history', 's16') }}{{ include('_export_history_toggle_label.html.twig') }}{{ icon('chev-down', 's14 fi-hchev') }}
         </button>
-        <div class="dropdown-menu dropdown-menu-end shadow" style="min-width: 24rem; max-height: 28rem; overflow-y: auto;">
+        <div class="dropdown-menu fi-hpop">
+            <div class="fi-hh"><b>Historie exportů</b><span class="cap">Klikem načtete obsah exportu do formuláře.</span></div>
             {{ include('_export_history_menu_body.html.twig') }}
         </div>
     </div>

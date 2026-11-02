@@ -100,7 +100,7 @@ finish; tick your phase's boxes here.
 - [x] **P5 Templates** — templates list (categories, Nejpoužívanější if data
       exists, card style), categories, variants, add template (type picker
       look), documents pages, export history page, print settings, export_failed.
-- [ ] **P6 Fill pages** — single / group / document fill chrome (header
+- [x] **P6 Fill pages** — single / group / document fill chrome (header
       actions row, toggles row, format cards), export-history popover, keep the
       overlay contract.
 - [ ] **P7 Editors** — variant + group editor chrome (top bar, format tabs,
