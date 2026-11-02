@@ -30,6 +30,10 @@ final class InviteUserFormType extends AbstractType
             ->add('email', EmailType::class, [
                 'label' => 'E-mail',
                 'required' => true,
+                // A blank input maps back as NULL, which the non-nullable
+                // `string $email` cannot take (500 before validation ran);
+                // '' lets NotBlank report it on the field instead.
+                'empty_data' => '',
             ])
             ->add('name', TextType::class, [
                 'label' => 'Jméno',

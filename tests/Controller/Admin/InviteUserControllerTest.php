@@ -66,6 +66,26 @@ final class InviteUserControllerTest extends WebTestCase
         $this->assertResponseRedirects('/admin/users/invite');
     }
 
+    /**
+     * The browser's `required` blocks this normally; a request that bypasses
+     * it used to 500 (blank input → NULL into the non-nullable FormData
+     * string) instead of showing the field error.
+     */
+    public function testBlankEmailShowsFieldErrorInsteadOfCrashing(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $crawler = $browser->request('GET', '/admin/users/invite');
+        $form = $crawler->selectButton('Odeslat pozvánku')->form();
+        $form['invite_user_form[email]'] = '';
+        $crawler = $browser->submit($form);
+
+        $this->assertResponseStatusCodeSame(422);
+        self::assertNotSame('', trim($crawler->filter('.adm-errors')->first()->text()));
+        self::assertEmailCount(0);
+    }
+
     public function testEmailIsPrefilledFromQuery(): void
     {
         $browser = self::createClient();
