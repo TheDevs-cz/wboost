@@ -26,3 +26,8 @@ Live prototype: https://claude.ai/artifact/MfGLZ9csA4N8D98CKxBVsZ (hash routes
 `#projekty`, `#uzivatele`, `#statistiky`, `#projekt-{id}`,
 `#projekt-{id}/manualy|sablony|galerie|fonty|barvy`, `#projekt-{id}/sablony/{tid}`,
 `#projekt-{id}/sablony/{tid}/vyplnit`).
+
+## Tools
+
+- `tools/shoot.cjs` — logs in and screenshots paths at 390/820/1440 × dark/light, flags horizontal overflow and JS errors. Defaults to the throwaway admin `redesign@test.cz` / `Redesign123`, which is deleted after each session — recreate it first (see `.claude/skills/verify/SKILL.md`: `app:user:register` + set `ROLE_ADMIN`), and delete it again afterwards. Needs `puppeteer-core` (`PUPPETEER_DIR`) and local Chrome.
+- `tools/gate.sh` — PHPStan + full PHPUnit behind a lock (safe with parallel agents); `--clear-assets` clears dev cache + compiled assets under the same lock.
