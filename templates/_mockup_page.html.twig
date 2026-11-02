@@ -16,7 +16,7 @@
                     <img src="{{ uploaded_asset(mockup_page.images[loop.index0]) }}" alt="{{ mockup_page.name }} – obrázek {{ loop.index }}" loading="lazy">
                 {% elseif show_placeholders|default(false) %}
                     <div class="mockup-slot-placeholder">
-                        <i class="ri-image-line"></i>
+                        {{ icon('image') }}
                     </div>
                 {% endif %}
 

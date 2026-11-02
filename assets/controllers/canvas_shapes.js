@@ -42,13 +42,13 @@ export function isShapeObject(obj) {
  * would make the panel useless. Nothing renders off it.
  */
 export const SHAPE_KINDS = {
-    rectangle: { label: 'Obdélník', icon: 'mdi-rectangle-outline' },
-    square: { label: 'Čtverec', icon: 'mdi-square-outline' },
-    circle: { label: 'Kruh', icon: 'mdi-circle-outline' },
-    ellipse: { label: 'Elipsa', icon: 'mdi-ellipse-outline' },
-    triangle: { label: 'Trojúhelník', icon: 'mdi-triangle-outline' },
-    line: { label: 'Čára', icon: 'mdi-minus' },
-    star: { label: 'Hvězda', icon: 'mdi-star-outline' },
+    rectangle: { label: 'Obdélník' },
+    square: { label: 'Čtverec' },
+    circle: { label: 'Kruh' },
+    ellipse: { label: 'Elipsa' },
+    triangle: { label: 'Trojúhelník' },
+    line: { label: 'Čára' },
+    star: { label: 'Hvězda' },
 };
 
 /** Fallback fill when the project's manuals declare no brand colors. */

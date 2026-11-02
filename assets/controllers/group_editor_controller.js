@@ -906,22 +906,22 @@ export default class extends Controller {
                 // allTargets() skips shadow-less variants — say so instead of
                 // silently leaving them out of the list.
                 if (!variant.shadow && reports.some((r) => !r.notSyncable)) {
-                    rows.push({ variant, icon: 'mdi-alert-circle-outline', tone: 'danger', text: 'variantu se nepodařilo načíst — nepřeneseno' });
+                    rows.push({ variant, icon: 'i-alert-circle', tone: 'danger', text: 'variantu se nepodařilo načíst — nepřeneseno' });
                 }
                 return;
             }
             switch (entry.status) {
                 case 'updated':
-                    rows.push({ variant, icon: 'mdi-check-circle', tone: 'success', text: `změněno: ${entry.changes.join(', ')}` });
+                    rows.push({ variant, icon: 'i-check-circle', tone: 'success', text: `změněno: ${entry.changes.join(', ')}` });
                     break;
                 case 'unchanged':
-                    rows.push({ variant, icon: 'mdi-equal', tone: 'muted', text: 'beze změny — už odpovídá' });
+                    rows.push({ variant, icon: 'i-equal', tone: 'muted', text: 'beze změny — už odpovídá' });
                     break;
                 case 'hidden':
-                    rows.push({ variant, icon: 'mdi-eye-off-outline', tone: 'warning', text: 'prvek je zde skrytý (oko ve Vrstvách) — nepřeneseno' });
+                    rows.push({ variant, icon: 'i-eye-off', tone: 'warning', text: 'prvek je zde skrytý (oko ve Vrstvách) — nepřeneseno' });
                     break;
                 default:
-                    rows.push({ variant, icon: 'mdi-alert-outline', tone: 'warning', text: 'prvek zde chybí — doplní se automaticky při uložení' });
+                    rows.push({ variant, icon: 'i-alert', tone: 'warning', text: 'prvek zde chybí — doplní se automaticky při uložení' });
             }
         });
 
@@ -1012,7 +1012,7 @@ export default class extends Controller {
                 const item = document.createElement('li');
                 item.className = `group-resync-toast__row group-resync-toast__row--${row.tone}`;
                 const icon = document.createElement('i');
-                icon.className = `mdi ${row.icon}`;
+                icon.className = `i ${row.icon} s14`;
                 icon.setAttribute('aria-hidden', 'true');
                 const label = document.createElement('span');
                 label.className = 'group-resync-toast__variant';

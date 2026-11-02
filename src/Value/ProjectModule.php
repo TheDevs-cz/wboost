@@ -51,13 +51,14 @@ enum ProjectModule: string
         };
     }
 
+    /** Nocturne mask icon name (`{{ icon(module.icon) }}`). */
     public function icon(): string
     {
         return match ($this) {
-            self::Manuals => 'uil-copy-alt',
-            self::Templates => 'uil-postcard',
-            self::EmailSignatures => 'ri-mail-line',
-            self::WeeklyMenus => 'uil-restaurant',
+            self::Manuals => 'copy',
+            self::Templates => 'template',
+            self::EmailSignatures => 'mail',
+            self::WeeklyMenus => 'utensils',
         };
     }
 

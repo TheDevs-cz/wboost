@@ -223,7 +223,7 @@ export default class extends Controller {
 
         const thumb = item.url
             ? '<img src="' + item.url + '" alt="" class="gallery-upload-item__thumb">'
-            : '<span class="gallery-upload-item__thumb gallery-upload-item__thumb--ph"><i class="mdi mdi-image-off-outline"></i></span>';
+            : '<span class="gallery-upload-item__thumb gallery-upload-item__thumb--ph"><span class="i i-image-off s18" aria-hidden="true"></span></span>';
 
         row.innerHTML =
             thumb +
@@ -240,7 +240,7 @@ export default class extends Controller {
             remove.className = "btn btn-sm btn-link text-muted p-0 ms-1";
             remove.title = "Odebrat";
             remove.setAttribute("aria-label", "Odebrat");
-            remove.innerHTML = '<i class="mdi mdi-close"></i>';
+            remove.innerHTML = '<span class="i i-x s16" aria-hidden="true"></span>';
             remove.dataset.action = "gallery-uploader#removeFile";
             remove.dataset.galleryUploaderIdParam = String(item.id);
             row.appendChild(remove);
@@ -254,12 +254,12 @@ export default class extends Controller {
             return '<span class="spinner-border spinner-border-sm text-muted" role="status"></span>';
         }
         if (status === "done") {
-            return '<i class="mdi mdi-check-circle text-success fs-5"></i>';
+            return '<span class="i i-check-circle s18 text-success" aria-hidden="true"></span>';
         }
         if (status === "error") {
-            return '<i class="mdi mdi-alert-circle text-danger fs-5"></i>';
+            return '<span class="i i-alert-circle s18 text-danger" aria-hidden="true"></span>';
         }
-        return '<i class="mdi mdi-image-outline text-muted fs-5"></i>';
+        return '<span class="i i-image s18 text-muted" aria-hidden="true"></span>';
     }
 
     msgClass(status) {
@@ -294,7 +294,7 @@ export default class extends Controller {
 
         const toast = document.createElement("div");
         toast.className = "gallery-toast";
-        toast.innerHTML = '<i class="mdi mdi-check-circle me-2 fs-5"></i>' + this.escape(this.uploadedMessage(count));
+        toast.innerHTML = '<span class="i i-check-circle s18" aria-hidden="true"></span>' + this.escape(this.uploadedMessage(count));
         container.appendChild(toast);
 
         requestAnimationFrame(() => toast.classList.add("gallery-toast--show"));

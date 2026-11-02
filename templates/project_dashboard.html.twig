@@ -56,7 +56,6 @@
 
 {% block content %}
     {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
-    {% set module_icons = {'manuals': 'copy', 'templates': 'template', 'email_signatures': 'mail', 'weekly_menus': 'utensils'} %}
     {% set color_manual = manuals|filter(manual => manual.colorsCount > 0)|first %}
 
     <div class="pd" data-controller="project-tiles">
@@ -168,7 +167,7 @@
                               action="{{ path(enabled ? 'project_module_disable' : 'project_module_enable', {'projectId': project.id, 'module': module.value}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token(enabled ? 'project_module_disable' : 'project_module_enable') }}">
                             <input type="hidden" name="back" value="dashboard">
-                            <span class="pd-ico" aria-hidden="true">{{ icon(module_icons[module.value] ?? 'grid') }}</span>
+                            <span class="pd-ico" aria-hidden="true">{{ icon(module.icon) }}</span>
                             <span class="who"><b>{{ module.label }}</b><span class="cap">{{ module.description }}</span></span>
                             <span class="pd-st">{{ enabled ? 'Zapnuto' : 'Vypnuto' }}</span>
                             <button type="submit" class="sw c-success{{ enabled ? ' on' : '' }}" role="switch" aria-checked="{{ enabled ? 'true' : 'false' }}" aria-label="{{ enabled ? 'Vypnout' : 'Zapnout' }} modul {{ module.label }}"></button>

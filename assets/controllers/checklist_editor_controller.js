@@ -137,7 +137,7 @@ export default class extends Controller {
                 remove.type = "button";
                 remove.className = "btn btn-sm btn-outline-danger flex-shrink-0 px-1 py-0";
                 remove.title = "Odebrat položku";
-                remove.innerHTML = '<i class="mdi mdi-close" aria-hidden="true"></i>';
+                remove.innerHTML = '<span class="i i-x s16" aria-hidden="true"></span>';
                 remove.setAttribute("data-action", "checklist-editor#removeItem");
                 row.appendChild(remove);
             }

@@ -27,7 +27,6 @@
 #}
 {% block content %}
     {% set can_enable = is_granted('project_edit', project) %}
-    {% set module_icons = {'manuals': 'copy', 'templates': 'template', 'email_signatures': 'mail', 'weekly_menus': 'utensils'} %}
 
     <section class="pd-box" aria-labelledby="modsH">
         <div class="pd-box-h">
@@ -40,7 +39,7 @@
         <div class="pd-mods">
             {% for module in project.disabledModules %}
                 <div class="pd-mod" data-module="{{ module.value }}">
-                    <span class="pd-ico" aria-hidden="true">{{ icon(module_icons[module.value] ?? 'grid') }}</span>
+                    <span class="pd-ico" aria-hidden="true">{{ icon(module.icon) }}</span>
                     <span class="who"><b>{{ module.label }}</b><span class="cap">{{ module.description }}</span></span>
                     {% if can_enable %}
                         <span class="pd-st">Vypnuto</span>

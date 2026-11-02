@@ -440,7 +440,7 @@ export default class extends Controller {
             remove.title = canRemove ? 'Odebrat barvu' : 'Přechod potřebuje alespoň dvě barvy';
             remove.disabled = !canRemove;
             remove.setAttribute('aria-label', `Odebrat bod ${index + 1}`);
-            remove.innerHTML = '<i class="mdi mdi-close" aria-hidden="true"></i>';
+            remove.innerHTML = '<span class="i i-x s16" aria-hidden="true"></span>';
             remove.dataset.action = `${id}#removeGradientStop`;
             remove.setAttribute(`data-${id}-index-param`, String(index));
             row.append(remove);

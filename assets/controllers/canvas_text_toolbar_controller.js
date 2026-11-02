@@ -280,11 +280,11 @@ export default class extends Controller {
         el.classList.remove('d-none');
         if (box.maxLength > perLine) {
             el.className = 'form-text small mt-1 text-warning';
-            el.innerHTML = `<i class="mdi mdi-alert-outline me-1" aria-hidden="true"></i>`
+            el.innerHTML = `<span class="i i-alert s14 me-1" aria-hidden="true"></span>`
                 + `Na řádek se při této velikosti vejde ~${perLine} znaků — delší text se zalomí na více řádků.`;
         } else {
             el.className = 'form-text small mt-1 text-muted';
-            el.innerHTML = `<i class="mdi mdi-information-outline me-1" aria-hidden="true"></i>`
+            el.innerHTML = `<span class="i i-info s14 me-1" aria-hidden="true"></span>`
                 + `Limit ${box.maxLength} znaků se při této velikosti vejde na jeden řádek (~${perLine}).`;
         }
     }
