@@ -872,3 +872,22 @@ designer info that clients also see. Broken mockup thumbnails show the
 browser's broken-image glyph (customer partial `_mockup_page`, untouched).
 Sheet-style forms (add diet, invite, profile…) keep the P8 dialog-as-page
 look without a `.head` — consistent, deliberate.
+
+---
+
+## 2026-11-02 — Delivery summary (orchestrator)
+
+- Phases P1–P10 delivered on `redesign/nocturne` by 10 implementation agents
+  (P3+P4, P8+P5, P6+P9 ran in pairs; P1/P2, P7, P10a, P10b alone), each
+  reviewed by the orchestrator against the prototype screenshots.
+- Final gate: PHPStan clean, PHPUnit 1617 tests green. 88 routes shot at
+  3 widths × 2 themes in P10b.
+- Hyper is gone (`public/theme/` deleted, 45 MB); Bootstrap 5.3 remains as the
+  behaviour/grid layer under the Nocturne CSS (`assets/styles/nocturne/`).
+- Customer-facing outputs (manual preview, weekly-menu public/PDF, render
+  template, e-mails) are unchanged — manual preview verified pixel-identical.
+- Process incident: one stray `git checkout <sha> --` by the orchestrator
+  detached HEAD for a few seconds while no agent was running; tree was clean,
+  switched back immediately, no loss.
+- Open items for the merge-request description: see "Not verified" and
+  "Follow-ups" in each phase entry above; backend features in `new-features.md`.
