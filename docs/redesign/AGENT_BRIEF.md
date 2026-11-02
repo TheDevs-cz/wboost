@@ -71,3 +71,16 @@ screen, responsive, both themes. Backend business logic stays unchanged.
   if a docs commit races another agent, re-read and append, don't overwrite).
 - Final message to the orchestrator ≤ 20 lines: commits, what changed, what is
   unverified, follow-ups.
+
+## Feedback rounds (preview phase, after P10)
+
+The redesign is live on https://wboost.thedevs.cz for the user's review. You get
+a batch of feedback items (IDs `F<n>` from `docs/redesign/FEEDBACK.md`).
+- Fix exactly those items; no drive-by redesigns. If an item needs backend /
+  business-logic changes, stop and report instead of implementing.
+- Same verify rules as above (gate + shoot.cjs at 390/820/1440 × both themes,
+  puppeteer for interactions). The local test admin may be gone: recreate it per
+  `.claude/skills/verify/SKILL.md` and delete it again when done.
+- Commit per item or per batch with pathspecs; append a short `JOURNAL.md` entry
+  ("Feedback round — F3, F4: what / how / why / not verified"); set your items
+  to `done` with the commit in `FEEDBACK.md`. Never push.
