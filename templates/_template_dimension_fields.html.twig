@@ -1,0 +1,61 @@
+{# Format picker of one dimension (add template / add variant / add group
+   dimension / new document): one-click preset chips + unit / width / height,
+   wired to template_dimension_controller (the caller puts
+   `data-controller="template-dimension"` on a wrapper that also holds the
+   print-settings partial). Preset chips keep the controller's action params;
+   any manual edit of the size clears the hidden `preset` marker.
+
+   Vars: preset, unit, width, height (form fields);
+         print_first (bool, default false — documents lead with print);
+         social_label (default "Sociální sítě"). #}
+{% set print_first = print_first ?? false %}
+{% set social_label = social_label ?? 'Sociální sítě' %}
+
+{% set social %}
+    <div class="tp-presets">
+        <span class="tp-presets-l">{{ social_label }}</span>
+        <div class="tp-chips">
+            {% for p in enum('WBoost\\Web\\Value\\DimensionPreset').cases() %}
+                <button type="button" class="tp-chip"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="px"
+                        data-template-dimension-width-param="{{ p.width }}"
+                        data-template-dimension-height-param="{{ p.height }}"
+                        data-template-dimension-preset-param="{{ p.value }}"
+                ><b>{{ p.label }}</b><small>{{ p.width }} × {{ p.height }}</small></button>
+            {% endfor %}
+        </div>
+    </div>
+{% endset %}
+
+{% set print %}
+    <div class="tp-presets">
+        <span class="tp-presets-l">Tiskové formáty</span>
+        <div class="tp-chips">
+            {% for p in [
+                {label: 'A5', width: 148, height: 210},
+                {label: 'A4', width: 210, height: 297},
+                {label: 'A3', width: 297, height: 420},
+            ] %}
+                <button type="button" class="tp-chip"
+                        data-action="template-dimension#applyPreset"
+                        data-template-dimension-unit-param="mm"
+                        data-template-dimension-width-param="{{ p.width }}"
+                        data-template-dimension-height-param="{{ p.height }}"
+                ><b>{{ p.label }}</b><small>{{ p.width }} × {{ p.height }} mm</small></button>
+            {% endfor %}
+        </div>
+    </div>
+{% endset %}
+
+{{ print_first ? print : social }}
+{{ print_first ? social : print }}
+
+{{ form_widget(preset, { attr: { 'data-template-dimension-target': 'preset' } }) }}
+
+<div class="tp-dims">
+    {{ form_row(unit, { attr: { 'data-template-dimension-target': 'unit', 'data-action': 'input->template-dimension#clearPreset' }, row_attr: { class: 'mb-0' } }) }}
+    {{ form_row(width, { attr: { 'data-template-dimension-target': 'width', 'data-action': 'input->template-dimension#clearPreset' }, row_attr: { class: 'mb-0' } }) }}
+    {{ form_row(height, { attr: { 'data-template-dimension-target': 'height', 'data-action': 'input->template-dimension#clearPreset' }, row_attr: { class: 'mb-0' } }) }}
+</div>
+<p class="tp-hint">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480 × 3508 px.</p>

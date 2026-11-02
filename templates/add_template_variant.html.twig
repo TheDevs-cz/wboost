@@ -3,91 +3,42 @@
 {% block title %}Přidat variantu{% endblock %}
 {% set active_menu_item = 'templates' %}
 
+{% block page_lead %}Nový formát šablony „{{ template.name }}“ — vznikne s vybraným pozadím, design do něj pak doplníte v editoru.{% endblock %}
+
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item"><a href="{{ path('template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body" data-controller="template-dimension">
-            {{ form_start(form) }}
+    {{ form_start(form, {attr: {class: 'tp-form'}}) }}
+    {{ form_errors(form) }}
 
-            <label class="form-label">Sociální sítě:</label>
-            <div class="mb-2">
-                {% for preset in enum('WBoost\\Web\\Value\\DimensionPreset').cases() %}
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
-                        data-action="template-dimension#applyPreset"
-                        data-template-dimension-unit-param="px"
-                        data-template-dimension-width-param="{{ preset.width }}"
-                        data-template-dimension-height-param="{{ preset.height }}"
-                        data-template-dimension-preset-param="{{ preset.value }}"
-                    >{{ preset.label }}</button>
-                {% endfor %}
-            </div>
+    <section class="tp-sec" data-controller="template-dimension">
+        <div class="tp-sech"><h2>{{ icon('grid', 's18') }}Rozměr</h2></div>
 
-            <label class="form-label">Tiskové formáty:</label>
-            <div class="mb-3">
-                {% for preset in [
-                    {label: 'A5', width: 148, height: 210},
-                    {label: 'A4', width: 210, height: 297},
-                    {label: 'A3', width: 297, height: 420},
-                ] %}
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-outline-secondary rounded-pill me-1"
-                        data-action="template-dimension#applyPreset"
-                        data-template-dimension-unit-param="mm"
-                        data-template-dimension-width-param="{{ preset.width }}"
-                        data-template-dimension-height-param="{{ preset.height }}"
-                    >{{ preset.label }} ({{ preset.width }}×{{ preset.height }} mm)</button>
-                {% endfor %}
-            </div>
+        {{ include('_template_dimension_fields.html.twig', {
+            preset: form.preset,
+            unit: form.unit,
+            width: form.width,
+            height: form.height,
+        }) }}
 
-            {{ form_widget(form.preset, { attr: { 'data-template-dimension-target': 'preset' } }) }}
+        {{ include('_print_settings_fields.html.twig', { bleed_field: form.bleed, crop_marks_field: form.cropMarks }) }}
 
-            <div class="row">
-                <div class="col-md-2">
-                    {{ form_row(form.unit, { attr: {
-                        'data-template-dimension-target': 'unit',
-                        'data-action': 'input->template-dimension#clearPreset',
-                    } }) }}
-                </div>
-                <div class="col-md-2">
-                    {{ form_row(form.width, { attr: {
-                        'data-template-dimension-target': 'width',
-                        'data-action': 'input->template-dimension#clearPreset',
-                    } }) }}
-                </div>
-                <div class="col-md-2">
-                    {{ form_row(form.height, { attr: {
-                        'data-template-dimension-target': 'height',
-                        'data-action': 'input->template-dimension#clearPreset',
-                    } }) }}
-                </div>
-            </div>
+        {{ include('_background_gallery_picker.html.twig', { field: form.backgroundImageId }) }}
+    </section>
 
-            <p class="text-muted small">Fyzické jednotky (mm/cm) se na plátno převádí v tiskové kvalitě 300 DPI — např. A4 na výšku je 2480×3508 px.</p>
+    {{ form_rest(form) }}
 
-            {{ include('_print_settings_fields.html.twig', { bleed_field: form.bleed, crop_marks_field: form.cropMarks }) }}
-
-
-            {{ include('_background_gallery_picker.html.twig', { field: form.backgroundImageId }) }}
-
-            {{ form_rest(form) }}
-
-            <button class="btn btn-primary mt-3" type="submit">Přidat</button>
-
-            {{ form_end(form) }}
-        </div>
+    <div class="tp-foot">
+        <a href="{{ path('template_variants', {'templateId': template.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+        <button class="btn btn-primary sm" type="submit">Přidat</button>
     </div>
+
+    {{ form_end(form) }}
 
     {{ include('_background_gallery_modal.html.twig') }}
 {% endblock %}

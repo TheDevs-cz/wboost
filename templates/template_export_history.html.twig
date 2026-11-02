@@ -22,23 +22,15 @@
 {% block title %}Historie exportů{% endblock %}
 {% set active_menu_item = 'templates' %}
 
+{% block title_count %}{{ history.isEmpty ? '' : history.all|length }}{% endblock %}
+{% block page_lead %}{{ subject_label }} — každý úspěšný export se uloží jako verze s hodnotami, které jste vyplnili. Verzi můžete pojmenovat a připnout: připnuté verze jsou v historii vždy nahoře a nikdy se nepromažou. Z ostatních se uchovává posledních {{ history_cap }}.{% endblock %}
+
 {% block title_actions %}
-    <div class="text-sm-end mb-3">
-        <a href="{{ fill_url }}" class="btn btn-primary"><i class="mdi mdi-arrow-left"></i> Zpět na vyplnění</a>
-    </div>
+    <a href="{{ fill_url }}" class="btn btn-primary">{{ icon('arrow-left', 's16') }}Zpět na vyplnění</a>
 {% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
-        {% if variant and template %}
-            <li class="breadcrumb-item"><a href="{{ path('template_variants', {'templateId': template.id}) }}">{{ template.name }}</a></li>
-        {% endif %}
-        {% if document ?? null %}
-            <li class="breadcrumb-item"><a href="{{ path('template_document', {'documentId': document.id}) }}">{{ document.name }}</a></li>
-        {% endif %}
         <li class="breadcrumb-item"><a href="{{ fill_url }}">{{ subject_label }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
@@ -46,83 +38,79 @@
 
 {% block content %}
     {% set redirect_url = app.request.requestUri %}
-    <div class="card">
-        <div class="card-body">
-            <h4 class="header-title mb-1">{{ subject_label }}</h4>
-            <p class="text-muted">
-                Každý úspěšný export se uloží jako verze s hodnotami, které jste vyplnili. Verzi můžete
-                pojmenovat a <i class="mdi mdi-pin-outline"></i> připnout – připnuté verze jsou v historii vždy nahoře
-                a nikdy se nepromažou. Z ostatních se uchovává posledních {{ history_cap }}.
-            </p>
-
-            {% if history.isEmpty %}
-                <p class="text-muted mb-0">Zatím nebyl proveden žádný export.</p>
-            {% else %}
-                <div class="table-responsive">
-                    <table class="table table-centered mb-0">
-                        <thead>
-                            <tr>
-                                <th style="width: 2.5rem;"><span class="visually-hidden">Připnuto</span></th>
-                                <th>Název</th>
-                                <th>Exportováno</th>
-                                <th>Obsah</th>
-                                <th class="text-end">Akce</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for version in history.all %}
-                                {% set summary = summaries[version.id.toString] %}
-                                <tr data-export-version="{{ version.id }}"{{ version.pinned ? ' data-export-version-pinned' }}>
-                                    <td class="pe-0">
-                                        {{ include('_export_version_pin_button.html.twig', {version: version, redirect_url: redirect_url}) }}
-                                    </td>
-                                    <td>
-                                        {{ include('_export_version_rename_form.html.twig', {version: version, redirect_url: redirect_url}) }}
-                                    </td>
-                                    <td class="text-nowrap">
-                                        {{ version.lastExportedAt|date('d.m.Y H:i') }}<br>
-                                        <small class="text-muted">{{ version.exportedBy ? version.exportedBy.displayName : 'Neznámý uživatel' }}</small>
-                                        {% if version.draft %}
-                                            <span class="badge bg-warning-lighten text-warning" title="Uložená rozpracovaná práce — zatím neexportováno">Rozpracováno</span>
-                                        {% endif %}
-                                        {% if version.channel.value != 'web' %}
-                                            <span class="badge bg-secondary-lighten text-secondary">{{ version.channel.label }}</span>
-                                        {% endif %}
-                                        {% if version.exportCount > 1 %}
-                                            <span class="badge bg-secondary-lighten text-secondary" title="Exportováno {{ version.exportCount }}×">{{ version.exportCount }}×</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if summary.texts is empty and summary.pictures == 0 and summary.hidden == 0 %}
-                                            <span class="text-muted">Výchozí hodnoty</span>
-                                        {% else %}
-                                            {% for entry in summary.texts|slice(0, 3) %}
-                                                <div class="text-truncate" style="max-width: 28rem;">
-                                                    <span class="text-muted">{{ entry.label }}:</span> {{ entry.value }}
-                                                </div>
-                                            {% endfor %}
-                                            {% set more = summary.texts|length - 3 %}
-                                            <small class="text-muted">
-                                                {% if more > 0 %}+ {{ more }} {{ more == 1 ? 'další text' : (more < 5 ? 'další texty' : 'dalších textů') }}{% endif %}
-                                                {% if summary.pictures > 0 %}<span class="ms-1"><i class="mdi mdi-image-outline"></i> {{ summary.pictures }}</span>{% endif %}
-                                                {% if summary.hidden > 0 %}<span class="ms-1" title="Skryté prvky"><i class="mdi mdi-eye-off-outline"></i> {{ summary.hidden }}</span>{% endif %}
-                                            </small>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end">
-                                        <a class="btn btn-sm btn-primary text-nowrap" href="{{ path(load_route_name, load_route_params|merge({'version': version.id})) }}" title="Načíst hodnoty této verze do formuláře">
-                                            <i class="mdi mdi-upload"></i> Načíst
-                                        </a>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {# The rows' pin / rename controls carry no <form> of their own
-                   (see the partials) — they submit through these anchors. #}
-                {{ include('_export_version_form_anchors.html.twig', {versions: history.all}) }}
-            {% endif %}
+    {% if history.isEmpty %}
+        <div class="empty">
+            <span class="ico-c">{{ icon('history') }}</span>
+            <h2>Zatím nebyl proveden žádný export</h2>
+            <p>Verze se tu objeví po prvním exportu z vyplnění.</p>
+            <a href="{{ fill_url }}" class="btn btn-primary sm">{{ icon('download', 's16') }}Vyplnit a exportovat</a>
         </div>
-    </div>
+    {% else %}
+        <div class="tp-hist">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th class="tp-hist-pin"><span class="visually-hidden">Připnuto</span></th>
+                        <th>Název</th>
+                        <th>Exportováno</th>
+                        <th>Obsah</th>
+                        <th class="text-end"><span class="visually-hidden">Akce</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for version in history.all %}
+                        {% set summary = summaries[version.id.toString] %}
+                        <tr data-export-version="{{ version.id }}"{{ version.pinned ? ' data-export-version-pinned' }}{% if version.pinned %} class="is-pinned"{% endif %}>
+                            <td class="tp-hist-pin">
+                                {{ include('_export_version_pin_button.html.twig', {version: version, redirect_url: redirect_url}) }}
+                            </td>
+                            <td class="tp-hist-name">
+                                {{ include('_export_version_rename_form.html.twig', {version: version, redirect_url: redirect_url}) }}
+                            </td>
+                            <td class="tp-hist-when">
+                                <b>{{ version.lastExportedAt|date('j. n. Y H:i') }}</b>
+                                <span class="cap">{{ version.exportedBy ? version.exportedBy.displayName : 'Neznámý uživatel' }}</span>
+                                <span class="tp-hist-tags">
+                                    {% if version.draft %}
+                                        <span class="pill pch" title="Uložená rozpracovaná práce — zatím neexportováno">Rozpracováno</span>
+                                    {% endif %}
+                                    {% if version.channel.value != 'web' %}
+                                        <span class="pill neutral">{{ version.channel.label }}</span>
+                                    {% endif %}
+                                    {% if version.exportCount > 1 %}
+                                        <span class="pill neutral" title="Exportováno {{ version.exportCount }}×">{{ version.exportCount }}×</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td class="tp-hist-sum">
+                                {% if summary.texts is empty and summary.pictures == 0 and summary.hidden == 0 %}
+                                    <span class="cap">Výchozí hodnoty</span>
+                                {% else %}
+                                    {% for entry in summary.texts|slice(0, 3) %}
+                                        <div class="text-truncate">
+                                            <span class="cap">{{ entry.label }}:</span> {{ entry.value }}
+                                        </div>
+                                    {% endfor %}
+                                    {% set more = summary.texts|length - 3 %}
+                                    <span class="cap tp-hist-more">
+                                        {% if more > 0 %}<span>+ {{ more }} {{ more == 1 ? 'další text' : (more < 5 ? 'další texty' : 'dalších textů') }}</span>{% endif %}
+                                        {% if summary.pictures > 0 %}<span>{{ icon('image', 's14') }} {{ summary.pictures }}</span>{% endif %}
+                                        {% if summary.hidden > 0 %}<span title="Skryté prvky">{{ icon('eye-off', 's14') }} {{ summary.hidden }}</span>{% endif %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end tp-hist-act">
+                                <a class="btn btn-tertiary sm" href="{{ path(load_route_name, load_route_params|merge({'version': version.id})) }}" title="Načíst hodnoty této verze do formuláře">
+                                    {{ icon('upload', 's16') }}Načíst
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {# The rows' pin / rename controls carry no <form> of their own
+           (see the partials) — they submit through these anchors. #}
+        {{ include('_export_version_form_anchors.html.twig', {versions: history.all}) }}
+    {% endif %}
 {% endblock %}

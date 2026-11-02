@@ -5,14 +5,12 @@
    Params:
      field — the hidden `backgroundImageId`-style form field
      label — optional field label (default "Obrázek pozadí") #}
-<div data-controller="background-picker">
-    <label class="form-label d-block">{{ label|default('Obrázek pozadí') }}</label>
-    <div class="d-flex align-items-center gap-2">
+<div class="tp-bgpick" data-controller="background-picker">
+    <span class="form-label d-block">{{ label|default('Obrázek pozadí') }}</span>
+    <div class="tp-bgpick-row">
         <span class="background-picker-thumb d-none" data-background-picker-target="preview"></span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="background-picker#open">
-            <i class="mdi mdi-image-search-outline"></i> Vybrat z galerie
-        </button>
-        <button type="button" class="btn btn-sm btn-link text-danger p-0 d-none"
+        <button type="button" class="btn btn-tertiary sm" data-action="background-picker#open">{{ icon('image', 's16') }}Vybrat z galerie</button>
+        <button type="button" class="btn btn-ghost-danger sm d-none"
                 data-background-picker-target="clearButton"
                 data-action="background-picker#clear">Odebrat</button>
     </div>
