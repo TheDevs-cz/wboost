@@ -1,35 +1,19 @@
-{% extends 'base.html.twig' %}
+{% extends 'base_manual.html.twig' %}
 
-{% block title %}Editace manuálu{% endblock %}
+{% block title %}Upravit manuál{% endblock %}
 {% set active_menu_item = 'manuals' %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
         <li class="breadcrumb-item"><a href="{{ path('manual_dashboard', {'id': manual.id}) }}">{{ manual.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_row(form.type) }}
-            {{ form_row(form.name) }}
-            {{ form_row(form.introImage) }}
-
-            {% if manual.introImage %}
-                <div style="width: 200px;" class="mb-3">
-                    <img class="img-thumbnail" src="{{ uploaded_asset(manual.introImage) }}">
-                </div>
-            {% endif %}
-
-            <button class="btn btn-primary" type="submit">Uložit</button>
-
-            {{ form_end(form) }}
-        </div>
-    </div>
+    {{ include('_manual_form.html.twig', {
+        'submit_label': 'Uložit',
+        'cancel_url': path('manual_dashboard', {'id': manual.id}),
+        'current_image': manual.introImage ? uploaded_asset(manual.introImage) : null,
+    }) }}
 {% endblock %}

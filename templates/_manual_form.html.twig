@@ -1,0 +1,34 @@
+{# Add / edit manual (ManualFormType: type, name, introImage) as one settings
+   box with a styled image drop zone. Expects `form`, `submit_label`,
+   `cancel_url`; optional `current_image` (URL of the stored intro image). #}
+{{ form_start(form, {'attr': {'class': 'man-sec man-formbox'}}) }}
+    {{ form_errors(form) }}
+    <div class="man-formgrid">
+        {{ form_row(form.name, {'attr': {'placeholder': 'Např. Logomanuál Brušperk'}}) }}
+        {{ form_row(form.type) }}
+    </div>
+
+    <div class="field man-intro" data-controller="file-drop">
+        <span>{{ form.introImage.vars.label }} <small>nepovinné</small></span>
+        <label class="man-drop man-drop-sm" for="{{ form.introImage.vars.id }}" data-file-drop-target="zone">
+            <img alt="" data-file-drop-target="preview"{% if current_image|default(null) %} src="{{ current_image }}" onerror="this.hidden = true"{% else %} hidden{% endif %}>
+            {{ icon('upload') }}
+            <b>Přetáhněte obrázek sem</b>
+            <span class="cap">nebo <u>vyberte soubor</u> · obálka manuálu v přehledu · max. 10 MB</span>
+        </label>
+        {{ form_widget(form.introImage, {'attr': {
+            'class': 'sr',
+            'accept': 'image/*',
+            'data-file-drop-target': 'input',
+            'data-action': 'change->file-drop#changed',
+        }}) }}
+        <div class="man-picked" data-file-drop-target="name" hidden></div>
+        {{ form_errors(form.introImage) }}
+    </div>
+
+    {{ form_rest(form) }}
+    <div class="man-formfoot">
+        <a href="{{ cancel_url }}" class="btn btn-tertiary sm">Zrušit</a>
+        <button class="btn btn-primary sm" type="submit">{{ submit_label }}</button>
+    </div>
+{{ form_end(form) }}

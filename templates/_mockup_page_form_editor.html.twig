@@ -32,21 +32,24 @@
     'data-action': 'submit->mockup-page-editor#formSubmitted',
 }}) }}
 
-    <div class="card">
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6 col-lg-5">
-                    {{ form_row(form.name, {'attr': {'placeholder': 'Např. Vizitky a hlavičkový papír'}}) }}
-                </div>
+    <div class="man-editor">
+        <section class="man-sec" aria-labelledby="mockup-name-title">
+            <div class="man-sech"><h2 id="mockup-name-title">Název stránky</h2></div>
+            <div class="man-name">
+                {{ form_row(form.name, {'label': false, 'attr': {'placeholder': 'Např. Vizitky a hlavičkový papír', 'aria-labelledby': 'mockup-name-title'}}) }}
             </div>
+        </section>
 
-            {% if form.layout is defined %}
-                <h4 class="header-title mt-2 mb-1">Rozložení stránky</h4>
-                <p class="text-muted mb-2">Vyberte, jak budou obrázky na stránce manuálu uspořádané. Rozložení můžete změnit i po nahrání obrázků — nahrané obrázky zůstanou zachované.</p>
+        {% if form.layout is defined %}
+            <section class="man-sec" aria-labelledby="mockup-layout-title">
+                <div class="man-sech">
+                    <h2 id="mockup-layout-title">Rozložení stránky</h2>
+                    <span class="cap">Vyberte, jak budou obrázky na stránce manuálu uspořádané. Rozložení můžete změnit i po nahrání obrázků — nahrané obrázky zůstanou zachované.</span>
+                </div>
 
                 {{ form_errors(form.layout) }}
 
-                <div class="mockup-layout-picker mb-3">
+                <div class="mockup-layout-picker">
                     {% for child in form.layout %}
                         {% set slot_count = layouts_geometry[child.vars.value]|length %}
                         <label class="mockup-layout-option" data-mockup-page-editor-target="layoutOption" data-layout="{{ child.vars.value }}">
@@ -64,10 +67,13 @@
                         </label>
                     {% endfor %}
                 </div>
-            {% elseif fixed_layout %}
-                <h4 class="header-title mt-2 mb-1">Rozložení stránky</h4>
-
-                <div class="d-flex align-items-center gap-2 mb-3">
+            </section>
+        {% elseif fixed_layout %}
+            <section class="man-sec" aria-labelledby="mockup-layout-title">
+                <div class="man-sech">
+                    <h2 id="mockup-layout-title">Rozložení stránky</h2>
+                </div>
+                <div class="man-fixed-layout">
                     <span class="mockup-layout-option mockup-layout-option-static" data-mockup-page-editor-target="layoutOption" data-layout="{{ fixed_layout.value }}">
                         <span class="mockup-mini-grid" aria-hidden="true">
                             {% for slot in layouts_geometry[fixed_layout.value] %}
@@ -75,53 +81,54 @@
                             {% endfor %}
                         </span>
                     </span>
-                    <span class="text-muted">Rozložení nelze po vytvoření stránky změnit.</span>
+                    <span class="cap">Rozložení nelze po vytvoření stránky změnit.</span>
                 </div>
-            {% endif %}
+            </section>
+        {% endif %}
 
-            <h4 class="header-title mt-2 mb-1">Obrázky</h4>
-            <p class="text-muted mb-2">
-                Klikněte na pole (nebo do něj přetáhněte soubor) a nahrajte obrázek.
-                U každého pole vidíte doporučené rozměry — obrázek v jiném poměru stran se při zobrazení ořízne.
-            </p>
+        <section class="man-sec" aria-labelledby="mockup-images-title">
+            <div class="man-sech">
+                <h2 id="mockup-images-title">Obrázky</h2>
+                <span class="cap">Klikněte na pole (nebo do něj přetáhněte soubor) a nahrajte obrázek. U každého pole vidíte doporučené rozměry — obrázek v jiném poměru stran se při zobrazení ořízne.</span>
+            </div>
 
             {% for imageField in form.images %}
                 {% if imageField.vars.errors|length > 0 %}
-                    <div class="alert alert-danger py-2">
+                    <div class="alert alert-danger">
                         <strong>Obrázek {{ loop.index }}:</strong> {{ form_errors(imageField) }}
                     </div>
                 {% endif %}
             {% endfor %}
 
-            <div class="alert alert-warning py-2 d-none" data-mockup-page-editor-target="extraNotice">
-                <i class="ri-alert-line me-1"></i>Zvolené rozložení má méně polí — obrázky a soubory navíc se neuloží. Přepnutím zpět na větší rozložení o ně nepřijdete.
+            <div class="alert alert-warning d-none" data-mockup-page-editor-target="extraNotice">
+                Zvolené rozložení má méně polí — obrázky a soubory navíc se neuloží. Přepnutím zpět na větší rozložení o ně nepřijdete.
             </div>
 
             <div class="mockup-editor-desk">
                 <div class="mockup-editor-stage-container">
                     <div class="mockup-editor-page" data-mockup-page-editor-target="stage"></div>
                 </div>
-                <div class="mockup-editor-no-layout text-muted d-none" data-mockup-page-editor-target="stageEmpty">
-                    <i class="ri-layout-masonry-line d-block mb-1"></i>
-                    Nejdříve vyberte rozložení stránky výše.
+                <div class="mockup-editor-no-layout d-none" data-mockup-page-editor-target="stageEmpty">
+                    {{ icon('grid') }}
+                    <span>Nejdříve vyberte rozložení stránky výše.</span>
                 </div>
             </div>
+        </section>
 
-            <h4 class="header-title mt-3 mb-1">Soubory ke stažení</h4>
-            <p class="text-muted mb-2">
-                Nepovinné. Přiložte podklad, který si čtenář manuálu stáhne — tiskové PDF, zdrojová data, balíček.
-                Soubor pro jednotlivý obrázek přidáte přímo v něm (lišta „Soubor ke stažení“ dole v poli),
-                soubor pro celou stránku níže. U každého se pak v manuálu objeví tlačítko ke stažení.
-            </p>
+        <section class="man-sec" aria-labelledby="mockup-files-title">
+            <div class="man-sech">
+                <h2 id="mockup-files-title">Soubory ke stažení <span class="pill neutral">Nepovinné</span></h2>
+                <span class="cap">Přiložte podklad, který si čtenář manuálu stáhne — tiskové PDF, zdrojová data, balíček. Soubor pro jednotlivý obrázek přidáte přímo v něm (lišta „Soubor ke stažení“ dole v poli), soubor pro celou stránku níže. U každého se pak v manuálu objeví tlačítko ke stažení.</span>
+            </div>
 
             {% if form.downloadFile.vars.errors|length > 0 %}
-                <div class="alert alert-danger py-2">
+                <div class="alert alert-danger">
                     <strong>Soubor stránky:</strong> {{ form_errors(form.downloadFile) }}
                 </div>
             {% endif %}
             {% for downloadField in form.imageDownloads %}
                 {% if downloadField.vars.errors|length > 0 %}
-                    <div class="alert alert-danger py-2">
+                    <div class="alert alert-danger">
                         <strong>Soubor u obrázku {{ loop.index }}:</strong> {{ form_errors(downloadField) }}
                     </div>
                 {% endif %}
@@ -129,30 +136,31 @@
 
             {# Rendered server-side, not built by JS: an empty button is exactly
                the failure this card had while the controller was crashing. #}
-            <div class="mockup-page-file">
+            <div class="mockup-page-file man-att-row">
                 <span class="mockup-page-file-label">
-                    <i class="mdi mdi-file-document-outline me-1"></i>Soubor pro celou stránku
+                    {{ icon('file', 's16') }}Soubor pro celou stránku
                 </span>
                 <span class="mockup-page-file-state" data-mockup-page-editor-target="pageFileState">Bez souboru</span>
                 <span class="mockup-page-file-actions">
-                    <button type="button" class="btn btn-sm btn-light"
-                            data-mockup-page-editor-target="pageFilePick"
-                            data-action="mockup-page-editor#pickPageDownload">
-                        <i class="ri-attachment-2 me-1"></i>Vybrat soubor
-                    </button>
-                    <button type="button" class="btn btn-sm btn-light text-danger" hidden
+                    <button type="button" class="btn btn-ghost btn-sm text-danger" hidden
                             data-mockup-page-editor-target="pageFileRemove"
                             data-action="mockup-page-editor#removePageDownload">
-                        <i class="ri-delete-bin-line me-1"></i>Odebrat
+                        <span class="i i-trash s16" aria-hidden="true"></span>Odebrat
                     </button>
-                    <button type="button" class="btn btn-sm btn-light" hidden
+                    <button type="button" class="btn btn-ghost btn-sm" hidden
                             data-mockup-page-editor-target="pageFileRestore"
                             data-action="mockup-page-editor#restorePageDownload">
-                        <i class="ri-arrow-go-back-line me-1"></i>Vrátit původní
+                        <span class="i i-undo s16" aria-hidden="true"></span>Vrátit původní
+                    </button>
+                    <button type="button" class="btn btn-tertiary sm"
+                            data-mockup-page-editor-target="pageFilePick"
+                            data-action="mockup-page-editor#pickPageDownload">
+                        <span class="i i-paperclip s16" aria-hidden="true"></span>Vybrat soubor
                     </button>
                 </span>
                 <span class="mockup-page-file-error text-danger" hidden data-mockup-page-editor-target="pageFileError"></span>
             </div>
+        </section>
 
             <div class="d-none">
                 {% for imageField in form.images %}
@@ -187,17 +195,16 @@
                     }}) }}
                 {% endfor %}
             </div>
-        </div>
-    </div>
 
-    <div class="mockup-editor-savebar" data-mockup-page-editor-target="saveBar">
-        <span class="text-muted" data-mockup-page-editor-target="fillSummary"></span>
-        <span class="mockup-editor-dirty d-none" data-mockup-page-editor-target="dirtyBadge">
-            <span class="mockup-editor-dirty-dot"></span> Neuložené změny
-        </span>
-        <button class="btn btn-primary px-3" type="submit">
-            <i class="ri-save-line me-1"></i>{{ submit_label|default('Uložit stránku') }}
-        </button>
+        <div class="mockup-editor-savebar man-savebar" data-mockup-page-editor-target="saveBar">
+            <span class="cap" data-mockup-page-editor-target="fillSummary"></span>
+            <span class="mockup-editor-dirty d-none" data-mockup-page-editor-target="dirtyBadge">
+                <span class="mockup-editor-dirty-dot"></span> Neuložené změny
+            </span>
+            <button class="btn btn-primary sm" type="submit">
+                {{ icon('check', 's16') }}{{ submit_label|default('Uložit stránku') }}
+            </button>
+        </div>
     </div>
 
 {{ form_end(form) }}

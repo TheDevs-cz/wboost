@@ -175,27 +175,27 @@ export default class extends Controller {
         element.innerHTML = `
             <img class="mockup-editor-slot-img" alt="" hidden>
             <div class="mockup-editor-slot-empty">
-                <i class="ri-image-add-line"></i>
+                <span class="i i-upload s16" aria-hidden="true"></span>
                 <strong>Nahrát obrázek</strong>
                 <span class="mockup-editor-slot-dims">doporučeno ${slot.recommendedWidth} × ${slot.recommendedHeight} px</span>
                 <span class="mockup-editor-slot-error text-danger" hidden></span>
             </div>
             <div class="mockup-editor-slot-removed" hidden>
-                <i class="ri-delete-bin-line"></i>
+                <span class="i i-trash s16" aria-hidden="true"></span>
                 <strong>Obrázek bude po uložení odebrán</strong>
             </div>
             <span class="mockup-editor-slot-number">${index + 1}</span>
             <span class="mockup-editor-slot-chip" hidden></span>
             <div class="mockup-editor-slot-meta" hidden></div>
             <div class="mockup-editor-slot-actions">
-                <button type="button" class="btn btn-sm btn-light" data-role="replace"><i class="ri-upload-2-line me-1"></i>Vyměnit</button>
-                <button type="button" class="btn btn-sm btn-light text-danger" data-role="remove"><i class="ri-delete-bin-line me-1"></i>Odebrat</button>
-                <button type="button" class="btn btn-sm btn-light" data-role="restore"><i class="ri-arrow-go-back-line me-1"></i>Vrátit původní</button>
+                <button type="button" class="btn btn-sm btn-light" data-role="replace"><span class="i i-upload s16" aria-hidden="true"></span>Vyměnit</button>
+                <button type="button" class="btn btn-sm btn-light text-danger" data-role="remove"><span class="i i-trash s16" aria-hidden="true"></span>Odebrat</button>
+                <button type="button" class="btn btn-sm btn-light" data-role="restore"><span class="i i-undo s16" aria-hidden="true"></span>Vrátit původní</button>
             </div>
             <div class="mockup-editor-slot-file">
                 <button type="button" class="mockup-editor-slot-file-pick" data-role="file"></button>
-                <button type="button" class="mockup-editor-slot-file-clear" data-role="file-remove" title="Odebrat soubor" hidden><i class="ri-close-line"></i></button>
-                <button type="button" class="mockup-editor-slot-file-clear" data-role="file-restore" title="Vrátit původní soubor" hidden><i class="ri-arrow-go-back-line"></i></button>
+                <button type="button" class="mockup-editor-slot-file-clear" data-role="file-remove" title="Odebrat soubor" hidden><span class="i i-x s16" aria-hidden="true"></span></button>
+                <button type="button" class="mockup-editor-slot-file-clear" data-role="file-restore" title="Vrátit původní soubor" hidden><span class="i i-undo s16" aria-hidden="true"></span></button>
             </div>
         `;
 
@@ -319,8 +319,8 @@ export default class extends Controller {
         const removeButton = element.querySelector('button[data-role="remove"]');
         removeButton.hidden = displayUrl === null;
         removeButton.innerHTML = state.file !== null
-            ? '<i class="ri-close-line me-1"></i>Zrušit výběr'
-            : '<i class="ri-delete-bin-line me-1"></i>Odebrat';
+            ? '<span class="i i-x s16" aria-hidden="true"></span>Zrušit výběr'
+            : '<span class="i i-trash s16" aria-hidden="true"></span>Odebrat';
 
         element.querySelector('button[data-role="replace"]').hidden = displayUrl === null;
         element.querySelector('button[data-role="restore"]').hidden = !isRemovedView;
@@ -523,16 +523,16 @@ export default class extends Controller {
 
         if (state.error !== null) {
             bar.className = 'mockup-editor-slot-file is-error';
-            pick.innerHTML = `<i class="ri-error-warning-line"></i><span>${this.escape(state.error)}</span>`;
+            pick.innerHTML = `<span class="i i-alert s16" aria-hidden="true"></span><span>${this.escape(state.error)}</span>`;
         } else if (download !== null) {
             bar.className = 'mockup-editor-slot-file has-file';
-            pick.innerHTML = `<i class="ri-attachment-2"></i><span>${this.escape(this.describeDownload(download))}</span>`;
+            pick.innerHTML = `<span class="i i-paperclip s16" aria-hidden="true"></span><span>${this.escape(this.describeDownload(download))}</span>`;
         } else if (isRemovedView) {
             bar.className = 'mockup-editor-slot-file is-removed';
-            pick.innerHTML = '<i class="ri-delete-bin-line"></i><span>Soubor bude odebrán</span>';
+            pick.innerHTML = '<span class="i i-trash s16" aria-hidden="true"></span><span>Soubor bude odebrán</span>';
         } else {
             bar.className = 'mockup-editor-slot-file';
-            pick.innerHTML = '<i class="ri-attachment-2"></i><span>Přidat soubor ke stažení</span>';
+            pick.innerHTML = '<span class="i i-paperclip s16" aria-hidden="true"></span><span>Přidat soubor ke stažení</span>';
         }
 
         pick.title = download === null
@@ -567,8 +567,8 @@ export default class extends Controller {
         }
 
         this.pageFilePickTarget.innerHTML = download === null
-            ? '<i class="ri-attachment-2 me-1"></i>Vybrat soubor'
-            : '<i class="ri-upload-2-line me-1"></i>Vyměnit';
+            ? '<span class="i i-paperclip s16" aria-hidden="true"></span>Vybrat soubor'
+            : '<span class="i i-upload s16" aria-hidden="true"></span>Vyměnit';
 
         this.pageFileRemoveTarget.hidden = download === null;
         this.pageFileRestoreTarget.hidden = !isRemovedView;
@@ -763,9 +763,9 @@ export default class extends Controller {
         }
 
         const icons = {
-            success: '<i class="ri-checkbox-circle-fill"></i>',
-            warning: '<i class="ri-error-warning-fill"></i>',
-            danger: '<i class="ri-close-circle-fill"></i>',
+            success: '<span class="i i-check-circle s16" aria-hidden="true"></span>',
+            warning: '<span class="i i-alert s16" aria-hidden="true"></span>',
+            danger: '<span class="i i-x-circle s16" aria-hidden="true"></span>',
         };
 
         return { level, short, notes, icon: icons[level] };

@@ -95,7 +95,7 @@ finish; tick your phase's boxes here.
       filter chips that map to existing data, card grid + card menu), project
       overview (`project_dashboard`: header, palette chips, module tiles, users
       box, modules box), add/edit project, project modules page.
-- [ ] **P4 Brand assets** — manuals list/edit + logos + colours + fonts +
+- [x] **P4 Brand assets** — manuals list/edit + logos + colours + fonts +
       mockup pages, project fonts, gallery (Live component), calendars.
 - [ ] **P5 Templates** — templates list (categories, Nejpoužívanější if data
       exists, card style), categories, variants, add template (type picker

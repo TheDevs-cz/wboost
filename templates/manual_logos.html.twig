@@ -1,206 +1,145 @@
 {% extends 'base_manual.html.twig' %}
 
-{% block title %}Logotypy - {{ manual.name }}{% endblock %}
+{% block title %}{{ manual.name }}{% endblock %}
 {% set active_menu_item = 'manuals' %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manual_dashboard', {'id': manual.id}) }}">{{ manual.name }}</a></li>
-        <li class="breadcrumb-item active">Logotypy</li>
-    </ol>
-{% endblock %}
+{% block page_lead %}Nahrajte logotypy ve formátu SVG — barevné verze manuálu se z nich vytvoří samy. Změny uložíte tlačítkem Uložit.{% endblock %}
 
-{% block content %}
-
-    <div class="row">
-        <div class="col-xxl-3">
-            {{ include('_manual_nav.html.twig') }}
+{#
+    One logo variant card (prototype `.man-var`): title + format/status pill,
+    white preview well (a label for the hidden file input, so a click or a
+    drop replaces the logo), detected colours, the size fields, the
+    "width in the manual" slider mirrored into the number field the form
+    submits, and the own-page switch. Field names are unchanged —
+    ManualLogosControllerTest asserts the number + checkbox inputs.
+#}
+{% macro variant_card(form, key, title, logo) %}
+    {% set file_field = form['logo' ~ key] %}
+    {% set width_field = form['logo' ~ key ~ 'DisplayWidth'] %}
+    {% set own_page_field = form['logo' ~ key ~ 'OwnPage'] %}
+    <section class="man-var{{ logo ? '' : ' man-empty' }}" data-controller="file-drop">
+        <div class="man-vh">
+            <h3>{{ title }}</h3>
+            {% if logo %}
+                <span class="man-st">{{ logo.filePath|split('.')|last|upper }}</span>
+            {% else %}
+                <span class="man-st miss">Chybí</span>
+            {% endif %}
         </div>
 
-        <div class="col-xxl-9">
-            {{ form_start(form) }}
+        {% if logo %}
+            <label class="man-prev" for="{{ file_field.vars.id }}" data-file-drop-target="zone" title="Klikněte nebo přetáhněte soubor pro nahrazení loga">
+                <img src="{{ uploaded_asset(logo.filePath) }}" alt="{{ title }}" data-file-drop-target="preview" onerror="this.closest('.man-prev').classList.add('is-broken')">
+                <span class="man-prev-miss">{{ icon('image', 's24') }}<span>Náhled se nepodařilo načíst</span></span>
+                <span class="man-prev-hint">{{ icon('upload', 's16') }}Nahradit</span>
+            </label>
+        {% else %}
+            <label class="man-drop" for="{{ file_field.vars.id }}" data-file-drop-target="zone">
+                <img alt="" hidden data-file-drop-target="preview">
+                {{ icon('upload') }}
+                <b>Přetáhněte SVG sem</b>
+                <span class="cap">nebo <u>vyberte soubor</u> · max. 10 MB</span>
+            </label>
+        {% endif %}
+        {{ form_widget(file_field, {'attr': {
+            'class': 'sr',
+            'accept': '.svg,image/svg+xml',
+            'data-file-drop-target': 'input',
+            'data-action': 'change->file-drop#changed',
+        }}) }}
+        <div class="man-picked" data-file-drop-target="name" hidden></div>
+        {{ form_errors(file_field) }}
 
-            <div class="row">
-                <div class="col-sm-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.horizontal ? uploaded_asset(manual.logo.horizontal.filePath) : asset('images/logo-placeholder.png') }}">
-                                </div>
-                                <div class="col-sm-9">
-                                    {{ form_row(form.logoHorizontal) }}
+        {% if logo %}
+            <div class="man-cols">
+                <span class="cap">Rozpoznané barvy</span>
+                {% if logo.detectedColors is not empty %}
+                    {% for color in logo.detectedColors %}
+                        <span class="man-col" style="background: {{ color }};" title="{{ color|upper }}"></span>
+                    {% endfor %}
+                    <span class="cap man-cols-n">{{ logo.detectedColors|map(c => c|upper)|join(' · ') }}</span>
+                {% else %}
+                    <span class="cap">Žádné</span>
+                {% endif %}
+            </div>
+        {% endif %}
 
-                                    <div class="d-flex">
-                                        <div class="me-1">
-                                            {{ form_row(form.logoHorizontalWidthInfo) }}
-                                        </div>
-                                        <div class="ms-1">
-                                            {{ form_row(form.logoHorizontalHeightInfo) }}
-                                        </div>
-                                    </div>
-
-                                    {{ form_row(form.logoHorizontalDisplayWidth) }}
-
-                                    {{ form_row(form.logoHorizontalOwnPage) }}
-
-                                    {% if manual.logo.horizontal %}
-                                        {% for detectedColor in manual.logo.horizontal.detectedColors %}
-                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-sm-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.vertical ? uploaded_asset(manual.logo.vertical.filePath) : asset('images/logo-placeholder.png') }}">
-                                </div>
-                                <div class="col-sm-9">
-                                    {{ form_row(form.logoVertical) }}
-
-                                    <div class="d-flex">
-                                        <div class="me-1">
-                                            {{ form_row(form.logoVerticalWidthInfo) }}
-                                        </div>
-                                        <div class="ms-1">
-                                            {{ form_row(form.logoVerticalHeightInfo) }}
-                                        </div>
-                                    </div>
-
-                                    {{ form_row(form.logoVerticalDisplayWidth) }}
-
-                                    {{ form_row(form.logoVerticalOwnPage) }}
-
-                                    {% if manual.logo.vertical %}
-                                        {% for detectedColor in manual.logo.vertical.detectedColors %}
-                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-sm-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.horizontalWithClaim ? uploaded_asset(manual.logo.horizontalWithClaim.filePath) : asset('images/logo-placeholder.png') }}">
-                                </div>
-                                <div class="col-sm-9">
-                                    {{ form_row(form.logoHorizontalWithClaim) }}
-
-                                    <div class="d-flex">
-                                        <div class="me-1">
-                                            {{ form_row(form.logoHorizontalWithClaimWidthInfo) }}
-                                        </div>
-                                        <div class="ms-1">
-                                            {{ form_row(form.logoHorizontalWithClaimHeightInfo) }}
-                                        </div>
-                                    </div>
-
-                                    {{ form_row(form.logoHorizontalWithClaimDisplayWidth) }}
-
-                                    {{ form_row(form.logoHorizontalWithClaimOwnPage) }}
-
-                                    {% if manual.logo.horizontalWithClaim %}
-                                        {% for detectedColor in manual.logo.horizontalWithClaim.detectedColors %}
-                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-sm-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.verticalWithClaim ? uploaded_asset(manual.logo.verticalWithClaim.filePath) : asset('images/logo-placeholder.png') }}">
-                                </div>
-                                <div class="col-sm-9">
-                                    {{ form_row(form.logoVerticalWithClaim) }}
-
-                                    <div class="d-flex">
-                                        <div class="me-1">
-                                            {{ form_row(form.logoVerticalWithClaimWidthInfo) }}
-                                        </div>
-                                        <div class="ms-1">
-                                            {{ form_row(form.logoVerticalWithClaimHeightInfo) }}
-                                        </div>
-                                    </div>
-
-                                    {{ form_row(form.logoVerticalWithClaimDisplayWidth) }}
-
-                                    {{ form_row(form.logoVerticalWithClaimOwnPage) }}
-
-                                    {% if manual.logo.verticalWithClaim %}
-                                        {% for detectedColor in manual.logo.verticalWithClaim.detectedColors %}
-                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-sm-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-sm-3">
-                                    <img class="rounded-circle img-thumbnail avatar-lg" src="{{ manual.logo.symbol ? uploaded_asset(manual.logo.symbol.filePath) : asset('images/logo-placeholder.png') }}">
-                                </div>
-                                <div class="col-sm-9">
-                                    {{ form_row(form.logoSymbol) }}
-
-                                    <div class="d-flex">
-                                        <div class="me-1">
-                                            {{ form_row(form.logoSymbolWidthInfo) }}
-                                        </div>
-                                        <div class="ms-1">
-                                            {{ form_row(form.logoSymbolHeightInfo) }}
-                                        </div>
-                                    </div>
-
-                                    {{ form_row(form.logoSymbolDisplayWidth) }}
-
-                                    {{ form_row(form.logoSymbolOwnPage) }}
-
-                                    {% if manual.logo.symbol %}
-                                        {% for detectedColor in manual.logo.symbol.detectedColors %}
-                                            <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ detectedColor }};"></span>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+        <div class="man-fields">
+            <div class="man-wh">
+                <label class="pal-f">
+                    <span>{{ form['logo' ~ key ~ 'WidthInfo'].vars.label }}</span>
+                    {{ form_widget(form['logo' ~ key ~ 'WidthInfo'], {'attr': {'class': 'form-control-sm', 'placeholder': 'auto'}}) }}
+                </label>
+                <label class="pal-f">
+                    <span>{{ form['logo' ~ key ~ 'HeightInfo'].vars.label }}</span>
+                    {{ form_widget(form['logo' ~ key ~ 'HeightInfo'], {'attr': {'class': 'form-control-sm', 'placeholder': 'auto'}}) }}
+                </label>
             </div>
 
-            <p>
-                <button class="btn btn-primary" type="submit">Uložit</button>
-            </p>
+            <div class="pal-f man-scale" data-controller="range-sync">
+                <span><label for="{{ width_field.vars.id }}">Šířka loga v manuálu</label> <b data-range-sync-target="label">{{ width_field.vars.value ? width_field.vars.value ~ ' %' : 'Výchozí' }}</b></span>
+                <div class="man-scale-row">
+                    <input type="range" min="0" max="100" step="1" value="{{ width_field.vars.value ?: 0 }}" aria-label="Šířka loga v manuálu" data-range-sync-target="range" data-action="input->range-sync#fromRange">
+                    {{ form_widget(width_field, {'attr': {
+                        'class': 'form-control-sm man-scale-n',
+                        'data-range-sync-target': 'number',
+                        'data-action': 'input->range-sync#fromNumber',
+                    }}) }}
+                </div>
+                <span class="cap">0 nebo prázdné = výchozí velikost. 1–100 = šířka v procentech rámečku (výška zůstává stejná).</span>
+                {{ form_errors(width_field) }}
+            </div>
 
-            {{ form_end(form) }}
+            <label class="man-page">
+                <input type="checkbox" role="switch" class="sr"
+                       id="{{ own_page_field.vars.id }}"
+                       name="{{ own_page_field.vars.full_name }}"
+                       value="{{ own_page_field.vars.value }}"
+                       {% if own_page_field.vars.checked %}checked{% endif %}>
+                <span class="sw" aria-hidden="true"></span>
+                <span><b>{{ own_page_field.vars.label }}</b><span class="cap">Varianta dostane v manuálu vlastní stránku se všemi svými barevnými variantami a zmizí ze společných stránek.</span></span>
+            </label>
+            {% do own_page_field.setRendered %}
         </div>
-    </div>
+    </section>
+{% endmacro %}
+
+{% block content %}
+<div class="stack">
+    {{ include('_manual_nav.html.twig') }}
+
+    {% set variants = [
+        ['Horizontal', 'Logo horizontální', manual.logo.horizontal],
+        ['Vertical', 'Logo vertikální', manual.logo.vertical],
+        ['HorizontalWithClaim', 'Logo horizontální se sloganem', manual.logo.horizontalWithClaim],
+        ['VerticalWithClaim', 'Logo vertikální se sloganem', manual.logo.verticalWithClaim],
+        ['Symbol', 'Symbol', manual.logo.symbol],
+    ] %}
+    {% set missing = variants|filter(v => v[2] is null)|map(v => v[1]) %}
+
+    {% if missing is not empty %}
+        <div class="alert c-warning man-miss">
+            {{ icon('alert') }}
+            <div>
+                <div class="alert-t">V manuálu chybí {{ missing|length == 1 ? '1 varianta' : missing|length ~ (missing|length < 5 ? ' varianty' : ' variant') }} loga</div>
+                <div class="alert-d">{{ missing|join(', ') }}. Bez nich nebude manuál kompletní.</div>
+            </div>
+        </div>
+    {% endif %}
+
+    {{ form_start(form, {'attr': {'class': 'man-form'}}) }}
+        {{ form_errors(form) }}
+
+        <div class="man-vars">
+            {% for variant in variants %}
+                {{ _self.variant_card(form, variant[0], variant[1], variant[2]) }}
+            {% endfor %}
+        </div>
+
+        <div class="man-savebar">
+            <span class="cap">Nové soubory a nastavení se uloží až tlačítkem.</span>
+            <button class="btn btn-primary sm" type="submit">{{ icon('check', 's16') }}Uložit</button>
+        </div>
+    {{ form_end(form) }}
+</div>
 {% endblock %}

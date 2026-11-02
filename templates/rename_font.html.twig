@@ -3,28 +3,25 @@
 {% block title %}Přejmenovat písmo{% endblock %}
 {% set active_menu_item = 'fonts' %}
 
+{% block page_lead %}Nový název se propíše do všech šablon, výběrů písem a historie exportů projektu — texty zůstanou ve svých řezech.{% endblock %}
+
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('fonts_list', {'id': project.id}) }}">Fonty</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            <h4 class="mt-0">{{ font.name }}</h4>
-            <p class="text-muted">Nový název se propíše do všech šablon, výběrů písem a historie exportů projektu — texty zůstanou ve svých řezech. Názvy řezů ({{ font.faces|map(f => f.name)|join(', ') }}) se nemění.</p>
-
-            {{ form_start(form) }}
-            {{ form_row(form.name) }}
-
-            <input type="submit" name="submit" value="Přejmenovat" class="btn btn-primary">
-            <a href="{{ path('fonts_list', {'id': project.id}) }}" class="btn btn-outline-secondary ms-1">Zrušit</a>
-
-            {{ form_end(form) }}
+    {{ form_start(form, {'attr': {'class': 'man-sec man-formbox'}}) }}
+        <div class="man-sech">
+            <h2>{{ font.name }}</h2>
+            <span class="cap">Názvy řezů ({{ font.faces|map(f => f.name)|join(', ') }}) se nemění.</span>
         </div>
-    </div>
+        {{ form_row(form.name) }}
+        <div class="man-formfoot">
+            <a href="{{ path('fonts_list', {'id': project.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+            <input type="submit" name="submit" value="Přejmenovat" class="btn btn-primary sm">
+        </div>
+    {{ form_end(form) }}
 {% endblock %}

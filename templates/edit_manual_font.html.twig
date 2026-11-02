@@ -1,37 +1,17 @@
 {% extends 'base_manual.html.twig' %}
 
-{% block title %}Editace fontu - {{ manual_font.font.name }}{% endblock %}
+{% block title %}Upravit písmo {{ manual_font.font.name }}{% endblock %}
 {% set active_menu_item = 'manuals' %}
+
+{% block page_lead %}Role písma v manuálu a barva jeho ukázky.{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manual_dashboard', {'id': manual.id}) }}">{{ manual.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manual_fonts', {'id': manual.id}) }}">Fonty</a></li>
-        <li class="breadcrumb-item active">Editace fontu</li>
+        <li class="breadcrumb-item"><a href="{{ path('manual_fonts', {'id': manual.id}) }}">{{ manual.name }} · Fonty</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-
-    <div class="row">
-        <div class="col-xxl-3">
-            {{ include('_manual_nav.html.twig') }}
-        </div>
-
-        <div class="col-xxl-9">
-
-            <div class="card">
-                <div class="card-body">
-                    {{ form_start(form) }}
-                    {{ form_widget(form) }}
-                    <button class="btn btn-primary" type="submit">Uložit</button>
-                    {{ form_end(form) }}
-                </div>
-            </div>
-
-        </div>
-    </div>
+    {{ include('_manual_font_form.html.twig', {'submit_label': 'Uložit'}) }}
 {% endblock %}

@@ -3,9 +3,13 @@
 {% block title %}Fonty{% endblock %}
 {% set active_menu_item = 'fonts' %}
 
+{% set can_upload = is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
+{% set cut_count = fonts|reduce((carry, f) => carry + f.faces|length, 0) %}
+
+{% block page_lead %}Písma značky. Šablony nabízejí jen řezy nahrané tady{% if fonts|length > 0 %} — teď {{ fonts|length == 1 ? '1 rodina' : fonts|length ~ (fonts|length <= 4 ? ' rodiny' : ' rodin') }}, {{ cut_count }} {{ cut_count == 1 ? 'řez' : (cut_count >= 2 and cut_count <= 4 ? 'řezy' : 'řezů') }}{% endif %}.{% endblock %}
+
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
@@ -16,34 +20,41 @@
        real glyphs, the same registration the editor and fill pages use. #}
     {{ include('editor/_editor_fonts.html.twig', {'fonts': fonts}) }}
 
-    <div data-controller="font-specimen">
-        {% if is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
-            {# The dropzone stays folded until asked for — the page is mostly
-               read, and the specimens deserve the first screen. #}
-            <div class="mb-3">
-                <button type="button" class="btn btn-outline-primary rounded-pill" data-bs-toggle="collapse" data-bs-target="#fontUploadPanel" aria-expanded="false" aria-controls="fontUploadPanel"><i class="mdi mdi-plus"></i> Nahrát písma</button>
-            </div>
-            <div class="collapse" id="fontUploadPanel">
-                <div class="card mb-3">
-                    <div class="card-body">
-                        {{ include('_font_uploader.html.twig', {'project': project}) }}
-                    </div>
-                </div>
-            </div>
+    <div class="stack fn-page" data-controller="font-specimen">
+        {# Shared specimen controls: sample text (remembered per browser) and a
+           size slider, rewriting every row at once. #}
+        <div class="gal-nav fn-nav" role="toolbar" aria-label="Fonty">
+            {% if can_upload %}
+                <button type="button" class="btn btn-primary sm" onclick="document.getElementById('font-dropzone').click()">{{ icon('upload', 's16') }}Nahrát písma</button>
+            {% endif %}
+            <label class="inp fn-sample" for="font-specimen-text" title="Ukázkový text pro všechny náhledy">
+                {{ icon('font', 's16') }}
+                <input type="text" id="font-specimen-text" placeholder="Napište ukázkový text" autocomplete="off" aria-label="Ukázkový text" data-font-specimen-target="input" data-action="input->font-specimen#input">
+            </label>
+            <label class="fn-size" for="font-specimen-size">
+                <span class="cap">Velikost</span>
+                <input type="range" id="font-specimen-size" min="14" max="72" step="2" value="28" data-font-specimen-target="size" data-action="input->font-specimen#resize">
+                <b data-font-specimen-target="sizeLabel">28 px</b>
+            </label>
+        </div>
+
+        {% if can_upload %}
+            {{ include('_font_uploader.html.twig', {'project': project, 'hint': 'TTF, OTF, WOFF · víc souborů najednou · max. 10 MB na soubor · řezy se zařadí do rodiny podle názvu uvnitř souboru'}) }}
         {% endif %}
 
         {# References no project face satisfies: a deleted face, or the editor's
            "Arial" default from before the project had fonts. Those texts render
            in a fallback font — link straight to the editors that carry them. #}
         {% if usage.hasMissing %}
-            <div class="card border-warning mb-3">
-                <div class="card-body">
-                    <h5 class="mt-0 mb-2"><i class="mdi mdi-alert-outline text-warning me-1"></i> Písma mimo projekt</h5>
-                    <p class="text-muted small mb-2">Tyto šablony používají písmo, které v projektu není (smazaný řez, nebo výchozí písmo editoru). V exportu se vykreslí náhradním písmem — otevřete šablonu a zvolte písmo projektu, nebo písmo nahrajte.</p>
-                    <ul class="mb-0 small">
+            <div class="alert c-warning fn-missing">
+                {{ icon('alert') }}
+                <div>
+                    <div class="alert-t">Písma mimo projekt</div>
+                    <div class="alert-d">Tyto šablony používají písmo, které v projektu není (smazaný řez, nebo výchozí písmo editoru). V exportu se vykreslí náhradním písmem — otevřete šablonu a zvolte písmo projektu, nebo písmo nahrajte.</div>
+                    <ul class="fn-missing-l">
                         {% for family, sites in usage.missing %}
-                            <li class="mb-1">
-                                <span class="font-wire fw-semibold text-body">{{ family }}</span>
+                            <li>
+                                <span class="font-wire">{{ family }}</span>
                                 —
                                 {% for site in sites %}
                                     <a href="{{ site.groupId ? path('template_group_editor', {'groupId': site.groupId}) : path('template_variant_editor', {'variantId': site.variantId}) }}">{{ site.templateName }} ({{ site.dimensionLabel }})</a>{{ not loop.last ? ',' }}
@@ -55,128 +66,115 @@
             </div>
         {% endif %}
 
-        {% if fonts|length > 0 %}
-            {# Shared specimen controls: sample text (remembered per browser)
-               and a size slider, rewriting every row at once. #}
-            <div class="card mb-3">
-                <div class="card-body py-2">
-                    <div class="row g-2 align-items-center">
-                        <div class="col-lg-8">
-                            <label class="visually-hidden" for="font-specimen-text">Ukázkový text</label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text"><i class="mdi mdi-format-text"></i></span>
-                                <input type="text" id="font-specimen-text" class="form-control" placeholder="Ukázkový text…" data-font-specimen-target="input" data-action="input->font-specimen#input">
-                            </div>
-                        </div>
-                        <div class="col-lg-4 d-flex align-items-center gap-2">
-                            <label class="small text-muted text-nowrap mb-0" for="font-specimen-size">Velikost</label>
-                            <input type="range" class="form-range" id="font-specimen-size" min="12" max="72" value="20" data-font-specimen-target="size" data-action="input->font-specimen#resize">
-                        </div>
-                    </div>
-                </div>
+        {% if fonts|length == 0 %}
+            <div class="empty">
+                <span class="ico-c">{{ icon('font') }}</span>
+                <h2>Projekt zatím nemá žádná písma</h2>
+                <p>{% if can_upload %}Bez písem se šablony vysází náhradním písmem. Nahrajte soubory písem značky — nabídne je editor šablon i vyplňování.{% else %}Písma značky specifikuje grafik.{% endif %}</p>
+                {% if can_upload %}
+                    <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('font-dropzone').click()">{{ icon('upload', 's16') }}Nahrát písma</button>
+                {% endif %}
             </div>
-        {% else %}
-            <div class="alert alert-info">Projekt zatím nemá nahraná žádná písma. Písma nahraná zde nabízí editor šablon i vyplňování.</div>
         {% endif %}
 
-        <div class="row">
+        <div class="fn-grid">
             {% for font in fonts %}
-                <div class="col-xl-6">
-                    <div class="card">
-                        {% if is_granted('font_edit', font) %}
-                            <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                                <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="ri-more-fill text-lighter"></i>
-                                </a>
+                {% set can_edit = is_granted('font_edit', font) %}
+                {% set fontTemplates = usage.templateNamesFor(font.faces|map(f => font.faceFamily(f))|merge([font.name])) %}
+                {% set head_family = font.faces is not empty ? font.faceFamily(font.faces|first) : font.name %}
+                <section class="fn-fam" aria-labelledby="fnh-{{ font.id }}">
+                    <div class="fn-fam-h">
+                        <div class="fn-fam-t">
+                            <h2 id="fnh-{{ font.id }}" style="font-family: '{{ head_family }}', var(--font);">{{ font.name }}</h2>
+                            <span class="cap">{{ font.faces|length }} {{ font.faces|length == 1 ? 'řez' : (font.faces|length < 5 ? 'řezy' : 'řezů') }} · {% if fontTemplates|length > 0 %}použito v {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šabloně' : 'šablonách' }}{% else %}zatím nepoužito v šablonách{% endif %}</span>
+                        </div>
+                        {% if can_edit %}
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti rodiny {{ font.name }}">{{ icon('more', 's16') }}</button>
                                 <div class="dropdown-menu dropdown-menu-end">
-                                    <a href="{{ path('rename_font', {'fontId': font.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i> Přejmenovat</a>
+                                    {% if can_upload %}
+                                        <button type="button" class="dropdown-item" onclick="document.getElementById('font-dropzone').click()">{{ icon('upload', 's16') }}Nahrát další řezy</button>
+                                    {% endif %}
+                                    <a href="{{ path('rename_font', {'fontId': font.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Přejmenovat</a>
+                                    <div class="dropdown-divider"></div>
                                     <a href="#"
-                                       class="dropdown-item"
+                                       class="dropdown-item text-danger"
                                        data-modal-id="{{ font.id }}"
-                                       data-action="click->confirm-modal#showModal">
-                                        <i class="mdi mdi-delete me-1"></i> Smazat celé písmo
-                                    </a>
+                                       data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat rodinu</a>
                                 </div>
                             </div>
 
-                            {% set fontTemplates = usage.templateNamesFor(font.faces|map(f => font.faceFamily(f))|merge([font.name])) %}
                             <twig:ConfirmModal
                                 id="{{ font.id }}"
                                 url="{{ path('delete_font', {'fontId': font.id}) }}"
                                 confirmationText="Opravdu chcete smazat písmo {{ font.name }} včetně všech řezů?{% if fontTemplates|length > 0 %} Používá ho {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šablona' : (fontTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ fontTemplates|slice(0, 5)|join(', ') }}{% if fontTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}" />
                         {% endif %}
+                    </div>
 
-                        <div class="card-body"
-                             data-controller="dragula"
-                             data-dragula-sort-url-value="{{ path('sort_font_faces', {'fontId': font.id}) }}"
-                             data-dragula-target="container"
-                        >
-                            <h4 class="mt-0 mb-1">
-                                {{ font.name }}
-                                <span class="text-muted font-13 fw-normal ms-1">{{ font.faces|length }} {{ font.faces|length == 1 ? 'řez' : (font.faces|length < 5 ? 'řezy' : 'řezů') }}</span>
-                            </h4>
+                    {# Weight axis: which of the nine weights the font carries,
+                       upright (filled) and italic (slanted mark) — gaps at a
+                       glance, e.g. why the WYSIWYG's "I" button is disabled for a
+                       family with no italic. #}
+                    <div class="weight-axis" aria-label="Dostupné tloušťky">
+                        {% for step in 1..9 %}
+                            {% set weight = step * 100 %}
+                            {% set uprights = font.faces|filter(f => f.weight == weight and not f.isItalic) %}
+                            {% set italics = font.faces|filter(f => f.weight == weight and f.isItalic) %}
+                            <span class="weight-axis__cell{% if uprights|length > 0 %} weight-axis__cell--upright{% endif %}{% if italics|length > 0 %} weight-axis__cell--italic{% endif %}"
+                                  title="{{ weight }}{% if uprights|length > 0 %} · {{ uprights|map(f => f.name)|join(', ') }}{% endif %}{% if italics|length > 0 %} · {{ italics|map(f => f.name)|join(', ') }}{% endif %}{% if uprights|length == 0 and italics|length == 0 %} · chybí{% endif %}">
+                                <span class="weight-axis__label">{{ weight }}</span>
+                            </span>
+                        {% endfor %}
+                    </div>
 
-                            {# Weight axis: which of the nine weights the font
-                               carries, upright (filled) and italic (slanted mark)
-                               — gaps at a glance, e.g. why the WYSIWYG's "I"
-                               button is disabled for a family with no italic. #}
-                            <div class="weight-axis mb-2" aria-label="Dostupné tloušťky">
-                                {% for step in 1..9 %}
-                                    {% set weight = step * 100 %}
-                                    {% set uprights = font.faces|filter(f => f.weight == weight and not f.isItalic) %}
-                                    {% set italics = font.faces|filter(f => f.weight == weight and f.isItalic) %}
-                                    <span class="weight-axis__cell{% if uprights|length > 0 %} weight-axis__cell--upright{% endif %}{% if italics|length > 0 %} weight-axis__cell--italic{% endif %}"
-                                          title="{{ weight }}{% if uprights|length > 0 %} · {{ uprights|map(f => f.name)|join(', ') }}{% endif %}{% if italics|length > 0 %} · {{ italics|map(f => f.name)|join(', ') }}{% endif %}{% if uprights|length == 0 and italics|length == 0 %} · chybí{% endif %}">
-                                        <span class="weight-axis__label">{{ weight }}</span>
-                                    </span>
-                                {% endfor %}
-                            </div>
-
-                            {% for font_face in font.faces %}
-                                {% set family = font.faceFamily(font_face) %}
-                                <div class="font-face-row" data-entity-id="{{ font_face.name }}">
-                                    {% if is_granted('font_edit', font) %}
-                                        <span class="dragula-handle" title="Přetažením změníte pořadí"></span>
-                                    {% endif %}
-
-                                    <div class="font-face-row__body">
-                                        <div class="font-face-row__meta small text-muted">
-                                            <span class="fw-semibold text-body">{{ font_face.name }}</span>
-                                            <span class="badge bg-light text-secondary" title="Tloušťka (usWeightClass)">{{ font_face.weight }}</span>
-                                            <span class="badge bg-light text-secondary" title="Styl řezu">{{ font_face.style }}</span>
-                                            <span class="badge bg-light text-secondary" title="Formát souboru">{{ font_face.format }}</span>
-                                            {% if font_face.fileSizeLabel %}<span title="Velikost souboru">{{ font_face.fileSizeLabel }}</span>{% endif %}
-                                            {% set faceTemplates = usage.templateNamesFor([family]) %}
-                                            {% if faceTemplates|length > 0 %}
-                                                <span class="badge bg-primary-lighten text-primary" title="{{ faceTemplates|join(', ') }}">{{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }}</span>
-                                            {% else %}
-                                                <span class="badge bg-light text-secondary" title="Žádná šablona tento řez nepoužívá">nepoužito</span>
-                                            {% endif %}
-                                            <span class="font-wire text-muted" title="Přesný název písma pro API, MCP a JSON plátna">{{ family }}</span>
-                                            <button type="button" class="btn btn-link btn-sm p-0 text-muted" title="Zkopírovat název písma pro API / MCP" aria-label="Zkopírovat název písma" data-action="font-specimen#copy" data-font-specimen-family-param="{{ family }}"><i class="mdi mdi-content-copy"></i></button>
-                                        </div>
-                                        <div class="font-specimen" style="font-family: '{{ family }}', sans-serif;" data-font-specimen-target="specimen" title="{{ font_face.name }}">Příliš žluťoučký kůň úpěl ďábelské ódy 0123456789</div>
+                    <ul class="fn-cuts"
+                        data-controller="dragula"
+                        data-dragula-sort-url-value="{{ path('sort_font_faces', {'fontId': font.id}) }}"
+                        data-dragula-target="container">
+                        {% for font_face in font.faces %}
+                            {% set family = font.faceFamily(font_face) %}
+                            {% set faceTemplates = usage.templateNamesFor([family]) %}
+                            <li class="fn-cut" data-entity-id="{{ font_face.name }}">
+                                {% if can_edit %}
+                                    <span class="dragula-handle fn-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
+                                {% endif %}
+                                <div class="fn-cut-b">
+                                    <p class="fn-prev" style="font-family: '{{ family }}', sans-serif;" data-font-specimen-target="specimen" title="{{ font_face.name }}">Příliš žluťoučký kůň úpěl ďábelské ódy 0123456789</p>
+                                    <div class="fn-meta">
+                                        <b>{{ font_face.name }}</b>
+                                        <span class="fn-tag" title="Tloušťka (usWeightClass)">{{ font_face.weight }}</span>
+                                        <span class="fn-tag" title="Styl řezu">{{ font_face.style }}</span>
+                                        <span class="fn-tag" title="Formát souboru">{{ font_face.format }}</span>
+                                        {% if font_face.fileSizeLabel %}<span class="cap" title="Velikost souboru">{{ font_face.fileSizeLabel }}</span>{% endif %}
+                                        {% if faceTemplates|length > 0 %}
+                                            <span class="fn-use" title="{{ faceTemplates|join(', ') }}">{{ icon('template') }}{{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }}</span>
+                                        {% else %}
+                                            <span class="fn-use none" title="Žádná šablona tento řez nepoužívá">nepoužito</span>
+                                        {% endif %}
+                                        <span class="font-wire" title="Přesný název písma pro API, MCP a JSON plátna">{{ family }}</span>
                                     </div>
+                                </div>
+                                <div class="fn-cut-a">
+                                    <button type="button" class="btn btn-ghost icon xs" title="Zkopírovat název písma pro API / MCP" aria-label="Zkopírovat název písma" data-action="font-specimen#copy" data-font-specimen-family-param="{{ family }}">{{ icon('copy', 's16') }}</button>
+                                    <button type="button" class="btn btn-ghost xs fn-css" title="Zkopírovat CSS (font-family)" aria-label="Zkopírovat CSS" data-action="font-specimen#copy" data-font-specimen-family-param="font-family: '{{ family }}', sans-serif;">{{ icon('copy', 's16') }}CSS</button>
+                                    {% if can_edit %}
+                                        <a href="#"
+                                           class="btn btn-ghost icon xs fn-del"
+                                           title="Smazat řez"
+                                           aria-label="Smazat řez {{ font_face.name }}"
+                                           data-modal-id="{{ font.id }}-{{ loop.index }}"
+                                           data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}</a>
 
-                                    {% if is_granted('font_edit', font) %}
-                                        <span class="font-face-row__actions">
-                                            <a href="#"
-                                               class="btn btn-outline-danger btn-sm px-1 py-0"
-                                               title="Smazat řez"
-                                               data-modal-id="{{ font.id }}-{{ loop.index }}"
-                                               data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete"></i></a>
-
-                                            <twig:ConfirmModal
-                                                id="{{ font.id }}-{{ loop.index }}"
-                                                url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
-                                                confirmationText="Opravdu chcete smazat řez {{ font_face.name }}?{% if faceTemplates|length > 0 %} Používá ho {{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ faceTemplates|slice(0, 5)|join(', ') }}{% if faceTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}" />
-                                        </span>
+                                        <twig:ConfirmModal
+                                            id="{{ font.id }}-{{ loop.index }}"
+                                            url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
+                                            confirmationText="Opravdu chcete smazat řez {{ font_face.name }}?{% if faceTemplates|length > 0 %} Používá ho {{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ faceTemplates|slice(0, 5)|join(', ') }}{% if faceTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}" />
                                     {% endif %}
                                 </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </section>
             {% endfor %}
         </div>
     </div>

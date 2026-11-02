@@ -12,7 +12,7 @@ import { Controller } from "@hotwired/stimulus";
  * family the API, MCP and canvas JSON address a face by.
  */
 export default class extends Controller {
-    static targets = ["input", "specimen", "size"];
+    static targets = ["input", "specimen", "size", "sizeLabel"];
 
     static values = {
         storageKey: { type: String, default: "wboost.font-specimen" },
@@ -49,6 +49,7 @@ export default class extends Controller {
         this.specimenTargets.forEach((element) => {
             element.style.fontSize = `${px}px`;
         });
+        if (this.hasSizeLabelTarget) this.sizeLabelTarget.textContent = `${px} px`;
     }
 
     async copy(event) {
@@ -71,10 +72,11 @@ export default class extends Controller {
 
     _flash(button, label) {
         const original = button.getAttribute("title") || "";
-        const icon = button.querySelector("i");
+        // Mask icons (span.i) and legacy font icons (<i>) alike.
+        const icon = button.querySelector(".i, i");
         const originalIcon = icon ? icon.className : null;
         button.setAttribute("title", label);
-        if (icon) icon.className = "mdi mdi-check";
+        if (icon) icon.className = icon.classList.contains("i") ? "i i-check s16" : "mdi mdi-check";
         setTimeout(() => {
             button.setAttribute("title", original);
             if (icon && originalIcon) icon.className = originalIcon;
