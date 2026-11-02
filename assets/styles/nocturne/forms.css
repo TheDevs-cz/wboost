@@ -155,4 +155,7 @@ textarea.form-control { min-height: 88px; border-radius: 14px; }
 .ts-wrapper.focus .ts-control { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
 .ts-dropdown { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--shadow-3); overflow: hidden; }
 .ts-dropdown .active { background: var(--surface-3); color: var(--text); }
-.ts-wrapper.multi .ts-control > div { background: var(--lav-deep); color: var(--lav-ink); border-radius: 999px; border: 0; }
+.ts-wrapper.multi .ts-control > div, .ts-wrapper.multi .ts-control > div.item { background: var(--lav-deep); color: var(--lav-ink); border-radius: 999px; border: 0; padding: 1px 4px 1px 10px; }
+/* tom-select.bootstrap5.css loads after Nocturne (autocomplete controller) — .item/.active keep ours ahead */
+.ts-wrapper.multi .ts-control > div.item.active { background: var(--lav); color: var(--on-accent); }
+.ts-wrapper.plugin-remove_button .item .remove { border-left: 0 !important; border-radius: 999px; }

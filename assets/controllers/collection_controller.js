@@ -22,15 +22,15 @@ export default class extends Controller {
 
         const prototype = this.prototypeValue.replace(/__name__/g, this.indexValue);
         const div = document.createElement('div');
-        div.classList.add('variant-item', 'mb-3', 'p-3', 'border', 'rounded', 'bg-light');
+        div.classList.add('variant-item', 'wm-var');
         div.setAttribute('data-controller', 'meal-variant-mode');
         div.innerHTML = prototype;
 
         // Add remove button
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.classList.add('btn', 'btn-sm', 'btn-danger', 'mt-2');
-        removeBtn.innerHTML = '<i class="mdi mdi-delete"></i> Odebrat variantu';
+        removeBtn.classList.add('btn', 'btn-ghost-danger', 'btn-sm', 'wm-var-del');
+        removeBtn.innerHTML = '<span class="i i-trash s14" aria-hidden="true"></span>Odebrat variantu';
         removeBtn.addEventListener('click', () => this.remove(div));
         div.appendChild(removeBtn);
 

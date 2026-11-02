@@ -1,0 +1,20 @@
+{# Name, validity range (flatpickr-range: visible alt input + the two hidden
+   form fields as targets), created/approved by, approval e-mail. #}
+{{ form_row(form.name, {'attr': {'placeholder': 'Např. Týden 12 — Mateřská škola'}}) }}
+
+<div class="wm-formgrid">
+    <div class="field wm-range" data-controller="flatpickr-range">
+        <span>Platnost</span>
+        <span class="inp">
+            {{ icon('calendar', 's16') }}
+            <input type="text" placeholder="Vyberte období" data-input aria-label="Platnost">
+        </span>
+        {{ form_widget(form.validFrom, {attr: {class: 'd-none', 'data-flatpickr-range-target': 'from'}}) }}
+        {{ form_widget(form.validTo, {attr: {class: 'd-none', 'data-flatpickr-range-target': 'to'}}) }}
+        {{ form_errors(form.validFrom) }}
+        {{ form_errors(form.validTo) }}
+    </div>
+    {{ form_row(form.approvalEmail, {'attr': {'placeholder': 'jmeno@firma.cz'}}) }}
+    {{ form_row(form.createdBy) }}
+    {{ form_row(form.approvedBy) }}
+</div>

@@ -1,83 +1,86 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ email_template.name}} - Varianty{% endblock %}
+{% block title %}{{ email_template.name }}{% endblock %}
 {% set active_menu_item = 'emails' %}
+
+{% block eyebrow %}Projekt · {{ project.name }} · E-maily{% endblock %}
+{% block title_count %}{{ variants|length }}{% endblock %}
+{% block page_lead %}Varianty podpisu — jedna pro každého, kdo ho bude používat. Otevřete variantu a vyplňte texty, náhled a HTML kód se upraví hned.{% endblock %}
+
+{% block title_actions %}
+    <button type="button" class="btn btn-tertiary" data-bs-toggle="modal" data-bs-target="#demo-template-{{ email_template.id }}">{{ icon('mail', 's16') }}Vyzkoušet v e-mailu</button>
+    {% if is_granted('ROLE_DESIGNER') %}
+        <a href="{{ path('email_signature_template_editor', {'id': email_template.id}) }}" class="btn btn-tertiary">{{ icon('template', 's16') }}Editor šablony</a>
+    {% endif %}
+    <a href="{{ path('add_email_signature_variant', {'id': email_template.id}) }}" class="btn btn-primary">{{ icon('plus', 's16') }}Nová varianta</a>
+{% endblock %}
+
+{% block mobile_primary_action %}
+    <a href="{{ path('add_email_signature_variant', {'id': email_template.id}) }}" class="btn btn-primary icon" aria-label="Nová varianta">{{ icon('plus') }}</a>
+{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('email_signature_templates', {'id': project.id}) }}">E-maily</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
+        <li class="breadcrumb-item active">{{ email_template.name }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="row mb-2">
-        <div class="col-sm-12">
-            <a href="{{ path('add_email_signature_variant', {'id': email_template.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová varianta</a>
+    {{ include('_email_signature_demo_modal.html.twig', {
+        modal_id: 'demo-template-' ~ email_template.id,
+        action: path('email_signature_template_send_demo', {'id': email_template.id}),
+        subject_name: email_template.name,
+        note: '___vcard_qr___' in email_template.code
+            ? 'Odešle se šablona s výchozími texty a ukázkovým QR kódem vizitky. Pro konkrétní osobu pošlete ukázku z její varianty.'
+            : 'Odešle se šablona s výchozími texty. Pro konkrétní osobu pošlete ukázku z její varianty.',
+    }) }}
 
-            <button type="button" class="ms-2 btn btn-outline-secondary rounded-pill mb-3" data-bs-toggle="modal" data-bs-target="#demo-template-{{ email_template.id }}">
-                <i class="mdi mdi-email-outline"></i> Vyzkoušet v e-mailu
-            </button>
-
-            {% if is_granted('ROLE_DESIGNER') %}
-                <a href="{{ path('email_signature_template_editor', {'id': email_template.id}) }}" class="ms-2 btn btn-sm btn-outline-secondary rounded-pill mb-3"><i class="ri-list-view"></i> Editor šablony</a>
-            {% endif %}
-
-            {{ include('_email_signature_demo_modal.html.twig', {
-                modal_id: 'demo-template-' ~ email_template.id,
-                action: path('email_signature_template_send_demo', {'id': email_template.id}),
-                subject_name: email_template.name,
-                note: '___vcard_qr___' in email_template.code
-                    ? 'Odešle se šablona s výchozími texty a ukázkovým QR kódem vizitky. Pro konkrétní osobu pošlete ukázku z její varianty.'
-                    : 'Odešle se šablona s výchozími texty. Pro konkrétní osobu pošlete ukázku z její varianty.',
-            }) }}
+    {% if variants is empty %}
+        <div class="empty">
+            <span class="ico-c">{{ icon('user-plus') }}</span>
+            <h2>Šablona zatím nemá žádné varianty</h2>
+            <p>Přidejte variantu pro každého, kdo bude podpis používat — vyplní se jen jeho texty, vzhled zůstává ze šablony.</p>
+            <a href="{{ path('add_email_signature_variant', {'id': email_template.id}) }}" class="btn btn-primary btn-sm">{{ icon('plus', 's16') }}Přidat první variantu</a>
         </div>
-    </div>
-
-    <div class="row">
-        {% for variant in variants %}
-            <div class="col-md-6 col-xxl-3">
-
-                <div class="card">
-                    <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                        <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="ri-more-fill text-lighter"></i>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-end">
-                            <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#demo-variant-{{ variant.id }}"><i class="mdi mdi-email-outline me-1"></i>Odeslat zkušební e-mail</a>
-                            <a href="#"
-                               class="dropdown-item"
-                               data-modal-id="{{ variant.id }}"
-                               data-action="click->confirm-modal#showModal">
-                                <i class="mdi mdi-delete me-1"></i> Smazat
-                            </a>
+    {% else %}
+        <div class="es-list">
+            <ul>
+                {% for variant in variants %}
+                    <li class="es-row">
+                        <span class="av">{{ initials(variant.name) }}</span>
+                        <a class="es-row-name" href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}">{{ variant.name }}</a>
+                        <div class="es-row-acts">
+                            <button type="button" class="btn btn-ghost sm es-row-demo" data-bs-toggle="modal" data-bs-target="#demo-variant-{{ variant.id }}">{{ icon('mail', 's16') }}<span>Odeslat zkušební e-mail</span></button>
+                            <div class="dropdown">
+                                <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti varianty {{ variant.name }}">{{ icon('more', 's16') }}</button>
+                                <div class="dropdown-menu dropdown-menu-end">
+                                    <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit</a>
+                                    <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#demo-variant-{{ variant.id }}">{{ icon('mail', 's16') }}Odeslat zkušební e-mail</a>
+                                    <div class="dropdown-divider"></div>
+                                    <a href="#"
+                                       class="dropdown-item text-danger"
+                                       data-modal-id="{{ variant.id }}"
+                                       data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat</a>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <twig:ConfirmModal
-                        id="{{ variant.id }}"
-                        url="{{ path('delete_email_signature_variant', {'id': variant.id}) }}"
-                        confirmationText="Opravdu chcete smazat tuto variantu?" />
+                        <twig:ConfirmModal
+                            id="{{ variant.id }}"
+                            url="{{ path('delete_email_signature_variant', {'id': variant.id}) }}"
+                            confirmationText="Opravdu chcete smazat tuto variantu?" />
 
-                    {{ include('_email_signature_demo_modal.html.twig', {
-                        modal_id: 'demo-variant-' ~ variant.id,
-                        action: path('email_signature_variant_send_demo', {'id': variant.id}),
-                        subject_name: variant.name,
-                    }) }}
-
-                    <a href="{{ path('edit_email_signature_variant', {'id': variant.id}) }}" class="text-body">
-                        <div class="card-body">
-                            <h4 class="m-0">
-                                {{ variant.name }}
-                            </h4>
-                        </div>
-                    </a>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-
+                        {{ include('_email_signature_demo_modal.html.twig', {
+                            modal_id: 'demo-variant-' ~ variant.id,
+                            action: path('email_signature_variant_send_demo', {'id': variant.id}),
+                            subject_name: variant.name,
+                        }) }}
+                    </li>
+                {% endfor %}
+            </ul>
+            <div class="es-foot cap">{{ variants|length }} {{ variants|length == 1 ? 'varianta' : (variants|length < 5 ? 'varianty' : 'variant') }}</div>
+        </div>
+    {% endif %}
 {% endblock %}

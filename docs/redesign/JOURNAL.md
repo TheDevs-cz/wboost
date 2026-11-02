@@ -541,3 +541,103 @@ fonts/images (Minio 403 → Live previews render with fallback fonts).
 **Follow-ups.** ZIP of only the chip-selected formats needs a backend param;
 prototype multi-column "Všechna pole" dialog with live thumbnails, container
 "+ Řádek" / hidden-rows pills, eyedropper (#29), AI share dialog (#31).
+
+---
+
+## 2026-11-02 — P9 Auth, errors, e-maily, jídelníčky
+
+**What.** Signed-out / decision screens, error pages, the E-maily (email
+signatures) module and the Jídelníčky (weekly menus) app pages in Nocturne.
+
+**How / files.**
+- New layout `templates/base_auth.html.twig` (extends base, overrides
+  `full_content`): centred `.auth-card` on `--bg` with a radial `--lav-glow`
+  behind it, wordmark on top — built on the prototype `.signed-out/.so-card`.
+  Blocks `auth_card_class` (`wide`, `err`), `auth_body`, `auth_below`. Used by
+  login, registration, set_password, forgotten_password, oauth_consent,
+  facebook_data_deletion_status and the three error pages.
+  CSS `assets/styles/nocturne/auth.css` rewritten (Hyper `account-pages` /
+  `authentication-bg` / `.password-eye` rules dropped — nothing uses them now).
+- Login: `.inp` fields with icons, "Zapomněli jste heslo?" beside the label,
+  show/hide password button (`.auth-eye[data-password]`, still toggled by
+  `bootstrap_global.js`), "nebo" divider, Facebook tertiary button.
+  `.alert-danger` on errors, field names + CSRF unchanged.
+- OAuth consent: plug icon circle, warning alert (copy verbatim), connected
+  account box, scopes as read-only rows like the prototype AI scopes
+  (`.auth-scopes`, mint `.chk` / rose for unknown scopes), Odmítnout tertiary
+  + Povolit přístup primary (button names `deny`/`approve` kept).
+- Error pages: shared `bundles/TwigBundle/Exception/_error_page.html.twig`
+  (empty-state: icon circle, big code, title, text, Zpět + "Zpět na
+  projekty"). `error.html.twig` maps 403/410/429/503 to their own copy,
+  everything else generic; ≥500 uses the rose variant.
+- E-maily (`assets/styles/nocturne/email.css`): template cards (white cover
+  well with the background image → mail-icon fallback on error), ⋯ menu;
+  variants as person rows (avatar, name link, "Odeslat zkušební e-mail",
+  ⋯ menu); variant editor = "Texty podpisu" box (sticky) + Náhled (white well —
+  e-mail HTML is customer output) + HTML kód box; add/edit forms reuse P8's
+  `.adm-sheet`; GrapesJS page = Nocturne frame with a toolbar (Uložit + mint
+  "Uloženo" status, `successMsg` target still toggles `d-none`), editor height
+  from the viewport (`.es-gjs`), GrapesJS UI itself untouched. Demo modal:
+  `.inp` rows, ghost × remove, lavender "Přidat další adresu"; all
+  `email-demo-form` targets/`.invisible`/`.d-none` contracts kept.
+- Jídelníčky (`assets/styles/nocturne/weekly-menu.css`): module tabs partial
+  `weekly_menu/_nav.html.twig` (Jídelníčky · Seznam jídel · Diety · Druhy
+  jídel) on the list pages; menu cards with approval status pill
+  (`weekly_menu/_status_pill`), ⋯ menu (forms + confirm() unchanged),
+  "Sestavit"; add/edit menu (`_menu_form_fields`, flatpickr-range inside an
+  `.inp`), edit page "Schvalovací proces" box with an event list; planner
+  page header (Spravovat jídla · Upravit údaje · Náhled) and the
+  `WeeklyMenuPlanner` Live component rebuilt: weekly summary as KPI tiles,
+  day / meal type / course `<details>` as nested cards, meal-type colour only
+  as `--mt` dot + 3 px bar, `weekly_menu/_nutrition_pills`, mask icons, meal
+  cards (`partials/_meal_card`) restyled; every Live action/param, id,
+  sortable target/handle and modal trigger kept. Meal picker + variant-count
+  + preview modals restyled (preview shows `_menu_display` on a white sheet).
+  Meals = row list with type chips (`chip-filter`), diets / dish types =
+  tiles, meal form = three `.pd-box` sections (`weekly_menu/_meal_form`, shared
+  by add/edit), diet / dish-type forms = sheets.
+- `app.css`: the whole weekly-menu block ("Weekly Menu Planner Styles" …
+  ".collapsible-day .dropdown", ~480 lines) moved into weekly-menu.css
+  (Dragula `.gu-*` rules stay — shared).
+- JS: `collection_controller.js` — new variant items get `.wm-var` and a
+  mask-icon ghost-danger remove button (only add/edit meal use it).
+- Shared-file fix (genuine bug): `forms.css` tom-select multi chips — the
+  lazily loaded `tom-select.bootstrap5.css` beat our `.ts-control > div` rule
+  (white chips); selector now also matches `div.item` (+ `.active`, remove
+  button radius).
+- flatpickr calendar themed in weekly-menu.css (only these forms use it),
+  `html`-prefixed because flatpickr.min.css loads after Nocturne.
+
+**Decisions.** Head primary per page: list pages = "Nový …"; planner = Náhled
+(planner autosaves). Variants are people → rows; templates, menus → cards.
+`weekly_menu/public`, `approval`, `pdf` untouched. Error pages keep linking
+to `projects` (was `dashboard`). Edit-menu / planner titles are the menu name.
+
+**Tests changed.** `SetPasswordControllerTest` asserted `h4` → now `h1`
+(the card headings are real h1s now).
+
+**Cheap features implemented.** Meal-type filter chips on Seznam jídel;
+specific 403/410/429/503 copy on the generic error page.
+
+**Verified.** Gate (PHPStan + full PHPUnit) green. shoot.cjs on all P9 app
+pages 390/820/1440 × dark/light (no overflow, no JS errors); auth pages
+logged out; error pages via `/_error/{404,500,403}` (logged in — anonymous is
+redirected to login by the firewall). Puppeteer: password eye, wrong-password
+alert, real login, OAuth consent reached via a temporary dynamically
+registered client (deleted afterwards), demo modal add/remove rows, variant
+row menu, live signature preview, GrapesJS mounts (600 px frame), planner day
+/ meal type / course open, meal picker + no-results, "+ Chod" menu,
+variant-count modal, preview modal, meal form add variant + manual mode +
+remove, flatpickr opens.
+
+**Not verified.** Actually saving in GrapesJS / sending a demo e-mail /
+requesting approval in the browser (endpoints unchanged); Live re-render of
+the planner after add/remove actions in a browser (markup contract kept,
+not clicked through); drag reorder in the planner.
+
+**Found, not fixed (pre-existing).** `weekly_menu_dragula_controller.js` uses
+`draggable: '.meal-badge'` for meals, but no element has that class — meal
+reordering inside a variant never worked (course/variant reorder is fine).
+Manual components used on `manual_preview` (`DownloadManualImage`,
+`LogoColorsMapping`, `ManualPageText`) still use mdi icons — customer output
+surface, left for P10.

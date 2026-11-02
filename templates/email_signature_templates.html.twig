@@ -3,70 +3,81 @@
 {% block title %}E-maily{% endblock %}
 {% set active_menu_item = 'emails' %}
 
+{% block title_count %}{{ email_templates|length }}{% endblock %}
+{% block page_lead %}Šablony e-mailových podpisů. Každý kolega má v šabloně svou variantu s vlastními texty a hotový HTML kód ke stažení.{% endblock %}
+
+{% block title_actions %}
+    {% if is_granted('ROLE_DESIGNER') %}
+        <a href="{{ path('add_email_signature_template', {'id': project.id}) }}" class="btn btn-primary">{{ icon('plus', 's16') }}Nová šablona e-mailu</a>
+    {% endif %}
+{% endblock %}
+
+{% block mobile_primary_action %}
+    {% if is_granted('ROLE_DESIGNER') %}
+        <a href="{{ path('add_email_signature_template', {'id': project.id}) }}" class="btn btn-primary icon" aria-label="Nová šablona e-mailu">{{ icon('plus') }}</a>
+    {% endif %}
+{% endblock %}
+
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-
-    {% if is_granted('ROLE_DESIGNER') %}
-        <div class="row mb-2">
-            <div class="col-sm-12">
-                <a href="{{ path('add_email_signature_template', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová šablona e-mailu</a>
-            </div>
+    {% if email_templates is empty %}
+        <div class="empty">
+            <span class="ico-c">{{ icon('mail') }}</span>
+            <h2>Zatím tu nejsou žádné e-mailové podpisy</h2>
+            <p>Šablona podpisu se navrhne jednou a každý kolega si v ní vyplní svoje jméno, pozici a kontakty.</p>
+            {% if is_granted('ROLE_DESIGNER') %}
+                <a href="{{ path('add_email_signature_template', {'id': project.id}) }}" class="btn btn-primary btn-sm">{{ icon('plus', 's16') }}Vytvořit první šablonu</a>
+            {% endif %}
         </div>
-    {% endif %}
-
-    <div class="row">
-        {% for email_template in email_templates %}
-            <div class="col-md-6 col-xxl-3">
-
-                <div class="card">
-                    {% if is_granted('project_edit', project) %}
-                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="ri-more-fill text-lighter"></i>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="dropdown-item"><i class="mdi mdi-eye me-1"></i>Varianty</a>
-                                <a href="{{ path('email_signature_template_editor', {'id': email_template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Editor</a>
-                                <a href="{{ path('edit_email_signature_template', {'id': email_template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                                <a href="#"
-                                   class="dropdown-item"
-                                   data-modal-id="{{ email_template.id }}"
-                                   data-action="click->confirm-modal#showModal">
-                                    <i class="mdi mdi-delete me-1"></i> Smazat
-                                </a>
-                            </div>
+    {% else %}
+        <ul class="es-grid">
+            {% for email_template in email_templates %}
+                {% set variants_count = email_template.variants|length %}
+                <li class="es-card">
+                    <div class="es-cover{{ email_template.backgroundImage ? '' : ' empty-cover' }}">
+                        {% if email_template.backgroundImage %}
+                            <img src="{{ uploaded_asset(email_template.backgroundImage) }}" alt="" loading="lazy" onerror="this.parentElement.classList.add('empty-cover'); this.remove();">
+                        {% endif %}
+                        <span class="es-cover-ico">{{ icon('mail', 's32') }}</span>
+                    </div>
+                    <div class="es-body">
+                        <div class="es-head">
+                            <h2 class="es-name"><a href="{{ path('email_signature_variants', {'id': email_template.id}) }}">{{ email_template.name }}</a></h2>
+                            {% if is_granted('project_edit', project) %}
+                                <div class="dropdown es-acts">
+                                    <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti šablony">{{ icon('more', 's16') }}</button>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="dropdown-item">{{ icon('users', 's16') }}Varianty</a>
+                                        <a href="{{ path('email_signature_template_editor', {'id': email_template.id}) }}" class="dropdown-item">{{ icon('template', 's16') }}Editor šablony</a>
+                                        <a href="{{ path('edit_email_signature_template', {'id': email_template.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit název a pozadí</a>
+                                        <div class="dropdown-divider"></div>
+                                        <a href="#"
+                                           class="dropdown-item text-danger"
+                                           data-modal-id="{{ email_template.id }}"
+                                           data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat</a>
+                                    </div>
+                                </div>
+                            {% endif %}
                         </div>
+                        <span class="cap">
+                            {% if variants_count == 0 %}Zatím bez variant{% else %}{{ variants_count }} {{ variants_count == 1 ? 'varianta' : (variants_count < 5 ? 'varianty' : 'variant') }}{% endif %}
+                        </span>
+                    </div>
 
+                    {% if is_granted('project_edit', project) %}
                         <twig:ConfirmModal
                             id="{{ email_template.id }}"
                             url="{{ path('delete_email_signature_template', {'id': email_template.id}) }}"
                             confirmationText="Opravdu chcete smazat tuto šablonu včetně všech náležitostí?" />
                     {% endif %}
-
-                    <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="text-body">
-                        <div class="card-body pb-2">
-                            <h4 class="mt-0">
-                                {{ email_template.name }}
-                                {% if email_template.variants|length > 0 %}
-                                <br><small class="text-muted">Varianty: {{ email_template.variants|length }}</small>
-                                {% endif %}
-                            </h4>
-
-                            <img class="img-fluid my-1 mb-2" src="{{ email_template.backgroundImage ? uploaded_asset(email_template.backgroundImage) : asset('images/manual-placeholder.png') }}" alt="{{ email_template.name }}">
-
-                        </div>
-
-                    </a>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
 {% endblock %}

@@ -1,78 +1,81 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editace varianty{% endblock %}
+{% block title %}{{ variant.name }}{% endblock %}
 {% set active_menu_item = 'emails' %}
+
+{% block eyebrow %}{{ email_template.name }} · Varianta podpisu{% endblock %}
+
+{% block title_actions %}
+    <button type="button" class="btn btn-tertiary" data-bs-toggle="modal" data-bs-target="#demo-variant-{{ variant.id }}">{{ icon('mail', 's16') }}Odeslat zkušební e-mail</button>
+{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('email_signature_templates', {'id': project.id}) }}">E-maily</a></li>
         <li class="breadcrumb-item"><a href="{{ path('email_signature_variants', {'id': email_template.id}) }}">{{ email_template.name }}</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
+        <li class="breadcrumb-item active">{{ variant.name }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}" data-email-signature-export-variant-name-value="{{ variant.name }}" data-email-signature-export-vcard-qr-url-value="{{ url('email_signature_variant_vcard_qr_code', {'variantId': variant.id}) }}">
-        {{ form_start(form) }}
+    <div class="es-edit" data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}" data-email-signature-export-variant-name-value="{{ variant.name }}" data-email-signature-export-vcard-qr-url-value="{{ url('email_signature_variant_vcard_qr_code', {'variantId': variant.id}) }}">
+        {{ form_start(form, {'attr': {'class': 'es-edit-grid'}}) }}
 
-        <div class="row">
-            <div class="col-3">
-                <div class="card">
-                    <div class="card-body">
-                        {{ form_row(form.name) }}
-
-                        {% for input in email_template.textInputs %}
-                            <div class="mb-2">
-                                <label class="form-label small" for="text-input-{{ loop.index0 }}">
-                                    {{ input.content }}
-                                </label>
-                                <input
-                                    type="text"
-                                    class="form-control form-control-sm"
-                                    id="text-input-{{ loop.index0 }}"
-                                    data-email-signature-export-target="input"
-                                    data-action="input->email-signature-export#update"
-                                    data-text-input-id="{{ input.id }}"
-                                    value="{{ variant.inputValue(input.id) ?? input.content }}"
-                                    name="textInput[{{ input.id }}]"
-                                >
-                            </div>
-                        {% endfor %}
-
-                        <button class="btn btn-primary" type="submit">Uložit</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-9">
-                <h5>Náhled:</h5>
-
-                <div class="card">
-                    <div class="card-body">
-                        <div data-email-signature-export-target="preview"></div>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5>HTML kód:</h5>
-
-                    <div>
-                        <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-bs-toggle="modal" data-bs-target="#demo-variant-{{ variant.id }}">
-                            <i class="mdi mdi-email-outline"></i> Odeslat zkušební e-mail
-                        </button>
-
-                        <button type="button" class="btn btn-outline-primary btn-sm mb-1 ms-1" data-action="click->email-signature-export#downloadHtml">
-                            <i class="uil-download-alt"></i> Stáhnout HTML
-                        </button>
-                    </div>
-                </div>
-
+        <section class="pd-box es-fields" aria-labelledby="es-fields-h">
+            <div class="pd-box-h">
                 <div>
-                    {{ form_widget(form.code, { attr: { 'data-email-signature-export-target': 'codeInput', 'rows': 8, 'readonly': 'readonly', 'class': 'form-control font-monospace' } }) }}
+                    <h2 id="es-fields-h">Texty podpisu</h2>
+                    <p class="cap mb-0">Změny se hned propíší do náhledu. Uložte je tlačítkem dole.</p>
                 </div>
             </div>
+
+            {{ form_row(form.name) }}
+
+            {% for input in email_template.textInputs %}
+                <div class="es-field">
+                    <label class="form-label" for="text-input-{{ loop.index0 }}">{{ input.content }}</label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="text-input-{{ loop.index0 }}"
+                        data-email-signature-export-target="input"
+                        data-action="input->email-signature-export#update"
+                        data-text-input-id="{{ input.id }}"
+                        value="{{ variant.inputValue(input.id) ?? input.content }}"
+                        name="textInput[{{ input.id }}]"
+                    >
+                </div>
+            {% endfor %}
+
+            <div class="es-fields-f">
+                <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+                <button class="btn btn-primary sm" type="submit">Uložit</button>
+            </div>
+        </section>
+
+        <div class="es-out">
+            <section class="pd-box" aria-labelledby="es-preview-h">
+                <div class="pd-box-h">
+                    <div>
+                        <h2 id="es-preview-h">{{ icon('eye', 's18') }}Náhled</h2>
+                        <p class="cap mb-0">Takhle podpis uvidí příjemce e-mailu.</p>
+                    </div>
+                </div>
+                <div class="es-preview">
+                    <div data-email-signature-export-target="preview"></div>
+                </div>
+            </section>
+
+            <section class="pd-box" aria-labelledby="es-code-h">
+                <div class="pd-box-h">
+                    <div>
+                        <h2 id="es-code-h">{{ icon('file', 's18') }}HTML kód</h2>
+                        <p class="cap mb-0">Vložte ho do nastavení podpisu ve svém e-mailovém programu.</p>
+                    </div>
+                    <button type="button" class="btn btn-tertiary sm" data-action="click->email-signature-export#downloadHtml">{{ icon('download', 's16') }}Stáhnout HTML</button>
+                </div>
+                {{ form_widget(form.code, { attr: { 'data-email-signature-export-target': 'codeInput', 'rows': 8, 'readonly': 'readonly', 'class': 'form-control font-monospace es-code' } }) }}
+            </section>
         </div>
 
         {{ form_end(form) }}

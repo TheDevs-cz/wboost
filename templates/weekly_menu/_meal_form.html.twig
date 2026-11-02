@@ -1,0 +1,152 @@
+{# Add / edit meal (MealFormType + MealVariantFormType collection). Expects
+   form, meals, diets, project, submit_label. Contracts: `collection`
+   controller (prototype value, container/addButton targets, `.variant-item`,
+   collection#removeExisting), `meal-variant-mode` (radio name$="[mode]",
+   referenceWrapper / manualWrapper targets), `reference-meal-selector`. #}
+{% macro variant_fields(variant, meals, diets) %}
+    {% set mealTypeLabels = {'breakfast': 'Snídaně', 'lunch': 'Oběd', 'snack': 'Svačina', 'dinner': 'Večeře', 'late_dinner': 'Druhá večeře'} %}
+
+    {{ form_widget(variant.id) }}
+    <div class="wm-var-grid" data-controller="reference-meal-selector">
+        {{ form_widget(variant.referenceMealId, {'attr': {'data-reference-meal-selector-target': 'hiddenInput'}}) }}
+
+        <div class="wm-var-mode">
+            {{ form_row(variant.mode) }}
+        </div>
+        <div class="wm-var-ref" data-meal-variant-mode-target="referenceWrapper">
+            <div class="reference-meal-preview">
+                <div class="reference-meal-selected" data-reference-meal-selector-target="selectedPreview"></div>
+                <div class="reference-meal-empty" data-reference-meal-selector-target="emptyPreview">
+                    {{ icon('info', 's16') }} Vyberte jídlo ze seznamu níže
+                </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm d-none" data-action="reference-meal-selector#clearSelection" data-reference-meal-selector-target="clearButton">{{ icon('x', 's14') }}Zrušit výběr</button>
+        </div>
+
+        <div class="wm-var-pick" data-meal-variant-mode-target="referenceWrapper">
+            {% if meals|length > 0 %}
+                <div class="wm-filters">
+                    <label class="inp sm wm-search">
+                        {{ icon('search', 's14') }}
+                        <input type="text"
+                               placeholder="Hledat jídlo…"
+                               aria-label="Hledat jídlo"
+                               data-reference-meal-selector-target="searchInput"
+                               data-action="input->reference-meal-selector#filter">
+                    </label>
+                    <select class="form-select form-select-sm"
+                            aria-label="Typ jídla"
+                            data-reference-meal-selector-target="mealTypeFilter"
+                            data-action="change->reference-meal-selector#filter">
+                        <option value="">Všechny typy</option>
+                        {% for typeValue, typeLabel in mealTypeLabels %}
+                            <option value="{{ typeValue }}">{{ typeLabel }}</option>
+                        {% endfor %}
+                    </select>
+                    <select class="form-select form-select-sm"
+                            aria-label="Dieta"
+                            data-reference-meal-selector-target="dietFilter"
+                            data-action="change->reference-meal-selector#filter">
+                        <option value="">Všechny diety</option>
+                        {% for diet in diets %}
+                            <option value="{{ diet.id }}">{{ diet.name }} ({{ diet.codesLabel }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="reference-meal-grid-container">
+                    <div class="meal-selector-grid">
+                        {% for meal in meals %}
+                            <div class="meal-selector-item"
+                                 data-reference-meal-selector-target="mealCard"
+                                 data-meal-type="{{ meal.mealType.value }}"
+                                 data-diet-ids="{{ meal.diets|map(d => d.id)|join(',') }}"
+                                 data-search-text="{{ meal.internalName|lower }} {{ meal.name|lower }} {{ meal.dietCodesLabel|lower }}"
+                                 data-meal-id="{{ meal.id }}"
+                                 data-action="click->reference-meal-selector#selectMeal"
+                                 style="--mt: {{ meal.mealType.cssColor }};">
+                                {% include 'partials/_meal_card.html.twig' with {meal: meal} only %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <p class="wm-noresults d-none" data-reference-meal-selector-target="noResults">Žádná jídla neodpovídají zadaným filtrům.</p>
+            {% else %}
+                <p class="wm-hint">Zatím nebyla vytvořena žádná jídla k odkázání.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="wm-var-manual" data-meal-variant-mode-target="manualWrapper">
+        <div class="wm-formgrid">
+            {{ form_row(variant.name) }}
+            {{ form_row(variant.dietIds) }}
+        </div>
+        <span class="field-l">Nutriční hodnoty</span>
+        <div class="wm-formgrid four">
+            {{ form_row(variant.energyValue) }}
+            {{ form_row(variant.fats) }}
+            {{ form_row(variant.carbohydrates) }}
+            {{ form_row(variant.proteins) }}
+        </div>
+    </div>
+{% endmacro %}
+
+{{ form_start(form, {'attr': {'class': 'wm-mealform'}}) }}
+    {{ form_errors(form) }}
+
+    <section class="pd-box wm-box" aria-labelledby="wm-meal-basic">
+        <div class="pd-box-h"><div><h2 id="wm-meal-basic">Základní údaje</h2><p class="cap mb-0">Interní název uvidíte jen vy, název varianty se zobrazí v jídelníčku.</p></div></div>
+        <div class="wm-formgrid">
+            {{ form_row(form.internalName) }}
+            {{ form_row(form.name) }}
+        </div>
+        <div class="wm-formgrid three">
+            {{ form_row(form.mealType) }}
+            {{ form_row(form.dishTypeId) }}
+            {{ form_row(form.dietIds) }}
+        </div>
+    </section>
+
+    <section class="pd-box wm-box" aria-labelledby="wm-meal-nutri">
+        <div class="pd-box-h"><div><h2 id="wm-meal-nutri">Nutriční hodnoty <small class="cap">nepovinné</small></h2><p class="cap mb-0">Sečtou se do souhrnů dnů a celého týdne.</p></div></div>
+        <div class="wm-formgrid four">
+            {{ form_row(form.energyValue) }}
+            {{ form_row(form.fats) }}
+            {{ form_row(form.carbohydrates) }}
+            {{ form_row(form.proteins) }}
+        </div>
+    </section>
+
+    <section class="pd-box wm-box" aria-labelledby="wm-meal-vars">
+        <div class="pd-box-h"><div><h2 id="wm-meal-vars">Dietní varianty <small class="cap">nepovinné, max. 4</small></h2><p class="cap mb-0">Různé dietní verze tohoto jídla, např. bezlepková nebo vegetariánská. Variantu zadáte ručně, nebo odkážete na jiné existující jídlo.</p></div></div>
+
+        <div class="wm-vars"
+             data-controller="collection"
+             data-collection-prototype-value="{{ _self.variant_fields(form.variants.vars.prototype, meals, diets)|e('html_attr') }}"
+             data-collection-index-value="{{ form.variants|length }}"
+             data-collection-max-items-value="4">
+
+            <div class="wm-vars-list" data-collection-target="container">
+                {% for variant in form.variants %}
+                    <div class="variant-item wm-var" data-controller="meal-variant-mode">
+                        {{ _self.variant_fields(variant, meals, diets) }}
+                        <button type="button" class="btn btn-ghost-danger btn-sm wm-var-del" data-action="collection#removeExisting">{{ icon('trash', 's14') }}Odebrat variantu</button>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button type="button"
+                    class="btn btn-tertiary btn-sm wm-var-add"
+                    data-collection-target="addButton"
+                    data-action="collection#add">{{ icon('plus', 's14') }}Přidat dietní variantu</button>
+        </div>
+        {% do form.variants.setRendered() %}
+    </section>
+
+    <div class="wm-formfoot">
+        <a href="{{ path('meals', {'projectId': project.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+        <button class="btn btn-primary sm" type="submit">{{ submit_label }}</button>
+    </div>
+{{ form_end(form) }}

@@ -6,45 +6,48 @@
      - subject_name: human name of what will be sent (shown in the intro text)
    Optional:
      - note: extra small print shown under the address fields
+
+   email_demo_form_controller.js contract: targets rows / row / addButton /
+   submitButton, the row's `[data-role="remove"]` toggles `.invisible`, the
+   add button toggles `.d-none`.
 #}
-<div class="modal fade" id="{{ modal_id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade es-demo" id="{{ modal_id }}" tabindex="-1" aria-hidden="true" aria-labelledby="{{ modal_id }}-title">
+    <div class="modal-dialog modal-dialog-centered">
         <form action="{{ action }}" method="post" data-controller="email-demo-form" data-action="submit->email-demo-form#submitting">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="mdi mdi-email-outline me-1"></i> Odeslat zkušební e-mail</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h2 class="modal-title" id="{{ modal_id }}-title">Odeslat zkušební e-mail</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted">
+                    <p class="es-demo-lead">
                         Pošleme zkušební e-mail s podpisem <strong>{{ subject_name }}</strong>,
                         abyste si mohli prohlédnout, jak bude vypadat ve skutečné e-mailové schránce.
                     </p>
 
-                    <label class="form-label">Komu poslat <span class="text-muted fw-normal">(max. 5 adres)</span></label>
+                    <div class="field">
+                        <span class="field-l">Komu poslat <small>max. 5 adres</small></span>
 
-                    <div data-email-demo-form-target="rows">
-                        <div class="d-flex align-items-center gap-1 mb-2" data-email-demo-form-target="row">
-                            <input type="email" class="form-control" name="emails[]" placeholder="např. jmeno@firma.cz" required>
-                            <button type="button" class="btn btn-sm btn-link text-danger px-1 invisible" data-role="remove" data-action="email-demo-form#removeRow" tabindex="-1" aria-label="Odebrat adresu">
-                                <i class="mdi mdi-close"></i>
-                            </button>
+                        <div class="es-demo-rows" data-email-demo-form-target="rows">
+                            <div class="es-demo-row" data-email-demo-form-target="row">
+                                <span class="inp">
+                                    {{ icon('mail', 's16') }}
+                                    <input type="email" name="emails[]" placeholder="jmeno@firma.cz" required aria-label="E-mailová adresa">
+                                </span>
+                                <button type="button" class="btn btn-ghost icon xs invisible" data-role="remove" data-action="email-demo-form#removeRow" tabindex="-1" aria-label="Odebrat adresu">{{ icon('x', 's16') }}</button>
+                            </div>
                         </div>
+
+                        <button type="button" class="es-demo-add" data-email-demo-form-target="addButton" data-action="email-demo-form#addRow">{{ icon('plus', 's16') }}Přidat další adresu</button>
                     </div>
 
-                    <button type="button" class="btn btn-sm btn-link ps-0" data-email-demo-form-target="addButton" data-action="email-demo-form#addRow">
-                        <i class="mdi mdi-plus"></i> Přidat další adresu
-                    </button>
-
                     {% if note is defined and note %}
-                        <p class="text-muted small mb-0 mt-2"><i class="mdi mdi-information-outline"></i> {{ note }}</p>
+                        <p class="hint cap es-demo-note">{{ icon('info', 's14') }}{{ note }}</p>
                     {% endif %}
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zrušit</button>
-                    <button type="submit" class="btn btn-primary" data-email-demo-form-target="submitButton">
-                        <i class="mdi mdi-send"></i> Odeslat
-                    </button>
+                    <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-primary sm" data-email-demo-form-target="submitButton">{{ icon('arrow-up', 's16') }}Odeslat</button>
                 </div>
             </div>
         </form>

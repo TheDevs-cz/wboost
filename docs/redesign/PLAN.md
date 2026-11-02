@@ -110,7 +110,7 @@ finish; tick your phase's boxes here.
       edit user, registration requests, landing leads (Poptávky z webu),
       statistiky (`admin_usage`, KPI tiles + charts restyled), storage files,
       profile / change password / connected apps / MCP guide.
-- [ ] **P9 Auth, errors, rest** — login, registration, set/forgotten password,
+- [x] **P9 Auth, errors, rest** — login, registration, set/forgotten password,
       oauth consent, error pages, email signatures, weekly menus (app pages).
 - [ ] **P10 Sweep & delivery** — convert remaining mdi/uil/ri icons, delete
       `public/theme/`, purge dead Hyper rules, full responsive QA pass of every
