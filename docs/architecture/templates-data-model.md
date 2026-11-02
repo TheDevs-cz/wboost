@@ -38,7 +38,17 @@ enum on `template_variant`). **Canvas mode** ('canvas', every pre-rework
 row): the background is Fabric's canvas-level `backgroundImage`, mirrored from
 the NOT-NULL-in-practice `background_image` column, center-cover re-applied on
 every load (editor connect + render template), set via the editor's "Pozadí"
-gallery pick + `persistBackgroundPath` side-channel POST. Untouched forever.
+gallery pick + `persistBackgroundPath` side-channel POST. **No prod row is
+canvas-mode any more (2026-11-02):** a one-shot command (commit c1e85383,
+removed again right after the run) converted all 177 legacy variants to
+layer mode — the canvas-level block became a locked `isBackground` layer at
+index 0, CENTRE-covered from the picture's natural size (exactly what the
+editor and the render template re-applied on every load — the saved block
+geometry was never what rendered), group siblings sharing one background
+inputId; sampled exports were pixel-identical before/after. The canvas-mode
+code paths below are kept (fixtures + the enum default still use them), but
+no real data reaches them; pre-run table dump on lily in
+`/root/db-backups/template_variant-before-bg-layer-20261102-1845.sql.gz`.
 **Layer mode** ('layer', every NEWLY created variant): the background is a
 regular image object in `objects[]` marked `isBackground: true`, initially
 placed **cover-fit anchored top-left** (`scale = max(cw/iw, ch/ih)`, overflow

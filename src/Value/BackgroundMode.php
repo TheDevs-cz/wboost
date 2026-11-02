@@ -9,8 +9,9 @@ namespace WBoost\Web\Value;
  *
  * Canvas: the legacy style — the background is Fabric's canvas-level
  * `backgroundImage`, mirrored from the variant's `background_image` column and
- * re-cover-fitted (center-anchored) on every load. All variants created before
- * the background-as-layer rework keep this style forever.
+ * re-cover-fitted (center-anchored) on every load. Every pre-rework variant
+ * was converted to Layer on 2026-11-02, so no production row uses it any more
+ * (test fixtures still do).
  *
  * Layer: the background is a regular image object in the canvas document's
  * `objects[]`, marked with the custom prop `isBackground: true`, initially
