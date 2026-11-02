@@ -169,7 +169,7 @@ export default class extends Controller {
         const row = document.createElement("div");
         row.className = "gallery-upload-item d-flex align-items-center gap-2 border rounded p-2";
         row.innerHTML =
-            '<span class="gallery-upload-item__thumb gallery-upload-item__thumb--ph"><i class="mdi mdi-format-font"></i></span>' +
+            '<span class="gallery-upload-item__thumb gallery-upload-item__thumb--ph"><span class="i i-font s18" aria-hidden="true"></span></span>' +
             '<div class="flex-grow-1 min-w-0">' +
             '<div class="text-truncate small">' + this.escape(item.file.name) + "</div>" +
             '<div class="small ' + this.msgClass(item.status) + '">' + this.escape(this.msgText(item)) + "</div>" +
@@ -181,7 +181,7 @@ export default class extends Controller {
             remove.type = "button";
             remove.className = "btn btn-sm btn-link text-muted p-0 ms-1";
             remove.setAttribute("aria-label", "Odebrat ze seznamu");
-            remove.innerHTML = '<i class="mdi mdi-close"></i>';
+            remove.innerHTML = '<span class="i i-x s16" aria-hidden="true"></span>';
             remove.addEventListener("click", () => this.removeFile({ params: { id: item.id } }));
             row.appendChild(remove);
         }
@@ -201,10 +201,10 @@ export default class extends Controller {
 
     iconHtml(status) {
         if (status === "uploading") return '<span class="spinner-border spinner-border-sm text-primary" role="status"></span>';
-        if (status === "done") return '<i class="mdi mdi-check-circle text-success"></i>';
-        if (status === "exists") return '<i class="mdi mdi-information-outline text-warning"></i>';
-        if (status === "error") return '<i class="mdi mdi-alert-circle text-danger"></i>';
-        return '<i class="mdi mdi-clock-outline text-muted"></i>';
+        if (status === "done") return '<span class="i i-check-circle s18 text-success" aria-hidden="true"></span>';
+        if (status === "exists") return '<span class="i i-info s18 text-warning" aria-hidden="true"></span>';
+        if (status === "error") return '<span class="i i-alert-circle s18 text-danger" aria-hidden="true"></span>';
+        return '<span class="i i-clock s18 text-muted" aria-hidden="true"></span>';
     }
 
     escape(text) {

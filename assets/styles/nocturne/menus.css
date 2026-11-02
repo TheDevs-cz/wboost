@@ -46,7 +46,6 @@
 }
 .dropdown-item { display: flex; align-items: center; gap: 10px; min-height: 40px; border-radius: 10px; font-weight: 500; }
 .dropdown-item + .dropdown-item { margin-top: 2px; }
-.dropdown-item > i[class*="mdi"], .dropdown-item > i[class*="uil"], .dropdown-item > i[class*="ri-"] { font-size: 16px; line-height: 1; color: var(--muted); margin-right: 0 !important; }
 .dropdown-item:hover > i, .dropdown-item:focus > i { color: inherit; }
 .dropdown-item.text-danger, .dropdown-item.danger { color: var(--rose-ink) !important; }
 .dropdown-item.text-danger:hover, .dropdown-item.danger:hover { background: var(--rose-deep); }

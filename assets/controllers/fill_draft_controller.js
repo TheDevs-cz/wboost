@@ -185,7 +185,7 @@ export default class extends Controller {
         toast.className = tone === 'warning' ? 'gallery-toast gallery-toast--warning' : 'gallery-toast';
         toast.setAttribute('role', tone === 'warning' ? 'alert' : 'status');
         const icon = document.createElement('i');
-        icon.className = `mdi ${tone === 'warning' ? 'mdi-alert-circle-outline' : 'mdi-content-save-check-outline'} me-2 fs-5`;
+        icon.className = `i ${tone === 'warning' ? 'i-alert-circle' : 'i-check-circle'} s18`;
         icon.setAttribute('aria-hidden', 'true');
         toast.appendChild(icon);
         toast.appendChild(document.createTextNode(message));

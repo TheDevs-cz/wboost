@@ -757,11 +757,11 @@
                     <button type="button" class="btn btn-outline-secondary text-decoration-underline" title="Podtržení (Ctrl+U)" data-rich-text-editor-target="underline" data-action="rich-text-editor#toggleUnderline">U</button>
                 </div>
                 <div class="btn-group btn-group-sm d-none" role="group" aria-label="Seznamy" data-sample-lists>
-                    <button type="button" class="btn btn-outline-secondary" title="Odrážkový seznam" data-rich-text-editor-target="ulButton" data-action="rich-text-editor#toggleBulletList"><i class="mdi mdi-format-list-bulleted" aria-hidden="true"></i></button>
-                    <button type="button" class="btn btn-outline-secondary" title="Číslovaný seznam" data-rich-text-editor-target="olButton" data-action="rich-text-editor#toggleNumberedList"><i class="mdi mdi-format-list-numbered" aria-hidden="true"></i></button>
-                    <button type="button" class="btn btn-outline-secondary d-none" title="Zaškrtávací seznam" data-sample-checkboxes data-rich-text-editor-target="cbButton" data-action="rich-text-editor#toggleCheckboxList"><i class="mdi mdi-format-list-checks" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-outline-secondary" title="Odrážkový seznam" data-rich-text-editor-target="ulButton" data-action="rich-text-editor#toggleBulletList">{{ icon('list-bullet', 's16') }}</button>
+                    <button type="button" class="btn btn-outline-secondary" title="Číslovaný seznam" data-rich-text-editor-target="olButton" data-action="rich-text-editor#toggleNumberedList">{{ icon('list-ordered', 's16') }}</button>
+                    <button type="button" class="btn btn-outline-secondary d-none" title="Zaškrtávací seznam" data-sample-checkboxes data-rich-text-editor-target="cbButton" data-action="rich-text-editor#toggleCheckboxList">{{ icon('list', 's16') }}</button>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" title="Výchozí styl — odstraní veškeré formátování" data-action="rich-text-editor#clearFormatting"><i class="mdi mdi-format-clear" aria-hidden="true"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Výchozí styl — odstraní veškeré formátování" data-action="rich-text-editor#clearFormatting">{{ icon('format-clear', 's16') }}</button>
             </div>
             <div class="fill-richtext-toolbar__swatches d-flex align-items-center flex-wrap gap-1 mb-1" role="group" aria-label="Barva textu">
                 <button type="button" class="fill-richtext-swatch fill-richtext-swatch--auto" title="Výchozí barva" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param=""></button>

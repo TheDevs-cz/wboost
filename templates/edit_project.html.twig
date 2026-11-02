@@ -11,7 +11,6 @@
 {% endblock %}
 
 {% block content %}
-    {% set module_icons = {'manuals': 'copy', 'templates': 'template', 'email_signatures': 'mail', 'weekly_menus': 'utensils'} %}
 
     <div class="pf-stack">
         {{ include('_project_form.html.twig', {
@@ -39,7 +38,7 @@
                     {% for module in enum('WBoost\\Web\\Value\\ProjectModule').cases() %}
                         {% set enabled = project.hasModule(module) %}
                         <div class="pd-mod{{ enabled ? ' on' : '' }}" data-module="{{ module.value }}">
-                            <span class="pd-ico" aria-hidden="true">{{ icon(module_icons[module.value] ?? 'grid') }}</span>
+                            <span class="pd-ico" aria-hidden="true">{{ icon(module.icon) }}</span>
                             <span class="who"><b>{{ module.label }}</b><span class="cap">{{ module.description }}</span></span>
                             <span class="pd-st">{{ enabled ? 'Zapnuto' : 'Vypnuto' }}</span>
                             {% if enabled %}

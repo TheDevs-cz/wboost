@@ -72,11 +72,10 @@ export default class extends Controller {
 
     _flash(button, label) {
         const original = button.getAttribute("title") || "";
-        // Mask icons (span.i) and legacy font icons (<i>) alike.
-        const icon = button.querySelector(".i, i");
+        const icon = button.querySelector(".i");
         const originalIcon = icon ? icon.className : null;
         button.setAttribute("title", label);
-        if (icon) icon.className = icon.classList.contains("i") ? "i i-check s16" : "mdi mdi-check";
+        if (icon) icon.className = "i i-check s16";
         setTimeout(() => {
             button.setAttribute("title", original);
             if (icon && originalIcon) icon.className = originalIcon;

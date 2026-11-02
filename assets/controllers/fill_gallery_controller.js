@@ -323,10 +323,10 @@ export default class extends Controller {
         const icon = item.status === "uploading"
             ? '<span class="spinner-border spinner-border-sm text-muted" role="status"></span>'
             : item.status === "done"
-                ? '<i class="mdi mdi-check-circle text-success fs-5"></i>'
+                ? '<span class="i i-check-circle s18 text-success" aria-hidden="true"></span>'
                 : item.status === "error"
-                    ? '<i class="mdi mdi-alert-circle text-danger fs-5"></i>'
-                    : '<i class="mdi mdi-image-outline text-muted fs-5"></i>';
+                    ? '<span class="i i-alert-circle s18 text-danger" aria-hidden="true"></span>'
+                    : '<span class="i i-image s18 text-muted" aria-hidden="true"></span>';
 
         const message = item.status === "uploading" ? "Nahrávám…"
             : item.status === "done" ? "Nahráno"
@@ -344,7 +344,7 @@ export default class extends Controller {
             remove.type = "button";
             remove.className = "btn btn-sm btn-link text-muted p-0 ms-1";
             remove.title = "Odebrat";
-            remove.innerHTML = '<i class="mdi mdi-close"></i>';
+            remove.innerHTML = '<span class="i i-x s16" aria-hidden="true"></span>';
             remove.dataset.action = "fill-gallery#removeFile";
             remove.dataset.fillGalleryIdParam = String(item.id);
             row.appendChild(remove);

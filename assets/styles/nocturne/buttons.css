@@ -44,7 +44,6 @@
 .btn:where([class*="btn-"], .primary, .tertiary, .ghost, .danger, .sm, .xs, .icon):disabled,
 .btn:where([class*="btn-"], .primary, .tertiary, .ghost, .danger, .sm, .xs, .icon).disabled { box-shadow: none; transform: none; }
 /* Legacy icon fonts inside buttons: the flex gap already spaces them. */
-.btn > i[class*="mdi"], .btn > i[class*="uil"], .btn > i[class*="ri-"] { line-height: 1; }
 
 /* Sizes */
 .btn.btn-lg { --bs-btn-padding-x: 22px; --bs-btn-font-size: 15px; --n-btn-h: 48px; }

@@ -329,7 +329,7 @@ function showToast(message) {
     toast.className = 'gallery-toast gallery-toast--warning';
     toast.setAttribute('role', 'alert');
     const icon = document.createElement('i');
-    icon.className = 'mdi mdi-image-broken-variant me-2 fs-5';
+    icon.className = 'i i-image-off s18';
     icon.setAttribute('aria-hidden', 'true');
     toast.appendChild(icon);
     toast.appendChild(document.createTextNode(message));

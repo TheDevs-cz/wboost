@@ -19,13 +19,13 @@
         <div class="dropdown-menu shape-picker">
             <div class="shape-picker__grid">
                 {% for shape in [
-                    {kind: 'rectangle', label: 'Obdélník', icon: 'mdi-rectangle-outline'},
-                    {kind: 'square', label: 'Čtverec', icon: 'mdi-square-outline'},
-                    {kind: 'circle', label: 'Kruh', icon: 'mdi-circle-outline'},
-                    {kind: 'ellipse', label: 'Elipsa', icon: 'mdi-ellipse-outline'},
-                    {kind: 'triangle', label: 'Trojúhelník', icon: 'mdi-triangle-outline'},
-                    {kind: 'line', label: 'Čára', icon: 'mdi-minus'},
-                    {kind: 'star', label: 'Hvězda', icon: 'mdi-star-outline'},
+                    {kind: 'rectangle', label: 'Obdélník'},
+                    {kind: 'square', label: 'Čtverec'},
+                    {kind: 'circle', label: 'Kruh'},
+                    {kind: 'ellipse', label: 'Elipsa'},
+                    {kind: 'triangle', label: 'Trojúhelník'},
+                    {kind: 'line', label: 'Čára'},
+                    {kind: 'star', label: 'Hvězda'},
                 ] %}
                     <button type="button" class="shape-picker__item" title="{{ shape.label }}"
                             data-action="canvas-editor#addShape"

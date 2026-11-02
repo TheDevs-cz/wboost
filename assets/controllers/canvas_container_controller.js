@@ -549,7 +549,7 @@ export default class extends Controller {
             duplicate.className = 'container-zone__duplicate';
             duplicate.title = 'Duplikovat kontejner včetně obsahu';
             duplicate.setAttribute('aria-label', 'Duplikovat kontejner');
-            duplicate.innerHTML = '<i class="mdi mdi-content-copy"></i>';
+            duplicate.innerHTML = '<span class="i i-copy s12" aria-hidden="true"></span>';
             duplicate.addEventListener('mousedown', (event) => event.stopPropagation());
             duplicate.addEventListener('click', (event) => {
                 event.preventDefault();
@@ -564,7 +564,7 @@ export default class extends Controller {
             settings.className = 'container-zone__settings';
             settings.title = 'Nastavení kontejneru';
             settings.setAttribute('aria-label', 'Nastavení kontejneru');
-            settings.innerHTML = '<i class="mdi mdi-cog-outline"></i>';
+            settings.innerHTML = '<span class="i i-settings s12" aria-hidden="true"></span>';
             settings.addEventListener('mousedown', (event) => event.stopPropagation());
             settings.addEventListener('click', (event) => {
                 event.preventDefault();
