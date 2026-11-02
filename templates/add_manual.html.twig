@@ -1,28 +1,20 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Přidat manuál{% endblock %}
+{% block title %}Nový manuál{% endblock %}
 {% set active_menu_item = 'manuals' %}
+
+{% block page_lead %}Brand manuál obsahuje i písma a stránky s mockupy, logo manuál jen logotypy a barvy.{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_row(form.type) }}
-            {{ form_row(form.name) }}
-            {{ form_row(form.introImage) }}
-
-            <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
-
-            {{ form_end(form) }}
-        </div>
-    </div>
+    {{ include('_manual_form.html.twig', {
+        'submit_label': 'Vytvořit manuál',
+        'cancel_url': path('manuals_list', {'id': project.id}),
+    }) }}
 {% endblock %}

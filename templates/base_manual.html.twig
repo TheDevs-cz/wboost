@@ -1,7 +1,34 @@
 {% extends 'base.html.twig' %}
 
+{# Manual editing pages (Logotypy / Fonty / Barvy / Stránky s mockupy and
+   their add/edit sub-pages). The header carries the one primary action —
+   open the online manual — plus the manual's own "…" menu; the section tabs
+   come from `_manual_nav.html.twig`, included by each tab page. #}
+{% block eyebrow %}Projekt · {{ project.name }} · Manuál{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
+        <li class="breadcrumb-item active">{{ manual.name }}</li>
+    </ol>
+{% endblock %}
+
 {% block title_actions %}
-    <div class="text-sm-end">
-        <a href="{{ path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="btn btn-primary" target="_blank"><i class="ri-eye-fill"></i> Zobrazit manuál</a>
+    <a href="{{ path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="btn btn-primary sm" target="_blank">{{ icon('eye', 's16') }}Zobrazit manuál</a>
+    <div class="dropdown">
+        <button type="button" class="btn btn-tertiary icon" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti manuálu">{{ icon('more', 's16') }}</button>
+        <div class="dropdown-menu dropdown-menu-end">
+            <a href="{{ path('edit_manual', {'id': manual.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit manuál</a>
+            <div class="dropdown-divider"></div>
+            <a href="#"
+               class="dropdown-item text-danger"
+               data-modal-id="{{ manual.id }}"
+               data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat manuál</a>
+        </div>
     </div>
+    <twig:ConfirmModal
+        id="{{ manual.id }}"
+        url="{{ path('delete_manual', {'id': manual.id}) }}"
+        confirmationText="Opravdu chcete smazat manuál včetně všech náležitostí?" />
 {% endblock %}

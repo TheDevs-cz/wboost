@@ -29,6 +29,14 @@
     file name + pixel size + format badge — what tells two look-alike
     thumbnails apart. The same information repeats in the tile's title
     tooltip together with the upload date.
+
+    Nocturne layout (P4, prototype renderGallery): toolbar card (.gal-nav:
+    upload · new folder · Koš in rose), breadcrumb path + client-side filter
+    tools (.gal-bar: format chips, search, thumbnail size — gallery-filter
+    controller, re-applied after every Live morph), folder cards, dashed drop
+    strip (.gal-drop), tile grid (.gal-card). Every LiveAction, data-model,
+    data-live-*-param, `.gallery-asset[data-storage-path]` and the caption
+    partial are unchanged.
 #}
 <div {{ attributes.defaults({'data-controller': 'image-gallery'}) }}>
     {#
@@ -51,62 +59,65 @@
         </div>
     {% endif %}
 
-    <div class="{{ modal ? 'modal-body' : '' }}">
+    <div class="gal{{ modal ? ' modal-body gal-modal' : '' }}" data-controller="gallery-filter">
         {% set breadcrumbs = this.breadcrumbs() %}
         {% set directories = this.directories() %}
         {% set gallery_assets = this.assets() %}
         {% set move_targets = this.moveTargets() %}
-        {% set current_folder_label = breadcrumbs is empty ? 'Galerie (kořen)' : (breadcrumbs|last).name %}
+        {% set trash_count = this.trashedCount() %}
+        {% set current_folder_label = breadcrumbs is empty ? 'Galerie' : (breadcrumbs|last).name %}
 
-        {#
-            Grid layout differs by host: the modal is narrow, so 4 fixed
-            columns (Bootstrap col-3); the standalone management page is
-            full-width, so an auto-filling CSS grid packs ~2x more
-            thumbnails per row. Driven by the `modal` LiveProp; the cell
-            keeps col-3 in the modal and becomes a plain grid item
-            standalone.
-        #}
-        {% set cell_class = modal ? 'col-3' : '' %}
-
-        {# Breadcrumb navigation #}
-        <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
-            <button
-                type="button"
-                class="btn btn-sm btn-link p-0 text-decoration-none {{ breadcrumbs is empty and not this.showingTrash ? 'fw-bold text-body' : '' }}"
-                data-action="live#action"
-                data-live-action-param="openRoot"
-            ><i class="mdi mdi-folder-home"></i> Galerie</button>
-            {# The Koš is opened FROM a folder and keeps that folder as its
-               return path: the crumbs stay clickable (the last one included)
-               and the bin hangs off the end — "Galerie / Fotky / Koš". #}
-            {% for crumb in breadcrumbs %}
-                <span class="text-muted">/</span>
-                {% if loop.last and not this.showingTrash %}
-                    <span class="fw-bold">{{ crumb.name }}</span>
-                {% else %}
+        {# Toolbar: upload + new folder on the left, Koš (rose) on the right.
+           The Koš is listed in EVERY folder (it used to show at the root only,
+           which read as "this folder has no bin"); opening it keeps
+           currentDirectoryId, so the crumbs lead back. #}
+        <div class="gal-nav" role="toolbar" aria-label="Galerie">
+            {% if not this.showingTrash %}
+                <button type="button" class="btn btn-primary sm" onclick="this.closest('.gal').querySelector('[data-gallery-uploader-target=dropzone]').click()">{{ icon('upload', 's16') }}Nahrát obrázky</button>
+                <div class="gal-newf">
+                    <label class="inp sm">
+                        {{ icon('folder', 's14') }}
+                        <input
+                            type="text"
+                            placeholder="Název nové složky"
+                            aria-label="Název nové složky"
+                            data-model="norender|newDirectoryName"
+                            value="{{ this.newDirectoryName }}"
+                        >
+                    </label>
                     <button
                         type="button"
-                        class="btn btn-sm btn-link p-0 text-decoration-none"
+                        class="btn btn-tertiary sm"
                         data-action="live#action"
-                        data-live-action-param="openDirectory"
-                        data-live-directoryid-param="{{ crumb.id }}"
-                    >{{ crumb.name }}</button>
-                {% endif %}
-            {% endfor %}
-            {% if this.showingTrash %}
-                <span class="text-muted">/</span>
-                <span class="fw-bold"><i class="mdi mdi-trash-can-outline"></i> Koš</span>
+                        data-live-action-param="createDirectory"
+                    >{{ icon('plus', 's16') }}Nová složka</button>
+                </div>
             {% endif %}
-        </nav>
+            <span class="gal-nav-sp" aria-hidden="true"></span>
+            {% if this.showingTrash %}
+                {% if breadcrumbs is empty %}
+                    <button type="button" class="gal-trash-b on" data-action="live#action" data-live-action-param="openRoot">{{ icon('arrow-left', 's16') }}Zpět do galerie</button>
+                {% else %}
+                    <button type="button" class="gal-trash-b on" data-action="live#action" data-live-action-param="openDirectory" data-live-directoryid-param="{{ (breadcrumbs|last).id }}">{{ icon('arrow-left', 's16') }}Zpět do složky</button>
+                {% endif %}
+            {% else %}
+                <button
+                    type="button"
+                    class="gal-trash-b"
+                    data-action="live#action"
+                    data-live-action-param="openTrash"
+                    title="Koš — smazané obrázky ({{ this.trashRetentionDays() }} dní do trvalého smazání)"
+                >{{ icon('trash', 's16') }}Koš{% if trash_count > 0 %}<span class="n">{{ trash_count }}</span>{% endif %}</button>
+            {% endif %}
+        </div>
 
         {% if this.fileActionNotice %}
-            <div class="alert alert-success py-2 small d-flex align-items-center gap-2" role="alert">
-                <i class="mdi mdi-check-circle-outline"></i>
+            <div class="alert alert-success gal-notice" role="alert">
                 <span class="flex-grow-1">{{ this.fileActionNotice }}</span>
                 {% if not this.showingTrash %}
                     <button
                         type="button"
-                        class="btn btn-sm btn-link p-0 text-decoration-none"
+                        class="btn btn-link btn-sm p-0"
                         data-action="live#action"
                         data-live-action-param="openTrash"
                     >Zobrazit koš</button>
@@ -114,25 +125,153 @@
             </div>
         {% endif %}
 
+        {% if this.folderActionError %}
+            <div class="alert alert-warning" role="alert">{{ this.folderActionError }}</div>
+        {% endif %}
+
+        {# Path + filters. The Koš is opened FROM a folder and keeps that folder
+           as its return path: the crumbs stay clickable (the last one
+           included) and the bin hangs off the end — "Galerie / Fotky / Koš". #}
+        <div class="gal-bar">
+            <nav class="gal-path" aria-label="Umístění">
+                {% if breadcrumbs is empty and not this.showingTrash %}
+                    <b>Galerie</b>
+                {% else %}
+                    <button type="button" class="gal-crumb" data-action="live#action" data-live-action-param="openRoot">Galerie</button>
+                {% endif %}
+                {% for crumb in breadcrumbs %}
+                    {{ icon('chev-right', 's14') }}
+                    {% if loop.last and not this.showingTrash %}
+                        <b>{{ crumb.name }}</b>
+                    {% else %}
+                        <button
+                            type="button"
+                            class="gal-crumb"
+                            data-action="live#action"
+                            data-live-action-param="openDirectory"
+                            data-live-directoryid-param="{{ crumb.id }}"
+                        >{{ crumb.name }}</button>
+                    {% endif %}
+                {% endfor %}
+                {% if this.showingTrash %}
+                    {{ icon('chev-right', 's14') }}
+                    <b>Koš</b>
+                {% endif %}
+                {% set listed_count = this.showingTrash ? trash_count : gallery_assets|length %}
+                <span class="cap">· {{ listed_count }} {{ listed_count == 1 ? 'obrázek' : (listed_count >= 2 and listed_count <= 4 ? 'obrázky' : 'obrázků') }}</span>
+            </nav>
+
+            {% if not this.showingTrash and gallery_assets is not empty %}
+                {% set formats = gallery_assets|map(a => a.format)|reduce((carry, f) => f in carry ? carry : carry|merge([f]), []) %}
+                <div class="gal-tools">
+                    {% if formats|length > 1 %}
+                        <div class="gal-chips" role="group" aria-label="Filtr podle formátu">
+                            <button type="button" class="chip sm on" aria-pressed="true" data-gallery-filter-target="chip" data-format="" data-action="gallery-filter#pick">Vše <span class="n">{{ gallery_assets|length }}</span></button>
+                            {% for format in formats %}
+                                <button type="button" class="chip sm" aria-pressed="false" data-gallery-filter-target="chip" data-format="{{ format }}" data-action="gallery-filter#pick">{{ format }} <span class="n">{{ gallery_assets|filter(a => a.format == format)|length }}</span></button>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if not modal %}
+                        <label class="sz-ctl" data-live-ignore title="Velikost náhledů">
+                            {{ icon('image', 's12') }}
+                            <input type="range" min="120" max="280" step="4" value="168" aria-label="Velikost náhledů" data-gallery-filter-target="size" data-action="input->gallery-filter#resize">
+                            {{ icon('image', 's18') }}
+                        </label>
+                    {% endif %}
+                    <label class="inp sm gal-search" data-live-ignore>
+                        {{ icon('search', 's14') }}
+                        <input type="search" placeholder="Hledat podle názvu" aria-label="Hledat podle názvu" data-gallery-filter-target="search" data-action="input->gallery-filter#search">
+                    </label>
+                </div>
+            {% endif %}
+        </div>
+
         {% if not this.showingTrash %}
 
-        {# New-folder inline form #}
-        <div class="input-group input-group-sm mb-2" style="max-width: 22rem;">
-            <span class="input-group-text"><i class="mdi mdi-folder-plus"></i></span>
-            <input
-                type="text"
-                class="form-control"
-                placeholder="Název nové složky"
-                data-model="norender|newDirectoryName"
-                value="{{ this.newDirectoryName }}"
-            >
-            <button
-                type="button"
-                class="btn btn-outline-primary"
-                data-action="live#action"
-                data-live-action-param="createDirectory"
-            >Vytvořit složku</button>
-        </div>
+        {# Folders #}
+        {% if directories is not empty %}
+            <div class="gal-folders">
+                {% for directory in directories %}
+                    {% if this.renamingDirectoryId == directory.id %}
+                        <div class="gal-fold gal-fold-edit">
+                            <label class="inp sm">
+                                <input
+                                    type="text"
+                                    aria-label="Nový název složky"
+                                    data-model="norender|renameValue"
+                                    data-image-gallery-target="renameInput"
+                                    value="{{ this.renameValue }}"
+                                    autofocus
+                                >
+                            </label>
+                            <button
+                                type="button"
+                                class="btn btn-primary icon xs"
+                                title="Uložit název"
+                                aria-label="Uložit název"
+                                data-action="live#action"
+                                data-live-action-param="renameDirectory"
+                            >{{ icon('check', 's16') }}</button>
+                            <button
+                                type="button"
+                                class="btn btn-ghost icon xs"
+                                title="Zrušit"
+                                aria-label="Zrušit"
+                                data-action="live#action"
+                                data-live-action-param="cancelRename"
+                            >{{ icon('x', 's16') }}</button>
+                        </div>
+                    {% else %}
+                        <div class="gal-fold folder-card">
+                            <button
+                                type="button"
+                                class="gal-fold-b"
+                                data-action="live#action"
+                                data-live-action-param="openDirectory"
+                                data-live-directoryid-param="{{ directory.id }}"
+                                title="{{ directory.name }}"
+                            >
+                                <span class="gal-fi">{{ icon('folder') }}</span>
+                                <span class="who"><b>{{ directory.name }}</b><span class="cap">Složka</span></span>
+                            </button>
+                            <div class="dropdown gal-fold-m">
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost icon xs"
+                                    data-bs-toggle="dropdown"
+                                    aria-expanded="false"
+                                    aria-label="Možnosti složky {{ directory.name }}"
+                                >{{ icon('more', 's16') }}</button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <button
+                                            type="button"
+                                            class="dropdown-item"
+                                            data-action="live#action"
+                                            data-live-action-param="startRename"
+                                            data-live-directoryid-param="{{ directory.id }}"
+                                        >{{ icon('edit', 's16') }}Přejmenovat</button>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <button
+                                            type="button"
+                                            class="dropdown-item text-danger"
+                                            data-controller="confirm"
+                                            data-confirm-message-value="Opravdu smazat složku „{{ directory.name }}“? Smazat lze jen prázdnou složku."
+                                            data-action="confirm#confirm live#action"
+                                            data-live-action-param="deleteDirectory"
+                                            data-live-directoryid-param="{{ directory.id }}"
+                                        >{{ icon('trash', 's16') }}Smazat</button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
 
         {#
             Upload strip. The hidden CSRF `_token` and `directoryId` fields are
@@ -142,7 +281,7 @@
         #}
         <form
             id="gallery-upload-form"
-            class="mb-3"
+            class="gal-upload"
             data-controller="gallery-uploader"
             data-gallery-uploader-url-value="{{ this.uploadUrl() }}"
         >
@@ -152,7 +291,7 @@
             <input type="hidden" name="directoryId" value="{{ this.currentDirectoryId }}">
 
             <div
-                class="gallery-dropzone"
+                class="gal-drop{{ modal ? ' gal-drop-compact' : '' }}"
                 data-gallery-uploader-target="dropzone"
                 data-action="
                     click->gallery-uploader#browse
@@ -165,13 +304,9 @@
                 tabindex="0"
                 aria-label="Nahrát obrázky do složky {{ current_folder_label }}"
             >
-                <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
-                <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
-                <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
-                <div class="text-muted small mt-1">
-                    Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> {{ current_folder_label }}</strong>
-                    &middot; více obrázků najednou, max. 10&nbsp;MB / soubor
-                </div>
+                {{ icon('upload') }}
+                <span><b>Přetáhněte obrázky sem</b> nebo <u>vyberte z počítače</u></span>
+                <span class="cap">Nahraje se do: <b>{{ current_folder_label }}</b> · PNG, JPG, SVG, WebP · víc najednou · max. 10&nbsp;MB na soubor</span>
             </div>
 
             <input
@@ -190,266 +325,157 @@
                 picks the file up, failed rows stay dismissable.
             #}
             <div data-live-ignore>
-                <div class="mt-2 d-flex flex-column gap-2" data-gallery-uploader-target="queue"></div>
+                <div class="gal-queue" data-gallery-uploader-target="queue"></div>
             </div>
         </form>
 
-        {% if this.folderActionError %}
-            <div class="alert alert-warning py-2 small" role="alert">
-                <i class="mdi mdi-alert-outline me-1"></i>{{ this.folderActionError }}
-            </div>
-        {% endif %}
-
         {% if directories is empty and gallery_assets is empty %}
-            <p class="text-muted small mb-0">
-                Tato složka je prázdná. Nahrajte obrázky přetažením výše nebo vytvořte podsložku.
-            </p>
-        {% endif %}
-
-        {# Koš — read-only special directory, listed in EVERY folder (it used
-           to show at the root only, which read as "this folder has no bin" —
-           users deleting inside a folder could not find where the picture
-           went). The bin is project-wide, so the card is the same everywhere. #}
-        {% set trash_count = this.trashedCount() %}
-        <div class="mb-3">
-            <button
-                type="button"
-                class="gallery-trash-card border rounded p-2 d-inline-flex align-items-center gap-2"
-                data-action="live#action"
-                data-live-action-param="openTrash"
-                title="Koš — smazané obrázky ({{ this.trashRetentionDays() }} dní do trvalého smazání)"
-            >
-                <i class="mdi mdi-trash-can-outline fs-4 text-muted"></i>
-                <span>Koš</span>
-                {% if trash_count > 0 %}
-                    <span class="badge bg-secondary-lighten text-secondary">{{ trash_count }}</span>
-                {% endif %}
-            </button>
-        </div>
-
-        {# Folders #}
-        {% if directories is not empty %}
-            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }} mb-3"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"{% endif %}>
-                {% for directory in directories %}
-                    <div class="{{ cell_class }}">
-                        {% if this.renamingDirectoryId == directory.id %}
-                            <div class="border rounded p-2 h-100 d-flex flex-column gap-1">
-                                <input
-                                    type="text"
-                                    class="form-control form-control-sm"
-                                    data-model="norender|renameValue"
-                                    data-image-gallery-target="renameInput"
-                                    value="{{ this.renameValue }}"
-                                    autofocus
-                                >
-                                <div class="d-flex gap-1">
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-primary flex-grow-1"
-                                        data-action="live#action"
-                                        data-live-action-param="renameDirectory"
-                                    ><i class="mdi mdi-check"></i></button>
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-secondary"
-                                        data-action="live#action"
-                                        data-live-action-param="cancelRename"
-                                    ><i class="mdi mdi-close"></i></button>
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="border rounded p-2 h-100 d-flex align-items-center position-relative folder-card">
-                                <button
-                                    type="button"
-                                    class="btn p-0 text-start flex-grow-1 text-truncate d-flex align-items-center gap-1"
-                                    data-action="live#action"
-                                    data-live-action-param="openDirectory"
-                                    data-live-directoryid-param="{{ directory.id }}"
-                                    title="{{ directory.name }}"
-                                >
-                                    <i class="mdi mdi-folder text-warning fs-4"></i>
-                                    <span class="text-truncate">{{ directory.name }}</span>
-                                </button>
-                                <div class="dropdown">
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-link text-muted p-0 ms-1"
-                                        data-bs-toggle="dropdown"
-                                        aria-expanded="false"
-                                    ><i class="mdi mdi-dots-vertical"></i></button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li>
-                                            <button
-                                                type="button"
-                                                class="dropdown-item"
-                                                data-action="live#action"
-                                                data-live-action-param="startRename"
-                                                data-live-directoryid-param="{{ directory.id }}"
-                                            ><i class="mdi mdi-pencil me-1"></i> Přejmenovat</button>
-                                        </li>
-                                        <li>
-                                            <button
-                                                type="button"
-                                                class="dropdown-item text-danger"
-                                                data-controller="confirm"
-                                                data-confirm-message-value="Opravdu smazat složku „{{ directory.name }}“? Smazat lze jen prázdnou složku."
-                                                data-action="confirm#confirm live#action"
-                                                data-live-action-param="deleteDirectory"
-                                                data-live-directoryid-param="{{ directory.id }}"
-                                            ><i class="mdi mdi-delete me-1"></i> Smazat</button>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
+            <p class="cap gal-empty-note">Tato složka je prázdná. Nahrajte obrázky přetažením výše nebo vytvořte podsložku.</p>
         {% endif %}
 
         {# Images. data-storage-path lets the image-gallery controller pulse
            freshly-uploaded thumbnails after the Live re-render. #}
         {% if gallery_assets is not empty %}
-            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));"{% endif %}>
+            <div class="gal-grid" data-gallery-filter-target="grid">
                 {% for asset in gallery_assets %}
-                    <div class="{{ cell_class }}">
-                        {% set renaming_file = this.renamingFileId == asset.id %}
-                        <div class="position-relative border rounded gallery-asset" data-storage-path="{{ asset.path }}">
-                            {% set thumb %}
-                                <div class="p-1">
-                                    <img
-                                        crossorigin="anonymous"
-                                        src="{{ asset.url }}"
-                                        alt=""
-                                        class="img-fluid"
-                                        style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
+                    {% set renaming_file = this.renamingFileId == asset.id %}
+                    <div class="gal-card gallery-asset{{ renaming_file ? ' is-renaming' : '' }}" data-storage-path="{{ asset.path }}" data-format="{{ asset.format }}" data-name="{{ (asset.name ?? '')|lower }}">
+                        {% set thumb %}
+                            <span class="gal-th">
+                                <img crossorigin="anonymous" src="{{ asset.url }}" alt="" loading="lazy" onerror="this.closest('.gal-th').classList.add('is-broken')">
+                                <span class="gal-th-miss" aria-hidden="true">{{ icon('image', 's24') }}</span>
+                                <span class="gal-fmt">{{ asset.format }}</span>
+                            </span>
+                        {% endset %}
+                        {% if renaming_file %}
+                            {# Inline rename: only the name base is editable, the
+                               extension stays as a fixed suffix. Enter submits the
+                               form, Escape cancels. Rendered OUTSIDE the modal's
+                               select button (a form can't live in a button). #}
+                            {{ thumb }}
+                            <form
+                                class="gallery-asset__rename gal-rename"
+                                data-action="live#action:prevent"
+                                data-live-action-param="renameFile"
+                            >
+                                <div class="input-group input-group-sm">
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        maxlength="240"
+                                        placeholder="Název obrázku"
+                                        aria-label="Nový název obrázku"
+                                        data-model="norender|fileRenameValue"
+                                        data-image-gallery-target="renameInput"
+                                        data-action="keydown.esc->live#action"
+                                        data-live-action-param="cancelRename"
+                                        value="{{ this.fileRenameValue }}"
                                     >
+                                    {% if this.fileRenameExtension %}
+                                        <span class="input-group-text">{{ this.fileRenameExtension }}</span>
+                                    {% endif %}
                                 </div>
-                            {% endset %}
-                            {% if renaming_file %}
-                                {# Inline rename: only the name base is editable, the
-                                   extension stays as a fixed suffix. Enter submits the
-                                   form, Escape cancels. Rendered OUTSIDE the modal's
-                                   select button (a form can't live in a button). #}
-                                <div>
-                                    {{ thumb }}
-                                    <form
-                                        class="gallery-asset__rename"
-                                        data-action="live#action:prevent"
-                                        data-live-action-param="renameFile"
-                                    >
-                                        <div class="input-group input-group-sm">
-                                            <input
-                                                type="text"
-                                                class="form-control"
-                                                maxlength="240"
-                                                placeholder="Název obrázku"
-                                                aria-label="Nový název obrázku"
-                                                data-model="norender|fileRenameValue"
-                                                data-image-gallery-target="renameInput"
-                                                data-action="keydown.esc->live#action"
-                                                data-live-action-param="cancelRename"
-                                                value="{{ this.fileRenameValue }}"
-                                            >
-                                            {% if this.fileRenameExtension %}
-                                                <span class="input-group-text px-1">{{ this.fileRenameExtension }}</span>
-                                            {% endif %}
-                                        </div>
-                                        <div class="d-flex gap-1 mt-1">
-                                            <button type="submit" class="btn btn-sm btn-primary flex-grow-1 py-0" title="Uložit název"><i class="mdi mdi-check"></i></button>
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary py-0"
-                                                title="Zrušit"
-                                                data-action="live#action"
-                                                data-live-action-param="cancelRename"
-                                            ><i class="mdi mdi-close"></i></button>
-                                        </div>
-                                    </form>
-                                </div>
-                            {% elseif modal %}
-                                <button
-                                    type="button"
-                                    class="btn p-0 w-100 text-start gallery-asset__select"
-                                    data-action="click->image-gallery#select"
-                                    data-image-gallery-url-param="{{ asset.url }}"
-                                    data-image-gallery-path-param="{{ asset.path }}"
-                                    data-image-gallery-id-param="{{ asset.id }}"
-                                    data-image-gallery-name-param="{{ asset.name ?? '' }}"
-                                    data-image-gallery-width-param="{{ asset.width ?? '' }}"
-                                    data-image-gallery-height-param="{{ asset.height ?? '' }}"
-                                    title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}"
-                                >
-                                    {{ thumb }}
-                                    {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
-                                </button>
-                            {% else %}
-                                <div title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}">
-                                    {{ thumb }}
-                                    {# Standalone, the name itself is the rename handle too. #}
+                                <div class="gal-rename-a">
+                                    <button type="submit" class="btn btn-primary btn-sm" title="Uložit název">{{ icon('check', 's16') }}Uložit</button>
                                     <button
                                         type="button"
-                                        class="btn p-0 w-100 text-start gallery-asset__rename-trigger"
-                                        title="Přejmenovat"
+                                        class="btn btn-ghost btn-sm"
+                                        title="Zrušit"
                                         data-action="live#action"
-                                        data-live-action-param="startFileRename"
-                                        data-live-fileid-param="{{ asset.id }}"
-                                    >{{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}</button>
+                                        data-live-action-param="cancelRename"
+                                    >Zrušit</button>
                                 </div>
-                            {% endif %}
-                            {# No confirm: the delete is reversible (Koš + 7-day retention);
-                               only the bin's "Smazat ihned" keeps a confirmation. #}
+                            </form>
+                        {% elseif modal %}
                             <button
                                 type="button"
-                                class="btn btn-sm btn-light border shadow-sm py-0 px-1 text-danger position-absolute top-0 start-0 m-1"
-                                title="Přesunout do koše"
-                                aria-label="Přesunout do koše"
-                                onclick="event.stopPropagation();"
-                                data-action="live#action"
-                                data-live-action-param="deleteFile"
-                                data-live-fileid-param="{{ asset.id }}"
-                            ><i class="mdi mdi-delete"></i></button>
-                            <div class="dropdown position-absolute top-0 end-0 m-1 d-flex gap-1">
+                                class="gal-select gallery-asset__select"
+                                data-action="click->image-gallery#select"
+                                data-image-gallery-url-param="{{ asset.url }}"
+                                data-image-gallery-path-param="{{ asset.path }}"
+                                data-image-gallery-id-param="{{ asset.id }}"
+                                data-image-gallery-name-param="{{ asset.name ?? '' }}"
+                                data-image-gallery-width-param="{{ asset.width ?? '' }}"
+                                data-image-gallery-height-param="{{ asset.height ?? '' }}"
+                                title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}"
+                            >
+                                {{ thumb }}
+                                {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
+                            </button>
+                        {% else %}
+                            <div class="gal-body" title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}">
+                                {{ thumb }}
+                                {# Standalone, the name itself is the rename handle too. #}
                                 <button
                                     type="button"
-                                    class="btn btn-sm btn-light border shadow-sm py-0 px-1"
+                                    class="gal-name-b gallery-asset__rename-trigger"
                                     title="Přejmenovat"
-                                    aria-label="Přejmenovat"
-                                    onclick="event.stopPropagation();"
                                     data-action="live#action"
                                     data-live-action-param="startFileRename"
                                     data-live-fileid-param="{{ asset.id }}"
-                                ><i class="mdi mdi-pencil"></i></button>
+                                >{{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}</button>
+                            </div>
+                        {% endif %}
+                        {% if not renaming_file %}
+                            <div class="dropdown gal-more">
                                 <button
                                     type="button"
-                                    class="btn btn-sm btn-light border shadow-sm py-0 px-1"
+                                    class="btn icon xs"
                                     data-bs-toggle="dropdown"
                                     aria-expanded="false"
-                                    title="Přesunout do složky"
+                                    title="Možnosti obrázku"
+                                    aria-label="Možnosti obrázku"
                                     onclick="event.stopPropagation();"
-                                ><i class="mdi mdi-folder-move"></i></button>
+                                >{{ icon('more', 's16') }}</button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><h6 class="dropdown-header">Přesunout do…</h6></li>
-                                    {% for target in move_targets %}
-                                        {% if target.id != this.currentDirectoryId %}
-                                            <li>
-                                                <button
-                                                    type="button"
-                                                    class="dropdown-item"
-                                                    data-action="live#action"
-                                                    data-live-action-param="moveFile"
-                                                    data-live-fileid-param="{{ asset.id }}"
-                                                    data-live-directoryid-param="{{ target.id }}"
-                                                >{{ target.label }}</button>
-                                            </li>
-                                        {% endif %}
-                                    {% endfor %}
+                                    <li>
+                                        <button
+                                            type="button"
+                                            class="dropdown-item"
+                                            data-action="live#action"
+                                            data-live-action-param="startFileRename"
+                                            data-live-fileid-param="{{ asset.id }}"
+                                        >{{ icon('edit', 's16') }}Přejmenovat</button>
+                                    </li>
+                                    {% if move_targets|length > 1 %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header">Přesunout do…</h6></li>
+                                        {% for target in move_targets %}
+                                            {% if target.id != this.currentDirectoryId %}
+                                                <li>
+                                                    <button
+                                                        type="button"
+                                                        class="dropdown-item"
+                                                        data-action="live#action"
+                                                        data-live-action-param="moveFile"
+                                                        data-live-fileid-param="{{ asset.id }}"
+                                                        data-live-directoryid-param="{{ target.id }}"
+                                                    >{{ icon('folder', 's16') }}{{ target.label }}</button>
+                                                </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    {# No confirm: the delete is reversible (Koš + 7-day
+                                       retention); only the bin's "Smazat ihned" keeps a
+                                       confirmation. #}
+                                    <li>
+                                        <button
+                                            type="button"
+                                            class="dropdown-item text-danger"
+                                            title="Přesunout do koše"
+                                            data-action="live#action"
+                                            data-live-action-param="deleteFile"
+                                            data-live-fileid-param="{{ asset.id }}"
+                                        >{{ icon('trash', 's16') }}Přesunout do koše</button>
+                                    </li>
                                 </ul>
                             </div>
-                        </div>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
+            <p class="cap gal-nomatch" data-gallery-filter-target="none" hidden>Žádný obrázek neodpovídá filtru.</p>
         {% endif %}
 
         {% else %}
@@ -461,63 +487,60 @@
            window by app:gallery:purge-trash. #}
         {% set trashed_assets = this.trashedAssets() %}
 
-        <p class="text-muted small">
-            <i class="mdi mdi-information-outline me-1"></i>Obrázky v koši se po
-            {{ this.trashRetentionDays() }} dnech trvale smažou a nelze je mezitím
-            používat v šablonách ani editoru.
-        </p>
+        <div class="gal-note">
+            {{ icon('info', 's16') }}
+            <span>Obrázky v koši se po {{ this.trashRetentionDays() }} dnech trvale smažou a nelze je mezitím používat v šablonách ani editoru.</span>
+        </div>
 
         {% if trashed_assets is empty %}
-            <p class="text-muted small mb-0">Koš je prázdný.</p>
+            <div class="empty gal-empty">
+                <span class="ico-c">{{ icon('trash') }}</span>
+                <h3>Koš je prázdný</h3>
+            </div>
         {% else %}
-            <div class="{{ modal ? 'row g-2' : 'd-grid gap-2' }}"{% if not modal %} style="grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));"{% endif %}>
+            <div class="gal-grid">
                 {% for asset in trashed_assets %}
-                    <div class="{{ cell_class }}">
-                        <div class="border rounded gallery-asset gallery-asset--trashed" title="{{ asset.tooltip }} · Do koše {{ asset.deletedAt }}">
-                            <div class="p-1">
-                                <img
-                                    crossorigin="anonymous"
-                                    src="{{ asset.url }}"
-                                    alt=""
-                                    class="img-fluid"
-                                    style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
-                                >
+                    <div class="gal-card gallery-asset gallery-asset--trashed" title="{{ asset.tooltip }} · Do koše {{ asset.deletedAt }}">
+                        <span class="gal-th">
+                            <img crossorigin="anonymous" src="{{ asset.url }}" alt="" loading="lazy" onerror="this.closest('.gal-th').classList.add('is-broken')">
+                            <span class="gal-th-miss" aria-hidden="true">{{ icon('image', 's24') }}</span>
+                            <span class="gal-fmt">{{ asset.format }}</span>
+                        </span>
+                        {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
+                        {# Templates still referencing the picture: the
+                           nightly purge leaves such a file alone (the
+                           countdown says so), only "Smazat ihned" — whose
+                           confirm names them — removes it for good. #}
+                        {% if asset.usedIn is not empty %}
+                            <div class="gal-warn" data-gallery-used-in title="Šablony, které obrázek používají – při trvalém smazání o něj přijdou">
+                                {{ icon('alert', 's14') }}
+                                <span>Používá se v:
+                                {% for site in asset.usedIn %}<a href="{{ path('template_variants', {'templateId': site.id}) }}">{{ site.name }}</a>{{ not loop.last ? ', ' }}{% endfor %}</span>
                             </div>
-                            {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
-                            {# Templates still referencing the picture: the
-                               nightly purge leaves such a file alone (the
-                               countdown says so), only "Smazat ihned" — whose
-                               confirm names them — removes it for good. #}
-                            {% if asset.usedIn is not empty %}
-                                <div class="small text-warning px-1" data-gallery-used-in title="Šablony, které obrázek používají – při trvalém smazání o něj přijdou">
-                                    <i class="mdi mdi-alert-outline"></i> Používá se v:
-                                    {% for site in asset.usedIn %}<a href="{{ path('template_variants', {'templateId': site.id}) }}" class="text-reset text-decoration-underline">{{ site.name }}</a>{{ not loop.last ? ', ' }}{% endfor %}
-                                </div>
-                            {% endif %}
-                            <div class="small text-danger px-1">{{ asset.purgeLabel }}</div>
-                            <div class="d-flex gap-1 p-1">
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary flex-grow-1 py-0"
-                                    data-action="live#action"
-                                    data-live-action-param="restoreFile"
-                                    data-live-fileid-param="{{ asset.id }}"
-                                ><i class="mdi mdi-restore"></i> Obnovit</button>
-                                {% set used_names = asset.usedIn|map(site => site.name)|join(', ') %}
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-danger py-0"
-                                    title="Smazat ihned (nevratné)"
-                                    aria-label="Smazat ihned"
-                                    data-controller="confirm"
-                                    data-confirm-message-value="{{ asset.usedIn is not empty
-                                        ? 'Obrázek používá šablona: ' ~ used_names ~ '. Trvalým smazáním o něj přijde – v editoru zůstane jen prázdné místo a v exportu nic. Opravdu smazat ihned? Akce je nevratná.'
-                                        : 'Trvale smazat tento obrázek? Akce je nevratná.' }}"
-                                    data-action="confirm#confirm live#action"
-                                    data-live-action-param="purgeFile"
-                                    data-live-fileid-param="{{ asset.id }}"
-                                ><i class="mdi mdi-delete-forever"></i></button>
-                            </div>
+                        {% endif %}
+                        <div class="gal-purge">{{ asset.purgeLabel }}</div>
+                        <div class="gal-trash-a">
+                            <button
+                                type="button"
+                                class="btn btn-tertiary btn-sm"
+                                data-action="live#action"
+                                data-live-action-param="restoreFile"
+                                data-live-fileid-param="{{ asset.id }}"
+                            >{{ icon('undo', 's16') }}Obnovit</button>
+                            {% set used_names = asset.usedIn|map(site => site.name)|join(', ') %}
+                            <button
+                                type="button"
+                                class="btn btn-ghost-danger icon xs"
+                                title="Smazat ihned (nevratné)"
+                                aria-label="Smazat ihned"
+                                data-controller="confirm"
+                                data-confirm-message-value="{{ asset.usedIn is not empty
+                                    ? 'Obrázek používá šablona: ' ~ used_names ~ '. Trvalým smazáním o něj přijde – v editoru zůstane jen prázdné místo a v exportu nic. Opravdu smazat ihned? Akce je nevratná.'
+                                    : 'Trvale smazat tento obrázek? Akce je nevratná.' }}"
+                                data-action="confirm#confirm live#action"
+                                data-live-action-param="purgeFile"
+                                data-live-fileid-param="{{ asset.id }}"
+                            >{{ icon('trash', 's16') }}</button>
                         </div>
                     </div>
                 {% endfor %}

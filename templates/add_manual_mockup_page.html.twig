@@ -1,32 +1,22 @@
 {% extends 'base_manual.html.twig' %}
 
-{% block title %}Přidat stránku s mockupy - {{ manual.name }}{% endblock %}
+{% block title %}Nová stránka s mockupy{% endblock %}
 {% set active_menu_item = 'manuals' %}
+
+{% block page_lead %}Pojmenujte stránku, vyberte rozložení a nahrajte obrázky.{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manuals_list', {'id': project.id}) }}">Manuály</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manual_dashboard', {'id': manual.id}) }}">{{ manual.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('manual_mockup_pages', {'id': manual.id}) }}">Stránky s mockupy</a></li>
-        <li class="breadcrumb-item active">Přidat stránku</li>
+        <li class="breadcrumb-item"><a href="{{ path('manual_mockup_pages', {'id': manual.id}) }}">{{ manual.name }} · Stránky s mockupy</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
 
-    <div class="row">
-        <div class="col-xxl-3">
-            {{ include('_manual_nav.html.twig') }}
-        </div>
-
-        <div class="col-xxl-9">
             {{ include('_mockup_page_form_editor.html.twig', {
                 'form': form,
                 'layouts_geometry': layouts_geometry,
                 'submit_label': 'Přidat stránku',
             }) }}
-        </div>
-    </div>
 {% endblock %}

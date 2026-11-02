@@ -1,14 +1,17 @@
 {# Multi-file font dropzone (font-uploader controller). Expects `project`;
    optional `compact` (bool) for a slimmer strip and `hint` text. One request
-   per file to `upload_font`; the page reloads once a batch added a face. #}
+   per file to `upload_font`; the page reloads once a batch added a face.
+   Nocturne `.gal-drop` look; the controller toggles `gallery-dropzone--over`. #}
 <div
+    class="fn-uploader"
     data-controller="font-uploader"
     data-font-uploader-url-value="{{ path('upload_font', {'id': project.id}) }}"
 >
     <input type="hidden" name="upload_font_form[_token]" value="{{ csrf_token('upload_font') }}">
 
     <div
-        class="gallery-dropzone{% if compact|default(false) %} py-3{% endif %}"
+        class="gal-drop{% if compact|default(false) %} gal-drop-compact{% endif %}"
+        id="{{ dropzone_id|default('font-dropzone') }}"
         data-font-uploader-target="dropzone"
         data-action="
             click->font-uploader#browse
@@ -21,10 +24,9 @@
         tabindex="0"
         aria-label="Nahrát soubory písem"
     >
-        <i class="mdi mdi-format-font gallery-dropzone__icon"></i>
-        <div class="gallery-dropzone__title">Přetáhněte soubory písem sem</div>
-        <div class="text-muted small">nebo klikněte pro výběr z počítače · více souborů najednou</div>
-        <div class="text-muted small mt-1">{{ hint|default('TTF, OTF nebo WOFF, max. 10 MB / soubor. Řezy se zařadí do rodiny podle názvu uvnitř souboru.') }}</div>
+        {{ icon('font') }}
+        <span><b>Přetáhněte soubory písem sem</b> nebo <u>vyberte z počítače</u></span>
+        <span class="cap">{{ hint|default('TTF, OTF nebo WOFF · víc souborů najednou · max. 10 MB na soubor · řezy se zařadí do rodiny podle názvu uvnitř souboru') }}</span>
     </div>
 
     <input
@@ -37,5 +39,5 @@
         data-action="change->font-uploader#filesChosen"
     >
 
-    <div class="mt-2 d-flex flex-column gap-2" data-font-uploader-target="queue"></div>
+    <div class="fn-ups" data-font-uploader-target="queue"></div>
 </div>

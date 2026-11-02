@@ -196,3 +196,87 @@ fallback seen working on desktop shots).
 
 **Follow-ups.** Placené chip + star need #1 (paid column). The owner line
 on cards is extra vs the prototype (kept for tests / admins).
+
+---
+
+## 2026-11-02 — P4 Brand assets (manuals, fonts, gallery, calendars)
+
+**What.** Manual editing pages, project fonts, the gallery Live component and
+the Kalendáře teaser rebuilt in the prototype's markup (renderManuals /
+renderFonts / renderGallery / renderPalette).
+
+**How / files.**
+- CSS: `assets/styles/nocturne/manual.css` (manual list `.mn-*`, tabs,
+  logo cards `.man-var`, palette cards `.pal-*`, settings boxes `.man-sec`,
+  mockup list `.man-pg`, mockup editor chrome scoped under `.man-editor`,
+  calendars `.cal-*`), `gallery.css` (`.gal-*`, shared `.gal-drop`),
+  `fonts.css` (`.fn-*`); imported in `assets/app.js` after `auth.css`.
+- Manual: `manuals.html.twig` (card grid, white cover → monogram fallback),
+  `base_manual.html.twig` (eyebrow "Projekt · X · Manuál", Zobrazit manuál +
+  ⋯ menu with edit/delete), `_manual_nav.html.twig` → underline tabs with
+  counts (Logotypy n/5, Fonty, Barevná paleta + peach warn < 3, Stránky s
+  mockupy). Tab pages h1 = manual name. `manual_logos` = variant cards (white
+  preview well as `<label for>` the hidden SVG input, drop to replace, broken
+  image placeholder, detected colours, width slider mirrored into the
+  submitted number field, own-page switch, missing-variants peach alert,
+  sticky save bar). `manual_colors` = palette cards (copy-HEX swatch, role,
+  auto RGB, CMYK + "Dopočítat z HEX", Pantone, RAL, palette strip, info
+  notice "N barvám chybí CMYK · N barev nemá roli"). `manual_fonts` = family
+  cards with per-cut switches. New partials `_manual_form`,
+  `_manual_font_form`; add/edit manual + manual font + mockup page restyled.
+  `_mockup_page_form_editor` = `.man-sec` sections + pill save bar.
+- Fonts: `fonts.html.twig` (toolbar: Nahrát písma · sample text · size
+  slider with px label; always-open drop strip for editors; empty state;
+  family cards with weight axis + cuts), `_font_uploader` (`.gal-drop`),
+  `add_font_face`, `rename_font`.
+- Gallery: `components/Project/ImageGallery.html.twig` rewritten markup for
+  BOTH modes (standalone + editor modal): toolbar (upload · new folder
+  inline · Koš rose with count / "Zpět do galerie|složky"), path crumbs,
+  folder cards, drop strip, `.gal-card` tiles with format badge + ⋯ menu
+  (Přejmenovat · Přesunout do… · Přesunout do koše), Koš view. Every
+  LiveAction, `data-live-*-param`, `data-model`, `.gallery-asset
+  [data-storage-path]`, rename form + caption partial kept.
+  `project_gallery.html.twig` drops the wrapping card.
+- Calendars: `calendars.html.twig` (dashed hero + 3 tiles + beta alert).
+- JS: new `file_drop_controller.js` (styled file inputs: name, preview,
+  drop → DataTransfer), `range_sync_controller.js`,
+  `gallery_filter_controller.js` (format chips, name search, size slider
+  → `--galmin`, `wb-galsize`; re-applied after Live morphs via
+  MutationObserver). Changed: `custom_color_controller.js` (RGB, CMYK calc,
+  copy, contrast), `form_collection_controller.js` (opt-in `append` value;
+  add button found via `closest()` so an icon click works),
+  `font_specimen_controller.js` (size label, mask-icon flash),
+  `mockup_page_editor_controller.js` (ri- icons → mask spans only).
+
+**Decisions.** Explicit Uložit kept everywhere (no autosave — backend is a
+single submit). Customer output untouched: `_mockup_page`,
+`_manual_color_swatch`, `_manual_*` partials used by `manual_preview` were
+only styled from outside (`.man-pg .mockup-slot…`). Listing cards render the
+page with `show_downloads: false` (card is a link; page file moved to the ⋯
+menu). Gallery size slider/search are client-side only; format chips render
+only with ≥2 formats in the folder. No Mřížka/Náhled stránek switch (not
+cheap). No separate project palette page exists — the palette is per manual.
+
+**Tests changed.** None needed (selectors kept).
+
+**Cheap features implemented.** #17 gallery size slider (+ format chips and
+search), #18 copy-CSS button per cut, #19 auto RGB + "Dopočítat z HEX",
+#23 missing logo variants alert (no actions).
+
+**Verified.** Gate (see commit). shoot.cjs on manuals list, logos, colours,
+fonts (manual + project), mockup list + editor, gallery, calendars, edit
+manual at 390/1440 dark and 820/1440 light. Puppeteer: gallery chips /
+search / size / folder open + crumb back (Live morph) / ⋯ menu / Koš open +
+back; logo width slider ↔ number; own-page switch; colour add (append) →
+HEX → RGB → CMYK calc → remove. No JS errors (only Minio 403s for images).
+
+**Not verified.** A real logo/font/gallery upload end-to-end in the browser;
+the drop-to-replace on logo cards; the editor's gallery modal (same
+component, `gal-modal`) inside the canvas editors; dragging (Sortable) of
+palette cards, font cuts and mockup pages after the markup change (handles
+are `.dragula-handle` as before). #20 read-only palette for clients needs a
+controller/voter change — not done.
+
+**Follow-ups.** Gallery "used N×" badges need a batched usage query;
+folder image counts need a repository count; Náhled stránek (PDF-reader)
+view; manual pages for non-admin clients (`.man-cl`).

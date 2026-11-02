@@ -1,0 +1,138 @@
+/* ==========================================================================
+   Nocturne — Galerie projektu (P4): the Project:ImageGallery Live component
+   (standalone page + the editors' picker modal), and the shared `.gal-drop`
+   upload strip (also used by the font uploader). Values from prototype
+   app.css § "Galerie projektu". app.css still carries the legacy
+   `.gallery-asset__*` caption rules and loads after this file, so caption
+   overrides are scoped under `.gal-card`.
+   ========================================================================== */
+
+.gal { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.gal.gal-modal { gap: 14px; }
+
+/* Toolbar: upload + new folder left, Koš (rose) right */
+.gal-newf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gal-newf .inp { width: 200px; height: 40px; }
+.gal-trash-b { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--rose) 35%, transparent); background: var(--rose-deep); color: var(--rose-ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
+.gal-trash-b:hover { border-color: var(--rose); }
+.gal-trash-b .n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--rose); color: #2a1218; font-size: 11px; }
+.gal-trash-b.on { background: var(--surface-2); border-color: var(--line-2); color: var(--text); }
+.gal-trash-b:focus-visible { outline: 2px solid var(--rose-ink); outline-offset: 2px; }
+.gal-notice { display: flex; align-items: center; gap: 12px; }
+
+/* Path + tools */
+.gal-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
+.gal-path { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 15px; min-width: 0; }
+.gal-path b { font-weight: 600; }
+.gal-path > .i { color: var(--subtle); }
+.gal-path .cap { margin-left: 2px; }
+.gal-crumb { padding: 0; border: 0; background: none; color: var(--lav-ink); font: inherit; font-weight: 500; cursor: pointer; }
+.gal-crumb:hover { text-decoration: underline; }
+.gal-tools { flex: 1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.gal-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.gal-chips .chip .n { font-size: 11px; font-weight: 600; color: var(--subtle); font-variant-numeric: tabular-nums; }
+.gal-chips .chip.on .n { color: inherit; opacity: .75; }
+.gal-search { flex: 1 1 200px; min-width: 180px; max-width: 420px; }
+.sz-ctl { display: inline-flex; align-items: center; gap: 8px; height: 36px; margin: 0; padding: 0 12px; border-radius: 999px; color: var(--muted); }
+.sz-ctl input { width: 96px; accent-color: var(--lav); }
+
+/* Folders */
+.gal-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.gal-fold { position: relative; display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 12px 10px 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); color: var(--text); transition: border-color .15s; min-width: 0; }
+.gal-fold:hover { border-color: var(--line-3); }
+.gal-fold-b { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.gal-fold-b::after { content: ""; position: absolute; inset: 0; border-radius: 16px; }
+.gal-fold-b:focus-visible { outline: none; }
+.gal-fold:has(.gal-fold-b:focus-visible) { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.gal-fold-m { position: relative; z-index: 1; opacity: 0; transition: opacity .15s; }
+.gal-fold:hover .gal-fold-m, .gal-fold-m:focus-within, .gal-fold-m:has(.show) { opacity: 1; }
+@media (hover: none) { .gal-fold-m { opacity: 1; } }
+.gal-fi { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--surface-2); color: var(--muted); }
+.gal-fi .i { width: 18px; height: 18px; }
+.gal-fold .who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gal-fold .who b { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gal-fold-edit .inp { flex: 1; min-width: 0; }
+
+/* Drop zone strip (gallery + fonts). Clicks/drops always land on the zone. */
+.gal-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 168px; text-align: center; padding: 24px; border-radius: 16px; border: 1.5px dashed var(--line-3); color: var(--text-2); cursor: pointer; transition: border-color .15s, background .15s; }
+.gal-drop > * { pointer-events: none; }
+.gal-drop > .i { width: 30px; height: 30px; margin-bottom: 6px; color: var(--lav-ink); }
+.gal-drop b { font-weight: 600; }
+.gal-drop u { color: var(--lav-ink); text-underline-offset: 3px; }
+.gal-drop .cap b { color: var(--text-2); }
+.gal-drop:hover { border-color: var(--lav-line); }
+.gal-drop:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.gal-drop.gallery-dropzone--over { border-color: var(--lav); background: var(--lav-deep); }
+.gal-drop.gal-drop-compact { min-height: 112px; padding: 16px; }
+.gal-drop.gal-drop-compact > .i { width: 24px; height: 24px; margin-bottom: 2px; }
+.gal-upload { margin: 0; }
+.gal-queue { display: flex; flex-direction: column; gap: 8px; }
+.gal-queue:not(:empty) { margin-top: 10px; }
+.gal-queue .gallery-upload-item, .fn-ups .gallery-upload-item { padding: 10px 14px !important; border-radius: 14px !important; background: var(--surface); border: 1px solid var(--line) !important; font-size: 13px; }
+.gal-note { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.gal-note > span:not(.i) { flex: 1; min-width: 200px; }
+.gal-empty-note, .gal-nomatch { margin: 0; }
+.gal-empty { padding: 48px 24px; }
+
+/* Tile grid */
+.gal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--galmin, 168px), 100%), 1fr)); gap: 12px; }
+.gal-modal .gal-grid { --galmin: 150px; }
+.gal-card { position: relative; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; min-width: 0; transition: border-color .15s, transform .15s, box-shadow .15s; }
+.gal-card[hidden] { display: none; }
+.gal-card:hover { border-color: var(--line-3); transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.gal-card.is-renaming { transform: none; border-color: var(--lav-line); }
+.gal-th { position: relative; display: grid; place-items: center; aspect-ratio: 1; background: var(--surface-2); }
+.gal-th img { position: absolute; inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px); object-fit: contain; color: transparent; font-size: 0; }
+.gal-th-miss { display: none; color: var(--subtle); }
+.gal-th.is-broken img { display: none; }
+.gal-th.is-broken .gal-th-miss { display: inline-flex; }
+.gal-fmt { position: absolute; right: 10px; bottom: 10px; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border-radius: 7px; background: color-mix(in oklab, var(--bg) 72%, transparent); backdrop-filter: blur(6px); pointer-events: none; font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+.gal-body { display: flex; flex-direction: column; min-width: 0; }
+.gal-select, .gal-name-b { display: flex; flex-direction: column; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.gal-name-b { cursor: text; }
+.gal-select:focus-visible, .gal-name-b:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: -3px; border-radius: 14px; }
+.gal-card .gallery-asset__select:hover, .gal-card .gallery-asset__rename-trigger:hover { background: none; }
+.gal-select:hover .gal-th { background: var(--surface-3); }
+/* Caption (shared partial) in the kit's info-row look; the format badge
+   already sits on the thumbnail. Right padding leaves room for the "…". */
+.gal-card .gallery-asset__caption { padding: 10px 44px 12px 12px; border-top: 0; font-size: 13px; line-height: 1.3; }
+.gal-card .gallery-asset__name { font-weight: 600; color: var(--text); }
+.gal-card .gallery-asset__name-missing { color: var(--subtle); font-style: italic; font-weight: 500; }
+.gal-card .gallery-asset__meta { margin-top: 2px; color: var(--subtle); font-size: 11px; }
+.gal-card .gallery-asset__format { display: none; }
+.gal-name-b:hover .gallery-asset__name { color: var(--lav-ink); }
+.gal-more { position: absolute; right: 6px; bottom: 8px; z-index: 2; }
+.gal-more > .btn { color: var(--muted); }
+.gal-more > .btn:hover { background: var(--surface-2); color: var(--text); }
+.gal-more .dropdown-menu { max-height: 340px; overflow-y: auto; }
+.gal-rename { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+.gal-rename .form-control { min-height: 36px; font-size: 13px; }
+.gal-rename .input-group-text { min-height: 36px; padding: 0 8px; }
+.gal-rename-a { display: flex; gap: 6px; }
+.gal-rename-a .btn-primary { flex: 1; }
+
+/* Koš tiles */
+.gallery-asset--trashed .gal-th img { opacity: .8; filter: grayscale(.25); }
+.gal-card.gallery-asset--trashed .gallery-asset__caption { padding-right: 12px; }
+.gal-card .gal-warn { display: flex; gap: 6px; align-items: flex-start; margin: 0 10px 8px; padding: 8px 10px; border-radius: 12px; background: var(--pch-deep); color: var(--pch-ink); font-size: 12px; line-height: 1.45; }
+.gal-card .gal-warn .i { margin-top: 2px; }
+.gal-card .gal-warn a { color: inherit; text-decoration: underline; }
+.gal-purge { padding: 0 12px 8px; font-size: 12px; color: var(--rose-ink); }
+.gal-trash-a { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding: 0 10px 10px; }
+.gal-trash-a .btn-tertiary { flex: 1; }
+
+@media (max-width: 560px) {
+    .gal-drop { min-height: 132px; padding: 18px; }
+    .gal-folders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .gal-fold { min-height: 56px; padding: 10px; gap: 6px; }
+    .gal-fi { width: 32px; height: 32px; }
+    .gal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .gal-search, .gal-tools { width: 100%; max-width: none; }
+    .gal-nav { padding: 8px; gap: 8px; }
+    .gal-nav > .btn, .gal-newf { flex: 1 1 100%; }
+    .gal-newf { flex-wrap: nowrap; }
+    .gal-newf .inp { flex: 1; width: auto; min-width: 0; }
+    .gal-nav-sp { display: none; }
+    .gal-trash-b { width: 100%; justify-content: center; }
+    .sz-ctl { display: none; }
+}

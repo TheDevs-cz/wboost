@@ -3,71 +3,88 @@
 {% block title %}Manuály{% endblock %}
 {% set active_menu_item = 'manuals' %}
 
+{% block title_count %}{{ manuals|length }}{% endblock %}
+{% block page_lead %}Online manuály značky — logotypy, barvy, písma a stránky s mockupy. Barevné verze loga se vytvoří samy z nahraných logotypů.{% endblock %}
+
+{% block title_actions %}
+    {% if is_granted('ROLE_DESIGNER') %}
+        <a href="{{ path('add_manual', {'id': project.id}) }}" class="btn btn-primary">{{ icon('plus', 's16') }}Nový manuál</a>
+    {% endif %}
+{% endblock %}
+
+{% block mobile_primary_action %}
+    {% if is_granted('ROLE_DESIGNER') %}
+        <a href="{{ path('add_manual', {'id': project.id}) }}" class="btn btn-primary icon" aria-label="Nový manuál">{{ icon('plus') }}</a>
+    {% endif %}
+{% endblock %}
+
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-
-    {% if is_granted('ROLE_DESIGNER') %}
-        <div class="row mb-2">
-            <div class="col-sm-12">
-                <a href="{{ path('add_manual', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový manuál</a>
-            </div>
+    {% if manuals is empty %}
+        <div class="empty">
+            <span class="ico-c">{{ icon('book') }}</span>
+            <h2>Projekt zatím nemá žádný manuál</h2>
+            <p>Manuál shrne logotypy, barvy a písma značky na jedné online adrese, kterou můžete poslat klientovi.</p>
+            {% if is_granted('ROLE_DESIGNER') %}
+                <a href="{{ path('add_manual', {'id': project.id}) }}" class="btn btn-primary btn-sm">{{ icon('plus', 's16') }}Vytvořit první manuál</a>
+            {% endif %}
         </div>
-    {% endif %}
-
-    <div class="row">
-        {% for manual in manuals %}
-            <div class="col-md-6 col-xxl-3">
-
-                <div class="card">
-                    {% if is_granted('manual_edit', manual) %}
-                        <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                            <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="ri-more-fill text-lighter"></i>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a href="{{ path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="dropdown-item" target="_blank"><i class="ri-eye-fill me-1"></i>Zobrazit manuál</a>
-                                <a href="{{ path('edit_manual', {'id': manual.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                                <a href="#"
-                                   class="dropdown-item"
-                                   data-modal-id="{{ manual.id }}"
-                                   data-action="click->confirm-modal#showModal">
-                                    <i class="mdi mdi-delete me-1"></i> Smazat
-                                </a>
-                            </div>
-                        </div>
-
-                        <twig:ConfirmModal
-                            id="{{ manual.id }}"
-                            url="{{ path('delete_manual', {'id': manual.id}) }}"
-                            confirmationText="Opravdu chcete smazat tento manuál včetně všech náležitostí?" />
-                    {% endif %}
-
-                    <a href="{{ is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="text-body">
-                        <div class="card-body pb-2">
-                            <h4 class="mt-0">
-                                {{ manual.name }}
-                                <br><small class="text-muted fw-normal">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</small>
-                            </h4>
-
-                            <img class="img-fluid my-1 mb-2" src="{{ manual.logo.introImage ? uploaded_asset(manual.logo.introImage.filePath) : asset('images/manual-placeholder.png') }}" alt="{{ manual.name }}">
-
-                            {% if manual.detectedColors %}
-                                {% for detectedColor in manual.detectedColors %}
-                                    <span class="d-inline-block avatar-xs rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColor.color.hex }};"></span>
-                                {% endfor %}
+    {% else %}
+        <div class="mn-grid">
+            {% for manual in manuals %}
+                {% set manual_url = is_granted('manual_edit', manual) ? path('manual_dashboard', {'id': manual.id}) : path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) %}
+                <article class="mn-card">
+                    <div class="mn-cover">
+                        {% if manual.logo.introImage %}
+                            <img src="{{ uploaded_asset(manual.logo.introImage.filePath) }}" alt="" loading="lazy" onerror="this.parentElement.classList.add('is-broken')">
+                        {% endif %}
+                        <span class="mn-mono" aria-hidden="true">{{ initials(manual.name) }}</span>
+                    </div>
+                    <div class="mn-body">
+                        <div class="mn-head">
+                            <h2 class="mn-name"><a href="{{ manual_url }}">{{ manual.name }}</a></h2>
+                            {% if is_granted('manual_edit', manual) %}
+                                <div class="dropdown mn-acts">
+                                    <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti manuálu {{ manual.name }}">{{ icon('more', 's16') }}</button>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a href="{{ path('manual_preview', {'projectSlug': manual.project.slug, 'manualSlug': manual.slug}) }}" class="dropdown-item" target="_blank">{{ icon('eye', 's16') }}Zobrazit manuál</a>
+                                        <a href="{{ path('edit_manual', {'id': manual.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit</a>
+                                        <div class="dropdown-divider"></div>
+                                        <a href="#"
+                                           class="dropdown-item text-danger"
+                                           data-modal-id="{{ manual.id }}"
+                                           data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat</a>
+                                    </div>
+                                </div>
                             {% endif %}
                         </div>
+                        <div class="mn-meta">
+                            <span class="pill">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                            <span class="cap">{{ manual.logo.imagesCount }} {{ manual.logo.imagesCount == 1 ? 'logotyp' : (manual.logo.imagesCount >= 2 and manual.logo.imagesCount <= 4 ? 'logotypy' : 'logotypů') }}</span>
+                        </div>
+                        {% if manual.detectedColors %}
+                            <div class="mn-colors" aria-label="Barvy z loga">
+                                {% for detectedColor in manual.detectedColors %}
+                                    <span class="man-col" style="background: {{ '#' ~ detectedColor.color.hex }};" title="#{{ detectedColor.color.hex|upper }}"></span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </article>
 
-                    </a>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
+                {% if is_granted('manual_edit', manual) %}
+                    <twig:ConfirmModal
+                        id="{{ manual.id }}"
+                        url="{{ path('delete_manual', {'id': manual.id}) }}"
+                        confirmationText="Opravdu chcete smazat tento manuál včetně všech náležitostí?" />
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
 {% endblock %}

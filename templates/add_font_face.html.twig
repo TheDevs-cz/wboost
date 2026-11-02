@@ -3,26 +3,38 @@
 {% block title %}Nahrát písma{% endblock %}
 {% set active_menu_item = 'fonts' %}
 
+{% block page_lead %}Vyberte jeden nebo více souborů (TTF, OTF, WOFF). Každý soubor je jeden řez; do rodiny se zařadí podle názvu uvnitř souboru.{% endblock %}
+
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('fonts_list', {'id': project.id}) }}">Fonty</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            <p class="text-muted">Vyberte jeden nebo více souborů (TTF, OTF, WOFF). Každý soubor je jeden řez; do rodiny se zařadí podle názvu uvnitř souboru.</p>
-
-            {{ form_start(form) }}
-            {{ form_row(form.fonts) }}
-
-            <input type="submit" name="submit" value="Nahrát" class="btn btn-primary">
-
-            {{ form_end(form) }}
+    {{ form_start(form, {'attr': {'class': 'man-sec man-formbox'}}) }}
+        {{ form_errors(form) }}
+        <div class="field" data-controller="file-drop">
+            <span>{{ form.fonts.vars.label ?: 'Soubory písem' }}</span>
+            <label class="man-drop man-drop-sm" for="{{ form.fonts.vars.id }}" data-file-drop-target="zone">
+                {{ icon('font') }}
+                <b>Přetáhněte soubory písem sem</b>
+                <span class="cap">nebo <u>vyberte z počítače</u> · max. 10 MB na soubor</span>
+            </label>
+            {{ form_widget(form.fonts, {'attr': {
+                'class': 'sr',
+                'accept': '.ttf,.otf,.woff,font/ttf,font/otf,font/woff',
+                'data-file-drop-target': 'input',
+                'data-action': 'change->file-drop#changed',
+            }}) }}
+            <div class="man-picked" data-file-drop-target="name" hidden></div>
+            {{ form_errors(form.fonts) }}
         </div>
-    </div>
+        {{ form_rest(form) }}
+        <div class="man-formfoot">
+            <a href="{{ path('fonts_list', {'id': project.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+            <input type="submit" name="submit" value="Nahrát" class="btn btn-primary sm">
+        </div>
+    {{ form_end(form) }}
 {% endblock %}
