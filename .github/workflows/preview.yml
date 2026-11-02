@@ -1,0 +1,32 @@
+# Preview — build the redesign branch image for the temporary preview web
+# container on https://wboost.thedevs.cz (lily.srv: apps/wboost `web-preview`).
+#
+# BUILD ONLY, never deploys: the preview shares prod's DB, MinIO, Redis and
+# messenger worker; only the web container differs. The image is tagged
+# `redesign-nocturne` (type=ref,event=branch in the shared _build.yml). Roll it
+# onto the box with `/srv/wboost/deploy-preview.sh` after the build finishes.
+#
+# Delete this file (and the `web-preview` service in lily.srv) once the
+# redesign is merged to main.
+
+name: Preview
+
+on:
+    push:
+        branches:
+            - redesign/nocturne
+
+permissions:
+    contents: read
+    packages: write
+
+concurrency:
+    group: preview-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        uses: TheDevs-cz/ci/.github/workflows/_build.yml@v1
+        with:
+            image: ghcr.io/thedevs-cz/wboost
+            build_args: APP_VERSION=${{ github.sha }}
