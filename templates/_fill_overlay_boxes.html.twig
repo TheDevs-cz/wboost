@@ -39,7 +39,7 @@
                     title="Upravit text" aria-label="Upravit text{% if ph.name %}: {{ ph.name }}{% endif %}"
                     data-action="variant-fill-overlay#openPopover"
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
+                >{{ icon('edit', 's14') }}</button>
                 {% if ph.hidable %}
                     <button type="button"
                         class="fill-box__tool fill-box__tool--hide{{ ph.hidden ? ' is-active' : '' }}"
@@ -49,7 +49,7 @@
                         aria-label="{{ ph.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
                         data-action="variant-fill-overlay#toggleHide"
                         data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                    ><i class="mdi {{ ph.hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                    >{{ icon(ph.hidden ? 'eye-off' : 'eye', 's14') }}</button>
                 {% endif %}
             </div>
         </div>
@@ -74,7 +74,7 @@
                     title="Vybrat obrázek" aria-label="Vybrat obrázek{% if ph.name %}: {{ ph.name }}{% endif %}"
                     data-action="variant-fill-overlay#openImageModal"
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                ><i class="mdi mdi-pencil" aria-hidden="true"></i></button>
+                >{{ icon('image', 's14') }}</button>
                 {% if ph.hidable %}
                     <button type="button" class="fill-box__tool fill-box__tool--hide{{ hidden ? ' is-active' : '' }}"
                         data-hide-toggle="{{ ph.inputId }}"
@@ -83,7 +83,7 @@
                         aria-label="{{ hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
                         data-action="variant-fill-overlay#toggleHide"
                         data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                    ><i class="mdi {{ hidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline' }}" aria-hidden="true"></i></button>
+                    >{{ icon(hidden ? 'eye-off' : 'eye', 's14') }}</button>
                 {% endif %}
             </div>
         </div>
@@ -107,7 +107,7 @@
                     title="Změnit barvu" aria-label="Změnit barvu{% if ph.name %}: {{ ph.name }}{% endif %}"
                     data-action="variant-fill-overlay#openPopover"
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-                ><i class="mdi mdi-palette-outline" aria-hidden="true"></i></button>
+                >{{ icon('palette', 's14') }}</button>
             </div>
         </div>
     {% endif %}

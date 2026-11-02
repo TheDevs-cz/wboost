@@ -55,7 +55,17 @@ export default class extends Controller {
             }
         };
 
+        // The button doubles as the draft status ("Rozpracované uloženo"
+        // after a save, until the form differs from it again).
+        this._onEdit = () => {
+            if (this._savedState && this._isDirty()) {
+                this._markSaved(false);
+            }
+        };
+
         this.element.addEventListener('pointerdown', this._onFirstTouch, true);
+        this.element.addEventListener('input', this._onEdit);
+        this.element.addEventListener('change', this._onEdit);
         this.element.addEventListener('keydown', this._onFirstTouch, true);
         this.element.addEventListener('submit', this._onSubmit);
         window.addEventListener('beforeunload', this._onBeforeUnload);
@@ -63,6 +73,8 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this.element.removeEventListener('input', this._onEdit);
+        this.element.removeEventListener('change', this._onEdit);
         this.element.removeEventListener('pointerdown', this._onFirstTouch, true);
         this.element.removeEventListener('keydown', this._onFirstTouch, true);
         this.element.removeEventListener('submit', this._onSubmit);
@@ -103,6 +115,7 @@ export default class extends Controller {
             }
 
             this._baseline = snapshot;
+            this._markSaved(!this._isDirty());
             this._toast('Uloženo do Historie exportů.', 'success');
         } catch (error) {
             console.error(error);
@@ -143,6 +156,13 @@ export default class extends Controller {
         const current = this._snapshot();
 
         return current !== null && current !== this._baseline;
+    }
+
+    _markSaved(saved) {
+        this._savedState = saved;
+        this.buttonTargets.forEach((button) => {
+            button.toggleAttribute('data-saved', saved);
+        });
     }
 
     _setBusy(busy) {

@@ -7,41 +7,47 @@
     state through them and tests pin them. Both switches are DOM `checked`
     state, so on the Live-rendered single page the including markup keeps this
     inside a data-live-ignore subtree (a Live morph would re-check them).
+
+    Nocturne look (prototype `.fi-sw`): the real checkbox is visually hidden
+    inside its <label>, the `.sw` pill next to it is pure decoration driven by
+    `:has(input:checked)` in fill.css.
 #}
-<div class="form-check form-switch mb-0">
+<label class="fi-sw" for="fill-highlight-toggle">
     <input
         type="checkbox"
-        class="form-check-input"
+        role="switch"
+        class="sr"
         id="fill-highlight-toggle"
         checked
         data-action="change->variant-fill-overlay#toggleHighlight"
     >
-    <label class="form-check-label small" for="fill-highlight-toggle">Zobrazit oblasti k vyplnění</label>
-</div>
+    <span class="sw sm" aria-hidden="true"></span>Oblasti k vyplnění
+</label>
 
 {# Name tags, independent of the borders above (same pair as the admin editor). #}
-<div class="form-check form-switch mb-0">
+<label class="fi-sw" for="fill-captions-toggle" title="Jmenovky polí zobrazené v rohu každé oblasti">
     <input
         type="checkbox"
-        class="form-check-input"
+        role="switch"
+        class="sr"
         id="fill-captions-toggle"
         checked
         data-action="change->variant-fill-overlay#toggleCaptions"
     >
-    <label class="form-check-label small" for="fill-captions-toggle" title="Jmenovky polí zobrazené v rohu každé oblasti">Popisky prvků</label>
-</div>
+    <span class="sw sm" aria-hidden="true"></span>Popisky prvků
+</label>
 
 {# Every field of the template in one stacked form (the popovers docked into
    a modal) — for filling everything at once instead of pencil by pencil. #}
 <button
     type="button"
-    class="btn btn-outline-secondary btn-sm"
+    class="btn btn-tertiary sm"
     data-action="variant-fill-overlay#togglePanel"
     data-variant-fill-overlay-target="panelButton"
     aria-expanded="false"
     title="Všechna pole šablony v jednom formuláři"
 >
-    <i class="mdi mdi-form-textbox me-1" aria-hidden="true"></i>Všechna pole
+    {{ icon('list', 's16') }}Všechna pole
 </button>
 
 {# "Náhled": one click to a clean preview — every piece of overlay chrome
@@ -49,12 +55,12 @@
    the switches, so leaving it restores exactly the editing state. Esc leaves. #}
 <button
     type="button"
-    class="btn btn-outline-secondary btn-sm"
+    class="btn btn-ghost sm fi-clean"
     id="fill-preview-toggle"
     data-action="variant-fill-overlay#togglePreview"
     data-variant-fill-overlay-target="previewButton"
     aria-pressed="false"
     title="Náhled bez rámečků, ikon a popisků (Esc ukončí)"
 >
-    <i class="mdi mdi-eye-outline me-1" aria-hidden="true"></i><span data-preview-label>Náhled</span>
+    {{ icon('eye', 's16') }}<span data-preview-label>Náhled</span>
 </button>

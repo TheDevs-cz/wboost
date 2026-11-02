@@ -1,0 +1,329 @@
+/* ==========================================================================
+   Nocturne — fill pages (P6): "Vyplnit a exportovat" — the single-variant
+   fill page (Live VariantFiller), the group fill page and the document fill
+   page. Prototype: renderTpFill / fiHist / fiShare (prototype/app.js) and the
+   "Vyplnit a exportovat" + "Historie exportů popover" sections of
+   prototype/app.css; screenshots 23 (fill page + history) and 24 (share).
+
+   Imported AFTER app.css on purpose: the fill overlay's behaviour CSS lives
+   there (`.fill-*`, `.group-fill-*`, the echo/spinner/z-order contracts) and
+   this file only re-skins it — at equal specificity the later file wins, so
+   no rule here needs to out-rank app.css by selector weight. Never restyle
+   the behavioural bits (display toggles of `.fill-js`, `fill-panel-open`,
+   `.fill-echo-*`, `.is-echo`, positioning) — colours, radii, type only.
+   ========================================================================== */
+
+/* ---------- Page header (prototype `.fi-head`) ---------- */
+.fi-head { align-items: flex-end; margin-bottom: 20px; }
+.fi-head .head-tools { align-items: center; justify-content: flex-end; }
+.fi-head a.btn { text-decoration: none; }
+.fi-title { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fi-title .head-lead { color: var(--muted); font-size: 14px; }
+.fi-back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; text-decoration: none; }
+.fi-back:hover { color: var(--text); }
+.fi-n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 2px; border-radius: 999px; background: rgb(0 0 0 / .14); font-size: 11px; font-weight: 700; }
+/* Split primary (ZIP + print PDFs): one pill, two halves. */
+.fi-split > .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.fi-split > .dropdown-toggle-split { border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 0 12px; border-left: 1px solid rgb(0 0 0 / .14); }
+
+/* Draft button doubles as the status (fill_draft_controller sets data-saved). */
+.fi-draft > span { display: inline-flex; align-items: center; gap: 8px; }
+.fi-draft .fi-draft-saved { display: none; }
+.fi-draft[data-saved] .fi-draft-dirty { display: none; }
+.fi-draft[data-saved] .fi-draft-saved { display: inline-flex; }
+.fi-draft[data-saved] .i { color: var(--mnt-ink); }
+.fi-draft.is-saving { opacity: .6; }
+
+/* ---------- Historie exportů (prototype `.fi-hpop`) ---------- */
+.fi-hw { position: relative; display: inline-flex; }
+.fi-hbtn.dropdown-toggle::after { display: none; }
+.fi-hlabel { display: inline-block; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fi-hchev { margin-left: 2px; transition: transform var(--dur-2); }
+.fi-hbtn[aria-expanded="true"] .fi-hchev { transform: rotate(180deg); }
+.dropdown-menu.fi-hpop { --bs-dropdown-bg: var(--surface); --bs-dropdown-padding-x: 0; --bs-dropdown-padding-y: 0; width: 380px; max-width: calc(100vw - 32px); border-radius: 18px; overflow: hidden; }
+.fi-hh { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px 6px; }
+.fi-hh b { font-size: 14px; color: var(--text); }
+.fi-hh .cap { font-size: 12px; }
+.fi-hbody { display: flex; flex-direction: column; max-height: min(28rem, 60vh); overflow-y: auto; scrollbar-width: thin; padding: 0 8px; }
+.fi-hsec.dropdown-header { display: flex; align-items: center; gap: 6px; margin: 0; padding: 10px 10px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--subtle); }
+.dropdown-item.fi-hi { display: flex; align-items: center; gap: 2px; min-height: 0; margin: 0 0 2px; padding: 0 4px 0 0; border-radius: 12px; color: var(--text); white-space: normal; background: transparent; }
+.dropdown-item.fi-hi:hover, .dropdown-item.fi-hi:focus-within { background: var(--surface-2); color: var(--text); }
+.dropdown-item.fi-hi.pin { background: var(--lav-deep); }
+.dropdown-item.fi-hi.active { background: var(--surface-2); color: var(--text); box-shadow: inset 3px 0 0 var(--lav); }
+.dropdown-item.fi-hi.pin.active { background: var(--lav-deep); }
+.fi-hload { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 10px; color: var(--text); text-decoration: none; }
+.fi-hload:hover { color: var(--text); }
+.fi-hload > div { max-width: 100%; font-size: 14px; font-weight: 600; }
+.fi-hload .cap { font-size: 12px; }
+.fi-hedit { flex: 1; min-width: 0; padding: 6px 4px 6px 8px; }
+.fi-hpills { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.fi-hpills:empty { display: none; }
+.pill.fi-pn { background: var(--surface-3); color: var(--muted); }
+.fi-hpin { display: inline-flex; }
+.fi-hb { width: 32px; height: 32px; flex: none; display: grid; place-items: center; padding: 0; border: 0; border-radius: 9px; background: none; color: var(--subtle); cursor: pointer; }
+.fi-hb:hover { background: var(--surface-3); color: var(--text); }
+.fi-hb:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 1px; }
+.fi-hb.on { color: var(--lav-ink); }
+.fi-hb.on .i { transform: rotate(-30deg); }
+.fi-hfoot { display: flex; flex-direction: column; margin: 6px -8px 0; border-top: 1px solid var(--line); }
+.fi-hmore { display: flex; align-items: center; gap: 8px; padding: 13px 18px; color: var(--text-2); font-size: 13px; font-weight: 600; text-decoration: none; }
+.fi-hmore + .fi-hmore { border-top: 1px solid var(--line); }
+.fi-hmore:hover { background: var(--surface-2); color: var(--text); }
+/* Inline rename field (row flavour + the history page). */
+.export-version-rename .input-group { gap: 4px; }
+.export-version-rename .form-control { min-height: 36px; height: 36px; border-radius: 10px !important; font-size: 14px; }
+.export-version-rename .input-group .export-version-rename__btn { --n-btn-h: 36px; width: 36px; min-height: 36px; padding: 0; border-radius: 10px !important; margin: 0 !important; }
+
+/* ---------- Toolbar row (prototype `.fi-bar`) ---------- */
+.fi-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 4px 0 16px; }
+.fi-sp { flex: 1 1 auto; }
+.fi-sw { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer; white-space: nowrap; user-select: none; }
+.fi-sw .sw { pointer-events: none; }
+.fi-sw:has(input:checked) .sw { background: var(--a-deep, var(--lav-deep)); border-color: var(--a-line, var(--lav-line)); }
+.fi-sw:has(input:checked) .sw::after { left: 17px; background: var(--a, var(--lav)); box-shadow: 0 0 12px var(--a-glow, var(--lav-glow)); }
+.fi-sw:has(input:focus-visible) .sw { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.fill-preview-on .fi-sw { opacity: .45; }
+.fi-clean[aria-pressed="true"] { background: var(--lav-deep); border-color: var(--lav-line); color: var(--lav-ink); }
+.fi-autob[aria-pressed="true"] { color: var(--lav-ink); border-color: var(--lav-line); background: var(--lav-deep); }
+.fi-zoom { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--line-2); }
+.fi-zoom .btn { --n-btn-h: 30px; min-height: 30px; }
+.fi-zoom .btn.icon { width: 30px; height: 30px; }
+.fi-zl { min-width: 58px; font-variant-numeric: tabular-nums; }
+.fi-fmt { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; }
+.fi-fmt .sz-ctl { padding: 0 4px; }
+.fi-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fi-chips .chip { height: 34px; padding: 0 14px; --a-deep: var(--lav-deep); --a-line: var(--lav-line); --a-ink: var(--lav-ink); }
+.fi-chips .chip[aria-pressed="false"] .i { display: none; }
+
+/* Overflow alert above the previews. */
+.fill-form > .alert[data-variant-fill-overlay-target="overflowAlert"] { margin: 0 0 12px; }
+
+/* ---------- Format cards (prototype `.fi-grid` / `.fi-card` / `.fi-ch`) ---------- */
+.fi-grid { display: grid; grid-template-columns: repeat(auto-fill, min(var(--fimin, 440px), 100%)); gap: 20px; align-items: start; justify-content: start; }
+.fi-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); min-width: 0; overflow: visible; }
+.fi-card[hidden] { display: none; }
+.fi-card.group-fill-preview-card { margin: 0; }
+.fi-ch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 32px; padding: 2px 2px 0 4px; font-size: 13px; color: var(--text); border: 0; }
+.fi-ch b { font-weight: 700; }
+.fi-ch .cap { font-size: 12px; }
+.fi-ch .dropdown { display: inline-flex; }
+.fi-ch .fi-share.dropdown-toggle::after { display: none; }
+.fi-ch .badge.pill { gap: 4px; }
+.group-fill-preview-heading { padding: 2px 2px 0 4px; border-bottom: 0; font-size: 13px; color: var(--text); }
+.group-fill-preview-frame { border-radius: 8px; background: var(--surface-2); }
+.group-fill-preview-spinner { background: color-mix(in oklab, var(--bg) 35%, transparent); }
+.group-fill-preview-error { background: var(--rose); color: var(--on-accent); font-weight: 600; }
+
+/* Single page: one card around the zoomable viewport; the stage centres in it
+   (inline-block — the fit/zoom math is untouched). The card stays full
+   width: a shrink-wrapped container would feed the fit zoom its own size. */
+.fill-body { gap: 20px; }
+.fi-card--single { flex: 1 1 auto; min-width: 0; }
+.fi-card--single .fill-viewport { text-align: center; border-radius: 8px; }
+.fi-card--single .fill-stage { text-align: left; }
+
+/* ---------- Boxes on the preview: lavender text, mint image, peach colour ---------- */
+.fill-form.fill-js.fill-highlight-on .fill-box--text { border-color: color-mix(in oklab, var(--lav) 80%, white); background: color-mix(in oklab, var(--lav) 7%, transparent); box-shadow: none; }
+.fill-form.fill-js.fill-highlight-on .fill-box--image { border-color: color-mix(in oklab, var(--mnt) 85%, white); background: color-mix(in oklab, var(--mnt) 7%, transparent); box-shadow: none; }
+.fill-form.fill-js.fill-highlight-on .fill-box--shape { border-color: color-mix(in oklab, var(--pch) 85%, white); background: color-mix(in oklab, var(--pch) 7%, transparent); box-shadow: none; }
+.fill-form.fill-js .fill-box--overflow { border-color: var(--rose) !important; background: color-mix(in oklab, var(--rose) 10%, transparent); box-shadow: none; }
+.fill-box { border-radius: 3px; }
+.fill-box__name { top: -1px; left: -1px; height: 16px; padding: 0 5px; border-radius: 3px 0 4px 0; background: color-mix(in oklab, var(--lav) 85%, black); color: #fff; font-family: var(--font); font-size: 9.5px; font-weight: 700; line-height: 16px; }
+.fill-box--image .fill-box__name { background: color-mix(in oklab, var(--mnt) 60%, black); color: #fff; }
+.fill-box--shape .fill-box__name { background: color-mix(in oklab, var(--pch) 60%, black); color: #fff; }
+.fill-box--tools-left .fill-box__name { left: auto; right: -1px; border-radius: 0 3px 0 4px; transform-origin: top right; }
+/* The single page zooms its stage (CSS transform): counter-scale the tag like
+   the tool dots so it stays readable at any zoom; its max width follows the
+   box's ON-SCREEN width. The group / document surfaces are unzoomed (1). */
+.fill-box__name { max-width: calc((100% - 30px) * var(--fill-zoom, 1)); transform: scale(calc(1 / var(--fill-zoom, 1))); transform-origin: top left; }
+.fill-form.fill-js .fill-box--overflow .fill-box__name { background: var(--rose); color: var(--on-accent); }
+/* Action dots (prototype `.fi-ab`): 26 px circles with the surface ring. */
+.fill-box__tools { top: -11px; right: -11px; gap: 3px; }
+.fill-box--tools-left .fill-box__tools { left: -11px; }
+.fill-box__tool { width: 26px; height: 26px; border: 2px solid var(--surface); background: var(--surface); color: var(--text-2); box-shadow: 0 2px 6px rgb(0 0 0 / .25); }
+.fill-box__tool--edit { background: var(--lav); color: var(--on-accent); }
+.fill-box--image .fill-box__tool--edit { background: var(--mnt); color: var(--on-accent); }
+.fill-box--shape .fill-box__tool--edit { background: var(--pch); color: var(--on-accent); }
+.fill-box__tool:hover { filter: none; transform: scale(1.12); }
+.fill-box__tool:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; box-shadow: 0 2px 6px rgb(0 0 0 / .25); }
+.fill-box__tool--hide.is-active { background: var(--pch-deep); color: var(--pch-ink); border-color: var(--surface); }
+.fill-box__tool .i { width: 13px; height: 13px; }
+
+/* Live-preview veil + spinner badge. */
+.fill-spinner { background: color-mix(in oklab, var(--bg) 30%, transparent); }
+.fill-spinner__badge { width: 56px; height: 56px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); }
+.fill-spinner__icon { width: 26px; height: 26px; border: 3px solid var(--lav-deep); border-top-color: var(--lav); }
+
+/* ---------- Floating edit pop-up (prototype `.fi-pop`) ---------- */
+.fill-form.fill-js .fill-popover { width: min(380px, calc(100vw - 24px)); max-width: none; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); }
+.fill-form.fill-js .fill-popover--rich { width: min(420px, calc(100vw - 24px)); }
+.fill-popover > .card-body { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; }
+.fill-popover__head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fill-popover__lead { display: inline-flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.fill-popover__name { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--text); }
+.fill-popover__lead .fill-popover__name { flex: 0 1 auto; }
+.fill-popover__drag { width: 20px; height: 28px; color: var(--subtle); cursor: grab; touch-action: none; -webkit-mask-size: 14px; mask-size: 14px; }
+.fill-popover__drag:active { cursor: grabbing; }
+.fill-popover__ok { box-shadow: 0 6px 18px var(--mnt-glow); }
+.fill-popover__x { color: var(--muted); }
+.fill-popover__desc { margin: -4px 0 0; font-size: 12px; }
+.fill-popover .form-control, .fill-popover .form-select { font-size: 15px; }
+textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radius: 12px; }
+.fill-popover__font-label { display: inline-flex; align-items: center; gap: 6px; flex: none; margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
+.fill-popover .fill-popover__font { min-height: 36px; font-size: 13px; }
+.fill-popover small.text-muted, .fill-popover [data-fill-counter] { font-size: 11px; color: var(--subtle) !important; }
+.fill-popover__add { align-self: flex-start; margin-top: 8px; }
+.fill-popover__swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fill-popover__eye { width: 30px; height: 30px; border-radius: 8px; color: var(--subtle); opacity: 1; }
+.fill-popover__eye:hover { background: var(--surface-3); color: var(--text); }
+.fill-popover__eye.is-active { background: var(--pch-deep); color: var(--pch-ink); }
+.fill-popover__reorder { width: 18px; height: 18px; color: var(--subtle); opacity: 1; }
+.fill-popover__reorder:hover { color: var(--text); }
+@media (max-width: 700px) {
+    /* Phones: the pop-up docks to the bottom edge (prototype). The controller
+       still writes left/top — the !important pins it. */
+    .fill-form.fill-js:not(.fill-panel-open) .fill-popover.is-open { left: 12px !important; right: 12px; top: auto !important; bottom: 12px; width: auto; max-height: 70vh; overflow-y: auto; }
+}
+
+/* Rich text toolbar + swatches inside the pop-up. */
+.fill-richtext-toolbar { gap: 6px !important; }
+.fill-richtext-toolbar .btn-group > .btn, .fill-richtext-toolbar > .btn { --n-btn-h: 32px; min-height: 32px; min-width: 32px; padding: 0 9px; font-size: 13px; }
+.fill-richtext-toolbar .btn.active { background: var(--lav-deep); border-color: var(--lav-line); color: var(--lav-ink); }
+.fill-richtext-toolbar__font { min-height: 32px; font-size: 13px; }
+.fill-rt-ol { font-size: 12px; font-weight: 700; line-height: 1; }
+.fill-richtext-editor { min-height: 44px; padding: 10px 12px; border-radius: 12px; font-size: 15px; }
+.fill-richtext-editor:focus { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.fill-richtext-editor:empty::before { color: var(--subtle); }
+.fill-richtext-swatch { width: 28px; height: 28px; border: 1px solid var(--line-2); }
+.fill-popover--shape .fill-richtext-swatch { width: 32px; height: 32px; }
+.fill-richtext-swatch:hover { box-shadow: 0 0 0 2px var(--line-3); }
+.fill-richtext-swatch.is-active { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--lav); }
+
+/* ---------- "Všechna pole" (the docked panel) ---------- */
+.fill-panel-backdrop { background: rgb(5 4 7 / .66); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+:root[data-theme="light"] .fill-panel-backdrop { background: rgb(23 21 27 / .4); }
+.fill-form.fill-js.fill-panel-open .fill-popovers { gap: 12px; top: 5vh; width: 640px; max-width: calc(100vw - 24px); max-height: 90vh; padding: 0 22px 22px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line-2); border-radius: 22px; box-shadow: var(--shadow-4); scrollbar-width: thin; }
+.fill-popovers__header { gap: 10px; padding: 20px 0 14px; border-bottom: 1px solid var(--line); }
+.fill-form.fill-js.fill-panel-open .fill-popovers__header { position: sticky; top: 0; z-index: 2; background: var(--surface-2); }
+.fill-popovers__title { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.fill-popovers__title h2 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.01em; }
+.fill-popovers__arrange { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; }
+.fill-panel-done { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--lav); color: var(--on-accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; flex: none; }
+.fill-panel-done:hover { background: color-mix(in oklab, var(--lav) 88%, white); }
+.fill-panel-x { width: 32px; height: 32px; display: grid; place-items: center; flex: none; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
+.fill-panel-x:hover { background: var(--surface-3); color: var(--text); }
+.fill-panel-done:focus-visible, .fill-panel-x:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.fill-form.fill-js.fill-panel-open .fill-popover,
+.fill-form.fill-js.fill-panel-open .fill-popover--rich,
+.fill-form.fill-js.fill-panel-open .fill-popover--image { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: none; }
+.fill-form.fill-js.fill-panel-open .fill-popover.fill-popover--reorder-ghost { outline-color: var(--lav); }
+.fill-popovers__empty { display: flex; align-items: center; gap: 8px; color: var(--muted) !important; }
+.fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--subtle); }
+.fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading.is-shared { color: var(--lav-ink); }
+
+/* Image card (panel row of an image slot; prototype `.fi-img`). */
+.fill-image-card { display: flex; align-items: center; gap: 12px; }
+.fill-image-card__thumb { width: 64px; height: 64px; border-radius: 12px; border: 1px solid var(--line-2); background-color: var(--surface-2); background-size: contain; background-repeat: no-repeat; }
+.fill-image-card__hint { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 12px; }
+.fill-image-card__hint .i { margin-top: 1px; }
+
+/* ---------- Image picker (both the custom `.fill-modal` and Bootstrap) ---------- */
+.fill-modal { background: rgb(5 4 7 / .66); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+:root[data-theme="light"] .fill-modal { background: rgb(23 21 27 / .4); }
+.fill-modal__dialog { width: min(820px, 100%); padding: 22px 26px 26px; border-radius: 22px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line-2); box-shadow: var(--shadow-4); scrollbar-width: thin; }
+.fill-modal__dialog h5 { font-size: 19px; font-weight: 600; }
+.fill-modal__dialog .form-label { color: var(--muted); }
+.modal[data-image-modal] .modal-dialog { --bs-modal-width: 820px; }
+.fi-gnav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 10px; }
+.fi-gcrumb { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: none; color: var(--lav-ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.fi-gcrumb:hover { background: var(--surface-3); }
+.fi-gcrumb.on { color: var(--text); background: var(--surface-3); cursor: default; }
+.fi-gsep { color: var(--subtle); }
+.fi-gfolders { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.fi-gfold { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.fi-gfold .i { color: var(--lav-ink); }
+.fi-gfold span:not(.i) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fi-gfold:hover { border-color: var(--line-3); background: var(--surface-3); }
+.fi-ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-items: start; margin: 0 0 12px; padding: 2px; }
+.fi-gcell { min-width: 0; }
+.gallery-asset.fi-gt { display: flex; flex-direction: column; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface); overflow: hidden; transition: border-color var(--dur-2), box-shadow var(--dur-2); }
+.gallery-asset.fi-gt:hover { border-color: var(--line-3); }
+.fi-gsel { display: flex; flex-direction: column; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.fi-gsel:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: -2px; border-radius: 14px; }
+.gallery-asset__select.fi-gsel:hover, .gallery-asset__select.fi-gsel:focus-visible { background: none; }
+.fi-gi { display: grid; place-items: center; aspect-ratio: 1; padding: 10px; overflow: hidden; color: var(--subtle); background: var(--surface-2); background-image: linear-gradient(45deg, var(--surface-3) 25%, transparent 25%, transparent 75%, var(--surface-3) 75%), linear-gradient(45deg, var(--surface-3) 25%, transparent 25%, transparent 75%, var(--surface-3) 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }
+.fi-gi img { width: 100%; height: 100%; object-fit: contain; color: transparent; font-size: 0; }
+.fi-gt .gallery-asset__caption { padding: 9px 10px; border-top: 0; font-size: 13px; }
+.fi-gt .gallery-asset__name { font-weight: 600; color: var(--text); }
+.fi-gt .gallery-asset__meta { color: var(--subtle); font-size: 11px; }
+.fi-gt .gallery-asset__format { background: var(--surface-3); color: var(--muted); }
+.fi-gt:has(.group-fill-image-option.selected) { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.gallery-asset__select.group-fill-image-option.selected { box-shadow: none; }
+.gallery-asset--new { outline-color: var(--mnt); }
+.gallery-dropzone.gal-drop { padding: 16px; background: none; border: 1.5px dashed var(--line-3); border-radius: 16px; }
+.gallery-dropzone.gal-drop:hover, .gallery-dropzone.gal-drop:focus-visible { border-color: var(--lav-line); background: none; }
+.gallery-dropzone.gal-drop.gallery-dropzone--over { border-color: var(--lav); background: var(--lav-deep); }
+.gallery-dropzone.gal-drop b { color: var(--text); }
+.gallery-dropzone.gal-drop .cap b { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); }
+.gallery-dropzone.gal-drop .cap .i { width: 12px; height: 12px; margin: 0; color: inherit; }
+
+/* Publish modal (connected Facebook) — the destination list + caption. */
+.fill-modal__dialog textarea.form-control { border-radius: 12px; }
+
+/* Draft / upload toasts (fill_draft_controller, fill-gallery) in kit look. */
+.gallery-toast-container .gallery-toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); font-size: 13px; }
+.gallery-toast-container .gallery-toast > i { color: var(--mnt-ink); }
+.gallery-toast-container .gallery-toast--warning > i { color: var(--pch-ink); }
+
+/* ---------- Group picture placement toolbar ---------- */
+.group-fill-placement-toolbar { padding: 10px 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); }
+.group-fill-placement-toolbar__name { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.group-fill-placement-toolbar__center { --n-btn-h: 28px; min-height: 28px; padding: 0 8px; font-size: 12px; }
+.group-fill-placement-control label { display: inline-flex; color: var(--muted); }
+.group-fill-placement-control .form-range { accent-color: var(--lav); }
+.group-fill-placement-toolbar__hint { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 11px; }
+.group-fill-ghost:hover, .group-fill-ghost:focus-visible, .group-fill-ghost.is-selected { border-color: var(--lav); }
+.group-fill-placement-layer.is-active .group-fill-ghost { border-color: var(--lav); }
+
+/* ---------- Document fill: page strip + stacked pages ---------- */
+.document-fill .document-fill-layout { gap: 20px; }
+.document-fill .document-fill-sidebar { flex-basis: 132px; top: 16px; padding: 8px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); scrollbar-width: thin; }
+.document-fill .document-pages { display: flex; flex-direction: column; gap: 8px; }
+.document-fill .document-pages__item { margin: 0; padding: 6px; border-radius: 12px; border: 1px solid transparent; }
+.document-fill .document-pages__item:hover { background: var(--surface-2); }
+.document-fill .document-pages__item.is-active { border-color: var(--lav-line); background: var(--lav-deep); }
+.document-fill .document-pages__thumb, .document-fill .document-fill-sidebar .document-pages__thumb { padding: 0; border: 0; border-radius: 6px; background: none; }
+.document-fill .document-pages__item.is-active .document-pages__thumb { border: 0; background: none; }
+.document-fill .document-pages__thumb img { border-radius: 4px; background: var(--surface-2); box-shadow: 0 4px 12px rgb(0 0 0 / .25); }
+.document-pages__num { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.document-fill .document-pages__item.is-active .document-pages__num { color: var(--lav-ink); }
+.document-fill .document-fill-pages { display: flex; flex-direction: column; gap: 20px; }
+.document-fill .document-fill-page { scroll-margin-top: 16px; }
+
+/* ---------- "Sdílet na sítě" fake door ---------- */
+.fi-door .modal-body { display: flex; flex-direction: column; gap: 10px; }
+.fi-door .modal-body p { margin: 0; color: var(--text-2); }
+.fi-door .modal-body p.cap { color: var(--muted); }
+.fi-door-nets { display: flex; gap: 10px; margin-bottom: 4px; }
+.fi-door-net { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--lav-deep); color: var(--lav-ink); box-shadow: inset 0 0 0 1px var(--lav-line); }
+.fi-door-net.ai { background: linear-gradient(135deg, var(--lav), var(--mnt)); color: var(--on-accent); box-shadow: none; }
+.fi-door .fi-door-lead { font-size: 16px; font-weight: 600; color: var(--text); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+    .fi-head .head-tools { justify-content: flex-start; }
+}
+@media (max-width: 700px) {
+    .fi-head .head-tools { width: 100%; }
+    .fi-head .head-tools > .btn, .fi-head .head-tools > .fi-hw, .fi-head .head-tools > .fi-split { flex: 1 1 auto; }
+    .fi-head .head-tools > .fi-hw .dropdown, .fi-head .head-tools > .fi-hw .fi-hbtn { width: 100%; }
+    .fi-head .head-tools > .fi-split > .btn:first-child { flex: 1 1 auto; }
+    .fi-bar { gap: 10px; }
+    .fi-bar .fi-sp { display: none; }
+    .fi-fmt { margin-left: 0; justify-content: flex-start; }
+    .fi-ch { row-gap: 6px; }
+    .fi-card { padding: 10px; border-radius: 16px; }
+}
+@media (max-width: 560px) {
+    .fi-zoom { display: none; }
+}

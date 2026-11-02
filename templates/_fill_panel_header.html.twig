@@ -5,15 +5,19 @@
     and the fill-field-order controller's save status.
 #}
 <div class="fill-popovers__header">
-    <div style="min-width: 0;">
-        <h5 class="mb-0" id="fill-panel-title"><i class="mdi mdi-form-textbox me-1" aria-hidden="true"></i>Všechna pole</h5>
+    <div class="fill-popovers__title">
+        <h2 id="fill-panel-title">Všechna pole</h2>
+        <span class="cap">Vyplníte jednou, propíše se do náhledu hned.</span>
         {% if arrangeable|default(false) %}
-            <p class="small text-muted mb-0 mt-1">
-                <i class="mdi mdi-drag-vertical" aria-hidden="true"></i>
+            <span class="cap fill-popovers__arrange">
+                {{ icon('grip', 's14') }}
                 Pořadí polí změníte přetažením — uloží se pro všechny, kdo šablonu vyplňují.
                 <span class="fill-field-order__status" data-fill-field-order-target="status" aria-live="polite"></span>
-            </p>
+            </span>
         {% endif %}
     </div>
-    <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-fill-overlay#closePanel"></button>
+    {# Deliberately NOT `.btn`: openPanel focuses the first `button.btn` /
+       field in document order, which must be a field, not this header. #}
+    <button type="button" class="fill-panel-done" data-action="variant-fill-overlay#closePanel">Hotovo</button>
+    <button type="button" class="fill-panel-x" aria-label="Zavřít" data-action="variant-fill-overlay#closePanel">{{ icon('x', 's16') }}</button>
 </div>

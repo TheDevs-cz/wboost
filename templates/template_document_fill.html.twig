@@ -2,21 +2,22 @@
 
 {% set active_menu_item = 'templates' %}
 
-{% block title %}Vyplnit a exportovat — {{ document.name }}{% endblock %}
+{% block title %}{{ document.name }} — vyplnit a exportovat{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
-        {% if can_edit %}
-            <li class="breadcrumb-item"><a href="{{ path('template_document', {'documentId': document.id}) }}">{{ document.name }}</a></li>
-            <li class="breadcrumb-item active">Vyplnit</li>
-        {% else %}
-            <li class="breadcrumb-item active">{{ document.name }}</li>
-        {% endif %}
-    </ol>
+{# The prototype fill header (back eyebrow, name, actions) is rendered INSIDE
+   the fill form below (its buttons submit / save that form); the empty
+   document gets its own. #}
+{% block page_title_row %}
+    {% if fill.pages|length == 0 %}
+        <header class="head fi-head">
+            <div class="fi-title">
+                <a class="lbl fi-back" href="{{ path('templates', {'projectId': project.id}) }}">{{ icon('arrow-left', 's14') }}{{ project.name }} · Šablony</a>
+                <h1 class="page-title">{{ document.name }}</h1>
+            </div>
+        </header>
+    {% endif %}
 {% endblock %}
+{% block breadcrumb %}{% endblock %}
 
 {#
     Document fill & export page — the THIRD fill surface (after the single
@@ -43,14 +44,12 @@
 #}
 {% block content %}
     {% if fill.pages|length == 0 %}
-        <div class="card">
-            <div class="card-body text-center text-muted py-5">
-                <i class="mdi mdi-book-open-page-variant-outline" style="font-size: 2rem;"></i>
-                <p class="mb-1 mt-2"><strong>Dokument zatím nemá žádné stránky.</strong></p>
-                {% if can_edit %}
-                    <p class="mb-0"><a href="{{ path('template_document', {'documentId': document.id}) }}">Připojte stránky</a>, potom tu půjde dokument vyplnit a stáhnout.</p>
-                {% endif %}
-            </div>
+        <div class="empty">
+            {{ icon('book', 's32') }}
+            <b>Dokument zatím nemá žádné stránky.</b>
+            {% if can_edit %}
+                <span class="cap"><a href="{{ path('template_document', {'documentId': document.id}) }}">Připojte stránky</a>, potom tu půjde dokument vyplnit a stáhnout.</span>
+            {% endif %}
         </div>
     {% else %}
         {# Shared editor modules + project fonts — on the PAGE template (a
@@ -100,55 +99,52 @@
             <input type="hidden" name="draftVersionId" value="{{ loaded_version ? loaded_version.id : '' }}" data-fill-draft-target="versionField">
             <input type="hidden" name="_fill_draft_token" value="{{ csrf_token('template_fill_draft') }}">
 
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                <div>
-                    <h3 class="my-0">{{ document.name }}</h3>
-                    <p class="text-muted my-0">
+            <header class="head fi-head">
+                <div class="fi-title">
+                    <a class="lbl fi-back" href="{{ path('templates', {'projectId': project.id}) }}">{{ icon('arrow-left', 's14') }}{{ project.name }} · Šablony</a>
+                    <h1 class="page-title">{{ document.name }}</h1>
+                    <span class="head-lead">
                         {{ page_count }} {{ page_count == 1 ? 'strana' : (page_count >= 2 and page_count <= 4 ? 'strany' : 'stran') }} · {{ document.dimension.label }}.
                         Každá stránka se vyplňuje zvlášť{{ fill.sections|filter(s => s.shared)|length > 0 ? ', společná pole se propíší do všech propojených stránek' : '' }}.
-                    </p>
+                    </span>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="head-tools">
                     {{ include('_export_history_menu.html.twig', history_chrome) }}
                     {% if can_edit %}
-                        <a href="{{ path('template_document', {'documentId': document.id}) }}" class="btn btn-outline-secondary rounded-pill"><i class="mdi mdi-pencil"></i> Upravit dokument</a>
+                        <a href="{{ path('template_document', {'documentId': document.id}) }}" class="btn btn-ghost sm">{{ icon('edit', 's16') }}Upravit dokument</a>
                     {% endif %}
-                    {# Saving work in progress never depends on the form being
-                       exportable — NOT an exportButton target. #}
-                    <button type="button" class="btn btn-outline-primary rounded-pill" data-fill-draft-target="button" data-action="fill-draft#save" title="Ctrl/⌘+S">
-                        <i class="mdi mdi-content-save-outline"></i> Uložit rozpracované
-                    </button>
+                    {{ include('_fill_draft_button.html.twig') }}
                     {# Split export: every item posts the SAME form with its
                        `format`; the print PDF only exists for print sizes. A
                        text overflowing on ANY page disables them all
                        (variant-fill-overlay exportButton targets). #}
-                    <div class="btn-group">
+                    <div class="btn-group fi-split">
                         {% if is_print %}
-                            <button type="submit" name="format" value="pdf" class="btn btn-primary" style="border-radius: 50rem 0 0 50rem;"
+                            <button type="submit" name="format" value="pdf" class="btn btn-primary sm"
                                     data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton" data-group-fill-zip-format="pdf">
-                                <i class="mdi mdi-file-pdf-box"></i> Stáhnout PDF pro tisk
+                                {{ icon('download', 's16') }}Stáhnout PDF pro tisk
                             </button>
                         {% else %}
-                            <button type="submit" name="format" value="pdf-screen" class="btn btn-primary" style="border-radius: 50rem 0 0 50rem;"
+                            <button type="submit" name="format" value="pdf-screen" class="btn btn-primary sm"
                                     data-group-fill-target="exportButton" data-variant-fill-overlay-target="exportButton" data-group-fill-zip-format="pdf-screen">
-                                <i class="mdi mdi-file-pdf-box"></i> Stáhnout PDF k odeslání
+                                {{ icon('download', 's16') }}Stáhnout PDF k odeslání
                             </button>
                         {% endif %}
-                        <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" style="border-radius: 0 50rem 50rem 0;" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Další možnosti stažení">
+                        <button type="button" class="btn btn-primary sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Další možnosti stažení">
                             <span class="visually-hidden">Další možnosti stažení</span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             {% if is_print %}
-                                <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-printer-outline me-1" aria-hidden="true"></i>PDF pro tisk (CMYK, spadávka)</button></li>
+                                <li><button type="submit" name="format" value="pdf" class="dropdown-item" data-group-fill-zip-format="pdf" data-variant-fill-overlay-target="exportButton">{{ icon('file', 's16') }}PDF pro tisk (CMYK, spadávka)</button></li>
                             {% endif %}
-                            <li><button type="submit" name="format" value="pdf-screen" class="dropdown-item" data-group-fill-zip-format="pdf-screen" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-email-outline me-1" aria-hidden="true"></i>PDF k odeslání</button></li>
-                            <li><button type="submit" name="format" value="png" class="dropdown-item" data-group-fill-zip-format="png" data-variant-fill-overlay-target="exportButton"><i class="mdi mdi-folder-zip-outline me-1" aria-hidden="true"></i>Stránky jako PNG (ZIP)</button></li>
+                            <li><button type="submit" name="format" value="pdf-screen" class="dropdown-item" data-group-fill-zip-format="pdf-screen" data-variant-fill-overlay-target="exportButton">{{ icon('mail', 's16') }}PDF k odeslání</button></li>
+                            <li><button type="submit" name="format" value="png" class="dropdown-item" data-group-fill-zip-format="png" data-variant-fill-overlay-target="exportButton">{{ icon('image', 's16') }}Stránky jako PNG (ZIP)</button></li>
                         </ul>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+            <div class="fi-bar">
                 {{ include('_fill_overlay_toggles.html.twig') }}
             </div>
 
@@ -219,9 +215,9 @@
                                     <img src="{{ thumb ? uploaded_asset(thumb) : asset('images/manual-placeholder.png') }}" alt="" loading="lazy"
                                          data-document-fill-target="thumbImage" data-variant-id="{{ entry.variant.id }}">
                                 </a>
-                                <div class="small mt-1">
-                                    <strong>{{ entry.number }}</strong>
-                                    <span class="badge bg-danger-subtle text-danger d-none" data-document-fill-target="thumbBadge" data-variant-id="{{ entry.variant.id }}" title="Text přetéká"><i class="mdi mdi-alert-outline" aria-hidden="true"></i></span>
+                                <div class="document-pages__num">
+                                    <b>{{ entry.number }}</b>
+                                    <span class="badge pill rose d-none" data-document-fill-target="thumbBadge" data-variant-id="{{ entry.variant.id }}" title="Text přetéká">{{ icon('alert', 's12') }}</span>
                                 </div>
                             </li>
                         {% endfor %}
@@ -232,14 +228,13 @@
                 <div class="document-fill-pages">
                     {% for entry in fill.pages %}
                         {% set variantId = entry.variant.id %}
-                        <section class="card group-fill-preview-card document-fill-page" id="document-page-{{ entry.number }}"
+                        <section class="fi-card group-fill-preview-card document-fill-page" id="document-page-{{ entry.number }}"
                                  data-document-fill-target="page" data-variant-id="{{ variantId }}">
-                            <div class="group-fill-preview-heading d-flex align-items-center justify-content-between gap-2">
-                                <span><strong>Strana {{ entry.number }}</strong> — {{ entry.page.template.name }}</span>
-                                <span class="badge bg-danger-subtle text-danger d-none me-auto" data-fill-overflow-badge>
-                                    <i class="mdi mdi-alert-outline" aria-hidden="true"></i> Text přetéká
-                                </span>
-                            </div>
+                            <header class="fi-ch group-fill-preview-heading">
+                                <b>Strana {{ entry.number }}</b>
+                                <span class="cap">{{ entry.page.template.name }}</span>
+                                <span class="badge pill rose d-none" data-fill-overflow-badge>{{ icon('alert', 's12') }}Text přetéká</span>
+                            </header>
                             <div class="fill-surface"
                                  data-variant-fill-overlay-target="surface"
                                  data-variant-id="{{ variantId }}"
@@ -284,9 +279,9 @@
                                          data-group-fill-target="placementToolbar"
                                          data-variant-id="{{ variantId }}" data-input-id="{{ slot.inputId }}">
                                         <div class="d-flex align-items-center justify-content-between gap-2">
-                                            <span class="group-fill-placement-toolbar__name text-truncate"><i class="mdi mdi-image-outline"></i> {{ slot_name }}</span>
+                                            <span class="group-fill-placement-toolbar__name text-truncate">{{ icon('image', 's14') }} {{ slot_name }}</span>
                                             <span class="d-inline-flex align-items-center gap-2">
-                                                <button type="button" class="btn btn-link btn-sm p-0 font-12"
+                                                <button type="button" class="btn btn-link btn-sm group-fill-placement-toolbar__center"
                                                         data-action="group-fill#resetVariantPlacement"
                                                         data-group-fill-variantid-param="{{ variantId }}"
                                                         data-group-fill-inputid-param="{{ slot.inputId }}">Vycentrovat</button>
@@ -296,7 +291,7 @@
                                         </div>
                                         {% if slot.allowResize %}
                                             <div class="group-fill-placement-control">
-                                                <label for="doc-fill-zoom-{{ variantId }}-{{ slot.inputId }}" title="Zvětšení"><i class="mdi mdi-magnify-plus-outline"></i><span class="visually-hidden">Zvětšení</span></label>
+                                                <label for="doc-fill-zoom-{{ variantId }}-{{ slot.inputId }}" title="Zvětšení">{{ icon('search', 's16') }}<span class="visually-hidden">Zvětšení</span></label>
                                                 <input type="range" class="form-range" id="doc-fill-zoom-{{ variantId }}-{{ slot.inputId }}"
                                                        min="1" max="4" step="0.01" value="1"
                                                        data-group-fill-target="variantZoomRange"
@@ -307,7 +302,7 @@
                                         {% endif %}
                                         {% if slot.allowRotate %}
                                             <div class="group-fill-placement-control">
-                                                <label for="doc-fill-rotation-{{ variantId }}-{{ slot.inputId }}" title="Otočení"><i class="mdi mdi-rotate-right"></i><span class="visually-hidden">Otočení</span></label>
+                                                <label for="doc-fill-rotation-{{ variantId }}-{{ slot.inputId }}" title="Otočení">{{ icon('refresh', 's16') }}<span class="visually-hidden">Otočení</span></label>
                                                 <input type="range" class="form-range" id="doc-fill-rotation-{{ variantId }}-{{ slot.inputId }}"
                                                        min="-180" max="180" step="1" value="0"
                                                        data-group-fill-target="variantRotationRange"
@@ -317,7 +312,7 @@
                                             </div>
                                         {% endif %}
                                         {% if slot.allowMove %}
-                                            <p class="font-11 text-muted mb-0 mt-1"><i class="mdi mdi-cursor-move"></i> Posunete tažením obrázku{{ slot.allowResize ? ', kolečkem myši přiblížíte' }}.</p>
+                                            <p class="cap group-fill-placement-toolbar__hint">{{ icon('grip', 's12') }} Posunete tažením obrázku{{ slot.allowResize ? ', kolečkem myši přiblížíte' }}.</p>
                                         {% endif %}
                                     </div>
                                 {% endfor %}
@@ -340,7 +335,7 @@
                 {% for section in fill.sections %}
                     {% if section.fields is not empty %}
                         <h6 class="document-fill-panel-heading{{ section.shared ? ' is-shared' : '' }}">
-                            {% if section.shared %}<i class="mdi mdi-link-variant me-1" aria-hidden="true"></i>{% endif %}{{ section.title }}
+                            {% if section.shared %}{{ icon('link', 's14') }}{% endif %}{{ section.title }}
                         </h6>
                     {% endif %}
                     {% for field in section.fields %}
@@ -352,9 +347,9 @@
                         {% set slot = field.slot %}
                         {% set input = slot.input %}
                         <div class="fill-popover fill-popover--image card" data-inputid="{{ input.inputId }}">
-                            <div class="card-body p-2">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                    <span class="small fw-bold text-truncate">{{ input.name ?: 'Obrázek' }}</span>
+                            <div class="card-body">
+                                <div class="fill-popover__head">
+                                    <span class="fill-popover__name">{{ input.name ?: 'Obrázek' }}</span>
                                     {% if input.hidable %}
                                         <button type="button"
                                             class="fill-popover__eye"
@@ -364,21 +359,21 @@
                                             aria-label="Schovat prvek"
                                             data-action="variant-fill-overlay#toggleHide"
                                             data-variant-fill-overlay-inputid-param="{{ input.inputId }}"
-                                        ><i class="mdi mdi-eye-outline" aria-hidden="true"></i></button>
+                                        >{{ icon('eye', 's14') }}</button>
                                     {% endif %}
                                 </div>
-                                {% if input.description %}<p class="small text-muted mb-1">{{ input.description }}</p>{% endif %}
-                                <div class="d-flex align-items-center gap-2">
+                                {% if input.description %}<p class="cap fill-popover__desc">{{ input.description }}</p>{% endif %}
+                                <div class="fill-image-card">
                                     {% set seededImage = seed.images[input.inputId]|default(null) %}
                                     {% set thumbUrl = seededImage ? seededImage.url : slot.defaultImageUrl %}
                                     <span class="fill-image-card__thumb"
                                           data-group-fill-target="imageThumb"
                                           data-input-id="{{ input.inputId }}"
                                           {% if thumbUrl %}style="background-image: url('{{ thumbUrl }}');"{% endif %}></span>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    <button type="button" class="btn btn-tertiary xs"
                                             data-action="variant-fill-overlay#openImageModal"
                                             data-variant-fill-overlay-inputid-param="{{ input.inputId }}">
-                                        <i class="mdi mdi-image-search-outline"></i> {{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
+                                        {{ icon('image', 's14') }}{{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
                                     </button>
                                 </div>
                                 <input type="hidden" name="images[{{ input.inputId }}][imageId]" value="{{ seededImage ? seededImage.imageId : '' }}"
@@ -392,8 +387,8 @@
                                            data-action="change->group-fill#changed">
                                 {% endif %}
                                 {% if input.allowMove or input.allowResize or input.allowRotate %}
-                                    <p class="font-11 text-muted mt-2 mb-0">
-                                        <i class="mdi mdi-information-outline"></i>
+                                    <p class="cap fill-image-card__hint">
+                                        {{ icon('info', 's14') }}
                                         Velikost, otočení a posun upravíte po kliknutí na obrázek v náhledu{{ slot.shared ? ' — na každé stránce zvlášť' : '' }}.
                                     </p>
                                 {% endif %}
@@ -405,7 +400,7 @@
 
                 {% if fill.text_placeholders|length == 0 and fill.image_inputs|length == 0 and fill.shape_placeholders|length == 0 %}
                     <p class="text-muted small mb-0 fill-popovers__empty">
-                        <i class="mdi mdi-information-outline"></i>
+                        {{ icon('info', 's16') }}
                         Stránky dokumentu nemají žádné vyplnitelné prvky — export stáhne dokument tak, jak je navržený.
                     </p>
                 {% endif %}
@@ -434,21 +429,21 @@
                                     <p class="text-warning small mb-0">Tento obrázek zatím nelze vyplnit — {{ slot.shared ? 'propojené stránky nemají žádnou společnou složku galerie' : 'šablona nemá nastavenou složku galerie' }}. Kontaktujte správce šablony.</p>
                                 {% else %}
                                     {% if slot.canUpload %}
-                                        <nav class="d-flex align-items-center flex-wrap gap-1 mb-2 small">
-                                            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none fw-bold text-body"
-                                                    data-fill-gallery-target="rootCrumb" data-action="fill-gallery#openRoot"><i class="mdi mdi-folder-home"></i> Galerie</button>
-                                            <span class="text-muted d-none" data-fill-gallery-target="crumbSep">/</span>
-                                            <span class="fw-bold d-none" data-fill-gallery-target="crumbName"></span>
+                                        <nav class="fi-gnav" aria-label="Složky galerie">
+                                            <button type="button" class="fi-gcrumb"
+                                                    data-fill-gallery-target="rootCrumb" data-action="fill-gallery#openRoot">{{ icon('image', 's14') }}Galerie</button>
+                                            <span class="fi-gsep d-none" data-fill-gallery-target="crumbSep" aria-hidden="true">/</span>
+                                            <span class="fi-gcrumb on d-none" data-fill-gallery-target="crumbName"></span>
                                         </nav>
 
                                         {% if slot.directories is not empty %}
-                                            <div class="d-flex flex-wrap gap-2 mb-2" data-fill-gallery-target="folders">
+                                            <div class="fi-gfolders" data-fill-gallery-target="folders">
                                                 {% for directory in slot.directories %}
-                                                    <button type="button" class="btn border rounded p-2 d-flex align-items-center gap-1 text-start"
+                                                    <button type="button" class="fi-gfold"
                                                             data-fill-gallery-target="folderCard" data-action="fill-gallery#openFolder"
                                                             data-fill-gallery-id-param="{{ directory.id }}" data-fill-gallery-name-param="{{ directory.name }}"
                                                             title="{{ directory.name }}">
-                                                        <i class="mdi mdi-folder text-warning fs-4"></i>
+                                                        {{ icon('folder', 's18') }}
                                                         <span class="text-truncate">{{ directory.name }}</span>
                                                     </button>
                                                 {% endfor %}
@@ -456,26 +451,26 @@
                                         {% endif %}
                                     {% endif %}
 
-                                    <div class="row g-2"
+                                    <div class="fi-ggrid"
                                          data-group-fill-target="imageOptions"
                                          {% if slot.canUpload %}data-fill-gallery-target="grid"{% endif %}
                                          data-input-id="{{ input.inputId }}">
-                                        <div class="col-6 col-sm-4 col-md-3" data-fill-gallery-target="thumb" data-always-visible="true">
-                                            <div class="position-relative border rounded gallery-asset h-100">
-                                                <button type="button" class="btn p-0 w-100 h-100 text-start gallery-asset__select group-fill-image-option selected"
+                                        <div class="fi-gcell" data-fill-gallery-target="thumb" data-always-visible="true">
+                                            <div class="gallery-asset fi-gt">
+                                                <button type="button" class="gallery-asset__select fi-gsel group-fill-image-option selected"
                                                         data-action="group-fill#pickImage"
                                                         data-input-id="{{ input.inputId }}"
                                                         data-image-id=""
                                                         data-image-url="{{ slot.defaultImageUrl ?: '' }}"
                                                         data-bs-dismiss="modal"
                                                         title="Ponechat obrázek ze šablony">
-                                                    <div class="p-1">
+                                                    <span class="fi-gi">
                                                         {% if slot.defaultImageUrl %}
-                                                            <img crossorigin="anonymous" src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy" class="img-fluid" style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;">
+                                                            <img crossorigin="anonymous" src="{{ slot.defaultImageUrl }}" alt="Výchozí obrázek" loading="lazy">
                                                         {% else %}
-                                                            <div class="d-flex align-items-center justify-content-center text-muted rounded" style="aspect-ratio: 1; background: #f8f9fa;"><i class="mdi mdi-image-off-outline fs-2"></i></div>
+                                                            {{ icon('image', 's32') }}
                                                         {% endif %}
-                                                    </div>
+                                                    </span>
                                                     <div class="gallery-asset__caption">
                                                         <div class="gallery-asset__name"><span class="gallery-asset__name-base">Výchozí</span></div>
                                                         <div class="gallery-asset__meta"><span class="gallery-asset__size">Obrázek ze šablony</span></div>
@@ -514,25 +509,23 @@
                                             }) }}
                                         </template>
 
-                                        <hr class="my-3">
-
-                                        <p class="text-muted small mb-0 d-none" data-fill-gallery-target="pickFolderHint">Pro nahrání vlastního obrázku otevřete složku.</p>
+                                                                                <p class="text-muted small mb-0 d-none" data-fill-gallery-target="pickFolderHint">Pro nahrání vlastního obrázku otevřete složku.</p>
                                         {# Unnamed file input: never part of the export POST. #}
                                         <div data-fill-gallery-target="uploadWrap">
-                                            <div class="gallery-dropzone"
+                                            <div class="gallery-dropzone gal-drop gal-drop-compact"
                                                  data-fill-gallery-target="dropzone"
                                                  data-action="click->fill-gallery#browse keydown->fill-gallery#keydown dragover->fill-gallery#dragOver dragleave->fill-gallery#dragLeave drop->fill-gallery#drop"
                                                  role="button" tabindex="0">
-                                                <i class="mdi mdi-cloud-upload-outline gallery-dropzone__icon"></i>
-                                                <div class="gallery-dropzone__title">Přetáhněte obrázky sem</div>
-                                                <div class="text-muted small">nebo klikněte pro výběr z počítače</div>
-                                                <div class="text-muted small mt-1">
-                                                    Nahraje se do: <strong class="text-body"><i class="mdi mdi-folder-outline"></i> <span data-fill-gallery-target="uploadTargetLabel"></span></strong>
+                                                {{ icon('upload', 's24') }}
+                                                <b>Přetáhněte obrázky sem</b>
+                                                <span class="cap">nebo klikněte pro výběr z počítače</span>
+                                                <span class="cap">
+                                                    Nahraje se do: <b>{{ icon('folder', 's12') }}<span data-fill-gallery-target="uploadTargetLabel"></span></b>
                                                     &middot; max. 10&nbsp;MB / soubor
-                                                </div>
+                                                </span>
                                             </div>
                                             <input type="file" class="d-none" accept="image/*" multiple data-fill-gallery-target="fileInput" data-action="change->fill-gallery#filesChosen">
-                                            <div class="mt-2 d-flex flex-column gap-2" data-fill-gallery-target="queue" aria-live="polite"></div>
+                                            <div class="gal-queue" data-fill-gallery-target="queue" aria-live="polite"></div>
                                         </div>
                                     {% endif %}
                                 {% endif %}

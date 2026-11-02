@@ -24,24 +24,22 @@
     sizeLabel: '__SIZE__',
     format: '__FORMAT__',
 } %}
-<div class="col-6 col-sm-4 col-md-3" data-fill-gallery-target="thumb" data-directory-id="{{ asset.directoryId ?? '' }}">
-    <div class="position-relative border rounded gallery-asset h-100">
+<div class="fi-gcell" data-fill-gallery-target="thumb" data-directory-id="{{ asset.directoryId ?? '' }}">
+    <div class="gallery-asset fi-gt">
         <button
             type="button"
-            class="btn p-0 w-100 h-100 text-start gallery-asset__select {{ class|default('') }}"
+            class="gallery-asset__select fi-gsel {{ class|default('') }}"
             title="{{ asset.tooltip }} · Nahráno {{ asset.uploadedAt }}"
             {% for name, value in attrs %}{{ name }}="{{ value }}" {% endfor %}
         >
-            <div class="p-1">
+            <span class="fi-gi">
                 <img
                     crossorigin="anonymous"
                     src="{{ asset.url }}"
                     alt=""
                     loading="lazy"
-                    class="img-fluid"
-                    style="aspect-ratio: 1; object-fit: cover; background: #f8f9fa;"
                 >
-            </div>
+            </span>
             {{ include('_gallery_asset_caption.html.twig', {asset: asset}) }}
         </button>
     </div>

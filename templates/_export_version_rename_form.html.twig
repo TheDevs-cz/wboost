@@ -25,7 +25,7 @@
    border over the ✓ button's dark left edge, so the focused editor looked
    one side short. The buttons share the field's border colour for the same
    reason: whichever element sits on top, the shared edge reads the same. #}
-<span class="d-block export-version-rename" style="max-width: 22rem;" data-export-version-rename="{{ version.id }}">
+<span class="d-block export-version-rename" data-export-version-rename="{{ version.id }}">
     <input type="hidden" name="_token" value="{{ csrf_token('template_export_version_rename') }}" form="{{ form_id }}">
     <input type="hidden" name="redirect" value="{{ redirect_url }}" form="{{ form_id }}">
     <span class="input-group input-group-sm flex-nowrap">
@@ -33,9 +33,9 @@
                maxlength="{{ constant('WBoost\\Web\\Entity\\TemplateExportVersion::NAME_MAX_LENGTH') }}"
                placeholder="Pojmenovat verzi…" aria-label="Název verze" autocomplete="off"
                {% if row %}data-export-version-row-target="input" data-action="keydown.esc@window->export-version-row#cancel:capture"{% endif %}>
-        <button type="submit" form="{{ form_id }}" class="btn btn-outline-secondary export-version-rename__btn" title="Uložit název"{% if turbo %} data-turbo="true"{% endif %}><i class="mdi mdi-check"></i></button>
+        <button type="submit" form="{{ form_id }}" class="btn btn-outline-secondary export-version-rename__btn" title="Uložit název" aria-label="Uložit název"{% if turbo %} data-turbo="true"{% endif %}>{{ icon('check', 's14') }}</button>
         {% if row %}
-            <button type="button" class="btn btn-outline-secondary export-version-rename__btn" title="Zrušit" aria-label="Zrušit přejmenování" data-action="export-version-row#cancel"><i class="mdi mdi-close"></i></button>
+            <button type="button" class="btn btn-outline-secondary export-version-rename__btn" title="Zrušit" aria-label="Zrušit přejmenování" data-action="export-version-row#cancel">{{ icon('x', 's14') }}</button>
         {% endif %}
     </span>
 </span>

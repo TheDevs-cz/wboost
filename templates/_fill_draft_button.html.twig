@@ -1,0 +1,9 @@
+{# "Uložit rozpracované" on the three fill pages — a fill-draft target, NOT an
+   exportButton target: saving work in progress never depends on the form
+   being exportable (the overflow gate leaves it alone). Its label doubles as
+   the draft status (prototype): fill_draft_controller sets `data-saved`
+   after a successful save and drops it as soon as the form differs again. #}
+<button type="button" class="btn btn-tertiary sm fi-draft" data-fill-draft-target="button" data-action="fill-draft#save" title="Uložit rozpracovanou práci do Historie exportů (Ctrl/⌘+S)">
+    <span class="fi-draft-dirty">{{ icon('history', 's16') }}Uložit rozpracované</span>
+    <span class="fi-draft-saved">{{ icon('check-circle', 's16') }}Rozpracované uloženo</span>
+</button>

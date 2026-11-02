@@ -1,0 +1,32 @@
+{#
+    On-screen format controls of the group fill page (prototype `.fi-bar`
+    right side), driven by fill_formats_controller.js:
+    - "Přizpůsobit obrazovce": previews sized so every visible format fits the
+      window height (and, when possible, all sit in one row) — the default;
+    - format chips: which dimensions are ON SCREEN (presentation only — the
+      ZIP always carries every dimension);
+    - the size slider (manual size, remembered per browser; moving it leaves
+      the automatic fit).
+    All controls are unnamed buttons / inputs: nothing here ever reaches the
+    fill form's POST.
+
+    Expects:
+    - formats: list of {id, label}
+#}
+<div class="fi-fmt">
+<button type="button" class="btn btn-ghost sm fi-autob" aria-pressed="true" data-fill-formats-target="fit" data-action="fill-formats#fit" title="Velikost náhledů podle obrazovky — všechny formáty se vejdou na výšku">
+    {{ icon('fit', 's16') }}Přizpůsobit obrazovce
+</button>
+{% if formats|length > 1 %}
+    <div class="fi-chips" role="group" aria-label="Formáty na obrazovce">
+        {% for format in formats %}
+            <button type="button" class="chip sm" aria-pressed="true" data-fill-formats-target="chip" data-format="{{ format.id }}" data-action="fill-formats#toggle">{{ icon('check', 's14') }}{{ format.label }}</button>
+        {% endfor %}
+    </div>
+{% endif %}
+<label class="sz-ctl" title="Velikost náhledů">
+    {{ icon('image', 's12') }}
+    <input type="range" min="240" max="820" step="10" value="440" aria-label="Velikost náhledů" data-fill-formats-target="size" data-action="input->fill-formats#resize">
+    {{ icon('image', 's18') }}
+</label>
+</div>
