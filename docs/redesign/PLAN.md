@@ -124,3 +124,4 @@ finish; tick your phase's boxes here.
 - 2026-11-02 — P1 + P2 done (one agent; see JOURNAL). Editors got the
   forced icon rail only; their chrome is still P7.
 - 2026-11-02 P1+P2 done (2970a3b). Shared agent brief + locked gate added. P3 (Projects) and P4 (Brand assets) started in parallel.
+- 2026-11-02 P3 done (562ae26), P4 done (98508de); both reviewed visually by orchestrator. P8 (admin) and P5 (templates) running in parallel.
