@@ -22,7 +22,9 @@ export default class extends Controller {
             this.callLiveAction('reorderVariants', { courseid: courseId, variantids: variantIds });
         });
 
-        this.initGroup('mealsContainer', { draggable: '.meal-badge', direction: 'horizontal' }, (container) => {
+        // Meal cards (`.planner-meal-card`) only — the trailing "Přidat jídlo"
+        // tile is not draggable; the × remove button keeps working as a click.
+        this.initGroup('mealsContainer', { draggable: '.planner-meal-card', filter: '.meal-selector-remove', preventOnFilter: false }, (container) => {
             const variantId = container.dataset.variantId;
             const mealIds = Array.from(container.querySelectorAll('[data-variant-meal-id]'))
                 .map(element => element.dataset.variantMealId);
