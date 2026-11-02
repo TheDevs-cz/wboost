@@ -106,12 +106,12 @@
                 <div class="sb-sec lbl hide-c">Administrace</div>
                 <span class="sb-div" aria-hidden="true"></span>
 
-                <a href="{{ path('admin_users') }}" class="nav-i" title="Uživatelé" aria-current="{{ active == 'admin_users' ? 'page' : 'false' }}">
-                    {{ icon('users') }}<span class="nm hide-c">Uživatelé</span>
-                </a>
+                {# Pending registration requests are a filter of the users page
+                   (chip "Žádosti"), so their count sits on Uživatelé — no
+                   separate item (prototype). The requests page stays routable. #}
                 {% set pending_requests = pending_registration_requests_count() %}
-                <a href="{{ path('admin_registration_requests') }}" class="nav-i" title="Žádosti o registraci" aria-current="{{ active == 'admin_registration_requests' ? 'page' : 'false' }}">
-                    {{ icon('user-plus') }}<span class="nm hide-c">Žádosti o registraci</span>
+                <a href="{{ path('admin_users') }}" class="nav-i" title="Uživatelé" aria-current="{{ active in ['admin_users', 'admin_registration_requests'] ? 'page' : 'false' }}">
+                    {{ icon('users') }}<span class="nm hide-c">Uživatelé</span>
                     {% if pending_requests > 0 %}<span class="count hide-c" title="Nové žádosti o registraci">{{ pending_requests }}</span>{% endif %}
                 </a>
                 <a href="{{ path('admin_landing_leads') }}" class="nav-i" title="Poptávky z webu" aria-current="{{ active == 'admin_landing_leads' ? 'page' : 'false' }}">
