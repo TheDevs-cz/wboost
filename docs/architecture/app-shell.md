@@ -42,8 +42,8 @@ Nocturne shell from `docs/redesign/prototype/body.html`; partials live in
 inline `theme_script` block from `localStorage['wb-theme']` (absent → OS
 preference). Bootstrap's own `--bs-*` variables are remapped onto the
 Nocturne tokens for both themes (`nocturne/tokens.css`), so un-restyled
-Bootstrap components follow the theme; a `--ct-*` shim keeps the old Hyper
-variables in `app.css` working until the P10 sweep. The sidebar's
+Bootstrap components follow the theme (no Hyper `--ct-*` variables exist any
+more — `app.css` reads the Nocturne tokens directly). The sidebar's
 Tmavý/Světlý control (`shell#pickTheme`, rail: `shell#toggleTheme`) switches
 and persists; it dispatches `shell:theme` on `<html>`.
 

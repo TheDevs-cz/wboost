@@ -176,7 +176,7 @@ html.canvas-transforming * {
     gap: 2px;
     padding: 4px;
     background: #fff;
-    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border: 1px solid var(--line-2);
     border-radius: 10px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
     white-space: nowrap;
@@ -193,7 +193,7 @@ html.canvas-transforming * {
     border-radius: 7px;
     line-height: 1;
     background: transparent;
-    color: var(--ct-body-color, #4a4a5a);
+    color: var(--text);
     transition: background-color .12s ease, color .12s ease;
 }
 
@@ -218,7 +218,7 @@ html.canvas-transforming * {
     align-self: stretch;
     width: 1px;
     margin: 4px 3px;
-    background: var(--ct-border-color, #e3e6ef);
+    background: var(--line-2);
 }
 
 /* "Přidat tvar" picker (left panel dropdown): an icon grid rather than a list
@@ -244,7 +244,7 @@ html.canvas-transforming * {
     border: 1px solid transparent;
     border-radius: 8px;
     background: transparent;
-    color: var(--ct-body-color, #4a4a5a);
+    color: var(--text);
     font-size: .7rem;
     line-height: 1.1;
     text-align: center;
@@ -280,7 +280,7 @@ html.canvas-transforming * {
        auto too). The control rule below caps every field at the popover width. */
     overflow-x: hidden;
     margin: 0;
-    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border: 1px solid var(--line-2);
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
 }
@@ -550,7 +550,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     align-items: stretch;
     gap: 2px;
     border-radius: 6px;
-    color: var(--ct-body-color, #4a4a5a);
+    color: var(--text);
     transition: background-color .12s ease, color .12s ease;
 }
 
@@ -633,13 +633,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.canvas-layer-row__flag {
-    flex: 0 0 auto;
-    font-size: 0.8rem;
-    opacity: 0.6;
-    line-height: 1;
 }
 
 /* Padlock, same restraint as the eye: barely there until hovered, full
@@ -729,7 +722,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
    "picked up" over any backdrop. */
 .canvas-layer-row.gu-mirror {
     background: #fff;
-    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border: 1px solid var(--line-2);
     border-radius: 6px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
 }
@@ -969,10 +962,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 .container-panel-row:hover {
     background: rgba(114, 124, 245, 0.08);
-}
-
-.container-panel-row .mdi {
-    color: var(--zone-color, #39afd1);
 }
 
 .container-zone-popover {
@@ -1354,7 +1343,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     margin: 0;
     display: none;
     pointer-events: auto;
-    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border: 1px solid var(--line-2);
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
 }
@@ -1410,7 +1399,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     justify-content: space-between;
     gap: 0.5rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--ct-border-color, #e3e6ef);
+    border-bottom: 1px solid var(--line-2);
 }
 
 /* Panel-only chrome: one card per image slot (thumb + picker button + eye,
@@ -1456,7 +1445,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     /* Each field is its own card: a soft lift (not the floating popover's
        deep drop shadow) so the stack reads as separate rows on the white
        panel instead of hairline-bordered boxes melting into it. */
-    border: 1px solid var(--ct-border-color, #e3e6ef);
+    border: 1px solid var(--line-2);
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
 }
@@ -1571,7 +1560,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 /* Placeholder hint while empty (contenteditable has no placeholder attr). */
 .fill-richtext-editor:empty::before {
     content: "Zadejte text\2026";
-    color: var(--ct-secondary-color, #98a6ad);
+    color: var(--muted);
     pointer-events: none;
 }
 
@@ -1835,17 +1824,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     text-align: center;
 }
 
-.text-lighter {
-    color: #bbb !important;
-}
-
-.dragula-handle-absolute-left {
-    text-align: left !important;
-    left: -6px !important;
-    width: 30px !important;
-    color: #bbb !important;
-}
-
 .with-width-info {
     padding-top: 35px;
 }
@@ -1975,16 +1953,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     pointer-events: none;
 }
 
-/* Koš (trash bin): the read-only special directory at the gallery root. */
-.gallery-trash-card {
-    background: var(--bs-tertiary-bg, #f8f9fa);
-    color: inherit;
-}
-
-.gallery-trash-card:hover {
-    background: rgba(0, 0, 0, 0.05);
-}
-
 .gallery-asset--trashed img {
     opacity: 0.8;
     filter: grayscale(0.25);
@@ -2102,19 +2070,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     100% { box-shadow: 0 0 0 12px rgba(10, 207, 151, 0); }
 }
 
-.gallery-dropzone__icon {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-size: 2.5rem;
-    line-height: 1;
-    color: var(--bs-primary, #0d6efd);
-}
-
-.gallery-dropzone__title {
-    font-weight: 600;
-    color: var(--bs-body-color, #212529);
-}
-
 /* Success toast shown after uploads finish (lives on <body>, above modals). */
 .gallery-toast-container {
     position: fixed;
@@ -2173,18 +2128,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 }
 
 /*
- * Project dashboard — clickable module/template tiles.
- */
-.module-card {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.module-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 0.375rem 1.125rem rgba(0, 0, 0, 0.12);
-}
-
-/*
  * Mockup pages — canonical CSS-grid render.
  *
  * Every mockup layout lives on one 3-columns × 2-rows grid (spans define the
@@ -2235,14 +2178,15 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     flex: 0 0 auto;
 }
 
-/* An outline, not a border: the card's own border is part of the manual's design. */
+/* An outline, not a border: the card's own border is part of the manual's design.
+   Literal colours: manual_preview has no Nocturne tokens (legacy Hyper look). */
 .manual-page .manual-logo-width-card-active {
-    outline: 3px solid var(--ct-primary, #727cf5);
+    outline: 3px solid #727cf5;
     outline-offset: 3px;
 }
 
 .manual-page .manual-logo-width-card-saved {
-    outline: 3px solid var(--ct-success, #0acf97);
+    outline: 3px solid #0acf97;
     outline-offset: 3px;
 }
 
@@ -2785,7 +2729,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .card.group-variant-rail-card--all {
     border-color: var(--bs-primary, #727cf5);
     /* Ring ON TOP of the theme's card shadow, not instead of it. */
-    box-shadow: 0 0 0 0.2rem rgba(114, 124, 245, 0.15), var(--ct-box-shadow);
+    box-shadow: 0 0 0 0.2rem rgba(114, 124, 245, 0.15), var(--shadow-2);
 }
 
 .group-variant-rail {
@@ -2895,8 +2839,9 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     padding: 0.1rem 0;
 }
 
-.group-resync-toast__row .mdi {
+.group-resync-toast__row .i {
     flex: 0 0 auto;
+    align-self: center;
 }
 
 .group-resync-toast__variant {
@@ -2904,9 +2849,9 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     white-space: nowrap;
 }
 
-.group-resync-toast__row--success .mdi { color: var(--bs-success, #0acf97); }
-.group-resync-toast__row--warning .mdi { color: var(--bs-warning, #ffbc00); }
-.group-resync-toast__row--danger .mdi { color: var(--bs-danger, #fa5c7c); }
+.group-resync-toast__row--success .i { color: var(--bs-success, #0acf97); }
+.group-resync-toast__row--warning .i { color: var(--bs-warning, #ffbc00); }
+.group-resync-toast__row--danger .i { color: var(--bs-danger, #fa5c7c); }
 .group-resync-toast__row--muted { color: var(--bs-secondary-color, #6c757d); }
 
 .group-resync-toast__note {
@@ -2929,37 +2874,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     display: block;
 }
 
-/* "Create group from existing template" picker tiles */
-.template-source-tile {
-    display: inline-block;
-    padding: 0.35rem;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 0.35rem;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.template-source-tile:hover {
-    border-color: var(--bs-primary, #727cf5);
-    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12);
-    transform: translateY(-2px);
-}
-
-.template-source-thumb {
-    height: 110px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    background-color: #f6f7fb;
-}
-
-.template-source-cta {
-    color: var(--bs-primary, #727cf5);
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
-
-.template-source-tile:hover .template-source-cta {
-    opacity: 1;
-}
-
 /* Group fill & export page (template_group_fill.html.twig) */
 /* Which dimension this card is, above the image (a caption underneath reads
    as belonging to whatever follows it). */
@@ -2967,7 +2881,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     padding: 0.45rem 0.75rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     font-size: 0.75rem;
-    color: var(--ct-secondary-color, #8a969c);
+    color: var(--muted);
 }
 
 /* Background gallery picker (add/edit template + group forms): thumbnail of
@@ -2991,7 +2905,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     font-size: inherit;
     line-height: inherit;
     white-space: nowrap;
-    color: var(--ct-link-color, #3577f1);
+    color: var(--lav-ink);
 }
 
 .group-fill-variant-download:hover {
@@ -3194,7 +3108,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .group-fill-placement-control label {
     flex: 0 0 auto;
     margin: 0;
-    color: var(--ct-secondary-color, #8a969c);
+    color: var(--muted);
 }
 
 .group-fill-placement-control .form-range {
@@ -3207,7 +3121,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     text-align: right;
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
-    color: var(--ct-secondary-color, #8a969c);
+    color: var(--muted);
 }
 
 /* Dimension cards on the group fill page. The theme's 0.75rem card margin is
@@ -3343,112 +3257,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background-repeat: no-repeat;
 }
 
-/* Variant grid on the template variants page (template_variants.html.twig).
-   One template's variants span wildly different aspect ratios — a 1:1 post, a
-   9:16 story, an A4 portrait — so every preview gets the SAME square stage and
-   is letterboxed inside it (`contain`). Sizing the card to the picture instead
-   gave every column a different height and the grid read as rubble.
-
-   Label + ⋯ menu live in a HEADER above that stage, the way the manuals cards
-   do it. Both were tried below/over the picture first and both read as "beside
-   the image": a footer strip detaches the label from the card, and a chip
-   floated over the stage lands in the letterbox grey whenever the preview is
-   narrower than the card — which is most of them, since the stage is square and
-   the previews rarely are.
-
-   Note the `.variant-card` prefix on every selector below: app.css loads BEFORE
-   the theme, so an equal-specificity rule of ours loses — `.variant-card__menu`
-   alone is beaten by Bootstrap's `.dropdown {position: relative}` and the menu
-   lands in the card's top-LEFT corner, in flow. */
-.variant-card .variant-card__link {
-    display: block;
-}
-
-.variant-card .variant-card__header {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    /* Right padding reserves the ⋯ button's lane so a long label never runs
-       under it. */
-    padding: 0.7rem 2.5rem 0.6rem 0.9rem;
-}
-
-.variant-card .variant-card__title {
-    margin: 0;
-    min-width: 0;
-    overflow: hidden;
-    font-size: 0.8125rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.variant-card .variant-card__thumb {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    aspect-ratio: 1 / 1;
-    padding: 0 0.9rem 0.9rem;
-    overflow: hidden;
-}
-
-/* Soft shadow rather than a grey stage behind the picture: a variant preview
-   is full-bleed artwork and is often white at the edges, so on the card's white
-   body it would have no boundary at all. */
-.variant-card .variant-card__thumb img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.14);
-}
-
-/* Same checkerboard the editor and the fill preview use for layer-mode
-   variants, which may legitimately render onto full transparency. */
-.variant-card .variant-card__thumb--transparent img {
-    background-image:
-        linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%),
-        linear-gradient(45deg, #e4e7ec 25%, transparent 25%, transparent 75%, #e4e7ec 75%);
-    background-color: #fff;
-    background-size: 16px 16px;
-    background-position: 0 0, 8px 8px;
-}
-
-/* The whole card is one link, so it needs the affordance a button would have. */
-.variant-card {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.variant-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1.2rem rgba(0, 0, 0, 0.12);
-}
-
-/* Sits in the header row's right lane (`.card` is already position: relative),
-   NOT inside the link, so clicking it never navigates. */
-.variant-card .variant-card__menu {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.6rem;
-    z-index: 2;
-}
-
-.variant-card .variant-card__menu-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    color: var(--ct-text-muted, #98a6ad);
-}
-
-.variant-card .variant-card__menu-toggle:hover,
-.variant-card .variant-card__menu-toggle:focus,
-.variant-card .variant-card__menu.show .variant-card__menu-toggle {
-    background: rgba(0, 0, 0, 0.05);
-    color: #343a40;
-}
-
 /* --- Font choice ("Uživatel může přepínat písmo") ------------------------- */
 
 /* The admin's per-input font checklist (text popover + "Přidat text" modal):
@@ -3457,17 +3265,17 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .font-choice {
     max-height: 190px;
     overflow: auto;
-    border: 1px solid var(--ct-border-color, #dee2e6);
+    border: 1px solid var(--line-2);
     border-radius: 0.25rem;
     padding: 0.25rem 0.5rem;
     font-size: 0.8125rem;
-    background: var(--ct-input-bg, #fff);
+    background: var(--surface-2);
 }
 
 .font-choice__group + .font-choice__group {
     margin-top: 0.35rem;
     padding-top: 0.35rem;
-    border-top: 1px solid var(--ct-border-color, #dee2e6);
+    border-top: 1px solid var(--line-2);
 }
 
 .font-choice__header,
@@ -3510,24 +3318,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 /* --- Fonts page: type specimens ------------------------------------------- */
 
-.font-face-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.6rem 0;
-    border-top: 1px solid var(--bs-border-color, #dee2e6);
-    position: relative;
-}
-
-.font-face-row:first-of-type {
-    border-top: 0;
-}
-
-.font-face-row__body {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
 .font-specimen {
     font-size: 20px;
     line-height: 1.25;
@@ -3535,29 +3325,6 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--bs-body-color, #212529);
-}
-
-.font-face-row__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.5rem;
-    margin-bottom: 0.15rem;
-}
-
-.font-face-row__meta .badge {
-    font-weight: 500;
-}
-
-.font-face-row__actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.font-face-row .dragula-handle {
-    margin-top: 0.6rem;
 }
 
 .font-wire {
@@ -3675,12 +3442,12 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
    or a button covers the shared edge. Scoped one level deeper than the
    theme's equal-specificity `.btn-outline-secondary`. */
 .export-version-rename .input-group .export-version-rename__btn {
-    border-color: var(--ct-border-color);
+    border-color: var(--line-2);
 }
 
 .export-version-rename .input-group .export-version-rename__btn:hover,
 .export-version-rename .input-group .export-version-rename__btn:focus-visible {
-    border-color: var(--ct-secondary);
+    border-color: var(--muted);
 }
 
 /* Projects list (_project_card.html.twig): a project someone else owns gets
@@ -3688,32 +3455,12 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .project-card .project-card-owner {
     margin-top: .25rem;
     font-size: .8125rem;
-    color: var(--ct-secondary-color);
+    color: var(--muted);
 }
 
 /* ======================================================================
-   Multi-page documents — listing card page stack + document page sidebar
+   Multi-page documents — document page sidebar
    ====================================================================== */
-.document-card-stack {
-    position: relative;
-    aspect-ratio: 210 / 297;
-    max-height: 420px;
-    margin: 0 auto;
-}
-
-.document-card-stack__page {
-    position: absolute;
-    inset: 1rem 1.5rem 1.5rem 1rem;
-    width: calc(100% - 2.5rem);
-    height: calc(100% - 2.5rem);
-    object-fit: contain;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, .15);
-}
-
-/* The front page sits bottom-left; the ones behind peek out up and right. */
-.document-card-stack__page--1 { transform: translate(.5rem, -.5rem); }
-.document-card-stack__page--2 { transform: translate(1rem, -1rem); }
 
 .document-pages {
     list-style: none;
@@ -3815,7 +3562,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     font-size: .8rem;
     text-transform: uppercase;
     letter-spacing: .03em;
-    color: var(--ct-secondary-color, #8a969c);
+    color: var(--muted);
 }
 
 .fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading.is-shared {

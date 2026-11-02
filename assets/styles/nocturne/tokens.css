@@ -6,9 +6,7 @@
    preference when no theme is forced.
 
    Also maps Bootstrap 5.3's custom properties onto the tokens, so every
-   Bootstrap component we have not restyled yet still follows the theme, and
-   keeps a small `--ct-*` shim for the Hyper-era rules still living in
-   assets/styles/app.css (to be removed in P10).
+   Bootstrap component we have not restyled yet still follows the theme.
    ========================================================================== */
 
 :root {
@@ -161,31 +159,10 @@
     --bs-secondary-border-subtle: var(--line-2);
     --bs-light-border-subtle: var(--line-2);
     --bs-dark-border-subtle: var(--line-3);
-
-    /* Legacy Hyper `--ct-*` shim — still read by assets/styles/app.css
-       feature rules and a few inline styles. Remove with the P10 sweep. */
-    --ct-primary: var(--lav);
-    --ct-primary-rgb: 199,182,242;
-    --ct-secondary: var(--muted);
-    --ct-success: var(--mnt-ink);
-    --ct-link-color: var(--lav-ink);
-    --ct-body-color: var(--text);
-    --ct-secondary-color: var(--muted);
-    --ct-text-muted: var(--muted);
-    --ct-border-color: var(--line-2);
-    --ct-input-bg: var(--surface-2);
-    --ct-box-shadow: var(--shadow-2);
-    --ct-menu-bg: var(--surface);
-    --ct-menu-item-color: var(--text-2);
-    --ct-menu-item-hover-color: var(--text);
-    --ct-menu-item-font-size: 14px;
-    --ct-leftbar-width: var(--sbw-open);
 }
 :root[data-theme="light"] {
     --bs-link-color-rgb: 91,71,168;
-    --ct-primary-rgb: 91,71,168;
 }
 @media (prefers-color-scheme: light) { :root:not([data-theme]) {
     --bs-link-color-rgb: 91,71,168;
-    --ct-primary-rgb: 91,71,168;
 } }
