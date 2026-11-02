@@ -45,7 +45,8 @@ use WBoost\Web\Tests\DataFixtures\TestDataFixture;
  *
  * **About the font.** The fixture project's `Font` row is called *Rubik*, but
  * the bytes written at its face path here are the repository's own
- * `public/theme/fonts/Nunito-Regular.ttf`: no Rubik binary ships with the repo,
+ * `tests/Mcp/Design/Fixtures/fonts/Nunito-Regular.ttf` (moved out of the
+ * retired Hyper theme): no Rubik binary ships with the repo,
  * and adding one just to be measured would be a binary in git for nothing. What
  * is under test is a FACE FILE, not a name — and both sides of the comparison
  * (php-font-lib here, Chromium in the probe) are handed the identical bytes. The
@@ -545,7 +546,7 @@ final class TextMeasurerTest extends KernelTestCase
 
     private static function fixtureFontBytes(): string
     {
-        return self::readProjectFile('public/theme/fonts/Nunito-Regular.ttf');
+        return self::readProjectFile('tests/Mcp/Design/Fixtures/fonts/Nunito-Regular.ttf');
     }
 
     private static function readProjectFile(string $relativePath): string

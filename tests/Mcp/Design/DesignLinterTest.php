@@ -695,7 +695,7 @@ final class DesignLinterTest extends KernelTestCase
 
     private static function fixtureFontBytes(): string
     {
-        $contents = file_get_contents(self::getContainer()->getParameter('kernel.project_dir') . '/public/theme/fonts/Nunito-Regular.ttf');
+        $contents = file_get_contents(self::getContainer()->getParameter('kernel.project_dir') . '/tests/Mcp/Design/Fixtures/fonts/Nunito-Regular.ttf');
         self::assertIsString($contents);
 
         return $contents;
