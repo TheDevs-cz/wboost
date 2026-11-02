@@ -156,6 +156,45 @@ final class ProjectModulesTest extends WebTestCase
         self::assertSelectorTextContains('#project-modules', 'vypnul(a) modul Jídelníčky');
     }
 
+    public function testAdminTogglesModuleFromTheProjectOverview(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID);
+        self::assertResponseIsSuccessful();
+
+        $form = $client->getCrawler()
+            ->filter('#pd-modules form[data-module="weekly_menus"]')
+            ->form();
+        $client->submit($form);
+
+        self::assertResponseRedirects(sprintf('/project/%s#pd-modules', TestDataFixture::PROJECT_1_ID));
+
+        $project = self::getContainer()->get(ProjectRepository::class)->get(Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        self::assertFalse($project->hasModule(ProjectModule::WeeklyMenus));
+
+        $client->followRedirect();
+        $form = $client->getCrawler()
+            ->filter('#pd-modules form[data-module="weekly_menus"]')
+            ->form();
+        $client->submit($form);
+
+        self::assertResponseRedirects(sprintf('/project/%s#pd-modules', TestDataFixture::PROJECT_1_ID));
+        $project = self::getContainer()->get(ProjectRepository::class)->get(Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        self::assertTrue($project->hasModule(ProjectModule::WeeklyMenus));
+    }
+
+    public function testOwnerDoesNotSeeModuleSwitchesOnTheOverview(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('#pd-modules');
+    }
+
     public function testOwnerCannotDisableModuleOrSeeAdminCard(): void
     {
         $client = self::createClient();

@@ -3,176 +3,214 @@
 {% block title %}{{ project.name }}{% endblock %}
 {% set active_menu_item = 'projects' %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{#
+    Project overview (prototype renderDetail): header with the large symbol,
+    palette chips, module tiles (personal order, drag & drop, localStorage —
+    project_tiles_controller), Uživatelé box (owner + shares; admins add
+    colleagues through the ManageProjectSharing modal), admin-only "Moduly
+    projektu" switches (same endpoints as edit_project, `back=dashboard`) and
+    the recently added templates.
+#}
+
+{% block page_title_row %}
+    {% set is_own = project.owner.id.equals(app.user.id) %}
+    {% set avatar = project_avatar(project) %}
+    {% set users_count = 1 + project.shares|length %}
+    {% set tpl_count = templates|length %}
+    <a href="{{ path('projects') }}" class="back">{{ icon('arrow-left', 's16') }}Všechny projekty</a>
+    <header class="dhead">
+        {{ include('_project_avatar.html.twig', {'logo_path': avatar.logoPath, 'initials': avatar.initials, 'alt': project.name}, with_context = false) }}
+        <div class="dhead-main">
+            <span class="lbl">Projekt</span>
+            <h1 class="page-title">{{ project.name }}</h1>
+            <div class="meta">
+                {{ icon('users', 's16') }}
+                <span>{{ users_count }} {{ users_count == 1 ? 'uživatel' : (users_count < 5 ? 'uživatelé' : 'uživatelů') }}</span>
+                <span class="dot" aria-hidden="true">·</span>
+                <span>{{ tpl_count }} {{ tpl_count == 1 ? 'šablona' : (tpl_count in [2, 3, 4] ? 'šablony' : 'šablon') }}</span>
+                {% if not is_own %}
+                    {% set owner_name = project.owner.getDisplayName() %}
+                    <span class="dot" aria-hidden="true">·</span>
+                    <span class="dhead-owner" title="Vlastník: {{ owner_name }}">{{ project.getUserSharingLevel(app.user) is not null ? 'Sdíleno od ' ~ owner_name : 'Vlastník ' ~ owner_name }}</span>
+                {% endif %}
+                <span class="dot" aria-hidden="true">·</span>
+                <span>Založeno {{ project.createdAt|date('j. n. Y') }}</span>
+            </div>
+        </div>
+        {% if is_granted('project_edit', project) %}
+            <div class="dhead-acts">
+                <a href="{{ path('edit_project', {'id': project.id}) }}" class="btn btn-tertiary sm">{{ icon('edit', 's16') }}Upravit projekt</a>
+            </div>
+        {% endif %}
+    </header>
 {% endblock %}
 
-{% macro module_card(url, icon, title, description, count, badge = null) %}
-    <div class="col-sm-6 col-xl-3 d-flex">
-        <a href="{{ url }}" class="text-body d-block w-100">
-            <div class="card module-card h-100 mb-0">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="avatar-sm flex-shrink-0">
-                            <span class="avatar-title bg-primary-lighten text-primary rounded">
-                                <i class="{{ icon }} font-20"></i>
-                            </span>
-                        </div>
-                        {% if badge %}
-                            <span class="badge badge-warning-lighten rounded-pill">{{ badge }}</span>
-                        {% else %}
-                            <h2 class="my-0 fw-semibold">{{ count }}</h2>
-                        {% endif %}
-                    </div>
-                    <h4 class="mt-0 mb-1">{{ title }}</h4>
-                    <p class="text-muted font-13 mb-0">{{ description }}</p>
-                </div>
-            </div>
-        </a>
-    </div>
+{% macro tile(key, url, icon_name, title, description, count, badge = null) %}
+    <a href="{{ url }}" class="pd-tile link" draggable="true" data-pdk="{{ key }}" data-project-tiles-target="tile">
+        <span class="pd-grip" aria-hidden="true" title="Přetažením přeskládáte">{{ icon('grip', 's14') }}</span>
+        <span class="pd-tile-h"><span class="pd-ico" aria-hidden="true">{{ icon(icon_name) }}</span>{% if badge %}<span class="pill pch">{{ badge }}</span>{% endif %}</span>
+        <span class="pd-t">{{ title }}<span class="pd-n">{{ count }}</span></span>
+        <span class="cap">{{ description }}</span>
+    </a>
 {% endmacro %}
 
 {% block content %}
-    {% set is_own = project.owner.id.equals(app.user.id) %}
-    {% set avatar = project_avatar(project) %}
-    {% set color_manual = manuals|filter(manual => manual.detectedColors|length > 0)|first %}
+    {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
+    {% set module_icons = {'manuals': 'copy', 'templates': 'template', 'email_signatures': 'mail', 'weekly_menus': 'utensils'} %}
+    {% set color_manual = manuals|filter(manual => manual.colorsCount > 0)|first %}
 
-    {# Project header — brand identity at a glance #}
-    <div class="card">
-        <div class="card-body">
-            <div class="d-flex flex-wrap align-items-center gap-3">
-                {{ include('_project_avatar.html.twig', {'avatar': avatar, 'size': 72, 'font_size': '1.5rem', 'alt': project.name}) }}
-
-                <div class="flex-grow-1">
-                    <h2 class="my-0">{{ project.name }}</h2>
-                    <p class="text-muted mb-0 mt-1">
-                        {# Same owner line as the projects list card (_project_card.html.twig). #}
-                        {% if not is_own %}
-                            {% set owner_name = project.owner.getDisplayName() %}
-                            <span title="Vlastník: {{ owner_name }}">
-                                {% if project.getUserSharingLevel(app.user) is not null %}
-                                    <i class="mdi mdi-share-variant-outline"></i> Sdíleno od {{ owner_name }}
-                                {% else %}
-                                    <i class="mdi mdi-account-outline"></i> {{ owner_name }}
-                                {% endif %}
-                            </span>
-                            <span class="mx-1">·</span>
-                        {% endif %}
-                        Založeno {{ project.createdAt|date('j. n. Y') }}
-                    </p>
-                    {% if color_manual %}
-                        <div class="mt-2">
-                            {% for detected_color in color_manual.detectedColors|slice(0, 8) %}
-                                <span class="d-inline-block avatar-xs rounded-circle shadow-sm me-1" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detected_color.color.hex }};"></span>
-                            {% endfor %}
-                        </div>
+    <div class="pd" data-controller="project-tiles">
+        {# Palette: the colours of the first manual that has any (detected from
+           the logo + custom). The pencil opens that manual's colour page. #}
+        <section class="pd-pal" aria-label="Barevná paleta">
+            <span class="lbl">Barevná paleta</span>
+            {% if color_manual %}
+                <div class="swatches">
+                    {% for manual_color in (color_manual.detectedColors|merge(color_manual.customColors))|slice(0, 12) %}
+                        <span class="pd-sw"><i style="background: #{{ manual_color.color.hex }}"></i>#{{ manual_color.color.hex|upper }}</span>
+                    {% endfor %}
+                    {% if is_granted('manual_edit', color_manual) %}
+                        <a class="pd-pall" href="{{ path('manual_colors', {'id': color_manual.id}) }}" aria-label="Upravit paletu barev" title="Upravit paletu">{{ icon('edit', 's16') }}</a>
                     {% endif %}
                 </div>
+            {% else %}
+                <span class="miss">{{ icon('info', 's14') }}Chybí barevná paleta</span>
+            {% endif %}
+        </section>
 
-                {% if is_granted('project_edit', project) %}
-                    <div class="flex-shrink-0">
-                        <a href="{{ path('edit_project', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill">
-                            <i class="mdi mdi-pencil me-1"></i>Upravit projekt
-                        </a>
-                    </div>
+        {# Module tiles — one per left-nav item: the project's switched-on
+           modules plus the always-available Galerie and Fonty. The rest wait
+           behind the left nav's "Objevte další moduly" item (no dashboard tile —
+           the nav entry is enough). #}
+        <div class="pd-tiles" data-project-tiles-target="grid">
+            {% if project.hasModule(project_module.Manuals) %}
+                {{ _self.tile('manualy', path('manuals_list', {'id': project.id}), 'copy', 'Manuály', 'Online logo manuál — logotypy a stránky s mockupy', manuals|length) }}
+            {% endif %}
+            {% if project.hasModule(project_module.Templates) %}
+                {{ _self.tile('sablony', path('templates', {'projectId': project.id}), 'template', 'Šablony', 'Šablony příspěvků, tiskovin a grafik', templates|length) }}
+            {% endif %}
+            {% if project.hasModule(project_module.EmailSignatures) %}
+                {{ _self.tile('emaily', path('email_signature_templates', {'id': project.id}), 'mail', 'E-maily', 'E-mailové podpisy pro tým klienta', emails|length) }}
+            {% endif %}
+            {% if project.hasModule(project_module.WeeklyMenus) %}
+                {{ _self.tile('jidelnicky', path('weekly_menus', {'projectId': project.id}), 'utensils', 'Jídelníčky', 'Týdenní jídelníčky a správa jídel', weekly_menus|length) }}
+            {% endif %}
+            {% if is_granted('project_edit', project) %}
+                {{ _self.tile('galerie', path('project_gallery', {'projectId': project.id}), 'image', 'Galerie', 'Sdílená knihovna obrázků projektu', gallery_images_count) }}
+            {% endif %}
+            {{ _self.tile('fonty', path('fonts_list', {'id': project.id}), 'font',
+                'Fonty',
+                missing_fonts is not empty ? 'Šablony odkazují na písma, která projekt nemá' : 'Písma používaná napříč projektem',
+                fonts|length,
+                missing_fonts is not empty ? (missing_fonts|length ~ ' chybí') : null) }}
+        </div>
+
+        {# Uživatelé — owner + collaborators (ProjectShare). Only admins manage
+           sharing (ManageProjectSharing is admin-only), so only they get
+           "Přidat kolegu"; the box reloads after the modal changed something. #}
+        {% set members = [project.owner]|merge(project.shares|map(share => share.user)|filter(user => user.id.toString != project.owner.id.toString)) %}
+        <section class="pd-box" aria-labelledby="pdUsersH">
+            <div class="pd-box-h">
+                <div><h2 id="pdUsersH">Uživatelé <span class="pd-n">{{ members|length }}</span></h2></div>
+                {% if is_granted('ROLE_ADMIN') %}
+                    <button type="button" class="btn btn-primary sm" data-bs-toggle="modal" data-bs-target="#share-modal-{{ project.id }}">{{ icon('user-plus', 's16') }}Přidat kolegu</button>
                 {% endif %}
             </div>
-        </div>
-    </div>
-
-    {# Module tiles — one per left-nav item: the project's switched-on
-       modules plus the always-available Galerie and Fonty. The rest wait
-       behind the left nav's "Objevte další moduly" item (no dashboard tile —
-       the nav entry is enough). #}
-    {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
-    <div class="row g-3">
-        {% if project.hasModule(project_module.Manuals) %}
-            {{ _self.module_card(
-                path('manuals_list', {'id': project.id}),
-                'uil-copy-alt', 'Manuály',
-                'Brand a logo manuály projektu',
-                manuals|length
-            ) }}
-        {% endif %}
-
-        {% if project.hasModule(project_module.Templates) %}
-            {{ _self.module_card(
-                path('templates', {'projectId': project.id}),
-                'uil-postcard', 'Šablony',
-                'Šablony příspěvků, tiskovin a grafik',
-                templates|length
-            ) }}
-        {% endif %}
-
-        {% if is_granted('project_edit', project) %}
-            {{ _self.module_card(
-                path('project_gallery', {'projectId': project.id}),
-                'uil-images', 'Galerie',
-                'Sdílená knihovna obrázků projektu',
-                gallery_images_count
-            ) }}
-        {% endif %}
-
-        {{ _self.module_card(
-            path('fonts_list', {'id': project.id}),
-            'ri-font-family', 'Fonty',
-            missing_fonts is not empty ? 'Šablony odkazují na písma, která projekt nemá' : 'Písma používaná napříč projektem',
-            fonts|length,
-            missing_fonts is not empty ? (missing_fonts|length ~ ' chybí') : null
-        ) }}
-
-        {% if project.hasModule(project_module.EmailSignatures) %}
-            {{ _self.module_card(
-                path('email_signature_templates', {'id': project.id}),
-                'ri-mail-line', 'E-maily',
-                'Šablony e-mailových podpisů',
-                emails|length
-            ) }}
-        {% endif %}
-
-        {% if project.hasModule(project_module.WeeklyMenus) %}
-            {{ _self.module_card(
-                path('weekly_menus', {'projectId': project.id}),
-                'uil-restaurant', 'Jídelníčky',
-                'Týdenní jídelníčky a správa jídel',
-                weekly_menus|length
-            ) }}
-        {% endif %}
-
-    </div>
-
-    {# Latest templates #}
-    {% if recent_templates|length %}
-        <h4 class="mt-4 mb-2">Naposledy přidané šablony</h4>
-        <div class="row g-3 mb-3">
-            {% for template in recent_templates %}
-                {# A grouped template opens its fill page — safe for every viewer
-                   of the dashboard (designers reach the group editor from there
-                   or from the listing). #}
-                {% set template_url = template.group
-                    ? path('template_group_fill', {'groupId': template.group.id})
-                    : path('template_variants', {'templateId': template.id}) %}
-                <div class="col-6 col-md-4 col-xl-2 d-flex">
-                    <a href="{{ template_url }}" class="text-body d-block w-100">
-                        <div class="card module-card h-100 mb-0">
-                            <img class="card-img-top p-2" style="height: 140px; object-fit: contain;" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
-                            <div class="card-body pt-0 pb-2 px-2 text-center">
-                                <h5 class="my-0 text-truncate">{{ template.name }}</h5>
-                                <span class="text-muted font-12 d-block text-truncate">
-                                    {%- if template.category -%}
-                                        {{ template.category.name }}
-                                    {%- else -%}
-                                        {{ template.variants|map(variant => variant.dimension.label)|join(' · ')|default('Šablona') }}
-                                    {%- endif -%}
-                                </span>
-                            </div>
-                        </div>
-                    </a>
+            <ul class="pu-list">
+                {% for member in members %}
+                    {% set member_roles = member.roles %}
+                    <li class="pu-row">
+                        <span class="pu-who">
+                            <span class="av{{ member.confirmed ? '' : ' inv' }}" aria-hidden="true">{% if member.confirmed %}{{ initials(member.displayName) }}{% else %}{{ icon('mail', 's16') }}{% endif %}</span>
+                            <span class="who">
+                                <b>{{ member.displayName }}{% if member.id.equals(app.user.id) %} <span class="cap">(vy)</span>{% endif %}</b>
+                                {% if not member.confirmed %}<span class="cap">Pozvánka odeslána</span>{% elseif member.name %}<span class="cap">{{ member.email }}</span>{% endif %}
+                            </span>
+                        </span>
+                        <span class="pu-tags">
+                            {% if loop.first %}<span class="pill pch">Vlastník</span>{% endif %}
+                            {% if not member.confirmed %}<span class="pill">Pozvánka</span>{% endif %}
+                            {% if 'ROLE_ADMIN' in member_roles %}
+                                <span class="pill">{{ icon('shield', 's12') }}Administrátor</span>
+                            {% elseif 'ROLE_DESIGNER' in member_roles %}
+                                <span class="pill">Designer</span>
+                            {% else %}
+                                <span class="pill neutral">Uživatel</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                {% endfor %}
+            </ul>
+            {% if members|length < 2 %}
+                <p class="cap pd-empty">Projekt zatím s nikým nesdílíte.</p>
+            {% endif %}
+            {% if is_granted('ROLE_ADMIN') %}
+                <div class="pd-share-host" data-action="hidden.bs.modal->project-tiles#reloadIfShared click->project-tiles#markShared">
+                    <twig:ManageProjectSharing :project="project" />
                 </div>
-            {% endfor %}
-        </div>
-    {% endif %}
+            {% endif %}
+        </section>
+
+        {# Admin-only module switches — the same POST endpoints as the card on
+           edit_project; `back=dashboard` returns here. #}
+        {% if is_granted('ROLE_ADMIN') %}
+            <section class="pd-box" id="pd-modules" aria-labelledby="pdModH">
+                <div class="pd-box-h">
+                    <div>
+                        <h2 id="pdModH">Moduly projektu <span class="pill pd-admin">{{ icon('shield', 's12') }}Jen administrátor</span></h2>
+                        <span class="cap">Vypnuté moduly uživatelé nevidí v menu — najdou je v sekci „Objevte další moduly“, kde si je mohou sami zapnout. O každém takovém zapnutí přijde administrátorům e-mail. Vypnutím se žádná data nesmažou.</span>
+                    </div>
+                </div>
+                <div class="pd-mods" role="group" aria-label="Moduly projektu">
+                    {% for module in project_module.cases() %}
+                        {% set enabled = project.hasModule(module) %}
+                        <form method="post" class="pd-mod{{ enabled ? ' on' : '' }}" data-module="{{ module.value }}"
+                              action="{{ path(enabled ? 'project_module_disable' : 'project_module_enable', {'projectId': project.id, 'module': module.value}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token(enabled ? 'project_module_disable' : 'project_module_enable') }}">
+                            <input type="hidden" name="back" value="dashboard">
+                            <span class="pd-ico" aria-hidden="true">{{ icon(module_icons[module.value] ?? 'grid') }}</span>
+                            <span class="who"><b>{{ module.label }}</b><span class="cap">{{ module.description }}</span></span>
+                            <span class="pd-st">{{ enabled ? 'Zapnuto' : 'Vypnuto' }}</span>
+                            <button type="submit" class="sw c-success{{ enabled ? ' on' : '' }}" role="switch" aria-checked="{{ enabled ? 'true' : 'false' }}" aria-label="{{ enabled ? 'Vypnout' : 'Zapnout' }} modul {{ module.label }}"></button>
+                        </form>
+                    {% endfor %}
+                </div>
+                <p class="cap pd-foot">{{ icon('info', 's14') }}Galerie a Fonty jsou vždy zapnuté — čerpají z nich ostatní moduly.</p>
+            </section>
+        {% endif %}
+
+        {% if recent_templates|length %}
+            <section class="pd-box" aria-labelledby="pdRecentH">
+                <div class="pd-box-h">
+                    <div><h2 id="pdRecentH">Naposledy přidané šablony</h2></div>
+                    {% if project.hasModule(project_module.Templates) %}
+                        <a href="{{ path('templates', {'projectId': project.id}) }}" class="btn btn-tertiary sm">Všechny šablony</a>
+                    {% endif %}
+                </div>
+                <div class="pd-recent">
+                    {% for template in recent_templates %}
+                        {# A grouped template opens its fill page — safe for every viewer
+                           of the dashboard (designers reach the group editor from there
+                           or from the listing). #}
+                        {% set template_url = template.group
+                            ? path('template_group_fill', {'groupId': template.group.id})
+                            : path('template_variants', {'templateId': template.id}) %}
+                        <a href="{{ template_url }}" class="pd-tpl">
+                            <span class="pd-tpl-prev">
+                                <img src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="" loading="lazy" onerror="this.onerror=null;this.src='{{ asset('images/manual-placeholder.png') }}'">
+                            </span>
+                            <b>{{ template.name }}</b>
+                            <span class="cap">
+                                {%- if template.category -%}
+                                    {{ template.category.name }}
+                                {%- else -%}
+                                    {{ template.variants|map(variant => variant.dimension.label)|join(' · ')|default('Šablona') }}
+                                {%- endif -%}
+                            </span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+    </div>
 {% endblock %}

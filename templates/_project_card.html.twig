@@ -1,29 +1,48 @@
+{# Project card on /projects (prototype cardHTML, `.pcard`). The whole card is
+   the project link (stretched `.pname::after`); the ⋯ menu, the user count
+   (opens sharing) and the owner line sit above it. data-* feed the client-side
+   search + filter chips (projects_filter_controller). #}
 {% set is_own = project.owner.id.equals(app.user.id) %}
 {% set is_shared = not is_own and project.getUserSharingLevel(app.user) is not null %}
-<div class="col-md-6 col-xxl-3">
-    <div class="card project-card {{ is_own ? '' : 'border border-secondary-subtle' }}">
-        {% if is_granted('project_edit', project) %}
-            <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="ri-more-fill text-lighter"></i>
-                </a>
-                <div class="dropdown-menu dropdown-menu-end">
-                    <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                    {% if is_granted('ROLE_ADMIN') %}
-                        <a href="#"
-                           class="dropdown-item"
-                           data-bs-toggle="modal"
-                           data-bs-target="#share-modal-{{ project.id }}">
-                            <i class="mdi mdi-account-multiple-plus me-1"></i> Sdílení
-                            {% if project.shares|length > 0 %}<span class="badge bg-secondary ms-1">{{ project.shares|length }}</span>{% endif %}
+{% set can_edit = is_granted('project_edit', project) %}
+{% set can_share = is_granted('ROLE_ADMIN') %}
+{% set avatar = avatars[project.id.toString] ?? null %}
+{% set card_facts = facts[project.id.toString] ?? null %}
+{% set missing = card_facts ? card_facts.missing : [] %}
+{% set users_count = 1 + project.shares|length %}
+{% set users_text = users_count ~ ' ' ~ (users_count == 1 ? 'uživatel' : (users_count < 5 ? 'uživatelé' : 'uživatelů')) %}
+<article class="pcard"
+         data-projects-filter-target="card"
+         data-name="{{ project.name }}"
+         data-owner="{{ project.owner.id }}"
+         data-manual="{{ (card_facts.manualsCount ?? 0) > 0 ? '1' : '0' }}">
+    {% if missing is not empty %}
+        {% set missing_text = 'Chybí: ' ~ missing|join(', ') %}
+        <span class="pwarn" title="{{ missing_text }}" role="img" aria-label="{{ missing_text }}">{{ icon('warn-f', 's16') }}</span>
+    {% endif %}
+
+    <div class="card-top">
+        {% if avatar %}
+            {{ include('_project_avatar.html.twig', {'logo_path': avatar.logoPath, 'initials': avatar.initials, 'alt': project.name}, with_context = false) }}
+        {% else %}
+            <span class="sym mono">{{ initials(project.name) }}</span>
+        {% endif %}
+
+        {% if can_edit %}
+            <div class="card-acts dropdown">
+                <button type="button" class="btn btn-ghost icon xs card-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="menu" aria-label="Možnosti projektu {{ project.name }}">{{ icon('more', 's16') }}</button>
+                <div class="dropdown-menu dropdown-menu-end" role="menu">
+                    <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item" role="menuitem">{{ icon('edit', 's16') }}Změnit název a logo</a>
+                    {% if can_share %}
+                        <a href="#" class="dropdown-item" role="menuitem" data-bs-toggle="modal" data-bs-target="#share-modal-{{ project.id }}">
+                            {{ icon('share', 's16') }}Sdílet
+                            {% if project.shares|length > 0 %}<span class="end">{{ project.shares|length }}</span>{% endif %}
                         </a>
                     {% endif %}
-                    <a href="#"
-                       class="dropdown-item"
+                    <div class="dropdown-divider"></div>
+                    <a href="#" class="dropdown-item danger" role="menuitem"
                        data-modal-id="{{ project.id }}"
-                       data-action="click->confirm-modal#showModal">
-                        <i class="mdi mdi-delete me-1"></i> Smazat
-                    </a>
+                       data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Odstranit projekt</a>
                 </div>
             </div>
 
@@ -32,36 +51,27 @@
                 url="{{ path('delete_project', {'id': project.id}) }}"
                 confirmationText="Opravdu chcete smazat tento projekt včetně všech náležitostí?" />
         {% endif %}
+    </div>
 
-        <a href="{{ path('project_dashboard', {'id': project.id}) }}" class="text-body">
-            <div class="card-body">
-                {% set avatar = avatars[project.id.toString] ?? null %}
-                <div class="d-flex align-items-center gap-2">
-                    {% if avatar %}
-                        {{ include('_project_avatar.html.twig', {'avatar': avatar, 'size': 56, 'font_size': '1.15rem', 'alt': project.name}) }}
-                    {% endif %}
-                    <div class="min-w-0">
-                        <h4 class="m-0 {{ is_own ? '' : 'text-muted' }}">
-                            {{ project.name }}
-                        </h4>
-                        {% if not is_own %}
-                            {% set owner_name = project.owner.getDisplayName() %}
-                            <div class="project-card-owner text-truncate" title="Vlastník: {{ owner_name }}">
-                                {% if is_shared %}
-                                    <i class="mdi mdi-share-variant-outline"></i> Sdíleno od {{ owner_name }}
-                                {% else %}
-                                    <i class="mdi mdi-account-outline"></i> {{ owner_name }}
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </a>
-
-        {# Renders only the sharing modal — its trigger lives in the card dropdown above. #}
-        {% if is_granted('ROLE_ADMIN') %}
-            <twig:ManageProjectSharing :project="project" />
+    <div class="pcard-body">
+        <a class="pname" href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a>
+        {% if not is_own %}
+            {% set owner_name = project.owner.getDisplayName() %}
+            <span class="project-card-owner" title="Vlastník: {{ owner_name }}">
+                {% if is_shared %}
+                    {{ icon('share', 's14') }}Sdíleno od {{ owner_name }}
+                {% else %}
+                    {{ icon('user', 's14') }}{{ owner_name }}
+                {% endif %}
+            </span>
         {% endif %}
     </div>
-</div>
+
+    {% if can_share %}
+        <button type="button" class="meta meta-btn" data-bs-toggle="modal" data-bs-target="#share-modal-{{ project.id }}" title="Kdo má přístup" aria-label="{{ users_text }} · zobrazit sdílení">{{ icon('users', 's16') }}{{ users_text }}</button>
+        {# Renders only the sharing modal — triggers are the menu item + user count above. #}
+        <twig:ManageProjectSharing :project="project" />
+    {% else %}
+        <span class="meta">{{ icon('users', 's16') }}{{ users_text }}</span>
+    {% endif %}
+</article>

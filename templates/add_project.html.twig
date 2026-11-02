@@ -5,20 +5,18 @@
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('projects') }}">Všechny projekty</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
+{% block page_lead %}Projekt sdružuje šablony, logomanuál a e-mailové podpisy jednoho klienta.{% endblock %}
+
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_row(form.name) }}
-
-            <input type="submit" name="submit" value="Vytvořit" class="btn btn-primary">
-
-            {{ form_end(form) }}
-        </div>
-    </div>
+    {{ include('_project_form.html.twig', {
+        'form': form,
+        'submit_label': 'Vytvořit projekt',
+        'cancel_url': path('projects'),
+        'current_icon': null,
+    }) }}
 {% endblock %}

@@ -1,27 +1,124 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Projekty{% endblock %}
+{% block title %}Všechny projekty{% endblock %}
 {% set active_menu_item = 'projects' %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item active"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-    </ol>
+{# Greeting eyebrow (prototype renderDashboard): rendered for Prague time and
+   refreshed to the browser's local hour by projects_filter_controller, which
+   also wires the header search (#dashSearch) and count (#dashCount) — they sit
+   in the page header, outside the controller element. #}
+{% set greet_hour = 'now'|date('G', 'Europe/Prague') %}
+{% set greet_name = app.user.name ? (app.user.name|trim|split(' ')|first) : '' %}
+
+{% block page_title_row %}
+    <header class="head">
+        <div class="head-main">
+            <span class="lbl" id="dashGreeting" data-name="{{ greet_name }}">
+                {{- greet_hour < 10 ? 'Dobré ráno' : (greet_hour < 12 ? 'Dobrý den' : (greet_hour < 18 ? 'Dobré odpoledne' : 'Dobrý večer')) }}{{ greet_name ? ', ' ~ greet_name : '' -}}
+            </span>
+            <h1 class="page-title">Všechny projekty <small id="dashCount">{{ projects|length }}</small></h1>
+        </div>
+        <div class="head-tools">
+            {% if projects|length > 1 %}
+                <label class="inp" for="dashSearch">
+                    {{ icon('search', 's16') }}
+                    <input type="search" id="dashSearch" placeholder="Hledat v projektech" autocomplete="off">
+                </label>
+            {% endif %}
+            {% if is_granted('ROLE_DESIGNER') %}
+                <a href="{{ path('add_project') }}" class="btn btn-primary head-primary">{{ icon('plus', 's16') }}Nový projekt</a>
+            {% endif %}
+        </div>
+    </header>
+{% endblock %}
+
+{% block mobile_primary_action %}
+    {% if is_granted('ROLE_DESIGNER') %}
+        <a href="{{ path('add_project') }}" class="btn btn-primary icon" aria-label="Nový projekt">{{ icon('plus', 's18') }}</a>
+    {% endif %}
 {% endblock %}
 
 {% block content %}
+    {% set me = app.user.id.toString %}
+    {% set owners = {} %}
+    {% set owner_counts = {} %}
+    {% set mine_count = 0 %}
+    {% set with_manual = 0 %}
+    {% for project in projects %}
+        {% set owner_id = project.owner.id.toString %}
+        {% set owners = owners|merge({(owner_id): project.owner.displayName}) %}
+        {% set owner_counts = owner_counts|merge({(owner_id): (owner_counts[owner_id] ?? 0) + 1}) %}
+        {% if owner_id == me %}{% set mine_count = mine_count + 1 %}{% endif %}
+        {% if (facts[project.id.toString].manualsCount ?? 0) > 0 %}{% set with_manual = with_manual + 1 %}{% endif %}
+    {% endfor %}
 
-    {% if is_granted('ROLE_DESIGNER')%}
-        <div class="row mb-2">
-            <div class="col-sm-12">
-                <a href="{{ path('add_project') }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nový projekt</a>
+    <div class="dash" data-controller="projects-filter" data-projects-filter-me-value="{{ me }}">
+        {% if projects|length > 1 %}
+            <div class="fbar" role="toolbar" aria-label="Filtry projektů">
+                <button type="button" class="chip on" aria-pressed="true" data-projects-filter-target="allChip" data-action="projects-filter#reset">Vše <span class="n">{{ projects|length }}</span></button>
+                <span class="sep" aria-hidden="true"></span>
+                {% if mine_count > 0 %}
+                    <button type="button" class="chip" aria-pressed="false" data-filter="mine" data-action="projects-filter#toggle">Moje projekty <span class="n">{{ mine_count }}</span></button>
+                {% endif %}
+                {% if owners|length > 1 %}
+                    <div class="fdrop" data-projects-filter-target="ownerDrop">
+                        <button type="button" class="chip" aria-pressed="false" aria-haspopup="true" aria-expanded="false"
+                                data-projects-filter-target="ownerChip" data-action="projects-filter#toggleOwnerMenu">
+                            {{ icon('users', 's14') }}<span data-projects-filter-target="ownerLabel">Grafik</span>{{ icon('chev-down', 's14') }}
+                        </button>
+                        <div class="menu" role="dialog" aria-label="Vybrat grafika" data-projects-filter-target="ownerMenu" hidden>
+                            <label class="inp sm" for="ownerSearch">
+                                {{ icon('search', 's14') }}
+                                <input type="search" id="ownerSearch" placeholder="Najít grafika" autocomplete="off"
+                                       data-projects-filter-target="ownerSearch" data-action="input->projects-filter#searchOwners keydown->projects-filter#ownerKeydown">
+                            </label>
+                            <div class="owner-list" role="listbox" aria-label="Grafici">
+                                <button type="button" role="option" aria-selected="true" class="mi" data-owner="" data-owner-name="" data-projects-filter-target="ownerOption" data-action="projects-filter#pickOwner">
+                                    Všichni grafici<span class="end"><span class="chk">{{ icon('check') }}</span><span class="cnt">{{ projects|length }}</span></span>
+                                </button>
+                                <div class="menu-sep"></div>
+                                {% for owner_id, owner_name in owners|sort((a, b) => a|lower <=> b|lower) %}
+                                    <button type="button" role="option" aria-selected="false" class="mi" data-owner="{{ owner_id }}" data-owner-name="{{ owner_name }}" data-projects-filter-target="ownerOption" data-action="projects-filter#pickOwner">
+                                        <span class="av" aria-hidden="true">{{ initials(owner_name) }}</span>
+                                        <span class="nm">{{ owner_name }}{% if owner_id == me %} <span class="cap">(já)</span>{% endif %}</span>
+                                        <span class="end"><span class="chk">{{ icon('check') }}</span><span class="cnt">{{ owner_counts[owner_id] }}</span></span>
+                                    </button>
+                                {% endfor %}
+                                <p class="cap owner-none" data-projects-filter-target="ownerNone" hidden>Žádný grafik neodpovídá hledání.</p>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                <span class="sep" aria-hidden="true"></span>
+                <button type="button" class="chip" aria-pressed="false" data-filter="manual-yes" data-action="projects-filter#toggle">S manuálem <span class="n">{{ with_manual }}</span></button>
+                <button type="button" class="chip" aria-pressed="false" data-filter="manual-no" data-action="projects-filter#toggle">Bez manuálu <span class="n">{{ projects|length - with_manual }}</span></button>
             </div>
-        </div>
-    {% endif %}
+        {% endif %}
 
-    <div class="row">
-        {% for project in projects %}
-            {{ include('_project_card.html.twig') }}
-        {% endfor %}
+        {% if projects is empty %}
+            <div class="empty">
+                <span class="ico-c">{{ icon('grid') }}</span>
+                <h2>Zatím tu nejsou žádné projekty</h2>
+                <p>Projekt sdružuje šablony, logomanuál a e-mailové podpisy jednoho klienta.</p>
+                {% if is_granted('ROLE_DESIGNER') %}
+                    <a href="{{ path('add_project') }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Vytvořit první projekt</a>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="grid pgrid">
+                {% for project in projects %}
+                    {{ include('_project_card.html.twig') }}
+                {% endfor %}
+            </div>
+
+            <div class="empty" data-projects-filter-target="noResults" hidden>
+                <span class="ico-c" data-projects-filter-target="noResultsIcon">{{ icon('search') }}</span>
+                <h2 data-projects-filter-target="noResultsTitle">Žádný projekt neodpovídá vybraným filtrům</h2>
+                <div class="dlg-f">
+                    <button type="button" class="btn btn-tertiary sm" data-projects-filter-target="clearSearch" data-action="projects-filter#clearSearch">Zrušit hledání</button>
+                    <button type="button" class="btn btn-tertiary sm" data-projects-filter-target="clearFilters" data-action="projects-filter#reset">Zrušit filtry</button>
+                </div>
+            </div>
+        {% endif %}
     </div>
 {% endblock %}

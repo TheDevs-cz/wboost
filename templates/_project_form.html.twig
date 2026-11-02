@@ -1,0 +1,41 @@
+{# add_project / edit_project form in the Nocturne dialog language (prototype
+   #dlgNew / #dlgLogo): labelled name field, logo dropzone over the existing
+   `icon` file field (logo_drop_controller), optional "remove icon", footer
+   actions. Vars: form, submit_label, cancel_url, current_icon (path|null), project_name. #}
+<div class="pf-card">
+    {{ form_start(form, {'attr': {'class': 'dlg pf-form', 'novalidate': 'novalidate'}}) }}
+        {{ form_row(form.name, {'attr': {'placeholder': 'Např. Obec Čeladná', 'autocomplete': 'off', 'maxlength': 30}}) }}
+
+        <div class="field" data-controller="logo-drop">
+            <span>Logo projektu <span class="cap">(nepovinné)</span></span>
+            {% if current_icon|default(null) %}
+                <div class="pf-current">
+                    <span class="sym" data-initials="{{ initials(project_name|default('?')) }}"><img src="{{ uploaded_asset(current_icon) }}" alt="Aktuální logo projektu" onerror="var s=this.parentNode;s.classList.add('mono');s.textContent=s.dataset.initials"></span>
+                    <span class="who"><b>Aktuální logo</b><span>Nahráním nového souboru ho nahradíte.</span></span>
+                </div>
+            {% endif %}
+            <label class="drop" for="{{ form.icon.vars.id }}"
+                   data-action="dragover->logo-drop#over dragleave->logo-drop#leave drop->logo-drop#drop">
+                <span class="drop-empty" data-logo-drop-target="empty">
+                    <span class="ico-c">{{ icon('upload') }}</span>
+                    <span class="drop-t">Přetáhněte symbol sem</span>
+                    <span class="cap">nebo klikněte pro výběr · SVG, PNG, JPG, WebP · max. 10 MB</span>
+                </span>
+                <img data-logo-drop-target="preview" alt="Náhled loga" hidden>
+                {{ form_widget(form.icon, {'attr': {'class': 'sr', 'accept': 'image/svg+xml,image/png,image/jpeg,image/webp,image/*', 'data-logo-drop-target': 'input', 'data-action': 'change->logo-drop#changed'}}) }}
+            </label>
+            {{ form_errors(form.icon) }}
+            <p class="hint m-0">{{ form.icon.vars.help|default('Bez loga se zobrazí iniciály projektu.') }}</p>
+            <button type="button" class="btn btn-ghost sm pf-clear" data-logo-drop-target="clear" data-action="logo-drop#clear" hidden>{{ icon('x', 's16') }}Odebrat vybraný soubor</button>
+        </div>
+
+        {% if form.removeIcon is defined %}
+            {{ form_row(form.removeIcon) }}
+        {% endif %}
+
+        <div class="dlg-f pf-foot">
+            <a href="{{ cancel_url }}" class="btn btn-tertiary sm">Zrušit</a>
+            <button type="submit" class="btn btn-primary sm">{{ submit_label }}</button>
+        </div>
+    {{ form_end(form) }}
+</div>

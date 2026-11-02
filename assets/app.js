@@ -20,6 +20,7 @@ import './styles/nocturne/feedback.css';
 import './styles/nocturne/page.css';
 import './styles/nocturne/shell.css';
 import './styles/nocturne/auth.css';
+import './styles/nocturne/projects.css';
 
 import './styles/app.css';
 

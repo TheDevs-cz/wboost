@@ -19,11 +19,7 @@
                 {% set is_current = project is defined and project.id.toString == row.id %}
                 <a href="{{ path('project_dashboard', {'id': row.id}) }}" class="qn" role="option" id="qn-{{ row.id }}"
                    data-qn-id="{{ row.id }}" data-qn-name="{{ row.name|lower }}" aria-selected="{{ is_current ? 'true' : 'false' }}">
-                    {% if row.iconPath %}
-                        <span class="sym sm"><img src="{{ uploaded_asset(row.iconPath) }}" alt="" loading="lazy"></span>
-                    {% else %}
-                        <span class="sym sm mono">{{ row.initials }}</span>
-                    {% endif %}
+                    {{ include('_project_avatar.html.twig', {'logo_path': row.iconPath, 'initials': row.initials, 'class': 'sm'}, with_context = false) }}
                     <span class="nm">{{ row.name }}</span>
                     {% if is_current %}<span class="chk" aria-label="Aktuální projekt">{{ icon('check') }}</span>{% endif %}
                 </a>

@@ -31,7 +31,7 @@ final class ProjectsControllerTest extends WebTestCase
         $this->assertStringNotContainsString('Sdíleno od', $owners->eq(1)->text());
     }
 
-    public function testProjectCardShowsMonogramWithBrandColor(): void
+    public function testProjectCardShowsMonogramWithoutLogo(): void
     {
         $browser = self::createClient();
         TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
@@ -39,9 +39,9 @@ final class ProjectsControllerTest extends WebTestCase
         $browser->request('GET', '/projects');
 
         $this->assertResponseIsSuccessful();
-        // Project 1 has no logo images, so its card falls back to the initials
-        // monogram colored by its manual's primary brand color.
-        $this->assertSelectorTextContains('span[style*="background: #C8102E"]', 'P1');
+        // Project 1 has no logo images, so its card falls back to the neutral
+        // Nocturne initials monogram (`.sym.mono`).
+        $this->assertSelectorTextContains('.pcard .sym.mono', 'P1');
     }
 
     public function testNonAdminIsScopedToTheirProjects(): void

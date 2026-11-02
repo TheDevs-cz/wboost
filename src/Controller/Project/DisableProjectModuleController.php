@@ -18,8 +18,9 @@ use WBoost\Web\Message\Project\DisableProjectModule;
 use WBoost\Web\Value\ProjectModule;
 
 /**
- * Admin-only POST + CSRF from the project's "Moduly projektu" card. Hides the
- * module; no data is deleted.
+ * Admin-only POST + CSRF from the project's "Moduly projektu" card (project
+ * settings, or the overview with `back=dashboard`). Hides the module; no data
+ * is deleted.
  */
 final class DisableProjectModuleController extends AbstractController
 {
@@ -53,6 +54,10 @@ final class DisableProjectModuleController extends AbstractController
         $this->bus->dispatch(new DisableProjectModule($project->id, $module, $user->id));
 
         $this->addFlash('success', sprintf('Modul %s je vypnutý. Data zůstala zachována.', $module->label()));
+
+        if ($request->request->getString('back') === 'dashboard') {
+            return $this->redirect($this->generateUrl('project_dashboard', ['id' => $project->id->toString()]) . '#pd-modules');
+        }
 
         return $this->redirect($this->generateUrl('edit_project', ['id' => $project->id->toString()]) . '#project-modules');
     }
