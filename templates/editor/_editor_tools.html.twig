@@ -1,0 +1,68 @@
+{# Tool row (prototype `.ed-tools`): the "put something on the stage" actions
+   + help on the left, the zoom control on the right. Shared by both editors;
+   every action targets a controller on the `.editor-shell` root, so the
+   buttons work the same as when they sat in the left panel.
+
+   Shape picker: a dropdown rather than a modal — the kind rides as a Stimulus
+   action param; labels mirror SHAPE_KINDS in assets/controllers/canvas_shapes.js
+   (which names the same shapes in the Vrstvy panel) — keep the two in step. #}
+{% set no_fonts = fonts|length == 0 %}
+<div class="ed-tools" role="toolbar" aria-label="Nástroje">
+    {% if no_fonts %}
+        <button type="button" class="ed-tool" disabled title="Nejsou nahrány fonty — text nelze přidat" aria-label="Přidat text (nejsou nahrány fonty)">{{ icon('type', 's18') }}</button>
+    {% else %}
+        <button type="button" class="ed-tool" title="Přidat text" aria-label="Přidat text" data-action="canvas-editor#showAddTextModal">{{ icon('type', 's18') }}</button>
+    {% endif %}
+    <button type="button" class="ed-tool" title="Přidat obrázek" aria-label="Přidat obrázek" data-action="canvas-editor#showAddImageModal">{{ icon('image', 's18') }}</button>
+    <div class="dropdown">
+        <button type="button" class="ed-tool ed-tool--menu" title="Přidat tvar" aria-label="Přidat tvar" data-bs-toggle="dropdown" aria-expanded="false">{{ icon('shape', 's18') }}{{ icon('chev-down', 's12') }}</button>
+        <div class="dropdown-menu shape-picker">
+            <div class="shape-picker__grid">
+                {% for shape in [
+                    {kind: 'rectangle', label: 'Obdélník', icon: 'mdi-rectangle-outline'},
+                    {kind: 'square', label: 'Čtverec', icon: 'mdi-square-outline'},
+                    {kind: 'circle', label: 'Kruh', icon: 'mdi-circle-outline'},
+                    {kind: 'ellipse', label: 'Elipsa', icon: 'mdi-ellipse-outline'},
+                    {kind: 'triangle', label: 'Trojúhelník', icon: 'mdi-triangle-outline'},
+                    {kind: 'line', label: 'Čára', icon: 'mdi-minus'},
+                    {kind: 'star', label: 'Hvězda', icon: 'mdi-star-outline'},
+                ] %}
+                    <button type="button" class="shape-picker__item" title="{{ shape.label }}"
+                            data-action="canvas-editor#addShape"
+                            data-canvas-editor-kind-param="{{ shape.kind }}">
+                        <span class="shape-picker__glyph shape-picker__glyph--{{ shape.kind }}" aria-hidden="true"></span>
+                        <span>{{ shape.label }}</span>
+                    </button>
+                {% endfor %}
+            </div>
+            <p class="shape-picker__hint">Barvu, přechod, obrys a zaoblení nastavíte po vložení v bublině u tvaru.</p>
+        </div>
+    </div>
+    {% if not no_fonts %}
+        <button type="button" class="ed-tool" title="Přidat zaškrtávací seznam" aria-label="Přidat zaškrtávací seznam" data-action="canvas-editor#showAddChecklistModal">{{ icon('list', 's18') }}</button>
+    {% endif %}
+    {# Picking a background is composing the canvas, so it sits with the other
+       "put something on the stage" actions. #}
+    <button type="button" class="ed-tool" data-action="canvas-editor#showBackgroundModal"
+            title="{{ group_mode|default(false) ? 'Pozadí aktivní varianty' : 'Pozadí' }}" aria-label="Pozadí">{{ icon('layers', 's18') }}</button>
+
+    <span class="ed-tools-sep" aria-hidden="true"></span>
+    {# Pointer-modifier cheatsheet — a modal (#editorHelpModal, in the stage
+       partial) rather than a line under the canvas. #}
+    <button type="button" class="ed-tool" data-bs-toggle="modal" data-bs-target="#editorHelpModal" title="Nápověda k ovládání plátna" aria-label="Nápověda k ovládání plátna">{{ icon('help', 's18') }}</button>
+
+    {% if no_fonts %}
+        <span class="ed-warn" title="Text a seznamy půjde přidat, až projekt bude mít nahrané fonty.">{{ icon('alert', 's12') }}Nejsou nahrány fonty</span>
+    {% endif %}
+
+    <span class="ed-sp"></span>
+
+    <div class="ed-zoom" role="group" aria-label="Přiblížení">
+        <button class="btn btn-ghost icon xs disabled" type="button" title="Oddálit" aria-label="Oddálit" data-action="canvas-zoom#zoomOut" data-canvas-zoom-target="zoomOutButton">{{ icon('minus', 's14') }}</button>
+        <span class="ed-zv" data-canvas-zoom-target="scaleDisplay">100%</span>
+        <button class="btn btn-ghost icon xs disabled" type="button" title="Přiblížit" aria-label="Přiblížit" data-action="canvas-zoom#zoomIn" data-canvas-zoom-target="zoomInButton">{{ icon('plus', 's14') }}</button>
+    </div>
+</div>
+
+{# Phones / narrow tablets: the editor is built for a desktop. #}
+<p class="ed-mobile">{{ icon('info', 's16') }}Editor šablon je navržený pro počítač. Na telefonu si šablonu spíš jen prohlédnete.</p>

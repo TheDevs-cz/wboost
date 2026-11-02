@@ -48,7 +48,7 @@ export default class extends Controller {
         manualFaces: { type: Array, default: [] },
     };
     static targets = [
-        "name", "description", "locked", "hidable", "uppercase", "richText",
+        "name", "description", "locked", "clientFills", "hidable", "uppercase", "richText",
         "fontChoice", "fontChoiceList", "fontChoiceHint", "fontChoiceEmpty", "manualPreset",
         "colorChoiceWrapper", "colorChoiceMode", "colorChoiceList", "colorChoiceSwatches", "colorChoiceCustom", "colorChoiceEmpty",
         "lists", "listConfig", "listBullet", "listBulletPreview", "listBulletPick",
@@ -146,6 +146,7 @@ export default class extends Controller {
         this._nameTextLinked = this._textEqualsName(activeObject);
 
         if (this.hasLockedTarget)    this.lockedTarget.checked    = activeObject.locked || false;
+        if (this.hasClientFillsTarget) this.clientFillsTarget.checked = !activeObject.locked;
         if (this.hasUppercaseTarget) this.uppercaseTarget.checked = activeObject.uppercase || false;
         if (this.hasNameTarget)      this.nameTarget.value        = activeObject.name || '';
         if (this.hasDescriptionTarget) this.descriptionTarget.value = activeObject.description || '';
@@ -818,8 +819,8 @@ export default class extends Controller {
             this.sampleLabelTarget.textContent = checklist ? 'Položky seznamu' : 'Vzorový text';
         }
         if (this.hasSampleIconTarget) {
-            this.sampleIconTarget.classList.toggle('mdi-text-box-outline', !checklist);
-            this.sampleIconTarget.classList.toggle('mdi-format-list-checks', checklist);
+            this.sampleIconTarget.classList.toggle('i-type', !checklist);
+            this.sampleIconTarget.classList.toggle('i-list', checklist);
         }
         if (this.hasSampleTitleTarget) {
             this.sampleTitleTarget.textContent = checklist ? 'Položky seznamu' : 'Vzorový text';
@@ -835,13 +836,31 @@ export default class extends Controller {
     }
 
     updateLocked(event) {
+        this._setLocked(event.target.checked);
+    }
+
+    /**
+     * The inspector's "Vyplňuje klient" switch — the same flag as "Uzamčeno",
+     * inverted (a locked text is never user-fillable).
+     */
+    updateClientFills(event) {
+        this._setLocked(!event.target.checked);
+    }
+
+    _setLocked(locked) {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
-        activeObject.locked = event.target.checked;
+        activeObject.locked = locked;
+        this._mirrorLocked(activeObject);
         if (this.hasRichTextTarget) this.richTextTarget.disabled = activeObject.locked;
         if (this.hasFontChoiceTarget) this.fontChoiceTarget.disabled = activeObject.locked;
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
+    }
+
+    _mirrorLocked(activeObject) {
+        if (this.hasLockedTarget) this.lockedTarget.checked = activeObject.locked === true;
+        if (this.hasClientFillsTarget) this.clientFillsTarget.checked = activeObject.locked !== true;
     }
 
     /**
@@ -852,7 +871,7 @@ export default class extends Controller {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.locked = !activeObject.locked;
-        if (this.hasLockedTarget) this.lockedTarget.checked = activeObject.locked;
+        this._mirrorLocked(activeObject);
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }

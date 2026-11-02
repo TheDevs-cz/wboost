@@ -103,7 +103,7 @@ finish; tick your phase's boxes here.
 - [x] **P6 Fill pages** — single / group / document fill chrome (header
       actions row, toggles row, format cards), export-history popover, keep the
       overlay contract.
-- [ ] **P7 Editors** — variant + group editor chrome (top bar, format tabs,
+- [x] **P7 Editors** — variant + group editor chrome (top bar, format tabs,
       tool row, layers panel, inspector, navigator, display menu), icon-rail
       sidebar. Chrome only.
 - [x] **P8 Admin & account** — users (table rows + filter chips), invite /

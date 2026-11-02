@@ -23,26 +23,13 @@
 
 {% block title %}Editor - Varianta {{ dimension_label }}{% endblock %}
 
-{# Full-height editor: the h1 would only repeat the breadcrumb's last item,
-   and every pixel above the stage is canvas height the designer loses. #}
+{# Full-height editor (Nocturne `.ed`): no page header — the editor's own top
+   bar carries the eyebrow + name, and every pixel above the stage is canvas
+   height the designer loses. The breadcrumb block is emptied for the same
+   reason; the trail lives in the top bar's eyebrow (`.breadcrumb.ed-crumb`). #}
 {% block page_title_row %}{% endblock %}
-
-{% block breadcrumb %}
-    {# pt-2: with no title row above it AND no topbar, the breadcrumb would
-       otherwise sit flush against the window's top edge. #}
-    <ol class="breadcrumb m-0 pt-2">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ module_templates_url }}">{{ module_label }}</a></li>
-        {% if document_page %}
-            <li class="breadcrumb-item"><a href="{{ path('template_document', {'documentId': document_page.document.id, 'page': template.id}) }}">{{ document_page.document.name }}</a></li>
-            <li class="breadcrumb-item active">Strana {{ document_page.position + 1 }} — {{ template.name }}</li>
-        {% else %}
-            <li class="breadcrumb-item"><a href="{{ module_variants_url }}">{{ template.name }}</a></li>
-            <li class="breadcrumb-item active">{{ block('title') }}</li>
-        {% endif %}
-    </ol>
-{% endblock %}
+{% block breadcrumb %}{% endblock %}
+{% block inner_class %}inner-wide ed-inner{% endblock %}
 
 {% block content %}
     {{ include('editor/_editor_scripts.html.twig') }}
@@ -50,8 +37,8 @@
 
     <div
         id="canvas-container"
-        class="editor-shell"
-        data-controller="canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-shape-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator"
+        class="editor-shell ed"
+        data-controller="editor-chrome canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-shape-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator"
         {# Canvas-mode only: layer-mode backgrounds live inside the canvas JSON
            as an isBackground object — a canvas-level override would shadow them. #}
         data-canvas-editor-background-image-value="{{ variant.backgroundMode.value == 'canvas' and variant.backgroundImage ? uploaded_asset(variant.backgroundImage) }}"
@@ -113,53 +100,88 @@
     >
         {{ form_start(editor_form) }}
 
-        <div class="card mb-2" data-editor-header style="position: sticky;top: 0px;z-index: 1000;">
-            <div class="card-body p-2">
-                <div class="mb-1">
-                    {# "Pozadí" lives in the left panel with the other compose
-                       actions — editor/_editor_left_panel.html.twig. #}
-                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-canvas-history-target="undoButton" data-action="canvas-history#undo"><i class="mdi mdi-undo-variant"></i></button>
-                    <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-canvas-history-target="redoButton" data-action="canvas-history#redo"><i class="mdi mdi-redo-variant"></i></button>
-
-                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomOut" data-canvas-zoom-target="zoomOutButton"><i class="ri-zoom-out-line"></i></button>
-                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomIn" data-canvas-zoom-target="zoomInButton"><i class="ri-zoom-in-line"></i></button>
-
-                    <p class="d-inline-block my-0 small text-muted" data-canvas-zoom-target="scaleDisplay">100%</p>
-
-                    {{ include('editor/_editor_toggles.html.twig') }}
-
-                    {% if document_page %}
-                        {# Multi-page document page strip: back to the document,
-                           jump to a sibling page. Leaving with unsaved changes
-                           asks first (document-page-strip). #}
-                        <span class="document-page-strip ms-2" data-controller="document-page-strip">
-                            <a href="{{ path('template_document', {'documentId': document_page.document.id, 'page': template.id}) }}" class="btn btn-sm btn-outline-secondary" data-action="document-page-strip#navigate" title="Zpět do dokumentu"><i class="mdi mdi-arrow-left"></i> {{ document_page.document.name }}</a>
-                            {% for sibling in document_pages %}
-                                {% if sibling.id == document_page.id %}
-                                    <span class="btn btn-sm btn-primary disabled" title="{{ sibling.template.name }}">{{ loop.index }}</span>
-                                {% else %}
-                                    <a href="{{ path('template_variant_editor', {'variantId': sibling.variant.id, 'document': document_page.document.id}) }}" class="btn btn-sm btn-outline-secondary" data-action="document-page-strip#navigate" title="{{ sibling.template.name }}">{{ loop.index }}</a>
-                                {% endif %}
-                            {% endfor %}
-                        </span>
-                    {% endif %}
-
-                    {% if variant.group and is_granted('ROLE_DESIGNER') %}
-                        <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="badge bg-info-lighten text-info ms-2" title="Tato varianta vznikla ve skupině — otevřít skupinový editor"><i class="uil-layer-group"></i> Skupina: {{ variant.group.name }}</a>
-                    {% endif %}
-
-                    <div class="d-inline-block float-end">
-                        <p data-canvas-editor-target="unsavedChangesMessage" class="d-inline-block d-none my-0 me-2 small fw-bold text-danger">Neuložené změny</p>
-
-                        <button class="btn btn-sm btn-primary me-1" type="button" data-action="canvas-editor#submitForm">Uložit</button>
-
-                        <a href="{{ export_url }}" class="btn btn-sm btn-outline-secondary me-1" data-action="canvas-editor#confirmExport">Export</a>
-                    </div>
+        {# Editor chrome (prototype renderTpEd): top bar, format tabs, tool row.
+           `data-editor-header` wraps all three — the floating toolbar keeps its
+           chrome below it and the stacked (< lg) zoom fit subtracts its height. #}
+        <div class="ed-head" data-editor-header>
+            <header class="ed-top">
+                {% set back_url = document_page ? path('template_document', {'documentId': document_page.document.id, 'page': template.id}) : module_templates_url %}
+                <a href="{{ back_url }}" class="btn btn-tertiary icon sm ed-back" data-action="editor-chrome#navigate"
+                   title="{{ document_page ? 'Zpět do dokumentu' : 'Zpět na šablony' }}" aria-label="{{ document_page ? 'Zpět do dokumentu' : 'Zpět na šablony' }}">{{ icon('arrow-left', 's16') }}</a>
+                <div class="ed-title">
+                    <nav class="breadcrumb ed-crumb" aria-label="Drobečková navigace">
+                        <a href="{{ path('project_dashboard', {'id': project.id}) }}" data-action="editor-chrome#navigate">{{ project.name }}</a>
+                        <span aria-hidden="true">·</span>
+                        <a href="{{ module_templates_url }}" data-action="editor-chrome#navigate">{{ module_label }}</a>
+                        {% if document_page %}
+                            <span aria-hidden="true">·</span>
+                            <a href="{{ path('template_document', {'documentId': document_page.document.id, 'page': template.id}) }}" data-action="editor-chrome#navigate">{{ document_page.document.name }}</a>
+                            <span aria-hidden="true">·</span>
+                            <span>Strana {{ document_page.position + 1 }}</span>
+                        {% endif %}
+                    </nav>
+                    <h1 class="ed-name" title="{{ template.name }}">{{ template.name }}</h1>
                 </div>
+                {% if variant.group and is_granted('ROLE_DESIGNER') %}
+                    <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="pill ed-sync" title="Tato varianta vznikla ve skupině — otevřít skupinový editor">{{ icon('refresh', 's14') }}Skupina: {{ variant.group.name }}</a>
+                {% endif %}
+                <div class="ed-hist">
+                    {# "Pozadí" lives in the tool row with the other compose actions. #}
+                    <button class="btn btn-ghost icon xs disabled" type="button" title="Zpět (Ctrl+Z)" aria-label="Zpět (Ctrl+Z)" data-canvas-history-target="undoButton" data-action="canvas-history#undo">{{ icon('undo', 's16') }}</button>
+                    <button class="btn btn-ghost icon xs disabled" type="button" title="Znovu (Ctrl+Shift+Z)" aria-label="Znovu (Ctrl+Shift+Z)" data-canvas-history-target="redoButton" data-action="canvas-history#redo">{{ icon('redo', 's16') }}</button>
+                    <button class="btn icon xs ed-clean" type="button" aria-pressed="false" title="Čistý náhled — skrýt pomocné prvky" aria-label="Čistý náhled — skrýt pomocné prvky" data-editor-chrome-target="cleanButton" data-action="editor-chrome#toggleClean">{{ icon('eye', 's16') }}</button>
+                </div>
+
+                <span class="ed-sp"></span>
+
+                {# Save state: the badge is canvas-editor's (markUnsaved/markSaved
+                   toggle d-none); "Vše uloženo" shows whenever it is hidden (CSS :has). #}
+                <span class="ed-state ed-state--saved">{{ icon('check-circle', 's14') }}<span class="ed-lbl">Vše uloženo</span></span>
+                <p data-canvas-editor-target="unsavedChangesMessage" class="ed-state ed-state--dirty d-none">{{ icon('history', 's14') }}<span class="ed-lbl">Neuložené změny</span></p>
+
+                {{ include('editor/_editor_toggles.html.twig') }}
+
+                <a href="{{ export_url }}" class="btn btn-tertiary sm ed-fill" data-action="canvas-editor#confirmExport" title="Vyplnit a exportovat">{{ icon('download', 's16') }}<span class="ed-lbl">Vyplnit a exportovat</span></a>
+
+                <button class="btn btn-success sm ed-save" type="button" data-action="canvas-editor#submitForm">Uložit</button>
+            </header>
+
+            <div class="ed-vars" role="tablist" aria-label="Formáty šablony">
+                {% if document_page %}
+                    {# Multi-page document page strip: back to the document,
+                       jump to a sibling page. Leaving with unsaved changes
+                       asks first (document-page-strip). #}
+                    <span class="document-page-strip ed-pages" data-controller="document-page-strip">
+                        <a href="{{ path('template_document', {'documentId': document_page.document.id, 'page': template.id}) }}" class="ed-var ed-var--back" data-action="document-page-strip#navigate" title="Zpět do dokumentu">{{ icon('arrow-left', 's14') }}{{ document_page.document.name }}</a>
+                        {% for sibling in document_pages %}
+                            {% if sibling.id == document_page.id %}
+                                <span class="ed-var on" role="tab" aria-selected="true" title="{{ sibling.template.name }}"><b>{{ loop.index }}</b><span class="cap">{{ sibling.template.name }}</span></span>
+                            {% else %}
+                                <a href="{{ path('template_variant_editor', {'variantId': sibling.variant.id, 'document': document_page.document.id}) }}" class="ed-var" role="tab" aria-selected="false" data-action="document-page-strip#navigate" title="{{ sibling.template.name }}"><b>{{ loop.index }}</b></a>
+                            {% endif %}
+                        {% endfor %}
+                    </span>
+                    <span class="ed-var-meta cap">{{ variant.dimension.label }} · {{ variant.dimension.width }} × {{ variant.dimension.height }} px</span>
+                {% else %}
+                    {# Formats of this template = its variants (each one has its own
+                       editor; a tab is a link, guarded against unsaved work). #}
+                    {% for sibling in template.variants|filter(v => v.group is null) %}
+                        {% if sibling.id == variant.id %}
+                            <span class="ed-var on" role="tab" aria-selected="true"><b>{{ sibling.dimension.label }}</b><span class="cap">{{ sibling.dimension.width }} × {{ sibling.dimension.height }}</span></span>
+                        {% else %}
+                            <a href="{{ path('template_variant_editor', {'variantId': sibling.id}) }}" class="ed-var" role="tab" aria-selected="false" data-action="editor-chrome#navigate"><b>{{ sibling.dimension.label }}</b><span class="cap">{{ sibling.dimension.width }} × {{ sibling.dimension.height }}</span></a>
+                        {% endif %}
+                    {% endfor %}
+                    {% if is_granted('template_edit', template) %}
+                        <a href="{{ path('add_template_variant', {'templateId': template.id}) }}" class="ed-var add" data-action="editor-chrome#navigate">{{ icon('plus', 's14') }}Přidat rozměr</a>
+                    {% endif %}
+                {% endif %}
             </div>
+
+            {{ include('editor/_editor_tools.html.twig') }}
         </div>
 
-        <div class="row editor-shell-row">
+        <div class="row editor-shell-row ed-body">
             <div class="col-12 col-lg-2 editor-left-panel">
                 {{ include('editor/_editor_left_panel.html.twig') }}
             </div>

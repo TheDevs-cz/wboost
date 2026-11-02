@@ -15,30 +15,20 @@
 
 {% block title %}Skupinový editor — {{ group.name }}{% endblock %}
 
-{# Full-height editor: the h1 would only repeat the breadcrumb's last item,
-   and every pixel above the stage is canvas height the designer loses. #}
+{# Full-height editor (Nocturne `.ed`): no page header — the editor's own top
+   bar carries the eyebrow + name (see template_variant_editor). #}
 {% block page_title_row %}{% endblock %}
-
-{% block breadcrumb %}
-    {# pt-2: with no title row above it AND no topbar, the breadcrumb would
-       otherwise sit flush against the window's top edge. #}
-    <ol class="breadcrumb m-0 pt-2">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
-        <li class="breadcrumb-item active">{{ group.name }}</li>
-    </ol>
-{% endblock %}
+{% block breadcrumb %}{% endblock %}
+{% block inner_class %}{{ variants|length > 0 ? 'inner-wide ed-inner' : '' }}{% endblock %}
 
 {% block content %}
     {% if variants|length == 0 %}
-        <div class="card">
-            <div class="card-body text-center text-muted py-5">
-                <i class="uil-layer-group" style="font-size: 2rem;"></i>
-                <p class="mb-1 mt-2"><strong>Skupina nemá žádné varianty.</strong></p>
-                <p class="mb-3">Všechny členské varianty byly smazány. Přidejte nový rozměr, nebo skupinu smažte.</p>
-                <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}" class="btn btn-outline-primary rounded-pill"><i class="mdi mdi-plus"></i> Přidat rozměr</a>
-            </div>
+        <a href="{{ path('templates', {'projectId': project.id}) }}" class="btn btn-ghost sm mb-3">{{ icon('arrow-left', 's16') }}Zpět na šablony</a>
+        <div class="empty">
+            {{ icon('layers', 's32') }}
+            <h2>{{ group.name }}: skupina nemá žádné varianty</h2>
+            <p>Všechny členské varianty byly smazány. Přidejte nový rozměr, nebo skupinu smažte.</p>
+            <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}" class="btn btn-primary">{{ icon('plus', 's16') }}Přidat rozměr</a>
         </div>
     {% else %}
 
@@ -49,8 +39,8 @@
 
     <div
         id="canvas-container"
-        class="editor-shell"
-        data-controller="canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-shape-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator group-editor"
+        class="editor-shell ed"
+        data-controller="editor-chrome canvas-editor canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-shape-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator group-editor"
         {# Canvas-mode only: a layer-mode variant's background is an isBackground
            object inside its canvas JSON — a canvas-level override would shadow it. #}
         data-canvas-editor-background-image-value="{{ first.variant.backgroundMode.value == 'canvas' and first.variant.backgroundImage ? uploaded_asset(first.variant.backgroundImage) }}"
@@ -135,91 +125,96 @@
             {%- endfor -%}
         ]</script>
 
-        <div class="card mb-2" data-editor-header style="position: sticky;top: 0px;z-index: 1000;">
-            <div class="card-body p-2">
-                <div class="mb-1">
-                    {# "Pozadí" lives in the left panel with the other compose
-                       actions — editor/_editor_left_panel.html.twig. #}
-                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-group-editor-target="undoButton" data-action="group-editor#undo"><i class="mdi mdi-undo-variant"></i></button>
-                    <button class="btn btn-sm btn-outline-secondary me-3 disabled" type="button" data-group-editor-target="redoButton" data-action="group-editor#redo"><i class="mdi mdi-redo-variant"></i></button>
-
-                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomOut" data-canvas-zoom-target="zoomOutButton"><i class="ri-zoom-out-line"></i></button>
-                    <button class="btn btn-sm btn-outline-secondary me-1 disabled" type="button" data-action="canvas-zoom#zoomIn" data-canvas-zoom-target="zoomInButton"><i class="ri-zoom-in-line"></i></button>
-
-                    <p class="d-inline-block my-0 small text-muted" data-canvas-zoom-target="scaleDisplay">100%</p>
-
-                    {{ include('editor/_editor_toggles.html.twig') }}
-
-                    <span class="badge bg-info-lighten text-info ms-2"><i class="uil-layer-group"></i> {{ group.name }}</span>
-
-                    <div class="d-inline-block float-end">
-                        <p data-canvas-editor-target="unsavedChangesMessage" class="d-inline-block d-none my-0 me-2 small fw-bold text-danger">Neuložené změny</p>
-
-                        <a href="{{ path('template_group_fill', {'groupId': group.id}) }}" class="btn btn-sm btn-outline-secondary me-1"><i class="mdi mdi-folder-zip-outline"></i> Vyplnit a exportovat</a>
-
-                        <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}" class="btn btn-sm btn-outline-secondary me-1"><i class="mdi mdi-plus"></i> Přidat rozměr</a>
-
-                        <button class="btn btn-sm btn-primary me-1" type="button" data-action="group-editor#submitForm">Uložit vše</button>
-                    </div>
+        {# Editor chrome (prototype renderTpEd): top bar, format tabs (= the
+           variant rail), tool row. `data-editor-header` wraps all three. #}
+        <div class="ed-head" data-editor-header>
+            <header class="ed-top">
+                <a href="{{ path('templates', {'projectId': project.id}) }}" class="btn btn-tertiary icon sm ed-back" data-action="editor-chrome#navigate" title="Zpět na šablony" aria-label="Zpět na šablony">{{ icon('arrow-left', 's16') }}</a>
+                <div class="ed-title">
+                    <nav class="breadcrumb ed-crumb" aria-label="Drobečková navigace">
+                        <a href="{{ path('project_dashboard', {'id': project.id}) }}" data-action="editor-chrome#navigate">{{ project.name }}</a>
+                        <span aria-hidden="true">·</span>
+                        <a href="{{ path('templates', {'projectId': project.id}) }}" data-action="editor-chrome#navigate">Šablony</a>
+                    </nav>
+                    <h1 class="ed-name" title="{{ group.name }}">{{ group.name }}</h1>
                 </div>
-            </div>
-        </div>
+                <span class="pill ed-sync" title="Synchronizovaná šablona — jeden návrh ve více formátech">{{ icon('refresh', 's14') }}<span class="ed-lbl">Synchronizovaná</span></span>
+                <div class="ed-hist">
+                    <button class="btn btn-ghost icon xs disabled" type="button" title="Zpět (Ctrl+Z)" aria-label="Zpět (Ctrl+Z)" data-group-editor-target="undoButton" data-action="group-editor#undo">{{ icon('undo', 's16') }}</button>
+                    <button class="btn btn-ghost icon xs disabled" type="button" title="Znovu (Ctrl+Shift+Z)" aria-label="Znovu (Ctrl+Shift+Z)" data-group-editor-target="redoButton" data-action="group-editor#redo">{{ icon('redo', 's16') }}</button>
+                    <button class="btn icon xs ed-clean" type="button" aria-pressed="false" title="Čistý náhled — skrýt pomocné prvky" aria-label="Čistý náhled — skrýt pomocné prvky" data-editor-chrome-target="cleanButton" data-action="editor-chrome#toggleClean">{{ icon('eye', 's16') }}</button>
+                </div>
 
-        {# Variant rail: the "Úprava více variant" mode switch, then one compact
-           chip per dimension — tab switching, per-variant opt-in, dirty dot,
-           overflow/off-canvas badges. Deliberately without a preview: the rail
-           is navigation, the stage is the preview.
+                <span class="ed-sp"></span>
 
-           The per-variant switches are chrome of the MODE and only render
-           (CSS, `--multi` on the rail) while it is on — with the mode off
-           there is nothing to opt into. The mode starts ON with every variant
-           included (2026-08-10). The ACTIVE variant's switch is always
-           on + disabled: an edit you can see has to land somewhere.
+                <span class="ed-state ed-state--saved">{{ icon('check-circle', 's14') }}<span class="ed-lbl">Vše uloženo</span></span>
+                <p data-canvas-editor-target="unsavedChangesMessage" class="ed-state ed-state--dirty d-none">{{ icon('history', 's14') }}<span class="ed-lbl">Neuložené změny</span></p>
 
-           The rail CARD is the scope indicator: a primary border while an edit
-           reaches EVERY variant (mode on + every switch on + nothing
-           "Nenačteno"), plain otherwise — so "2 of 3" and "3 of 3" no longer
-           look alike at a glance (`group-variant-rail-card--all`). #}
-        <div class="card mb-2 group-variant-rail-card group-variant-rail-card--all"
-             data-group-editor-target="railCard"
-             title="Úpravy se přenáší do všech variant">
-            <div class="card-body p-2">
-                {# Initial state must match group_editor_controller's
-                   `multiEdit = true` default (+ every variant included, hence
-                   `--all`) — _refreshRail() only syncs the chrome after shadow
-                   hydration, so a mismatch would show the wrong mode for the
-                   first seconds. #}
-                <div class="group-variant-rail group-variant-rail--multi" data-group-editor-target="rail">
-                    <button type="button" class="btn btn-sm btn-primary group-variant-mode" aria-pressed="true"
-                            data-group-editor-target="multiEditButton"
-                            data-action="group-editor#toggleMultiEdit"
-                            title="Zapnuto: posuny, velikosti a vlastnosti se přenáší i do zaškrtnutých variant. Přidání a smazání prvku se přenáší vždy, bez ohledu na tento přepínač.">
-                        <i class="mdi mdi-select-multiple me-1"></i>Úprava více variant
-                    </button>
+                {{ include('editor/_editor_toggles.html.twig') }}
 
+                <a href="{{ path('template_group_fill', {'groupId': group.id}) }}" class="btn btn-tertiary sm ed-fill" data-action="editor-chrome#navigate" title="Vyplnit a exportovat">{{ icon('download', 's16') }}<span class="ed-lbl">Vyplnit a exportovat</span></a>
+
+                <button class="btn btn-success sm ed-save" type="button" data-action="group-editor#submitForm">Uložit vše</button>
+            </header>
+
+            {# Format tabs = the variant rail: one tab per dimension — switching,
+               per-variant opt-in, dirty dot, overflow/off-canvas badges — then
+               "Přidat rozměr" and the "Upravovat všechny formáty najednou" mode
+               switch. Deliberately without a preview: the stage is the preview.
+
+               The per-variant switches are chrome of the MODE and only render
+               (CSS, `--multi` on the rail) while it is on. The mode starts ON
+               with every variant included (2026-08-10). The ACTIVE variant's
+               switch is always on + disabled: an edit you can see has to land
+               somewhere.
+
+               The row is the scope indicator: a lavender underline while an edit
+               reaches EVERY variant (mode on + every switch on + nothing
+               "Nenačteno"), plain otherwise (`group-variant-rail-card--all`).
+               Initial state must match group_editor_controller's
+               `multiEdit = true` default — _refreshRail() only syncs the chrome
+               after shadow hydration. #}
+            <div class="ed-vars group-variant-rail-card group-variant-rail-card--all"
+                 data-group-editor-target="railCard"
+                 title="Úpravy se přenáší do všech variant">
+                <div class="group-variant-rail group-variant-rail--multi" role="tablist" aria-label="Formáty šablony" data-group-editor-target="rail">
                     {% for v in variants %}
                         <div class="group-variant-chip{{ loop.first ? ' group-variant-active' }}" data-group-editor-target="card" data-variant-id="{{ v.variant.id }}">
-                            <button type="button" class="group-variant-label" title="Přepnout na tuto variantu"
+                            <button type="button" class="group-variant-label ed-var" role="tab" title="Přepnout na tento formát"
                                     data-action="group-editor#activateVariant"
                                     data-group-editor-id-param="{{ v.variant.id }}">
-                                {{ v.dimension_label }}
+                                <b>{{ v.variant.dimension.label }}</b><span class="cap">{{ v.variant.dimension.width }} × {{ v.variant.dimension.height }}</span>
                                 <span class="group-variant-dirty d-none" title="Neuložené změny" data-group-editor-target="dirtyDot" data-variant-id="{{ v.variant.id }}"></span>
                             </button>
-                            <div class="form-check form-switch mb-0 group-variant-include" title="Přenášet úpravy aktivní varianty i do této varianty">
+                            <span class="badge ed-out d-none" data-group-editor-target="badge" data-variant-id="{{ v.variant.id }}"></span>
+                            <div class="form-check form-switch mb-0 group-variant-include" title="Přenášet úpravy aktivního formátu i do tohoto formátu">
                                 <input type="checkbox" class="form-check-input" checked {{ loop.first ? 'disabled' }}
+                                       aria-label="Přenášet úpravy do formátu {{ v.variant.dimension.label }}"
                                        data-group-editor-target="includeToggle"
                                        data-variant-id="{{ v.variant.id }}"
                                        data-group-editor-id-param="{{ v.variant.id }}"
                                        data-action="change->group-editor#toggleInclude">
                             </div>
-                            <span class="badge bg-danger-lighten text-danger d-none" data-group-editor-target="badge" data-variant-id="{{ v.variant.id }}"></span>
                         </div>
                     {% endfor %}
+                    <a href="{{ path('add_template_group_dimension', {'groupId': group.id}) }}" class="ed-var add" data-action="editor-chrome#navigate">{{ icon('plus', 's14') }}Přidat rozměr</a>
+                    <span class="ed-sp"></span>
+                    {# Mode switch. group_editor_controller toggles aria-pressed (+ the
+                       legacy btn-primary/btn-outline-secondary classes, neutralised
+                       in editor.css); the look is a Nocturne switch. #}
+                    <button type="button" class="ed-multi group-variant-mode" aria-pressed="true"
+                            data-group-editor-target="multiEditButton"
+                            data-action="group-editor#toggleMultiEdit"
+                            title="Zapnuto: posuny, velikosti a vlastnosti se přenáší i do zaškrtnutých formátů. Přidání a smazání prvku se přenáší vždy, bez ohledu na tento přepínač.">
+                        <span class="sw sm" aria-hidden="true"></span><span>Upravovat všechny formáty najednou</span>
+                    </button>
                 </div>
             </div>
+
+            {{ include('editor/_editor_tools.html.twig', {'group_mode': true}) }}
         </div>
 
-        <div class="row editor-shell-row">
+        <div class="row editor-shell-row ed-body">
             <div class="col-12 col-lg-2 editor-left-panel">
                 {{ include('editor/_editor_left_panel.html.twig', {'group_mode': true}) }}
             </div>

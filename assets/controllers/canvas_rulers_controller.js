@@ -58,10 +58,14 @@ export default class extends Controller {
         const toggle = document.getElementById('ruler-enabled-control');
         if (toggle) this._enabled = toggle.checked;
         window.addEventListener('resize', this._boundRefresh);
+        // The bars are bitmaps painted in theme colours — repaint on a theme switch.
+        this._themeObserver = new MutationObserver(this._boundRefresh);
+        this._themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     }
 
     disconnect() {
         window.removeEventListener('resize', this._boundRefresh);
+        if (this._themeObserver) this._themeObserver.disconnect();
         this._teardownDragListeners();
         this._clearGuideEls();
         if (this._badge) { this._badge.remove(); this._badge = null; }
@@ -184,12 +188,16 @@ export default class extends Controller {
         const W = dir === 'h' ? lengthScreen : S;
         const H = dir === 'h' ? S : lengthScreen;
         ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = '#eef0f4';
+        // Chrome colours come from the theme (editor.css sets --ruler-* on
+        // the bars, light + dark); the literals are the pre-theme fallbacks.
+        const css = getComputedStyle(el);
+        const themed = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+        ctx.fillStyle = themed('--ruler-off', '#eef0f4');
         ctx.fillRect(0, 0, W, H);
         // The design's own span is the bright part of the bar.
         const startScreen = off * g.scale;
         const spanScreen = lengthCanvas * g.scale;
-        ctx.fillStyle = '#fafbfe';
+        ctx.fillStyle = themed('--ruler-bg', '#fafbfe');
         if (dir === 'h') ctx.fillRect(startScreen, 0, spanScreen, H);
         else ctx.fillRect(0, startScreen, W, spanScreen);
 
@@ -199,9 +207,9 @@ export default class extends Controller {
         const showMinor = minor * g.scale >= 3.5;
         const toScreen = (v) => (v + off) * g.scale;
 
-        ctx.strokeStyle = '#b6bfc9';
-        ctx.fillStyle = '#8a96a3';
-        ctx.font = '9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.strokeStyle = themed('--ruler-tick', '#b6bfc9');
+        ctx.fillStyle = themed('--ruler-text', '#8a96a3');
+        ctx.font = `9px ${themed('--ruler-font', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif')}`;
         ctx.lineWidth = 1;
         ctx.beginPath();
 

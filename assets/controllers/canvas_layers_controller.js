@@ -292,13 +292,13 @@ export default class extends Controller {
         main.title = `${label} — ${typeLabel} (kliknutím upravíte, tažením změníte pořadí)`;
         main.setAttribute('aria-label', `${typeLabel}: ${label}`);
 
+        // Nocturne mask icons (`.i`), one per element KIND — the shape kind
+        // itself is in the label / title.
         const icon = document.createElement('i');
         const iconGlyph = isText
-            ? (isChecklist ? 'mdi-format-list-checks' : 'mdi-format-text')
-            : (isShape
-                ? (shapeKind ? shapeKind.icon : 'mdi-shape-outline')
-                : (isBackground ? 'mdi-wallpaper' : (isPlaceholder ? 'mdi-image-edit-outline' : 'mdi-image-outline')));
-        icon.className = `canvas-layer-row__icon mdi ${iconGlyph}`;
+            ? (isChecklist ? 'i-list' : 'i-type')
+            : (isShape ? 'i-shape' : (isBackground ? 'i-layers' : 'i-image'));
+        icon.className = `canvas-layer-row__icon i ${iconGlyph} s14`;
         icon.setAttribute('aria-hidden', 'true');
         main.appendChild(icon);
 
@@ -306,6 +306,19 @@ export default class extends Controller {
         text.className = 'canvas-layer-row__label';
         text.textContent = label;
         main.appendChild(text);
+
+        // "Vyplňuje klient" marker: the client fills this element — an
+        // unlocked text, an image placeholder or a recolourable shape.
+        const clientFills = isText
+            ? obj.locked !== true
+            : (isShape ? !!obj.colorChoice : isPlaceholder);
+        if (clientFills) {
+            const dot = document.createElement('span');
+            dot.className = 'canvas-layer-row__input';
+            dot.title = 'Vyplňuje klient';
+            dot.setAttribute('aria-label', 'Vyplňuje klient');
+            main.appendChild(dot);
+        }
 
         // A picture whose file is gone for good renders as a red stand-in on
         // the canvas (canvas_missing_images.js); the row says so as well, so
@@ -341,7 +354,7 @@ export default class extends Controller {
         lock.setAttribute('aria-label', `${lockTitle}: ${label}`);
         lock.setAttribute('aria-pressed', String(locked));
         const lockIcon = document.createElement('i');
-        lockIcon.className = `mdi ${locked ? 'mdi-lock' : 'mdi-lock-open-variant-outline'}`;
+        lockIcon.className = `i ${locked ? 'i-lock' : 'i-unlock'} s14`;
         lockIcon.setAttribute('aria-hidden', 'true');
         lock.appendChild(lockIcon);
         row.appendChild(lock);
@@ -360,14 +373,14 @@ export default class extends Controller {
         eye.setAttribute('aria-label', `${isHidden ? 'Zobrazit' : 'Skrýt'} vrstvu: ${label}`);
         eye.setAttribute('aria-pressed', String(isHidden));
         const eyeIcon = document.createElement('i');
-        eyeIcon.className = `mdi ${isHidden ? 'mdi-eye-off-outline' : 'mdi-eye-outline'}`;
+        eyeIcon.className = `i ${isHidden ? 'i-eye-off' : 'i-eye'} s14`;
         eyeIcon.setAttribute('aria-hidden', 'true');
         eye.appendChild(eyeIcon);
         row.appendChild(eye);
 
         // Drag affordance only — the whole row is the Sortable drag target.
         const grip = document.createElement('i');
-        grip.className = 'canvas-layer-row__grip mdi mdi-drag-vertical';
+        grip.className = 'canvas-layer-row__grip i i-grip s14';
         grip.title = 'Tažením změníte pořadí';
         grip.setAttribute('aria-hidden', 'true');
         row.appendChild(grip);

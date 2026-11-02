@@ -11,7 +11,7 @@ orchestrator dispatches on Fabric's selection lifecycle:
 
 | Controller | Responsibility |
 |---|---|
-| `canvas_editor_controller` | Orchestrator. Owns the Fabric `Canvas` (retina scaling OFF above ~4M logical px — a print-size canvas would repaint dpr²× the pixels on every frame, the "editor is laggy" report), loads/saves canvas JSON, marks the form dirty, broadcasts selection changes. Also owns **backdrop targeting**: an UNLOCKED image covering ≥90 % of the canvas (`isBackdropCovering`/`applyBackdropState` in `canvas_custom_properties.js`) is click-through while unselected — dragging over it rubber-bands and a marquee never pulls it in (an evented full-canvas image would join EVERY marquee) — but unlike `editorLocked` no lock flags are set: a plain CLICK (mouse:up, no movement, nothing hit) selects it Canva-style and it becomes fully movable until deselected (Esc discards the selection — and so does a press on empty bare grey editor surface, the only CLICK off a selected backdrop, since its pixels leave no empty canvas to click). **The bare surface around the canvas element acts as more canvas** (`forwardSurfacePress` / `hoverSurface`): a press on the grey viewport/stage/wrapper is re-dispatched to Fabric's upper canvas at the same client point — Fabric's pointer math and `_checkTarget` have no element-bounds check — so a press on an object's part lying out there selects + drags it, and a press on nothing discards the selection; hovering such a part shows the move cursor. Stage chrome (toolbar, popovers, rulers, guides, SVG handles + move grip) has its own targets and is untouched. The backdrop click-select (`maybeSelectBackdrop`) applies out there too, consistently with the canvas. Swept on every mutation/selection event; layers-panel selection gets the same active exemption. Pointer modifiers (`applyPointerModifiers`, on `mouse:down:before`): **Alt/⌥+drag** always rubber-bands even over objects (skipTargetFind for the press; a press on a transform handle keeps Alt = centered scaling), **Ctrl/⌘+drag** always grabs the object under the cursor — promotes a passthrough backdrop for the press (Photoshop Move-tool auto-select; composes with the ⌘ snap bypass). Cheatsheet hint under the stage in `_editor_stage.html.twig`. |
+| `canvas_editor_controller` | Orchestrator. Owns the Fabric `Canvas` (retina scaling OFF above ~4M logical px — a print-size canvas would repaint dpr²× the pixels on every frame, the "editor is laggy" report), loads/saves canvas JSON, marks the form dirty, broadcasts selection changes. Also owns **backdrop targeting**: an UNLOCKED image covering ≥90 % of the canvas (`isBackdropCovering`/`applyBackdropState` in `canvas_custom_properties.js`) is click-through while unselected — dragging over it rubber-bands and a marquee never pulls it in (an evented full-canvas image would join EVERY marquee) — but unlike `editorLocked` no lock flags are set: a plain CLICK (mouse:up, no movement, nothing hit) selects it Canva-style and it becomes fully movable until deselected (Esc discards the selection — and so does a press on empty bare grey editor surface, the only CLICK off a selected backdrop, since its pixels leave no empty canvas to click). **The bare surface around the canvas element acts as more canvas** (`forwardSurfacePress` / `hoverSurface`): a press on the grey viewport/stage/wrapper is re-dispatched to Fabric's upper canvas at the same client point — Fabric's pointer math and `_checkTarget` have no element-bounds check — so a press on an object's part lying out there selects + drags it, and a press on nothing discards the selection; hovering such a part shows the move cursor. Stage chrome (toolbar, popovers, rulers, guides, SVG handles + move grip) has its own targets and is untouched. The backdrop click-select (`maybeSelectBackdrop`) applies out there too, consistently with the canvas. Swept on every mutation/selection event; layers-panel selection gets the same active exemption. Pointer modifiers (`applyPointerModifiers`, on `mouse:down:before`): **Alt/⌥+drag** always rubber-bands even over objects (skipTargetFind for the press; a press on a transform handle keeps Alt = centered scaling), **Ctrl/⌘+drag** always grabs the object under the cursor — promotes a passthrough backdrop for the press (Photoshop Move-tool auto-select; composes with the ⌘ snap bypass). Cheatsheet in the "Nápověda" modal (`#editorHelpModal`, opened from the tool row). |
 | `canvas_history_controller` | Undo/redo stack — full-canvas-JSON snapshots, restored via the orchestrator's loader. |
 | `canvas_clipboard_controller` | Copy / paste / duplicate (keyboard + buttons). |
 | `canvas_zoom_controller` | CSS-transform-only visual zoom of the wrapper element. Dispatches `canvas-zoom:changed` so the floating toolbar re-anchors. |
@@ -263,11 +263,54 @@ members via `getCoords()` × viewport, dashed). Contracts:
   text is being edited Fabric clears `hasControls` → only its border shows.
 - Do not set `cornerSize`/`cornerStyle` on created objects — overwritten anyway.
 
+**Editor chrome layout (Nocturne, 2026-11-02 — P7 of the redesign).** Both
+editors render, inside the `.editor-shell` root, an `.ed-head`
+(`data-editor-header` — the floating toolbar keeps chrome below it, the stacked
+zoom fit subtracts it) with three bars, then the `.editor-shell-row` (left
+panel 264 px | stage). Styling lives in `assets/styles/nocturne/editor.css`
+(loaded after app.css, chrome only — canvas bitmap, SVG handles, guides,
+outlines and zones keep their colours).
+
+- **Top bar** `.ed-top`: back, eyebrow `.breadcrumb.ed-crumb` (project · Šablony
+  [· document · Strana N] — `TemplateDocumentPagesControllerTest` reads
+  `.breadcrumb`), `h1.ed-name`, undo/redo, the lavender **clean-preview eye**
+  (`editor-chrome#toggleClean` → `.ed-is-clean` on the shell hides outlines,
+  zones, rulers, guides, bleed guide via CSS; nothing persisted), save state
+  ("Vše uloženo" is the CSS complement of canvas-editor's
+  `unsavedChangesMessage` badge), "Zobrazení", "Vyplnit a exportovat", Save.
+- **Format tabs** `.ed-vars`: single editor = the template's ungrouped
+  variants as links (+ "Přidat rozměr" → add_template_variant), or the
+  document page strip (`document-page-strip`) on a document page; group
+  editor = the variant rail itself (`railCard`/`rail`/`card`/`includeToggle`/
+  `badge`/`dirtyDot` targets unchanged) + "Přidat rozměr" + the multi-edit
+  button styled as the "Upravovat všechny formáty najednou" switch
+  (`aria-pressed`; the controller's btn-primary toggling is neutralised).
+- **Tool row** `editor/_editor_tools.html.twig`: text, image, shape picker,
+  checklist, Pozadí, Nápověda (#editorHelpModal) + the zoom group
+  (`zoomOutButton`/`scaleDisplay`/`zoomInButton`). These used to be the left
+  panel's buttons — same actions, same controller root.
+- **Left panel** `_editor_left_panel.html.twig`: "Vrstvy n / Kontejnery n"
+  tabs are two radios + `:has()` (no JS) and the counts are CSS counters over
+  the controller-built rows (the tab strip comes after the lists in the DOM
+  and is moved up with `order`; the hidden pane uses `visibility`, not
+  `display`, so it still counts). Layer rows use mask icons and a lavender
+  **client-input dot** (`canvas-layer-row__input`: unlocked text, image
+  placeholder, recolourable shape).
+- **Inspector** = the existing floating popovers restyled (`.ed-insp`): header
+  tile, "Vyplňuje klient" switch card (image: the placeholder checkbox itself;
+  text: `clientFills`, an inverted proxy of `locked` kept in step by
+  canvas-input-properties — the "Uzamčeno" checkbox stays in the DOM, hidden),
+  section headings, Duplikovat / Smazat footer. Popover positioning and
+  `openPopover`'s first-field focus are unchanged.
+- **Rulers** read `--ruler-off/-bg/-tick/-text/-font` from the bar element
+  (editor.css sets them per theme) and repaint on a `data-theme` change.
+
 **Overlay chrome toggles** (`templates/editor/_editor_toggles.html.twig`, the
-top bar shared by the single-variant and the group editor). All five live
-behind ONE gear button ("Zobrazení") as a Bootstrap dropdown with
-`data-bs-auto-close="outside"` — they are set occasionally and were costing the
-widest row of editor chrome. The menu stays in the DOM while closed, which is
+top bar shared by the single-variant and the group editor). They live behind
+ONE button ("Zobrazení") as a Bootstrap dropdown with
+`data-bs-auto-close="outside"`, styled as the prototype's check menu (each
+checkbox is restyled into the ✓ mark; still a real `<input role="switch">`).
+The menu stays in the DOM while closed, which is
 what keeps the connect-time reads below working. Element IDs are the
 contract — each controller reads its switch's initial state with
 `querySelector('#…')` on connect, so a renamed id silently starts the chrome
@@ -280,6 +323,7 @@ OFF with no error anywhere. None of them persist: every reload starts all-on.
 | `#container-zones-control` | canvas-container `toggleZones` | the dashed `.container-zone` chrome |
 | `#snap-enabled-control` | canvas-snapping | drag snapping |
 | `#ruler-enabled-control` | canvas-rulers | rulers + guides |
+| `#navigator-visible-control` | editor-chrome `toggleNavigator` | the navigator panel (`.ed-nav-off`; hidden < 768 px anyway) |
 
 Frames and captions are the two INDEPENDENT halves of one overlay: all four
 combinations are reachable, so ONE `.editable-outline` element per object is

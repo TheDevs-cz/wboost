@@ -641,3 +641,99 @@ reordering inside a variant never worked (course/variant reorder is fine).
 Manual components used on `manual_preview` (`DownloadManualImage`,
 `LogoColorsMapping`, `ManualPageText`) still use mdi icons — customer output
 surface, left for P10.
+
+---
+
+## 2026-11-02 — P7 Editor chrome (variant + group editor)
+
+**What.** Both canvas editors in the prototype's `.ed` look (renderTpEd,
+screens 20–21): top bar, format tabs, tool row, left panel with Vrstvy /
+Kontejnery tabs, the floating popovers restyled as the inspector, Zobrazení
+check menu, navigator card, themed rulers. Chrome only — canvas bitmap,
+pasteboard dim, SVG handles, guides, outlines, zones and every
+`assets/editor/*.js` classic script untouched.
+
+**How / files.**
+- CSS `assets/styles/nocturne/editor.css` (after app.css + fill.css in
+  `assets/app.js` — note: that import line already landed in P9's commit
+  7d6b9c0 because it shared the working tree; this commit adds the file).
+- `template_variant_editor` / `template_group_editor`: page header + breadcrumb
+  blocks emptied, `inner_class` `inner-wide ed-inner` (edge to edge). New
+  `.ed-head[data-editor-header]` wraps three bars:
+  - `.ed-top`: back (leave-guarded), eyebrow `.breadcrumb.ed-crumb`
+    (project · Šablony [· document · Strana N]), `h1.ed-name`, undo/redo,
+    lavender clean-preview eye, "Vše uloženo" (CSS complement of the
+    `unsavedChangesMessage` badge) / "Neuložené změny", Zobrazení, Vyplnit a
+    exportovat (`confirmExport` kept), mint Uložit (`btn-success`).
+  - `.ed-vars`: single editor = template's ungrouped variants as tabs
+    (links) + "Přidat rozměr" (add_template_variant, `template_edit` only), or
+    the document page strip (same `document-page-strip` controller). Group
+    editor = the variant rail (all `group-editor` targets kept; chip = tab +
+    badge + opt-in switch) + "Přidat rozměr" + the mode button restyled as the
+    "Upravovat všechny formáty najednou" switch (aria-pressed driven; the
+    controller's btn-primary toggling is neutralised). Scope indicator
+    (`group-variant-rail-card--all`) = lavender underline of the row.
+  - `editor/_editor_tools.html.twig` (new): text / image / shape picker
+    (CSS-mask glyphs instead of mdi) / checklist / Pozadí / Nápověda + zoom
+    group (− 52 % +). These were the left-panel buttons; same actions. No
+    fonts → disabled text button + peach "Nejsou nahrány fonty" pill.
+- `_editor_left_panel`: radio tabs + `:has()` (no JS), counts = CSS counters
+  over the controller-built rows (tab strip after the lists in the DOM,
+  `order: -1`; inactive pane hidden with `visibility` so it still counts).
+- `_editor_toggles`: Zobrazení = check menu (inputs restyled into ✓/✗, ids +
+  actions kept) + new "Mini navigátor" switch; "Popisky prvků" relabelled
+  "Popisky vstupů pro klienta" (prototype wording).
+- `_editor_stage`: mini toolbar + multi bar on mask icons (`.btn[title]`
+  contract kept), popovers = `.ed-insp` with `.ed-ph` header (grip handle
+  kept, icon tile, Uložit, ×), "Vyplňuje klient" switch card (image = the
+  placeholder checkbox moved to the top; text = new `clientFills` proxy of
+  `locked`), section headings, Duplikovat / Smazat footer; info/plus/x icons
+  → mask icons; navigator handle shows "Navigátor".
+- JS (minimal): new `editor_chrome_controller.js` (clean preview
+  `.ed-is-clean`, navigator toggle `.ed-nav-off`, leave guard for chrome
+  links); `canvas_input_properties` (`clientFills` target +
+  `updateClientFills`, `_setLocked`/`_mirrorLocked`, sample icon classes);
+  `canvas_floating_toolbar` (lock / placeholder icon swaps → mask classes);
+  `canvas_layers` (mask icons, **client-input dot** = new-features #28 cheap
+  part: unlocked text, image placeholder, recolourable shape);
+  `canvas_container` (panel row icon); `canvas_rulers` (colours from
+  `--ruler-*` on the bar, repaint on `data-theme` change).
+- Docs: `docs/architecture/templates-editor-ui.md` (new "Editor chrome
+  layout" section, toggles table + navigator row), `templates-module-and-groups.md`
+  (mode switch label).
+
+**Decisions.** Inspector stays the FLOATING popover (positioning, first-field
+focus and drag untouched) — only its look follows screen 21; no new
+position/size fields (would be canvas behaviour). The clean-preview eye is
+chrome-only CSS (does not flip the Zobrazení switches). Stage = neutral dotted
+surface-2 with the canvas centred (`margin: auto` in a flex viewport — safe
+when zoomed in). Off-canvas count on single-editor tabs (#28 second part) not
+done — needs per-variant canvas analysis; the group rail badge already does it.
+Navigator hidden < 768 px; < 992 px the editor stacks (prototype's phone
+notice shown), the sticky `.editor-left-panel-card` contract kept.
+
+**Tests changed.** None (selectors, ids, `.breadcrumb` text kept).
+
+**Verified.** Gate green. shoot.cjs on variant, group and document-page
+editor at 390/820/1440 × dark/light: no overflow, no JS errors (only Minio
+image 404s). Puppeteer (both themes): select object via a real click on the
+canvas → mini toolbar; pencil → text inspector; "Vyplňuje klient" flips
+`locked` both ways + layer dot + dirty badge; Vzorový text modal
+(#sampleTextModal); Zobrazení menu (navigator + rulers off/on); clean eye;
+zoom − / + (page stays pinned, scrollY 0); Kontejnery tab; layer row select;
+#addTextModal, #imageGalleryModal (image + Pozadí), #addChecklistModal,
+#editorHelpModal; shape picker → star added; #exportUnsavedModal on dirty
+Vyplnit. Group editor: tab switching (canvas resizes per format), mode switch
+off/on (opt-in switches hide/show, scope underline), include toggle; image
+and shape inspectors on a document page.
+
+**Not verified.** Real drag-restack of layer rows after the restyle (Sortable
+handles unchanged), guide drag-out of the themed rulers, the Uložit/× in a
+popover on a group editor resync, the leave-guard confirm dialogs (native
+`confirm()`), mobile editing beyond "it renders without overflow".
+
+**Follow-ups.** Off-canvas count on single-editor format tabs; container
+membership icon on layer rows (needs a member lookup); inline template
+rename in the top bar (prototype `ed-name` input — needs a rename endpoint
+call); the rich-text sample-modal toolbar still uses mdi (shared fill-page
+WYSIWYG markup) — P10 sweep.
