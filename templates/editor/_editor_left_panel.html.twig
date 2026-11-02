@@ -1,92 +1,45 @@
-{# Left panel: background / add text / add image / layers list. All actions
-   target controllers present on both the single-variant and the group editor page. #}
+{# Left panel (prototype `.ed-left`): underline tabs "Vrstvy n" / "Kontejnery n"
+   over the layers list and the containers list. The compose actions (Pozadí,
+   text, image, shape, checklist) live in the tool row above the stage —
+   editor/_editor_tools.html.twig. Shared by both editors.
+
+   Tabs are two radios + CSS (`:has()` in editor.css) — no JS, so they can't
+   fight the Stimulus targets inside. The counts are CSS counters over the
+   rows the controllers build; that is why the tab strip comes AFTER the lists
+   in the DOM (a counter only shows what was counted before it) and is moved
+   on top with `order`. The radios carry `form="ed-no-form"` so they never
+   join the editor form's POST. #}
 {# Sticky only below lg — in the app-shell layout the surrounding column is the
    scroll container, where a sticky card would offset itself as you scroll it. #}
-<div class="card editor-left-panel-card">
-    <div class="card-body">
-        {# Picking a background is composing the canvas, not a global editor
-           control — it belongs with the other "put something on the stage"
-           actions rather than next to undo/zoom in the top bar. Outside the
-           fonts guard below: a project with no fonts can still set one. #}
-        <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button"
-                data-action="canvas-editor#showBackgroundModal"
-                {% if group_mode|default(false) %}title="Pozadí aktivní varianty"{% endif %}><i class="mdi mdi-image me-1"></i> Pozadí</button>
+<div class="card editor-left-panel-card ed-left">
+    <input type="radio" class="ed-ltab-input" name="ed-left-tab" id="ed-tab-layers" form="ed-no-form" checked>
+    <input type="radio" class="ed-ltab-input" name="ed-left-tab" id="ed-tab-containers" form="ed-no-form">
 
-        {% if fonts|length == 0 %}
-            <p class="text-danger">
-                <i class="text-danger uil-exclamation-triangle me-1"></i> Nejsou nahrány fonty
-            </p>
-        {% else %}
-            <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddTextModal"><i class="uil-text-fields me-1"></i> Přidat text</button>
-            <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddChecklistModal"><i class="mdi mdi-format-list-checks me-1"></i> Přidat zaškrtávací seznam</button>
-        {% endif %}
-
-        <button class="btn btn-sm btn-outline-secondary w-100 mb-1 text-start" type="button" data-action="canvas-editor#showAddImageModal"><i class="uil-image me-1"></i> Přidat obrázek</button>
-
-        {# Vector shapes. A picker rather than a modal: unlike a text or an
-           image there is nothing to configure UP FRONT — the shape lands
-           centred in the first brand colour and everything about it (fill or
-           gradient, border, rounding, opacity) is edited on the canvas through
-           its floating popover, Canva-style.
-
-           The kind rides as a Stimulus action param. Labels + icons mirror
-           SHAPE_KINDS in assets/controllers/canvas_shapes.js, which names the
-           same shapes in the Vrstvy panel — keep the two in step. #}
-        <div class="dropdown mb-2">
-            <button class="btn btn-sm btn-outline-secondary w-100 text-start dropdown-toggle" type="button"
-                    data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="mdi mdi-shape-outline me-1"></i> Přidat tvar
-            </button>
-            <div class="dropdown-menu shape-picker p-2">
-                <div class="shape-picker__grid">
-                    {% for shape in [
-                        {kind: 'rectangle', label: 'Obdélník', icon: 'mdi-rectangle-outline'},
-                        {kind: 'square', label: 'Čtverec', icon: 'mdi-square-outline'},
-                        {kind: 'circle', label: 'Kruh', icon: 'mdi-circle-outline'},
-                        {kind: 'ellipse', label: 'Elipsa', icon: 'mdi-ellipse-outline'},
-                        {kind: 'triangle', label: 'Trojúhelník', icon: 'mdi-triangle-outline'},
-                        {kind: 'line', label: 'Čára', icon: 'mdi-minus'},
-                        {kind: 'star', label: 'Hvězda', icon: 'mdi-star-outline'},
-                    ] %}
-                        <button type="button" class="shape-picker__item" title="{{ shape.label }}"
-                                data-action="canvas-editor#addShape"
-                                data-canvas-editor-kind-param="{{ shape.kind }}">
-                            <i class="mdi {{ shape.icon }}" aria-hidden="true"></i>
-                            <span>{{ shape.label }}</span>
-                        </button>
-                    {% endfor %}
-                </div>
-                <p class="text-muted small mb-0 mt-2">Barvu, přechod, obrys a zaoblení nastavíte po vložení v bublině u tvaru.</p>
-            </div>
-        </div>
-
-        {# The highlight / snapping / rulers toggles live in the TOP bar next
-           to the zoom controls — editor/_editor_toggles.html.twig. #}
-
-        <hr class="my-2">
-
-        {# Photoshop-style layers list (canvas_layers_controller): topmost first,
-           hover highlights the object on the stage, click selects it and opens
-           its property popover, arrows restack one step. Rows are built by JS
-           from the live Fabric object list. #}
-        <p class="small fw-bold text-muted text-uppercase mb-1"><i class="mdi mdi-layers-outline me-1"></i>Vrstvy</p>
-        <div class="canvas-layers-list mb-1" data-canvas-layers-target="list" role="list" aria-label="Vrstvy plátna"></div>
-
-        {# Containers panel (canvas_container_controller): the Vrstvy pattern
-           for container zones — tree-ordered rows in the zones' depth colors,
-           hover highlights the zone on the stage (everything else dims),
-           click selects the container. Hidden while no containers exist. #}
-        <div class="d-none" data-canvas-container-target="panel">
-            <hr class="my-2">
-            <p class="small fw-bold text-muted text-uppercase mb-1"><i class="mdi mdi-view-agenda-outline me-1"></i>Kontejnery</p>
-            <div class="container-panel-list mb-1" data-canvas-container-target="panelList" role="list" aria-label="Kontejnery plátna"></div>
-        </div>
-
-        {% if group_mode|default(false) %}
-            <hr class="my-2">
-            <p class="text-muted small mb-0">
-                <i class="uil-layer-group me-1"></i>Přidání a smazání prvku se přenáší do všech variant vždy. Posuny, velikosti a vlastnosti jen když je nad plátnem zapnutá <strong>Úprava více variant</strong> — pak poměrově podle rozměru, texty a vlastnosti přesně.
-            </p>
-        {% endif %}
+    {# Photoshop-style layers list (canvas_layers_controller): topmost first,
+       hover highlights the object on the stage, click selects it and opens
+       its property popover, drag restacks. Rows are built by JS from the live
+       Fabric object list. #}
+    <div class="ed-lpane ed-lpane--layers">
+        <div class="canvas-layers-list" data-canvas-layers-target="list" role="list" aria-label="Vrstvy plátna"></div>
     </div>
+
+    {# Containers panel (canvas_container_controller): tree-ordered rows in the
+       zones' depth colours, hover highlights the zone on the stage, click
+       selects the container. The controller hides `panel` while no
+       containers exist — the hint below then explains the feature. #}
+    <div class="ed-lpane ed-lpane--containers">
+        <div class="d-none" data-canvas-container-target="panel">
+            <div class="container-panel-list" data-canvas-container-target="panelList" role="list" aria-label="Kontejnery plátna"></div>
+        </div>
+        <p class="ed-hint">Kontejner řadí texty pod sebe s pevnou mezerou. Když klient vyplní méně řádků, ostatní se posunou. Vytvoříte ho z několika vybraných prvků (ikona v liště nad výběrem).</p>
+    </div>
+
+    <div class="ed-tabs" role="tablist" aria-label="Panel editoru">
+        <label for="ed-tab-layers" role="tab">Vrstvy <span class="pd-n ed-count ed-count--layers" aria-hidden="true"></span></label>
+        <label for="ed-tab-containers" role="tab">Kontejnery <span class="pd-n ed-count ed-count--containers" aria-hidden="true"></span></label>
+    </div>
+
+    {% if group_mode|default(false) %}
+        <p class="ed-hint ed-hint--group">{{ icon('refresh', 's12') }} Přidání a smazání prvku se přenáší do všech formátů vždy. Posuny, velikosti a vlastnosti jen když je zapnuté <strong>Upravovat všechny formáty najednou</strong> — pak poměrově podle rozměru, texty a vlastnosti přesně.</p>
+    {% endif %}
 </div>

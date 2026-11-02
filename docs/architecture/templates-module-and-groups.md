@@ -93,7 +93,7 @@ means:
 
 - **EDITS** (moves, resizes, styles, metadata, z-order, containers — i.e.
   `syncPass`) go to `targets()`: EMPTY when the designer turns off
-  **"Úprava více variant"** (the mode button in the variant rail — ON by
+  **"Úprava více variant"** (the mode switch in the variant rail, labelled "Upravovat všechny formáty najednou" since the Nocturne redesign — ON by
   default with every variant included since 2026-08-10; was OFF by default),
   otherwise the variants whose per-variant switch is on. Those switches are
   chrome of the mode and only render with it (CSS `--multi` on the rail); the

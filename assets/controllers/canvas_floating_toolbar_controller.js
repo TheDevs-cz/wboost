@@ -264,7 +264,7 @@ export default class extends Controller {
             this.lockButtonTarget.setAttribute('aria-label', label);
             this.lockButtonTarget.setAttribute('aria-pressed', String(locked));
             const icon = this.lockButtonTarget.querySelector('i');
-            if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
+            if (icon) icon.className = locked ? 'i i-lock s16' : 'i i-unlock s16';
         }
 
         if (type === 'image' && this.hasPlaceholderButtonTarget) {
@@ -275,7 +275,7 @@ export default class extends Controller {
             this.placeholderButtonTarget.setAttribute('aria-label', label);
             this.placeholderButtonTarget.setAttribute('aria-pressed', String(placeholder));
             const icon = this.placeholderButtonTarget.querySelector('i');
-            if (icon) icon.className = placeholder ? 'mdi mdi-image-edit' : 'mdi mdi-image-edit-outline';
+            if (icon) icon.className = 'i i-user s16';
         }
 
         if (type === 'image' && this.hasEditorLockButtonTarget) {
@@ -286,7 +286,7 @@ export default class extends Controller {
             this.editorLockButtonTarget.setAttribute('aria-label', label);
             this.editorLockButtonTarget.setAttribute('aria-pressed', String(locked));
             const icon = this.editorLockButtonTarget.querySelector('i');
-            if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
+            if (icon) icon.className = locked ? 'i i-lock s16' : 'i i-unlock s16';
         }
 
         if (this.hasMirrorButtonTarget) {
@@ -310,7 +310,7 @@ export default class extends Controller {
             this.shapeLockButtonTarget.setAttribute('aria-label', label);
             this.shapeLockButtonTarget.setAttribute('aria-pressed', String(locked));
             const icon = this.shapeLockButtonTarget.querySelector('i');
-            if (icon) icon.className = locked ? 'mdi mdi-lock' : 'mdi mdi-lock-open-variant-outline';
+            if (icon) icon.className = locked ? 'i i-lock s16' : 'i i-unlock s16';
         }
     }
 

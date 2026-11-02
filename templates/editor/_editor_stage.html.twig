@@ -27,64 +27,71 @@
        controllers via data-action; the pencil opens the full
        options popover below. #}
     <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="miniToolbar">
-        <button type="button" class="btn btn-sm btn-light" title="Upravit" data-action="canvas-floating-toolbar#openPopover"><i class="mdi mdi-pencil"></i></button>
-        <button type="button" class="btn btn-sm btn-light d-none" title="Nahradit obrázek z galerie" data-canvas-floating-toolbar-target="replaceImageButton" data-action="canvas-editor#showReplaceImageModal"><i class="mdi mdi-image-search-outline"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="mdi mdi-content-copy"></i></button>
-        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
-        <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-image-edit-outline"></i></button>
-        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout obrázek v editoru (proti posunutí)" data-canvas-floating-toolbar-target="editorLockButton" data-action="canvas-image-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Upravit" data-action="canvas-floating-toolbar#openPopover"><i class="i i-edit s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Nahradit obrázek z galerie" data-canvas-floating-toolbar-target="replaceImageButton" data-action="canvas-editor#showReplaceImageModal"><i class="i i-upload s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="i i-copy s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="i i-unlock s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="i i-user s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout obrázek v editoru (proti posunutí)" data-canvas-floating-toolbar-target="editorLockButton" data-action="canvas-image-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="i i-unlock s16"></i></button>
         {# Horizontal mirror (Fabric flipX) — decorative images only: a fill
            re-places a placeholder's picture and resets its flip server-side
            (ImagePlacement), so the toolbar hides it there. #}
-        <button type="button" class="btn btn-sm btn-light d-none" title="Zrcadlit vodorovně" data-canvas-floating-toolbar-target="mirrorButton" data-action="canvas-image-properties#toggleMirror canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-flip-horizontal"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Zrcadlit vodorovně" data-canvas-floating-toolbar-target="mirrorButton" data-action="canvas-image-properties#toggleMirror canvas-floating-toolbar#refreshContextToggle"><i class="i i-flip s16"></i></button>
         {# Shapes carry the same EDITOR lock as images, but the action has to
            reach canvas-shape-properties so its popover checkbox follows. #}
-        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout tvar v editoru (proti posunutí)" data-canvas-floating-toolbar-target="shapeLockButton" data-action="canvas-shape-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="mdi mdi-lock-open-variant-outline"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout tvar v editoru (proti posunutí)" data-canvas-floating-toolbar-target="shapeLockButton" data-action="canvas-shape-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="i i-unlock s16"></i></button>
         {% if group_mode|default(false) %}
-            <button type="button" class="btn btn-sm btn-light" title="Přenést do ostatních variant — poloha, velikost, styl a text tohoto prvku přepíšou jejich úpravy" data-action="group-editor#resyncActiveObject"><i class="mdi mdi-sync"></i></button>
+            <button type="button" class="btn btn-sm btn-light" title="Přenést do ostatních variant — poloha, velikost, styl a text tohoto prvku přepíšou jejich úpravy" data-action="group-editor#resyncActiveObject"><i class="i i-refresh s16"></i></button>
         {% endif %}
         <span class="canvas-mini-toolbar-sep"></span>
-        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="i i-front s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="i i-back s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
-        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
+        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="i i-trash s16"></i></button>
     </div>
 
     {# Floating multi-select bar (activeSelection): 6-way align +
        z-order + delete. #}
     <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="multiBar">
-        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vlevo" data-action="canvas-alignment#alignLeft"><i class="mdi mdi-format-horizontal-align-left"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed" data-action="canvas-alignment#alignCenter"><i class="mdi mdi-format-horizontal-align-center"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vpravo" data-action="canvas-alignment#alignRight"><i class="mdi mdi-format-horizontal-align-right"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vlevo" data-action="canvas-alignment#alignLeft"><i class="i i-alh-l s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed" data-action="canvas-alignment#alignCenter"><i class="i i-alh-c s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Zarovnat vpravo" data-action="canvas-alignment#alignRight"><i class="i i-alh-r s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
-        <button type="button" class="btn btn-sm btn-light" title="Zarovnat nahoru" data-action="canvas-alignment#alignTop"><i class="mdi mdi-format-vertical-align-top"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed svisle" data-action="canvas-alignment#alignMiddle"><i class="mdi mdi-format-vertical-align-center"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Zarovnat dolů" data-action="canvas-alignment#alignBottom"><i class="mdi mdi-format-vertical-align-bottom"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Zarovnat nahoru" data-action="canvas-alignment#alignTop"><i class="i i-alv-t s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Zarovnat na střed svisle" data-action="canvas-alignment#alignMiddle"><i class="i i-alv-m s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Zarovnat dolů" data-action="canvas-alignment#alignBottom"><i class="i i-alv-b s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
-        <button type="button" class="btn btn-sm btn-light" title="Vytvořit kontejner" data-canvas-container-target="createButton" data-action="canvas-container#createFromSelection"><i class="mdi mdi-view-agenda-outline"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Vytvořit kontejner" data-canvas-container-target="createButton" data-action="canvas-container#createFromSelection"><i class="i i-list s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
-        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="mdi mdi-arrange-bring-forward"></i></button>
-        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="mdi mdi-arrange-send-backward"></i></button>
-        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="mdi mdi-delete"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="i i-front s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="i i-back s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="i i-trash s16"></i></button>
     </div>
 
     {# Floating full-options popover: TEXT — fields driven by
        canvas-text-toolbar + canvas-input-properties (visibility
        owned by canvas-floating-toolbar). #}
-    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="textPopover">
+    <div class="canvas-floating-popover ed-insp card d-none" data-canvas-floating-toolbar-target="textPopover">
         <div class="card-body p-2">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small fw-bold d-inline-flex align-items-center">
-                    <i class="mdi mdi-drag canvas-popover-drag me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
-                    <i class="uil-text-fields me-1"></i> Text
-                </span>
-                <div class="d-flex align-items-center gap-1">
-                    <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="canvas-floating-toolbar#closePopovers"><i class="uil-check me-1"></i> Uložit</button>
-                    <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
-                </div>
+            <div class="ed-ph">
+                <i class="i i-grip s14 canvas-popover-drag" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                <span class="ed-ph-i"><i class="i i-type s16" aria-hidden="true"></i></span>
+                <span class="ed-ph-t">Text</span>
+                <button type="button" class="btn btn-success btn-sm ed-ph-ok" data-action="canvas-floating-toolbar#closePopovers">{{ icon('check', 's14') }}Uložit</button>
+                <button type="button" class="btn btn-ghost icon xs ed-ph-x" aria-label="Zavřít" title="Zavřít" data-action="canvas-floating-toolbar#closePopovers">{{ icon('x', 's14') }}</button>
             </div>
 
+            {# "Vyplňuje klient" = the inverse of the input's `locked` flag
+               (a locked text is never user-fillable). A proxy switch:
+               canvas-input-properties keeps it and the "Uzamčeno" checkbox
+               below (kept in the DOM, hidden) in step. #}
+            <label class="ed-input" for="client-fills-control">
+                <span class="form-check form-switch mb-0"><input type="checkbox" role="switch" id="client-fills-control" class="form-check-input" data-canvas-input-properties-target="clientFills" data-action="change->canvas-input-properties#updateClientFills change->canvas-floating-toolbar#refreshContextToggle"></span>
+                <span><b>Vyplňuje klient</b><span class="cap">Klient tento text při exportu přepíše.</span></span>
+            </label>
+
             <div class="row g-2">
+                <div class="col-12"><h3 class="ed-sec-h">Text</h3></div>
                 <!-- Font Family Control -->
                 <div class="col-12">
                     <label for="font-family-control" class="form-label small mb-1">Písmo</label>
@@ -102,10 +109,10 @@
                 <div class="col-12" data-font-choice-wrapper>
                     <div class="form-check mb-0">
                         <input type="checkbox" id="font-choice-control" class="form-check-input" data-canvas-input-properties-target="fontChoice" data-action="change->canvas-input-properties#toggleFontChoice">
-                        <label for="font-choice-control" class="form-check-label small">Uživatel může přepínat písmo <i class="mdi mdi-information-outline text-muted" data-canvas-input-properties-target="fontChoiceHint" title="Při vyplňování se u pole zobrazí výběr písma: použité písmo + zaškrtnutá."></i></label>
+                        <label for="font-choice-control" class="form-check-label small">Uživatel může přepínat písmo <i class="i i-info s12 ed-tip" data-canvas-input-properties-target="fontChoiceHint" title="Při vyplňování se u pole zobrazí výběr písma: použité písmo + zaškrtnutá."></i></label>
                     </div>
                     <div class="font-choice d-none mt-1" data-canvas-input-properties-target="fontChoiceList" aria-label="Písma k výběru"></div>
-                    <button type="button" class="btn btn-link btn-sm p-0 mt-1 d-none" title="Zaškrtne řezy, které manuál značky povoluje" data-canvas-input-properties-target="manualPreset" data-action="canvas-input-properties#applyManualPreset"><i class="mdi mdi-book-open-variant me-1"></i>Použít řezy z manuálu</button>
+                    <button type="button" class="btn btn-link btn-sm p-0 mt-1 d-none" title="Zaškrtne řezy, které manuál značky povoluje" data-canvas-input-properties-target="manualPreset" data-action="canvas-input-properties#applyManualPreset"><i class="i i-book s14 me-1"></i>Použít řezy z manuálu</button>
                     <div class="form-text small d-none" data-canvas-input-properties-target="fontChoiceEmpty">Zaškrtněte alespoň jedno další písmo — jinak uživatel nemá z čeho vybírat.</div>
                 </div>
 
@@ -113,7 +120,7 @@
                    row offers — any colour (brand swatches + free picker),
                    only the ticked swatches, or no colour change at all. #}
                 <div class="col-12 d-none" data-canvas-input-properties-target="colorChoiceWrapper">
-                    <label for="color-choice-mode-control" class="form-label small mb-1">Barvy pro uživatele <i class="mdi mdi-information-outline text-muted" title="Které barvy může uživatel v editoru textu použít. Výchozí barva (barva na plátně) je k dispozici vždy."></i></label>
+                    <label for="color-choice-mode-control" class="form-label small mb-1">Barvy pro uživatele <i class="i i-info s12 ed-tip" title="Které barvy může uživatel v editoru textu použít. Výchozí barva (barva na plátně) je k dispozici vždy."></i></label>
                     <select id="color-choice-mode-control" class="form-select form-select-sm" data-canvas-input-properties-target="colorChoiceMode" data-action="change->canvas-input-properties#updateColorChoiceMode">
                         <option value="any">Libovolná barva (vzorník + vlastní)</option>
                         <option value="list">Jen vybrané barvy</option>
@@ -123,7 +130,7 @@
                         <div class="d-flex align-items-center flex-wrap gap-1" role="group" aria-label="Povolené barvy" data-canvas-input-properties-target="colorChoiceSwatches"></div>
                         <div class="input-group input-group-sm mt-1" style="max-width: 12rem;">
                             <input type="text" class="form-control" placeholder="#rrggbb" aria-label="Přidat vlastní barvu" data-canvas-input-properties-target="colorChoiceCustom" data-action="keydown->canvas-input-properties#customColorKeydown">
-                            <button type="button" class="btn btn-outline-secondary" title="Přidat barvu do výběru" data-action="canvas-input-properties#addCustomColor"><i class="mdi mdi-plus"></i></button>
+                            <button type="button" class="btn btn-outline-secondary" title="Přidat barvu do výběru" data-action="canvas-input-properties#addCustomColor"><i class="i i-plus s14"></i></button>
                         </div>
                         <div class="form-text small d-none" data-canvas-input-properties-target="colorChoiceEmpty">Zaškrtněte alespoň jednu barvu — jinak uživatel nemůže barvu měnit vůbec.</div>
                     </div>
@@ -188,6 +195,8 @@
                     </select>
                 </div>
 
+                <div class="col-12"><h3 class="ed-sec-h">Vyplňování</h3></div>
+
                 <!-- Max Length Control -->
                 <div class="col-6">
                     <label for="max-length-control" class="form-label small mb-1">Max. délka</label>
@@ -197,7 +206,7 @@
 
                 <!-- Name Control -->
                 <div class="col-12">
-                    <label for="name-control" class="form-label small mb-1">Název pole <i class="mdi mdi-information-outline text-muted" title="Označení pole pro uživatele při vyplňování. Text na plátně upravíte dvojklikem přímo na něj — dokud ho nezměníte, kopíruje název."></i></label>
+                    <label for="name-control" class="form-label small mb-1">Název pole <i class="i i-info s12 ed-tip" title="Označení pole pro uživatele při vyplňování. Text na plátně upravíte dvojklikem přímo na něj — dokud ho nezměníte, kopíruje název."></i></label>
                     <input type="text" id="name-control" class="form-control form-control-sm" placeholder="např. Nadpis, Datum…" data-canvas-input-properties-target="name" data-action="input->canvas-input-properties#updateName">
                 </div>
 
@@ -209,7 +218,7 @@
 
                 <!-- Flags: locked / hidable / uppercase -->
                 <div class="col-12 d-flex flex-wrap column-gap-3">
-                    <div class="form-check mb-0">
+                    <div class="form-check mb-0 d-none">
                         <input type="checkbox" id="locked-control" class="form-check-input" data-canvas-input-properties-target="locked" data-action="change->canvas-input-properties#updateLocked">
                         <label for="locked-control" class="form-check-label small">Uzamčeno</label>
                     </div>
@@ -227,7 +236,7 @@
                 <div class="col-12" data-richtext-wrapper>
                     <div class="form-check mb-0">
                         <input type="checkbox" id="rich-text-control" class="form-check-input" data-canvas-input-properties-target="richText" data-action="change->canvas-input-properties#updateRichText">
-                        <label for="rich-text-control" class="form-check-label small">Formátovatelný text <i class="mdi mdi-information-outline text-muted" title="Uživatel může měnit písmo, barvu a podtržení částí textu."></i></label>
+                        <label for="rich-text-control" class="form-check-label small">Formátovatelný text <i class="i i-info s12 ed-tip" title="Uživatel může měnit písmo, barvu a podtržení částí textu."></i></label>
                     </div>
                 </div>
 
@@ -236,7 +245,7 @@
                    The rich/lists enable-toggles are hidden for them (forced
                    on); spacing + checkbox art below still apply. #}
                 <div class="col-12 d-none" data-canvas-input-properties-target="checklistSection">
-                    <span class="small fw-bold"><i class="mdi mdi-format-list-checks me-1"></i>Zaškrtávací seznam — uživatel může:</span>
+                    <h3 class="ed-sec-h">Zaškrtávací seznam — uživatel může</h3>
                     <div class="form-check mb-0 mt-1">
                         <input type="checkbox" id="checklist-toggle-control" class="form-check-input" data-canvas-input-properties-target="checklistToggle" data-action="change->canvas-input-properties#updateChecklistFlag" data-canvas-input-properties-prop-param="checklistToggle">
                         <label for="checklist-toggle-control" class="form-check-label small">Zaškrtávat / odškrtávat položky</label>
@@ -262,7 +271,7 @@
                 <div class="col-12" data-lists-wrapper>
                     <div class="form-check mb-0">
                         <input type="checkbox" id="lists-control" class="form-check-input" data-canvas-input-properties-target="lists" data-action="change->canvas-input-properties#updateLists">
-                        <label for="lists-control" class="form-check-label small">Povolit seznamy <i class="mdi mdi-information-outline text-muted" title="Uživatel může vkládat odrážkové a číslované seznamy (tlačítka v editoru textu)."></i></label>
+                        <label for="lists-control" class="form-check-label small">Povolit seznamy <i class="i i-info s12 ed-tip" title="Uživatel může vkládat odrážkové a číslované seznamy (tlačítka v editoru textu)."></i></label>
                     </div>
                 </div>
                 <div class="col-12 d-none" data-canvas-input-properties-target="listConfig">
@@ -276,20 +285,20 @@
                                     <option value="check">✓ Fajfka</option>
                                     <option value="image">Vlastní obrázek</option>
                                 </select>
-                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vybrat obrázek odrážky z galerie" data-canvas-input-properties-target="listBulletPick" data-action="canvas-input-properties#pickBulletImage"><i class="mdi mdi-image-search-outline"></i></button>
-                                <i class="mdi mdi-check-circle-outline text-success d-none flex-shrink-0" title="" data-canvas-input-properties-target="listBulletPreview"></i>
+                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vybrat obrázek odrážky z galerie" data-canvas-input-properties-target="listBulletPick" data-action="canvas-input-properties#pickBulletImage"><i class="i i-image s14"></i></button>
+                                <i class="i i-check-circle s14 ed-ok d-none flex-shrink-0" title="" data-canvas-input-properties-target="listBulletPreview"></i>
                             </div>
                         </div>
                         <div class="col-4">
-                            <label for="list-indent-control" class="form-label small mb-1">Odsazení <i class="mdi mdi-information-outline text-muted" title="Odsazení textu položky od levého okraje (px). Prázdné = automaticky dle velikosti písma."></i></label>
+                            <label for="list-indent-control" class="form-label small mb-1">Odsazení <i class="i i-info s12 ed-tip" title="Odsazení textu položky od levého okraje (px). Prázdné = automaticky dle velikosti písma."></i></label>
                             <input type="number" min="0" step="1" id="list-indent-control" class="form-control form-control-sm" placeholder="auto" data-canvas-input-properties-target="listIndent" data-action="change->canvas-input-properties#updateListSpacing" data-canvas-input-properties-prop-param="listIndent">
                         </div>
                         <div class="col-4">
-                            <label for="list-item-spacing-control" class="form-label small mb-1">Mezi položkami <i class="mdi mdi-information-outline text-muted" title="Mezera mezi položkami seznamu (px). Prázdné = 0."></i></label>
+                            <label for="list-item-spacing-control" class="form-label small mb-1">Mezi položkami <i class="i i-info s12 ed-tip" title="Mezera mezi položkami seznamu (px). Prázdné = 0."></i></label>
                             <input type="number" min="0" step="1" id="list-item-spacing-control" class="form-control form-control-sm" placeholder="auto" data-canvas-input-properties-target="listItemSpacing" data-action="change->canvas-input-properties#updateListSpacing" data-canvas-input-properties-prop-param="listItemSpacing">
                         </div>
                         <div class="col-4">
-                            <label for="list-block-spacing-control" class="form-label small mb-1">Mezi bloky <i class="mdi mdi-information-outline text-muted" title="Mezera mezi odstavcem a seznamem (px). Prázdné = automaticky dle velikosti písma."></i></label>
+                            <label for="list-block-spacing-control" class="form-label small mb-1">Mezi bloky <i class="i i-info s12 ed-tip" title="Mezera mezi odstavcem a seznamem (px). Prázdné = automaticky dle velikosti písma."></i></label>
                             <input type="number" min="0" step="1" id="list-block-spacing-control" class="form-control form-control-sm" placeholder="auto" data-canvas-input-properties-target="listBlockSpacing" data-action="change->canvas-input-properties#updateListSpacing" data-canvas-input-properties-prop-param="listBlockSpacing">
                         </div>
                         {# Checkbox lists: user-checkable items ('cb'/'cbx'
@@ -299,22 +308,22 @@
                         <div class="col-12" data-checkboxes-wrapper>
                             <div class="form-check mb-0">
                                 <input type="checkbox" id="list-checkboxes-control" class="form-check-input" data-canvas-input-properties-target="listCheckboxes" data-action="change->canvas-input-properties#updateListCheckboxes">
-                                <label for="list-checkboxes-control" class="form-check-label small">Povolit zaškrtávací seznam <i class="mdi mdi-information-outline text-muted" title="Uživatel může vkládat seznam se zaškrtávacími políčky a jednotlivé položky zaškrtávat/odškrtávat."></i></label>
+                                <label for="list-checkboxes-control" class="form-check-label small">Povolit zaškrtávací seznam <i class="i i-info s12 ed-tip" title="Uživatel může vkládat seznam se zaškrtávacími políčky a jednotlivé položky zaškrtávat/odškrtávat."></i></label>
                             </div>
                         </div>
                         <div class="col-12 d-none" data-canvas-input-properties-target="checkboxConfig">
-                            <label class="form-label small mb-1">Vzhled políček <i class="mdi mdi-information-outline text-muted" title="Bez vlastního obrázku se vykreslí čtvereček v barvě textu; zaškrtnutý s bílou fajfkou."></i></label>
+                            <label class="form-label small mb-1">Vzhled políček <i class="i i-info s12 ed-tip" title="Bez vlastního obrázku se vykreslí čtvereček v barvě textu; zaškrtnutý s bílou fajfkou."></i></label>
                             <div class="d-flex align-items-center gap-1 mb-1">
                                 <span class="small text-muted flex-shrink-0" style="width: 6.5rem;">Nezaškrtnuté</span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="unchecked"><i class="mdi mdi-image-search-outline"></i></button>
-                                <i class="mdi mdi-check-circle-outline text-success d-none flex-shrink-0" title="" data-canvas-input-properties-target="checkboxImagePreview"></i>
-                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vrátit výchozí vzhled" data-canvas-input-properties-target="checkboxImageClear" data-action="canvas-input-properties#clearCheckboxImage" data-canvas-input-properties-state-param="unchecked"><i class="mdi mdi-close"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="unchecked"><i class="i i-image s14"></i></button>
+                                <i class="i i-check-circle s14 ed-ok d-none flex-shrink-0" title="" data-canvas-input-properties-target="checkboxImagePreview"></i>
+                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vrátit výchozí vzhled" data-canvas-input-properties-target="checkboxImageClear" data-action="canvas-input-properties#clearCheckboxImage" data-canvas-input-properties-state-param="unchecked"><i class="i i-x s14"></i></button>
                             </div>
                             <div class="d-flex align-items-center gap-1">
                                 <span class="small text-muted flex-shrink-0" style="width: 6.5rem;">Zaškrtnuté</span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="checked"><i class="mdi mdi-image-search-outline"></i></button>
-                                <i class="mdi mdi-check-circle-outline text-success d-none flex-shrink-0" title="" data-canvas-input-properties-target="checkboxCheckedImagePreview"></i>
-                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vrátit výchozí vzhled" data-canvas-input-properties-target="checkboxCheckedImageClear" data-action="canvas-input-properties#clearCheckboxImage" data-canvas-input-properties-state-param="checked"><i class="mdi mdi-close"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="checked"><i class="i i-image s14"></i></button>
+                                <i class="i i-check-circle s14 ed-ok d-none flex-shrink-0" title="" data-canvas-input-properties-target="checkboxCheckedImagePreview"></i>
+                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vrátit výchozí vzhled" data-canvas-input-properties-target="checkboxCheckedImageClear" data-action="canvas-input-properties#clearCheckboxImage" data-canvas-input-properties-state-param="checked"><i class="i i-x s14"></i></button>
                             </div>
                         </div>
                     </div>
@@ -326,7 +335,7 @@
                    "Položky seznamu" (its sample IS the item list). #}
                 <div class="col-12">
                     <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-input-properties#openSampleModal">
-                        <i class="mdi mdi-text-box-outline me-1" data-canvas-input-properties-target="sampleIcon"></i><span data-canvas-input-properties-target="sampleLabel">Vzorový text</span>
+                        <i class="i i-type s14 me-1" data-canvas-input-properties-target="sampleIcon"></i><span data-canvas-input-properties-target="sampleLabel">Vzorový text</span>
                         <span class="badge bg-info-lighten text-info d-none" data-canvas-input-properties-target="sampleBadge">nastaven</span>
                     </button>
                 </div>
@@ -336,10 +345,13 @@
                here; the container itself (max. výška, mezery, vnoření,
                zrušení) is configured in its zone's ⚙ popover on the canvas. #}
             <div class="d-none" data-canvas-container-target="section">
-                <hr class="my-2">
-                <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
+                <h3 class="ed-sec-h">Kontejner</h3>
                 <p class="text-muted small my-2">Tento text je součástí kontejneru. Nastavení kontejneru (max. výška, mezery, vnoření) najdete pod ⚙ na jeho rámečku na plátně.</p>
                 <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
+            </div>
+            <div class="ed-acts">
+                <button type="button" class="btn btn-tertiary btn-sm" data-action="canvas-clipboard#duplicate">{{ icon('copy', 's14') }}Duplikovat</button>
+                <button type="button" class="btn btn-ghost-danger btn-sm" data-action="canvas-alignment#deleteObject">{{ icon('trash', 's14') }}Smazat</button>
             </div>
         </div>
     </div>
@@ -347,25 +359,28 @@
     {# Floating full-options popover: IMAGE — fields driven by
        canvas-image-properties (visibility owned by
        canvas-floating-toolbar). #}
-    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="imagePopover">
+    <div class="canvas-floating-popover ed-insp card d-none" data-canvas-floating-toolbar-target="imagePopover">
         <div class="card-body p-2">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small fw-bold d-inline-flex align-items-center">
-                    <i class="mdi mdi-drag canvas-popover-drag me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
-                    <i class="uil-image me-1"></i> Obrázek
-                </span>
-                <div class="d-flex align-items-center gap-1">
-                    <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="canvas-floating-toolbar#closePopovers"><i class="uil-check me-1"></i> Uložit</button>
-                    <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
-                </div>
+            <div class="ed-ph">
+                <i class="i i-grip s14 canvas-popover-drag" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                <span class="ed-ph-i"><i class="i i-image s16" aria-hidden="true"></i></span>
+                <span class="ed-ph-t">Obrázek</span>
+                <button type="button" class="btn btn-success btn-sm ed-ph-ok" data-action="canvas-floating-toolbar#closePopovers">{{ icon('check', 's14') }}Uložit</button>
+                <button type="button" class="btn btn-ghost icon xs ed-ph-x" aria-label="Zavřít" title="Zavřít" data-action="canvas-floating-toolbar#closePopovers">{{ icon('x', 's14') }}</button>
             </div>
+
+            {# Placeholder = "Vyplňuje klient": the user supplies the picture. #}
+            <label class="ed-input" for="image-placeholder-control">
+                <span class="form-check form-switch mb-0"><input type="checkbox" role="switch" id="image-placeholder-control" class="form-check-input" data-canvas-image-properties-target="placeholder" data-action="change->canvas-image-properties#updatePlaceholder"></span>
+                <span><b>Vyplňuje klient</b><span class="cap">Placeholder — klient sem při exportu vloží vlastní obrázek.</span></span>
+            </label>
 
             {# Name for EVERY image, placeholder or not: it labels the row in
                the "Vrstvy" panel (unnamed images fall back to a numbered
                "Obrázek N" there) and, once the image is a placeholder, doubles
                as the field tag the user sees while filling. #}
             <div class="mb-2">
-                <label for="image-name-control" class="form-label small mb-1">Název <i class="mdi mdi-information-outline text-muted" title="Zobrazí se v panelu Vrstvy. U placeholderu je to zároveň označení pole pro uživatele při vyplňování. Prázdný název = „Obrázek“ s pořadovým číslem."></i></label>
+                <label for="image-name-control" class="form-label small mb-1">Název <i class="i i-info s12 ed-tip" title="Zobrazí se v panelu Vrstvy. U placeholderu je to zároveň označení pole pro uživatele při vyplňování. Prázdný název = „Obrázek“ s pořadovým číslem."></i></label>
                 <input type="text" id="image-name-control" class="form-control form-control-sm" placeholder="např. Fotka, Logo…" data-canvas-image-properties-target="name" data-action="input->canvas-image-properties#updateName">
             </div>
 
@@ -374,10 +389,6 @@
                 <label for="image-editor-locked-control" class="form-check-label small">Zamknout v editoru <span class="text-muted">(chrání před náhodným posunutím — kliknutí prochází skrz, prvek pak vyberete v panelu Vrstvy; neovlivní export)</span></label>
             </div>
 
-            <div class="mb-2 form-check">
-                <input type="checkbox" id="image-placeholder-control" class="form-check-input" data-canvas-image-properties-target="placeholder" data-action="change->canvas-image-properties#updatePlaceholder">
-                <label for="image-placeholder-control" class="form-check-label small">Placeholder (uživatel vyplní obrázek)</label>
-            </div>
 
             <div data-canvas-image-properties-target="details" style="display: none;">
                 <div class="mb-2">
@@ -433,10 +444,13 @@
                only the element-specific action, the container is configured
                in its zone's ⚙ popover. #}
             <div class="d-none" data-canvas-container-target="section">
-                <hr class="my-2">
-                <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
+                <h3 class="ed-sec-h">Kontejner</h3>
                 <p class="text-muted small my-2">Obrázek se posouvá spolu s textem, který překrývá (ikona řádku); obrázek mimo texty tvoří vlastní řádek toku. Nastavení kontejneru najdete pod ⚙ na jeho rámečku.</p>
                 <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
+            </div>
+            <div class="ed-acts">
+                <button type="button" class="btn btn-tertiary btn-sm" data-action="canvas-clipboard#duplicate">{{ icon('copy', 's14') }}Duplikovat</button>
+                <button type="button" class="btn btn-ghost-danger btn-sm" data-action="canvas-alignment#deleteObject">{{ icon('trash', 's14') }}Smazat</button>
             </div>
         </div>
     </div>
@@ -445,17 +459,14 @@
        canvas-shape-properties (visibility owned by canvas-floating-toolbar).
        Everything here writes a NATIVE Fabric property, so it round-trips
        through the canvas JSONB and renders identically in the export. #}
-    <div class="canvas-floating-popover card d-none" data-canvas-floating-toolbar-target="shapePopover">
+    <div class="canvas-floating-popover ed-insp card d-none" data-canvas-floating-toolbar-target="shapePopover">
         <div class="card-body p-2">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small fw-bold d-inline-flex align-items-center">
-                    <i class="mdi mdi-drag canvas-popover-drag me-1" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
-                    <i class="mdi mdi-shape-outline me-1"></i> <span data-canvas-shape-properties-target="kindLabel">Tvar</span>
-                </span>
-                <div class="d-flex align-items-center gap-1">
-                    <button type="button" class="btn btn-success btn-sm py-0 px-1 d-inline-flex align-items-center" style="font-size: .7rem;" data-action="canvas-floating-toolbar#closePopovers"><i class="uil-check me-1"></i> Uložit</button>
-                    <button type="button" class="btn-close" style="font-size: .65rem;" aria-label="Zavřít" data-action="canvas-floating-toolbar#closePopovers"></button>
-                </div>
+            <div class="ed-ph">
+                <i class="i i-grip s14 canvas-popover-drag" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></i>
+                <span class="ed-ph-i"><i class="i i-shape s16" aria-hidden="true"></i></span>
+                <span class="ed-ph-t"><span data-canvas-shape-properties-target="kindLabel">Tvar</span></span>
+                <button type="button" class="btn btn-success btn-sm ed-ph-ok" data-action="canvas-floating-toolbar#closePopovers">{{ icon('check', 's14') }}Uložit</button>
+                <button type="button" class="btn btn-ghost icon xs ed-ph-x" aria-label="Zavřít" title="Zavřít" data-action="canvas-floating-toolbar#closePopovers">{{ icon('x', 's14') }}</button>
             </div>
 
             {# --- Výplň: plná barva nebo přechod ------------------------- #}
@@ -499,13 +510,13 @@
                    white 100 % is a fade-in overlay over a photo. #}
                 <div class="d-flex align-items-center gap-1 mb-1">
                     <div class="shape-gradient-preview flex-grow-1" data-canvas-shape-properties-target="gradientPreview" aria-hidden="true"></div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Obrátit přechod" aria-label="Obrátit přechod" data-action="canvas-shape-properties#swapGradient"><i class="mdi mdi-swap-horizontal" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Obrátit přechod" aria-label="Obrátit přechod" data-action="canvas-shape-properties#swapGradient"><i class="i i-sort s14" aria-hidden="true"></i></button>
                 </div>
                 <div class="shape-gradient-stop shape-gradient-stop--head text-muted small">
                     <span>Barva</span><span>Krytí</span><span>Pozice</span><span></span>
                 </div>
                 <div data-canvas-shape-properties-target="gradientStops"></div>
-                <button type="button" class="btn btn-sm btn-link px-0 py-0 mb-1" data-canvas-shape-properties-target="gradientAdd" data-action="canvas-shape-properties#addGradientStop"><i class="mdi mdi-plus" aria-hidden="true"></i> Přidat barvu</button>
+                <button type="button" class="btn btn-sm btn-link px-0 py-0 mb-1" data-canvas-shape-properties-target="gradientAdd" data-action="canvas-shape-properties#addGradientStop"><i class="i i-plus s14" aria-hidden="true"></i> Přidat barvu</button>
                 <div class="row g-1 align-items-end">
                     <div class="col-12">
                         <label for="shape-gradient-type-control" class="form-label small mb-1">Typ</label>
@@ -560,7 +571,7 @@
                colorChoice / allowedColors / colorFree, resolved server-side by
                ShapeColorInput. #}
             <div class="mb-1">
-                <label for="shape-color-choice-control" class="form-label small mb-1">Barva pro uživatele <i class="mdi mdi-information-outline text-muted" title="Uživatel může při vyplňování šablony tvar přebarvit jednou barvou. Navržená barva je k dispozici vždy (návrat k původní)."></i></label>
+                <label for="shape-color-choice-control" class="form-label small mb-1">Barva pro uživatele <i class="i i-info s12 ed-tip" title="Uživatel může při vyplňování šablony tvar přebarvit jednou barvou. Navržená barva je k dispozici vždy (návrat k původní)."></i></label>
                 <select id="shape-color-choice-control" class="form-select form-select-sm" data-canvas-shape-properties-target="colorChoice" data-action="change->canvas-shape-properties#updateColorChoice">
                     <option value="">Uživatel barvu nemění</option>
                     <option value="fill">Může měnit barvu výplně</option>
@@ -572,7 +583,7 @@
                     <div class="d-flex align-items-center flex-wrap gap-1" role="group" aria-label="Barvy pro uživatele" data-canvas-shape-properties-target="colorChoiceSwatches"></div>
                     <div class="input-group input-group-sm mt-1" style="max-width: 12rem;">
                         <input type="text" class="form-control" placeholder="#rrggbb" aria-label="Přidat vlastní barvu" data-canvas-shape-properties-target="colorChoiceCustom" data-action="keydown->canvas-shape-properties#customColorKeydown">
-                        <button type="button" class="btn btn-outline-secondary" title="Přidat barvu do výběru" data-action="canvas-shape-properties#addCustomColor"><i class="mdi mdi-plus"></i></button>
+                        <button type="button" class="btn btn-outline-secondary" title="Přidat barvu do výběru" data-action="canvas-shape-properties#addCustomColor"><i class="i i-plus s14"></i></button>
                     </div>
                     <div class="form-check mt-1 mb-0">
                         <input type="checkbox" id="shape-color-free-control" class="form-check-input" data-canvas-shape-properties-target="colorFree" data-action="change->canvas-shape-properties#updateColorFree">
@@ -599,7 +610,7 @@
                 </div>
 
                 <div class="col-12">
-                    <label for="shape-name-control" class="form-label small mb-1">Název vrstvy <i class="mdi mdi-information-outline text-muted" title="Pro orientaci v panelu Vrstvy. Když uživatel může tvar přebarvit, zobrazí se mu tento název u výběru barvy."></i></label>
+                    <label for="shape-name-control" class="form-label small mb-1">Název vrstvy <i class="i i-info s12 ed-tip" title="Pro orientaci v panelu Vrstvy. Když uživatel může tvar přebarvit, zobrazí se mu tento název u výběru barvy."></i></label>
                     <input type="text" id="shape-name-control" class="form-control form-control-sm" placeholder="např. Podklad, Linka…" data-canvas-shape-properties-target="name" data-action="input->canvas-shape-properties#updateName">
                 </div>
 
@@ -615,10 +626,13 @@
                textbox / image popovers (all three are plural `section`
                targets). #}
             <div class="d-none" data-canvas-container-target="section">
-                <hr class="my-2">
-                <span class="small fw-bold"><i class="mdi mdi-view-agenda-outline me-1"></i> Kontejner</span>
+                <h3 class="ed-sec-h">Kontejner</h3>
                 <p class="text-muted small my-2">Tvar se posouvá spolu s textem, který překrývá (linka pod nadpisem); tvar mimo texty tvoří vlastní řádek toku. Nastavení kontejneru najdete pod ⚙ na jeho rámečku.</p>
                 <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
+            </div>
+            <div class="ed-acts">
+                <button type="button" class="btn btn-tertiary btn-sm" data-action="canvas-clipboard#duplicate">{{ icon('copy', 's14') }}Duplikovat</button>
+                <button type="button" class="btn btn-ghost-danger btn-sm" data-action="canvas-alignment#deleteObject">{{ icon('trash', 's14') }}Smazat</button>
             </div>
         </div>
     </div>
@@ -635,7 +649,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editorHelpModalLabel"><i class="mdi mdi-gesture-tap-button me-1"></i> Ovládání plátna</h5>
+                <h5 class="modal-title" id="editorHelpModalLabel">Ovládání plátna</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
             </div>
             <div class="modal-body">
@@ -665,7 +679,7 @@
 <div class="canvas-navigator d-none" data-canvas-navigator-target="panel">
     <div class="canvas-navigator__handle" title="Přesunout navigátor (dvojklik vrátí do rohu)" aria-label="Přesunout navigátor"
          data-action="pointerdown->canvas-navigator#beginMove dblclick->canvas-navigator#resetPosition">
-        <i class="mdi mdi-drag-horizontal-variant" aria-hidden="true"></i>
+        <i class="i i-grip s14" aria-hidden="true"></i><span>Navigátor</span>
     </div>
     <div class="canvas-navigator__map" data-action="mousedown->canvas-navigator#beginPan">
         <canvas data-canvas-navigator-target="thumb" aria-label="Navigátor plátna"></canvas>
@@ -712,7 +726,7 @@
          data-checklist-editor-can-add-value="true"
          data-checklist-editor-can-remove-value="true">
         <div class="d-flex flex-column gap-1" data-checklist-editor-target="rows"></div>
-        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-checklist-editor-target="addButton" data-action="checklist-editor#addItem"><i class="mdi mdi-plus me-1"></i>Přidat položku</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" data-checklist-editor-target="addButton" data-action="checklist-editor#addItem"><i class="i i-plus s14 me-1"></i>Přidat položku</button>
         <div class="d-flex justify-content-between mt-1">
             <small class="text-muted">Enter = nová položka</small>
             <small class="text-muted" data-checklist-editor-target="counter"></small>
