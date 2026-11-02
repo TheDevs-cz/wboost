@@ -144,6 +144,9 @@
     .inner.inner-wide { padding-top: 12px; }
     .head-tools { width: 100%; }
     .head-tools .inp { flex: 1; width: auto; }
+    /* One primary per view (§7.2): when the page puts its primary into the
+       top bar (+), the header's copy of it goes away (P10b — was per page). */
+    .main:has(.mbar-side > .btn-primary) .head-tools .btn-primary { display: none; }
     .sb-drawer body { overflow: hidden; }
 }
 .scrim[hidden] { display: none; }

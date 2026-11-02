@@ -155,9 +155,10 @@
 .tp-dims { display: grid; grid-template-columns: repeat(3, minmax(0, 160px)); gap: 12px; align-items: end; }
 .tp-print { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: var(--surface-2); }
 .tp-print.d-none { display: none !important; }
-.tp-print-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.tp-print-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; }
 .tp-print-row .tp-bleed { width: 160px; }
-.tp-print-row .form-check { margin-top: 24px; }
+.tp-print-row .form-check { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; } /* bottom-aligned with the bleed input, no phantom gap when it wraps (P10b) */
+@media (max-width: 600px) { .tp-print-row .form-check { min-height: 0; } }
 .tp-bgpick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .tp-bgpick .background-picker-thumb { width: 56px; height: 56px; border-radius: 12px; border: 1px solid var(--line-2); background-size: cover; background-position: center; }
 .tp-image .man-drop { min-height: 150px; }
@@ -257,7 +258,7 @@
 }
 
 /* ---- Export history page ------------------------------------------------------- */
-.tp-hist { border-radius: 22px; background: var(--surface); border: 1px solid var(--line); padding: 6px 10px; overflow-x: auto; }
+.tp-hist { position: relative; /* contains the th .visually-hidden — it escaped the scroller at 820 px (P10b) */ border-radius: 22px; background: var(--surface); border: 1px solid var(--line); padding: 6px 10px; overflow-x: auto; }
 .tp-hist .table { min-width: 720px; }
 .tp-hist .table > :not(caption) > * > * { vertical-align: middle; }
 .tp-hist tr.is-pinned > td { background: color-mix(in oklab, var(--lav-deep) 60%, transparent); }

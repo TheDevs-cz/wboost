@@ -76,16 +76,21 @@ export default class extends Controller {
     openDrawer() {
         this.root.classList.add('sb-drawer');
         if (this.hasScrimTarget) this.scrimTarget.hidden = false;
-        const first = this.sidebarTarget.querySelector('.nav-i, button');
+        // First visible control — `.nav-i, button` used to hit the hidden
+        // rail collapse button, so focus never entered the drawer (P10b).
+        const first = [...this.sidebarTarget.querySelectorAll('.drawer-close, .nav-i')]
+            .find((el) => el.offsetParent !== null);
         if (first) first.focus({ preventScroll: true });
     }
 
     closeDrawer() {
         if (!this.root.classList.contains('sb-drawer')) return;
+        const hadFocus = this.sidebarTarget.contains(document.activeElement);
         this.root.classList.remove('sb-drawer');
         if (this.hasScrimTarget) this.scrimTarget.hidden = true;
         this.closeMe();
         this.closeQuickNav();
+        if (hadFocus) document.querySelector('[data-action~="shell#openDrawer"]')?.focus({ preventScroll: true });
     }
 
     resized() {

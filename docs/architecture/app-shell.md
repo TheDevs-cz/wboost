@@ -11,9 +11,15 @@ Nocturne shell from `docs/redesign/prototype/body.html`; partials live in
 
 - `assets/app.js` imports, in this order: Bootstrap 5.3 CSS → GrapesJS CSS →
   `styles/nocturne/*.css` (tokens, base, icons, buttons, forms, chips, cards,
-  dialogs, menus, tables, feedback, page, shell, auth) → `styles/app.css`
-  (feature rules) → `bootstrap_global.js` → Stimulus. Later wins on equal
-  specificity, so Nocturne beats Bootstrap and `app.css` beats both.
+  dialogs, menus, tables, feedback, page, shell, auth, then the area files
+  projects, manual, gallery, fonts, templates, admin, email, weekly-menu) →
+  `styles/app.css` (feature rules) → `nocturne/fill.css` + `editor.css`
+  (re-skin app.css's fill/editor rules) → `bootstrap_global.js` → Stimulus.
+  Later wins on equal specificity, so Nocturne beats Bootstrap and `app.css`
+  beats both. File map: CLAUDE.md "Design system".
+- Phone header rule (P10b): when a page fills `mobile_primary_action` (the
+  round + in the top bar), `.head-tools .btn-primary` is hidden ≤ 860 px —
+  one primary per view; don't hide it per page.
 - `assets/bootstrap_global.js` imports the Bootstrap ESM build (registers the
   `data-bs-*` data-API) and sets **`window.bootstrap`** — the Stimulus
   controllers call the global `bootstrap.Modal`. It also inits

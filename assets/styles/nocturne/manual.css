@@ -201,6 +201,15 @@
 .man-editor .mockup-editor-slot:hover, .man-editor .mockup-editor-slot.is-dragover { border-color: var(--lav); background: #f1edfb; }
 .man-editor .mockup-editor-slot-empty { color: #6b6772; }
 .man-editor .mockup-editor-slot-empty .i { width: 22px; height: 22px; color: #6d55b8; margin-bottom: 4px; }
+/* Phones (P10b): the scaled page leaves ~90 px slots — the empty-state copy
+   collided with the slot number and the file strip; keep just the icon. */
+@media (max-width: 600px) {
+    .man-editor .mockup-editor-desk, .man-editor .mockup-editor-stage-container { padding: 8px; }
+}
+@container (max-width: 520px) {
+    .man-editor .mockup-editor-slot-empty strong, .man-editor .mockup-editor-slot-dims { display: none; }
+    .man-editor .mockup-editor-slot-file { font-size: 10px; }
+}
 .man-editor .mockup-editor-slot-removed .i { width: 22px; height: 22px; }
 .man-editor .mockup-editor-slot-chip .i, .man-editor .mockup-editor-slot-file .i { width: 14px; height: 14px; }
 .man-editor .mockup-editor-slot-actions .btn { --bs-btn-padding-x: 12px; min-height: 32px; height: 32px; font-size: 12px; }

@@ -12,7 +12,7 @@
         <div class="adm-sheet-h"><h1 class="page-title adm-sheet-title">Nová šablona e-mailu</h1></div>
         <div class="adm-sheet-b">
             {{ form_row(form.name, {'attr': {'placeholder': 'Např. Podpis zaměstnanců'}}) }}
-            {{ form_row(form.backgroundImage) }}
+            {{ include('_template_image_field.html.twig', {field: form.backgroundImage, current: null, caption: 'pozadí podpisu v editoru'}) }}
             <p class="hint cap">{{ icon('info', 's14') }}Pozadí se v editoru šablony nabídne jako blok „Pozadí“. Vzhled a texty podpisu navrhnete po vytvoření v editoru.</p>
         </div>
         <div class="adm-sheet-f">
