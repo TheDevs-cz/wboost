@@ -79,9 +79,8 @@ class TemplateVariant
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public \DateTimeImmutable $createdAt,
 
-        #[Immutable]
         #[Column(length: 16, enumType: BackgroundMode::class, options: ['default' => 'canvas'])]
-        readonly public BackgroundMode $backgroundMode = BackgroundMode::Canvas,
+        public private(set) BackgroundMode $backgroundMode = BackgroundMode::Canvas,
     ) {
     }
 
@@ -131,6 +130,19 @@ class TemplateVariant
     public function edit(null|string $backgroundImagePath): void
     {
         $this->backgroundImage = $backgroundImagePath;
+    }
+
+    /**
+     * One-way upgrade of a legacy canvas-mode variant: the background moves
+     * from the canvas-level `backgroundImage` into an `isBackground` layer of
+     * `$canvas` (built by {@see \WBoost\Web\Services\Editor\LegacyBackgroundToLayer}).
+     * The `background_image` column already holds the asset path, which is
+     * exactly the denormalized pointer layer mode keeps — it stays as is.
+     */
+    public function convertBackgroundToLayer(string $canvas): void
+    {
+        $this->canvas = $canvas;
+        $this->backgroundMode = BackgroundMode::Layer;
     }
 
     public function assignToGroup(TemplateGroup $group): void
