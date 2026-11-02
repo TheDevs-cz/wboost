@@ -64,10 +64,6 @@
             {{ importmap('app') }}
         {% endblock %}
 
-        {# Legacy icon fonts (MDI / Unicons / Remix) — moved out of the Hyper
-           theme; redesigned screens use {{ icon('…') }} instead. P10 removes. #}
-        <link href="{{ asset('fonts/legacy-icons/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
-
         {% block custom_styles %}{% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}" data-controller="confirm-modal">

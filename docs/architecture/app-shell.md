@@ -19,15 +19,22 @@ Nocturne shell from `docs/redesign/prototype/body.html`; partials live in
   controllers call the global `bootstrap.Modal`. It also inits
   `[data-bs-toggle=tooltip|popover]` and the auth pages' password eye
   (`[data-password]`), the bits of Hyper's `app.min.js` we still needed.
-- Legacy icon fonts (MDI / Unicons / Remix) moved to
-  `public/fonts/legacy-icons/` and are still linked from `<head>`;
-  ApexCharts moved to `public/vendor/apexcharts/`. New markup uses
+- No icon fonts in the app (P10a): every icon is a mask icon —
   `{{ icon('name', 's16') }}` (`src/Twig/ShellExtension.php`) →
-  `<span class="i i-name s16" aria-hidden="true">`, mask icons from
-  `nocturne/icons.css`.
+  `<span class="i i-name s16" aria-hidden="true">`, from
+  `nocturne/icons.css`; JS builds the same `<span class="i i-name">`.
+  Missing glyph → add one to `icons.css` (24-unit viewBox, stroke 1.8,
+  round caps/joins; Lucide-compatible paths). ApexCharts lives in
+  `public/vendor/apexcharts/`.
 - `manual_preview.html.twig` (customer output) opts OUT: it overrides the
   `importmap` block with the `app_plain` entrypoint (no Nocturne), forces
-  light, and links the legacy `theme/css/app-saas.min.css` itself.
+  light, and links its own legacy look from `public/css/manual-preview/`:
+  `hyper.css` (the subset of the retired Hyper sheet its markup matches —
+  extracted by DOM matching, verified pixel-identical; Nunito woff fonts
+  beside it) and `mdi.css` (only the 5 MDI glyphs its partials use:
+  download, image, pencil, arrow-right, arrow-expand-horizontal). Adding an
+  MDI icon or a Hyper class to the preview partials means adding its rule
+  there.
 
 ### Theme
 
