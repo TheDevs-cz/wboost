@@ -70,7 +70,13 @@ class WeeklyMenuCourse
      */
     public function variants(): array
     {
-        return $this->variants->toArray();
+        // Sorted here too: #[OrderBy] only applies when the collection is
+        // loaded, so after a reorder in the same request (planner Live
+        // action → re-render) the already-loaded collection is stale.
+        $items = $this->variants->toArray();
+        usort($items, static fn($a, $b): int => $a->position <=> $b->position);
+
+        return $items;
     }
 
     public function sort(int $position): void
