@@ -1,0 +1,27 @@
+{# Statistiky helpers (prototype renderStats): sparkline, heatmap level,
+   Czech month header. #}
+
+{# Sparkline along the bottom of a KPI tile (.st-kpi .spark): line + 16 % area. #}
+{% macro spark(values) -%}
+    {%- set n = values|length -%}
+    {%- if n > 1 -%}
+        {%- set mx = max(values|merge([1])) -%}
+        {%- set pts = [] -%}
+        {%- for v in values -%}
+            {%- set pts = pts|merge([((loop.index0 * 100 / (n - 1))|round(2)) ~ ',' ~ ((40 - v / mx * 32)|round(2))]) -%}
+        {%- endfor -%}
+        <svg class="spark" viewBox="0 0 100 44" preserveAspectRatio="none" aria-hidden="true"><path class="sa" d="M0,44 L{{ pts|join(' L') }} L100,44 Z"/><path class="sl" d="M{{ pts|join(' L') }}" vector-effect="non-scaling-stroke"/></svg>
+    {%- endif -%}
+{%- endmacro %}
+
+{# Sequential heatmap level 0–4 relative to the table's max. #}
+{% macro level(value, max) -%}
+    {{- value <= 0 ? 0 : min(4, (value / max(max, 1) * 4)|round(0, 'ceil')) -}}
+{%- endmacro %}
+
+{# 'YYYY-MM' → column header: short Czech month, year under the first column and January. #}
+{% macro month_head(month, first, now_month) -%}
+    {%- set names = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'] -%}
+    {%- set parts = month|split('-') -%}
+    <th scope="col" class="hm-m{{ month == now_month ? ' now' }}">{{ names[(parts[1]|number_format) - 1] }}{% if first or parts[1] == '01' %}<small>{{ parts[0]|slice(2) }}</small>{% endif %}</th>
+{%- endmacro %}

@@ -280,3 +280,92 @@ controller/voter change — not done.
 **Follow-ups.** Gallery "used N×" badges need a batched usage query;
 folder image counts need a repository count; Náhled stránek (PDF-reader)
 view; manual pages for non-admin clients (`.man-cl`).
+
+---
+
+## 2026-11-02 — P8 Admin & account
+
+**What.** Uživatelé (+ inline registration requests), Pozvat uživatele, user
+profile (edit), Žádosti o registraci, Poptávky z webu, Statistiky (tabs, KPI
+tiles, heatmaps, themed ApexCharts), Soubory v úložišti, Můj účet, Upravit
+profil, Změna hesla, Propojené aplikace, AI (MCP server) — all in Nocturne.
+
+**How / files.**
+- CSS: `assets/styles/nocturne/admin.css` (imported in `assets/app.js`).
+- Users (`admin/users.html.twig`, `users_filter_controller.js`): prototype
+  `.u-card` list; pending requests pinned as mint rows with Zamítnout (existing
+  dismiss endpoint, new `?back=users` redirect whitelist in
+  `DismissRegistrationRequestController`) / Povolit (= invite page with the
+  e-mail prefilled); dismissed requests only under "Zamítnuté". Chips Vše ·
+  Žádosti · Zamítnuté (if any) · Administrátoři · Designeři · Uživatelé ·
+  Čekají na přijetí (if any) · Projekt ▾ (searchable, owner gets a "Vlastník"
+  pill). Row ⋯ = Bootstrap dropdown: Upravit profil, Znovu poslat pozvánku
+  (pending), Odebrat uživatele / Stáhnout pozvánku (existing ConfirmModal,
+  same text). Ordering me → pending invites → A–Z (Czech) in
+  `AdminUsersController`. New presentation query `Query/GetProjectAccess`
+  (+ `ProjectAccessRow`): owner + share pairs in one SQL.
+- Invite / edit user: `admin/_role_picker.html.twig` renders the `role`
+  ChoiceType as radio cards (`.rcard`, real `<input type=radio>`, look via
+  `:has(:checked)`, no JS); MCP scopes as `.scopes` checkbox rows; invite's
+  `projectIds` as a filterable pick list (`pick_filter_controller.js`). Field
+  names unchanged. Edit user = prototype profile dialog as a page (`.up-card`:
+  header, Profil / Projekty (read-only, from GetProjectAccess) / AI aplikace
+  sections, sticky footer). `EditUserController` passes `projects`.
+- Poptávky z webu: designed — a row per lead (monogram, name/company, source
+  pill, "Nová" = < 7 days, contact links, interests as tags, message excerpt
+  with `<details>` expand, relative date), source chips
+  (`chip_filter_controller.js`). There is no read/handled state, so no status
+  beyond "Nová".
+- Statistiky (`admin/usage.html.twig`, `admin/_stats_macros.html.twig`,
+  `usage_stats_controller.js`): tabs Klienti (exports) / Aktivita / Úložiště
+  over the three existing sections (hash + sessionStorage, so the "Načíst
+  znovu" round-trip lands back on Úložiště); KPI tiles with Twig-drawn
+  sparklines derived from the existing view models (queries untouched);
+  client × month and user × month tables as the prototype heatmap (levels
+  relative to the table max, current month peach); storage table restyled.
+  ApexCharts options read `--ch-1/--ch-2/--ch-ghost/--line/--subtle/--font`
+  at runtime, render when their tab is first visible, and re-render on the
+  theme switch (MutationObserver on `data-theme`). Inline chart scripts gone;
+  the vendor script tag stays.
+- Storage files: filter toolbar card, file rows (container query), Nocturne
+  pager. Account: `user_profile` (profile sections, Facebook row, links to
+  apps/AI), `edit_user_profile` + `change_password` as sheets,
+  `connected_apps` (designed: app + token record lists, revoke forms
+  unchanged), `mcp_guide` (designed: hero with server URL, numbered connect
+  steps, capability list, prompt cards, FAQ `<details>`, sticky side column;
+  all copy verbatim for McpGuideControllerTest).
+- `templates/admin/_macros.html.twig`: ago(), person_initials(), role /
+  role_pill / status.
+
+**Decisions.** Kept invite/edit as pages (sheet look), not modals. Dismiss
+inline has no confirmation (prototype); the old requests page keeps its
+ConfirmModal. Statistics tab names follow the existing sections, not the
+prototype's Klienti / Celý systém / Úspory (no data/queries for the latter).
+
+**Tests changed.** None (all selectors/texts kept; `selectButton('Uložit')`
+matches "Uložit změny").
+
+**Cheap features implemented.** #10 requests inline + Žádosti/Zamítnuté
+chips; project filter on users; #12 partially (read-only Projekty section on
+the user page).
+
+**Verified.** Gate on Admin/User/Mcp tests green (63), full gate before
+commit. shoot.cjs on all 12 screens 390/820/1440 × dark/light. Puppeteer:
+every chip, search, Projekt ▾ (search, Enter pick, owner pill, label), row
+menu + delete confirm modal, stats tabs (click, arrow keys, hash, reload),
+chart re-colour on the sidebar theme switch, role card radio, pick filter +
+count, blank invite blocked, lead source chip. No JS errors.
+
+**Found, not fixed (pre-existing).** Submitting the invite form with a blank
+e-mail (browser validation bypassed) 500s: `InviteUserFormData::$email` is a
+non-null string — same latent "blank → NULL" bug as the memory note on
+FormData. The page keeps the `required` attribute (no `novalidate`).
+
+**Not verified.** Actual invite/dismiss/resend round-trips in the browser
+(endpoints unchanged, covered by tests); real OAuth apps/tokens on
+Propojené aplikace (local DB has none); usage heatmap with 12+ months of data.
+
+**Follow-ups.** Sidebar still has a separate "Žádosti o registraci" item
+(could fold into Uživatelé' count like the prototype). Prototype Celý systém /
+Úspory tabs and client insights need new queries (#13/#14/#16). Users page
+has no "disabled" status (#9).

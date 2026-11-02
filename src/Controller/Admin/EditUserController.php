@@ -14,6 +14,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\User;
 use WBoost\Web\FormData\EditUserFormData;
 use WBoost\Web\FormType\EditUserFormType;
+use WBoost\Web\Query\GetProjectAccess;
 use WBoost\Web\Message\User\EditUser;
 use WBoost\Web\Value\UserRoleChoice;
 
@@ -21,6 +22,7 @@ final class EditUserController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
+        readonly private GetProjectAccess $getProjectAccess,
     ) {
     }
 
@@ -52,6 +54,8 @@ final class EditUserController extends AbstractController
         return $this->render('admin/edit_user.html.twig', [
             'form' => $form,
             'user' => $user,
+            // Read-only "Projekty" section of the profile page (owned + shared).
+            'projects' => $this->getProjectAccess->rows($user->id->toString()),
         ]);
     }
 }

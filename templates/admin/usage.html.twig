@@ -1,493 +1,436 @@
 {% extends 'base.html.twig' %}
+{% import 'admin/_stats_macros.html.twig' as st %}
+{% import 'admin/_macros.html.twig' as adm %}
 
 {% set active_menu_item = 'admin_usage' %}
 
 {% block title %}Statistiky{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item">Administrace</li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{#
+    Prototype renderStats: underline tabs over the three existing report
+    sections (Klienti = exports by client, Aktivita = user activity,
+    Úložiště = storage inventory), KPI tiles with sparklines, chart cards and
+    month heatmaps. Data and queries are unchanged (GetUsageOverview,
+    GetUserActivity, GetStorageOverview); sparklines/levels are derived here.
+    Tabs + ApexCharts theming: usage_stats_controller (charts render when their
+    tab is first shown and re-theme on the light/dark switch).
+#}
+
+{% set now_month = 'now'|date('Y-m') %}
+
+{# ---- derived per-month series for the KPI sparklines ---- #}
+{% set templates_by_month = [] %}
+{% set downloads_by_month = [] %}
+{% set clients_by_month = [] %}
+{% for month in usage.months %}
+    {% set i = loop.index0 %}
+    {% set t = 0 %}{% for s in usage.chartSeries %}{% set t = t + (s.data[i] ?? 0) %}{% endfor %}
+    {% set d = 0 %}{% set c = 0 %}
+    {% for owner in usage.owners %}
+        {% set od = owner.downloadsInMonth(month) %}
+        {% set d = d + od %}{% if od > 0 %}{% set c = c + 1 %}{% endif %}
+    {% endfor %}
+    {% set templates_by_month = templates_by_month|merge([t]) %}
+    {% set downloads_by_month = downloads_by_month|merge([d]) %}
+    {% set clients_by_month = clients_by_month|merge([c]) %}
+{% endfor %}
+{% set last_downloads = downloads_by_month|last ?: 0 %}
+{% set prev_downloads = downloads_by_month|length > 1 ? downloads_by_month[downloads_by_month|length - 2] : 0 %}
+{% set last_label = usage.chartCategories|last ?: '' %}
+
+{% block page_title_row %}
+    <header class="head">
+        <div class="head-main">
+            <span class="lbl">Administrace</span>
+            <h1 class="page-title">Statistiky</h1>
+        </div>
+    </header>
 {% endblock %}
 
 {% block content %}
-    <p class="text-muted mb-3">
-        Přehled exportů šablon a sociálních sítí napříč klienty. Sleduje se každé
-        stažení / export z webu i z API.
-        <strong>Unikátní šablony</strong> = počet různých šablon (designů),
-        <strong>varianty</strong> = počet různých variant, <strong>stažení</strong> = celkový počet exportů.
-    </p>
-
-    <div class="row">
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-layers position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0">{{ usage.totalUniqueTemplates }}</h2>
-                    <h6 class="text-uppercase mb-0">Unikátní šablony</h6>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-apps position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0">{{ usage.totalUniqueVariants }}</h2>
-                    <h6 class="text-uppercase mb-0">Unikátní varianty</h6>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-import position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0">{{ usage.totalDownloads }}</h2>
-                    <h6 class="text-uppercase mb-0">Stažení celkem</h6>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-users-alt position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0">{{ usage.clientCount }}</h2>
-                    <h6 class="text-uppercase mb-0">Aktivní klienti</h6>
-                </div>
-            </div>
-        </div>
+<div class="st-page" data-controller="usage-stats">
+    <div class="tabs-u" role="tablist" aria-label="Statistiky">
+        <button type="button" role="tab" id="st-tab-klienti" aria-controls="st-klienti" aria-selected="true" data-tab="klienti" data-action="usage-stats#select keydown->usage-stats#tabKey">{{ icon('users', 's16') }}Klienti</button>
+        <button type="button" role="tab" id="st-tab-aktivita" aria-controls="st-aktivita" aria-selected="false" tabindex="-1" data-tab="aktivita" data-action="usage-stats#select keydown->usage-stats#tabKey">{{ icon('trend', 's16') }}Aktivita</button>
+        <button type="button" role="tab" id="st-tab-uloziste" aria-controls="st-uloziste" aria-selected="false" tabindex="-1" data-tab="uloziste" data-action="usage-stats#select keydown->usage-stats#tabKey">{{ icon('database', 's16') }}Úložiště</button>
     </div>
 
-    {% if usage.isEmpty %}
-        <div class="alert alert-info">
-            Zatím nebyly zaznamenány žádné exporty. Jakmile uživatelé začnou stahovat
-            šablony, objeví se zde statistiky využití.
-        </div>
-    {% else %}
-        <div class="card shadow-sm rounded-3">
-            <div class="card-body">
-                <h4 class="header-title mb-3">Unikátní šablony podle klienta a měsíce</h4>
-                <div id="usage-chart" style="min-height: 360px;"></div>
+    {# =================================================================== Klienti #}
+    <section class="st-pane" id="st-klienti" role="tabpanel" aria-labelledby="st-tab-klienti" data-usage-stats-target="pane" data-tab="klienti">
+        <p class="cap st-lead">
+            Přehled exportů šablon a sociálních sítí napříč klienty. Sleduje se každé
+            stažení / export z webu i z API.
+            <strong>Unikátní šablony</strong> = počet různých šablon (designů),
+            <strong>varianty</strong> = počet různých variant, <strong>stažení</strong> = celkový počet exportů.
+        </p>
+
+        <div class="st-kpis">
+            <div class="st-kpi">
+                <span class="k">{{ icon('layers') }}Unikátní šablony</span>
+                <b>{{ usage.totalUniqueTemplates }}</b>
+                <span class="s">napříč {{ usage.projectCount }} {{ usage.projectCount == 1 ? 'projektem' : 'projekty' }}</span>
+                {{ st.spark(templates_by_month) }}
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('template') }}Unikátní varianty</span>
+                <b>{{ usage.totalUniqueVariants }}</b>
+                <span class="s">různé formáty a rozměry</span>
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('download') }}Stažení celkem</span>
+                <b>{{ usage.totalDownloads }}</b>
+                <span class="s">
+                    {% if last_label %}
+                        {% if prev_downloads > 0 %}
+                            {% set delta = ((last_downloads - prev_downloads) / prev_downloads * 100)|round %}
+                            <span class="{{ delta >= 0 ? 'up' : 'dn' }}">{{ delta >= 0 ? '▲' : '▼' }} {{ delta|abs }} %</span>
+                        {% endif %}
+                        {{ last_label }}: {{ last_downloads }}
+                    {% endif %}
+                </span>
+                {{ st.spark(downloads_by_month) }}
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('users') }}Aktivní klienti</span>
+                <b>{{ usage.clientCount }}</b>
+                <span class="s">{% if last_label %}{{ last_label }}: {{ clients_by_month|last }}{% endif %}</span>
+                {{ st.spark(clients_by_month) }}
             </div>
         </div>
 
-        <div class="card shadow-sm rounded-3 overflow-hidden">
-            <div class="card-body p-0">
-                <div class="table-responsive rounded-3">
-                    <table class="table table-hover table-sm align-middle mb-0">
-                        <thead class="table-light">
+        {% if usage.isEmpty %}
+            <div class="empty">
+                <span class="ico-c">{{ icon('chart') }}</span>
+                <p>Zatím nebyly zaznamenány žádné exporty. Jakmile uživatelé začnou stahovat
+                    šablony, objeví se zde statistiky využití.</p>
+            </div>
+        {% else %}
+            <div class="st-card">
+                <div class="st-card-h">
+                    <div><h2>Unikátní šablony podle klienta a měsíce</h2><span class="cap">Kolik různých šablon klienti v měsíci stáhli</span></div>
+                </div>
+                <div id="usage-chart" class="st-chart" data-usage-stats-target="chart" data-kind="usage"
+                     data-series="{{ usage.chartSeries|json_encode }}" data-categories="{{ usage.chartCategories|json_encode }}"></div>
+            </div>
+
+            {% set hm_max = 1 %}{% set owner_max = 1 %}
+            {% for owner in usage.owners %}{% for month in usage.months %}
+                {% set owner_max = max(owner_max, owner.templatesInMonth(month)) %}
+                {% for project in owner.projects %}{% set hm_max = max(hm_max, project.templatesInMonth(month)) %}{% endfor %}
+            {% endfor %}{% endfor %}
+
+            <div class="st-card hm-card">
+                <div class="st-card-h">
+                    <div><h2>Klienti po měsících</h2><span class="cap">Unikátní šablony v měsíci · podržte myš nad buňkou pro počet stažení</span></div>
+                    <span class="hm-scale" aria-hidden="true">0 <i class="lv0"></i><i class="lv1"></i><i class="lv2"></i><i class="lv3"></i><i class="lv4"></i> víc <i class="now"></i> tento měsíc</span>
+                </div>
+                <div class="hm-scroll">
+                    <table class="hm">
+                        <thead>
                             <tr>
-                                <th class="ps-3">Klient / Projekt</th>
-                                {% for month in usage.chartCategories %}
-                                    <th class="text-center text-nowrap">{{ month }}</th>
-                                {% endfor %}
-                                <th class="text-center text-nowrap">Šablony</th>
-                                <th class="text-center text-nowrap">Varianty</th>
-                                <th class="text-center text-nowrap pe-3">Stažení</th>
+                                <th scope="col" class="hm-name">Klient / Projekt</th>
+                                {% for month in usage.months %}{{ st.month_head(month, loop.first, now_month) }}{% endfor %}
+                                <th scope="col" class="hm-num">Šablony</th>
+                                <th scope="col" class="hm-num">Varianty</th>
+                                <th scope="col" class="hm-num">Stažení</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {% for owner in usage.owners %}
-                                <tr class="table-light fw-semibold">
-                                    <td class="ps-3">
-                                        <i class="uil-user me-1"></i>{{ owner.ownerEmail }}
-                                    </td>
+                        {% for owner in usage.owners %}
+                            <tbody class="hm-grp">
+                                <tr class="hm-cl">
+                                    <th scope="row" class="hm-name">
+                                        <span class="u-who"><span class="av" aria-hidden="true">{{ adm.person_initials(null, owner.ownerEmail) }}</span>
+                                            <span class="who"><b>{{ owner.ownerEmail }}</b><span>{{ owner.projects|length }} {{ owner.projects|length == 1 ? 'projekt' : (owner.projects|length < 5 ? 'projekty' : 'projektů') }}</span></span></span>
+                                    </th>
                                     {% for month in usage.months %}
-                                        <td class="text-center">{{ owner.templatesInMonth(month) ?: '' }}</td>
+                                        {% set v = owner.templatesInMonth(month) %}
+                                        <td class="hm-c lv{{ st.level(v, owner_max) }}{{ month == now_month and v > 0 ? ' now' }}" title="{{ owner.downloadsInMonth(month) }} stažení"><span>{{ v ?: '' }}</span></td>
                                     {% endfor %}
-                                    <td class="text-center">{{ owner.uniqueTemplates }}</td>
-                                    <td class="text-center">{{ owner.uniqueVariants }}</td>
-                                    <td class="text-center pe-3">{{ owner.downloads }}</td>
+                                    <td class="hm-num"><b>{{ owner.uniqueTemplates }}</b></td>
+                                    <td class="hm-num">{{ owner.uniqueVariants }}</td>
+                                    <td class="hm-num">{{ owner.downloads }}</td>
                                 </tr>
                                 {% for project in owner.projects %}
-                                    <tr>
-                                        <td class="ps-4 text-muted">
-                                            <i class="uil-folder me-1"></i>{{ project.projectName }}
-                                        </td>
+                                    <tr class="hm-us">
+                                        <th scope="row" class="hm-name"><span class="u-who">{{ icon('folder', 's14') }}<span class="who"><b>{{ project.projectName }}</b></span></span></th>
                                         {% for month in usage.months %}
-                                            <td class="text-center" title="{{ project.downloadsInMonth(month) }} stažení">
-                                                {{ project.templatesInMonth(month) ?: '—' }}
-                                            </td>
+                                            {% set v = project.templatesInMonth(month) %}
+                                            <td class="hm-c lv{{ st.level(v, hm_max) }}{{ month == now_month and v > 0 ? ' now' }}" title="{{ project.downloadsInMonth(month) }} stažení"><span>{{ v ?: '' }}</span></td>
                                         {% endfor %}
-                                        <td class="text-center">{{ project.uniqueTemplates }}</td>
-                                        <td class="text-center">{{ project.uniqueVariants }}</td>
-                                        <td class="text-center pe-3">{{ project.downloads }}</td>
+                                        <td class="hm-num">{{ project.uniqueTemplates }}</td>
+                                        <td class="hm-num">{{ project.uniqueVariants }}</td>
+                                        <td class="hm-num">{{ project.downloads }}</td>
                                     </tr>
                                 {% endfor %}
-                            {% endfor %}
-                        </tbody>
+                            </tbody>
+                        {% endfor %}
                     </table>
                 </div>
             </div>
+        {% endif %}
+    </section>
+
+    {# =================================================================== Aktivita #}
+    <section class="st-pane" id="st-aktivita" role="tabpanel" aria-labelledby="st-tab-aktivita" data-usage-stats-target="pane" data-tab="aktivita" hidden>
+        <p class="cap st-lead">
+            <strong>Aktivita uživatelů</strong> — kdy byl každý uživatel naposledy aktivní a jak intenzivně aplikaci používá.
+            Sbírá se od nasazení této funkce — každá minuta aktivního používání se počítá
+            jako jedna akce (přihlášení a běžné proklikávání aplikace).
+        </p>
+
+        {% set actions_30 = 0 %}{% for a in activity.actionsSeries %}{% set actions_30 = actions_30 + a %}{% endfor %}
+        <div class="st-kpis">
+            <div class="st-kpi">
+                <span class="k">{{ icon('users') }}Aktivní uživatelé</span>
+                <b>{{ activity.activeUserCount }} <small>z {{ activity.users|length }}</small></b>
+                <span class="s">od začátku měření</span>
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('trend') }}Aktivní tento měsíc</span>
+                <b>{{ activity.activeUsersInMonth(now_month) }}</b>
+                <span class="s">různých uživatelů</span>
+                {{ st.spark(activity.months|map(m => activity.activeUsersInMonth(m))) }}
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('chart') }}Akce za 30 dní</span>
+                <b>{{ actions_30 }}</b>
+                <span class="s">minuty aktivního používání</span>
+                {{ st.spark(activity.actionsSeries) }}
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('user') }}Aktivní za 30 dní</span>
+                <b>{{ activity.users|filter(u => u.lastActivityAt and u.lastActivityAt > date('-30 days'))|length }}</b>
+                <span class="s">denně nejvýš {{ max(activity.activeUsersSeries|merge([0])) }}</span>
+                {{ st.spark(activity.activeUsersSeries) }}
+            </div>
         </div>
 
-        {#
-            ApexCharts is a standalone copy in public/vendor/apexcharts (no importmap
-            entry). Turbo Drive is globally disabled (<html data-turbo="false">),
-            so this runs once per full page load; the chart div above is already
-            parsed when the inline init executes (synchronous script tag).
-        #}
-        <script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
-        <script>
-            (function () {
-                var el = document.getElementById('usage-chart');
-                if (!el || typeof window.ApexCharts === 'undefined') {
-                    return;
-                }
-
-                var options = {
-                    chart: { type: 'bar', height: 360, stacked: true, toolbar: { show: false } },
-                    plotOptions: { bar: { columnWidth: '55%', borderRadius: 4 } },
-                    dataLabels: { enabled: false },
-                    series: {{ usage.chartSeries|json_encode|raw }},
-                    xaxis: { categories: {{ usage.chartCategories|json_encode|raw }} },
-                    yaxis: {
-                        title: { text: 'Unikátní šablony' },
-                        labels: { formatter: function (value) { return Math.round(value); } }
-                    },
-                    legend: { position: 'bottom' },
-                    tooltip: { y: { formatter: function (value) { return Math.round(value) + ' šablon'; } } }
-                };
-
-                new window.ApexCharts(el, options).render();
-            })();
-        </script>
-    {% endif %}
-
-    <h4 class="mt-4 mb-2">Aktivita uživatelů</h4>
-    <p class="text-muted mb-3">
-        Kdy byl každý uživatel naposledy aktivní a jak intenzivně aplikaci používá.
-        Sbírá se od nasazení této funkce — každá minuta aktivního používání se počítá
-        jako jedna akce (přihlášení a běžné proklikávání aplikace).
-    </p>
-
-    <div class="card shadow-sm rounded-3">
-        <div class="card-body">
-            <h4 class="header-title mb-3">Aktivita za posledních 30 dní</h4>
+        <div class="st-card">
+            <div class="st-card-h">
+                <div><h2>Aktivita za posledních 30 dní</h2><span class="cap">Aktivní uživatelé a akce po dnech</span></div>
+                {% if activity.hasActivity %}<span class="st-legend"><span><i></i>Aktivní uživatelé</span><span><i class="c2"></i>Akce</span></span>{% endif %}
+            </div>
             {% if activity.hasActivity %}
-                <div id="activity-chart" style="min-height: 300px;"></div>
+                <div id="activity-chart" class="st-chart" data-usage-stats-target="chart" data-kind="activity"
+                     data-series="{{ [{'name': 'Aktivní uživatelé', 'data': activity.activeUsersSeries}, {'name': 'Akce', 'data': activity.actionsSeries}]|json_encode }}"
+                     data-categories="{{ activity.chartCategories|json_encode }}"></div>
             {% else %}
-                <div class="alert alert-info mb-0">
-                    Zatím nebyla zaznamenána žádná aktivita. Data se začnou sbírat, jakmile
-                    se uživatelé přihlásí a začnou aplikaci používat.
-                </div>
+                <p class="st-none">Zatím nebyla zaznamenána žádná aktivita. Data se začnou sbírat, jakmile
+                    se uživatelé přihlásí a začnou aplikaci používat.</p>
             {% endif %}
         </div>
-    </div>
 
-    <div class="card shadow-sm rounded-3 overflow-hidden">
-        <div class="card-body p-0">
-            <div class="px-3 pt-3">
-                <h4 class="header-title mb-1">Aktivní dny podle uživatele a měsíce</h4>
-                <p class="text-muted small mb-0">
-                    Buňka udává, kolik dní byl uživatel v daném měsíci aktivní. Řádek
-                    „Aktivních uživatelů“ ukazuje, kolik různých uživatelů bylo v měsíci aktivních.
-                </p>
+        {% set act_max = 1 %}
+        {% for user in activity.users %}{% for month in activity.months %}{% set act_max = max(act_max, user.activeDaysInMonth(month)) %}{% endfor %}{% endfor %}
+        <div class="st-card hm-card">
+            <div class="st-card-h">
+                <div><h2>Aktivní dny podle uživatele a měsíce</h2>
+                    <span class="cap">Buňka udává, kolik dní byl uživatel v daném měsíci aktivní. Řádek
+                        „Aktivních uživatelů“ ukazuje, kolik různých uživatelů bylo v měsíci aktivních.</span></div>
+                <span class="hm-scale" aria-hidden="true">0 <i class="lv0"></i><i class="lv1"></i><i class="lv2"></i><i class="lv3"></i><i class="lv4"></i> víc</span>
             </div>
-            <div class="table-responsive rounded-3">
-                <table class="table table-hover table-sm align-middle mb-0">
-                    <thead class="table-light">
+            <div class="hm-scroll">
+                <table class="hm">
+                    <thead>
                         <tr>
-                            <th class="ps-3">Uživatel</th>
-                            {% for month in activity.monthCategories %}
-                                <th class="text-center text-nowrap">{{ month }}</th>
-                            {% endfor %}
-                            <th class="text-nowrap">Poslední aktivita</th>
-                            <th class="text-center text-nowrap">Dní celkem</th>
-                            <th class="text-center text-nowrap pe-3">Akcí</th>
+                            <th scope="col" class="hm-name">Uživatel</th>
+                            {% for month in activity.months %}{{ st.month_head(month, loop.first, now_month) }}{% endfor %}
+                            <th scope="col" class="hm-num">Poslední aktivita</th>
+                            <th scope="col" class="hm-num">Dní celkem</th>
+                            <th scope="col" class="hm-num">Akcí</th>
                         </tr>
                         {% if activity.hasActivity %}
-                            <tr class="fw-semibold">
-                                <td class="ps-3 text-muted">
-                                    <i class="uil-users-alt me-1"></i>Aktivních uživatelů
-                                </td>
+                            <tr class="hm-sum">
+                                <th scope="row" class="hm-name"><span class="u-who">{{ icon('users', 's14') }}<span class="who"><b>Aktivních uživatelů</b></span></span></th>
                                 {% for month in activity.months %}
-                                    <td class="text-center">{{ activity.activeUsersInMonth(month) ?: '' }}</td>
+                                    <td class="hm-sumc">{{ activity.activeUsersInMonth(month) ?: '' }}</td>
                                 {% endfor %}
                                 <td></td>
-                                <td class="text-center">{{ activity.activeUserCount }}</td>
+                                <td class="hm-num"><b>{{ activity.activeUserCount }}</b></td>
                                 <td></td>
                             </tr>
                         {% endif %}
                     </thead>
                     <tbody>
                         {% for user in activity.users %}
-                            <tr>
-                                <td class="ps-3">
-                                    <i class="uil-user me-1"></i>{{ user.displayName }}
-                                    {% if user.name %}
-                                        <span class="text-muted small ms-1">{{ user.email }}</span>
-                                    {% endif %}
-                                </td>
+                            <tr class="hm-us">
+                                <th scope="row" class="hm-name">
+                                    <span class="u-who"><span class="av" aria-hidden="true">{{ adm.person_initials(user.name, user.email) }}</span>
+                                        <span class="who"><b>{{ user.displayName }}</b>{% if user.name %}<span>{{ user.email }}</span>{% endif %}</span></span>
+                                </th>
                                 {% for month in activity.months %}
-                                    <td class="text-center">{{ user.activeDaysInMonth(month) ?: '—' }}</td>
+                                    {% set v = user.activeDaysInMonth(month) %}
+                                    <td class="hm-c lv{{ st.level(v, act_max) }}"><span>{{ v ?: '' }}</span></td>
                                 {% endfor %}
-                                <td class="text-nowrap">
-                                    {% if user.lastActivityAt %}
-                                        {{ user.lastActivityAt|date('d.m.Y H:i') }}
-                                    {% else %}
-                                        <span class="text-muted">Nikdy</span>
-                                    {% endif %}
+                                <td class="hm-num hm-date">
+                                    {% if user.lastActivityAt %}{{ user.lastActivityAt|date('j. n. Y H:i') }}{% else %}<span class="cap">Nikdy</span>{% endif %}
                                 </td>
-                                <td class="text-center">{{ user.activeDays ?: '—' }}</td>
-                                <td class="text-center pe-3">{{ user.totalHits ?: '—' }}</td>
+                                <td class="hm-num">{{ user.activeDays ?: '—' }}</td>
+                                <td class="hm-num">{{ user.totalHits ?: '—' }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
-    </div>
+    </section>
 
-    {% if activity.hasActivity %}
-        {# ApexCharts (legacy vendor copy in public/vendor) — safe to load again if the export chart already did. #}
-        <script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
-        <script>
-            (function () {
-                var el = document.getElementById('activity-chart');
-                if (!el || typeof window.ApexCharts === 'undefined') {
-                    return;
-                }
-
-                var options = {
-                    chart: { type: 'area', height: 300, toolbar: { show: false }, zoom: { enabled: false } },
-                    stroke: { curve: 'smooth', width: 2 },
-                    fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.05 } },
-                    dataLabels: { enabled: false },
-                    series: [
-                        { name: 'Aktivní uživatelé', data: {{ activity.activeUsersSeries|json_encode|raw }} },
-                        { name: 'Akce', data: {{ activity.actionsSeries|json_encode|raw }} }
-                    ],
-                    xaxis: { categories: {{ activity.chartCategories|json_encode|raw }} },
-                    yaxis: { labels: { formatter: function (value) { return Math.round(value); } } },
-                    legend: { position: 'bottom' },
-                    tooltip: { y: { formatter: function (value) { return Math.round(value); } } }
-                };
-
-                new window.ApexCharts(el, options).render();
-            })();
-        </script>
-    {% endif %}
-
-    <div class="d-flex flex-wrap align-items-center justify-content-between mt-4 mb-2">
-        <h4 class="mb-0">Úložiště</h4>
-        <div class="d-flex align-items-center gap-2">
-            {% if storage.lastScannedAt %}
-                <span class="text-muted small">Načteno {{ storage.lastScannedAt|date('d.m.Y H:i') }}</span>
-            {% endif %}
-            <form method="post" action="{{ path('admin_storage_rescan') }}" class="d-inline">
-                <input type="hidden" name="_token" value="{{ csrf_token('storage_rescan') }}">
-                <button type="submit" class="btn btn-sm btn-outline-secondary">
-                    <i class="uil-sync me-1"></i>Načíst znovu
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <p class="text-muted mb-3">
-        Kolik místa v úložišti zabírají soubory jednotlivých klientů a projektů.
-        <strong>Nepoužívané</strong> jsou soubory, na které už neodkazuje žádný záznam
-        v databázi — typicky pozůstatky po smazaných projektech nebo po přepsání
-        obrázku novým (aplikace stará data z úložiště nemaže). Data pochází z posledního
-        načtení úložiště, ne z živého stavu.
-    </p>
-
-    <div class="row">
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-database position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0">{{ storage.totalSize|file_size }}</h2>
-                    <h6 class="text-uppercase mb-0">Celkem v úložišti</h6>
-                </div>
+    {# =================================================================== Úložiště #}
+    <section class="st-pane" id="st-uloziste" role="tabpanel" aria-labelledby="st-tab-uloziste" data-usage-stats-target="pane" data-tab="uloziste" hidden>
+        <div class="st-bar">
+            <p class="cap st-lead">
+                <strong>Úložiště</strong> — kolik místa zabírají soubory jednotlivých klientů a projektů.
+                <strong>Nepoužívané</strong> jsou soubory, na které už neodkazuje žádný záznam
+                v databázi — typicky pozůstatky po smazaných projektech nebo po přepsání
+                obrázku novým (aplikace stará data z úložiště nemaže). Data pochází z posledního
+                načtení úložiště, ne z živého stavu.
+            </p>
+            <div class="st-scan">
+                {% if storage.lastScannedAt %}
+                    <span class="cap">Načteno {{ storage.lastScannedAt|date('j. n. Y H:i') }}</span>
+                {% endif %}
+                <form method="post" action="{{ path('admin_storage_rescan') }}" data-action="submit->usage-stats#rememberTab">
+                    <input type="hidden" name="_token" value="{{ csrf_token('storage_rescan') }}">
+                    <button type="submit" class="btn btn-ghost xs">{{ icon('refresh', 's14') }}Načíst znovu</button>
+                </form>
             </div>
         </div>
 
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-file-alt position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0">{{ storage.totalFiles }}</h2>
-                    <h6 class="text-uppercase mb-0">Souborů</h6>
-                </div>
+        <div class="st-kpis">
+            <div class="st-kpi">
+                <span class="k">{{ icon('database') }}Celkem v úložišti</span>
+                <b>{{ storage.totalSize|file_size }}</b>
+                <span class="s">{{ storage.clientCount }} klientů</span>
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('file') }}Souborů</span>
+                <b>{{ storage.totalFiles }}</b>
+                <span class="s"><a href="{{ path('admin_storage_files') }}" class="st-link">Zobrazit jednotlivé soubory</a></span>
+            </div>
+            <div class="st-kpi{{ storage.orphanSize > 0 ? ' warn' }}">
+                <span class="k">{{ icon('trash') }}Nepoužívané</span>
+                <b>{{ storage.orphanSize|file_size }}</b>
+                <span class="s">{{ storage.orphanFiles }} souborů{% if storage.orphanShare > 0 %} · {{ storage.orphanShare|number_format(0) }} % objemu{% endif %}</span>
+            </div>
+            <div class="st-kpi">
+                <span class="k">{{ icon('help') }}Bez projektu</span>
+                <b>{{ storage.unattributedSize|file_size }}</b>
+                <span class="s">{{ storage.unattributedFiles }} souborů · vlastník už neexistuje</span>
             </div>
         </div>
 
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-trash-alt position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0 {{ storage.orphanSize > 0 ? 'text-warning' : '' }}">{{ storage.orphanSize|file_size }}</h2>
-                    <h6 class="text-uppercase mb-0">Nepoužívané ({{ storage.orphanFiles }} souborů)</h6>
-                </div>
+        {% if storage.isEmpty %}
+            <div class="empty">
+                <span class="ico-c">{{ icon('database') }}</span>
+                <p>Inventura úložiště zatím neproběhla. Spusťte ji tlačítkem „Načíst znovu“
+                    nebo příkazem <code>app:storage:scan</code>.</p>
             </div>
-        </div>
-
-        <div class="col-sm-6 col-lg-3">
-            <div class="card tilebox-one text-center">
-                <div class="card-body">
-                    <i class="uil-question-circle position-relative" style="right: auto;"></i>
-                    <h2 class="my-2 mt-0">{{ storage.unattributedSize|file_size }}</h2>
-                    <h6 class="text-uppercase mb-0">Bez projektu ({{ storage.unattributedFiles }} souborů)</h6>
+        {% else %}
+            <div class="st-card">
+                <div class="st-card-h">
+                    <div><h2>Zabrané místo podle klienta</h2><span class="cap">V MB, používané a nepoužívané soubory</span></div>
+                    <span class="st-legend"><span><i></i>Používané</span><span><i class="c2"></i>Nepoužívané</span></span>
                 </div>
+                <div id="storage-chart" class="st-chart" data-usage-stats-target="chart" data-kind="storage"
+                     data-series="{{ storage.chartSeries|json_encode }}" data-categories="{{ storage.chartLabels|json_encode }}"></div>
             </div>
-        </div>
-    </div>
 
-    {% if storage.isEmpty %}
-        <div class="alert alert-info">
-            Inventura úložiště zatím neproběhla. Spusťte ji tlačítkem „Načíst znovu“
-            nebo příkazem <code>app:storage:scan</code>.
-        </div>
-    {% else %}
-        <div class="card shadow-sm rounded-3">
-            <div class="card-body">
-                <h4 class="header-title mb-3">Zabrané místo podle klienta (MB)</h4>
-                <div id="storage-chart" style="min-height: 360px;"></div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm rounded-3 overflow-hidden">
-            <div class="card-body p-0">
-                <div class="d-flex flex-wrap align-items-center justify-content-between px-3 pt-3">
-                    <h4 class="header-title mb-1">Úložiště podle klienta a projektu</h4>
-                    <a href="{{ path('admin_storage_files') }}" class="btn btn-sm btn-link">
-                        Zobrazit jednotlivé soubory <i class="uil-angle-right-b"></i>
-                    </a>
+            <div class="st-card">
+                <div class="st-card-h">
+                    <div><h2>Úložiště podle klienta a projektu</h2>
+                        <span class="cap">Sloupce podle typu ukazují, čím je který projekt velký. Typ se odvozuje
+                            z cesty v úložišti — kam který modul soubory ukládá.</span></div>
+                    <a href="{{ path('admin_storage_files') }}" class="btn btn-secondary xs">Zobrazit jednotlivé soubory{{ icon('chev-right', 's14') }}</a>
                 </div>
-                <p class="text-muted small px-3 pb-2 mb-0">
-                    Sloupce podle typu ukazují, čím je který projekt velký. Typ se odvozuje
-                    z cesty v úložišti — kam který modul soubory ukládá.
-                </p>
-                <div class="table-responsive rounded-3">
-                    <table class="table table-hover table-sm align-middle mb-0">
-                        <thead class="table-light">
+                <div class="hm-scroll">
+                    <table class="st-table">
+                        <thead>
                             <tr>
-                                <th class="ps-3">Klient / Projekt</th>
+                                <th scope="col" class="hm-name">Klient / Projekt</th>
                                 {% for row in storage.categories %}
-                                    <th class="text-end text-nowrap">
-                                        <a href="{{ path('admin_storage_files', {category: row.category.value}) }}" class="text-reset text-decoration-none">
-                                            {{ row.category.label }}
-                                        </a>
-                                    </th>
+                                    <th scope="col"><a href="{{ path('admin_storage_files', {category: row.category.value}) }}">{{ row.category.label }}</a></th>
                                 {% endfor %}
-                                <th class="text-center text-nowrap">Souborů</th>
-                                <th class="text-end text-nowrap">Velikost</th>
-                                <th class="text-end text-nowrap">Nepoužito</th>
-                                <th class="text-end text-nowrap pe-3">Podíl</th>
+                                <th scope="col">Souborů</th>
+                                <th scope="col">Velikost</th>
+                                <th scope="col">Nepoužito</th>
+                                <th scope="col">Podíl</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for owner in storage.owners %}
-                                <tr class="table-light fw-semibold">
-                                    <td class="ps-3"><i class="uil-user me-1"></i>{{ owner.ownerEmail }}</td>
+                                <tr class="st-owner">
+                                    <th scope="row" class="hm-name"><span class="u-who"><span class="av" aria-hidden="true">{{ adm.person_initials(null, owner.ownerEmail) }}</span><span class="who"><b>{{ owner.ownerEmail }}</b></span></span></th>
                                     {% for row in storage.categories %}
                                         {% set size = owner.sizeInCategory(row.category.value) %}
-                                        <td class="text-end">{{ size ? size|file_size : '' }}</td>
+                                        <td>{{ size ? size|file_size : '' }}</td>
                                     {% endfor %}
-                                    <td class="text-center">{{ owner.fileCount }}</td>
-                                    <td class="text-end">{{ owner.totalSize|file_size }}</td>
-                                    <td class="text-end">{{ owner.orphanSize ? owner.orphanSize|file_size : '—' }}</td>
-                                    <td class="text-end pe-3">{{ owner.orphanShare > 0 ? owner.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
+                                    <td>{{ owner.fileCount }}</td>
+                                    <td><b>{{ owner.totalSize|file_size }}</b></td>
+                                    <td>{{ owner.orphanSize ? owner.orphanSize|file_size : '—' }}</td>
+                                    <td>{{ owner.orphanShare > 0 ? owner.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
                                 </tr>
                                 {% for project in owner.projects %}
                                     <tr>
-                                        <td class="ps-4 text-muted">
-                                            <a href="{{ path('admin_storage_files', {project: project.projectId}) }}" class="text-reset text-decoration-none">
-                                                <i class="uil-folder me-1"></i>{{ project.projectName }}
-                                            </a>
-                                        </td>
+                                        <th scope="row" class="hm-name st-proj">
+                                            <a href="{{ path('admin_storage_files', {project: project.projectId}) }}">{{ icon('folder', 's14') }}{{ project.projectName }}</a>
+                                        </th>
                                         {% for row in storage.categories %}
                                             {% set size = project.sizeInCategory(row.category.value) %}
-                                            <td class="text-end">
+                                            <td>
                                                 {% if size %}
-                                                    <a href="{{ path('admin_storage_files', {project: project.projectId, category: row.category.value}) }}"
-                                                       class="text-reset text-decoration-none">{{ size|file_size }}</a>
-                                                {% else %}
-                                                    —
-                                                {% endif %}
+                                                    <a href="{{ path('admin_storage_files', {project: project.projectId, category: row.category.value}) }}">{{ size|file_size }}</a>
+                                                {% else %}—{% endif %}
                                             </td>
                                         {% endfor %}
-                                        <td class="text-center">{{ project.fileCount }}</td>
-                                        <td class="text-end">{{ project.totalSize|file_size }}</td>
-                                        <td class="text-end">{{ project.orphanSize ? project.orphanSize|file_size : '—' }}</td>
-                                        <td class="text-end pe-3">{{ project.orphanShare > 0 ? project.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
+                                        <td>{{ project.fileCount }}</td>
+                                        <td>{{ project.totalSize|file_size }}</td>
+                                        <td>{{ project.orphanSize ? project.orphanSize|file_size : '—' }}</td>
+                                        <td>{{ project.orphanShare > 0 ? project.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
                                     </tr>
                                 {% endfor %}
                             {% endfor %}
                             {% if storage.unattributed %}
                                 {% set leftovers = storage.unattributed %}
-                                <tr class="table-light fw-semibold">
-                                    <td class="ps-3">
-                                        <a href="{{ path('admin_storage_files', {project: leftovers.projectId}) }}" class="text-reset text-decoration-none">
-                                            <i class="uil-question-circle me-1"></i>Bez projektu
-                                        </a>
-                                        <span class="text-muted fw-normal small ms-1">(vlastník už neexistuje)</span>
-                                    </td>
+                                <tr class="st-owner">
+                                    <th scope="row" class="hm-name">
+                                        <a href="{{ path('admin_storage_files', {project: leftovers.projectId}) }}" class="st-proj-a">{{ icon('help', 's14') }}Bez projektu</a>
+                                        <span class="cap">(vlastník už neexistuje)</span>
+                                    </th>
                                     {% for row in storage.categories %}
                                         {% set size = leftovers.sizeInCategory(row.category.value) %}
-                                        <td class="text-end">
+                                        <td>
                                             {% if size %}
-                                                <a href="{{ path('admin_storage_files', {project: leftovers.projectId, category: row.category.value}) }}"
-                                                   class="text-reset text-decoration-none">{{ size|file_size }}</a>
-                                            {% else %}
-                                                —
-                                            {% endif %}
+                                                <a href="{{ path('admin_storage_files', {project: leftovers.projectId, category: row.category.value}) }}">{{ size|file_size }}</a>
+                                            {% else %}—{% endif %}
                                         </td>
                                     {% endfor %}
-                                    <td class="text-center">{{ leftovers.fileCount }}</td>
-                                    <td class="text-end">{{ leftovers.totalSize|file_size }}</td>
-                                    <td class="text-end">{{ leftovers.orphanSize ? leftovers.orphanSize|file_size : '—' }}</td>
-                                    <td class="text-end pe-3">{{ leftovers.orphanShare > 0 ? leftovers.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
+                                    <td>{{ leftovers.fileCount }}</td>
+                                    <td><b>{{ leftovers.totalSize|file_size }}</b></td>
+                                    <td>{{ leftovers.orphanSize ? leftovers.orphanSize|file_size : '—' }}</td>
+                                    <td>{{ leftovers.orphanShare > 0 ? leftovers.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
                                 </tr>
                             {% endif %}
                         </tbody>
-                        <tfoot class="table-light">
-                            <tr class="fw-semibold">
-                                <td class="ps-3">Celkem</td>
+                        <tfoot>
+                            <tr>
+                                <th scope="row" class="hm-name">Celkem</th>
                                 {% for row in storage.categories %}
-                                    <td class="text-end">{{ row.totalSize|file_size }}</td>
+                                    <td>{{ row.totalSize|file_size }}</td>
                                 {% endfor %}
-                                <td class="text-center">{{ storage.totalFiles }}</td>
-                                <td class="text-end">{{ storage.totalSize|file_size }}</td>
-                                <td class="text-end">{{ storage.orphanSize ? storage.orphanSize|file_size : '—' }}</td>
-                                <td class="text-end pe-3">{{ storage.orphanShare > 0 ? storage.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
+                                <td>{{ storage.totalFiles }}</td>
+                                <td>{{ storage.totalSize|file_size }}</td>
+                                <td>{{ storage.orphanSize ? storage.orphanSize|file_size : '—' }}</td>
+                                <td>{{ storage.orphanShare > 0 ? storage.orphanShare|number_format(0) ~ ' %' : '—' }}</td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </div>
-        </div>
+        {% endif %}
+    </section>
+</div>
 
-        {# ApexCharts (legacy vendor copy in public/vendor) — safe to load again if a chart above already did. #}
-        <script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
-        <script>
-            (function () {
-                var el = document.getElementById('storage-chart');
-                if (!el || typeof window.ApexCharts === 'undefined') {
-                    return;
-                }
-
-                var options = {
-                    chart: { type: 'bar', height: 360, stacked: true, toolbar: { show: false } },
-                    plotOptions: { bar: { horizontal: true, barHeight: '60%', borderRadius: 4 } },
-                    colors: ['#727cf5', '#ffbc00'],
-                    dataLabels: { enabled: false },
-                    series: {{ storage.chartSeries|json_encode|raw }},
-                    xaxis: {
-                        categories: {{ storage.chartLabels|json_encode|raw }},
-                        title: { text: 'MB' }
-                    },
-                    legend: { position: 'bottom' },
-                    tooltip: { y: { formatter: function (value) { return value + ' MB'; } } }
-                };
-
-                new window.ApexCharts(el, options).render();
-            })();
-        </script>
-    {% endif %}
+{# ApexCharts is a standalone copy in public/vendor/apexcharts (no importmap
+   entry); usage_stats_controller waits for window.ApexCharts. #}
+<script src="{{ asset('vendor/apexcharts/apexcharts.min.js') }}"></script>
 {% endblock %}
