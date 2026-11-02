@@ -61,6 +61,30 @@ commit when you change a contract described there — not this file.
 | `templates-documents.md` | multi-page documents: `TemplateDocument` / pages / shared fields, invariants (`TemplateDocumentRules`), diffing page list, rollout switch, listing cards, document page, editor page strip, fill keys, multi-page PDF export |
 | `storage-inventory.md` | `storage_object` scan, `BuildStorageReferenceIndex` (add every new path-storing column there!), project deletion storage cleanup |
 
+### Design system (Nocturne UI) — read BEFORE touching templates or CSS
+
+The UI is the **Nocturne** design (dark default + light, lavender accent, Outfit,
+mask icons). Spec + rules: `docs/redesign/design-system.md` (§3 components,
+§7 the 22 design-language rules: `.head` page header, one lavender primary,
+cards for objects / rows for people, boxes for settings, pills, Czech voice).
+Prototype + reference screenshots: `docs/redesign/prototype/`,
+`docs/redesign/reference/screenshots/`. History/decisions: `docs/redesign/JOURNAL.md`.
+
+| CSS file (`assets/styles/nocturne/`) | Holds |
+|---|---|
+| `tokens.css` | colours/radii/shadows for both themes, `--bs-*` remap, chart tokens — never invent new values |
+| `base.css`, `icons.css` | element defaults + focus ring; the `.i.i-*` mask icon set (`{{ icon('name', 's16') }}`) |
+| `buttons.css`, `forms.css`, `chips.css`, `cards.css`, `dialogs.css`, `menus.css`, `tables.css`, `feedback.css`, `page.css` | shared kit + Bootstrap class restyles (`.btn-*`, `.form-control`, `.modal`, `.dropdown-menu`, `.table`, `.alert`, `.head`, tabs) |
+| `shell.css` | sidebar / rail / phone drawer + top bar (`templates/_shell/`) |
+| `auth.css`, `projects.css`, `manual.css`, `gallery.css`, `fonts.css`, `templates.css`, `admin.css`, `email.css`, `weekly-menu.css` | one file per screen area |
+| `fill.css`, `editor.css` | fill pages + canvas editors — imported AFTER `app.css` on purpose |
+
+Twig helpers: `icon()`, `initials()`, `shell_projects()`; page blocks
+`eyebrow` / `title` / `title_count` / `page_lead` / `title_actions` /
+`breadcrumb` / `mobile_primary_action` (see `app-shell.md`). Check every
+change at 390 / 820 / 1440 px in both themes with
+`node docs/redesign/tools/shoot.cjs <outDir> <paths…>`.
+
 Other docs: `docs/api/authentication.md` (OAuth2), `docs/api/consumer-prompt.md`
 (public API contract for consumers — update on API changes), `docs/mcp/` (MCP
 design DSL), `docs/plans/` (historical plans, not current truth).

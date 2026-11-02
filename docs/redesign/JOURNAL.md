@@ -806,3 +806,69 @@ code path as meals); the JS-built upload rows / toasts with real uploads
 fonts now woff/woff2 only, no eot/svg/ttf).
 
 **Follow-ups.** GrapesJS blocks still name `fa fa-*` icons (GrapesJS own UI).
+
+---
+
+## 2026-11-02 — P10b QA pass + polish
+
+**What.** Every GET HTML route shot at 390/820/1440 × dark/light, looked at
+(1440 dark + 390 light for all, 1440 light for the custom-colour pages),
+defects fixed; logged-out + ROLE_USER views; keyboard smoke; docs.
+
+**Coverage.** 88 resolved routes (scratch `qa/routes.txt`): 81 logged-in app
+routes (projects, manuals, mockups, fonts, gallery, calendars, modules,
+templates/variants/groups/documents incl. editors, fills, export histories,
+print settings, e-mails + GrapesJS, weekly menus/meals/diets/dish types, admin,
+account, `/_error/{403,404,500}`), 4 auth pages, `manual_preview` + public
+weekly menu (status only — untouchable). Skipped: redirects, JSON/PNG/binary
+endpoints (incl. `/template-variant/{id}/edit`, a JSON endpoint for the
+editor's Pozadí), approval page (no menu has a hash), mutations. 486 + ~100
+re-shots. Non-200: only the error previews (expected codes). JSERR: only
+Minio image loads. OVERFLOW: document export history at 820 (fixed) and
+`manual_preview` < 1400 px (customer output, fixed-width by design, untouched).
+
+**Defects → fix** (one commit, see below):
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | E-mail template add/edit: native "Choose File / No file chosen" input (English, unstyled), separate "Současné pozadí" well | `_template_image_field` drop zone (new optional `caption` var), current background previewed in the zone; dead `.es-bg-*` CSS removed |
+| 2 | History table overflowed the document at 820 px | `.tp-hist { position: relative }` — the `th .visually-hidden` (absolute) escaped the scroller |
+| 3 | Phones: list pages showed the head primary AND the top-bar + (two primaries) | `shell.css`: `.main:has(.mbar-side > .btn-primary) .head-tools .btn-primary { display: none }` ≤ 860 px (generalises P3's per-page `.head-primary` rule) |
+| 4 | Head actions fell to the left under a long lead (e-mail variants, document) | `.head-tools { margin-left: auto }` |
+| 5 | Document header "Smazat…" read as truncated | label "Smazat dokument" |
+| 6 | Mockup editor at 390: slot copy collided with number + file strip | container query hides the slot text < 520 px, tighter desk padding on phones |
+| 7 | Print settings: crop-marks checkbox floated with a phantom gap when wrapped | row `align-items: flex-end`, checkbox row 44 px tall (0 on phones) |
+| 8 | Profile "Heslo" row squeezed the text to 4 lines at 390 | `.acc-row:has(> .btn) .who` takes the line, button wraps |
+| 9 | Light theme: white palette dots invisible on the project overview | `.pd-sw i` ring uses `--line-2` (prototype ring was white-alpha) |
+| 10 | GrapesJS chrome kept its stock grey/pink look | colour classes (`gjs-one/two/three/four`, blocks, active panel button) mapped to tokens, scoped `.es-gjs` |
+| 11 | **No visible keyboard focus on any `.btn`** (Bootstrap's focus shadow is overridden by our resting glows) | `.btn:focus-visible, .btn-close:focus-visible` = the base lavender ring |
+| 12 | Phone drawer: focus stayed on the hamburger (selector hit the hidden rail button); closing didn't return focus | `shell_controller`: focus first *visible* `.drawer-close/.nav-i`; Esc/close returns focus to the hamburger |
+| 13 | ROLE_USER: weekly-menu cards linked to planner/edit (403) | `is_granted('weekly_menu_edit', menu)` gate; viewers get "Zobrazit" → public menu (new tab) |
+| 14 | ROLE_USER: fonts page "Písma mimo projekt" listed editor links (403) | alert only for `can_upload` (ProjectVoter::EDIT) |
+
+**Keyboard/a11y smoke (puppeteer).** Tab order sidebar → page, lavender ring
+on links/inputs/buttons (after #11), Bootstrap modal: focus inside, trapped
+after 12 Tabs, Esc closes; dropdown Esc closes; drawer opens with focus inside,
+Esc closes and returns focus. No `data-bs-keyboard=false` anywhere.
+
+**Non-admin view.** Temporary `qa-user@test.cz` (ROLE_USER) shared on Mikeš +
+My Speed Puzzling via `project_share` rows; shot projects, overview,
+templates, manuals, fonts, group/variant/document fill, modules, weekly
+menus, e-mails, profile; crawled 63 visible links for 4xx → #13, #14. Sidebar
+correctly hides Galerie/Administrace; fill pages hide "Upravit design".
+User + shares deleted afterwards.
+
+**Docs.** CLAUDE.md: new "Design system (Nocturne UI)" section (spec pointer,
+CSS file map, helpers, shoot.cjs). `app-shell.md`: full CSS load order incl.
+area files and fill/editor after app.css, phone one-primary rule. No doc
+describes Hyper as current any more.
+
+**Not fixed / notes.** `manual_preview` horizontal overflow on phones
+(customer output, P10a pixel-locked). Fill previews stay on the spinner in
+headless runs (Minio/Gotenberg locally). Manual "Fonty" tab is hidden for
+Logo-type manuals while `/manual/{id}/fonts` still renders (no active tab) —
+pre-existing nav rule, left. Project overview "Fonty · 2 chybí" tile is
+designer info that clients also see. Broken mockup thumbnails show the
+browser's broken-image glyph (customer partial `_mockup_page`, untouched).
+Sheet-style forms (add diet, invite, profile…) keep the P8 dialog-as-page
+look without a `.head` — consistent, deliberate.

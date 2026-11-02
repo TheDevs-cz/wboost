@@ -41,17 +41,23 @@
         {% else %}
             <ul class="wm-grid">
                 {% for menu in menus %}
+                    {# Read-only members (project shared for reading) get the public
+                       view instead of the planner/edit links, which 403 for them (P10b). #}
+                    {% set can_edit_menu = is_granted('weekly_menu_edit', menu) %}
+                    {% set menu_href = can_edit_menu ? path('weekly_menu_planner', {'menuId': menu.id}) : path('public_weekly_menu', {'menuId': menu.id}) %}
                     <li class="wm-card">
                         <div class="wm-card-h">
                             <span class="wm-ico">{{ icon('calendar', 's18') }}</span>
                             <div class="wm-card-t">
-                                <h2 class="wm-name"><a href="{{ path('weekly_menu_planner', {'menuId': menu.id}) }}">{{ menu.name }}</a></h2>
+                                <h2 class="wm-name"><a href="{{ menu_href }}"{{ can_edit_menu ? '' : ' target="_blank"' }}>{{ menu.name }}</a></h2>
                                 <span class="cap">{{ menu.validFrom|date('j. n. Y') }} – {{ menu.validTo|date('j. n. Y') }}</span>
                             </div>
                             <div class="dropdown wm-acts">
                                 <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti jídelníčku">{{ icon('more', 's16') }}</button>
                                 <div class="dropdown-menu dropdown-menu-end">
-                                    <a href="{{ path('edit_weekly_menu', {'menuId': menu.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit</a>
+                                    {% if can_edit_menu %}
+                                        <a href="{{ path('edit_weekly_menu', {'menuId': menu.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit</a>
+                                    {% endif %}
                                     <a href="{{ path('download_weekly_menu_pdf', {'menuId': menu.id}) }}" class="dropdown-item">{{ icon('download', 's16') }}Stáhnout PDF</a>
                                     <a href="{{ path('public_weekly_menu', {'menuId': menu.id}) }}" class="dropdown-item" target="_blank">{{ icon('link', 's16') }}Veřejný odkaz</a>
                                     {% if is_granted('project_edit', project) and menu.approvalEmail is not null and menu.approvalStatus.value in ['not_requested', 'denied'] %}
@@ -89,7 +95,11 @@
                             <span class="cap">
                                 Vytvořeno {{ menu.createdAt|date('j. n. Y') }}{% if menu.updatedAt %} · upraveno {{ menu.updatedAt|date('j. n. Y H:i') }}{% endif %}
                             </span>
-                            <a href="{{ path('weekly_menu_planner', {'menuId': menu.id}) }}" class="btn btn-tertiary btn-sm wm-build">{{ icon('edit', 's16') }}Sestavit</a>
+                            {% if can_edit_menu %}
+                                <a href="{{ path('weekly_menu_planner', {'menuId': menu.id}) }}" class="btn btn-tertiary btn-sm wm-build">{{ icon('edit', 's16') }}Sestavit</a>
+                            {% else %}
+                                <a href="{{ menu_href }}" class="btn btn-tertiary btn-sm wm-build" target="_blank">{{ icon('eye', 's16') }}Zobrazit</a>
+                            {% endif %}
                         </div>
                     </li>
                 {% endfor %}

@@ -12,14 +12,7 @@
         <div class="adm-sheet-h"><h1 class="page-title adm-sheet-title">Upravit šablonu e-mailu</h1></div>
         <div class="adm-sheet-b">
             {{ form_row(form.name) }}
-            {{ form_row(form.backgroundImage) }}
-
-            {% if email_template.backgroundImage %}
-                <div class="es-bg-current">
-                    <span class="cap">Současné pozadí</span>
-                    <div class="es-bg-well"><img src="{{ uploaded_asset(email_template.backgroundImage) }}" alt="" onerror="this.parentElement.classList.add('is-broken'); this.remove();"></div>
-                </div>
-            {% endif %}
+            {{ include('_template_image_field.html.twig', {field: form.backgroundImage, current: email_template.backgroundImage, caption: 'pozadí podpisu v editoru'}) }}
         </div>
         <div class="adm-sheet-f">
             <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="btn btn-tertiary sm">Zrušit</a>

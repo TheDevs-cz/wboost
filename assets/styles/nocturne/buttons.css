@@ -249,3 +249,8 @@
 .btn.text-end { justify-content: flex-end; }
 /* Full-width legacy buttons in narrow columns may wrap rather than overflow */
 .btn.w-100, .btn.d-block { white-space: normal; }
+
+/* Keyboard focus (P10b): Bootstrap's .btn:focus-visible draws only
+   --bs-btn-focus-box-shadow, which our resting glows (primary/danger/success)
+   override — buttons had no visible focus at all. Same ring as base.css. */
+.btn:focus-visible, .btn-close:focus-visible { outline: 2px solid var(--lav); outline-offset: 2px; }

@@ -44,8 +44,10 @@
 
         {# References no project face satisfies: a deleted face, or the editor's
            "Arial" default from before the project had fonts. Those texts render
-           in a fallback font — link straight to the editors that carry them. #}
-        {% if usage.hasMissing %}
+           in a fallback font — link straight to the editors that carry them.
+           Only for people who can act on it: the editor links 403 for
+           read-only members (P10b). #}
+        {% if usage.hasMissing and can_upload %}
             <div class="alert c-warning fn-missing">
                 {{ icon('alert') }}
                 <div>

@@ -373,6 +373,7 @@ a.acc-link:hover { border-color: var(--line-3); color: var(--text); }
 a.acc-link > .i { color: var(--subtle); flex: none; }
 @media (max-width: 560px) {
     .acc-row { flex-wrap: wrap; }
+    .acc-row:has(> .btn, > .acc-acts) .who { flex-basis: calc(100% - 64px); } /* text keeps the row, the button wraps under it (P10b) */
     .acc-row > .btn, .acc-acts { margin-left: 50px; }
     .kv > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }

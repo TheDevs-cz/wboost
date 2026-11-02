@@ -59,7 +59,7 @@
 .pd-pal { display: flex; flex-direction: column; gap: 12px; }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
 .pd-sw { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-2); }
-.pd-sw i { width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.pd-sw i { width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--line-2); } /* theme-aware ring: white swatches vanished in light (P10b) */
 .pd-pall { flex: none; width: 40px; height: 40px; display: inline-grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1px solid var(--line-2); color: var(--text-2); text-decoration: none; transition: background .15s, color .15s, border-color .15s; }
 .pd-pall:hover { background: var(--lav-deep); border-color: var(--lav); color: var(--lav-ink); }
 .pd-pall:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }

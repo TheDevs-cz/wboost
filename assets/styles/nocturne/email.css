@@ -77,6 +77,18 @@
 /* GrapesJS sizes its editor from the container; give it the viewport */
 .es-gjs { height: clamp(460px, calc(100dvh - 300px), 980px) !important; }
 .es-gjs .gjs-editor { font-family: var(--font); }
+/* GrapesJS chrome on Nocturne tokens (P10b): its stock grey + pink/green
+   accents read as a foreign widget in both themes. Colour classes only — the
+   editor's layout and canvas (customer e-mail HTML) are untouched. */
+.es-gjs .gjs-one-bg { background-color: var(--surface-2); }
+.es-gjs .gjs-two-color { color: var(--text-2); }
+.es-gjs .gjs-three-bg { background-color: var(--surface-3); color: var(--text); }
+.es-gjs .gjs-four-color, .es-gjs .gjs-four-color-h:hover { color: var(--lav-ink); }
+.es-gjs .gjs-pn-btn.gjs-pn-active { background: var(--lav-deep); box-shadow: none; }
+.es-gjs .gjs-block { border-color: var(--line-2); border-radius: 12px; box-shadow: none; }
+.es-gjs .gjs-block:hover { color: var(--lav-ink); border-color: var(--lav-line); }
+.es-gjs .gjs-pn-panel, .es-gjs .gjs-blocks-c, .es-gjs .gjs-block-category .gjs-title { border-color: var(--line); }
+.es-gjs .gjs-block-category .gjs-title { background-color: var(--surface-2); color: var(--text-2); }
 
 /* ---- "Odeslat zkušební e-mail" modal ------------------------------------- */
 .es-demo .modal-body { display: flex; flex-direction: column; gap: 16px; }

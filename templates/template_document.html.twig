@@ -21,7 +21,7 @@
         {% if document.dimension.isPrintFormat %}
             <button type="button" class="btn btn-tertiary sm" data-bs-toggle="modal" data-bs-target="#documentPrintSettingsModal">{{ icon('file', 's16') }}Tiskové nastavení</button>
         {% endif %}
-        <button type="button" class="btn btn-ghost-danger sm" data-bs-toggle="modal" data-bs-target="#deleteDocumentModal">{{ icon('trash', 's16') }}Smazat…</button>
+        <button type="button" class="btn btn-ghost-danger sm" data-bs-toggle="modal" data-bs-target="#deleteDocumentModal">{{ icon('trash', 's16') }}Smazat dokument</button>
     {% endif %}
     {% if pages is not empty %}
         <a href="{{ path('template_document_fill', {'documentId': document.id}) }}" class="btn btn-primary sm">{{ icon('download', 's16') }}Vyplnit a exportovat</a>

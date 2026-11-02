@@ -116,6 +116,9 @@ finish; tick your phase's boxes here.
       fonts deleted (manual preview localised), `--ct-*` shim + Hyper helpers
       + dead app.css rules removed, backlog bugs (meal drag, invite blank
       e-mail, sidebar requests item).
+- [x] **P10b QA** — full route QA (486+ shots, both themes, ROLE_USER +
+      logged-out), 14 defects fixed, focus ring on buttons, drawer focus,
+      CLAUDE.md design-system section.
 - [ ] **P10 Sweep & delivery** — convert remaining mdi/uil/ri icons, delete
       `public/theme/`, purge dead Hyper rules, full responsive QA pass of every
       route (both themes), docs (CLAUDE.md, architecture docs), `new-features.md`

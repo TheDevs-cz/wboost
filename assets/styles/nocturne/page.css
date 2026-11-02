@@ -15,7 +15,7 @@
 .head h1 { margin: 0; font-size: clamp(28px, 4vw, 38px); font-weight: 600; letter-spacing: -.025em; line-height: 1.05; text-wrap: balance; overflow-wrap: anywhere; }
 .head h1 small { font-size: .6em; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 .head-lead { display: block; font-size: 13px; color: var(--muted); max-width: 640px; line-height: 1.5; }
-.head-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.head-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-left: auto; /* stays right-aligned when it wraps under a long lead */ }
 .head-tools:empty { display: none; }
 .head-tools .inp { width: 280px; max-width: 100%; }
 /* Legacy `title_actions` content was written for a right-aligned column
