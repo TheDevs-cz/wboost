@@ -2,107 +2,116 @@
 
 {% set active_menu_item = 'templates' %}
 
-{% block title %}{{ template.name }} – varianty{% endblock %}
+{% block title %}{{ template.name }}{% endblock %}
+{% block title_count %}{{ variants|length }}{% endblock %}
+{% block page_lead %}Varianty šablony — jeden design ve více formátech. {{ is_granted('template_edit', template) ? 'Kliknutím na náhled otevřete editor nebo vyplnění.' : 'Vyberte formát, doplňte texty a obrázky a exportujte.' }}{% endblock %}
 
 {% block title_actions %}
     {% if is_granted('ROLE_DESIGNER') %}
-        <div class="text-sm-end mb-3">
-            <a href="{{ path('add_template_variant', {'templateId': template.id}) }}" class="btn btn-outline-primary rounded-pill"><i class="mdi mdi-plus"></i> Přidat variantu</a>
-        </div>
+        <a href="{{ path('add_template_variant', {'templateId': template.id}) }}" class="btn btn-primary">{{ icon('plus', 's16') }}Přidat variantu</a>
+    {% endif %}
+{% endblock %}
+
+{% block mobile_primary_action %}
+    {% if is_granted('ROLE_DESIGNER') %}
+        <a href="{{ path('add_template_variant', {'templateId': template.id}) }}" class="btn btn-primary icon" aria-label="Přidat variantu">{{ icon('plus') }}</a>
     {% endif %}
 {% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item active">{{ template.name }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    {% if template.group %}
-        <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert">
-            <span><i class="uil-layer-group me-1"></i>Synchronizovaná šablona — design všech rozměrů se upravuje společně ve skupinovém editoru.</span>
-            {% if is_granted('template_edit', template) and is_granted('ROLE_DESIGNER') %}
-                <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="btn btn-sm btn-info rounded-pill"><i class="mdi mdi-pencil"></i> Otevřít skupinový editor</a>
-            {% endif %}
-        </div>
-    {% endif %}
+    <div class="tp-page">
+        {% if template.group %}
+            <div class="alert alert-info tp-groupnote">
+                {{ icon('refresh', 's16') }}
+                <span>Synchronizovaná šablona — design všech rozměrů se upravuje společně ve skupinovém editoru.</span>
+                {% if is_granted('template_edit', template) and is_granted('ROLE_DESIGNER') %}
+                    <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="btn btn-primary sm">{{ icon('edit', 's16') }}Otevřít skupinový editor</a>
+                {% endif %}
+            </div>
+        {% endif %}
 
-    <div class="row">
-        {% for variant in variants %}
-            <div class="col-6 col-md-4 col-xl-3">
-                {# No `h-100`: the thumbnail is aspect-ratio-locked and the meta
-                   line never wraps, so cards are already equal height — and
-                   `h-100` inside a flex column makes the card stretch over its
-                   own bottom margin, leaving a dead 24px strip under the meta. #}
-                {% set last_export = last_exports[variant.id.toString]|default(null) %}
-                <div class="card variant-card">
-                    {% if is_granted('project_edit', project) %}
-                        <div class="dropdown variant-card__menu">
-                            <a href="#" class="variant-card__menu-toggle dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti varianty">
-                                <i class="ri-more-fill"></i>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                {% if variant.group and is_granted('ROLE_DESIGNER') %}
-                                    <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
-                                {% endif %}
-                                <a href="{{ path('copy_template_variant', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
-                                {% if variant.dimension.isPrintFormat and is_granted('template_variant_edit', variant) %}
-                                    <a href="{{ path('template_variant_print_settings', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-printer-settings me-1"></i>Tiskové nastavení</a>
-                                {% endif %}
-                                <a href="{{ path('template_variant_export', {'variantId': variant.id}) }}" class="dropdown-item"><i class="mdi mdi-export me-1"></i>Export</a>
-                                {% if last_export %}
-                                    <a href="{{ path('template_variant_export', {'variantId': variant.id, 'version': last_export.versionId}) }}" class="dropdown-item"><i class="mdi mdi-history me-1"></i>Načíst poslední export</a>
-                                {% endif %}
-                                <a href="#"
-                                   class="dropdown-item"
-                                   data-modal-id="{{ variant.id }}"
-                                   data-action="click->confirm-modal#showModal">
-                                    <i class="mdi mdi-delete me-1"></i> Smazat
-                                </a>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {# A grouped template's design is edited ONLY in the group editor —
-                       every tile goes to the export/fill page regardless of permissions. #}
-                    <a href="{{ (template.group or not is_granted('template_variant_edit', variant)) ? path('template_variant_export', {'variantId': variant.id}) : path('template_variant_editor', {'variantId': variant.id}) }}" class="variant-card__link text-body">
-                        <div class="variant-card__header">
-                            <h5 class="variant-card__title">{{ variant.dimension.label }}</h5>
-                            {% if variant.group and is_granted('ROLE_DESIGNER') %}
-                                <span class="badge bg-info-lighten text-info flex-shrink-0" title="Součást skupiny {{ variant.group.name }}"><i class="uil-layer-group"></i> Skupina</span>
-                            {% endif %}
-                        </div>
-
-                        <div class="variant-card__thumb{{ variant.backgroundMode.value == 'layer' ? ' variant-card__thumb--transparent' }}">
-                            <img src="{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}" alt="Náhled varianty {{ variant.dimension.label }}">
-                        </div>
-
-                        {% if last_export %}
-                            <div class="px-2 pb-2">
-                                <small class="text-muted"><i class="mdi mdi-history"></i> Naposledy exportováno {{ last_export.lastExportedAt|date('d.m.Y H:i') }}</small>
-                            </div>
-                        {% endif %}
-                    </a>
-                </div>
-
-                {% if is_granted('project_edit', project) %}
-                    <twig:ConfirmModal
-                        id="{{ variant.id }}"
-                        url="{{ path('delete_template_variant', {'variantId': variant.id}) }}"
-                        confirmationText="Opravdu chcete smazat tuto variantu šablony?" />
+        {% if variants is empty %}
+            <div class="empty">
+                <span class="ico-c">{{ icon('image') }}</span>
+                <h2>Šablona zatím nemá žádnou variantu</h2>
+                {% if is_granted('ROLE_DESIGNER') %}
+                    <a href="{{ path('add_template_variant', {'templateId': template.id}) }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Přidat variantu</a>
                 {% endif %}
             </div>
         {% else %}
-            <div class="col-12">
-                <div class="text-center text-muted py-5">
-                    <i class="mdi mdi-image-multiple-outline d-block font-24 mb-2"></i>
-                    <p class="mb-0">Šablona zatím nemá žádnou variantu.</p>
-                </div>
-            </div>
-        {% endfor %}
+            <ul class="tp-grid">
+                {% for variant in variants %}
+                    {% set last_export = last_exports[variant.id.toString]|default(null) %}
+                    {% set thumb = variant.previewImagePath ?: variant.backgroundImage %}
+                    {% set editable = not template.group and is_granted('template_variant_edit', variant) %}
+                    <li class="tp-card">
+                        <div class="tp-h">
+                            <h3>{{ variant.dimension.label }}</h3>
+                            {% if variant.group and is_granted('ROLE_DESIGNER') %}
+                                <span class="tp-sync" title="Součást skupiny {{ variant.group.name }}">{{ icon('refresh', 's12') }}Skupina</span>
+                            {% endif %}
+                            {% if is_granted('project_edit', project) %}
+                                <div class="dropdown tp-mb">
+                                    <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti varianty {{ variant.dimension.label }}">{{ icon('more', 's16') }}</button>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        {% if variant.group and is_granted('ROLE_DESIGNER') %}
+                                            <a href="{{ path('template_group_editor', {'groupId': variant.group.id}) }}" class="dropdown-item">{{ icon('layers', 's16') }}Upravit ve skupině</a>
+                                        {% elseif editable %}
+                                            <a href="{{ path('template_variant_editor', {'variantId': variant.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit design</a>
+                                        {% endif %}
+                                        <a href="{{ path('template_variant_export', {'variantId': variant.id}) }}" class="dropdown-item">{{ icon('download', 's16') }}Vyplnit a exportovat</a>
+                                        {% if last_export %}
+                                            <a href="{{ path('template_variant_export', {'variantId': variant.id, 'version': last_export.versionId}) }}" class="dropdown-item">{{ icon('history', 's16') }}Načíst poslední export</a>
+                                        {% endif %}
+                                        <a href="{{ path('copy_template_variant', {'variantId': variant.id}) }}" class="dropdown-item">{{ icon('copy', 's16') }}Duplikovat</a>
+                                        {% if variant.dimension.isPrintFormat and is_granted('template_variant_edit', variant) %}
+                                            <a href="{{ path('template_variant_print_settings', {'variantId': variant.id}) }}" class="dropdown-item">{{ icon('file', 's16') }}Tiskové nastavení</a>
+                                        {% endif %}
+                                        <div class="dropdown-divider"></div>
+                                        <a href="#"
+                                           class="dropdown-item text-danger"
+                                           data-modal-id="{{ variant.id }}"
+                                           data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat variantu</a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {# A grouped template's design is edited ONLY in the group editor —
+                           every tile goes to the export/fill page regardless of permissions. #}
+                        <a href="{{ editable ? path('template_variant_editor', {'variantId': variant.id}) : path('template_variant_export', {'variantId': variant.id}) }}"
+                           class="tp-prev{{ thumb ? '' : ' is-empty' }}{{ variant.backgroundMode.value == 'layer' ? ' is-transparent' : '' }}"
+                           aria-label="{{ editable ? 'Upravit' : 'Vyplnit' }} variantu {{ variant.dimension.label }}">
+                            {% if thumb %}
+                                <img src="{{ uploaded_asset(thumb) }}" alt="Náhled varianty {{ variant.dimension.label }}" loading="lazy" onerror="this.parentNode.classList.add('is-empty')">
+                            {% endif %}
+                            <span class="tp-ph" aria-hidden="true" style="aspect-ratio: {{ variant.dimension.width }} / {{ variant.dimension.height }}">{{ icon('template') }}</span>
+                        </a>
+
+                        <span class="cap tp-exp">
+                            {{ icon('history', 's14') }}
+                            {% if last_export %}Naposledy exportováno {{ last_export.lastExportedAt|date('j. n. Y H:i') }}{% else %}Zatím neexportováno{% endif %}
+                        </span>
+                        <div class="tp-vars">
+                            <span class="tp-var">{{ variant.dimension.width }} × {{ variant.dimension.height }} px</span>
+                        </div>
+
+                        {% if is_granted('project_edit', project) %}
+                            <twig:ConfirmModal
+                                id="{{ variant.id }}"
+                                url="{{ path('delete_template_variant', {'variantId': variant.id}) }}"
+                                confirmationText="Opravdu chcete smazat variantu {{ variant.dimension.label }}?" />
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
     </div>
 {% endblock %}

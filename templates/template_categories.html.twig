@@ -3,51 +3,47 @@
 {% set active_menu_item = 'templates' %}
 
 {% block title %}Kategorie šablon{% endblock %}
+{% block title_count %}{{ categories|length }}{% endblock %}
+{% block page_lead %}Kategorie řadí šablony do sekcí. Za úchyt změníte pořadí, tužkou přejmenujete. Šablony smazané kategorie zůstanou zachované mezi nezařazenými.{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
+{% block mobile_primary_action %}
+    <a href="{{ path('add_template_category', {'id': project.id}) }}" class="btn btn-primary icon" aria-label="Přidat kategorii">{{ icon('plus') }}</a>
+{% endblock %}
+
 {% block content %}
+    <div class="tp-sec">
+        <ul class="tp-cats"
+            data-controller="dragula"
+            data-dragula-sort-url-value="{{ path('sort_template_categories', {'projectId': project.id}) }}"
+            data-dragula-direction-value="horizontal"
+            data-dragula-target="container">
+            {% for category in categories %}
+                <li class="tp-cat" data-entity-id="{{ category.id }}">
+                    <span class="dragula-handle tp-cat-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's14') }}</span>
+                    <a href="{{ path('edit_template_category', {'categoryId': category.id}) }}" class="tp-cat-name" title="Přejmenovat kategorii">{{ category.name }}</a>
+                    <a href="{{ path('edit_template_category', {'categoryId': category.id}) }}" class="tp-cat-btn" aria-label="Přejmenovat kategorii {{ category.name }}">{{ icon('edit', 's14') }}</a>
+                    <a href="#"
+                       class="tp-cat-btn tp-cat-del"
+                       aria-label="Smazat kategorii {{ category.name }}"
+                       data-modal-id="{{ category.id }}"
+                       data-action="click->confirm-modal#showModal">{{ icon('trash', 's14') }}</a>
 
-    <div class="row mb-2">
-        <div class="col-sm-12">
-            <a href="{{ path('add_template_category', {'id': project.id}) }}" class="btn btn-outline-primary rounded-pill mb-3"><i class="mdi mdi-plus"></i> Nová kategorie</a>
+                    <twig:ConfirmModal
+                        id="{{ category.id }}"
+                        url="{{ path('delete_template_category', {'categoryId': category.id}) }}"
+                        confirmationText="Opravdu chcete smazat kategorii „{{ category.name }}“? Šablony v ní nebudou smazány a zůstanou zachovány bez kategorie." />
+                </li>
+            {% endfor %}
+        </ul>
+        <div>
+            <a href="{{ path('add_template_category', {'id': project.id}) }}" class="tp-cat-add">{{ icon('plus', 's14') }}Přidat kategorii</a>
         </div>
-    </div>
-
-    <div class="row"
-         data-controller="dragula"
-         data-dragula-sort-url-value="{{ path('sort_template_categories', {'projectId': project.id}) }}"
-         data-dragula-direction-value="horizontal"
-         data-dragula-target="container"
-    >
-        {% for category in categories %}
-            <div class="col-sm-3">
-                <div class="card">
-                    <div class="card-body d-flex align-items-center gap-2" data-entity-id="{{ category.id }}">
-                        <h4 class="my-0 flex-grow-1" style="min-width: 0; overflow-wrap: anywhere;">{{ category.name }}</h4>
-                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                            <a href="{{ path('edit_template_category', {'categoryId': category.id}) }}" class="btn btn-outline-secondary btn-sm px-1 py-0"><i class="mdi mdi-pencil"></i></a>
-                            <a href="#"
-                               class="btn btn-outline-danger btn-sm px-1 py-0"
-                               data-modal-id="{{ category.id }}"
-                               data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete"></i></a>
-                            <span class="dragula-handle text-lighter ms-1"></span>
-                        </div>
-
-                        <twig:ConfirmModal
-                            id="{{ category.id }}"
-                            url="{{ path('delete_template_category', {'categoryId': category.id}) }}"
-                            confirmationText="Opravdu chcete smazat tuto kategorii? Šablony v této kategorii nebudou smazány a zůstanou zachovány bez kategorie." />
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
     </div>
 {% endblock %}

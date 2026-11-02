@@ -369,3 +369,96 @@ Propojené aplikace (local DB has none); usage heatmap with 12+ months of data.
 (could fold into Uživatelé' count like the prototype). Prototype Celý systém /
 Úspory tabs and client insights need new queries (#13/#14/#16). Users page
 has no "disabled" status (#9).
+
+---
+
+## 2026-11-02 — P5 Templates (listing & management pages)
+
+**What.** The Šablony listing, the "Nová šablona" type picker, categories,
+all template / variant / group / document create + edit forms, the variants
+page, the document page, the export-history page and export_failed rebuilt in
+the prototype's language (renderTemplates / tpCard / TP_TYPES). Fill pages and
+editors untouched.
+
+**How / files.**
+- CSS: `assets/styles/nocturne/templates.css` (import line in `assets/app.js`).
+- Listing: `templates.html.twig` (lead, `.gal-nav.tp-nav` toolbar: Nová šablona
+  → dialog, Kategorie, Sbalit/Rozbalit vše, size slider, search; category
+  sections `.tp-group` with heading + count + round chevron; "Nezařazené" is a
+  section too, named "Šablony" when there are no categories), cards
+  `_template.html.twig` / `_document.html.twig` (`.tp-card`: grip
+  `.dragula-handle`, title, ⋯ Bootstrap dropdown, preview `.tp-prev` with a
+  placeholder when the image is missing/broken, "Naposledy exportováno …" /
+  "Zatím neexportováno" / "N× exportováno za 30 dní", format pills deduped,
+  lavender "Synchronizováno" pill, peach "Dokument" pill + page count).
+  New `templates_list_controller.js`: collapse state per project
+  (`wb-tpclosed-<projectId>`), toggle all, search (opens all sections, hides
+  Nejpoužívanější + empty sections, "Nic jsme nenašli"), slider (`wb-sz2-tp`
+  → `--tpmin/--tph/--tpfs`). Sorting stays the shared Sortable `dragula`
+  controller per category grid (`data-entity-id` now on the `<li>`).
+- Card links: grouped → group editor (designers) / group fill; plain
+  template with ONE variant → variant editor (if `template_variant_edit`) or
+  fill page; several variants → variants page (unchanged). Menus keep every
+  former action (+ "Upravit design", "Vyplnit a exportovat", "Varianty a
+  formáty" on plain cards). The toolbar "Galerie" shortcut was dropped (it is
+  in the sidebar).
+- `_template_new_dialog.html.twig` (Bootstrap modal `#templateNewModal`):
+  four type cards with the prototype wireframes; each card = stretched link
+  to `add_template` / `add_template_group` (+ "Vyjít z existující šablony" →
+  `template_group_from_template`) / `add_template_document`; group + document
+  cards only for ROLE_DESIGNER (as before); "Šablona z obrázku" Premium card
+  is disabled ("Brzy").
+- Nejpoužívanější: new read-only `Query/GetTemplateExportCounts` (export_event
+  per template since a date) + `TemplatesController::mostUsed()` — top 4 cards
+  by exports in the last 30 days, a document sums its pages' templates; the
+  row renders only with ≥2 used cards (prototype rule). Top cards have no sort
+  id, menu or modals (keeps ids / "exactly one copy link" assertions intact).
+  Gotcha: the partial flag is `is_top` — a param named `top` collided with the
+  controller's `top` list leaking through the include context.
+- Forms: shared `_template_dimension_fields.html.twig` (preset chips +
+  unit/width/height, same `template-dimension` params/targets) used by
+  add_template / add_template_variant / add_template_group_dimension /
+  add_template_document; `_print_settings_fields` + `_background_gallery_picker`
+  restyled (same targets, `d-none` toggles kept); `_template_image_field`
+  (file-drop zone over the template `image` FileType). `.tp-sec` boxes,
+  `.tp-foot` actions. add_template_group: numbered sections, preset switch
+  cards each with its background picker, custom-dimension rows from a
+  `dimension_row` macro (the collection prototype is the same macro,
+  `|e('html_attr')`; `.form-group` row hook kept).
+- Categories page: tag chips (grip · name → edit · pencil · trash →
+  ConfirmModal) + dashed "Přidat kategorii"; still sortable (`data-entity-id`).
+- template_variants: `.tp-card` grid, ⋯ menu, transparent-background
+  checkerboard, px size pill. template_group_from_template: source cards with
+  thumbnail tiles. template_document: header pills + actions in the page
+  header, sticky page rail (`.document-pages` / `__item` / `__thumb` /
+  `is-active` / `data-entity-id` kept; horizontal strip < 860 px), page card,
+  shared fields as rows (`_document_shared_fields`, all data hooks kept), all
+  modals restyled. template_export_history: still a `<table>` with
+  `tr[data-export-version]` (tests), restyled + stacked into cards < 700 px;
+  pin/rename partials and the form anchors untouched (shared with P6 fill
+  menus). export_failed: rose empty-state card.
+
+**Tests.** New `tests/Controller/Template/TemplatesListingTest.php` (top row
+ranking + 30-day window, no duplicate ids/copy links in the top row, dialog
+links + disabled Premium card). No existing test changed.
+
+**Cheap features implemented.** #24 collapsible categories (localStorage),
+#25 Nejpoužívanější, #26 one "Nová šablona" type dialog.
+
+**Verified.** Gate green. shoot.cjs on all 16 P5 routes at 1440 dark and
+listing / document / group wizard / history / variants / categories at
+390+820 × light+dark (history overflowed at 390 → fixed). Puppeteer: top row
+(with temporary dev export events, deleted afterwards), collapse + persisted
+after reload, toggle all, search + no-results, slider, card menu, dialog
+links at 1440 and 390. No JS errors.
+
+**Not verified.** Drag-reordering cards / categories / document pages after
+the markup change (handles + `data-entity-id` as before); the gallery picker
+modal and file drop on the new forms; adding/removing custom dimension rows
+in the group wizard in a browser; real thumbnails (local Minio 404s → all
+previews showed the placeholder).
+
+**Follow-ups.** Category rename inline / drag a card into another category /
+category-delete "move to" picker (prototype) need backend. Document cards have
+no "naposledy exportováno" (document export versions are not in
+`latestForProjectTemplates`). P6 should restyle the shared pin/rename partials.

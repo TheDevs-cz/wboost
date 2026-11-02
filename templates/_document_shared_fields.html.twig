@@ -7,63 +7,65 @@
 
     Parameters: document, shared_fields (DocumentFieldsView::build()), csrf.
 #}
-<div class="card" id="shared-fields">
-    <div class="card-body">
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-            <h5 class="header-title m-0">Společná pole</h5>
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill ms-auto" data-bs-toggle="modal" data-bs-target="#documentFieldModal-new"><i class="mdi mdi-plus"></i> Přidat pole</button>
+<section class="tp-sec td-fields" id="shared-fields">
+    <div class="td-pageh">
+        <div class="tp-sech">
+            <h2>{{ icon('link', 's18') }}Společná pole</h2>
+            <p class="cap">Stránky se vyplňují každá zvlášť — i když mají stejná pole. Společné pole se vyplní jednou a propíše se do všech propojených stránek.</p>
         </div>
-        <p class="text-muted small">Stránky se vyplňují každá zvlášť — i když mají stejná pole. Společné pole se vyplní jednou a propíše se do všech propojených stránek.</p>
+        <button type="button" class="btn btn-tertiary sm" data-bs-toggle="modal" data-bs-target="#documentFieldModal-new">{{ icon('plus', 's16') }}Přidat pole</button>
+    </div>
 
-        {% if shared_fields.fields is empty %}
-            <p class="text-muted small mb-2">Zatím žádná společná pole.</p>
-        {% else %}
-            <ul class="list-group mb-2">
-                {% for entry in shared_fields.fields %}
-                    {% set field = entry.field %}
-                    <li class="list-group-item d-flex flex-wrap align-items-center gap-2" data-document-field="{{ field.id }}">
-                        <span class="fw-bold">{{ field.name }}</span>
-                        <span class="badge bg-light text-dark" data-document-field-kind>{{ entry.textMode ? entry.textMode.label : field.kind.label }}</span>
-                        {% if entry.stale > 0 %}
-                            <span class="badge bg-warning-subtle text-warning" data-document-field-stale title="Propojený prvek na stránce už neexistuje — při příštím uložení pole se propojení odstraní.">
-                                <i class="mdi mdi-alert-outline"></i> {{ entry.stale }}× neplatné propojení
-                            </span>
-                        {% endif %}
-                        <span class="small text-muted w-100">
+    {% if shared_fields.fields is empty %}
+        <p class="tp-hint">Zatím žádná společná pole.</p>
+    {% else %}
+        <ul class="td-fieldlist">
+            {% for entry in shared_fields.fields %}
+                {% set field = entry.field %}
+                <li class="td-field" data-document-field="{{ field.id }}">
+                    <div class="td-field-b">
+                        <div class="td-field-t">
+                            <b>{{ field.name }}</b>
+                            <span class="pill neutral" data-document-field-kind>{{ entry.textMode ? entry.textMode.label : field.kind.label }}</span>
+                            {% if entry.stale > 0 %}
+                                <span class="pill pch" data-document-field-stale title="Propojený prvek na stránce už neexistuje — při příštím uložení pole se propojení odstraní.">
+                                    {{ icon('alert', 's12') }}{{ entry.stale }}× neplatné propojení
+                                </span>
+                            {% endif %}
+                        </div>
+                        <span class="cap">
                             {% for binding in entry.bindings %}
                                 <span class="{{ binding.stale ? 'text-decoration-line-through' : '' }}">{% if binding.pageNumber %}Strana {{ binding.pageNumber }}{% else %}{{ binding.pageName }}{% endif %} · {{ binding.inputName }}</span>{{ not loop.last ? ', ' }}
                             {% else %}
                                 Nepropojeno s žádnou stránkou.
                             {% endfor %}
                         </span>
-                        <span class="ms-auto d-flex gap-1">
-                            <button type="button" class="btn btn-sm btn-link p-0" data-bs-toggle="modal" data-bs-target="#documentFieldModal-{{ field.id }}"><i class="mdi mdi-pencil"></i> Upravit</button>
-                        </span>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% endif %}
+                    </div>
+                    <button type="button" class="btn btn-ghost sm" data-bs-toggle="modal" data-bs-target="#documentFieldModal-{{ field.id }}">{{ icon('edit', 's16') }}Upravit</button>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
 
-        {% if shared_fields.suggestions is not empty %}
-            <div class="small text-muted mb-1"><i class="mdi mdi-lightbulb-on-outline"></i> Návrhy — stejné pole na více stránkách:</div>
-            <div class="d-flex flex-wrap gap-2">
-                {% for suggestion in shared_fields.suggestions %}
-                    <form method="post" action="{{ path('template_document_fields', {'documentId': document.id}) }}" data-document-field-suggestion>
-                        <input type="hidden" name="_token" value="{{ csrf }}">
-                        <input type="hidden" name="name" value="{{ suggestion.name }}">
-                        <input type="hidden" name="kind" value="{{ suggestion.kind }}">
-                        {% for binding in suggestion.bindings %}
-                            <input type="hidden" name="bindings[{{ binding.templateId }}]" value="{{ binding.inputId }}">
-                        {% endfor %}
-                        <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill" title="Vytvořit společné pole „{{ suggestion.name }}" ({{ suggestion.label }})">
-                            <i class="mdi mdi-link-variant"></i> {{ suggestion.name }} <span class="text-muted">({{ suggestion.label }})</span>
-                        </button>
-                    </form>
-                {% endfor %}
-            </div>
-        {% endif %}
-    </div>
-</div>
+    {% if shared_fields.suggestions is not empty %}
+        <div class="tp-hint">{{ icon('sparkle', 's14') }} Návrhy — stejné pole na více stránkách:</div>
+        <div class="td-suggest">
+            {% for suggestion in shared_fields.suggestions %}
+                <form method="post" action="{{ path('template_document_fields', {'documentId': document.id}) }}" data-document-field-suggestion>
+                    <input type="hidden" name="_token" value="{{ csrf }}">
+                    <input type="hidden" name="name" value="{{ suggestion.name }}">
+                    <input type="hidden" name="kind" value="{{ suggestion.kind }}">
+                    {% for binding in suggestion.bindings %}
+                        <input type="hidden" name="bindings[{{ binding.templateId }}]" value="{{ binding.inputId }}">
+                    {% endfor %}
+                    <button type="submit" class="btn btn-tertiary sm" title="Vytvořit společné pole „{{ suggestion.name }}“ ({{ suggestion.label }})">
+                        {{ icon('link', 's16') }}{{ suggestion.name }} <span class="cap">({{ suggestion.label }})</span>
+                    </button>
+                </form>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
 
 {% set text_mode_suffix = {rich: ' (formátovaný)', list: ' (se seznamy)', checklist: ' (zaškrtávací seznam)'} %}
 {% set field_modals = [{id: 'new', field: null, selected: {}}] %}
@@ -126,10 +128,10 @@
                 </div>
                 <div class="modal-footer">
                     {% if field %}
-                        <button type="submit" name="delete" value="1" class="btn btn-outline-danger me-auto" formnovalidate>Odstranit pole</button>
+                        <button type="submit" name="delete" value="1" class="btn btn-ghost-danger sm me-auto" formnovalidate>Odstranit pole</button>
                     {% endif %}
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
-                    <button type="submit" class="btn btn-primary">Uložit</button>
+                    <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zpět</button>
+                    <button type="submit" class="btn btn-primary sm">Uložit</button>
                 </div>
             </form>
         </div>

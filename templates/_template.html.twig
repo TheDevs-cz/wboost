@@ -1,134 +1,144 @@
-{# Two flavors of the template card: a plain template is managed here
-   (duplicate/edit/delete, body → variants page), a GROUPED (synchronized)
-   template is managed in its group editor — the card only routes there
-   (designers) or to the group fill page (everyone else). Duplicating a
-   grouped template yields a new, independent group (CopyTemplateHandler). #}
+{# One template card of the Šablony listing (prototype .tp-card).
+
+   Two flavours: a plain template is managed here (duplicate / edit / delete,
+   variants page), a GROUPED (synchronized) template is managed in its group
+   editor — the card routes there (designers) or to the group fill page
+   (everyone else). Duplicating a grouped template yields a new, independent
+   group (CopyTemplateHandler).
+
+   The card body leads editors to the design and everyone else to the fill
+   page; a plain template with several formats goes to its variants page
+   (each tile there makes the same editor/fill decision).
+
+   Vars: template; optional `is_top` (the "Nejpoužívanější" row: no grip, no
+   menu, no sort id, the exp line shows `uses`) + `uses`. #}
+{% set top = is_top ?? false %}
 {% set grouped = template.group is not null %}
-{% set can_group_edit = grouped and is_granted('template_edit', template) and is_granted('ROLE_DESIGNER') %}
+{% set can_edit = is_granted('template_edit', template) %}
+{% set can_group_edit = grouped and can_edit and is_granted('ROLE_DESIGNER') %}
+{% set variants = template.variants %}
+{% set single = variants|length == 1 ? variants|first : null %}
+{% set single_editable = single and not grouped and is_granted('template_variant_edit', single) %}
 
-<div class="col-md-6 col-xxl-3">
-    <div class="card" data-entity-id="{{ template.id }}">
-        {% if grouped %}
-            {# Name + card picture are edited through the ORDINARY template
-               form, exactly as on a plain card — being synchronized changes
-               how the DESIGN is edited, not how the template is labelled. So
-               the menu renders for anyone who may edit the template, and only
-               the group-design items are designer-gated. #}
-            {% if is_granted('template_edit', template) %}
-                <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                    <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="ri-more-fill text-lighter"></i>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-end">
-                        {% if can_group_edit %}
-                            <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="uil-layer-group me-1"></i>Upravit ve skupině</a>
-                            <a href="{{ path('add_template_group_dimension', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-plus me-1"></i>Přidat rozměr</a>
-                            <a href="{{ path('template_group_fill', {'groupId': template.group.id}) }}" class="dropdown-item"><i class="mdi mdi-folder-zip-outline me-1"></i>Vyplnit a exportovat</a>
-                            <div class="dropdown-divider"></div>
-                            <a href="{{ path('copy_template', {'templateId': template.id}) }}" class="dropdown-item" title="Samostatná kopie se svou vlastní synchronizací — změny se nepropisují do originálu"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
-                        {% endif %}
-                        <a href="{{ path('edit_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit název a náhled</a>
-                        {% if can_group_edit %}
-                            <a href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#deleteGroupModal-{{ template.id }}"><i class="mdi mdi-delete me-1"></i>Smazat…</a>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
-        {% elseif is_granted('template_edit', template) %}
-            <div class="card-img-overlay dropdown card-widgets" style="left: auto;bottom: auto;">
-                <a href="#" class="dropdown-toggle arrow-none" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="ri-more-fill text-lighter"></i>
-                </a>
+{% if grouped %}
+    {% set card_url = can_group_edit
+        ? path('template_group_editor', {'groupId': template.group.id})
+        : path('template_group_fill', {'groupId': template.group.id}) %}
+{% elseif single %}
+    {% set card_url = single_editable
+        ? path('template_variant_editor', {'variantId': single.id})
+        : path('template_variant_export', {'variantId': single.id}) %}
+{% else %}
+    {% set card_url = path('template_variants', {'templateId': template.id}) %}
+{% endif %}
+
+{% set first = variants|first %}
+{% set thumb = template.image ?: (first ? (first.previewImagePath ?: first.backgroundImage) : null) %}
+{% set labels = variants|map(v => v.dimension.label)|reduce((carry, label) => label in carry ? carry : carry|merge([label]), []) %}
+{% set last_export = last_exports[template.id.toString]|default(null) %}
+
+<li class="tp-card"{% if not top %} data-entity-id="{{ template.id }}"{% endif %} data-name="{{ template.name|lower }}">
+    <div class="tp-h">
+        {% if not top and can_edit %}
+            <span class="dragula-handle man-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
+        {% endif %}
+        <h3 title="{{ template.name }}">{{ template.name }}</h3>
+
+        {% if not top and can_edit %}
+            <div class="dropdown tp-mb">
+                <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti šablony {{ template.name }}">{{ icon('more', 's16') }}</button>
                 <div class="dropdown-menu dropdown-menu-end">
-                    <a href="{{ path('copy_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-content-copy me-1"></i>Duplikovat</a>
-                    <a href="{{ path('edit_template', {'templateId': template.id}) }}" class="dropdown-item"><i class="mdi mdi-pencil me-1"></i>Upravit</a>
-                    <a href="#"
-                       class="dropdown-item"
-                       data-modal-id="{{ template.id }}"
-                       data-action="click->confirm-modal#showModal"><i class="mdi mdi-delete me-1"></i>Smazat</a>
-                </div>
-
-                <twig:ConfirmModal
-                    id="{{ template.id }}"
-                    url="{{ path('delete_template', {'templateId': template.id}) }}"
-                    confirmationText="Opravdu chcete smazat šablonu?" />
-            </div>
-        {% endif %}
-
-        {% if grouped %}
-            {% set card_url = can_group_edit
-                ? path('template_group_editor', {'groupId': template.group.id})
-                : path('template_group_fill', {'groupId': template.group.id}) %}
-        {% else %}
-            {% set card_url = path('template_variants', {'templateId': template.id}) %}
-        {% endif %}
-
-        <a href="{{ card_url }}" class="text-body">
-            <div class="card-body pb-0">
-                <h4 class="m-0 ps-3">
-                    {% if is_granted('template_edit', template) %}
-                        <span class="dragula-handle text-lighter position-absolute" style="left: 0;top: 20px;"></span>
-                    {% endif %}
-
-                    {{ template.name }}
-
                     {% if grouped %}
-                        <span class="badge bg-info-lighten text-info font-12" title="Synchronizovaná šablona — {{ template.group.name }}"><i class="uil-layer-group"></i> Synchronizováno</span>
+                        {# Name + card picture are edited through the ORDINARY
+                           template form, exactly as on a plain card — being
+                           synchronized changes how the DESIGN is edited, not
+                           how the template is labelled. Group-design items are
+                           designer-gated. #}
+                        {% if can_group_edit %}
+                            <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}" class="dropdown-item">{{ icon('layers', 's16') }}Upravit ve skupině</a>
+                            <a href="{{ path('add_template_group_dimension', {'groupId': template.group.id}) }}" class="dropdown-item">{{ icon('plus', 's16') }}Přidat rozměr</a>
+                            <a href="{{ path('template_group_fill', {'groupId': template.group.id}) }}" class="dropdown-item">{{ icon('download', 's16') }}Vyplnit a exportovat</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="{{ path('copy_template', {'templateId': template.id}) }}" class="dropdown-item" title="Samostatná kopie se svou vlastní synchronizací — změny se nepropisují do originálu">{{ icon('copy', 's16') }}Duplikovat</a>
+                        {% endif %}
+                        <a href="{{ path('edit_template', {'templateId': template.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit název a náhled</a>
+                        {% if can_group_edit %}
+                            <div class="dropdown-divider"></div>
+                            <a href="#" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#deleteGroupModal-{{ template.id }}">{{ icon('trash', 's16') }}Smazat…</a>
+                        {% endif %}
+                    {% else %}
+                        {% if single_editable %}
+                            <a href="{{ path('template_variant_editor', {'variantId': single.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit design</a>
+                        {% endif %}
+                        {% if single %}
+                            <a href="{{ path('template_variant_export', {'variantId': single.id}) }}" class="dropdown-item">{{ icon('download', 's16') }}Vyplnit a exportovat</a>
+                        {% endif %}
+                        <a href="{{ path('template_variants', {'templateId': template.id}) }}" class="dropdown-item">{{ icon('grid', 's16') }}Varianty a formáty</a>
+                        <a href="{{ path('edit_template', {'templateId': template.id}) }}" class="dropdown-item">{{ icon('type', 's16') }}Upravit název a náhled</a>
+                        <a href="{{ path('copy_template', {'templateId': template.id}) }}" class="dropdown-item">{{ icon('copy', 's16') }}Duplikovat</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#"
+                           class="dropdown-item text-danger"
+                           data-modal-id="{{ template.id }}"
+                           data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat šablonu</a>
                     {% endif %}
-                </h4>
+                </div>
             </div>
-
-            <img class="p-3 card-img-bottom" src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="{{ template.name }}">
-
-            {% set last_export = last_exports[template.id.toString]|default(null) %}
-            {% if last_export %}
-                <div class="card-body pt-0 pb-0">
-                    <small class="text-muted" title="Historii exportů najdete na stránce vyplnění">
-                        <i class="mdi mdi-history"></i> Naposledy exportováno {{ last_export.lastExportedAt|date('d.m.Y H:i') }}
-                    </small>
-                </div>
-            {% endif %}
-
-            {% if template.variants|length %}
-                <div class="card-body pt-0 pb-2">
-                    {% for variant in template.variants %}
-                        <div class="d-flex align-items-center mt-0">
-                            <div class="flex-shrink-0">
-                                <h5 class="font-13 text-muted my-0">Varianta {{ variant.dimension.label }}</h5>
-                            </div>
-
-                            <div class="flex-grow-1 ms-2"></div>
-
-                            <div class="text-end">
-                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: url('{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat;background-size: cover;"></span>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        </a>
+        {% endif %}
     </div>
 
-    {% if can_group_edit %}
+    <a href="{{ card_url }}" class="tp-prev{{ thumb ? '' : ' is-empty' }}" aria-label="{{ (grouped ? can_group_edit : single_editable) ? 'Upravit' : 'Otevřít' }} šablonu {{ template.name }}">
+        {% if thumb %}
+            <img src="{{ uploaded_asset(thumb) }}" alt="" loading="lazy" onerror="this.parentNode.classList.add('is-empty')">
+        {% endif %}
+        <span class="tp-ph" aria-hidden="true">{{ icon('template') }}</span>
+    </a>
+
+    <span class="cap tp-exp">
+        {{ icon('history', 's14') }}
+        {% if top %}
+            {{ uses }}× exportováno za 30 dní
+        {% elseif last_export %}
+            Naposledy exportováno {{ last_export.lastExportedAt|date('j. n. Y H:i') }}
+        {% else %}
+            Zatím neexportováno
+        {% endif %}
+    </span>
+
+    {% if labels is not empty or grouped %}
+        <div class="tp-vars" aria-label="Formáty: {{ labels|join(', ') }}">
+            {% if grouped %}<span class="tp-var tp-var-sync" title="Synchronizovaná šablona — {{ template.group.name }}">{{ icon('refresh', 's12') }}Synchronizováno</span>{% endif %}
+            {% for label in labels %}<span class="tp-var">{{ label }}</span>{% endfor %}
+        </div>
+    {% endif %}
+
+    {% if not top and not grouped and can_edit %}
+        <twig:ConfirmModal
+            id="{{ template.id }}"
+            url="{{ path('delete_template', {'templateId': template.id}) }}"
+            confirmationText="Opravdu chcete smazat šablonu „{{ template.name }}“? Šablona i její varianty zmizí." />
+    {% endif %}
+
+    {% if not top and can_group_edit %}
         {# Delete dialog: both modes as explicit submit buttons of one POST form. #}
         <div class="modal fade" id="deleteGroupModal-{{ template.id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <form class="modal-content" method="post" action="{{ path('delete_template_group', {'groupId': template.group.id}) }}">
                     <div class="modal-header">
-                        <h4 class="modal-title">Smazat synchronizovanou šablonu „{{ template.name }}"?</h4>
+                        <h4 class="modal-title">Smazat synchronizovanou šablonu „{{ template.name }}“?</h4>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
                     </div>
-                    <div class="modal-body">
-                        <p class="mb-2"><strong>Zrušit pouze synchronizaci</strong> — šablona i všechny její varianty zůstanou zachovány a budou se chovat jako běžná šablona (rozměry jen nepůjde upravovat společně).</p>
-                        <p class="mb-0 text-danger"><strong>Smazat včetně šablony</strong> — nevratně smaže šablonu se všemi jejími variantami (včetně variant přidaných ručně).</p>
+                    <div class="modal-body tp-delmodes">
+                        <p><b>Zrušit pouze synchronizaci</b> — šablona i všechny její varianty zůstanou zachovány a budou se chovat jako běžná šablona (rozměry jen nepůjde upravovat společně).</p>
+                        <p class="tp-danger"><b>Smazat včetně šablony</b> — nevratně smaže šablonu se všemi jejími variantami (včetně variant přidaných ručně).</p>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Zpět</button>
-                        <button type="submit" name="deleteTemplates" value="0" class="btn btn-secondary">Zrušit pouze synchronizaci</button>
-                        <button type="submit" name="deleteTemplates" value="1" class="btn btn-danger">Smazat včetně šablony</button>
+                        <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zpět</button>
+                        <button type="submit" name="deleteTemplates" value="0" class="btn btn-tertiary sm">Zrušit pouze synchronizaci</button>
+                        <button type="submit" name="deleteTemplates" value="1" class="btn btn-danger sm">Smazat včetně šablony</button>
                     </div>
                 </form>
             </div>
         </div>
     {% endif %}
-</div>
+</li>

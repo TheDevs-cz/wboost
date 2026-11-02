@@ -14,8 +14,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Query\GetTemplateCategories;
+use WBoost\Web\Query\GetTemplateExportCounts;
 use WBoost\Web\Query\GetTemplateListing;
 use WBoost\Web\Services\Security\ProjectVoter;
+use WBoost\Web\Value\TemplateListingItem;
 
 #[RequiresProjectModule(ProjectModule::Templates)]
 final class TemplatesController extends AbstractController
@@ -24,6 +26,7 @@ final class TemplatesController extends AbstractController
         readonly private GetTemplateCategories $getTemplateCategories,
         readonly private GetExportVersions $getExportVersions,
         readonly private GetTemplateListing $getTemplateListing,
+        readonly private GetTemplateExportCounts $getTemplateExportCounts,
     ) {
     }
 
@@ -38,6 +41,11 @@ final class TemplatesController extends AbstractController
             array_values($this->getTemplateCategories->allForProject($project->id)),
         );
 
+        $items = $listing['uncategorized'];
+        foreach ($listing['categories'] as $entry) {
+            $items = [...$items, ...$entry['items']];
+        }
+
         return $this->render('templates.html.twig', [
             'project' => $project,
             // Cards per category — templates and multi-page documents share
@@ -48,6 +56,46 @@ final class TemplatesController extends AbstractController
             // templateId → latest export version summary, for the cards'
             // "naposledy exportováno" line.
             'last_exports' => $this->getExportVersions->latestForProjectTemplates($project->id),
+            'top' => $this->mostUsed($project, $items),
         ]);
+    }
+
+    /**
+     * "Nejpoužívanější": the (at most) four cards with the most exports in the
+     * last 30 days. A document counts the exports of all its pages. Fewer
+     * than two used cards make no meaningful row → empty.
+     *
+     * @param list<TemplateListingItem> $items
+     * @return list<array{item: TemplateListingItem, uses: int}>
+     */
+    private function mostUsed(Project $project, array $items): array
+    {
+        $counts = $this->getTemplateExportCounts->forProjectSince($project->id, new \DateTimeImmutable('-30 days'));
+
+        if ($counts === []) {
+            return [];
+        }
+
+        $ranked = [];
+        foreach ($items as $item) {
+            $uses = 0;
+
+            if ($item->template !== null) {
+                $uses = $counts[$item->template->id->toString()] ?? 0;
+            } elseif ($item->document !== null) {
+                foreach ($item->document->pages() as $page) {
+                    $uses += $counts[$page->template->id->toString()] ?? 0;
+                }
+            }
+
+            if ($uses > 0) {
+                $ranked[] = ['item' => $item, 'uses' => $uses];
+            }
+        }
+
+        usort($ranked, static fn (array $a, array $b): int => $b['uses'] <=> $a['uses']);
+        $ranked = array_slice($ranked, 0, 4);
+
+        return count($ranked) >= 2 ? $ranked : [];
     }
 }

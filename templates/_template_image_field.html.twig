@@ -1,0 +1,21 @@
+{# Card picture of a template (TemplateFormType `image`) as a drop zone over
+   the FileType (file_drop_controller, P4). Vars: field, current (stored
+   path|null). #}
+<div class="field tp-image" data-controller="file-drop">
+    <span>{{ field.vars.label ?: 'Náhled' }} <small>nepovinné</small></span>
+    <label class="man-drop man-drop-sm" for="{{ field.vars.id }}" data-file-drop-target="zone">
+        <img alt="" data-file-drop-target="preview"{% if current|default(null) %} src="{{ uploaded_asset(current) }}" onerror="this.hidden = true"{% else %} hidden{% endif %}>
+        {{ icon('upload') }}
+        <b>Přetáhněte obrázek sem</b>
+        <span class="cap">nebo <u>vyberte soubor</u> · náhled karty v přehledu šablon · max. 10 MB</span>
+    </label>
+    {{ form_widget(field, {'attr': {
+        'class': 'sr',
+        'accept': 'image/*',
+        'data-file-drop-target': 'input',
+        'data-action': 'change->file-drop#changed',
+    }}) }}
+    <div class="man-picked" data-file-drop-target="name" hidden></div>
+    {{ form_errors(field) }}
+    {% if field.vars.help %}<p class="tp-hint">{{ field.vars.help }}</p>{% endif %}
+</div>

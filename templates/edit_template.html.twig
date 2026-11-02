@@ -5,36 +5,37 @@
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {% if template.group is not null %}
-                <p class="text-muted small">
-                    <i class="uil-layer-group me-1"></i>Synchronizovaná šablona — název se propíše i do skupiny. Design jednotlivých rozměrů se upravuje ve <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}">skupinovém editoru</a>.
-                </p>
-            {% endif %}
+    {{ form_start(form, {attr: {class: 'tp-form'}}) }}
+    {{ form_errors(form) }}
 
-            {{ form_start(form) }}
-
-
-            {{ form_widget(form) }}
-
-            {% if template.image %}
-                <div style="width: 200px;" class="mb-3">
-                    <img class="img-thumbnail" src="{{ uploaded_asset(template.image) }}">
-                </div>
-            {% endif %}
-
-            <button class="btn btn-primary" type="submit">Uložit</button>
-
-            {{ form_end(form) }}
+    {% if template.group is not null %}
+        <div class="alert alert-info">
+            {{ icon('refresh', 's16') }}
+            <span>Synchronizovaná šablona — název se propíše i do skupiny. Design jednotlivých rozměrů se upravuje ve <a href="{{ path('template_group_editor', {'groupId': template.group.id}) }}">skupinovém editoru</a>.</span>
         </div>
+    {% endif %}
+
+    <section class="tp-sec">
+        <div class="tp-sech"><h2>{{ icon('template', 's18') }}{{ template.name }}</h2></div>
+        <div class="tp-formgrid">
+            {{ form_row(form.name) }}
+            {{ form_row(form.category) }}
+        </div>
+        {{ include('_template_image_field.html.twig', { field: form.image, current: template.image }) }}
+    </section>
+
+    {{ form_rest(form) }}
+
+    <div class="tp-foot">
+        <a href="{{ path('templates', {'projectId': project.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+        <button class="btn btn-primary sm" type="submit">Uložit</button>
     </div>
+
+    {{ form_end(form) }}
 {% endblock %}

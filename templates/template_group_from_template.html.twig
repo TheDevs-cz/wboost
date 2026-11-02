@@ -2,57 +2,51 @@
 
 {% set active_menu_item = 'templates' %}
 
-{% block title %}Vytvořit skupinu z existující šablony{% endblock %}
+{% block title %}Synchronizovaná šablona z existující{% endblock %}
+{% block page_lead %}Vyberte variantu, která poslouží jako výchozí design nové skupiny. Design se <b>zkopíruje</b> do všech rozměrů skupiny (poměrově přepočítaný) — původní šablona zůstane beze změny.{% endblock %}
+
+{% block title_actions %}
+    <a href="{{ path('add_template_group', {'projectId': project.id}) }}" class="btn btn-tertiary">{{ icon('plus', 's16') }}Raději začít od nuly</a>
+{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('templates', {'projectId': project.id}) }}">Šablony</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body py-2 d-flex align-items-center">
-            <p class="text-muted my-1">Vyberte variantu, která poslouží jako výchozí design nové skupiny. Design se <strong>zkopíruje</strong> do všech rozměrů skupiny (poměrově přepočítaný) — původní šablona zůstane beze změny.</p>
-            <a href="{{ path('add_template_group', {'projectId': project.id}) }}" class="btn btn-sm btn-outline-secondary rounded-pill ms-auto text-nowrap"><i class="mdi mdi-plus"></i> Raději začít od nuly</a>
-        </div>
-    </div>
-
     {% if templates|length == 0 %}
-        <div class="card">
-            <div class="card-body text-center text-muted py-5">
-                <i class="uil-images" style="font-size: 2rem;"></i>
-                <p class="mb-1 mt-2"><strong>V projektu zatím nejsou žádné šablony, ze kterých by šlo vyjít.</strong></p>
-                <p class="mb-3">Vytvořte nejdřív šablonu — nebo založte skupinu s prázdným plátnem.</p>
-                <a href="{{ path('add_template_group', {'projectId': project.id}) }}" class="btn btn-outline-primary rounded-pill"><i class="mdi mdi-plus"></i> Nová skupina od nuly</a>
-            </div>
+        <div class="empty">
+            <span class="ico-c">{{ icon('image') }}</span>
+            <h2>Zatím není z čeho vyjít</h2>
+            <p>Vytvořte nejdřív šablonu — nebo založte skupinu s prázdným plátnem.</p>
+            <a href="{{ path('add_template_group', {'projectId': project.id}) }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Nová skupina od nuly</a>
         </div>
     {% endif %}
 
-    {% for template in templates %}
-        <div class="card">
-            <div class="card-body py-2">
-                <p class="fw-bold mb-2 mt-1">
-                    {{ template.name }}
-                    {% if template.category %}<span class="badge bg-secondary-lighten text-secondary ms-1">{{ template.category.name }}</span>{% endif %}
-                    {% if template.group %}<span class="badge bg-info-lighten text-info ms-1"><i class="uil-layer-group"></i> Skupina: {{ template.group.name }}</span>{% endif %}
-                </p>
-                <div class="d-flex flex-wrap gap-2">
+    <div class="tp-srclist">
+        {% for template in templates %}
+            <section class="tp-src">
+                <div class="tp-src-h">
+                    <b>{{ template.name }}</b>
+                    {% if template.category %}<span class="pill neutral">{{ template.category.name }}</span>{% endif %}
+                    {% if template.group %}<span class="pill">{{ icon('refresh', 's12') }}Skupina: {{ template.group.name }}</span>{% endif %}
+                </div>
+                <div class="tp-src-tiles">
                     {% for variant in template.variants %}
+                        {% set thumb = variant.previewImagePath ?: variant.backgroundImage %}
                         <a href="{{ path('add_template_group', {'projectId': project.id, 'sourceVariantId': variant.id}) }}"
-                           class="template-source-tile text-center text-body"
+                           class="tp-src-tile"
                            title="Použít tento design jako výchozí">
-                            <span class="template-source-thumb d-block rounded"
-                                  style="aspect-ratio: {{ variant.dimension.width }} / {{ variant.dimension.height }}; background: url('{{ (variant.previewImagePath ?: variant.backgroundImage) ? uploaded_asset(variant.previewImagePath ?: variant.backgroundImage) : asset('images/manual-placeholder.png') }}') center center no-repeat; background-size: cover;"></span>
-                            <span class="font-11 text-muted d-block mt-1">{{ variant.dimension.label }}</span>
-                            <span class="template-source-cta font-11 d-block">Použít <i class="mdi mdi-arrow-right"></i></span>
+                            <span class="tp-src-thumb" style="aspect-ratio: {{ variant.dimension.width }} / {{ variant.dimension.height }};{% if thumb %} background-image: url('{{ uploaded_asset(thumb) }}');{% endif %}"></span>
+                            <span class="tp-src-l">{{ variant.dimension.label }}</span>
+                            <span class="tp-src-cta">Použít {{ icon('arrow-right', 's12') }}</span>
                         </a>
                     {% endfor %}
                 </div>
-            </div>
-        </div>
-    {% endfor %}
+            </section>
+        {% endfor %}
+    </div>
 {% endblock %}

@@ -97,7 +97,7 @@ finish; tick your phase's boxes here.
       box, modules box), add/edit project, project modules page.
 - [x] **P4 Brand assets** — manuals list/edit + logos + colours + fonts +
       mockup pages, project fonts, gallery (Live component), calendars.
-- [ ] **P5 Templates** — templates list (categories, Nejpoužívanější if data
+- [x] **P5 Templates** — templates list (categories, Nejpoužívanější if data
       exists, card style), categories, variants, add template (type picker
       look), documents pages, export history page, print settings, export_failed.
 - [ ] **P6 Fill pages** — single / group / document fill chrome (header
