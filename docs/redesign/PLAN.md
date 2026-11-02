@@ -91,7 +91,7 @@ finish; tick your phase's boxes here.
       (persisted), drawer + top bar < 860 px, page header pattern
       (eyebrow / h1 + count / actions), flashes → toasts/notices. Editor pages
       get the icon rail variant. Update `docs/architecture/app-shell.md`.
-- [ ] **P3 Projects** — dashboard (`/projects`: greeting eyebrow, search,
+- [x] **P3 Projects** — dashboard (`/projects`: greeting eyebrow, search,
       filter chips that map to existing data, card grid + card menu), project
       overview (`project_dashboard`: header, palette chips, module tiles, users
       box, modules box), add/edit project, project modules page.

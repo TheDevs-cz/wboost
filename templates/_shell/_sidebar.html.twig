@@ -29,11 +29,7 @@
         <button type="button" class="qn-trigger" data-shell-target="qnTrigger" data-action="shell#toggleQuickNav" aria-haspopup="dialog" aria-expanded="false" aria-controls="qnPop" title="Rychlá navigace" aria-label="Rychlá navigace: {{ project is defined ? project.name : 'vybrat projekt' }}">
             {% if project is defined %}
                 {% set nav_avatar = project_avatar(project) %}
-                {% if nav_avatar.logoPath %}
-                    <span class="sym sm"><img src="{{ uploaded_asset(nav_avatar.logoPath) }}" alt=""></span>
-                {% else %}
-                    <span class="sym sm mono">{{ nav_avatar.initials }}</span>
-                {% endif %}
+                {{ include('_project_avatar.html.twig', {'logo_path': nav_avatar.logoPath, 'initials': nav_avatar.initials, 'class': 'sm'}, with_context = false) }}
                 <span class="nm hide-c">{{ project.name }}</span>
                 {{ icon('chev-down', 's16 chev hide-c') }}
             {% else %}

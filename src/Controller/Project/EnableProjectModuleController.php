@@ -22,7 +22,8 @@ use WBoost\Web\Value\ProjectModule;
  * POST + CSRF from the "Objevte další moduly" page (project editors) and the
  * admin's "Moduly projektu" card. A non-admin switching a module on mails the
  * admins. An editor lands on the new module; the admin card's form posts
- * `back=edit` and returns to the project settings.
+ * `back=edit` (project settings) or `back=dashboard` (project overview) and
+ * returns there.
  */
 final class EnableProjectModuleController extends AbstractController
 {
@@ -56,6 +57,10 @@ final class EnableProjectModuleController extends AbstractController
         $this->bus->dispatch(new EnableProjectModule($project->id, $module, $user->id));
 
         $this->addFlash('success', sprintf('Modul %s je zapnutý — najdete ho v levém menu.', $module->label()));
+
+        if ($request->request->getString('back') === 'dashboard') {
+            return $this->redirect($this->generateUrl('project_dashboard', ['id' => $project->id->toString()]) . '#pd-modules');
+        }
 
         if ($request->request->getString('back') === 'edit') {
             return $this->redirect($this->generateUrl('edit_project', ['id' => $project->id->toString()]) . '#project-modules');

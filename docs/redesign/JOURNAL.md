@@ -120,3 +120,79 @@ Editors: rail forced, `editor-shell-page` pinning still works.
 - `public/theme/fonts/Nunito-*.ttf` is read by MCP text-measuring tests — move
   it before deleting `public/theme/` in P10.
 - `--ct-*` shim + `page.css` "Hyper helper classes" block → delete in P10.
+
+---
+
+## 2026-11-02 — P3 Projects
+
+**What.** /projects, the project overview, "Objevte další moduly", add/edit
+project and the sharing dialog are rebuilt in the prototype's markup
+(`renderDashboard`/`cardHTML`/`renderDetail`).
+
+**How / files.**
+- CSS: `assets/styles/nocturne/projects.css` (imported in `assets/app.js`).
+- `projects.html.twig` + `_project_card.html.twig`: greeting eyebrow (by hour,
+  user's first name when `User::$name` is set), h1 + live count, search,
+  chips Vše · Moje projekty · Grafik ▾ (owner menu with search) · S manuálem /
+  Bez manuálu, `.pcard` grid, ⋯ menu (Změnit název a logo → edit page,
+  Sdílet (admin), Odstranit projekt → existing ConfirmModal), user count
+  (admins: opens the share modal), owner line kept (`.project-card-owner`),
+  grey `.pwarn` triangle "Chybí: barevná paleta, písma". Empty + no-results
+  states. `projects_filter_controller.js` does it all client-side.
+- New `Query/GetProjectCardFacts` (+ `ProjectCardRow`): one batched SQL for
+  manual count, has-palette (custom colours or any detected logo colour),
+  font count. Fed to the template as `facts`.
+- `_project_avatar.html.twig` is now the shared `.sym` partial (vars
+  `logo_path`, `initials`, `class`, `alt`): logo on white, or `.sym.mono`;
+  a failing `<img>` swaps itself for the monogram (inline `onerror`). Also used
+  by the sidebar trigger and the quick switcher (`_shell/_sidebar`,
+  `_shell/_quick_nav` — minimal include swap).
+- `project_dashboard.html.twig`: back link, `.dhead` (88 px symbol, PROJEKT,
+  h1, meta users · templates · owner · founded, "Upravit projekt"), palette
+  chips from the first manual with colours + pencil → `manual_colors` (when
+  `manual_edit`), module tiles with grip + personal order
+  (`project_tiles_controller.js`, localStorage `wb-tiles`, HTML5 DnD),
+  Uživatelé box (owner + shares, role/invite pills; admins: "Přidat kolegu"
+  opens ManageProjectSharing, page reloads after the modal changed sharing),
+  admin "Moduly projektu" switches, "Naposledy přidané šablony" restyled.
+- Module switches on the overview post to the existing enable/disable
+  endpoints with `back=dashboard`; **Enable/DisableProjectModuleController
+  got that redirect branch** (3 lines each, presentation only — the
+  alternative was landing admins on the edit page).
+- `project_modules.html.twig`: `.pd-mod` rows (icon, name, description,
+  Vypnuto + switch = the enable form's submit; read-only members see
+  "Zapne správce projektu"), Kalendáře "Připravujeme" row.
+- `_project_form.html.twig` (add + edit): name field, `.drop` dropzone over
+  the existing `icon` FileType (`logo_drop_controller.js`: drag & drop +
+  preview), current logo row, remove-icon checkbox, footer actions. Edit page
+  keeps `#project-modules` (now `.pd-mod` rows + switches) and history.
+- `components/ManageProjectSharing.html.twig`: Nocturne share dialog
+  (candidate filter field, "Má přístup" list with owner pill, remove ×).
+
+**Decisions.** Monogram is neutral `.sym.mono` (prototype + shell), no longer
+brand-coloured. Card order unchanged (own → shared → others). Filter chips
+only render with ≥2 projects; "Moje projekty" only when the user owns one;
+"Grafik" only with ≥2 owners. Head "Nový projekt" hides ≤860 px (the top-bar +
+is the primary there). No "Paleta barev" tile — colours are per manual.
+
+**Tests changed.** `ProjectsControllerTest` monogram assertion →
+`.pcard .sym.mono` (was the inline brand-colour style). New
+`ProjectModulesTest::testAdminTogglesModuleFromTheProjectOverview` +
+`testOwnerDoesNotSeeModuleSwitchesOnTheOverview`.
+
+**Cheap features implemented.** #2 completeness triangle, #3 filter chips
+(without Placené — no paid flag), #7 tile order (localStorage), #8 members box
+(no role management; SharingLevel has only Read).
+
+**Verified.** shoot.cjs on all five screens 390/820/1440 × dark/light: no
+overflow, no JS errors. Puppeteer: search, chips, owner menu, no-results +
+clear, card ⋯ menu, share modal from card + overview, tile drag + persisted
+order after reload.
+
+**Not verified.** Adding/removing a collaborator end-to-end in the browser
+(reload-after-share path), the logo dropzone with a real drop, the
+`onerror` fallback with a real broken prod URL (locally Minio files 404 →
+fallback seen working on desktop shots).
+
+**Follow-ups.** Placené chip + star need #1 (paid column). The owner line
+on cards is extra vs the prototype (kept for tests / admins).

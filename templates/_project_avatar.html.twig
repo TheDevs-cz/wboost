@@ -1,11 +1,11 @@
-{# Project avatar: custom icon / brand logo image, or initials monogram.
-   Vars: avatar (ProjectAvatar), size (px), font_size (css size), alt #}
-{% if avatar.logoPath %}
-    <img src="{{ uploaded_asset(avatar.logoPath) }}"
-         alt="{{ alt|default('') }}"
-         class="flex-shrink-0"
-         style="width: {{ size }}px; height: {{ size }}px; object-fit: contain;">
-{% else %}
-    <span class="flex-shrink-0 d-inline-flex align-items-center justify-content-center rounded-circle fw-semibold"
-          style="width: {{ size }}px; height: {{ size }}px; font-size: {{ font_size }}; letter-spacing: .5px; background: #{{ avatar.backgroundHex }}; color: #{{ avatar.textHex }};">{{ avatar.initials }}</span>
-{% endif %}
+{# Project symbol (prototype `.sym`): the project icon / brand logo on white,
+   or the initials monogram (`.sym.mono`).
+   Vars: logo_path (storage path|null), initials, class ('' | 'sm' | …), alt.
+   A logo that fails to load (e.g. a file missing from local Minio) swaps
+   itself for the monogram, so a broken-image icon never shows. #}
+{% set sym_class = ('sym ' ~ class|default(''))|trim %}
+{% if logo_path %}
+    <span class="{{ sym_class }}" data-initials="{{ initials }}"><img src="{{ uploaded_asset(logo_path) }}" alt="{{ alt|default('') }}" onerror="var s=this.parentNode;s.classList.add('mono');s.textContent=s.dataset.initials"></span>
+{%- else -%}
+    <span class="{{ sym_class }} mono"{% if alt|default('') is not empty %} role="img" aria-label="{{ alt }}"{% endif %}>{{ initials }}</span>
+{%- endif %}

@@ -5,82 +5,62 @@
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
+{% block page_lead %}
+    WBoost umí víc, než teď v projektu {{ project.name }} používáte.
+    {% if is_granted('project_edit', project) %}
+        Modul, který se vám hodí, zapnete jedním kliknutím — najdete ho pak v levém menu.
+    {% else %}
+        Moduly může zapnout správce projektu.
+    {% endif %}
+{% endblock %}
+
+{#
+    "Objevte další moduly" (docs/architecture/app-shell.md): the project's
+    switched-off modules as rows (icon tile, name, description, Vypnuto +
+    switch). The switch submits the existing project_module_enable form
+    (project editors); read-only members are told an editor can do it.
+#}
 {% block content %}
     {% set can_enable = is_granted('project_edit', project) %}
+    {% set module_icons = {'manuals': 'copy', 'templates': 'template', 'email_signatures': 'mail', 'weekly_menus': 'utensils'} %}
 
-    <div class="card bg-dark text-white">
-        <div class="card-body p-4 d-flex flex-wrap align-items-center gap-3">
-            <div class="avatar-md flex-shrink-0">
-                <span class="avatar-title bg-white bg-opacity-10 text-white rounded-circle font-24">
-                    <i class="ri-sparkling-2-line"></i>
-                </span>
+    <section class="pd-box" aria-labelledby="modsH">
+        <div class="pd-box-h">
+            <div>
+                <h2 id="modsH">Dostupné moduly <span class="pd-n">{{ project.disabledModules|length + 1 }}</span></h2>
+                <span class="cap">Zapnutím se modul objeví v menu projektu. O zapnutí dostanou e-mail administrátoři; vypnout ho mohou jen oni a žádná data se tím nesmažou.</span>
             </div>
-            <div class="flex-grow-1" style="min-width: 260px;">
-                <h3 class="mt-0 mb-1 text-white">Objevte další moduly</h3>
-                <p class="mb-0 text-white-50 fs-15">
-                    WBoost umí víc, než teď v projektu {{ project.name }} používáte.
+        </div>
+
+        <div class="pd-mods">
+            {% for module in project.disabledModules %}
+                <div class="pd-mod" data-module="{{ module.value }}">
+                    <span class="pd-ico" aria-hidden="true">{{ icon(module_icons[module.value] ?? 'grid') }}</span>
+                    <span class="who"><b>{{ module.label }}</b><span class="cap">{{ module.description }}</span></span>
                     {% if can_enable %}
-                        Modul, který se vám hodí, zapnete jedním kliknutím.
+                        <span class="pd-st">Vypnuto</span>
+                        <form method="post" action="{{ path('project_module_enable', {'projectId': project.id, 'module': module.value}) }}" class="pd-mod-f">
+                            <input type="hidden" name="_token" value="{{ csrf_token('project_module_enable') }}">
+                            <button type="submit" class="sw" role="switch" aria-checked="false" aria-label="Zapnout modul {{ module.label }}" title="Zapnout modul"></button>
+                        </form>
                     {% else %}
-                        Moduly může zapnout správce projektu.
+                        <span class="pd-st pd-st-ro">{{ icon('lock', 's14') }}Zapne správce projektu</span>
                     {% endif %}
-                </p>
+                </div>
+            {% endfor %}
+
+            <div class="pd-mod pd-mod-soon">
+                <span class="pd-ico" aria-hidden="true">{{ icon('calendar') }}</span>
+                <span class="who"><b>Kalendáře <span class="pill pch">Připravujeme</span></b><span class="cap">Firemní kalendáře v brandu projektu, připravené k tisku.</span></span>
+                <a href="{{ path('calendars', {'projectId': project.id}) }}" class="btn btn-tertiary sm">Zjistit víc</a>
             </div>
         </div>
-    </div>
 
-    <div class="row g-3">
-        {% for module in project.disabledModules %}
-            <div class="col-md-6 col-xl-4 d-flex">
-                <div class="card h-100 mb-0 w-100" data-module="{{ module.value }}">
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <div class="avatar-sm flex-shrink-0">
-                                <span class="avatar-title bg-primary-lighten text-primary rounded">
-                                    <i class="{{ module.icon }} font-20"></i>
-                                </span>
-                            </div>
-                            <h4 class="my-0">{{ module.label }}</h4>
-                        </div>
-                        <p class="text-muted mb-3 flex-grow-1">{{ module.description }}</p>
-
-                        {% if can_enable %}
-                            <form method="post" action="{{ path('project_module_enable', {'projectId': project.id, 'module': module.value}) }}" class="mb-0">
-                                <input type="hidden" name="_token" value="{{ csrf_token('project_module_enable') }}">
-                                <button type="submit" class="btn btn-primary rounded-pill">
-                                    <i class="uil-plus me-1"></i>Zapnout modul
-                                </button>
-                            </form>
-                        {% else %}
-                            <p class="text-muted font-13 mb-0"><i class="uil-info-circle me-1"></i>Modul může zapnout správce projektu.</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-
-        <div class="col-md-6 col-xl-4 d-flex">
-            <div class="card h-100 mb-0 w-100">
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                        <div class="avatar-sm flex-shrink-0">
-                            <span class="avatar-title bg-primary-lighten text-primary rounded">
-                                <i class="uil-calendar-alt font-20"></i>
-                            </span>
-                        </div>
-                        <h4 class="my-0">Kalendáře</h4>
-                        <span class="badge badge-warning-lighten rounded-pill">Připravujeme</span>
-                    </div>
-                    <p class="text-muted mb-3 flex-grow-1">Firemní kalendáře v brandu projektu, připravené k tisku.</p>
-                    <a href="{{ path('calendars', {'projectId': project.id}) }}" class="btn btn-outline-primary rounded-pill align-self-start">Zjistit víc</a>
-                </div>
-            </div>
-        </div>
-    </div>
+        <p class="cap pd-foot">{{ icon('info', 's14') }}Galerie a Fonty jsou vždy zapnuté — čerpají z nich ostatní moduly.</p>
+    </section>
 {% endblock %}

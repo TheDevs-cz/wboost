@@ -6,6 +6,7 @@ namespace WBoost\Web\Controller\Project;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Query\GetProjectAvatars;
+use WBoost\Web\Query\GetProjectCardFacts;
 use WBoost\Web\Query\GetProjects;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,6 +17,7 @@ final class ProjectsController extends AbstractController
     public function __construct(
         readonly private GetProjects $getProjects,
         readonly private GetProjectAvatars $getProjectAvatars,
+        readonly private GetProjectCardFacts $getProjectCardFacts,
     ) {
     }
 
@@ -55,6 +57,9 @@ final class ProjectsController extends AbstractController
         return $this->render('projects.html.twig', [
             'projects' => [...$own, ...$shared, ...$others],
             'avatars' => $this->getProjectAvatars->forProjects($projects),
+            // Manual count + completeness flags for the filter chips and the
+            // card's warning triangle, in one batched query.
+            'facts' => $this->getProjectCardFacts->forProjects($projects),
         ]);
     }
 }

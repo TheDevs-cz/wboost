@@ -1,99 +1,81 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editace projektu{% endblock %}
+{% block title %}Upravit projekt{% endblock %}
 {% set active_menu_item = 'projects' %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_row(form.name) }}
+    {% set module_icons = {'manuals': 'copy', 'templates': 'template', 'email_signatures': 'mail', 'weekly_menus': 'utensils'} %}
 
-            {% if project.icon %}
-                <div class="mb-2">
-                    <p class="mb-1">Aktuální ikona:</p>
-                    <img class="img-thumbnail" src="{{ uploaded_asset(project.icon) }}" alt="Ikona projektu" style="max-width: 80px; max-height: 80px; object-fit: contain;">
+    <div class="pf-stack">
+        {{ include('_project_form.html.twig', {
+            'form': form,
+            'submit_label': 'Uložit změny',
+            'cancel_url': path('project_dashboard', {'id': project.id}),
+            'current_icon': project.icon,
+            'project_name': project.name,
+        }) }}
+
+        {# Admin-only module switches. Its own forms live OUTSIDE the project form
+           above (never nest <form>s). Customers switch modules on themselves via
+           "Objevte další moduly"; only an admin switches one off. The project
+           overview carries the same switches (`back=dashboard`). #}
+        {% if is_granted('ROLE_ADMIN') %}
+            <section class="pd-box" id="project-modules" aria-labelledby="pmH">
+                <div class="pd-box-h">
+                    <div>
+                        <h2 id="pmH">Moduly projektu <span class="pill pd-admin">{{ icon('shield', 's12') }}Jen administrátor</span></h2>
+                        <span class="cap">Vypnuté moduly uživatelé nevidí v menu — najdou je v sekci „Objevte další moduly“, kde si je mohou sami zapnout. O každém takovém zapnutí přijde administrátorům e-mail. Vypnutím se žádná data nesmažou.</span>
+                    </div>
                 </div>
-            {% endif %}
 
-            {{ form_row(form.icon) }}
-
-            {% if form.removeIcon is defined %}
-                {{ form_row(form.removeIcon) }}
-            {% endif %}
-
-            <button class="btn btn-primary" type="submit">Uložit</button>
-
-            {{ form_end(form) }}
-        </div>
-    </div>
-
-    {# Admin-only module switches. Its own forms live OUTSIDE the project form
-       above (never nest <form>s). Customers switch modules on themselves via
-       "Objevte další moduly"; only an admin switches one off. #}
-    {% if is_granted('ROLE_ADMIN') %}
-        <div class="card" id="project-modules">
-            <div class="card-body">
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <h4 class="header-title my-0">Moduly projektu</h4>
-                    <span class="badge bg-dark rounded-pill">Jen administrátor</span>
-                </div>
-                <p class="text-muted font-13 mb-3">
-                    Vypnuté moduly uživatelé nevidí v menu — najdou je v sekci „Objevte další moduly“, kde si je mohou sami zapnout.
-                    O každém takovém zapnutí přijde administrátorům e-mail. Vypnutím se žádná data nesmažou.
-                </p>
-
-                <ul class="list-group list-group-flush mb-2">
+                <div class="pd-mods">
                     {% for module in enum('WBoost\\Web\\Value\\ProjectModule').cases() %}
                         {% set enabled = project.hasModule(module) %}
-                        <li class="list-group-item px-0 d-flex align-items-center gap-3" data-module="{{ module.value }}">
-                            <div class="avatar-sm flex-shrink-0">
-                                <span class="avatar-title {{ enabled ? 'bg-primary-lighten text-primary' : 'bg-light text-muted' }} rounded">
-                                    <i class="{{ module.icon }} font-18"></i>
-                                </span>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h5 class="my-0">{{ module.label }}</h5>
-                                <span class="text-muted font-13">{{ enabled ? 'Zapnuto' : 'Vypnuto' }}</span>
-                            </div>
+                        <div class="pd-mod{{ enabled ? ' on' : '' }}" data-module="{{ module.value }}">
+                            <span class="pd-ico" aria-hidden="true">{{ icon(module_icons[module.value] ?? 'grid') }}</span>
+                            <span class="who"><b>{{ module.label }}</b><span class="cap">{{ module.description }}</span></span>
+                            <span class="pd-st">{{ enabled ? 'Zapnuto' : 'Vypnuto' }}</span>
                             {% if enabled %}
-                                <form method="post" action="{{ path('project_module_disable', {'projectId': project.id, 'module': module.value}) }}" class="mb-0">
+                                <form method="post" action="{{ path('project_module_disable', {'projectId': project.id, 'module': module.value}) }}" class="pd-mod-f">
                                     <input type="hidden" name="_token" value="{{ csrf_token('project_module_disable') }}">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill">Vypnout</button>
+                                    <button type="submit" class="sw c-success on" role="switch" aria-checked="true" aria-label="Vypnout modul {{ module.label }}" title="Vypnout"></button>
                                 </form>
                             {% else %}
-                                <form method="post" action="{{ path('project_module_enable', {'projectId': project.id, 'module': module.value}) }}" class="mb-0">
+                                <form method="post" action="{{ path('project_module_enable', {'projectId': project.id, 'module': module.value}) }}" class="pd-mod-f">
                                     <input type="hidden" name="_token" value="{{ csrf_token('project_module_enable') }}">
                                     <input type="hidden" name="back" value="edit">
-                                    <button type="submit" class="btn btn-sm btn-primary rounded-pill">Zapnout</button>
+                                    <button type="submit" class="sw c-success" role="switch" aria-checked="false" aria-label="Zapnout modul {{ module.label }}" title="Zapnout"></button>
                                 </form>
                             {% endif %}
-                        </li>
+                        </div>
                     {% endfor %}
-                </ul>
-                <p class="text-muted font-13 mb-0">Galerie a Fonty jsou vždy zapnuté — čerpají z nich ostatní moduly.</p>
+                </div>
+                <p class="cap pd-foot">{{ icon('info', 's14') }}Galerie a Fonty jsou vždy zapnuté — čerpají z nich ostatní moduly.</p>
 
                 {% if module_changes is not empty %}
-                    <h5 class="mt-4 mb-2">Historie změn</h5>
-                    <ul class="list-unstyled mb-0 font-13">
-                        {% for change in module_changes %}
-                            <li class="py-1 border-bottom">
-                                <span class="text-muted me-2">{{ change.changedAt|date('j. n. Y H:i') }}</span>
-                                {{ change.changedBy ? change.changedBy.displayName : 'Neznámý uživatel' }}
-                                {{ change.enabled ? 'zapnul(a)' : 'vypnul(a)' }} modul {{ change.module.label }}
-                            </li>
-                        {% endfor %}
-                    </ul>
+                    <div class="pm-hist">
+                        <span class="lbl">Historie změn</span>
+                        <ul class="pu-list">
+                            {% for change in module_changes %}
+                                <li class="pu-row">
+                                    <span>
+                                        {{ change.changedBy ? change.changedBy.displayName : 'Neznámý uživatel' }}
+                                        {{ change.enabled ? 'zapnul(a)' : 'vypnul(a)' }} modul {{ change.module.label }}
+                                    </span>
+                                    <span class="cap">{{ change.changedAt|date('j. n. Y H:i') }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 {% endif %}
-            </div>
-        </div>
-    {% endif %}
+            </section>
+        {% endif %}
+    </div>
 {% endblock %}

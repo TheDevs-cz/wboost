@@ -1,0 +1,184 @@
+/* ==========================================================================
+   Nocturne — Projects area (P3): projects dashboard (/projects), project
+   overview (project_dashboard), "Objevte další moduly", add/edit project
+   form, sharing dialog. Values copied from prototype/app.css sections
+   "Dashboard", "Filter bar", "Card actions + paid-project star",
+   "Project dashboard …", "Dialogs" and "Share dialog".
+   ========================================================================== */
+
+/* ---- Dashboard: card grid ------------------------------------------------ */
+.dash { display: flex; flex-direction: column; gap: 28px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 20px; }
+.pcard { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); min-width: 0; transition: border-color .2s, box-shadow .2s; }
+.pcard:hover { border-color: var(--line-3); box-shadow: var(--shadow-2); }
+.pcard[hidden], .dash .empty[hidden], .owner-list .mi[hidden], .menu-sep[hidden] { display: none; }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.card-acts { position: relative; z-index: 3; display: flex; align-items: center; gap: 2px; }
+.card-menu-btn { position: relative; z-index: 2; }
+.card-acts .dropdown-menu { width: 240px; }
+.card-acts .dropdown-item .i, .pcard .dropdown-item .i { width: 16px; height: 16px; color: var(--muted); }
+.card-acts .dropdown-item:hover .i { color: inherit; }
+.card-acts .dropdown-item.danger .i { color: inherit; }
+.card-acts .dropdown-item .end { margin-left: auto; font-size: 12px; color: var(--subtle); }
+.pcard-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pname { font-size: 17px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+.pname::after { content: ""; position: absolute; inset: 0; border-radius: 22px; }
+.pname:hover { color: var(--lav-ink); }
+.project-card-owner { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; color: var(--subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 13px; }
+.pcard > .meta { margin-top: auto; }
+.meta-btn { position: relative; z-index: 2; align-self: flex-start; margin: auto 0 -4px -8px; min-height: 32px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; cursor: pointer; transition: background var(--dur-2), color var(--dur-2); }
+.meta-btn:hover { background: var(--surface-3); color: var(--text); }
+.pwarn { position: absolute; left: -8.5px; top: 27px; z-index: 3; display: inline-flex; width: 16px; height: 16px; color: var(--muted); }
+.pwarn .i { width: 16px; height: 16px; }
+.dash .empty .dlg-f { justify-content: center; }
+.dash .empty .dlg-f > [hidden] { display: none; }
+
+/* Grafik dropdown chip: same rows as the quick switcher */
+.fdrop .menu { width: 280px; }
+.owner-list { display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow-y: auto; margin-top: 4px; }
+.owner-list .mi .av { width: 26px; height: 26px; font-size: 10px; }
+.owner-list .mi .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.owner-list .mi .chk { display: none; }
+.owner-list .mi[aria-selected="true"] .chk { display: inline-flex; }
+.owner-list .mi[aria-selected="true"] .cnt { display: none; }
+.owner-none { padding: 10px; }
+
+/* ---- Project symbol: brand logo on white or monogram (kit .sym) ---------- */
+.dhead .sym { width: 88px; height: 88px; border-radius: 24px; font-size: 32px; }
+.pf-current .sym { width: 56px; height: 56px; }
+
+/* ---- Project overview ---------------------------------------------------- */
+.dhead { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+.dhead-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
+.dhead h1 { margin: 0; font-size: clamp(30px, 4.4vw, 44px); font-weight: 600; letter-spacing: -.025em; line-height: 1.05; overflow-wrap: anywhere; }
+.dhead .meta { gap: 6px; }
+.dhead-acts { display: flex; gap: 10px; align-self: flex-start; }
+.back + .dhead { margin-top: -16px; }
+.pd { display: flex; flex-direction: column; gap: 28px; }
+.pd-pal { display: flex; flex-direction: column; gap: 12px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.pd-sw { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.pd-sw i { width: 24px; height: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.pd-pall { flex: none; width: 40px; height: 40px; display: inline-grid; place-items: center; border-radius: 50%; background: var(--surface); border: 1px solid var(--line-2); color: var(--text-2); text-decoration: none; transition: background .15s, color .15s, border-color .15s; }
+.pd-pall:hover { background: var(--lav-deep); border-color: var(--lav); color: var(--lav-ink); }
+.pd-pall:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.miss { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--subtle); }
+
+.pd-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; }
+.pd-tile { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 6px; padding: 22px 22px 22px 44px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); }
+.pd-tile[draggable] { cursor: grab; }
+.pd-tile.pd-dragging { opacity: .45; }
+.pd-tile.pd-over { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.pd-tile.link { color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+.pd-tile.link:hover { border-color: var(--line-3); transform: translateY(-2px); }
+.pd-tile.link:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.pd-grip { position: absolute; left: 0; top: 0; bottom: 0; width: 24px; display: grid; place-items: center; background: color-mix(in oklab, var(--surface-2) 70%, transparent); border-right: 1px solid var(--line); color: var(--subtle); cursor: grab; transition: color .15s, background .15s; }
+.pd-tile:hover .pd-grip { color: var(--text-2); background: var(--surface-2); }
+.pd-tile-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.pd-ico { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--lav-deep); color: var(--lav-ink); }
+.pd-ico .i { width: 20px; height: 20px; }
+.pd-t { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 17px; }
+.pd-tile .cap { line-height: 1.45; }
+
+.pd-box-h { flex-wrap: wrap; }
+.pd-box-h > div { display: flex; flex-direction: column; gap: 6px; max-width: 860px; }
+.pd-box-h h2 { margin: 0; flex-wrap: wrap; gap: 10px; }
+.pd-box-h .cap { line-height: 1.55; }
+.pd-n { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 600; }
+.pill.pd-admin { background: var(--surface-2); color: var(--text-2); }
+.pu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pu-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.pu-row:first-child { border-top: 0; }
+.pu-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pu-who .who, .pd-mod .who, .dlg-share .who, .pf-current .who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: left; }
+.pu-who .who b, .dlg-share .who b, .pf-current .who b { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pu-who .who .cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pu-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pd-empty { margin: -6px 0 0; }
+.pd-foot { display: flex; align-items: center; gap: 6px; margin: 0; }
+
+/* Module rows (overview, project settings, "Objevte další moduly") */
+.pd-mods { display: flex; flex-direction: column; gap: 8px; }
+.pd-mod { position: relative; display: flex; align-items: center; gap: 14px; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid transparent; transition: border-color .15s, background .15s; }
+.pd-mod:hover { border-color: var(--line-3); }
+.pd-mod .who { gap: 2px; }
+.pd-mod .who b { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-weight: 600; font-size: 14px; color: var(--text); }
+.pd-mod .who .cap { line-height: 1.45; }
+.pd-mod:not(.on) .pd-ico { background: var(--surface); color: var(--subtle); }
+.pd-mod-soon .pd-ico { background: var(--surface); color: var(--subtle); }
+.pd-mod-f { margin: 0; display: contents; }
+.pd-st { min-width: 64px; text-align: right; font-size: 12px; font-weight: 600; color: var(--subtle); white-space: nowrap; }
+.pd-mod.on .pd-st { color: var(--mnt-ink); }
+.pd-st-ro { display: inline-flex; align-items: center; gap: 6px; }
+.pd-mod .sw { --a: var(--mnt); --a-deep: var(--mnt-deep); --a-line: var(--mnt-line); --a-glow: var(--mnt-glow); }
+.pd-mod .sw:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.pm-hist { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.pm-hist .pu-row { font-size: 13px; color: var(--text-2); }
+
+/* Recently added templates */
+.pd-recent { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr)); gap: 12px; }
+.pd-tpl { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 18px; background: var(--surface-2); border: 1px solid transparent; color: inherit; text-decoration: none; min-width: 0; transition: border-color .15s, transform .15s; }
+.pd-tpl:hover { border-color: var(--line-3); transform: translateY(-2px); }
+.pd-tpl-prev { display: grid; place-items: center; height: 140px; margin-bottom: 6px; border-radius: 12px; background: var(--surface); overflow: hidden; }
+.pd-tpl-prev img { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.pd-tpl b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-tpl .cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Add / edit project form (dialog language as a page) ----------------- */
+.pf-stack { display: flex; flex-direction: column; gap: 28px; }
+.pf-card { width: min(560px, 100%); padding: 26px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); }
+.pf-form .mb-3 { margin-bottom: 0 !important; }
+.pf-current { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+.pf-current .who span { font-size: 12px; color: var(--subtle); }
+.drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 200px; margin: 0; padding: 24px; border-radius: 18px; border: 1.5px dashed var(--line-3); background: var(--surface-2); text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover { border-color: var(--lav-line); }
+.drop.on { border-color: var(--lav); background: var(--lav-deep); }
+.drop:focus-within { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.drop img { max-width: 160px; max-height: 120px; object-fit: contain; background: #fff; border-radius: 12px; padding: 10px; }
+.drop img[hidden], .drop-empty[hidden], .pf-clear[hidden] { display: none; }
+.drop-empty { display: contents; }
+.drop-t { font-weight: 600; }
+.pf-clear { align-self: flex-start; }
+.pf-foot { padding-top: 6px; }
+
+/* ---- Sharing dialog (ManageProjectSharing, prototype .dlg-share) -------- */
+.modal-dialog.dlg-share { max-width: min(520px, calc(100vw - 24px)); }
+.dlg-share .modal-title { display: flex; flex-direction: column; gap: 2px; }
+.dlg-share .share-pn { font-size: 13px; font-weight: 500; color: var(--muted); }
+.dlg-share .modal-body.dlg { display: flex; flex-direction: column; gap: 18px; }
+.dlg-share .share-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.dlg-share .share-list { list-style: none; margin: 0; padding: 6px; display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; border: 1px solid var(--line-2); border-radius: 16px; }
+.dlg-share .share-cands { max-height: 240px; }
+.dlg-share .share-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 6px 6px 10px; border-radius: 12px; }
+.dlg-share .share-row[hidden] { display: none; }
+.dlg-share .share-row:hover { background: var(--surface-3); }
+.dlg-share .share-empty { margin: 0; padding: 18px 12px; text-align: center; font-size: 13px; color: var(--subtle); border: 1px dashed var(--line-2); border-radius: 16px; }
+
+@media (max-width: 560px) {
+    .pd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .pd-tile { padding: 16px 14px 16px 36px; }
+    .pd-tiles .pd-grip { width: 20px; }
+    .pd-tile .cap { display: none; }
+    .pd-ico { width: 38px; height: 38px; }
+    .pd-box { padding: 18px; }
+    .pu-row { flex-wrap: wrap; }
+    .pd-mod { flex-wrap: wrap; }
+    .pd-mod .who { flex-basis: calc(100% - 60px); }
+    .pd-mod .pd-st { margin-left: auto; }
+    .dhead .sym { width: 64px; height: 64px; border-radius: 18px; font-size: 24px; }
+    .pf-card { padding: 20px; }
+}
+
+/* overview header + users box fine-tuning */
+.dhead-main { flex: 1 1 260px; }
+.dhead .meta .dot { color: var(--subtle); }
+.pd-share-host { margin-top: -16px; }
+@media (max-width: 560px) {
+    .dhead { gap: 14px 16px; }
+    .dhead-acts { order: 3; width: 100%; }
+    .pd-recent { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pd-tpl-prev { height: 110px; }
+}
+/* phones: the + in the top bar is the primary action (mobile_primary_action) */
+@media (max-width: 860px) { .head-tools .head-primary { display: none; } }

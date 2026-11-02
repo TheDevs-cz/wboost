@@ -131,7 +131,9 @@ discover page (`calendars.html.twig` highlights the discover nav item).
   when a **non-admin** switches a module on; admins switching don't trigger it.
 - **Switching off is admin-only** (`project_module_disable`), from the
   "Moduly projektu" card on `edit_project` (`#project-modules`, ROLE_ADMIN), which
-  also shows the `project_module_change` history. Off = hidden, never deleted.
+  also shows the `project_module_change` history, and from the same box on the
+  project overview (`#pd-modules`; its forms post `back=dashboard`, the enable/
+  disable controllers then redirect back to the overview). Off = hidden, never deleted.
 - **Guard** = `#[RequiresProjectModule]` on the module LANDING controllers only
   (Manuals, Templates, EmailSignatureTemplates, WeeklyMenus, Meals, Diets,
   DishTypes); `ProjectModuleGuardListener` (CONTROLLER_ARGUMENTS, after

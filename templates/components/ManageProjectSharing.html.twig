@@ -2,55 +2,77 @@
     {% set collaborators = this.collaborators() %}
     {% set candidates = this.candidateUsers() %}
 
-    {# The "Sdílení" trigger lives in the project card's dropdown menu (_project_card.html.twig). #}
-    <div class="modal fade text-start" id="share-modal-{{ project.id }}" tabindex="-1">
-        <div class="modal-dialog">
+    {# Triggers: the project card's ⋯ menu + user count (_project_card.html.twig)
+       and "Přidat kolegu" on the project overview. Nocturne share dialog
+       (prototype #dlgShare): add field with a client-side name filter over the
+       candidates, then "Má přístup" (owner + collaborators). #}
+    <div class="modal fade text-start" id="share-modal-{{ project.id }}" tabindex="-1" aria-labelledby="share-modal-title-{{ project.id }}">
+        <div class="modal-dialog dlg-share">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Sdílení projektu „{{ project.name }}“</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="share-modal-title-{{ project.id }}">Sdílet projekt <span class="share-pn">{{ project.name }}</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
                 </div>
-                <div class="modal-body">
-                    <h6 class="mb-2">Spolupracovníci</h6>
-                    {% if collaborators is empty %}
-                        <p class="text-muted small">Projekt zatím není nikomu nasdílen.</p>
-                    {% else %}
-                        <ul class="list-group mb-3">
+                <div class="modal-body dlg">
+                    <div class="field">
+                        <label class="field-l" for="share-search-{{ project.id }}">Přidat spolupracovníka</label>
+                        {% if candidates is empty %}
+                            <p class="share-empty">Žádní další uživatelé k nasdílení.</p>
+                        {% else %}
+                            <span class="inp">
+                                {{ icon('search', 's16') }}
+                                <input type="search" id="share-search-{{ project.id }}" placeholder="Jméno nebo e-mail" autocomplete="off" data-live-ignore
+                                       oninput="var q=this.value.trim().toLowerCase();this.closest('.field').querySelectorAll('[data-share-name]').forEach(function(r){r.hidden=q!==''&&r.dataset.shareName.indexOf(q)===-1;})">
+                            </span>
+                            <ul class="share-list share-cands" aria-label="Uživatelé k nasdílení">
+                                {% for candidate in candidates %}
+                                    <li class="share-row" data-share-name="{{ candidate.name|lower }}">
+                                        <span class="av" aria-hidden="true">{{ initials(candidate.name|split('@')|first|replace({'.': ' ', '_': ' ', '-': ' '})|title) }}</span>
+                                        <span class="who"><b>{{ candidate.name }}</b></span>
+                                        <button
+                                            type="button"
+                                            class="btn btn-tertiary xs"
+                                            data-action="live#action"
+                                            data-live-action-param="share"
+                                            data-live-userid-param="{{ candidate.id }}"
+                                        >{{ icon('plus', 's14') }}Přidat</button>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+
+                    <div class="field">
+                        <div class="share-head"><span class="field-l">Má přístup</span><span class="cap">{{ collaborators|length + 1 }}</span></div>
+                        <ul class="share-list" aria-label="Lidé s přístupem">
+                            <li class="share-row">
+                                <span class="av" aria-hidden="true">{{ initials(project.owner.displayName) }}</span>
+                                <span class="who"><b>{{ project.owner.displayName }}</b></span>
+                                <span class="pill pch">Vlastník</span>
+                            </li>
                             {% for collaborator in collaborators %}
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span><i class="mdi mdi-account me-1"></i>{{ collaborator.name }}</span>
+                                <li class="share-row">
+                                    <span class="av" aria-hidden="true">{{ initials(collaborator.name|split('@')|first|replace({'.': ' ', '_': ' ', '-': ' '})|title) }}</span>
+                                    <span class="who"><b>{{ collaborator.name }}</b></span>
                                     <button
                                         type="button"
-                                        class="btn btn-sm btn-outline-danger"
-                                        title="Odebrat"
+                                        class="btn btn-ghost-danger icon xs"
+                                        title="Odebrat přístup"
+                                        aria-label="Odebrat přístup: {{ collaborator.name }}"
                                         data-action="live#action"
                                         data-live-action-param="unshare"
                                         data-live-userid-param="{{ collaborator.id }}"
-                                    ><i class="mdi mdi-close"></i></button>
+                                    >{{ icon('x', 's16') }}</button>
                                 </li>
                             {% endfor %}
                         </ul>
-                    {% endif %}
-
-                    <h6 class="mb-2">Přidat spolupracovníka</h6>
-                    {% if candidates is empty %}
-                        <p class="text-muted small">Žádní další uživatelé k nasdílení.</p>
-                    {% else %}
-                        <div class="d-flex flex-column gap-1">
-                            {% for candidate in candidates %}
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary text-start"
-                                    data-action="live#action"
-                                    data-live-action-param="share"
-                                    data-live-userid-param="{{ candidate.id }}"
-                                ><i class="mdi mdi-plus"></i> {{ candidate.name }}</button>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
+                        {% if collaborators is empty %}
+                            <p class="cap">Projekt zatím není nikomu nasdílen.</p>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zavřít</button>
+                    <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Hotovo</button>
                 </div>
             </div>
         </div>
