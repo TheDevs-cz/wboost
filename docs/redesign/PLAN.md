@@ -126,3 +126,4 @@ finish; tick your phase's boxes here.
 - 2026-11-02 P1+P2 done (2970a3b). Shared agent brief + locked gate added. P3 (Projects) and P4 (Brand assets) started in parallel.
 - 2026-11-02 P3 done (562ae26), P4 done (98508de); both reviewed visually by orchestrator. P8 (admin) and P5 (templates) running in parallel.
 - 2026-11-02 P8 done (d4df0bf), P5 done (fafc4a7); reviewed. P6 (fill) + P9 (auth/errors/email/weekly) running; P7 (editors) queued after P6.
+- 2026-11-02 P6 done (8a38bf4), P9 done (7d6b9c0). P7 (editors) running. P10 backlog: fix pre-existing planner meal drag (weekly_menu_dragula_controller looks for .meal-badge), invite-form empty e-mail 500 (pre-existing), sidebar 'Žádosti o registraci' duplicate of Uživatelé chip, manual_preview components still on mdi icons.
