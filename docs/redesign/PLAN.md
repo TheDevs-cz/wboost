@@ -112,6 +112,10 @@ finish; tick your phase's boxes here.
       profile / change password / connected apps / MCP guide.
 - [x] **P9 Auth, errors, rest** — login, registration, set/forgotten password,
       oauth consent, error pages, email signatures, weekly menus (app pages).
+- [x] **P10a Sweep** — icons → mask icons, `public/theme/` + legacy icon
+      fonts deleted (manual preview localised), `--ct-*` shim + Hyper helpers
+      + dead app.css rules removed, backlog bugs (meal drag, invite blank
+      e-mail, sidebar requests item).
 - [ ] **P10 Sweep & delivery** — convert remaining mdi/uil/ri icons, delete
       `public/theme/`, purge dead Hyper rules, full responsive QA pass of every
       route (both themes), docs (CLAUDE.md, architecture docs), `new-features.md`

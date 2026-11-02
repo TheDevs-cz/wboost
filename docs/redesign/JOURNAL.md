@@ -737,3 +737,72 @@ membership icon on layer rows (needs a member lookup); inline template
 rename in the top bar (prototype `ed-name` input — needs a rename endpoint
 call); the rich-text sample-modal toolbar still uses mdi (shared fill-page
 WYSIWYG markup) — P10 sweep.
+
+---
+
+## 2026-11-02 — P10a Sweep (icons, theme removal, CSS cleanup, backlog bugs)
+
+**What.** No legacy icon font, no `public/theme/`, no `--ct-*` shim, no Hyper
+helper classes in the app; three backlog bugs fixed.
+
+**How / files.**
+- Icons: every remaining `mdi`/`uil`/`ri` usage outside customer output →
+  mask icons (JS builds `<span class="i i-…">`): upload queues (gallery,
+  fonts, fill gallery), toasts (`canvas_missing_images`, `fill_draft`,
+  gallery), container-zone duplicate/settings, group resync report rows,
+  checklist / gradient-stop remove, text-toolbar hint, rich-text sample
+  toolbar (`_editor_stage`), `_mockup_page` admin placeholder.
+  `ProjectModule::icon()` now returns mask names and replaces the three
+  duplicated `module_icons` maps. Unused `icon` fields dropped from
+  `SHAPE_KINDS` / the shape-picker list (glyphs are CSS). New icons in
+  `icons.css`: alert-circle, clock, equal, image-off, list-bullet,
+  list-ordered, format-clear, settings. Dead `project_fonts.html.twig` deleted.
+  Legacy-icon selectors in menus.css/buttons.css removed; `.mdi` rules in
+  app.css → `.i`.
+- Theme: `public/theme/` (45 MB) and `public/fonts/legacy-icons/` deleted;
+  base layout loads no icon font. `manual_preview` links
+  `public/css/manual-preview/hyper.css` (the Hyper rules its markup matches —
+  uncss-style DOM matching over 12 manuals, admin + reader, dropdown / modals /
+  width bar open, state pseudo-classes + JS-toggled classes stripped before
+  matching; 437 → 53 KB; Nunito woff only) + `mdi.css` (5 glyphs: download,
+  image, pencil, arrow-right, arrow-expand-horizontal; woff2 only).
+  Nunito-Regular.ttf → `tests/Mcp/Design/Fixtures/fonts/` (TextMeasurerTest,
+  DesignLinterTest). No Docker/deploy file referenced the theme.
+- CSS: `--ct-*` shim gone from tokens.css (app.css reads Nocturne tokens; the
+  two manual-preview-only outlines got literal colours because that page has
+  no tokens). page.css Hyper helper block + font-NN + avatar-* + unused
+  `bg-*-lighten`, chips.css `badge-*-lighten` removed. app.css: rules for
+  classes no template/controller/editor/src references removed
+  (variant-card, template-source-*, font-face-row, document-card-stack,
+  module-card, gallery-trash-card, gallery-dropzone__icon/title,
+  canvas-layer-row__flag, dragula-handle-absolute-left, text-lighter) + their
+  orphan comments. Kept: dynamic classes (`chip-${level}`, `--h/--v`, resync
+  tones), `gu-*`, Fabric `lower-canvas`, `manual-<slug>`.
+- Bugs: (a) planner meal drag — `draggable: '.planner-meal-card'` (+ the ×
+  is a filter so it still clicks); also `meals()/variants()/courses()` getters
+  sort by position, because the Live re-render after a reorder saw the stale
+  already-loaded collection and morphed the cards back (DB was right).
+  (b) invite form blank e-mail 500 → `'empty_data' => ''` on the field (the
+  memory's WEB-28 pattern). (c) sidebar "Žádosti o registraci" item dropped;
+  the pending count sits on Uživatelé, which is also current on
+  `/admin/registration-requests` (route kept). app-shell.md updated.
+
+**Tests.** New `InviteUserControllerTest::testBlankEmailShowsFieldErrorInsteadOfCrashing`
+(422 + field error), `AdminUsersControllerTest::testSidebarPutsThePendingRequestCountOnUsers`.
+MCP tests read the moved Nunito fixture.
+
+**Verified.** Gate green. manual_preview pixel-compared (ImageMagick AE = 0)
+old vs new sheets at 1440: 10 manuals full page anon + admin, dropdown, hover,
+page-text modal, logo-colour modal, width bar — the only non-zero diffs were
+smooth-scroll timing / Symfony toolbar timings (re-checked with scroll-behavior
+auto: identical). Re-run after the app.css token swap: identical. Puppeteer
+meal drag on the planner ×3 (cycle back to the original order; DOM + DB
+follow each drop). shoot.cjs on 10 pages at 1440 dark + 390 light: no
+OVERFLOW, JSERR only Minio 404s. New icons rendered and eyeballed.
+
+**Not verified.** Drag of courses / variants after the getter sort (same
+code path as meals); the JS-built upload rows / toasts with real uploads
+(markup-only change); the manual preview in Safari/Firefox (Chrome only —
+fonts now woff/woff2 only, no eot/svg/ttf).
+
+**Follow-ups.** GrapesJS blocks still name `fa fa-*` icons (GrapesJS own UI).

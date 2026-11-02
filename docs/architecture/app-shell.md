@@ -81,8 +81,11 @@ Top → bottom: logo (inline themable SVG `_shell/_logo.html.twig`, app icon
 projekty** with the project count (`shell_projects()|length`) · **Rychlá
 navigace** trigger (current project symbol + name, or "Vybrat projekt…") ·
 scroll area with **Projekt** (Přehled, then the module items — see below),
-**Administrace** (ROLE_ADMIN: Uživatelé, Žádosti o registraci + pending
-count `pending_registration_requests_count()`, Poptávky z webu, Statistiky),
+**Administrace** (ROLE_ADMIN: Uživatelé with the pending registration
+request count `pending_registration_requests_count()` — requests are the
+users page's "Žádosti" chip, so there is no separate item; Uživatelé is also
+current on the still-routable `/admin/registration-requests` — Poptávky z
+webu, Statistiky),
 **Propojení** (Facebook a Instagram fake door, Propojené aplikace, AI (MCP
 server)) · Vzhled toggle · profile button `.sb-me` with the drop-up
 `#meMenu` (Můj účet, Změnit heslo, Odhlásit se).
