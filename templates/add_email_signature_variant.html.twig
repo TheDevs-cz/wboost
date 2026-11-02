@@ -1,32 +1,25 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Přidat variantu{% endblock %}
+{% block title %}Nová varianta{% endblock %}
 {% set active_menu_item = 'emails' %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('email_signature_templates', {'id': project.id}) }}">E-maily</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('email_signature_variants', {'id': email_template.id}) }}">{{ email_template.name }}</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{% block page_title_row %}
+    <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="back">{{ icon('arrow-left', 's16') }}{{ email_template.name }}</a>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
-            {{ form_row(form.name) }}
-
-
-            <input type="submit" name="submit" value="Přidat" class="btn btn-primary">
-
+    {{ form_start(form, {'attr': {'class': 'adm-sheet es-sheet'}}) }}
+        <div class="adm-sheet-h"><h1 class="page-title adm-sheet-title">Nová varianta</h1></div>
+        <div class="adm-sheet-b">
+            {{ form_row(form.name, {'attr': {'placeholder': 'Např. Jana Nováková'}}) }}
+            <p class="hint cap">{{ icon('info', 's14') }}Texty podpisu vyplníte po vytvoření — začnou s výchozími texty šablony.</p>
             <div class="d-none">
                 {{ form_widget(form.code) }}
             </div>
-
-            {{ form_end(form) }}
         </div>
-    </div>
+        <div class="adm-sheet-f">
+            <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+            <input type="submit" name="submit" value="Přidat" class="btn btn-primary sm">
+        </div>
+    {{ form_end(form) }}
 {% endblock %}

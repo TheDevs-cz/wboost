@@ -1,37 +1,44 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ email_template.name}} - Editor{% endblock %}
+{% block title %}{{ email_template.name }}{% endblock %}
 {% set active_menu_item = 'emails' %}
+
+{% block eyebrow %}Projekt · {{ project.name }} · Editor e-mailu{% endblock %}
+{% block page_lead %}Bloky přetáhněte z pravého panelu. Texty, které si mají kolegové ve svých variantách měnit, vložte blokem „Měnitelný text“.{% endblock %}
+
+{% block title_actions %}
+    <a href="{{ path('email_signature_variants', {'id': email_template.id}) }}" class="btn btn-tertiary">{{ icon('users', 's16') }}Varianty</a>
+{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
         <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
         <li class="breadcrumb-item"><a href="{{ path('email_signature_templates', {'id': project.id}) }}">E-maily</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
+        <li class="breadcrumb-item active">{{ email_template.name }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-
+    {# GrapesJS keeps its own UI — only the frame around it is Nocturne. #}
     <div
+        class="es-editor"
         data-controller="email-editor"
         data-email-editor-source-html-value="{{ email_template.code }}"
         data-email-editor-background-value="{{ email_template.backgroundImage ? uploaded_asset(email_template.backgroundImage) }}"
     >
+        <div class="es-edbar">
+            <span class="es-edbar-t">{{ icon('template', 's16') }}Šablona podpisu</span>
+            <span class="es-saved d-none" data-email-editor-target="successMsg" role="status">{{ icon('check-circle', 's16') }}Uloženo</span>
+            <button data-action="email-editor#exportTemplate" class="btn btn-primary sm" type="button">{{ icon('check', 's16') }}Uložit</button>
+        </div>
+
         {{ form_start(editor_form) }}
 
-        <div data-email-editor-target="container"></div>
+        <div class="es-gjs" data-email-editor-target="container"></div>
 
         {{ form_widget(editor_form.code, { attr: { 'data-email-editor-target': 'codeInput' } }) }}
         {{ form_widget(editor_form.textPlaceholders, { attr: { 'data-email-editor-target': 'textPlaceholdersInput' } }) }}
 
         {{ form_end(editor_form) }}
-
-        <p class="mt-2">
-            <button data-action="email-editor#exportTemplate" class="btn btn-primary" type="button">Uložit</button>
-            <span data-email-editor-target="successMsg" class="text-success fs-4 ms-2 d-none"><i class="mdi mdi-check"></i> Uloženo</span>
-        </p>
     </div>
-
 {% endblock %}

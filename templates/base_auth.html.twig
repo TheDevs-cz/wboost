@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+{#
+    Standalone signed-out / decision screens (login, registration, password
+    pages, OAuth consent, Facebook data-deletion status) and the error pages.
+    No app shell: a centred card on --bg with a soft lavender glow, built on the
+    prototype's signed-out screen (`.signed-out` / `.so-card`). Theme follows
+    localStorage['wb-theme'] / the OS (base.html.twig's head script).
+
+    Blocks: auth_card_class (e.g. `wide`), auth_body (card content),
+    auth_below (line under the card, e.g. "Nemáte účet?").
+#}
+
+{% block body_class %}auth-page{% endblock %}
+
+{% block full_content %}
+    <main class="auth" id="main">
+        <div class="auth-card {% block auth_card_class %}{% endblock %}">
+            <a href="{{ path('dashboard') }}" class="auth-logo" aria-label="Wboost">{{ include('_shell/_logo.html.twig', {}, with_context = false) }}</a>
+            {% block auth_body %}{% endblock %}
+        </div>
+        {% if false %}{% block auth_below %}{% endblock %}{% endif %}
+        {% set auth_below = block('auth_below')|trim %}
+        {% if auth_below is not empty %}
+            <p class="auth-below">{{ auth_below|raw }}</p>
+        {% endif %}
+    </main>
+{% endblock %}

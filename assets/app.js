@@ -26,10 +26,14 @@ import './styles/nocturne/gallery.css';
 import './styles/nocturne/fonts.css';
 import './styles/nocturne/templates.css';
 import './styles/nocturne/admin.css';
+import './styles/nocturne/email.css';
+import './styles/nocturne/weekly-menu.css';
 
 import './styles/app.css';
 // Fill pages re-skin app.css's fill-overlay rules, so they load after it.
 import './styles/nocturne/fill.css';
+// Canvas editors re-skin app.css's editor chrome rules, so they load after it too.
+import './styles/nocturne/editor.css';
 
 // window.bootstrap before Stimulus starts.
 import './bootstrap_global.js';

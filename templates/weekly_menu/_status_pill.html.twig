@@ -1,0 +1,4 @@
+{# Approval status as a tinted pill. Expects `status` (WeeklyMenuApprovalStatus). #}
+{% set wm_status_pill = {'not_requested': 'neutral', 'pending': 'pch', 'approved': 'mint', 'denied': 'rose'} %}
+{% set wm_status_icon = {'not_requested': 'mail', 'pending': 'history', 'approved': 'check', 'denied': 'x'} %}
+<span class="pill {{ wm_status_pill[status.value]|default('neutral') }}">{{ icon(wm_status_icon[status.value]|default('info'), 's12') }}{{ status.label }}</span>

@@ -1,0 +1,12 @@
+{# Shared body of the error pages (Nocturne empty state inside the auth
+   card). Vars: code, title, text, icon_name (default 'alert'), danger (bool). #}
+<div class="auth-err">
+    <span class="ico-c{{ danger|default(false) ? ' danger' }}">{{ icon(icon_name|default('alert')) }}</span>
+    {% if code %}<span class="auth-err-code" aria-hidden="true">{{ code }}</span>{% endif %}
+    <h1>{{ title }}</h1>
+    <p>{{ text }}</p>
+</div>
+<div class="auth-actions center">
+    <button type="button" class="btn btn-tertiary" onclick="history.length > 1 ? history.back() : location.assign('{{ path('projects') }}')">{{ icon('arrow-left', 's16') }}Zpět</button>
+    <a class="btn btn-primary" href="{{ path('projects') }}">{{ icon('grid', 's16') }}Zpět na projekty</a>
+</div>

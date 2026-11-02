@@ -1,33 +1,29 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editace šablony patičky e-mailu{% endblock %}
+{% block title %}Upravit šablonu e-mailu{% endblock %}
 {% set active_menu_item = 'emails' %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('email_signature_templates', {'id': project.id}) }}">E-maily</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{% block page_title_row %}
+    <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="back">{{ icon('arrow-left', 's16') }}E-maily</a>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
+    {{ form_start(form, {'attr': {'class': 'adm-sheet es-sheet'}}) }}
+        <div class="adm-sheet-h"><h1 class="page-title adm-sheet-title">Upravit šablonu e-mailu</h1></div>
+        <div class="adm-sheet-b">
             {{ form_row(form.name) }}
             {{ form_row(form.backgroundImage) }}
 
             {% if email_template.backgroundImage %}
-                <div style="width: 200px;" class="mb-3">
-                    <img class="img-thumbnail" src="{{ uploaded_asset(email_template.backgroundImage) }}">
+                <div class="es-bg-current">
+                    <span class="cap">Současné pozadí</span>
+                    <div class="es-bg-well"><img src="{{ uploaded_asset(email_template.backgroundImage) }}" alt="" onerror="this.parentElement.classList.add('is-broken'); this.remove();"></div>
                 </div>
             {% endif %}
-
-            <button class="btn btn-primary" type="submit">Uložit</button>
-
-            {{ form_end(form) }}
         </div>
-    </div>
+        <div class="adm-sheet-f">
+            <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+            <button class="btn btn-primary sm" type="submit">Uložit</button>
+        </div>
+    {{ form_end(form) }}
 {% endblock %}

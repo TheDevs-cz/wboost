@@ -24,7 +24,7 @@ final class SetPasswordControllerTest extends WebTestCase
         $browser->request('GET', '/set-password/' . Uuid::uuid4()->toString());
 
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h4', 'Odkaz vypršel');
+        $this->assertSelectorTextContains('h1', 'Odkaz vypršel');
     }
 
     /**
@@ -38,7 +38,7 @@ final class SetPasswordControllerTest extends WebTestCase
         $browser->request('GET', '/set-password/MDFhMDQ3Ym');
 
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h4', 'Odkaz vypršel');
+        $this->assertSelectorTextContains('h1', 'Odkaz vypršel');
     }
 
     public function testExpiredTokenShowsExpiredPage(): void
@@ -49,7 +49,7 @@ final class SetPasswordControllerTest extends WebTestCase
         $browser->request('GET', '/set-password/' . $token);
 
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h4', 'Odkaz vypršel');
+        $this->assertSelectorTextContains('h1', 'Odkaz vypršel');
     }
 
     public function testInvitationTokenShowsWelcomeCopy(): void
@@ -60,7 +60,7 @@ final class SetPasswordControllerTest extends WebTestCase
         $browser->request('GET', '/set-password/' . $token);
 
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h4', 'Vítejte ve WBoost');
+        $this->assertSelectorTextContains('h1', 'Vítejte ve WBoost');
     }
 
     public function testSettingPasswordActivatesAccountAndLogsIn(): void
@@ -103,7 +103,7 @@ final class SetPasswordControllerTest extends WebTestCase
         // The token is consumed: visiting the same link again shows the expired page.
         $browser->request('GET', '/set-password/' . $token);
         $this->assertResponseIsSuccessful();
-        $this->assertSelectorTextContains('h4', 'Odkaz vypršel');
+        $this->assertSelectorTextContains('h1', 'Odkaz vypršel');
     }
 
     private function createToken(KernelBrowser $browser, string $email, string $validUntilModifier = '+7 days'): string

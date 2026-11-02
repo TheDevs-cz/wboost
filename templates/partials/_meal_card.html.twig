@@ -2,7 +2,8 @@
     Meal Card Inner Content
 
     Usage: Include this inside a .meal-selector-item div. The outer div with data attributes
-    should be in the calling template since they differ between use cases.
+    should be in the calling template since they differ between use cases. The outer div
+    sets `--mt` (the meal type colour) — it tints the left bar and the type dot only.
 
     Parameters:
     - meal: The meal entity
@@ -16,23 +17,22 @@
 {% set showCloseButton = showCloseButton|default(false) %}
 
 <div class="meal-selector-header">
-    <span class="meal-selector-name ps-2">{{ meal.internalName }}</span>
-    <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }}; position: absolute; top: 5px; left: -14px; border: 2px solid #fff; pointer-events: none;">{{ meal.mealType.label|slice(0,2)|upper }}</span>
+    <span class="meal-selector-type" title="{{ meal.mealType.label }}">{{ meal.mealType.label|slice(0,2)|upper }}</span>
+    <span class="meal-selector-name" title="{{ meal.internalName }}">{{ meal.internalName }}</span>
     {% if showCloseButton %}
         <button
             type="button"
-            class="btn-close flex-shrink-0"
-            style="font-size: 0.5rem;"
+            class="meal-selector-remove"
+            aria-label="Odebrat jídlo {{ meal.internalName }}"
             data-action="{{ closeButtonAction }}"
             data-live-action-param="removeMeal"
-            data-live-variantmealid-param="{{ closeButtonParam }}">
-        </button>
+            data-live-variantmealid-param="{{ closeButtonParam }}">{{ icon('x', 's14') }}</button>
     {% endif %}
 </div>
 
 {% if meal.hasDiets %}
     <div class="meal-selector-meta">
-        <span class="meal-selector-diet ps-2">{{ meal.dietCodesLabel }}</span>
+        <span class="meal-selector-diet">{{ meal.dietCodesLabel }}</span>
     </div>
 {% endif %}
 
@@ -46,17 +46,9 @@
 
 {% if nutrition.hasAnyValue %}
     <div class="meal-selector-nutrition">
-        {% if nutrition.energyValue is not null %}
-            <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">{{ nutrition.formatEnergyValue }}</span>
-        {% endif %}
-        {% if nutrition.fats is not null %}
-            <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">T: {{ nutrition.formatFats }}</span>
-        {% endif %}
-        {% if nutrition.carbohydrates is not null %}
-            <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">S: {{ nutrition.formatCarbohydrates }}</span>
-        {% endif %}
-        {% if nutrition.proteins is not null %}
-            <span class="meal-selector-type" style="background-color: {{ meal.mealType.cssColor }};">B: {{ nutrition.formatProteins }}</span>
-        {% endif %}
+        {% if nutrition.energyValue is not null %}<span>{{ nutrition.formatEnergyValue }}</span>{% endif %}
+        {% if nutrition.fats is not null %}<span title="Tuky">T {{ nutrition.formatFats }}</span>{% endif %}
+        {% if nutrition.carbohydrates is not null %}<span title="Sacharidy">S {{ nutrition.formatCarbohydrates }}</span>{% endif %}
+        {% if nutrition.proteins is not null %}<span title="Bílkoviny">B {{ nutrition.formatProteins }}</span>{% endif %}
     </div>
 {% endif %}

@@ -1,0 +1,9 @@
+{# Jídelníčky module tabs (same underline tabs as the manual sections).
+   Real links — every section is its own route. Expects `project`. #}
+{% set wm_route = app.request.attributes.get('_route') %}
+<nav class="tabs-u wm-tabs" aria-label="Části modulu Jídelníčky">
+    <a href="{{ path('weekly_menus', {'projectId': project.id}) }}"{% if wm_route in ['weekly_menus', 'add_weekly_menu', 'edit_weekly_menu', 'weekly_menu_planner'] %} aria-current="page"{% endif %}>{{ icon('calendar', 's16') }}Jídelníčky</a>
+    <a href="{{ path('meals', {'projectId': project.id}) }}"{% if wm_route in ['meals', 'add_meal', 'edit_meal'] %} aria-current="page"{% endif %}>{{ icon('utensils', 's16') }}Seznam jídel</a>
+    <a href="{{ path('diets', {'projectId': project.id}) }}"{% if wm_route in ['diets', 'add_diet', 'edit_diet'] %} aria-current="page"{% endif %}>{{ icon('list', 's16') }}Diety</a>
+    <a href="{{ path('dish_types', {'projectId': project.id}) }}"{% if wm_route in ['dish_types', 'add_dish_type', 'edit_dish_type'] %} aria-current="page"{% endif %}>{{ icon('layers', 's16') }}Druhy jídel</a>
+</nav>

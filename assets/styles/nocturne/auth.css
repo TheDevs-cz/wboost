@@ -1,27 +1,100 @@
 /* ==========================================================================
-   Nocturne — standalone auth / error pages (login, registration, password,
-   OAuth consent, FB deletion status, error pages). They still use Hyper's
-   markup (`authentication-bg`, `account-pages`, card + bg-dark header); this
-   gives them a centred Nocturne card until P9 rebuilds them.
+   Nocturne — standalone auth / decision / error screens (P9):
+   login, registration, set / forgotten password, OAuth consent, Facebook
+   data-deletion status, error pages. Layout `templates/base_auth.html.twig`.
+   Built on the prototype's signed-out screen (`.signed-out` / `.so-card`,
+   prototype/app.css "Profile button + menu, signed-out screen") + a soft
+   lavender glow behind the card.
    ========================================================================== */
 
-body.authentication-bg { min-height: 100vh; min-height: 100dvh; background: radial-gradient(1200px 600px at 50% -10%, var(--lav-deep), transparent 70%), var(--bg); }
-body.authentication-bg > .position-absolute svg { opacity: .35; }
-.account-pages { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; padding: 32px 0 !important; }
-.account-pages > .container { max-width: 520px; }
-.account-pages .row > [class*="col-"] { width: 100%; flex: 0 0 100%; max-width: 100%; }
-.account-pages .card { border-radius: 24px; border-color: var(--line); background: var(--surface); box-shadow: var(--shadow-3); overflow: hidden; }
-.account-pages .card-header, .account-pages .card-header.bg-dark { background: transparent !important; border-bottom: 0; padding: 32px 32px 0 !important; text-align: left !important; }
-.account-pages .card-header .brand-logo { height: 30px; }
-.account-pages .card-body { padding: 24px 32px 32px !important; }
-.account-pages .card-body h4, .account-pages .card-body .h4 { font-size: 24px; font-weight: 600; letter-spacing: -.01em; color: var(--text); text-align: left !important; }
-.account-pages .text-center.w-75 { width: auto !important; text-align: left !important; margin: 0 !important; }
-.account-pages .btn-primary { width: 100%; }
-.account-pages .text-muted b { color: var(--lav-ink); }
-.input-group-text[data-password] { cursor: pointer; padding: 0 14px; }
-.password-eye { display: inline-block; width: 18px; height: 18px; background: currentColor;
-    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z'/><circle cx='12' cy='12' r='3'/></svg>") center / contain no-repeat;
-    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z'/><circle cx='12' cy='12' r='3'/></svg>") center / contain no-repeat; }
-.input-group-text[data-password="true"] { color: var(--lav-ink); }
-/* flashes inside the auth card */
-.account-pages .flashes { margin-bottom: 16px; }
+.auth { position: relative; isolation: isolate; overflow: hidden; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 32px max(16px, env(safe-area-inset-right, 0px)) calc(32px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: var(--bg); }
+.auth::before { content: ""; position: absolute; z-index: -1; left: 50%; top: 42%; width: min(980px, 180vw); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, var(--lav-glow), transparent 72%); pointer-events: none; }
+
+/* Card (.so-card: 400 px, pad 40/32, radius 24, surface + hairline) */
+.auth-card { display: flex; flex-direction: column; gap: 20px; width: min(400px, 100%); padding: 40px 32px 32px; border-radius: 24px; background: var(--surface); border: 1px solid var(--line); }
+.auth-card.wide { width: min(560px, 100%); }
+.auth-card.err { width: min(460px, 100%); }
+.auth-logo { align-self: center; display: inline-flex; color: inherit; border-radius: 8px; }
+.auth-logo .brand-logo { height: 30px; width: auto; }
+.auth-logo:focus-visible { outline: 2px solid var(--lav); outline-offset: 4px; }
+
+.auth-top { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.auth-top h1 { font-size: 24px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; margin: 0; }
+.auth-top p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.auth-top .ico-c { margin-bottom: 4px; }
+.auth-strong { color: var(--text); font-weight: 600; }
+
+/* Form */
+.auth-form { display: flex; flex-direction: column; gap: 16px; margin: 0; }
+.auth-form .mb-3 { margin-bottom: 0 !important; }
+.auth-form .field { margin: 0; }
+.auth-form .field-l label { margin: 0; }
+.auth-form .inp .i { color: var(--subtle); }
+.auth-form .inp:focus-within > .i { color: var(--lav-ink); }
+.auth-submit { width: 100%; }
+.auth-form .auth-submit { margin-top: 4px; }
+.auth-link { color: var(--lav-ink); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.auth-link:hover { color: var(--text); text-decoration: underline; }
+
+/* Show / hide password (bootstrap_global.js toggles [data-password]) */
+.auth-eye { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: -8px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--subtle); cursor: pointer; transition: background var(--dur-2), color var(--dur-2); }
+.auth-eye:hover { background: var(--surface-3); color: var(--text); }
+.auth-eye:focus-visible { outline: 2px solid var(--lav); outline-offset: 1px; }
+.auth-eye .i-eye-off, .auth-eye[data-password="true"] .i-eye { display: none; }
+.auth-eye[data-password="true"] .i-eye-off { display: inline-block; }
+.auth-eye[data-password="true"] { color: var(--lav-ink); }
+
+/* "nebo" divider */
+.auth-or { display: flex; align-items: center; gap: 12px; color: var(--subtle); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .16em; }
+.auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* Line under the card */
+.auth-below { margin: 0; color: var(--muted); font-size: 14px; text-align: center; }
+.auth-below a { color: var(--lav-ink); font-weight: 600; text-decoration: none; }
+.auth-below a:hover { text-decoration: underline; }
+
+.auth-card .flashes { margin: 0; }
+.auth-card .alert { margin: 0; }
+
+/* OAuth consent */
+.auth-account { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line-2); }
+.auth-account .who { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px; }
+.auth-account .who > span { font-size: 12px; color: var(--muted); }
+.auth-account .who b { font-size: 14px; font-weight: 600; }
+.auth-account .who small { font-weight: 500; color: var(--muted); }
+.auth-sec { display: flex; flex-direction: column; gap: 10px; }
+.auth-sec h2 { margin: 0; font-size: 15px; font-weight: 600; }
+/* read-only scope rows — the prototype's AI scopes list (.scopes / .scope) */
+.auth-scopes { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 2px; padding: 6px; border: 1px solid var(--line-2); border-radius: 16px; }
+.auth-scope { display: flex; align-items: flex-start; gap: 12px; padding: 10px; border-radius: 12px; }
+.auth-scope .chk { margin-top: 1px; }
+.auth-scope .chk.bad { background: var(--rose); }
+.auth-scope .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.auth-scope .who b { font-size: 14px; font-weight: 600; }
+.auth-scope .who > span { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.auth-scope .who em { font-size: 12px; color: var(--subtle); }
+.auth-scope.unknown { background: var(--rose-deep); }
+.auth-scope.unknown .who b { color: var(--rose-ink); }
+.auth-note { margin: 0; font-size: 12px; line-height: 1.55; color: var(--muted); }
+.auth-note a { color: var(--lav-ink); font-weight: 600; }
+.auth-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 0; }
+.auth-actions.center { justify-content: center; }
+
+/* Facebook data deletion: confirmation code */
+.auth-code { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px; border-radius: 16px; border: 1.5px dashed var(--line-3); text-align: center; }
+.auth-code span { font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); }
+.auth-code code { font-size: 15px; font-weight: 600; color: var(--text); background: none; word-break: break-all; }
+
+/* Error pages — empty-state look inside the card */
+.auth-err { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.auth-err-code { font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: -.04em; color: var(--lav-ink); font-variant-numeric: tabular-nums; margin-top: 6px; }
+.auth-err .ico-c.danger ~ .auth-err-code { color: var(--rose-ink); }
+.auth-err h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+.auth-err p { margin: 0; max-width: 360px; color: var(--muted); line-height: 1.55; }
+
+@media (max-width: 480px) {
+    .auth { justify-content: flex-start; padding-top: max(24px, env(safe-area-inset-top, 0px)); }
+    .auth::before { top: 240px; }
+    .auth-card { padding: 32px 20px 24px; border-radius: 22px; }
+    .auth-actions .btn { flex: 1; }
+}

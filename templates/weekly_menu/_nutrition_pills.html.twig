@@ -1,0 +1,9 @@
+{# Compact nutrition pills (energy · T · S · B). Expects `n` (NutritionalValues). #}
+{% if n.hasAnyValue %}
+    <span class="nutrition-badges">
+        {% if n.energyValue is not null %}<span class="nutrition-badge-item">{{ n.formatEnergyValue }}</span>{% endif %}
+        {% if n.fats is not null %}<span class="nutrition-badge-item" title="Tuky">T {{ n.formatFats }}</span>{% endif %}
+        {% if n.carbohydrates is not null %}<span class="nutrition-badge-item" title="Sacharidy">S {{ n.formatCarbohydrates }}</span>{% endif %}
+        {% if n.proteins is not null %}<span class="nutrition-badge-item" title="Bílkoviny">B {{ n.formatProteins }}</span>{% endif %}
+    </span>
+{% endif %}

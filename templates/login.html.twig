@@ -1,91 +1,45 @@
-{% extends 'base.html.twig' %}
+{% extends 'base_auth.html.twig' %}
 
 {% block title %}Přihlášení{% endblock %}
 
-{% block body_class %}authentication-bg position-relative{% endblock %}
-
-{% block full_content %}
-    <div class="position-absolute start-0 end-0 start-0 bottom-0 w-100 h-100">
-        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 800 800">
-            <g fill-opacity="0.22">
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.1);" cx="400" cy="400" r="600"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.2);" cx="400" cy="400" r="500"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.3);" cx="400" cy="400" r="300"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.4);" cx="400" cy="400" r="200"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.5);" cx="400" cy="400" r="100"></circle>
-            </g>
-        </svg>
+{% block auth_body %}
+    <div class="auth-top">
+        <h1>Přihlášení</h1>
+        <p>Zadejte e-mail a heslo ke svému účtu.</p>
     </div>
 
-    <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-xxl-4 col-lg-5">
-                    <div class="card">
+    {{ include('_flashes.html.twig') }}
 
-                        <!-- Logo -->
-                        <div class="card-header py-4 text-center bg-dark">
-                            <span>{{ include('_shell/_logo.html.twig', {}, with_context = false) }}</span>
-                        </div>
+    {% if error %}
+        <div class="alert alert-danger" role="alert">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+    {% endif %}
 
-                        <div class="card-body p-4">
-                            {{ include('_flashes.html.twig') }}
+    <form action="{{ path('login') }}" method="post" class="auth-form">
+        <label class="field" for="emailaddress">
+            <span>E-mail</span>
+            <span class="inp">
+                {{ icon('mail', 's18') }}
+                <input type="email" id="emailaddress" name="_username" required="required" placeholder="jmeno@firma.cz" value="{{ last_username }}" autocomplete="username" autofocus>
+            </span>
+        </label>
 
-                            {% if error %}
-                                <div class="alert alert-danger small">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
-                            {% endif %}
-
-                            <div class="text-center w-75 m-auto">
-                                <h4 class="text-dark-50 text-center pb-0 fw-bold">Přihlášení</h4>
-                                <p class="text-muted mb-4">Zadejte váš e-mail a heslo pro přístup do systému.</p>
-                            </div>
-
-                            <form action="{{ path('login') }}" method="post">
-
-                                <div class="mb-3">
-                                    <label for="emailaddress" class="form-label">E-mail</label>
-                                    <input class="form-control" type="email" id="emailaddress" name="_username" required="required" placeholder="Zadejte váš e-mail" value="{{ last_username }}">
-                                </div>
-
-                                <div class="mb-3">
-                                    <a href="{{ path('forgotten_password') }}" class="text-muted float-end"><small>Zapomněli jste heslo?</small></a>
-                                    <label for="password" class="form-label">Heslo</label>
-                                    <div class="input-group input-group-merge">
-                                        <input type="password" id="password" class="form-control" name="_password" placeholder="Zadejte vaše heslo">
-                                        <div class="input-group-text" data-password="false">
-                                            <span class="password-eye"></span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="mb-3 mb-0 text-center">
-                                    <button class="btn btn-primary" type="submit"> Přihlásit se </button>
-                                </div>
-
-                                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-                            </form>
-
-                            <div class="text-center mt-3">
-                                <p class="text-muted small mb-2">nebo</p>
-                                <a href="{{ path('oauth_facebook_login') }}" class="btn btn-outline-primary">
-                                    <i class="mdi mdi-facebook me-1"></i> Přihlásit se přes Facebook
-                                </a>
-                            </div>
-                        </div> <!-- end card-body -->
-                    </div>
-                    <!-- end card -->
-
-                    <div class="row mt-3">
-                        <div class="col-12 text-center">
-                            <p class="text-muted">Nemáte účet? <a href="{{ path('registration') }}" class="text-muted ms-1"><b>Zaregistrujte se</b></a></p>
-                        </div> <!-- end col -->
-                    </div>
-                    <!-- end row -->
-
-                </div> <!-- end col -->
-            </div>
-            <!-- end row -->
+        <div class="field">
+            <span class="field-l"><label for="password">Heslo</label><a href="{{ path('forgotten_password') }}" class="auth-link">Zapomněli jste heslo?</a></span>
+            <span class="inp">
+                {{ icon('lock', 's18') }}
+                <input type="password" id="password" name="_password" placeholder="Vaše heslo" autocomplete="current-password">
+                <button type="button" class="auth-eye" data-password="false" aria-label="Zobrazit heslo">{{ icon('eye', 's18') }}{{ icon('eye-off', 's18') }}</button>
+            </span>
         </div>
-        <!-- end container -->
-    </div>
+
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+        <button class="btn btn-primary auth-submit" type="submit">Přihlásit se</button>
+    </form>
+
+    <div class="auth-or" role="separator"><span>nebo</span></div>
+
+    <a href="{{ path('oauth_facebook_login') }}" class="btn btn-tertiary auth-submit">{{ icon('facebook', 's16') }}Přihlásit se přes Facebook</a>
 {% endblock %}
+
+{% block auth_below %}Nemáte účet? <a href="{{ path('registration') }}">Požádejte o registraci</a>{% endblock %}

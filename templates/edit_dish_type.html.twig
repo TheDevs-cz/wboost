@@ -5,26 +5,19 @@
 
 {% block title %}Upravit druh jídla{% endblock %}
 
-{% block breadcrumb %}
-    <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><i class="uil-home-alt"></i> <a href="{{ path('projects') }}">Projekty</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('weekly_menus', {'projectId': project.id}) }}">Jídelníčky</a></li>
-        <li class="breadcrumb-item"><a href="{{ path('dish_types', {'projectId': project.id}) }}">Druhy jídel</a></li>
-        <li class="breadcrumb-item active">{{ block('title') }}</li>
-    </ol>
+{% block page_title_row %}
+    <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="back">{{ icon('arrow-left', 's16') }}Druhy jídel</a>
 {% endblock %}
 
 {% block content %}
-    <div class="card">
-        <div class="card-body">
-            {{ form_start(form) }}
+    {{ form_start(form, {'attr': {'class': 'adm-sheet wm-sheet'}}) }}
+        <div class="adm-sheet-h"><h1 class="page-title adm-sheet-title">Upravit druh jídla</h1></div>
+        <div class="adm-sheet-b">
             {{ form_widget(form) }}
-
-            <button class="btn btn-primary" type="submit">Uložit</button>
-            <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="btn btn-outline-secondary">Zrušit</a>
-
-            {{ form_end(form) }}
         </div>
-    </div>
+        <div class="adm-sheet-f">
+            <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+            <button class="btn btn-primary sm" type="submit">Uložit</button>
+        </div>
+    {{ form_end(form) }}
 {% endblock %}

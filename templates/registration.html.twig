@@ -1,63 +1,19 @@
-{% extends 'base.html.twig' %}
+{% extends 'base_auth.html.twig' %}
 
 {% block title %}Registrace{% endblock %}
 
-{% block body_class %}authentication-bg position-relative{% endblock %}
-
-{% block full_content %}
-    <div class="position-absolute start-0 end-0 start-0 bottom-0 w-100 h-100">
-        <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 800 800">
-            <g fill-opacity="0.22">
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.1);" cx="400" cy="400" r="600"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.2);" cx="400" cy="400" r="500"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.3);" cx="400" cy="400" r="300"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.4);" cx="400" cy="400" r="200"></circle>
-                <circle style="fill: rgba(var(--ct-primary-rgb), 0.5);" cx="400" cy="400" r="100"></circle>
-            </g>
-        </svg>
+{% block auth_body %}
+    <div class="auth-top">
+        <h1>Registrace</h1>
+        <p>Registrace jsou na požádání. Zanechte nám svůj e-mail a my se vám ozveme.</p>
     </div>
 
-    <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-xxl-4 col-lg-5">
-                    <div class="card">
+    {{ include('_flashes.html.twig') }}
 
-                        <!-- Logo -->
-                        <div class="card-header py-4 text-center bg-dark">
-                            <span>{{ include('_shell/_logo.html.twig', {}, with_context = false) }}</span>
-                        </div>
-
-                        <div class="card-body p-4">
-                            {{ include('_flashes.html.twig') }}
-
-                            <div class="text-center w-75 m-auto">
-                                <h4 class="text-dark-50 text-center mt-0 fw-bold">Registrace</h4>
-                                <p class="text-muted mb-4">Registrace jsou na požádání. Zanechte nám svůj e-mail a my se vám ozveme.</p>
-                            </div>
-
-                            {{ form_start(form) }}
-                            {{ form_row(form.email) }}
-
-                            <div class="mb-0 text-center">
-                                <button class="btn btn-primary" type="submit">Požádat o registraci</button>
-                            </div>
-                            {{ form_end(form) }}
-                        </div>
-                    </div>
-                    <!-- end card -->
-
-                    <div class="row mt-3">
-                        <div class="col-12 text-center">
-                            <p class="text-muted">Zpět na <a href="{{ path('login') }}" class="text-muted ms-1"><b>přihlášení</b></a></p>
-                        </div> <!-- end col -->
-                    </div>
-                    <!-- end row -->
-
-                </div> <!-- end col -->
-            </div>
-            <!-- end row -->
-        </div>
-        <!-- end container -->
-    </div>
+    {{ form_start(form, {'attr': {'class': 'auth-form'}}) }}
+        {{ form_row(form.email, {'attr': {'placeholder': 'jmeno@firma.cz', 'autocomplete': 'email'}}) }}
+        <button class="btn btn-primary auth-submit" type="submit">Požádat o registraci</button>
+    {{ form_end(form) }}
 {% endblock %}
+
+{% block auth_below %}Už máte účet? <a href="{{ path('login') }}">Přihlaste se</a>{% endblock %}
