@@ -1,6 +1,6 @@
 # Redesign "Nocturne" — replacing the Hyper theme
 
-Branch: `redesign/nocturne` (merge request into `main`, never push to `main` directly).
+Shipped: built on `redesign/nocturne`, merged to `main` 2026-11-03 (PR #8). Follow-up fixes go on `main`.
 
 Goal: replicate the visual design (UI + UX) of the Claude Design prototype
 "Wboost Prototyp" across the whole wboost app (not the landing pages), and
