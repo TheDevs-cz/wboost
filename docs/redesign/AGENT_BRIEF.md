@@ -62,7 +62,7 @@ screen, responsive, both themes. Backend business logic stays unchanged.
   puppeteer script modelled on `shoot.cjs`. Avoid native `confirm()` buttons.
 
 ## Deliver
-- Commits on `redesign/nocturne` with explicit pathspecs
+- Commits on `main` with explicit pathspecs
   (`git commit -m "feat(redesign): …" -- <paths>`), never `git add -A`, never
   push. End messages with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Tick your phase in `PLAN.md`; append a `JOURNAL.md` entry (what / how / why,
@@ -72,9 +72,10 @@ screen, responsive, both themes. Backend business logic stays unchanged.
 - Final message to the orchestrator ≤ 20 lines: commits, what changed, what is
   unverified, follow-ups.
 
-## Feedback rounds (preview phase, after P10)
+## Feedback rounds (after the merge)
 
-The redesign is live on https://wboost.thedevs.cz for the user's review. You get
+The redesign is merged and live on https://wboost.cz; fixes land on `main`
+(every push to main deploys to production — the orchestrator pushes). You get
 a batch of feedback items (IDs `F<n>` from `docs/redesign/FEEDBACK.md`).
 - Fix exactly those items; no drive-by redesigns. If an item needs backend /
   business-logic changes, stop and report instead of implementing.
