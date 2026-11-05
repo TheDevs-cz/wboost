@@ -1129,3 +1129,68 @@ planner tests for fill-the-gap + preference + repeated logo literal.
 tests + handler tests only). **Follow-ups:** P1b must decide whether unused palette
 colours (R1 leftovers) are skipped by `GetProjectPalette`; the "re-project every manual
 linking the colour" step only matters once P1b mirrors links → JSONB.
+
+## Palette P1b — reads from the project palette, JSONB mirrored (F7, 2026-11-05)
+
+Release R2 (`palette-plan.md` §2c): the palette tables are the source of truth; every
+write also mirrors the links back into `manual.detected_colors` / `custom_colors` so R1
+code (blue-green overlap, a code-revert rollback) stays correct. No schema change.
+- `Manual` read model from `$paletteLinks` (OneToMany EAGER + EAGER `projectColor` →
+  one batch query per hydration; measured 1 link query on /projects, dashboard, manuals
+  list): `detectedColors()` = logo links (literal `logo_hex`), `customColors()` (method
+  now) = palette HEX, type = per-project role, print data from the palette. JSONB props
+  renamed `jsonbDetectedColors` / `jsonbCustomColors` (same columns), `editColors()` →
+  `mirrorJsonbColors()`, `editLogo()` sets the logo only. Old logic frozen in
+  `Services/Palette/JsonbManualColors` (verify, reconcile, parity tests).
+- `Query/GetProjectPalette` (palette order, **linked colours only** — decision: R1/R2
+  never delete palette colours, leftovers must not become swatches / win print CMYK;
+  P2 lists them as "Nepoužitá") → `ResolveRichTextOptions::computeColors(palette)`,
+  `BrandCmykPalette::fromPalette()`, `LintContext::forProject(palette)`, editors,
+  `get_context`. API shape unchanged; consumer-prompt + mfkfm `types.ts` comment now say
+  "project palette, palette order".
+- `Services/Palette/ManualPaletteWriter`: `editColors()` (old colours page) and
+  `syncLogoColors()` (D3) write palette + links (unchanged → same colour; changed and
+  unshared → edited IN PLACE; else §7 match; else append), then `mirrorProject()`, then
+  `refreshManaged()` (detach palette entities, reset managed manuals' link collection +
+  mirror — `EntityManager::refresh()` throws on readonly `createdAt`).
+- verify: JSONB side = `JsonbManualColors`, project side = linked palette only, unused
+  colours informational, new unexpected `jsonb_mirror_stale`. reconcile: stale manuals
+  re-projected FROM JSONB (R1 projector) + project re-mirrored.
+
+**Local prod copy:** snapshot R1 vs R2 = exactly the 12 accepted items (Fotbal role page
++ 2299 C, TIC white role/spelling + 7509C, Knihovna white role); project-level outputs
+and every logo mapping identical. HTML of all 33 `/nahled-manualu/…`: only those 3
+manuals differ. Reconcile: 3 manuals, 11 JSONB mirrors rewritten, 0 link / palette rows
+changed; verify after = 1 accepted `palette_order`; snapshot + HTML unchanged by it.
+Browser (puppeteer, Žabeň): colours page save (role + Pantone, in place) and a logo
+upload adding `E30613` (appended, no role, role of #1 kept) — preview, palette, links,
+mirror checked; data + the uploaded Minio file reverted (snapshot == before).
+**Tests:** `PaletteSyncTest` (+ parity links vs JSONB path before/after mirror,
+swatches / print CMYK / avatar from the palette, unlinked colour is no swatch, in-place
+vs split edits, the writing request reads what it wrote, logo re-upload unlinks),
+`ManualColorsControllerTest` (type change → palette role + mirror + manual pages),
+`ResolveRichTextOptionsTest` (palette order), `DesignLinterTest`, planner parity vs
+`JsonbManualColors`. Fixtures: Project 1 has a real palette now (2 colours, Manual 1).
+**Bug found (P1a):** deleting a project with palette colours failed in the test DB
+(FK violation) — the NO ACTION link → palette FK depends on the order Postgres fires
+the project's RI cascade triggers (by trigger name); prod's order is unknown. Fixed by
+`Version20261105193000` (ON DELETE CASCADE, mapping too); `DeleteProjectStorageTest`
+covers it now that Project 1 has a palette.
+**Not verified:** prod. **Follow-ups:** P2 palette page; overview chips / `has_palette`
+still read the (mirrored) JSONB until P2.
+
+## Feedback round — F19 container popover, F20 picker size slider (2026-11-05)
+
+**F19 (a7ffe077):** the canvas editor's container settings popover (`.container-zone-popover`,
+built by `canvas_container_controller.js`, styled in `app.css`) still had the pre-redesign
+`#fff` background while its labels/inputs follow Nocturne → near-invisible titles in dark.
+Now `--surface` / `--line-2` / `--shadow-3`, title + labels in text tokens. Checked both themes.
+
+**F20 (61ee6f51):** the "Vyberte obrázek" picker (`Project:ImageGallery` modal mode: canvas
+editor, group editor, add-template backgrounds) shows the tile-size slider; it shares the
+`wb-galsize` value with the standalone gallery (modal default 150 px, page 168 px). Stable ids on
+the `data-live-ignore` search + slider stop a duplicate search box after a folder change.
+Fill-page pickers are separate and still lack the slider (F21).
+
+CI note: `ProjectsTest::testTokenEndpoint…` flaked on `expires_in` 3599 vs 3600 — now accepts
+both (2af71b3b).
