@@ -35,7 +35,7 @@ final class SortManualFontsController extends AbstractController
         $sorted = $data['sorted'] ?? [];
 
         $this->bus->dispatch(
-            new SortManualFonts($sorted),
+            new SortManualFonts($manual->id, $sorted),
         );
 
         return new JsonResponse(['status' => 'success']);

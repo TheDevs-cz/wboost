@@ -18,13 +18,26 @@ readonly final class SortManualFontsHandler
     ) {
     }
 
-    /**
-     * @throws ManualFontNotFound
-     */
     public function __invoke(SortManualFonts $message): void
     {
+        // The voter only checked the manual in the URL, so an id that is
+        // malformed, unknown or belongs to ANOTHER manual is ignored (F12
+        // follow-up) — same skip-what-doesn't-fit stance as the category sort.
         foreach ($message->manualFonts as $position => $manualFontId) {
-            $manualFont = $this->manualFontRepository->get(Uuid::fromString($manualFontId));
+            if (!Uuid::isValid($manualFontId)) {
+                continue;
+            }
+
+            try {
+                $manualFont = $this->manualFontRepository->get(Uuid::fromString($manualFontId));
+            } catch (ManualFontNotFound) {
+                continue;
+            }
+
+            if (!$manualFont->manual->id->equals($message->manualId)) {
+                continue;
+            }
+
             $manualFont->sort($position);
         }
     }

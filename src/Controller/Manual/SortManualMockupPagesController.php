@@ -35,7 +35,7 @@ final class SortManualMockupPagesController extends AbstractController
         $sorted = $data['sorted'] ?? [];
 
         $this->bus->dispatch(
-            new SortManualMockupPages($sorted)
+            new SortManualMockupPages($manual->id, $sorted)
         );
 
         return new JsonResponse(['status' => 'success']);

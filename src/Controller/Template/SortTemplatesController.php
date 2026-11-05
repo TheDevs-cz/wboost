@@ -35,7 +35,7 @@ final class SortTemplatesController extends AbstractController
         $sorted = $data['sorted'] ?? [];
 
         $this->bus->dispatch(
-            new SortTemplates($sorted)
+            new SortTemplates($project->id, $sorted)
         );
 
         return new JsonResponse(['status' => 'success']);

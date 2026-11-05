@@ -22,7 +22,9 @@ readonly final class SortTemplatesHandler
     public function __invoke(SortTemplates $message): void
     {
         // Templates and multi-page documents share the listing's sort space,
-        // so an id may name either.
+        // so an id may name either. The voter only checked the project in the
+        // URL, so an id that is malformed, unknown or belongs to ANOTHER
+        // project is ignored (F12 follow-up).
         foreach ($message->templates as $position => $id) {
             if (!Uuid::isValid($id)) {
                 continue;
@@ -31,7 +33,11 @@ readonly final class SortTemplatesHandler
             $uuid = Uuid::fromString($id);
             $item = $this->entityManager->find(Template::class, $uuid) ?? $this->entityManager->find(TemplateDocument::class, $uuid);
 
-            $item?->sort($position);
+            if ($item === null || !$item->project->id->equals($message->projectId)) {
+                continue;
+            }
+
+            $item->sort($position);
         }
     }
 }

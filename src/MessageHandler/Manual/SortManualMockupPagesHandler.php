@@ -18,13 +18,26 @@ readonly final class SortManualMockupPagesHandler
     ) {
     }
 
-    /**
-     * @throws ManualMockupPageNotFound
-     */
     public function __invoke(SortManualMockupPages $message): void
     {
+        // The voter only checked the manual in the URL, so an id that is
+        // malformed, unknown or belongs to ANOTHER manual is ignored (F12
+        // follow-up) — same skip-what-doesn't-fit stance as the category sort.
         foreach ($message->pages as $position => $pageId) {
-            $page = $this->manualMockupPageRepository->get(Uuid::fromString($pageId));
+            if (!Uuid::isValid($pageId)) {
+                continue;
+            }
+
+            try {
+                $page = $this->manualMockupPageRepository->get(Uuid::fromString($pageId));
+            } catch (ManualMockupPageNotFound) {
+                continue;
+            }
+
+            if (!$page->manual->id->equals($message->manualId)) {
+                continue;
+            }
+
             $page->sort($position);
         }
     }
