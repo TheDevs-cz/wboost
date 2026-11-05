@@ -89,6 +89,88 @@ final class GetUsageOverviewTest extends KernelTestCase
         self::assertSame([1, 0], $seriesByName[self::OWNER_B_EMAIL] ?? null);
     }
 
+    /**
+     * export_event.owner_id is the project's owner AT EXPORT TIME, so a project
+     * handed over to another account appears under both clients. Every number
+     * in a client's rows (monthly cells, totals, owner sums, chart) must count
+     * only that client's exports; grand totals count the project once.
+     */
+    public function testProjectHandedOverBetweenClientsIsScopedPerClient(): void
+    {
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+
+        $ownerA = Uuid::fromString(TestDataFixture::USER_1_ID);
+        $ownerB = Uuid::fromString(TestDataFixture::USER_2_ID);
+        $shared = Uuid::fromString(TestDataFixture::PROJECT_1_ID);
+        $templateT1 = Uuid::uuid4();
+        $templateT2 = Uuid::uuid4();
+        $variantV1 = Uuid::uuid4();
+        $variantV2 = Uuid::uuid4();
+
+        // Owner A exports once in May, then hands the project to owner B, who
+        // exports T1 twice + T2 once in May and T1 three times in June.
+        $this->seed($entityManager, '2026-05-02', $ownerA, self::OWNER_A_EMAIL, $shared, 'Sdílený', $templateT1, $variantV1);
+        $this->seed($entityManager, '2026-05-20', $ownerB, self::OWNER_B_EMAIL, $shared, 'Sdílený', $templateT1, $variantV1);
+        $this->seed($entityManager, '2026-05-21', $ownerB, self::OWNER_B_EMAIL, $shared, 'Sdílený', $templateT1, $variantV1);
+        $this->seed($entityManager, '2026-05-22', $ownerB, self::OWNER_B_EMAIL, $shared, 'Sdílený', $templateT2, $variantV2);
+        foreach (['2026-06-01', '2026-06-02', '2026-06-03'] as $date) {
+            $this->seed($entityManager, $date, $ownerB, self::OWNER_B_EMAIL, $shared, 'Sdílený', $templateT1, $variantV1);
+        }
+        $entityManager->flush();
+
+        $overview = self::getContainer()->get(GetUsageOverview::class)->overview();
+        self::assertSame(['2026-05', '2026-06'], $overview->months);
+
+        $byEmail = [];
+        foreach ($overview->owners as $owner) {
+            $byEmail[$owner->ownerEmail] = $owner;
+        }
+
+        $a = $byEmail[self::OWNER_A_EMAIL];
+        self::assertCount(1, $a->projects);
+        self::assertSame(1, $a->downloads);
+        self::assertSame(1, $a->uniqueTemplates);
+        self::assertSame(1, $a->projects[0]->downloads);
+        self::assertSame(1, $a->projects[0]->downloadsInMonth('2026-05'));
+        self::assertSame(1, $a->projects[0]->templatesInMonth('2026-05'));
+        self::assertSame(0, $a->projects[0]->downloadsInMonth('2026-06'));
+        self::assertSame(1, $a->downloadsInMonth('2026-05'));
+        self::assertSame(0, $a->downloadsInMonth('2026-06'));
+
+        $b = $byEmail[self::OWNER_B_EMAIL];
+        self::assertSame(6, $b->downloads);
+        self::assertSame(2, $b->uniqueTemplates);
+        $project = $b->projects[0];
+        self::assertSame(3, $project->downloadsInMonth('2026-05'));
+        self::assertSame(2, $project->templatesInMonth('2026-05'));
+        self::assertSame(3, $project->downloadsInMonth('2026-06'));
+        self::assertSame(1, $project->templatesInMonth('2026-06'));
+
+        // Monthly cells add up to each row's download total.
+        foreach ([$a, $b] as $owner) {
+            $sum = 0;
+            foreach ($overview->months as $month) {
+                $sum += $owner->downloadsInMonth($month);
+            }
+            self::assertSame($owner->downloads, $sum);
+        }
+
+        // Chart series follow the same scoping.
+        $seriesByName = [];
+        foreach ($overview->chartSeries as $series) {
+            $seriesByName[$series['name']] = $series['data'];
+        }
+        self::assertSame([1, 0], $seriesByName[self::OWNER_A_EMAIL] ?? null);
+        self::assertSame([2, 1], $seriesByName[self::OWNER_B_EMAIL] ?? null);
+
+        // Grand totals count the shared project / its templates once.
+        self::assertSame(7, $overview->totalDownloads);
+        self::assertSame(2, $overview->totalUniqueTemplates);
+        self::assertSame(2, $overview->totalUniqueVariants);
+        self::assertSame(1, $overview->projectCount);
+        self::assertSame(2, $overview->clientCount);
+    }
+
     public function testEmptyWhenNoExports(): void
     {
         $overview = self::getContainer()->get(GetUsageOverview::class)->overview();

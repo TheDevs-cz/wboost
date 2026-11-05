@@ -13,9 +13,12 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Two passes are required because DISTINCT counts are not additive across
  * months: the monthly pass feeds the per-month table cells and the chart,
- * while the totals pass produces the all-time DISTINCT counts. Owner / grand
- * totals are then summed from the per-project totals, which is correct because
- * a template (and a variant) belongs to exactly one project.
+ * while the totals pass produces the all-time DISTINCT counts. Every number is
+ * scoped to the (owner, project) pair: owner_id is the project's owner at export
+ * time, so a project handed over to another account shows up under both clients,
+ * each counting only its own exports. Owner totals are summed from that owner's
+ * project totals (a template / variant belongs to exactly one project); grand
+ * totals come from one more DISTINCT pass so handed-over projects count once.
  */
 readonly final class GetUsageOverview
 {
@@ -66,16 +69,19 @@ readonly final class GetUsageOverview
         $monthlyRows = $connection->executeQuery($monthlySql)->fetchAllAssociative();
         $totalsRows = $connection->executeQuery($totalsSql)->fetchAllAssociative();
 
-        // project_id => [ 'YYYY-MM' => UsageMonthMetrics ]
+        // owner_id|project_id => [ 'YYYY-MM' => UsageMonthMetrics ]. Keyed by
+        // the PAIR, like the totals: owner_id is the project's owner at export
+        // time, so a project handed over to another account appears under both
+        // clients — each row must only count its own client's exports.
         $monthlyByProject = [];
         $monthsSet = [];
 
         foreach ($monthlyRows as $row) {
-            $projectId = $this->asString($row['project_id']);
+            $key = $this->asString($row['owner_id']) . '|' . $this->asString($row['project_id']);
             $month = $this->asString($row['month']);
             $monthsSet[$month] = true;
 
-            $monthlyByProject[$projectId][$month] = new UsageMonthMetrics(
+            $monthlyByProject[$key][$month] = new UsageMonthMetrics(
                 $this->asInt($row['unique_templates']),
                 $this->asInt($row['unique_variants']),
                 $this->asInt($row['downloads']),
@@ -101,7 +107,7 @@ readonly final class GetUsageOverview
                 $this->asInt($row['unique_variants']),
                 $this->asInt($row['downloads']),
                 new DateTimeImmutable($this->asString($row['last_export'])),
-                $monthlyByProject[$projectId] ?? [],
+                $monthlyByProject[$ownerId . '|' . $projectId] ?? [],
             );
             $ownerEmails[$ownerId] = $this->asString($row['owner_email']);
             $ownerName = is_string($row['owner_name']) ? trim($row['owner_name']) : '';
@@ -109,10 +115,6 @@ readonly final class GetUsageOverview
         }
 
         $owners = [];
-        $totalUniqueTemplates = 0;
-        $totalUniqueVariants = 0;
-        $totalDownloads = 0;
-        $projectCount = 0;
 
         foreach ($projectsByOwner as $ownerId => $projects) {
             usort(
@@ -146,12 +148,19 @@ readonly final class GetUsageOverview
                 $ownerLastExportAt,
                 $projects,
             );
-
-            $totalUniqueTemplates += $ownerUniqueTemplates;
-            $totalUniqueVariants += $ownerUniqueVariants;
-            $totalDownloads += $ownerDownloads;
-            $projectCount += count($projects);
         }
+
+        // Grand totals straight from the log: summing the owner rows would count
+        // a handed-over project (and its templates) once per owner.
+        $grand = $connection->executeQuery(<<<SQL
+            SELECT
+              COUNT(DISTINCT template_id) AS unique_templates,
+              COUNT(DISTINCT variant_id) AS unique_variants,
+              COUNT(*) AS downloads,
+              COUNT(DISTINCT project_id) AS projects
+            FROM export_event
+        SQL)->fetchAssociative();
+        assert(is_array($grand));
 
         usort(
             $owners,
@@ -162,11 +171,11 @@ readonly final class GetUsageOverview
         return new UsageOverview(
             $months,
             $owners,
-            $totalUniqueTemplates,
-            $totalUniqueVariants,
-            $totalDownloads,
+            $this->asInt($grand['unique_templates']),
+            $this->asInt($grand['unique_variants']),
+            $this->asInt($grand['downloads']),
             count($owners),
-            $projectCount,
+            $this->asInt($grand['projects']),
             $this->buildChartCategories($months),
             $this->buildChartSeries($owners, $months),
         );
