@@ -30,4 +30,4 @@ Status: `open` · `wip` (agent working) · `done` (on main) ·
 | F18 | Admin statistics | Heatmap rework (client feedback): rows show user NAME + round badge with project count, projects collapsed → expand on click; search; numbers visible without hover — cells show downloads (Stažení / Šablony toggle, tooltip both) | done | 112a9e9b, c2418c65 | same subagent as F17 |
 | F19 | Template editor | Container popover ("Kontejner": Mezera mezi prvky / Mezera za kontejnerem / Max. výška) — titles unreadable: light popover background with dark-theme label colours | done | a7ffe077 | |
 | F20 | Editor gallery modal | "Vyberte obrázek" modal (editor) lacks the tile-size slider the standalone gallery has — add it | done | 61ee6f51 | subagent |
-| F21 | Gallery picker (phone) | At 390 px the picker toolbar's "Nová složka" button overflows; fill-page pickers (single/group/document) still have no size slider | open | | found by the F20 agent |
+| F21 | Gallery picker (phone) | At 390 px the picker toolbar's "Nová složka" button overflows; fill-page pickers (single/group/document) still have no size slider | done | 9ca367d5 | found by the F20 agent |

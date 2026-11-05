@@ -1221,3 +1221,12 @@ only hit it after turning on rich text for "Kategorie". Both scripts now load in
 P7 only checked that the dialog opens. The name chips over the text are unchanged pre-redesign
 behaviour (hide via Zobrazení → Popisky vstupů pro klienta). Not verified: lists / checkbox
 lists inside a rich sample.
+
+## Feedback round — F21 picker on phones + fill-picker size slider (2026-11-05, 9ca367d5)
+
+At 390 px the picker modal toolbar's folder-name field wouldn't shrink, so "Nová složka"
+overflowed; it now wraps like the gallery page (upload / name + Nová složka / Koš rows,
+gallery.css). The fill pickers (single, group, document) get the gallery's tile-size slider,
+sharing `wb-galsize` and following each other live; hidden on phones (`fill_gallery_controller`,
+fill.css). Puppeteer at 390/1440 both themes incl. reload. Not verified: the document fill
+picker (no local document with image slots; markup identical to the group picker).
