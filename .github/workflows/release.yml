@@ -26,11 +26,17 @@ on:
 permissions:
     contents: read
     packages: write
+    actions: read     # the preflight looks up the last run that actually shipped
 
 jobs:
     # A landing-only change must not rebuild and roll the PHP app (D61). This
     # preflight FAILS OPEN: on any doubt about what changed, ship. Never skip a
     # real deploy to save a build.
+    #
+    # It diffs against the head of the last Release run whose ship-production
+    # job SUCCEEDED, not HEAD~1: a push of several commits ending with a docs-only
+    # commit used to look "docs only" and silently skipped the code commits
+    # before it (2026-11-05: two pushes never deployed).
     changed:
         runs-on: ubuntu-latest
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -39,19 +45,29 @@ jobs:
         steps:
             - uses: actions/checkout@v6
               with:
-                  fetch-depth: 2
+                  fetch-depth: 0
                   ref: ${{ github.event.workflow_run.head_sha }}
             - id: f
               shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
               run: |
-                  if ! files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null) || [ -z "$files" ]; then
-                    echo "app=true" >> "$GITHUB_OUTPUT"; exit 0
-                  fi
+                  ship() { echo "app=true" >> "$GITHUB_OUTPUT"; echo "ship: $1"; exit 0; }
+                  base=""
+                  for id in $(gh api "repos/$REPO/actions/workflows/release.yml/runs?branch=main&status=success&per_page=30" --jq '.workflow_runs[].id' 2>/dev/null); do
+                    c=$(gh api "repos/$REPO/actions/runs/$id/jobs" --jq '[.jobs[] | select(.name | startswith("ship-production")) | .conclusion] | if length > 0 and all(. == "success") then "success" else "no" end' 2>/dev/null || echo no)
+                    if [ "$c" = "success" ]; then base=$(gh api "repos/$REPO/actions/runs/$id" --jq .head_sha 2>/dev/null); break; fi
+                  done
+                  [ -n "$base" ] || ship "no previously shipped run found"
+                  git merge-base --is-ancestor "$base" HEAD 2>/dev/null || ship "last shipped $base is not an ancestor"
+                  files=$(git diff --name-only "$base" HEAD 2>/dev/null) || ship "diff failed"
+                  [ -n "$files" ] || ship "empty diff"
+                  echo "changed since last ship ($base):"; echo "$files"
                   if echo "$files" | grep -qvE '^(landing|designs|docs)/'; then
-                    echo "app=true" >> "$GITHUB_OUTPUT"
-                  else
-                    echo "app=false" >> "$GITHUB_OUTPUT"
+                    ship "app files changed"
                   fi
+                  echo "app=false" >> "$GITHUB_OUTPUT"
 
     ship-production:
         needs: changed
