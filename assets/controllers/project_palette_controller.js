@@ -19,6 +19,9 @@ import { cmykFromRgb, hexToRgb, isLightRgb } from './palette_color_math.js';
  *             (absent for read-only members); the number badges of that
  *             manual (= `color(n)`) are renumbered after a move
  *
+ * The "Sloučit" dialogs (F7 P4) are plain forms; `mergeChoice` only swaps
+ * the server-rendered preview of the colour picked to stay.
+ *
  * Every change posts ONE field (`field` + `value`, CMYK as `cmyk[]`) with
  * the CSRF token and answers the stored colour; requests are queued one at a
  * time so quick edits never race. Success = toast "Uloženo", failure = toast
@@ -316,6 +319,17 @@ export default class extends Controller {
         const form = event.currentTarget;
         const button = form.querySelector('[data-pick-submit]');
         if (button) button.disabled = form.querySelector('input[name="colors[]"]:checked') === null;
+    }
+
+    // ---- "Sloučit" (F7 P4) ---------------------------------------------
+
+    /** The merge dialog: show the preview of the colour picked to stay. */
+    mergeChoice(event) {
+        if (event.target.name !== 'survivor') return;
+        const form = event.currentTarget;
+        form.querySelectorAll('[data-merge-preview]').forEach((preview) => {
+            preview.hidden = preview.dataset.mergePreview !== event.target.value;
+        });
     }
 
     // ---- toast (kit .toasts / .toast-n, design-system §3.10) -------------

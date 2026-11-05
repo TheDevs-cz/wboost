@@ -16,6 +16,10 @@
     tab) closes the page: per manual its colours in manual order (logo
     colours first, numbered — colours 1–3 drive the default logo
     recolouring), reorder / remove / "Přidat z palety" for `manual_edit`.
+    F7 P4: "Použito v:" also counts the templates using the HEX (title lists
+    them; the delete dialog names them — templates keep their HEX, D4), and
+    editors see a "Stejný HEX" flag on same-HEX colours with a "Sloučit"
+    dialog (pick the colour that stays, preview per choice).
 #}
 
 {% set can_edit = is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
@@ -40,7 +44,7 @@
     </label>
 {% endmacro %}
 
-{% macro card(color, uses, can_edit, is_new) %}
+{% macro card(color, uses, can_edit, is_new, templates, template_label, duplicate) %}
     {% set rgb = color.rgb %}
     {% set from_logo = uses|filter(u => u.fromLogo)|length > 0 %}
     {% set logo_manuals = uses|filter(u => u.fromLogo)|map(u => u.manualName) %}
@@ -119,7 +123,18 @@
                 {% else %}
                     <span class="pill pal-unused" title="Žádný manuál barvu nepoužívá — šablony ji zatím nenabízejí">Nepoužitá</span>
                 {% endfor %}
+                {% if template_label %}
+                    <span class="pill neutral pal-tpl" title="Šablony s HEX #{{ color.hex|upper }} v návrhu nebo v nabídce barev: {{ templates|join(', ') }}">{{ icon('template', 's12') }}{{ template_label }}</span>
+                {% endif %}
             </div>
+            {% if duplicate %}
+                {% set others = duplicate.members|filter(m => m.id.toString() != color.id.toString()) %}
+                {% set n = others|length %}
+                <div class="pal-dup">
+                    <span class="pill pch" title="{% for other in others %}#{{ other.hex|upper }}{% set print = _self.print_caption(other)|trim %}{{ print ? ' · ' ~ print }}{{ not loop.last ? ', ' }}{% endfor %}">{{ icon('alert', 's12') }}Stejný HEX má i {{ n == 1 ? 'další barva' : n ~ (n < 5 ? ' další barvy' : ' dalších barev') }}</span>
+                    <button type="button" class="btn btn-tertiary xs" data-bs-toggle="modal" data-bs-target="#pal-merge-{{ color.hexKey|trim('#', 'left') }}">Sloučit</button>
+                </div>
+            {% endif %}
         </div>
     </article>
 
@@ -142,10 +157,11 @@
                             <ul class="pal-del-l">
                                 {% for name in added_manuals %}<li>{{ name }}</li>{% endfor %}
                             </ul>
-                            <p class="cap mb-0">Z {{ added_manuals|length == 1 ? 'manuálu' : 'manuálů' }} se odebere i z palety. Šablony, které ji mají v omezení barev, ji zachovají.</p>
+                            <p class="cap mb-0">Z {{ added_manuals|length == 1 ? 'manuálu' : 'manuálů' }} se odebere i z palety. {% if templates is not empty %}HEX #{{ color.hex|upper }} používá {{ template_label }} ({{ templates|slice(0, 5)|join(', ') }}{{ templates|length > 5 ? ' a další' }}) — šablony si ho ponechají.{% else %}Žádná šablona tento HEX nepoužívá.{% endif %}</p>
                             <input type="hidden" name="removeFromManuals" value="1">
                         {% else %}
-                            <p class="mb-0">Žádný manuál barvu nepoužívá, z palety se odebere. Šablony, které ji mají v omezení barev, ji zachovají.</p>
+                            <p>Žádný manuál barvu nepoužívá, z palety se odebere.</p>
+                            <p class="cap mb-0">{% if templates is not empty %}HEX #{{ color.hex|upper }} používá {{ template_label }} ({{ templates|slice(0, 5)|join(', ') }}{{ templates|length > 5 ? ' a další' }}) — šablony si ho ponechají.{% else %}Žádná šablona tento HEX nepoužívá.{% endif %}</p>
                         {% endif %}
                     </div>
                     <div class="modal-footer">
@@ -162,7 +178,7 @@
     {% endif %}
 {% endmacro %}
 
-{% macro group(id, title, caption, colors, usage, can_edit, new_color_id, empty_text) %}
+{% macro group(id, title, caption, colors, usage, can_edit, new_color_id, empty_text, template_usage, duplicates) %}
     <section class="pal-group" aria-labelledby="{{ id }}-h">
         <div class="pal-gh">
             <h2 id="{{ id }}-h">{{ title }} <span class="pd-n">{{ colors|length }}</span></h2>
@@ -173,7 +189,7 @@
         {% endif %}
         <div class="pal-grid" data-project-palette-target="grid">
             {% for color in colors %}
-                {{ _self.card(color, usage[color.id.toString()]|default([]), can_edit, new_color_id == color.id.toString()) }}
+                {{ _self.card(color, usage[color.id.toString()]|default([]), can_edit, new_color_id == color.id.toString(), template_usage.templatesFor(color.hexKey), template_usage.label(color.hexKey), duplicates[color.hexKey|trim('#', 'left')] ?? null) }}
             {% endfor %}
         </div>
     </section>
@@ -185,12 +201,83 @@
 {% endmacro %}
 
 {% macro print_caption(color) %}
-    {#- Tells same-HEX palette colours apart (split duplicates until P4 "Sloučit"). -#}
+    {#- Tells same-HEX palette colours apart (split duplicates, until someone merges them — P4 "Sloučit"). -#}
     {%- set parts = [] -%}
     {%- if color.cmyk is not null %}{% set parts = parts|merge(['CMYK ' ~ color.cmyk|map(v => v ?? '–')|join('/')]) %}{% endif -%}
     {%- if color.pantone %}{% set parts = parts|merge([color.pantone]) %}{% endif -%}
     {%- if color.ral %}{% set parts = parts|merge([color.ral]) %}{% endif -%}
     {{- parts|join(' · ') -}}
+{% endmacro %}
+
+{% macro merge_summary(preview) %}
+    {%- set merged = preview.merged -%}
+    {%- set parts = [] -%}
+    {%- if merged.cmyk is not null %}{% set parts = parts|merge(['CMYK ' ~ merged.cmyk|map(v => v ?? '–')|join('/')]) %}{% endif -%}
+    {%- if merged.pantone %}{% set parts = parts|merge(['Pantone ' ~ merged.pantone]) %}{% endif -%}
+    {%- if merged.ral %}{% set parts = parts|merge([merged.ral]) %}{% endif -%}
+    {%- if merged.name %}{% set parts = parts|merge([merged.name]) %}{% endif -%}
+    {{- parts is empty ? 'bez tiskových hodnot' : parts|join(' · ') -}}
+{% endmacro %}
+
+{% macro merge_dialog(key, duplicate, usage, project) %}
+    {# "Sloučit" (F7 P4): pick the colour that stays; one preview per choice
+       (PaletteColorMerge::preview — the writer's own fill-the-gap rule),
+       project_palette_controller.js#mergeChoice shows the picked one. #}
+    {% set members = duplicate.members %}
+    {% set hex = members[0].hex|upper %}
+    <div class="modal fade" id="pal-merge-{{ key }}" tabindex="-1" aria-hidden="true" aria-labelledby="pal-merge-{{ key }}-h">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <form class="modal-content pal-merge" method="post" action="{{ path('project_palette_merge', {'id': project.id}) }}" data-action="change->project-palette#mergeChoice">
+                <input type="hidden" name="_token" value="{{ csrf_token('project_palette') }}">
+                {% for member in members %}<input type="hidden" name="colors[]" value="{{ member.id }}">{% endfor %}
+                <div class="modal-header">
+                    <h4 class="modal-title" id="pal-merge-{{ key }}-h">Sloučit barvy #{{ hex }}</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="cap">Paleta má {{ members|length }} {{ members|length < 5 ? 'barvy' : 'barev' }} se stejným HEX. Vyberte, která zůstane — ostatní se do ní sloučí. Prázdné hodnoty se doplní z ostatních, vyplněné zůstanou.</p>
+                    <div class="pal-picks" role="radiogroup" aria-label="Která barva zůstane">
+                        {% for member in members %}
+                            {% set uses = usage[member.id.toString()]|default([]) %}
+                            <label class="pal-pick">
+                                <input type="radio" class="form-check-input" name="survivor" value="{{ member.id }}"{{ member.id.toString() == duplicate.survivor.id.toString() ? ' checked' }}>
+                                <span class="pal-mdot" style="background: #{{ member.hex }};" aria-hidden="true"></span>
+                                {% set print = _self.print_caption(member)|trim %}
+                                <span class="pal-mrow-t"><b>#{{ member.hex|upper }}</b>{% if member.name %}<span class="cap">{{ member.name }}</span>{% endif %}<span class="cap pal-mprint">{{ print ?: 'bez tiskových hodnot' }}</span></span>
+                                {% if uses is empty %}
+                                    <span class="pill pal-unused">Nepoužitá</span>
+                                {% else %}
+                                    <span class="pill neutral" title="{{ uses|map(u => u.manualName)|join(', ') }}">{{ uses|length }} {{ uses|length == 1 ? 'manuál' : (uses|length < 5 ? 'manuály' : 'manuálů') }}</span>
+                                {% endif %}
+                            </label>
+                        {% endfor %}
+                    </div>
+                    {% for id, preview in duplicate.previews %}
+                        <div class="pal-merge-sum" data-merge-preview="{{ id }}"{{ id != duplicate.survivor.id.toString() ? ' hidden' }}>
+                            <h3>Výsledná barva</h3>
+                            <p class="pal-mprint">#{{ preview.survivor.hex|upper }} · {{ _self.merge_summary(preview)|trim }}{% if preview.gained is not empty %}<span class="cap"> (doplní se {{ preview.gained|join(', ') }})</span>{% endif %}</p>
+                            <h3>Co se změní v manuálech</h3>
+                            {% if preview.manualChanges is empty %}
+                                <p class="cap">V žádném manuálu se nic nezmění.</p>
+                            {% else %}
+                                <ul class="pal-merge-l">
+                                    {% for change in preview.manualChanges %}
+                                        <li><b>{{ change.manual }}</b> — {{ change.changes|join('; ') }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                            <h3>Šablony</h3>
+                            <p class="cap mb-0">{% if preview.changesTemplatePrint %}Barvy v šablonách zůstanou (mají uložený HEX), tiskové PDF ale převede #{{ hex }} na CMYK {{ preview.printCmykAfter ?? 'podle ICC profilu' }} místo {{ preview.printCmykBefore ?? 'převodu podle ICC profilu' }}.{% else %}Nic se nezmění — šablony mají uložený HEX a ten zůstává stejný.{% endif %}</p>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-primary sm">Sloučit barvy</button>
+                </div>
+            </form>
+        </div>
+    </div>
 {% endmacro %}
 
 {% macro manual_row(link, number, manual, can_edit) %}
@@ -383,9 +470,12 @@
             </div>
         {% else %}
             {% if logo_colors is not empty %}
-                {{ _self.group('pal-logo', 'Z logotypu', 'Barvy z nahraných logotypů manuálů. HEX určuje logo; roli, tiskové hodnoty a název doplníte tady.', logo_colors, usage, can_edit, new_color_id, '') }}
+                {{ _self.group('pal-logo', 'Z logotypu', 'Barvy z nahraných logotypů manuálů. HEX určuje logo; roli, tiskové hodnoty a název doplníte tady.', logo_colors, usage, can_edit, new_color_id, '', template_usage, duplicates) }}
             {% endif %}
-            {{ _self.group('pal-added', 'Přidané barvy', 'Barvy, které v logu nejsou — doplňkové, textové, pozadí.', added_colors, usage, can_edit, new_color_id, can_edit ? 'Zatím žádné. Přidejte barvu tlačítkem Přidat barvu.' : 'Zatím žádné.') }}
+            {{ _self.group('pal-added', 'Přidané barvy', 'Barvy, které v logu nejsou — doplňkové, textové, pozadí.', added_colors, usage, can_edit, new_color_id, can_edit ? 'Zatím žádné. Přidejte barvu tlačítkem Přidat barvu.' : 'Zatím žádné.', template_usage, duplicates) }}
+            {% for key, duplicate in duplicates %}
+                {{ _self.merge_dialog(key, duplicate, usage, project) }}
+            {% endfor %}
         {% endif %}
 
         {% if manual_colors is not empty %}

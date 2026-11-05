@@ -1286,3 +1286,31 @@ byte-identical, verify OK. Not verified: the add dialog on a phone (desktop only
 manual with no logo colours in the browser (PHPUnit only). Follow-ups: drop
 `EditManualColors` / `editColors()` with P5a; maybe link "Barvy manuálu" from the
 manual's ⋯ menu if users miss the tab.
+
+## Palette P4 — "Sloučit" duplicates + template usage count (F7, 2026-11-06)
+
+What: Paleta barev cards end "Použito v:" with an "N šablon" chip (1 šablona / 2–4
+šablony / 5+ šablon; title lists them) and same-HEX colours get a peach "Stejný HEX má i
+další barva" pill + "Sloučit" (editors only). The dialog (one per same-HEX group) lets the
+designer pick which colour stays — default = used by the most manuals — and shows, per
+choice, the resulting colour, what it gains, every manual that changes and whether template
+print CMYK changes. The delete dialog now names the templates using the HEX (informational:
+templates keep HEX snapshots, D4).
+How: `Query/GetPaletteTemplateUsage` (one DBAL query over every variant's canvas + inputs,
+scanned by HEX: paints, allowlists, rich sample runs; a document counts once) →
+`Value/PaletteTemplateUsage`. Merge rules in the pure `Services/Palette/PaletteColorMerge`
+(fill the gap, default survivor, preview) shared by the dialog and
+`ProjectPaletteWriter::mergeColors()` (CQRS `MergeProjectColors`): fill the gap, earliest
+palette position, links repointed (logo `logo_hex` kept, double links collapsed: logo wins,
+else one added link at the earliest place), losers deleted, R2 JSONB mirror +
+`refreshManaged`. Route `project_palette_merge` (EDIT, CSRF, survivor must be of the URL's
+project).
+Tests: `MergeProjectColorsHandlerTest` (6), `MergeProjectColorsControllerTest` (6),
+`GetPaletteTemplateUsageTest` (2), `PaletteColorMergeTest` (3). Verified: shoot.cjs
+390/820/1440 both themes + dialog shots (both choices) for Čeladná; puppeteer merges of the
+two real Čeladná pairs through the dialog — snapshot diff = only the two loser manuals'
+CMYK, verify 0 unexpected; data restored, snapshot byte-identical, palette tables + JSONB
+md5-identical to the pre-work dump. Not verified: Frýdlant's `c6c6c6` pair in the browser
+(PHPUnit covers the shape), a 3-way group in the browser, the read-only view in a browser
+(PHPUnit only).
+

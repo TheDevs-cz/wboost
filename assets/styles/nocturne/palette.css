@@ -4,8 +4,9 @@
    .pal-cmyk, .pal-calc …) lives in manual.css (the manual colours page that
    shared it is gone since P3); this file adds the project palette page on
    top: locked HEX, Název, "Použito v:" chips, flash, mirror, the read-only
-   client view (design-system §8 / prototype body[data-as="user"] .pal-*) and
-   the "Barvy v manuálech" box (P3, rows like "Písma v manuálech").
+   client view (design-system §8 / prototype body[data-as="user"] .pal-*),
+   the "Barvy v manuálech" box (P3, rows like "Písma v manuálech") and the
+   P4 "Stejný HEX" flag + "Sloučit" dialog.
    ========================================================================== */
 
 .pal-add { display: contents; }
@@ -23,6 +24,18 @@
 .pal-use .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .pal-use .pill .i { color: var(--subtle); }
 .pal-unused { background: transparent; border: 1px dashed var(--line-3); color: var(--subtle); }
+
+/* "Stejný HEX" flag + Sloučit (F7 P4, editors only) */
+.pal-dup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pal-dup .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; cursor: help; }
+
+/* "Sloučit" dialog: the radio rows reuse .pal-pick; one preview per choice */
+.pal-merge-sum { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pal-merge-sum[hidden] { display: none; }
+.pal-merge-sum h3 { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.pal-merge-sum p { margin: 0; }
+.pal-merge-l { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pal-merge-l b { font-weight: 600; }
 
 /* Strip: HEX labels hidden in the slim editor strip, shown in the client one */
 .pal-strip b { display: none; }

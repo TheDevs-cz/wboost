@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Palette;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\Uuid;
@@ -12,6 +13,7 @@ use WBoost\Web\Exceptions\ProjectColorHexLocked;
 use WBoost\Web\Exceptions\ProjectColorInLogo;
 use WBoost\Web\Exceptions\ProjectColorNotFound;
 use WBoost\Web\Exceptions\ProjectColorUsedInManuals;
+use WBoost\Web\Exceptions\ProjectColorsNotDuplicates;
 use WBoost\Web\Value\ManualColorType;
 use WBoost\Web\Value\ProjectColorField;
 
@@ -19,9 +21,10 @@ use WBoost\Web\Value\ProjectColorField;
  * Write path of the "Paleta barev" page (F7 P2): edits ONE palette colour
  * (`project_color`) for every manual that links it — that is option C, the
  * palette is the source of truth — adds colours (unlinked until a manual
- * picks them, P3), reorders the palette and deletes colours behind the
+ * picks them, P3), reorders the palette, deletes colours behind the
  * guard (a logo colour never; one manuals added only after the explicit
- * "remove from manuals" confirmation).
+ * "remove from manuals" confirmation) and merges same-HEX duplicates
+ * ("Sloučit", P4 — {@see mergeColors()}).
  *
  * Same contract as {@see ManualPaletteWriter}: DBAL, the project row locked
  * FOR UPDATE, one transaction, then the R2 JSONB mirror of the project is
@@ -213,7 +216,152 @@ readonly final class ProjectPaletteWriter
     }
 
     /**
-     * @return array{id: string, project_id: string, hex: string, role: null|string, cmyk: null|string, name: null|string, pantone: null|string, ral: null|string}
+     * "Sloučit" (F7 P4): merges same-HEX palette colours into `$survivorId`.
+     *
+     *  1. Fill the gap ({@see PaletteColorMerge::mergedFields()}): the
+     *     survivor's empty CMYK / Pantone / RAL / Název take the losers'
+     *     values (palette order); a filled survivor field is never
+     *     overwritten; role and HEX spelling stay the survivor's.
+     *  2. The survivor takes the EARLIEST palette position of the group, so
+     *     the swatch order templates / print / API see keeps the HEX where
+     *     it was (computeColors already deduped by HEX at its first place).
+     *  3. Every link of a loser moves to the survivor (a logo link keeps its
+     *     literal `logo_hex`). A manual that ends up linking it more than once
+     *     keeps its logo links (each literal is a recolouring key) and drops
+     *     the added ones; with no logo link it keeps ONE added link, at the
+     *     earliest of their positions.
+     *  4. The losers are deleted, the project's JSONB mirrored (R2).
+     *
+     * @param list<UuidInterface> $loserIds
+     * @throws ProjectColorNotFound
+     * @throws ProjectColorsNotDuplicates
+     */
+    public function mergeColors(UuidInterface $survivorId, array $loserIds): void
+    {
+        $projectId = $this->connection->transactional(function () use ($survivorId, $loserIds): string {
+            $survivor = $this->lockedColor($survivorId);
+
+            /** @var array<string, true> $ids */
+            $ids = [];
+            foreach ($loserIds as $loserId) {
+                $ids[$loserId->toString()] = true;
+            }
+            unset($ids[$survivor['id']]);
+
+            if ($ids === []) {
+                throw new ProjectColorsNotDuplicates();
+            }
+
+            /** @var list<array{id: string, project_id: string, hex_key: string, cmyk: null|string, name: null|string, pantone: null|string, ral: null|string, position: int|string}> $losers */
+            $losers = $this->connection->fetchAllAssociative(
+                'SELECT id, project_id, hex_key, cmyk, name, pantone, ral, position FROM project_color WHERE id IN (?) ORDER BY position, id',
+                [array_keys($ids)],
+                [ArrayParameterType::STRING],
+            );
+
+            if (count($losers) !== count($ids)) {
+                throw new ProjectColorNotFound();
+            }
+
+            $positions = [(int) $survivor['position']];
+
+            foreach ($losers as $loser) {
+                if ($loser['project_id'] !== $survivor['project_id'] || $loser['hex_key'] !== $survivor['hex_key']) {
+                    throw new ProjectColorsNotDuplicates();
+                }
+
+                $positions[] = (int) $loser['position'];
+            }
+
+            // 1. + 2.
+            $merged = PaletteColorMerge::mergedFields(self::mergeFieldsOfRow($survivor), array_map(self::mergeFieldsOfRow(...), $losers));
+            $this->connection->executeStatement(
+                'UPDATE project_color SET cmyk = CAST(? AS JSONB), pantone = ?, ral = ?, name = ?, position = ? WHERE id = ?',
+                [$merged['cmyk'] === null ? null : json_encode($merged['cmyk'], JSON_THROW_ON_ERROR), $merged['pantone'], $merged['ral'], $merged['name'], min($positions), $survivor['id']],
+            );
+
+            // 3.
+            $loserIdList = array_map(static fn (array $loser): string => $loser['id'], $losers);
+            /** @var list<array{id: string, manual_id: string, project_color_id: string, logo_hex: null|string, position: int|string}> $links */
+            $links = $this->connection->fetchAllAssociative(
+                'SELECT id, manual_id, project_color_id, logo_hex, position FROM manual_palette_color WHERE project_color_id IN (?) ORDER BY manual_id, position, id',
+                [[$survivor['id'], ...$loserIdList]],
+                [ArrayParameterType::STRING],
+            );
+
+            /** @var array<string, list<array{id: string, manual_id: string, project_color_id: string, logo_hex: null|string, position: int|string}>> $byManual */
+            $byManual = [];
+            foreach ($links as $link) {
+                $byManual[$link['manual_id']][] = $link;
+            }
+
+            foreach ($byManual as $manualLinks) {
+                $logoLinks = array_values(array_filter($manualLinks, static fn (array $link): bool => $link['logo_hex'] !== null));
+                $addedLinks = array_values(array_filter($manualLinks, static fn (array $link): bool => $link['logo_hex'] === null));
+
+                if ($logoLinks !== []) {
+                    $keep = $logoLinks;
+                    $drop = $addedLinks;
+                    $keptPosition = null;
+                } elseif ($addedLinks !== []) {
+                    // The survivor's own added link stays (else the first), at the earliest place.
+                    $kept = array_values(array_filter($addedLinks, static fn (array $link): bool => $link['project_color_id'] === $survivor['id']))[0] ?? $addedLinks[0];
+                    $keep = [$kept];
+                    $drop = array_values(array_filter($addedLinks, static fn (array $link): bool => $link['id'] !== $kept['id']));
+                    $keptPosition = min(array_map(static fn (array $link): int => (int) $link['position'], $addedLinks));
+                } else {
+                    continue;
+                }
+
+                foreach ($drop as $link) {
+                    $this->connection->executeStatement('DELETE FROM manual_palette_color WHERE id = ?', [$link['id']]);
+                }
+
+                foreach ($keep as $link) {
+                    $position = $keptPosition ?? (int) $link['position'];
+
+                    if ($link['project_color_id'] !== $survivor['id'] || $position !== (int) $link['position']) {
+                        $this->connection->executeStatement(
+                            'UPDATE manual_palette_color SET project_color_id = ?, position = ? WHERE id = ?',
+                            [$survivor['id'], $position, $link['id']],
+                        );
+                    }
+                }
+            }
+
+            // 4.
+            $this->connection->executeStatement('DELETE FROM project_color WHERE id IN (?)', [$loserIdList], [ArrayParameterType::STRING]);
+            $this->manualPaletteWriter->mirrorProject($survivor['project_id']);
+
+            return $survivor['project_id'];
+        });
+
+        $this->manualPaletteWriter->refreshManaged($projectId);
+    }
+
+    /**
+     * @param array{cmyk: null|string, name: null|string, pantone: null|string, ral: null|string, ...} $row
+     * @return array{cmyk: null|array{null|string, null|string, null|string, null|string}, pantone: null|string, ral: null|string, name: null|string}
+     */
+    private static function mergeFieldsOfRow(array $row): array
+    {
+        $cmyk = null;
+
+        if ($row['cmyk'] !== null) {
+            $decoded = json_decode($row['cmyk'], true);
+
+            if (is_array($decoded)) {
+                $channels = array_values($decoded);
+                $channel = static fn (int $i): null|string => is_scalar($channels[$i] ?? null) ? (string) $channels[$i] : null;
+                $cmyk = [$channel(0), $channel(1), $channel(2), $channel(3)];
+            }
+        }
+
+        return ['cmyk' => $cmyk, 'pantone' => $row['pantone'], 'ral' => $row['ral'], 'name' => $row['name']];
+    }
+
+    /**
+     * @return array{id: string, project_id: string, hex: string, hex_key: string, role: null|string, cmyk: null|string, name: null|string, pantone: null|string, ral: null|string, position: int|string}
      * @throws ProjectColorNotFound
      */
     private function lockedColor(UuidInterface $colorId): array
@@ -226,8 +374,8 @@ readonly final class ProjectPaletteWriter
 
         $this->lockProject($projectId);
 
-        /** @var false|array{id: string, project_id: string, hex: string, role: null|string, cmyk: null|string, name: null|string, pantone: null|string, ral: null|string} $color */
-        $color = $this->connection->fetchAssociative('SELECT id, project_id, hex, role, cmyk, name, pantone, ral FROM project_color WHERE id = ?', [$colorId->toString()]);
+        /** @var false|array{id: string, project_id: string, hex: string, hex_key: string, role: null|string, cmyk: null|string, name: null|string, pantone: null|string, ral: null|string, position: int|string} $color */
+        $color = $this->connection->fetchAssociative('SELECT id, project_id, hex, hex_key, role, cmyk, name, pantone, ral, position FROM project_color WHERE id = ?', [$colorId->toString()]);
 
         if ($color === false) {
             throw new ProjectColorNotFound();

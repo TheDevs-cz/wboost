@@ -14,10 +14,14 @@ use WBoost\Web\Entity\ManualPaletteColor;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\ProjectColor;
 use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Query\GetPaletteTemplateUsage;
 use WBoost\Web\Query\GetProjectPaletteUsage;
 use WBoost\Web\Query\PaletteColorUsageRow;
 use WBoost\Web\Repository\ProjectColorRepository;
+use WBoost\Web\Services\Palette\PaletteColorMerge;
 use WBoost\Web\Services\Security\ProjectVoter;
+use WBoost\Web\Value\PaletteMergePreview;
+use WBoost\Web\Value\PaletteTemplateUsage;
 use WBoost\Web\Value\ProjectModule;
 
 /**
@@ -34,6 +38,12 @@ use WBoost\Web\Value\ProjectModule;
  * index), edited with `manual_edit` through
  * {@see AddManualPaletteColorsController}, {@see RemoveManualPaletteColorController}
  * and {@see SortManualPaletteColorsController}.
+ *
+ * F7 P4: each card also counts the templates using its HEX
+ * ({@see GetPaletteTemplateUsage} — one query, only with the Šablony module
+ * on), and same-HEX colours get the "Stejný HEX" flag + a "Sloučit" dialog
+ * for `project_edit` ({@see MergeProjectColorsController}), with one
+ * preview per possible survivor ({@see PaletteColorMerge::preview()}).
  */
 final class ProjectPaletteController extends AbstractController
 {
@@ -43,6 +53,7 @@ final class ProjectPaletteController extends AbstractController
         readonly private ProjectColorRepository $projectColorRepository,
         readonly private GetProjectPaletteUsage $getProjectPaletteUsage,
         readonly private GetManuals $getManuals,
+        readonly private GetPaletteTemplateUsage $getPaletteTemplateUsage,
     ) {
     }
 
@@ -67,7 +78,40 @@ final class ProjectPaletteController extends AbstractController
             // The colour "Přidat barvu" just created: flashed + HEX focused.
             'new_color_id' => $request->query->getString('nova'),
             'manual_colors' => $this->manualColors($project, $colors),
+            'template_usage' => $project->hasModule(ProjectModule::Templates)
+                ? $this->getPaletteTemplateUsage->forProject($project->id)
+                : new PaletteTemplateUsage(),
+            'duplicates' => $this->isGranted(ProjectVoter::EDIT, $project) ? self::duplicates($colors, $usage) : [],
         ]);
+    }
+
+    /**
+     * Same-HEX groups for the "Sloučit" dialogs, keyed by the `hex_key`
+     * without `#` (the dialog id): members in palette order, the default
+     * survivor and a preview per possible survivor.
+     *
+     * @param array<ProjectColor> $colors
+     * @param array<string, list<PaletteColorUsageRow>> $usage
+     * @return array<string, array{members: list<ProjectColor>, survivor: ProjectColor, previews: array<string, PaletteMergePreview>}>
+     */
+    private static function duplicates(array $colors, array $usage): array
+    {
+        $groups = [];
+
+        foreach (PaletteColorMerge::duplicateGroups($colors) as $hexKey => $members) {
+            $previews = [];
+            foreach ($members as $member) {
+                $previews[$member->id->toString()] = PaletteColorMerge::preview($member, $members, $usage);
+            }
+
+            $groups[ltrim($hexKey, '#')] = [
+                'members' => $members,
+                'survivor' => PaletteColorMerge::defaultSurvivor($members, $usage),
+                'previews' => $previews,
+            ];
+        }
+
+        return $groups;
     }
 
     /**

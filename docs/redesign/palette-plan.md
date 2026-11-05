@@ -20,7 +20,8 @@ listed in the dry-run report (§2a) for the owner to review BEFORE P1a ships. **
 **P1b done** (2026-11-05, release R2: reads from links/palette, writes mirrored to JSONB,
 linked-only project palette — §2c). **P2 done** (2026-11-05, release R3: Paleta barev page,
 sidebar item, overview chips, `has_palette` — §2d). **P3 done** (2026-11-06: "Barvy v
-manuálech" box, manual colours tab + old colours page removed — §2e).
+manuálech" box, manual colours tab + old colours page removed — §2e). **P4 done**
+(2026-11-06: "Sloučit" same-HEX duplicates, template usage count — §2f).
 
 ## 0. What exists today (verified)
 
@@ -341,6 +342,52 @@ positions + mirror from the pre-work dump and deleting the temp member:
 `manual.detected_colors/custom_colors`, `user`, `project_share` identical to the pg_dump.
 Nothing to run on prod after deploy.
 
+### 2f. P4 — 2026-11-06 ("Sloučit" duplicates, template usage count)
+
+Shipped as §4 describes; implementation notes in `docs/architecture/manuals.md`
+("Paleta barev — template usage + Sloučit"). No schema change, no data migration.
+Decisions / deviations:
+- **Duplicates = same `hex_key`** (any print data — conflicting or not); one dialog per
+  same-HEX group, radio "which one stays", the others merge into it (N-way, not
+  pairwise). Flag + dialog for `project_edit` only; read-only members see neither.
+- **Default survivor** = the colour the most manuals use (fewest manuals change), then
+  more filled fields, then the earlier palette position. ("More filled fields" first
+  would rarely decide: after fill-the-gap the union is the same; only the conflicting
+  values pick which manuals change.)
+- **Fill the gap** like §7: the survivor's empty CMYK (whole tuple, as the backfill) /
+  Pantone / RAL / Název take the first filled loser value in palette order; filled
+  survivor fields are never overwritten. **Role stays the survivor's** (not gap-filled:
+  "Bez role" is a choice; the dialog lists the manuals whose role changes).
+- The survivor takes the group's **earliest palette position**, so computeColors /
+  print / API keep the HEX where it was. Template print CMYK (`BrandCmykPalette`
+  first-wins) changes only when the survivor's CMYK differs from the first linked
+  one's — the dialog says so per choice.
+- **Links:** repointed (logo links keep `logo_hex`); a manual that ends up linking the
+  survivor twice keeps its logo link(s) and drops added ones; with only added links it
+  keeps one at the earliest position; two LOGO literals of one HEX both stay (each is a
+  recolouring key). 0 such double links on the prod copy.
+- **Template usage** is counted by HEX (templates hold HEX snapshots — D4 — never palette
+  ids or `color(n)`): paints anywhere in the canvas + text / shape `allowedColors` + rich
+  sample run colours; inputs without an allowlist are not counted (they follow the
+  palette). A document counts once. On the Čeladná copy: `#005E56` 9 šablon, `#A2C62C`
+  4 šablony (no template there has an allowlist — counting only allowlists would have
+  shown 0 everywhere).
+- **Delete guard + templates:** informational, not blocking — the dialog names the
+  templates using the HEX ("šablony si ho ponechají"); nothing in a template points at
+  the palette colour, so a delete cannot break one.
+
+Verified on the local prod copy (puppeteer, Čeladná, as ROLE_ADMIN): both real pairs merged
+through the dialog with the default survivor — `#17375F` (M80 kept, Základní škola's added
+colour M85 → M80) and `#A2C62C` (Y95 kept, MŠ Beruška's LOGO link `a2c62c` → survivor,
+Y90 → Y95, literal kept). Snapshot diff = exactly those two manuals (detected/primary resp.
+custom/secondary CMYK) + the palette list / overview chips losing the two duplicates;
+computeColors, BrandCmykPalette, avatars, `color(n)` and every logo mapping identical;
+`app:palette:verify` = only the pre-existing accepted `palette_order`. After restoring the
+project's palette rows + JSONB from the pre-work dump: `app:palette:snapshot`
+byte-identical to before, `project_color`, `manual_palette_color`, `manual` JSONB
+identical (md5) to the dump. Nothing to run on prod after deploy; the real duplicates
+(Čeladná `17375f`, `a2c62c`; Frýdlant `c6c6c6`) wait for the owner to merge them.
+
 ## 3. Consumers
 
 | Consumer | Change |
@@ -404,7 +451,7 @@ Layout from prototype js:1963-2056 / design-system §573:
 | P1b ✔ | read switch (Manual read model from links), writes to links + JSONB mirror, `SyncManualLogoColors` (= `ManualPaletteWriter::syncLogoColors`), `GetProjectPalette` → computeColors / BrandCmykPalette / MCP / lint, fixture + test updates, docs + consumer-prompt + mfkfm comment (§2c) | ResolveRichTextOptionsTest, BrandCmykPalette, ManualColorsControllerTest still green (old page writes through), parity tests for `color(n)`; mirror: snapshot C == A and HTML C == A except the §2a role-change / literal-change manuals, API listing JSON diff | M–L, 1.5–2 d |
 | P2 ✔ | Paleta barev page + sidebar + autosave endpoints + delete guard + usage chips + client read-only + overview chips + `has_palette` | controller tests (VIEW vs EDIT, guard, locked HEX, CSRF), `shoot.cjs` 390/820/1440 both themes | M–L, 2 d |
 | P3 ✔ | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |
-| P4 | "Sloučit" duplicates (repoint links, delete loser), template usage count (scan text inputs + shape `allowedColors`) | merge tests, manual output change only for touched manuals | S–M, 0.5–1 d |
+| P4 ✔ | "Sloučit" duplicates (repoint links, delete loser), template usage count (scan text inputs + shape `allowedColors`) | merge tests, manual output change only for touched manuals | S–M, 0.5–1 d |
 | P5a / P5b | stop mirroring + unmap columns; then a separate backup-gated DROP migration; remove planner usage from runtime | phpstan, full suite; pg_dump before P5b deploy | S, 0.5 d |
 
 Total ≈ 7–9 dev-days. Every phase: `composer phpstan`, PHPUnit, `/verify` before commit.

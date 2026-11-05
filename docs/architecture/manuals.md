@@ -241,8 +241,11 @@ mark when its link is a logo link). VIEW to see; `project_edit` to change.
   any LOGO link → refused ("změní se až s novým logem", `ProjectColorInLogo`);
   added to manuals → the dialog lists them and posts `removeFromManuals=1`
   ("Odebrat z manuálů a smazat"; their links go, later colours move up a place,
-  mirror rewritten); unused → plain confirm. Template allowlists keep their HEX
-  snapshots (D4).
+  mirror rewritten); unused → plain confirm. Templates keep their HEX
+  snapshots (D4) — since P4 the dialog NAMES the templates using the HEX
+  ("HEX #… používá 3 šablony (A, B, C) — šablony si ho ponechají"); template
+  use never blocks a delete (nothing in a template points at the palette
+  colour, so there is nothing to break).
 - **Read-only members** (§692): `.pal-page.is-readonly`, disabled fields, empty
   print fields dashed peach (`.ro-miss`), strip with HEX labels instead of the
   toolbar, no add / menu / grip, `.alert.c-warning` "Některé hodnoty u barev
@@ -272,7 +275,7 @@ of Paleta barev (D6, mirrors "Písma v manuálech").
   (added links). Number badges 1…n across both = `color(n)`; 1–3 highlighted
   (they are the default logo recolouring keys, `DefaultLogoColors`). Each row:
   swatch, HEX (a logo link shows its LITERAL), Název, print summary (CMYK ·
-  Pantone · RAL — tells split duplicates apart until P4 "Sloučit") and the
+  Pantone · RAL — tells split duplicates apart until someone merges them) and the
   palette colour's **role as a read-only pill** linking to its card (D2: the
   role is per project, edited on the card).
 - "Manuál potřebuje alespoň 3 barvy" (`colorsCount() < 3`) is shown in the
@@ -310,6 +313,57 @@ of Paleta barev (D6, mirrors "Písma v manuálech").
   `colors_dragula_controller.js`) is deleted; `custom_color_controller.js`
   only paints the live swatch of `LogoColorsMapping` now.
 - Pinned by `tests/Controller/Palette/ManualPaletteColorsControllerTest.php`.
+
+### Paleta barev — template usage + "Sloučit" duplicates (F7 P4, 2026-11-06)
+
+- **Template usage** — "Použito v:" ends with a `.pal-tpl` chip "N šablon"
+  (Czech plural `PaletteTemplateUsage::countLabel()`: 1 šablona, 2–4 šablony,
+  0/5+ šablon; title lists the names). `Query/GetPaletteTemplateUsage` = ONE
+  DBAL query over every variant of the project (canvas + inputs JSONB), scanned
+  in PHP, keyed by the normalised `#rrggbb` (`hex_key`). Templates store
+  colours as HEX snapshots — never palette ids, never `color(n)` (that index
+  is the manual's logo recolouring) — so a template "uses" a palette colour
+  when its HEX appears as a paint (`fill` / `stroke` / `backgroundColor` /
+  `textBackgroundColor` / canvas `background` / gradient stops / textbox
+  `styles`, nested groups included), in an allowlist (text inputs'
+  `allowedColors` — column and canvas mirror — and recolourable shapes'
+  `allowedColors`) or as a rich `sampleValue` run colour. Text inputs with NO
+  allowlist (legacy brand swatches + picker) are not counted: they offer the
+  linked palette dynamically. Counted per template; a multi-page document
+  counts once (its name), like the Šablony listing. Skipped (empty) while the
+  Šablony module is off. Same-HEX colours report the same templates.
+- **"Stejný HEX" + Sloučit** (editors only — read-only members see neither):
+  colours sharing a `hex_key` get a peach `.pal-dup` pill ("Stejný HEX má i
+  další barva", title = the others' print data) + "Sloučit" opening ONE dialog
+  per group (`#pal-merge-{hex_key without #}`): radio "which one stays"
+  (default = the colour the most manuals use → fewest manuals change, then
+  more filled fields, then the earlier palette position —
+  `PaletteColorMerge::defaultSurvivor()`), and a server-rendered preview per
+  possible survivor (`PaletteColorMerge::preview()`; `mergeChoice` in
+  `project_palette_controller.js` swaps them): the resulting colour + what it
+  gains, every manual that changes (print data, role, HEX spelling of added
+  colours, "barva v něm zůstane jen jednou") and whether template print PDFs
+  get other CMYK (`BrandCmykPalette` first-wins).
+- **Merge** (`project_palette_merge`, POST `/project/{id}/paleta/sloucit`,
+  `survivor` + `colors[]`, CSRF `project_palette`, `ProjectVoter::EDIT`; the
+  survivor must belong to the URL's project, else 404) → `MergeProjectColors` →
+  `ProjectPaletteWriter::mergeColors()`: refused (`ProjectColorsNotDuplicates`,
+  flash) unless every loser is a colour of the survivor's project with the
+  same `hex_key`. In one transaction under the project lock: **fill the gap**
+  (`PaletteColorMerge::mergedFields()` — the survivor's empty CMYK tuple /
+  Pantone / RAL / Název take the first filled loser value in palette order; a
+  filled survivor field is never overwritten; role + HEX spelling stay the
+  survivor's), the survivor takes the group's EARLIEST palette position
+  (swatch order unchanged), every loser link moves to the survivor (logo
+  links keep `logo_hex`), a manual that now links it twice keeps its logo
+  link(s) and drops added ones — with only added links it keeps one at the
+  earliest of their positions (two logo literals of one HEX both stay: each is
+  a recolouring key) — then the losers are deleted, `mirrorProject()` (R2) +
+  `refreshManaged()`. Redirects to `#pal-{survivor}`.
+- Pinned by `tests/MessageHandler/Palette/MergeProjectColorsHandlerTest.php`,
+  `tests/Controller/Palette/MergeProjectColorsControllerTest.php`,
+  `tests/Query/GetPaletteTemplateUsageTest.php`,
+  `tests/Services/Palette/PaletteColorMergeTest.php`.
 
 ### Manual fonts — edited on the project Fonty page (F8, 2026-11-05)
 
