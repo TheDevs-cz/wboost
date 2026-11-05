@@ -9,7 +9,12 @@ Facebook a Instagram. Includes a prod data migration. Manual pages lose "Barevn�
 same, logo recolouring is identical, and template swatches / print CMYK / API stay identical
 until someone edits the palette.
 
-Status: PLAN — open decisions in §6 await the owner.
+Status: PLAN — decisions taken 2026-11-05 (§6). **D2 differs from the draft below: roles
+are PER PROJECT** (`role` lives on `project_color`, not on the link). Sections 1–4 still
+describe per-link roles; the P0 agent updates them. Consequence: manuals that disagree on a
+colour's role today will change — proposed migration rule: role = the one most manuals use,
+tie → primary > secondary > none; every manual whose primary/secondary pages would change is
+listed in the dry-run report for the owner to review BEFORE P1a ships.
 
 ## 0. What exists today (verified)
 
@@ -175,7 +180,11 @@ Layout from prototype js:1963-2056 / design-system §573:
 
 Total ≈ 7–9 dev-days. Every phase: `composer phpstan`, PHPUnit, `/verify` before commit.
 
-## 6. Open decisions (owner)
+## 6. Decisions (owner, 2026-11-05)
+
+D1 strict ✔ · **D2 per project** (changed) · D3 auto-add + link ✔ · D4 hex snapshots ✔ (default) · D5 palette order ✔ (default) · D6 box on Paleta barev ✔
+
+Original options:
 
 1. **D1 Dedupe rule.** Default **strict**: merge only when hex and CMYK/Pantone/RAL are identical;
    otherwise separate entries, flagged, with "Sloučit" (P4). Alternative: merge by hex,
