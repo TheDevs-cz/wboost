@@ -1093,3 +1093,39 @@ deleted or unshared projects are forgotten; logout clears the session. /projects
 so the nav doesn't jump. Tests: `ShellLastProjectTest` (7 cases). Not verified: 820 px.
 Gate note: `gate.sh --clear-assets` removes the dev container PHPStan needs — load one page
 before the gate.
+
+## Palette P1a — project_color tables, backfill migration, write-path sync (F7, 2026-11-05)
+
+Release R1 of the project palette (`palette-plan.md` §2b): ADDITIVE, the manual JSONB
+colours stay authoritative, no read-path or UI change.
+- Planner updated for the §7 owner decisions: "fill the gap" merge (same hex, print data
+  differing only by empty vs filled → one colour carrying the union; first colour that
+  already carries the data wins, else first compatible), new `print_gap_filled` finding,
+  repeated logo literal → link without `logo_hex`. Tie rule / HEX spelling / literal
+  logo links were already P0 behaviour. Per-manual helpers (`segments`, `manualWalk`,
+  `manualRoles`, `matchPrint`, …) made public for the runtime projector.
+- Entities `ProjectColor` (per-project `role`) + `ManualPaletteColor` (partial UNIQUE
+  `(manual_id, logo_hex)`, FK to the palette NO ACTION), repositories.
+- Migration `Version20261105170659`: CREATE + backfill via the FROZEN planner and
+  `Services/Palette/PaletteBackfillSql` (one CTE statement per project, UUIDv5 ids,
+  skip projects that already have a palette → replay-safe). `down()` drops the tables.
+- Write paths: `EditManualColorsHandler` and `UpdateManualImagesHandler` flush, then
+  `ProjectManualColors::reproject()` (DBAL, project row locked). Role "last write wins"
+  only when the write changed the manual's role for that colour; logo uploads never set
+  roles; palette colours never deleted. No other writer of the colour columns exists.
+- `app:palette:verify` (JSONB read model vs table read model, per manual + per project
+  computeColors / BrandCmykPalette; owner-accepted kinds in `PaletteParityDiff`, exit 1
+  otherwise) and `app:palette:reconcile [--dry-run]`.
+
+**Local prod copy:** 113 palette colours (P0: 115 — two §7 merges), 155 links (85 logo,
+70 custom). Verify: 12 accepted diffs (the 3 role-change manuals, 2 gap fills, TIC's
+`FFFFFF` spelling), 0 unexpected. Snapshot after migrating == snapshot A byte-for-byte;
+`migrate prev` + re-migrate → identical rows (hash), reconcile dry run = 0 manuals.
+**Tests:** `PaletteSyncTest` (fixtures + 3 manuals → backfill → verify 0 unexpected,
+replay idempotency, edit colours / role last-write / untouched save / gap fill / logo
+upload sync, tamper detection), `PaletteCommandsTest` (verify + reconcile repair),
+planner tests for fill-the-gap + preference + repeated logo literal.
+**Not verified:** a browser save on the colours / logo pages (covered by the controller
+tests + handler tests only). **Follow-ups:** P1b must decide whether unused palette
+colours (R1 leftovers) are skipped by `GetProjectPalette`; the "re-project every manual
+linking the colour" step only matters once P1b mirrors links → JSONB.

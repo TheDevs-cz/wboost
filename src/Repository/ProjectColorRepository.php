@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WBoost\Web\Repository;
+
+use Doctrine\ORM\EntityManagerInterface;
+use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Entity\ProjectColor;
+
+/**
+ * Project palette colours (F7). In release R1 the palette is written by
+ * {@see \WBoost\Web\Services\Palette\ProjectManualColors} (DBAL) and read by
+ * nothing user-facing yet; this is the ORM side P1b's read switch builds on.
+ */
+readonly final class ProjectColorRepository
+{
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+    ) {
+    }
+
+    /**
+     * @return list<ProjectColor> palette order
+     */
+    public function forProject(UuidInterface $projectId): array
+    {
+        /** @var list<ProjectColor> $colors */
+        $colors = $this->entityManager->createQueryBuilder()
+            ->select('project_color')
+            ->from(ProjectColor::class, 'project_color')
+            ->where('project_color.project = :projectId')
+            ->setParameter('projectId', $projectId->toString())
+            ->orderBy('project_color.position', 'ASC')
+            ->addOrderBy('project_color.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $colors;
+    }
+
+    public function add(ProjectColor $color): void
+    {
+        $this->entityManager->persist($color);
+    }
+}

@@ -25,7 +25,7 @@ use WBoost\Web\Value\PaletteProjectPlan;
 use WBoost\Web\Value\SvgImage;
 
 /**
- * @phpstan-type ColorSpec array{0: string, 1?: null|string, 2?: null|array{null|string, null|string, null|string, null|string}, 3?: null|string}
+ * @phpstan-type ColorSpec array{0: string, 1?: null|string, 2?: null|array{null|string, null|string, null|string, null|string}, 3?: null|string, 4?: null|string}
  * @phpstan-type ManualSpec array{name: string, brand?: bool, logo?: list<string>, symbol?: list<string>, detected?: list<ColorSpec>, custom?: list<ColorSpec>}
  */
 final class PaletteBackfillPlannerTest extends TestCase
@@ -50,19 +50,77 @@ final class PaletteBackfillPlannerTest extends TestCase
         self::assertSame([], $plan->roleChanges);
     }
 
-    public function testDifferentPrintDataSplitsAndIsReported(): void
+    public function testConflictingPrintDataSplitsAndIsReported(): void
     {
         $plan = $this->plan([
             ['name' => 'A', 'custom' => [['17375f', 'primary', self::CMYK_A, '534 C']]],
             ['name' => 'B', 'custom' => [['17375f', 'primary', self::CMYK_B, '534 C']]],
-            // Empty vs filled Pantone is "different print data" too (D1 strict).
+            // Empty vs filled Pantone is NOT a conflict (§7 fill the gap): C joins A.
             ['name' => 'C', 'custom' => [['17375f', 'primary', self::CMYK_A, null]]],
         ]);
 
-        self::assertCount(3, $plan->palette);
-        self::assertCount(3, $plan->findingsOfType('split_duplicate'));
+        self::assertCount(2, $plan->palette);
+        self::assertSame([0, 1, 0], array_column($plan->links, 'palettePosition'));
+        self::assertCount(2, $plan->findingsOfType('split_duplicate'));
         self::assertCount(1, $plan->findingsOfType('cmyk_conflict'), 'B\'s CMYK loses to A\'s, as BrandCmykPalette logs today');
         self::assertSame(['#17375f'], $plan->computeColorsAfter);
+
+        $gained = $plan->findingsOfType('print_gap_filled');
+        self::assertSame(['C'], array_column($gained, 'manual'));
+        self::assertStringContainsString('pantone 534 C', $gained[0]['detail']);
+    }
+
+    public function testFillTheGapMergesEmptyWithFilledIntoTheUnion(): void
+    {
+        $plan = $this->plan([
+            // A: CMYK only; B: Pantone only; C: both, agreeing; D: RAL only.
+            ['name' => 'A', 'custom' => [['a2c62c', null, ['45', '0', '95', '0']]]],
+            ['name' => 'B', 'custom' => [['A2C62C', null, null, '2299 C']]],
+            ['name' => 'C', 'custom' => [['a2c62c', null, ['45', '0', '95', '0'], '2299 C']]],
+            ['name' => 'D', 'custom' => [['a2c62c', null, ['', '', '', ''], null, 'RAL 6018']]],
+        ]);
+
+        self::assertCount(1, $plan->palette, 'no two filled values disagree → one palette colour');
+        self::assertSame(['45', '0', '95', '0'], $plan->palette[0]['cmyk']);
+        self::assertSame('2299 C', $plan->palette[0]['pantone']);
+        self::assertSame('RAL 6018', $plan->palette[0]['ral']);
+        self::assertSame('a2c62c', $plan->palette[0]['hex']);
+        self::assertSame([], $plan->findingsOfType('split_duplicate'));
+        self::assertSame(['A', 'B', 'C', 'D'], array_column($plan->findingsOfType('print_gap_filled'), 'manual'));
+        // HEX spelling (§7): B's custom colour prints the palette's "a2c62c".
+        self::assertSame(['B'], array_column($plan->findingsOfType('custom_hex_literal_change'), 'manual'));
+        self::assertSame([], $plan->findingsOfType('parity_broken'));
+    }
+
+    public function testFillTheGapPrefersTheColourThatAlreadyCarriesTheValues(): void
+    {
+        $plan = $this->plan([
+            ['name' => 'A', 'custom' => [['17375f', null, self::CMYK_A]]],
+            ['name' => 'B', 'custom' => [['17375f', null, self::CMYK_B, '534 C']]],
+            // Compatible with both; B's colour already carries "534 C", A's would need filling.
+            ['name' => 'C', 'custom' => [['17375f', null, null, '534 C']]],
+        ]);
+
+        self::assertCount(2, $plan->palette);
+        self::assertSame([0, 1, 1], array_column($plan->links, 'palettePosition'));
+        self::assertNull($plan->palette[0]['pantone'], 'A\'s colour is not filled from C');
+    }
+
+    public function testRepeatedLogoLiteralLinksWithoutLogoHex(): void
+    {
+        $input = PaletteBackfillPlanner::manualFromStorage(
+            'm1',
+            'A',
+            false,
+            ['horizontal' => ['filePath' => 'h.svg', 'detectedColors' => ['#c8102e']]],
+            [['color' => 'c8102e', 'type' => 'primary'], ['color' => 'c8102e', 'type' => null]],
+            [],
+        );
+        $plan = PaletteBackfillPlanner::plan([$input]);
+
+        self::assertSame(['c8102e', null], array_column($plan->links, 'logoHex'));
+        self::assertSame([0, 1], array_column($plan->links, 'position'));
+        self::assertStringContainsString('linked without logo_hex', $plan->findingsOfType('in_manual_duplicate')[0]['detail']);
     }
 
     public function testTrimmedPrintDataStillMerges(): void
@@ -150,7 +208,9 @@ final class PaletteBackfillPlannerTest extends TestCase
         $duplicates = $plan->findingsOfType('in_manual_duplicate');
         self::assertCount(2, $duplicates);
         self::assertStringContainsString('same palette colour', $duplicates[0]['detail']);
-        self::assertStringContainsString('different print data', $duplicates[1]['detail']);
+        // Empty vs filled CMYK fills the gap (§7) — still one palette colour.
+        self::assertStringContainsString('same palette colour', $duplicates[1]['detail']);
+        self::assertCount(1, $plan->palette);
         // Positional: every occurrence keeps its own link, so color(n) is unchanged.
         self::assertSame([0, 1, 2], array_column($plan->links, 'position'));
     }
@@ -361,6 +421,7 @@ final class PaletteBackfillPlannerTest extends TestCase
             isset($spec[1]) ? ManualColorType::from($spec[1]) : null,
             $spec[3] ?? null,
             $spec[2] ?? null,
+            $spec[4] ?? null,
         ), $specs);
     }
 
@@ -374,7 +435,7 @@ final class PaletteBackfillPlannerTest extends TestCase
             'color' => $spec[0],
             'type' => $spec[1] ?? null,
             'pantone' => $spec[3] ?? null,
-            'ral' => null,
+            'ral' => $spec[4] ?? null,
             'cmyk' => $spec[2] ?? null,
         ], $specs);
     }

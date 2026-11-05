@@ -15,9 +15,13 @@ use WBoost\Web\Value\RichText;
  * colours — arrays in, planned palette rows + manual links + a report out.
  * No entity, no database: the dry run (`app:palette:plan`) and the P1a
  * backfill migration feed it the raw columns, so both see the same answer.
- * FROZEN once the P1a migration uses it — a migration must replay forever.
+ * FROZEN — the P1a migration (`Version20261105170659`, via
+ * {@see PaletteBackfillSql}) replays it, and a
+ * migration must replay forever. The runtime projector
+ * ({@see ProjectManualColors}) reuses its per-manual helpers so the backfill and
+ * every later write agree; change neither without a new migration.
  *
- * Rules (`docs/redesign/palette-plan.md` §2, owner decisions D1 + D2):
+ * Rules (`docs/redesign/palette-plan.md` §2 + §7, owner decisions D1 + D2):
  *  1. Each manual's old lists are rebuilt exactly as `Manual` builds them
  *     today: detected = `detectedColors()` (persisted detected filtered to the
  *     logo's literal colours ++ logo colours never persisted), custom as is.
@@ -25,22 +29,31 @@ use WBoost\Web\Value\RichText;
  *     walk (every manual's primaries, then secondaries, then untyped) over
  *     manuals in `created_at, id` order, so `computeColors()` and
  *     `BrandCmykPalette` stay identical when they iterate the palette.
- *  3. D1 strict dedupe: key = (normalised `#rrggbb`, trimmed CMYK tuple,
- *     Pantone, RAL). Same hex with different print data = separate entries
- *     (reported as split duplicates). Display hex = first occurrence's literal.
+ *  3. D1 dedupe with the §7 "fill the gap" refinement: per normalised
+ *     `#rrggbb`, an occurrence joins the first palette colour that already
+ *     carries all its print data (CMYK tuple, Pantone, RAL — compared
+ *     trimmed), else the first one none of whose filled values disagree with
+ *     it (filling the empty fields: the union), else it starts a new entry.
+ *     Two different non-empty values = separate entries (split duplicates,
+ *     "Sloučit" in P4). Display hex = first occurrence's literal.
  *  4. D2 role PER PROJECT: every manual that uses a palette colour votes with
  *     the strongest role it gives it (primary > secondary > none); the role
  *     most manuals vote for wins, a tie goes to primary > secondary > none.
  *  5. Links: the rebuilt detected list → logo links (literal `logo_hex`,
  *     position), custom → custom links; one position sequence per manual
- *     (logo segment first), which is what `color(n)` indexes.
+ *     (logo segment first), which is what `color(n)` indexes. A logo literal
+ *     repeated inside one manual keeps its position but links without
+ *     `logo_hex` (UNIQUE (manual_id, logo_hex) — reported).
  *
  * Nothing is auto-fixed — every case the plan changes is a report finding.
  *
  * @phpstan-type Cmyk array{null|string, null|string, null|string, null|string}
  * @phpstan-type RawColor array{color: string, type: null|string, pantone: null|string, ral: null|string, cmyk: null|Cmyk}
  * @phpstan-type ManualInput array{id: string, name: string, brand: bool, logoColors: list<string>, detected: list<RawColor>, custom: list<RawColor>}
- * @phpstan-type Occurrence array{manual: int, source: string, index: int, hex: string, hexKey: null|string, key: string, role: null|string, pantone: null|string, ral: null|string, cmyk: null|Cmyk}
+ * @phpstan-type Occurrence array{manual: int, source: string, index: int, hex: string, hexKey: null|string, role: null|string, pantone: null|string, ral: null|string, cmyk: null|Cmyk}
+ * @phpstan-type PrintData array{cmyk: null|Cmyk, pantone: null|string, ral: null|string}
+ * @phpstan-type Segments array{persisted: list<Occurrence>, logo: list<Occurrence>, custom: list<Occurrence>}
+ * @phpstan-type Finding array{type: string, manualId: string, manual: string, hex: string, detail: string}
  */
 final class PaletteBackfillPlanner
 {
@@ -106,59 +119,10 @@ final class PaletteBackfillPlanner
         $persistedByManual = [];
 
         foreach ($manuals as $m => $manual) {
-            $persisted = self::occurrences($m, 'detected', $manual['detected'], $manual, $findings);
-            $custom = self::occurrences($m, 'custom', $manual['custom'], $manual, $findings);
-            $persistedByManual[$m] = $persisted;
-            $customSegments[$m] = $custom;
-
-            // Manual::detectedColors(), step by step — including its LOOSE
-            // in_array on the "already listed" check, which is what decides
-            // whether a logo colour is appended.
-            /** @var list<Occurrence> $detected */
-            $detected = [];
-            $detectedHex = [];
-            $fromLogo = [];
-
-            foreach ($persisted as $occurrence) {
-                $detected[] = $occurrence;
-                $detectedHex[] = $occurrence['hex'];
-            }
-
-            foreach (array_values(array_unique($manual['logoColors'])) as $index => $literal) {
-                if (!Color::isValidHex($literal)) {
-                    $findings[] = self::finding('non_hex_detected', $manual, $literal, 'logo colour is not a hex — new Color() throws, so Manual::detectedColors() fails for this manual today; skipped');
-                    continue;
-                }
-
-                $hex = ltrim($literal, '#');
-
-                if (!in_array($hex, $detectedHex)) {
-                    $detected[] = self::occurrence($m, 'logo', $index, $hex, null, null, null, null);
-                    $detectedHex[] = $hex;
-                }
-
-                if (!in_array($hex, $fromLogo)) {
-                    $fromLogo[] = $hex;
-                }
-            }
-
-            $logoSegments[$m] = [];
-
-            foreach ($detected as $occurrence) {
-                if (in_array($occurrence['hex'], $fromLogo, true)) {
-                    $logoSegments[$m][] = $occurrence;
-                    continue;
-                }
-
-                $findings[] = self::finding(
-                    'stale_detected',
-                    $manual,
-                    $occurrence['hex'],
-                    $occurrence['role'] === null
-                        ? 'persisted detected colour not in the logo, untyped — invisible today, dropped'
-                        : sprintf('persisted detected colour not in the logo, %s — on the %s page today, has no link after the backfill (stays in the palette)', $occurrence['role'], $occurrence['role']),
-                );
-            }
+            $segments = self::segments($m, $manual, $findings);
+            $persistedByManual[$m] = $segments['persisted'];
+            $logoSegments[$m] = $segments['logo'];
+            $customSegments[$m] = $segments['custom'];
         }
 
         // 2. The orderedManualColors walk.
@@ -183,21 +147,40 @@ final class PaletteBackfillPlanner
             }
         }
 
-        // 3. Strict dedupe in walk order.
-        /** @var array<string, int> $positionByKey */
+        // 3. Dedupe in walk order — D1 + §7 "fill the gap".
+        /** @var array<string, int> $positionByKey occurrence id → palette position */
         $positionByKey = [];
         /** @var list<Occurrence> $first first occurrence per palette position */
         $first = [];
+        /** @var list<PrintData> $unions the print data each palette position carries */
+        $unions = [];
+        /** @var array<string, list<int>> $positionsByGroupKey */
+        $positionsByGroupKey = [];
         /** @var array<int, list<Occurrence>> $occurrencesByPosition */
         $occurrencesByPosition = [];
 
         foreach ($walk as $occurrence) {
-            if (!isset($positionByKey[$occurrence['key']])) {
-                $positionByKey[$occurrence['key']] = count($first);
-                $first[] = $occurrence;
+            $groupKey = self::groupKey($occurrence);
+            $print = self::printOf($occurrence);
+            $candidates = [];
+
+            foreach ($positionsByGroupKey[$groupKey] ?? [] as $candidate) {
+                $candidates[$candidate] = $unions[$candidate];
             }
 
-            $occurrencesByPosition[$positionByKey[$occurrence['key']]][] = $occurrence;
+            $position = self::matchPrint($print, $candidates);
+
+            if ($position === null) {
+                $position = count($first);
+                $first[] = $occurrence;
+                $unions[] = $print;
+                $positionsByGroupKey[$groupKey][] = $position;
+            } else {
+                $unions[$position] = self::unionPrint($unions[$position], $print);
+            }
+
+            $positionByKey[self::occurrenceId($occurrence)] = $position;
+            $occurrencesByPosition[$position][] = $occurrence;
         }
 
         // 4. D2 — per-project role by majority of manuals.
@@ -250,9 +233,9 @@ final class PaletteBackfillPlanner
                 'position' => $position,
                 'hex' => $occurrence['hex'],
                 'hexKey' => $occurrence['hexKey'],
-                'cmyk' => $occurrence['cmyk'],
-                'pantone' => $occurrence['pantone'],
-                'ral' => $occurrence['ral'],
+                'cmyk' => $unions[$position]['cmyk'],
+                'pantone' => $unions[$position]['pantone'],
+                'ral' => $unions[$position]['ral'],
                 'role' => $roles[$position],
             ];
 
@@ -327,14 +310,20 @@ final class PaletteBackfillPlanner
             $oldColorN = [];
 
             foreach ([...$logoSegments[$m], ...$customSegments[$m]] as $occurrence) {
-                $palettePosition = $positionByKey[$occurrence['key']];
+                $palettePosition = $positionByKey[self::occurrenceId($occurrence)];
                 $isLogo = $occurrence['source'] !== 'custom';
                 $links[] = [
                     'manualId' => $manual['id'],
                     'palettePosition' => $palettePosition,
-                    'logoHex' => $isLogo ? $occurrence['hex'] : null,
+                    // UNIQUE (manual_id, logo_hex): a repeated literal keeps its position, not the logo mark.
+                    'logoHex' => $isLogo && !isset($seenLogoHex[$occurrence['hex']]) ? $occurrence['hex'] : null,
                     'position' => $position,
                 ];
+
+                $gained = self::gainedPrint(self::printOf($occurrence), $unions[$palettePosition]);
+                if ($gained !== []) {
+                    $findings[] = self::finding('print_gap_filled', $manual, $occurrence['hex'], sprintf('color(%d) gains %s from the merged palette colour (§7 fill the gap)', $position + 1, implode(', ', $gained)));
+                }
 
                 $newHex = $isLogo ? $occurrence['hex'] : $palette[$palettePosition]['hex'];
                 $newColorsByManual[$m][] = ['hex' => $newHex, 'role' => $palette[$palettePosition]['role']];
@@ -350,8 +339,8 @@ final class PaletteBackfillPlanner
                         'positions %d and %d share a hex (%s)%s',
                         $seenPositionByHex[$hexKey] + 1,
                         $position + 1,
-                        $palettePosition === $seenPaletteByHex[$hexKey] ? 'same palette colour, two links' : 'different print data, two palette colours',
-                        $isLogo && isset($seenLogoHex[$occurrence['hex']]) ? '; violates UNIQUE (manual_id, logo_hex)' : '',
+                        $palettePosition === $seenPaletteByHex[$hexKey] ? 'same palette colour, two links' : 'conflicting print data, two palette colours',
+                        $isLogo && isset($seenLogoHex[$occurrence['hex']]) ? '; repeated logo literal — UNIQUE (manual_id, logo_hex), linked without logo_hex' : '',
                     ));
                 } else {
                     $seenPositionByHex[$hexKey] = $position;
@@ -441,6 +430,256 @@ final class PaletteBackfillPlanner
     }
 
     /**
+     * One manual's colours the way `Manual` reads them today: the raw
+     * persisted detected list (stale entries included — `primaryColors()`
+     * reads them), the rebuilt `detectedColors()` (= the logo segment) and
+     * the custom list. Public for the runtime projector, which must split a
+     * manual exactly like the backfill did.
+     *
+     * @param ManualInput $manual
+     * @param list<Finding> $findings
+     * @return Segments
+     */
+    public static function segments(int $m, array $manual, array &$findings = []): array
+    {
+        $persisted = self::occurrences($m, 'detected', $manual['detected'], $manual, $findings);
+        $custom = self::occurrences($m, 'custom', $manual['custom'], $manual, $findings);
+
+        // Manual::detectedColors(), step by step — including its LOOSE
+        // in_array on the "already listed" check, which is what decides
+        // whether a logo colour is appended.
+        /** @var list<Occurrence> $detected */
+        $detected = [];
+        $detectedHex = [];
+        $fromLogo = [];
+
+        foreach ($persisted as $occurrence) {
+            $detected[] = $occurrence;
+            $detectedHex[] = $occurrence['hex'];
+        }
+
+        foreach (array_values(array_unique($manual['logoColors'])) as $index => $literal) {
+            if (!Color::isValidHex($literal)) {
+                $findings[] = self::finding('non_hex_detected', $manual, $literal, 'logo colour is not a hex — new Color() throws, so Manual::detectedColors() fails for this manual today; skipped');
+                continue;
+            }
+
+            $hex = ltrim($literal, '#');
+
+            if (!in_array($hex, $detectedHex)) {
+                $detected[] = self::occurrence($m, 'logo', $index, $hex, null, null, null, null);
+                $detectedHex[] = $hex;
+            }
+
+            if (!in_array($hex, $fromLogo)) {
+                $fromLogo[] = $hex;
+            }
+        }
+
+        $logo = [];
+
+        foreach ($detected as $occurrence) {
+            if (in_array($occurrence['hex'], $fromLogo, true)) {
+                $logo[] = $occurrence;
+                continue;
+            }
+
+            $findings[] = self::finding(
+                'stale_detected',
+                $manual,
+                $occurrence['hex'],
+                $occurrence['role'] === null
+                    ? 'persisted detected colour not in the logo, untyped — invisible today, dropped'
+                    : sprintf('persisted detected colour not in the logo, %s — on the %s page today, has no link after the backfill (stays in the palette)', $occurrence['role'], $occurrence['role']),
+            );
+        }
+
+        return ['persisted' => $persisted, 'logo' => $logo, 'custom' => $custom];
+    }
+
+    /**
+     * One manual's share of the palette walk: its typed colours (primaries,
+     * then secondaries — persisted detected incl. stale, then custom), then
+     * its untyped logo-segment and custom colours.
+     *
+     * @param Segments $segments
+     * @return list<Occurrence>
+     */
+    public static function manualWalk(array $segments): array
+    {
+        $walk = [];
+
+        foreach ([self::ROLE_PRIMARY, self::ROLE_SECONDARY] as $role) {
+            foreach ([...$segments['persisted'], ...$segments['custom']] as $occurrence) {
+                if ($occurrence['role'] === $role) {
+                    $walk[] = $occurrence;
+                }
+            }
+        }
+
+        foreach ([...$segments['logo'], ...$segments['custom']] as $occurrence) {
+            if ($occurrence['role'] === null) {
+                $walk[] = $occurrence;
+            }
+        }
+
+        return $walk;
+    }
+
+    /**
+     * The strongest role one manual gives each colour (its D2 "vote"), keyed
+     * by {@see groupKey()}: primary > secondary > none (null).
+     *
+     * @param Segments $segments
+     * @return array<string, null|string>
+     */
+    public static function manualRoles(array $segments): array
+    {
+        $ranks = [];
+
+        foreach (self::manualWalk($segments) as $occurrence) {
+            $key = self::groupKey($occurrence);
+            $ranks[$key] = min($ranks[$key] ?? 2, self::rank($occurrence['role']));
+        }
+
+        return array_map(self::roleOf(...), $ranks);
+    }
+
+    /**
+     * Stable identity of an occurrence inside one plan / one manual.
+     *
+     * @param Occurrence $occurrence
+     */
+    public static function occurrenceId(array $occurrence): string
+    {
+        return $occurrence['manual'] . ':' . $occurrence['source'] . ':' . $occurrence['index'];
+    }
+
+    /**
+     * What palette colours are grouped by: the normalised `#rrggbb`, or the
+     * lowercased literal for a hex `computeColors` cannot normalise. Also the
+     * value stored in `project_color.hex_key`.
+     *
+     * @param array{hex: string, hexKey: null|string, ...} $occurrence
+     */
+    public static function groupKey(array $occurrence): string
+    {
+        return $occurrence['hexKey'] ?? ('#' . strtolower($occurrence['hex']));
+    }
+
+    /**
+     * The occurrence's print data with every empty value (null, blank, an
+     * all-blank CMYK tuple) as null. Literals are kept, untrimmed.
+     *
+     * @param array{cmyk: null|Cmyk, pantone: null|string, ral: null|string, ...} $occurrence
+     * @return PrintData
+     */
+    public static function printOf(array $occurrence): array
+    {
+        $cmyk = $occurrence['cmyk'];
+
+        if ($cmyk !== null && implode('', array_map(static fn (null|string $c): string => trim($c ?? ''), $cmyk)) === '') {
+            $cmyk = null;
+        }
+
+        return [
+            'cmyk' => $cmyk,
+            'pantone' => self::textKey($occurrence['pantone']) === '' ? null : $occurrence['pantone'],
+            'ral' => self::textKey($occurrence['ral']) === '' ? null : $occurrence['ral'],
+        ];
+    }
+
+    /**
+     * §7 "fill the gap": the first candidate that already carries all of
+     * `$print` (no gap to fill), else the first none of whose filled values
+     * disagree with it, else null (a new palette colour). Candidates in
+     * palette order, keyed by position.
+     *
+     * @param PrintData $print
+     * @param array<int, PrintData> $candidates
+     */
+    public static function matchPrint(array $print, array $candidates): null|int
+    {
+        foreach ($candidates as $position => $candidate) {
+            if (self::gainedPrint($candidate, $print) === [] && self::printCompatible($candidate, $print)) {
+                return $position;
+            }
+        }
+
+        foreach ($candidates as $position => $candidate) {
+            if (self::printCompatible($candidate, $print)) {
+                return $position;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * No field where both sides are filled and differ (compared trimmed).
+     *
+     * @param PrintData $a
+     * @param PrintData $b
+     */
+    public static function printCompatible(array $a, array $b): bool
+    {
+        foreach (['cmyk', 'pantone', 'ral'] as $field) {
+            if ($a[$field] !== null && $b[$field] !== null && self::printValueKey($a[$field]) !== self::printValueKey($b[$field])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The fields `$union` fills that `$print` leaves empty, as "pantone 2299 C"
+     * labels — what a manual gains on its colour page from the merge.
+     *
+     * @param PrintData $print
+     * @param PrintData $union
+     * @return list<string>
+     */
+    public static function gainedPrint(array $print, array $union): array
+    {
+        $gained = [];
+
+        foreach (['cmyk', 'pantone', 'ral'] as $field) {
+            if ($print[$field] === null && $union[$field] !== null) {
+                $gained[] = $field . ' ' . (is_array($union[$field]) ? implode('/', array_map(static fn (null|string $c): string => $c ?? '∅', $union[$field])) : $union[$field]);
+            }
+        }
+
+        return $gained;
+    }
+
+    /**
+     * @param PrintData $union
+     * @param PrintData $print
+     * @return PrintData
+     */
+    public static function unionPrint(array $union, array $print): array
+    {
+        return [
+            'cmyk' => $union['cmyk'] ?? $print['cmyk'],
+            'pantone' => $union['pantone'] ?? $print['pantone'],
+            'ral' => $union['ral'] ?? $print['ral'],
+        ];
+    }
+
+    /**
+     * @param Cmyk|string $value
+     */
+    private static function printValueKey(array|string $value): string
+    {
+        if (is_array($value)) {
+            return implode('|', array_map(static fn (null|string $c): string => trim($c ?? ''), $value));
+        }
+
+        return trim($value);
+    }
+
+    /**
      * @param list<RawColor> $colors
      * @param ManualInput $manual
      * @param list<array{type: string, manualId: string, manual: string, hex: string, detail: string}> $findings
@@ -481,13 +720,12 @@ final class PaletteBackfillPlanner
      */
     private static function occurrence(int $m, string $source, int $index, string $hex, null|string $role, null|string $pantone, null|string $ral, null|array $cmyk): array
     {
-        // ManualColor collapses an all-null tuple to null; so does the key.
+        // ManualColor collapses an all-null tuple to null.
         if ($cmyk === [null, null, null, null]) {
             $cmyk = null;
         }
 
         $hexKey = RichText::normalizeHexColor($hex);
-        $cmykKey = $cmyk === null ? 'null' : implode('|', array_map(static fn (null|string $c): string => trim($c ?? ''), $cmyk));
 
         return [
             'manual' => $m,
@@ -495,7 +733,6 @@ final class PaletteBackfillPlanner
             'index' => $index,
             'hex' => $hex,
             'hexKey' => $hexKey,
-            'key' => implode("\x1F", [$hexKey ?? ('raw:' . strtolower($hex)), $cmykKey, self::textKey($pantone), self::textKey($ral)]),
             'role' => $role,
             'pantone' => $pantone,
             'ral' => $ral,
@@ -516,7 +753,22 @@ final class PaletteBackfillPlanner
 
         foreach ($uses as $use) {
             $hexLiterals[$use['hex']][$manuals[$use['manual']]['name']] = true;
-            $printLiterals[self::describePrint($use['cmyk'], $use['pantone'], $use['ral'])][$manuals[$use['manual']]['name']] = true;
+            $print = self::printOf($use);
+
+            // Only FILLED values count: empty vs filled is the §7 gap fill
+            // (reported per manual as print_gap_filled), not a literal variant.
+            foreach (['cmyk', 'pantone', 'ral'] as $field) {
+                if ($print[$field] !== null) {
+                    $literal = is_array($print[$field]) ? implode('/', array_map(static fn (null|string $c): string => $c ?? '∅', $print[$field])) : $print[$field];
+                    $printLiterals[$field][$literal] = true;
+                }
+            }
+        }
+
+        foreach ($printLiterals as $field => $literals) {
+            if (count($literals) < 2) {
+                unset($printLiterals[$field]);
+            }
         }
 
         if (count($hexLiterals) > 1) {
@@ -542,7 +794,11 @@ final class PaletteBackfillPlanner
                 'manualId' => '',
                 'manual' => '',
                 'hex' => $first['hex'],
-                'detail' => 'same print data up to whitespace merged: ' . implode(' + ', array_keys($printLiterals)),
+                'detail' => 'same print data up to whitespace merged: ' . implode('; ', array_map(
+                    static fn (string $field, array $literals): string => $field . ' "' . implode('" + "', array_map('strval', array_keys($literals))) . '"',
+                    array_keys($printLiterals),
+                    $printLiterals,
+                )),
             ];
         }
     }

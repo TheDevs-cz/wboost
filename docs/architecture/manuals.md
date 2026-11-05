@@ -111,6 +111,54 @@ with no RAL looks exactly as before. `ManualColorsFormType::isBlankColor()`
 counts `ral` too, otherwise a row holding nothing but a RAL code would be
 dropped on save.
 
+### Project palette tables — R1 shadow copy of the manual colours (F7 P1a, 2026-11-05)
+
+Plan + decisions: `docs/redesign/palette-plan.md`. Two tables, written since
+`Version20261105170659` (CREATE + backfill), **read by nothing user-facing yet** —
+`manual.detected_colors` / `custom_colors` stay authoritative until P1b (R2):
+
+- `project_color` (`ProjectColor`): one palette colour — `hex` (literal, no `#`),
+  `hex_key` (normalised `#rrggbb`, the dedupe key; indexed with `project_id`),
+  `role` (D2: ONE role per project colour, `ManualColorType`), `cmyk` (jsonb tuple),
+  `pantone`, `ral`, `name` (unused until P2), `position` (palette order). Project
+  CASCADE.
+- `manual_palette_color` (`ManualPaletteColor`): a manual's use of one, `position` =
+  the manual's colour order (logo segment first, then added colours = what `color(n)`
+  will index), `logo_hex` non-null = "Z logotypu", the SVG's LITERAL (recolouring
+  `str_ireplace`s it), `UNIQUE (manual_id, logo_hex) WHERE logo_hex IS NOT NULL`.
+  Manual CASCADE; FK to `project_color` is NO ACTION on purpose (statement-end check,
+  so the project-delete cascade passes; RESTRICT would not).
+
+**Sync contract (R1).** Every write that changes a manual's colours or logo
+re-projects THAT manual with `Services/Palette/ProjectManualColors::reproject()`
+after flushing it: `EditManualColorsHandler` (passes `rolesOf()` taken before the
+write) and `UpdateManualImagesHandler` (no roles). Nothing else writes those columns
+(manual create = empty, delete / project delete = FK cascade, logo colour MAPPING
+edits don't touch the colours). A new writer of `detected_colors` / `custom_colors` /
+`manual.logo` detected colours MUST call it too, or `app:palette:verify` flags the
+manual. Projection rules = the backfill's (`PaletteBackfillPlanner`, FROZEN):
+
+- reuse a palette colour of the same `hex_key` — the first already carrying the
+  colour's CMYK/Pantone/RAL, else the first whose filled values don't disagree (its
+  empty fields get filled: §7 "fill the gap"), else append a new one at the end;
+- role: new colour = the role this manual gives it; an existing one changes only when
+  THIS write changed the manual's role for it ("last write wins", but an untouched
+  save of the old colours page — which re-posts every type — changes nothing); a logo
+  upload never sets roles;
+- links are rewritten DELETE-then-INSERT over **DBAL** (the ORM unit of work runs
+  inserts before deletes and would trip the partial unique index); the project row
+  is locked `FOR UPDATE` so concurrent writes can't create the same colour twice;
+- palette colours are **never deleted** in R1 (leftovers show as "unused" in verify).
+
+**Checks (prod-safe):** `app:palette:verify [--report=<csv>]` builds the read model
+from JSONB (`Manual`, `computeColors`, `BrandCmykPalette`) and from the tables (P1b's
+future model) and classifies every difference (`PaletteParityDiff::ACCEPTED_KINDS`:
+D2 role / role pages, §7 HEX spelling + gap fill, whitespace, D5 palette order,
+unused colours, CMYK first-wins order); anything else exits 1.
+`app:palette:reconcile [--dry-run]` re-projects the manuals with unexpected
+differences (all of a project's manuals for a project-level one). No path columns —
+`BuildStorageReferenceIndex` is unaffected.
+
 ### Manual fonts — edited on the project Fonty page (F8, 2026-11-05)
 
 A brand manual's `ManualFont`s (role primary/secondary, sample colour,

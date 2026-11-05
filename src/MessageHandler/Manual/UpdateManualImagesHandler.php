@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\Manual;
 
+use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -14,6 +15,7 @@ use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\UpdateManualImages;
 use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Services\DetectImageColors;
+use WBoost\Web\Services\Palette\ProjectManualColors;
 use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\SvgImage;
 
@@ -26,6 +28,8 @@ readonly final class UpdateManualImagesHandler
         private ManualRepository $manualRepository,
         private DetectImageColors $detectImageColors,
         private TagAwareCacheInterface $cache,
+        private EntityManagerInterface $entityManager,
+        private ProjectManualColors $projectManualColors,
     ) {
     }
 
@@ -89,6 +93,11 @@ readonly final class UpdateManualImagesHandler
                 symbol: $logoSymbol,
             )
         );
+
+        // Palette R1 sync (F7): new logo colours join the palette (no role),
+        // links follow the rebuilt logo segment. Reads the STORED columns.
+        $this->entityManager->flush();
+        $this->projectManualColors->reproject($manual->id);
     }
 
     private function uploadImage(

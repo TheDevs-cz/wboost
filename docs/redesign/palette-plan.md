@@ -15,7 +15,8 @@ Status: decisions taken 2026-11-05 (§6); §1–§5 updated for **D2 = roles PER
 colour's role today change — migration rule: role = the one most manuals use, tie →
 primary > secondary > none; every manual whose primary/secondary pages would change is
 listed in the dry-run report (§2a) for the owner to review BEFORE P1a ships. **P0 done**
-(snapshot + planner dry run, §2a).
+(snapshot + planner dry run, §2a). **P1a done** (2026-11-05: tables, backfill migration
+`Version20261105170659`, write-path sync, `app:palette:verify` / `reconcile` — §2b).
 
 ## 0. What exists today (verified)
 
@@ -97,7 +98,7 @@ call it unchanged. Per project, manuals ordered `created_at, id`:
    planner asserts both and reports `parity_broken` otherwise). Typed stale detected colours
    are in that walk (today's `primaryColors()` reads them), so they become palette colours
    without a link.
-3. **Dedupe (D1 strict):** key = (`hex_key`, trimmed cmyk tuple, trimmed pantone, trimmed
+3. **Dedupe (D1 strict — refined by §7 "fill the gap", implemented as in §2b):** key = (`hex_key`, trimmed cmyk tuple, trimmed pantone, trimmed
    ral; an all-null cmyk = null, like `ManualColor`). Identical → one palette colour. Same
    `hex_key`, different print data (incl. empty vs filled) → separate entries, flagged
    duplicate. Display `hex` = first occurrence's literal.
@@ -161,6 +162,45 @@ position) or creating one at the palette end. That's today's `detectedColors()`,
 mirror, and R1's projector never deletes palette colours, so palette-only data survives. UI
 phases → plain revert. After R5b → restore the dump.
 
+### 2b. P1a — shipped 2026-11-05 (release R1, additive)
+
+Local prod copy after `doctrine:migrations:migrate`: **113 palette colours, 155 links
+(85 logo, 70 custom)** — 2 fewer colours than §2a because of the §7 merge (Čeladná:
+Fotbal's `A2C62C` without Pantone joins the `2299 C` entry; Frýdlant: `d19e5d` without
+Pantone joins `7509C`). Plan report under §7 rules: 6 split-duplicate entries (Čeladná
+`a2c62c` Y95/Y90, `17375f` M80/M85; Frýdlant `c6c6c6` K30/K20 — real conflicts, P4),
+2 gap fills (Fotbal - Čeladná `color(1)` gains Pantone 2299 C; TIC `color(2)` gains
+7509C), 2 case merges (`FFFFFF`/`ffffff`; `A2C62C`/`a2c62c` — the latter only on logo
+links, nothing printed changes), 1 custom literal change (TIC white → `FFFFFF`), 3 role
+changes (as §2a/§7), 0 parity breaks. `app:palette:verify` = exactly those 12 accepted
+differences (3 role, 6 role pages, 2 gap fills, 1 spelling), 0 unexpected; computeColors
+and BrandCmykPalette identical for every project. Snapshot after == snapshot A
+byte-for-byte; `migrate prev` + re-migrate reproduces the same rows (UUIDv5 ids).
+
+How it differs from / refines the text above:
+- Backfill SQL lives in `Services/Palette/PaletteBackfillSql` (FROZEN like the planner;
+  in src/ so tests replay exactly what the migration runs). ONE statement per project:
+  palette INSERT guarded by "project has no palette" + `RETURNING`, links JOIN those
+  rows (a skipped project never gets links to a deterministic id meaning another
+  colour); a manual with links is skipped. Ids are UUIDv5 (project/manual id + position).
+- §7 matching order: an occurrence joins the first same-`hex_key` colour that already
+  carries its print data, else the first compatible one (fills the gap), else a new
+  entry. Empty = null, blank or an all-blank CMYK tuple. Same rule at runtime.
+- A logo literal repeated inside one manual links without `logo_hex` (partial UNIQUE);
+  0 cases on the prod copy, reported as `in_manual_duplicate`.
+- Write-path projector `ProjectManualColors` (DBAL — see `manuals.md`). D2 "last write
+  wins" fires only when the write CHANGED the manual's role for that colour (the old
+  colours page re-posts every type; an untouched save must not flip a project role);
+  logo uploads never set roles. "Re-project every manual linking that colour" is a
+  no-op in R1 (links carry no role) — it matters for P1b's JSONB mirror.
+- R1 never deletes palette colours, so a print-data edit that conflicts leaves the old
+  colour unused, and typed edits can move a swatch in today's walk while the palette
+  keeps its order. `verify` accepts both (`unused_palette_colour`, `palette_order`).
+  **P1b must decide** whether `GetProjectPalette` (computeColors, BrandCmykPalette)
+  skips palette colours no manual links — otherwise leftovers become swatches.
+- `app:palette:reconcile` never sets roles; it re-projects manuals whose links don't
+  match (e.g. written by the old container during the blue-green overlap).
+
 ## 3. Consumers
 
 | Consumer | Change |
@@ -220,7 +260,7 @@ Layout from prototype js:1963-2056 / design-system §573:
 | P | Scope | Tests / verification | Effort |
 |---|---|---|---|
 | P0 ✔ | `app:palette:snapshot <json>` (per manual: detected/custom/primary/secondary all fields, `color(1..n)`, `colorsCount`, mapping + background for 5 types × 5 colour variants; per project: `computeColors`, `BrandCmykPalette`, avatar, `has_palette`, overview chips) + `app:palette:plan --report` (planner dry-run, read-only) + allForProject ORDER BY. Ran on the local prod copy (§2a); still TODO on the prod mirror: snapshot A + curl every `/nahled-manualu/…` → HTML A; owner reviews the report | planner unit tests (merge/split, trim, case + 3-digit, stale detected, rgb strings, in-manual dups, role majority + tie, order parity vs the entities) + command smoke test | S–M, 1 d |
-| P1a | entities, migration (CREATE + backfill via planner), `ProjectManualColors` re-projection on `EditManualColors` + logo upload, `app:palette:verify`, `app:palette:reconcile`. D2: the old per-manual colours page still posts a type per manual — re-projection sets the palette colour's role (last write wins) and must re-project EVERY manual linking that colour; `verify` expects diffs exactly for the §2a role-change manuals | kernel test: fixtures → backfill → link read model == JSONB read model (minus reported role changes); mirror: migrate, verify = only reported diffs | M, 1–1.5 d |
+| P1a ✔ | entities, migration (CREATE + backfill via planner), `ProjectManualColors` re-projection on `EditManualColors` + logo upload, `app:palette:verify`, `app:palette:reconcile` (§2b). D2: the old per-manual colours page still posts a type per manual — re-projection sets the palette colour's role (last write wins) and must re-project EVERY manual linking that colour; `verify` expects diffs exactly for the §2a role-change manuals | kernel test: fixtures → backfill → link read model == JSONB read model (minus reported role changes); mirror: migrate, verify = only reported diffs | M, 1–1.5 d |
 | P1b | read switch (Manual read model from links), writes to links + JSONB mirror, `SyncManualLogoColors`, `GetProjectPalette` → computeColors / BrandCmykPalette / MCP / lint, fixture + test updates, docs + consumer-prompt + mfkfm comment | ResolveRichTextOptionsTest, BrandCmykPalette, ManualColorsControllerTest still green (old page writes through), parity tests for `color(n)`; mirror: snapshot C == A and HTML C == A except the §2a role-change / literal-change manuals, API listing JSON diff | M–L, 1.5–2 d |
 | P2 | Paleta barev page + sidebar + autosave endpoints + delete guard + usage chips + client read-only + overview chips + `has_palette` | controller tests (VIEW vs EDIT, guard, locked HEX, CSRF), `shoot.cjs` 390/820/1440 both themes | M–L, 2 d |
 | P3 | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |

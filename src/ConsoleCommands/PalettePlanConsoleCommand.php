@@ -25,7 +25,8 @@ use WBoost\Web\Value\PaletteProjectPlan;
 final class PalettePlanConsoleCommand extends Command
 {
     private const array FINDING_LABELS = [
-        'split_duplicate' => 'Split duplicates (same hex, different print data) — palette entries',
+        'split_duplicate' => 'Split duplicates (same hex, conflicting print data) — palette entries',
+        'print_gap_filled' => 'Manual colours gaining print data from a merged palette colour (§7 fill the gap)',
         'hex_variant_merged' => 'Case / 3-digit hex variants merged',
         'custom_hex_literal_change' => 'Custom colours whose printed HEX / color(n) literal changes',
         'print_literal_variant' => 'Print data merged up to whitespace',
