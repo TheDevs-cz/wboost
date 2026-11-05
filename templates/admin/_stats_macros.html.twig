@@ -25,3 +25,8 @@
     {%- set parts = month|split('-') -%}
     <th scope="col" class="hm-m{{ month == now_month ? ' now' }}">{{ names[(parts[1]|number_format) - 1] }}{% if first or parts[1] == '01' %}<small>{{ parts[0]|slice(2) }}</small>{% endif %}</th>
 {%- endmacro %}
+
+{# Czech plural: 1 šablona · 2–4 šablony · 0 / 5+ šablon. #}
+{% macro plural(n, one, few, many) -%}
+    {{- n == 1 ? one : (n >= 2 and n <= 4 ? few : many) -}}
+{%- endmacro %}

@@ -76,6 +76,71 @@ final class AdminUsageControllerTest extends WebTestCase
         $this->assertSelectorExists('#usage-chart');
     }
 
+    public function testClientHeatmapShowsNameBadgeAndBothMetrics(): void
+    {
+        $browser = self::createClient();
+
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->getConnection()->executeStatement(
+            'UPDATE "user" SET name = ? WHERE id = ?',
+            ['Lukáš Rejda', TestDataFixture::USER_1_ID],
+        );
+
+        // One template exported three times this month in one project.
+        $templateId = Uuid::uuid4();
+        $variantId = Uuid::uuid4();
+        foreach (['01 10:00:00', '01 11:00:00', '01 12:00:00'] as $time) {
+            $entityManager->persist(new ExportEvent(
+                Uuid::uuid7(),
+                new DateTimeImmutable(date('Y-m-') . $time),
+                ExportedTemplateType::SocialNetwork,
+                ExportChannel::Web,
+                $templateId,
+                'Letní kampaň',
+                $variantId,
+                Uuid::fromString(TestDataFixture::PROJECT_1_ID),
+                'Projekt Alfa',
+                Uuid::fromString(TestDataFixture::USER_1_ID),
+                TestDataFixture::USER_1_EMAIL,
+                null,
+            ));
+        }
+        $entityManager->flush();
+
+        TestingLogin::logInAsUser($browser, TestDataFixture::ADMIN_USER_EMAIL);
+        $crawler = $browser->request('GET', '/admin/usage');
+
+        $this->assertResponseIsSuccessful();
+
+        // Client row: display name + round project-count badge, e-mail as the secondary line.
+        $clientRow = $crawler->filter('.hm-clients tr.hm-cl')->first();
+        self::assertSame('Lukáš Rejda', trim($clientRow->filter('.hm-nl b')->text()));
+        self::assertSame('1', trim($clientRow->filter('.hm-nl .count')->text()));
+        self::assertSame(TestDataFixture::USER_1_EMAIL, trim($clientRow->filter('.hm-em')->text()));
+
+        // Projects are collapsed by default behind a disclosure button.
+        $toggle = $clientRow->filter('button.hm-tg');
+        self::assertSame('false', $toggle->attr('aria-expanded'));
+        $projectsId = (string) $toggle->attr('aria-controls');
+        $projects = $crawler->filter('#' . $projectsId);
+        self::assertCount(1, $projects);
+        self::assertNotNull($projects->attr('hidden'));
+        self::assertStringContainsString('Projekt Alfa', $projects->text());
+
+        // The cell carries both metrics and both levels; downloads is the default metric.
+        self::assertSame('downloads', $crawler->filter('.hm-card[data-controller="usage-heatmap"]')->attr('data-metric'));
+        $cell = $clientRow->filter('td.hm-c.now');
+        self::assertCount(1, $cell);
+        self::assertSame('3', trim($cell->filter('[data-only="downloads"]')->text()));
+        self::assertSame('1', trim($cell->filter('[data-only="templates"]')->text()));
+        self::assertSame('4', $cell->attr('data-ld'));
+        self::assertSame('4', $cell->attr('data-lt'));
+        self::assertSame('3 stažení · 1 šablona', $cell->attr('title'));
+
+        $this->assertSelectorExists('#hm-search');
+        $this->assertSelectorExists('.hm-metric button[data-metric="templates"]');
+    }
+
     public function testRendersUserActivityForAdmin(): void
     {
         $browser = self::createClient();

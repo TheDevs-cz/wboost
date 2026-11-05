@@ -22,12 +22,19 @@ readonly final class UsageOwnerRow
     public function __construct(
         public string $ownerId,
         public string $ownerEmail,
+        public null|string $ownerName,
         public int $uniqueTemplates,
         public int $uniqueVariants,
         public int $downloads,
         public DateTimeImmutable $lastExportAt,
         public array $projects,
     ) {
+    }
+
+    /** The account's name, or its e-mail when it has none (the report's row label). */
+    public function displayName(): string
+    {
+        return $this->ownerName ?? $this->ownerEmail;
     }
 
     public function templatesInMonth(string $month): int

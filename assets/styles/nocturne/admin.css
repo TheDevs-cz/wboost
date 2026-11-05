@@ -273,23 +273,51 @@ details.ld-msg p { margin: 0; white-space: pre-wrap; }
 .hm .hm-name .who > span { font-size: 11px; color: var(--subtle); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hm .hm-name .av { width: 32px; height: 32px; font-size: 11px; }
 .hm .hm-name > .u-who > .i { color: var(--subtle); flex: none; }
-.hm-c { height: 40px; min-width: 34px; border-radius: 8px; text-align: center; color: var(--text); font-weight: 600; transition: transform var(--dur-1), box-shadow var(--dur-1); }
+.hm-c { height: 40px; min-width: 34px; border-radius: 8px; text-align: center; color: var(--text); font-weight: 600; transition: box-shadow var(--dur-1); }
 .hm-c span { position: relative; }
 .hm-c.lv0 { background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); }
 .hm-c.lv0::before { content: ""; display: block; width: 8px; height: 2px; margin: 0 auto; border-radius: 2px; background: var(--line-3); }
-.hm-c.lv1, .hm-scale .lv1 { background: color-mix(in oklab, var(--ch-1) 22%, var(--surface)); }
-.hm-c.lv2, .hm-scale .lv2 { background: color-mix(in oklab, var(--ch-1) 42%, var(--surface)); }
-.hm-c.lv3, .hm-scale .lv3 { background: color-mix(in oklab, var(--ch-1) 66%, var(--surface)); color: #fff; }
-.hm-c.lv4, .hm-scale .lv4 { background: var(--ch-1); color: #fff; }
+/* Client heatmap: both metrics' levels are rendered as data-ld (stažení) /
+   data-lt (šablony); the card's data-metric picks one. :where() keeps these at
+   .hm-c specificity so .hm-c.now still wins. */
+.hm-c.lv1, .hm-scale .lv1, :where(.hm-card[data-metric="downloads"]) .hm-c:where([data-ld="1"]), :where(.hm-card[data-metric="templates"]) .hm-c:where([data-lt="1"]) { background: color-mix(in oklab, var(--ch-1) 22%, var(--surface)); }
+.hm-c.lv2, .hm-scale .lv2, :where(.hm-card[data-metric="downloads"]) .hm-c:where([data-ld="2"]), :where(.hm-card[data-metric="templates"]) .hm-c:where([data-lt="2"]) { background: color-mix(in oklab, var(--ch-1) 42%, var(--surface)); }
+.hm-c.lv3, .hm-scale .lv3, :where(.hm-card[data-metric="downloads"]) .hm-c:where([data-ld="3"]), :where(.hm-card[data-metric="templates"]) .hm-c:where([data-lt="3"]) { background: color-mix(in oklab, var(--ch-1) 66%, var(--surface)); color: #fff; }
+.hm-c.lv4, .hm-scale .lv4, :where(.hm-card[data-metric="downloads"]) .hm-c:where([data-ld="4"]), :where(.hm-card[data-metric="templates"]) .hm-c:where([data-lt="4"]) { background: var(--ch-1); color: #fff; }
+.hm-card[data-metric="downloads"] [data-only="templates"], .hm-card[data-metric="templates"] [data-only="downloads"] { display: none; }
 .hm-scale .lv0 { box-shadow: inset 0 0 0 1px var(--line-2); }
 .hm-c.now, .hm-scale .now { background: var(--pch); color: #3A2A20; }
 .hm-scale .now { margin-left: 8px; }
-.hm-c:hover { box-shadow: 0 0 0 2px var(--lav); }
-.hm tbody tr.hm-cl:hover .hm-c { transform: scale(1.04); }
+/* Hover: ring INSIDE the hovered cell only — scaling the row's cells covered the
+   3 px border-spacing gaps (F17); the row is marked on its name instead. */
+.hm-c:hover { box-shadow: inset 0 0 0 2px var(--lav); }
+.hm tbody tr:hover > .hm-name .who b { color: var(--lav-ink); }
 .hm .hm-num { width: 1%; text-align: right; padding: 0 8px 0 12px; color: var(--text-2); white-space: nowrap; }
 .hm .hm-num b { color: var(--text); font-size: 13px; }
 .hm thead .hm-num { text-align: right; }
-.hm-grp + .hm-grp tr.hm-cl > * { border-top: 10px solid transparent; background-clip: padding-box; }
+/* Gap between client groups = a spacer row (a transparent border-top on the cells
+   still got painted by the backgrounds / hover ring and made those rows taller). */
+.hm .hm-gap td { height: 7px; padding: 0; }
+/* Client rows: the name cell is a disclosure button (chevron + avatar + name +
+   project-count badge); clicking anywhere on the row toggles its projects. */
+.hm-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.hm-search { flex: 1 1 240px; max-width: 340px; }
+.hm-all { margin-left: auto; }
+.hm-all .i { transition: transform var(--dur-2) var(--ease); }
+.hm-all[aria-expanded="true"] .i { transform: rotate(180deg); }
+.hm-all[hidden] + .hm-metric { margin-left: auto; }
+.hm-metric button { height: 28px; padding: 0 12px; }
+.hm-clients tr.hm-cl { cursor: pointer; }
+.hm-tg { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.hm-tg > .u-who { min-width: 0; flex: 1; }
+.hm-tg .hm-chev { flex: none; color: var(--subtle); transition: transform var(--dur-2) var(--ease); }
+.hm-tg[aria-expanded="true"] .hm-chev { transform: rotate(90deg); color: var(--text-2); }
+.hm .hm-name .who > .hm-nl { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: visible; font-size: inherit; color: inherit; }
+.hm .hm-nl .count { margin-left: 0; flex: none; }
+.hm-clients .hm-us .hm-name { padding-left: 24px; }
+.hm-none { padding: 40px 24px; }
+.hm-none h2 { margin: 0; }
+@media (max-width: 560px) { .hm-search { max-width: none; flex-basis: 100%; } .hm-all { margin-left: 0; } .hm-metric { margin-left: auto; } .hm-metric .i { display: none; } }
 .hm-us .hm-name { padding-left: 34px; }
 .hm-us .hm-name .av { width: 26px; height: 26px; font-size: 10px; }
 .hm-us .hm-name .who b { font-size: 12px; font-weight: 500; color: var(--text-2); }

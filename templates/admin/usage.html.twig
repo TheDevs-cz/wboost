@@ -113,19 +113,42 @@
                      data-series="{{ usage.chartSeries|json_encode }}" data-categories="{{ usage.chartCategories|json_encode }}"></div>
             </div>
 
-            {% set hm_max = 1 %}{% set owner_max = 1 %}
+            {# Levels for BOTH metrics are computed here (owner rows against the
+               owner max, project rows against the project max) and rendered as
+               data-ld / data-lt; the metric toggle (usage_heatmap_controller)
+               only flips data-metric on the card and CSS picks the matching
+               level + number — no request, no client-side recalculation. #}
+            {% set owner_max_t = 1 %}{% set owner_max_d = 1 %}{% set hm_max_t = 1 %}{% set hm_max_d = 1 %}
             {% for owner in usage.owners %}{% for month in usage.months %}
-                {% set owner_max = max(owner_max, owner.templatesInMonth(month)) %}
-                {% for project in owner.projects %}{% set hm_max = max(hm_max, project.templatesInMonth(month)) %}{% endfor %}
+                {% set owner_max_t = max(owner_max_t, owner.templatesInMonth(month)) %}
+                {% set owner_max_d = max(owner_max_d, owner.downloadsInMonth(month)) %}
+                {% for project in owner.projects %}
+                    {% set hm_max_t = max(hm_max_t, project.templatesInMonth(month)) %}
+                    {% set hm_max_d = max(hm_max_d, project.downloadsInMonth(month)) %}
+                {% endfor %}
             {% endfor %}{% endfor %}
+            {% set hm_cols = usage.months|length + 4 %}
 
-            <div class="st-card hm-card">
+            <div class="st-card hm-card" data-controller="usage-heatmap" data-metric="downloads">
                 <div class="st-card-h">
-                    <div><h2>Klienti po měsících</h2><span class="cap">Unikátní šablony v měsíci · podržte myš nad buňkou pro počet stažení</span></div>
-                    <span class="hm-scale" aria-hidden="true">0 <i class="lv0"></i><i class="lv1"></i><i class="lv2"></i><i class="lv3"></i><i class="lv4"></i> víc <i class="now"></i> tento měsíc</span>
+                    <div><h2>Klienti po měsících</h2>
+                        <span class="cap"><span data-only="downloads">Počet stažení v měsíci</span><span data-only="templates">Unikátní šablony v měsíci</span> · kliknutím na klienta zobrazíte jeho projekty</span></div>
+                    <span class="hm-scale" aria-hidden="true">0 <i class="lv0"></i><i class="lv1"></i><i class="lv2"></i><i class="lv3"></i><i class="lv4"></i> <span data-only="downloads">víc stažení</span><span data-only="templates">víc šablon</span> <i class="now"></i> tento měsíc</span>
                 </div>
-                <div class="hm-scroll">
-                    <table class="hm">
+                <div class="hm-tools">
+                    <label class="inp sm hm-search" for="hm-search">
+                        {{ icon('search', 's16') }}
+                        <input type="search" id="hm-search" placeholder="Hledat klienta nebo projekt" autocomplete="off" aria-label="Hledat klienta nebo projekt"
+                               data-usage-heatmap-target="search" data-action="input->usage-heatmap#filter search->usage-heatmap#filter keydown.esc->usage-heatmap#clearSearch">
+                    </label>
+                    <button type="button" class="btn btn-ghost xs hm-all" data-usage-heatmap-target="allButton" data-action="usage-heatmap#toggleAll">{{ icon('chev-down', 's14') }}<span data-usage-heatmap-target="allLabel">Rozbalit vše</span></button>
+                    <div class="seg soft hm-metric" role="group" aria-label="Číslo v buňkách">
+                        <button type="button" class="on" aria-pressed="true" data-usage-heatmap-target="metricButton" data-metric="downloads" data-action="usage-heatmap#setMetric">{{ icon('download', 's14') }}Stažení</button>
+                        <button type="button" aria-pressed="false" data-usage-heatmap-target="metricButton" data-metric="templates" data-action="usage-heatmap#setMetric">{{ icon('layers', 's14') }}Šablony</button>
+                    </div>
+                </div>
+                <div class="hm-scroll" data-usage-heatmap-target="scroll">
+                    <table class="hm hm-clients">
                         <thead>
                             <tr>
                                 <th scope="col" class="hm-name">Klient / Projekt</th>
@@ -136,26 +159,41 @@
                             </tr>
                         </thead>
                         {% for owner in usage.owners %}
-                            <tbody class="hm-grp">
-                                <tr class="hm-cl">
+                            {% set n_projects = owner.projects|length %}
+                            {% set projects_label = n_projects ~ ' ' ~ st.plural(n_projects, 'projekt', 'projekty', 'projektů') %}
+                            <tbody class="hm-grp" data-usage-heatmap-target="group" data-owner="{{ owner.ownerId }}">
+                                <tr class="hm-gap" aria-hidden="true" data-usage-heatmap-target="gap"{{ loop.first ? ' hidden' }}><td colspan="{{ hm_cols }}"></td></tr>
+                                <tr class="hm-cl" data-action="click->usage-heatmap#toggle" data-q="{{ owner.displayName }} {{ owner.ownerEmail }}">
                                     <th scope="row" class="hm-name">
-                                        <span class="u-who"><span class="av" aria-hidden="true">{{ adm.person_initials(null, owner.ownerEmail) }}</span>
-                                            <span class="who"><b>{{ owner.ownerEmail }}</b><span>{{ owner.projects|length }} {{ owner.projects|length == 1 ? 'projekt' : (owner.projects|length < 5 ? 'projekty' : 'projektů') }}</span></span></span>
+                                        <button type="button" class="hm-tg" aria-expanded="false" aria-controls="hm-p-{{ owner.ownerId }}" title="{{ owner.ownerEmail }}">
+                                            {{ icon('chev-right', 's14 hm-chev') }}
+                                            <span class="u-who"><span class="av" aria-hidden="true">{{ adm.person_initials(owner.ownerName, owner.ownerEmail) }}</span>
+                                                <span class="who">
+                                                    <span class="hm-nl"><b>{{ owner.displayName }}</b><span class="count" title="{{ projects_label }}" aria-hidden="true">{{ n_projects }}</span><span class="visually-hidden">, {{ projects_label }}</span></span>
+                                                    {% if owner.ownerName %}<span class="hm-em">{{ owner.ownerEmail }}</span>{% endif %}
+                                                </span></span>
+                                        </button>
                                     </th>
                                     {% for month in usage.months %}
-                                        {% set v = owner.templatesInMonth(month) %}
-                                        <td class="hm-c lv{{ st.level(v, owner_max) }}{{ month == now_month and v > 0 ? ' now' }}" title="{{ owner.downloadsInMonth(month) }} stažení"><span>{{ v ?: '' }}</span></td>
+                                        {% set t = owner.templatesInMonth(month) %}{% set d = owner.downloadsInMonth(month) %}
+                                        <td class="hm-c{{ d == 0 ? ' lv0' }}{{ month == now_month and d > 0 ? ' now' }}" data-ld="{{ st.level(d, owner_max_d) }}" data-lt="{{ st.level(t, owner_max_t) }}" title="{{ d }} stažení · {{ t }} {{ st.plural(t, 'šablona', 'šablony', 'šablon') }}">
+                                            {%- if d > 0 %}<span data-only="downloads">{{ d }}</span><span data-only="templates">{{ t }}</span>{% endif -%}
+                                        </td>
                                     {% endfor %}
                                     <td class="hm-num"><b>{{ owner.uniqueTemplates }}</b></td>
                                     <td class="hm-num">{{ owner.uniqueVariants }}</td>
                                     <td class="hm-num">{{ owner.downloads }}</td>
                                 </tr>
+                            </tbody>
+                            <tbody class="hm-ps" id="hm-p-{{ owner.ownerId }}" data-usage-heatmap-target="projects" data-owner="{{ owner.ownerId }}" hidden>
                                 {% for project in owner.projects %}
-                                    <tr class="hm-us">
+                                    <tr class="hm-us" data-q="{{ project.projectName }}">
                                         <th scope="row" class="hm-name"><span class="u-who">{{ icon('folder', 's14') }}<span class="who"><b>{{ project.projectName }}</b></span></span></th>
                                         {% for month in usage.months %}
-                                            {% set v = project.templatesInMonth(month) %}
-                                            <td class="hm-c lv{{ st.level(v, hm_max) }}{{ month == now_month and v > 0 ? ' now' }}" title="{{ project.downloadsInMonth(month) }} stažení"><span>{{ v ?: '' }}</span></td>
+                                            {% set t = project.templatesInMonth(month) %}{% set d = project.downloadsInMonth(month) %}
+                                            <td class="hm-c{{ d == 0 ? ' lv0' }}{{ month == now_month and d > 0 ? ' now' }}" data-ld="{{ st.level(d, hm_max_d) }}" data-lt="{{ st.level(t, hm_max_t) }}" title="{{ d }} stažení · {{ t }} {{ st.plural(t, 'šablona', 'šablony', 'šablon') }}">
+                                                {%- if d > 0 %}<span data-only="downloads">{{ d }}</span><span data-only="templates">{{ t }}</span>{% endif -%}
+                                            </td>
                                         {% endfor %}
                                         <td class="hm-num">{{ project.uniqueTemplates }}</td>
                                         <td class="hm-num">{{ project.uniqueVariants }}</td>
@@ -165,6 +203,12 @@
                             </tbody>
                         {% endfor %}
                     </table>
+                </div>
+                <div class="empty hm-none" data-usage-heatmap-target="none" hidden>
+                    <span class="ico-c">{{ icon('search') }}</span>
+                    <h2>Nic nenalezeno</h2>
+                    <p>Žádný klient ani projekt neodpovídá „<span data-usage-heatmap-target="query"></span>“.</p>
+                    <button type="button" class="btn btn-tertiary sm" data-action="usage-heatmap#clearSearch">Zrušit hledání</button>
                 </div>
             </div>
         {% endif %}

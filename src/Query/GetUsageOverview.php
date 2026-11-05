@@ -44,19 +44,23 @@ readonly final class GetUsageOverview
         SQL;
 
         // Group only by id and take the latest label so a renamed project /
-        // changed e-mail does not split one entity into two report rows.
+        // changed e-mail does not split one entity into two report rows. The
+        // owner's display name comes from the live user row (presentation only;
+        // NULL when the account has no name or no longer exists).
         $totalsSql = <<<SQL
             SELECT
-              owner_id,
-              (array_agg(owner_email ORDER BY exported_at DESC))[1] AS owner_email,
-              project_id,
-              (array_agg(project_name ORDER BY exported_at DESC))[1] AS project_name,
-              COUNT(DISTINCT template_id) AS unique_templates,
-              COUNT(DISTINCT variant_id) AS unique_variants,
+              e.owner_id,
+              (array_agg(e.owner_email ORDER BY e.exported_at DESC))[1] AS owner_email,
+              MAX(u.name) AS owner_name,
+              e.project_id,
+              (array_agg(e.project_name ORDER BY e.exported_at DESC))[1] AS project_name,
+              COUNT(DISTINCT e.template_id) AS unique_templates,
+              COUNT(DISTINCT e.variant_id) AS unique_variants,
               COUNT(*) AS downloads,
-              MAX(exported_at) AS last_export
-            FROM export_event
-            GROUP BY owner_id, project_id
+              MAX(e.exported_at) AS last_export
+            FROM export_event e
+            LEFT JOIN "user" u ON u.id = e.owner_id
+            GROUP BY e.owner_id, e.project_id
         SQL;
 
         $monthlyRows = $connection->executeQuery($monthlySql)->fetchAllAssociative();
@@ -81,9 +85,10 @@ readonly final class GetUsageOverview
         $months = array_keys($monthsSet);
         sort($months); // 'YYYY-MM' sorts chronologically as a string
 
-        // owner_id => list<UsageProjectRow>, plus the owner's e-mail label.
+        // owner_id => list<UsageProjectRow>, plus the owner's e-mail / name labels.
         $projectsByOwner = [];
         $ownerEmails = [];
+        $ownerNames = [];
 
         foreach ($totalsRows as $row) {
             $ownerId = $this->asString($row['owner_id']);
@@ -99,6 +104,8 @@ readonly final class GetUsageOverview
                 $monthlyByProject[$projectId] ?? [],
             );
             $ownerEmails[$ownerId] = $this->asString($row['owner_email']);
+            $ownerName = is_string($row['owner_name']) ? trim($row['owner_name']) : '';
+            $ownerNames[$ownerId] = $ownerName !== '' ? $ownerName : null;
         }
 
         $owners = [];
@@ -132,6 +139,7 @@ readonly final class GetUsageOverview
             $owners[] = new UsageOwnerRow(
                 (string) $ownerId,
                 $ownerEmails[(string) $ownerId],
+                $ownerNames[(string) $ownerId] ?? null,
                 $ownerUniqueTemplates,
                 $ownerUniqueVariants,
                 $ownerDownloads,
