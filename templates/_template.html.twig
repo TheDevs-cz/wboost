@@ -107,7 +107,7 @@
 
     {% if labels is not empty or grouped %}
         <div class="tp-vars" aria-label="Formáty: {{ labels|join(', ') }}">
-            {% if grouped %}<span class="tp-var tp-var-sync" title="Synchronizovaná šablona — {{ template.group.name }}">{{ icon('refresh', 's12') }}Synchronizováno</span>{% endif %}
+            {% if grouped %}<span class="tp-var tp-var-sync" title="Šablona ve více formátech — formáty se upravují společně ({{ template.group.name }})" role="img" aria-label="Šablona ve více formátech">{{ icon('layers', 's12') }}</span>{% endif %}
             {% for label in labels %}<span class="tp-var">{{ label }}</span>{% endfor %}
         </div>
     {% endif %}
