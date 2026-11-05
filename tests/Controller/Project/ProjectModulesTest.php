@@ -61,7 +61,7 @@ final class ProjectModulesTest extends WebTestCase
         $items = $crawler->filter('.sb nav[aria-label="Moduly projektu"] > a.nav-i:not(.side-nav-discover)')->each(
             static fn (Crawler $node): string => trim($node->text()),
         );
-        self::assertSame(['Přehled', 'Manuály', 'Šablony', 'Galerie', 'Fonty', 'E-maily', 'Jídelníčky', 'Facebook a Instagram'], $items);
+        self::assertSame(['Přehled', 'Manuály', 'Šablony', 'Galerie', 'Fonty', 'Paleta barev', 'E-maily', 'Jídelníčky', 'Facebook a Instagram'], $items);
         self::assertSelectorNotExists('.sb nav[aria-label="Propojení"] [title="Facebook a Instagram"]');
         // User 1 has Facebook connected → the item leads to the profile.
         self::assertSelectorExists('.sb nav[aria-label="Moduly projektu"] a[title="Facebook a Instagram"][href="/user-profile"]');

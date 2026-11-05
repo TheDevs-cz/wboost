@@ -78,8 +78,11 @@
                     {{ icon('font') }}<span class="nm hide-c">Fonty</span>
                 </a>
 
-                {# Slot: "Paleta barev" (project-level colour palette, F7) goes
-                   here, between Fonty and E-maily — planned separately. #}
+                {# Paleta barev (F7 P2) — like Fonty, always shown (not a module);
+                   read-only for members without project_edit. #}
+                <a href="{{ path('project_palette', {'id': nav_project.id}) }}" class="nav-i" title="Paleta barev" aria-current="{{ project_active == 'palette' ? 'page' : 'false' }}">
+                    {{ icon('palette') }}<span class="nm hide-c">Paleta barev</span>
+                </a>
 
                 {% if nav_project.hasModule(project_module.EmailSignatures) %}
                     <a href="{{ path('email_signature_templates', {'id': nav_project.id}) }}" class="nav-i" title="E-maily" aria-current="{{ project_active == 'emails' ? 'page' : 'false' }}">

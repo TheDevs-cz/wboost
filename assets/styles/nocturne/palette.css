@@ -1,0 +1,55 @@
+/* =============================================================================
+   Nocturne — Paleta barev (F7 P2, `project_palette.html.twig`).
+   The colour card kit (.pal-strip, .pal-group, .pal-card, .pal-sw, .pal-f,
+   .pal-cmyk, .pal-calc …) lives in manual.css, shared with the manual colours
+   page; this file adds the project palette page on top: locked HEX, Název,
+   "Použito v:" chips, flash, mirror, and the read-only client view
+   (design-system §8 / prototype body[data-as="user"] .pal-*).
+   ========================================================================== */
+
+.pal-add { display: contents; }
+
+/* HEX the logo decides: dashed read-only box + lock */
+.pal-hex-ro.locked { gap: 6px; justify-content: space-between; color: var(--text); cursor: help; }
+.pal-hex-ro.locked .i { color: var(--subtle); }
+
+/* Název spans both columns above Pantone / RAL */
+.pal-row3 .pal-f.name { grid-column: 1 / -1; }
+
+/* "Použito v:" — manual chips (logo mark when the logo carries it) or Nepoužitá */
+.pal-use { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.pal-use .cap { margin-right: 2px; }
+.pal-use .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pal-use .pill .i { color: var(--subtle); }
+.pal-unused { background: transparent; border: 1px dashed var(--line-3); color: var(--subtle); }
+
+/* Strip: HEX labels hidden in the slim editor strip, shown in the client one */
+.pal-strip b { display: none; }
+
+/* Reorder: dragged clone + the card just added */
+.pal-card.gu-mirror { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow), var(--shadow-3); }
+.pal-card.flash { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); transition: border-color .8s var(--ease), box-shadow .8s var(--ease); }
+.pal-card .dropdown-menu { min-width: 200px; }
+
+.pal-note[hidden] { display: none; }
+.pal-del-l { margin: 0 0 12px; padding-left: 20px; }
+.pal-del-l li { font-weight: 600; }
+
+/* ---- Read-only (members without project_edit — §692) ---------------------- */
+.pal-page.is-readonly .pal-f .form-control:disabled,
+.pal-page.is-readonly .pal-f .form-select:disabled { color: var(--text); -webkit-text-fill-color: var(--text); opacity: 1; cursor: default; }
+.pal-page.is-readonly .pal-f .form-select:disabled { background-image: none; padding-right: 10px; }
+.pal-page.is-readonly .pal-f .form-control.ro-miss { border: 1px dashed color-mix(in oklab, var(--pch-ink) 60%, transparent); }
+.pal-page.is-readonly .pal-sw .pal-src { opacity: .8; }
+/* the toolbar becomes one full-width strip with the HEX in each colour */
+.pal-page.is-readonly .pal-nav { background: none; border: 0; padding: 0; }
+.pal-page.is-readonly .pal-strip { flex: 1 1 100%; max-width: none; height: 44px; border-radius: 14px; }
+.pal-page.is-readonly .pal-strip span { display: flex; align-items: center; justify-content: flex-start; padding: 0 12px; color: #fff; }
+.pal-page.is-readonly .pal-strip span.is-light { color: #141218; }
+.pal-page.is-readonly .pal-strip b { display: block; font-size: 13px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 560px) {
+    .pal-page.is-readonly .pal-strip { height: 36px; }
+    .pal-page.is-readonly .pal-strip span { padding: 0 6px; justify-content: center; }
+    .pal-page.is-readonly .pal-strip b { font-size: 10px; }
+}

@@ -122,7 +122,7 @@ JSONB columns `manual.detected_colors` / `custom_colors` are a MIRROR kept for R
 - `project_color` (`ProjectColor`): one palette colour — `hex` (literal, no `#`),
   `hex_key` (normalised `#rrggbb`, the dedupe key; indexed with `project_id`),
   `role` (D2: ONE role per project colour, `ManualColorType`), `cmyk` (jsonb tuple),
-  `pantone`, `ral`, `name` (unused until P2), `position` (palette order). Project
+  `pantone`, `ral`, `name` ("Název", edited on Paleta barev since P2), `position` (palette order). Project
   CASCADE.
 - `manual_palette_color` (`ManualPaletteColor`): a manual's use of one, `position` =
   the manual's colour order (logo segment first, then added colours = what `color(n)`
@@ -134,7 +134,7 @@ JSONB columns `manual.detected_colors` / `custom_colors` are a MIRROR kept for R
   in trigger-NAME order (OID digits compared as text), and NO ACTION is checked right
   after the cascaded palette delete, while the links still exist (the test DB had that
   order; prod's depends on its OIDs). Deleting a palette colour manuals still use is
-  guarded in the app (P2).
+  guarded in the app (P2, see "Paleta barev page" below).
 
 **Read model (R2).** `Manual::$paletteLinks` (OneToMany, `fetch: EAGER` = one batch
 query per hydration, palette colour EAGER-joined — no N+1 on listings / avatars, no
@@ -201,6 +201,58 @@ is the newer truth) and then re-mirrors the project; on the first R2 deploy that
 what turns the owner-accepted differences into a mirror. Run it after every deploy
 that overlapped with R1 code. No path columns — `BuildStorageReferenceIndex` is
 unaffected.
+
+### Paleta barev page — editing the palette itself (F7 P2, 2026-11-05)
+
+`/project/{id}/paleta` (`project_palette`, `Controller/Palette/`, template
+`project_palette.html.twig`, `project_palette_controller.js`, CSS
+`nocturne/palette.css` on top of the `.pal-*` kit in `manual.css`). Lists
+**every** palette colour (`ProjectColorRepository::forProject()`, unlinked ones
+as "Nepoužitá") in two groups: **Z logotypu** (≥1 LOGO link — HEX locked, lock
+icon, title "HEX určuje logotyp") and **Přidané barvy**; palette order inside
+each. "Použito v:" chips = `GetProjectPaletteUsage` (one row per manual, logo
+mark when its link is a logo link). VIEW to see; `project_edit` to change.
+
+- **Autosave per field**: `project_palette_color_edit` (`/paleta/barva/{id}`,
+  POST `field` = hex|name|role|cmyk|pantone|ral + `value` / `cmyk[]`, CSRF
+  `project_palette`) → `EditProjectColor` → `ProjectPaletteWriter::editColor()`;
+  answers the stored colour as JSON, the page toasts "Uloženo". The JS queues
+  requests one at a time. Input normalisation = `PaletteColorInput` (HEX 3/6
+  digits without `#`, case kept; blank = null; CMYK four free strings ≤ 10
+  chars, all blank = null — the same shape the backfill writes).
+- **One edit, every linked manual (option C).** A role change moves the colour
+  between the primary / secondary pages of EVERY manual linking it (D2);
+  print data and an added colour's HEX are what they all print. The writer
+  locks the project row, updates `project_color`, then
+  `ManualPaletteWriter::mirrorProject()` (R2 mirror contract — skipped for a
+  name-only edit, the name is not in the read model) and `refreshManaged()`.
+- **Reorder** (`project_palette_sort`, JSON `{sorted, _token}`; drag via
+  SortableJS forceFallback on `.pal-grip`, or ⋯ Posunout výš / níž) permutes
+  the given colours **among the positions they already hold** — a group's drag
+  never moves the other group's colours in the palette order (D5: templates,
+  print, API). Manual colour order (`color(n)`) is untouched.
+- **Přidat barvu** (`project_palette_add`, form POST) appends an unlinked
+  colour with a starter HEX and redirects to `?nova=<id>#pal-<id>` (card
+  flashed, HEX selected). Unlinked ⇒ not a template swatch yet
+  (`GetProjectPalette` is linked-only) — P3 lets manuals pick it.
+- **Delete guard** (`project_palette_color_delete`, per-card Bootstrap modal):
+  any LOGO link → refused ("změní se až s novým logem", `ProjectColorInLogo`);
+  added to manuals → the dialog lists them and posts `removeFromManuals=1`
+  ("Odebrat z manuálů a smazat"; their links go, later colours move up a place,
+  mirror rewritten); unused → plain confirm. Template allowlists keep their HEX
+  snapshots (D4).
+- **Read-only members** (§692): `.pal-page.is-readonly`, disabled fields, empty
+  print fields dashed peach (`.ro-miss`), strip with HEX labels instead of the
+  toolbar, no add / menu / grip, `.alert.c-warning` "Některé hodnoty u barev
+  nejsou specifikované … Požádejte grafika o doplnění".
+- **Overview + cards**: dashboard "Barevná paleta" chips = first 12 palette
+  colours, pencil (edit) / eye (view) → the page; `GetProjectCardFacts`
+  `has_palette` = `EXISTS project_color`. `app:palette:snapshot` (v2) mirrors
+  both and adds a `palette` list per project.
+- The old per-manual colours page (`manual_colors`) still writes through
+  `ManualPaletteWriter` until P3, so both pages read and write the same rows.
+- Pinned by `tests/Controller/Palette/ProjectPaletteControllerTest.php` and
+  `tests/MessageHandler/Palette/ProjectPaletteHandlersTest.php`.
 
 ### Manual fonts — edited on the project Fonty page (F8, 2026-11-05)
 

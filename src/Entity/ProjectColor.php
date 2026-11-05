@@ -85,6 +85,21 @@ class ProjectColor
     ) {
     }
 
+    /**
+     * RGB of the HEX (3-digit HEX expanded) — the "RGB r, g, b" caption of
+     * the Paleta barev card; null for a literal that is not a HEX.
+     *
+     * @return null|array{int, int, int}
+     */
+    public function rgb(): null|array
+    {
+        if (preg_match('/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/', $this->hexKey, $channels) !== 1) {
+            return null;
+        }
+
+        return [(int) hexdec($channels[1]), (int) hexdec($channels[2]), (int) hexdec($channels[3])];
+    }
+
     /** The palette colour as a swatch / print entry (palette HEX spelling). */
     public function manualColor(): ManualColor
     {

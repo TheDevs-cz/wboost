@@ -15,6 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Repository\ProjectColorRepository;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Value\FileSource;
 
@@ -28,6 +29,7 @@ final class ProjectDashboardController extends AbstractController
         readonly private GetEmailSignatureTemplates $getEmailSignatureTemplates,
         readonly private GetWeeklyMenus $getWeeklyMenus,
         readonly private FileUploadRepository $fileUploadRepository,
+        readonly private ProjectColorRepository $projectColorRepository,
     ) {
     }
 
@@ -41,6 +43,8 @@ final class ProjectDashboardController extends AbstractController
         return $this->render('project_dashboard.html.twig', [
             'project' => $project,
             'manuals' => $this->getManuals->allForProject($project->id),
+            // "Barevná paleta" chips (F7 P2): the project palette, palette order.
+            'palette_colors' => $this->projectColorRepository->forProject($project->id),
             'fonts' => $this->getFonts->allForProject($project->id),
             // Templates referencing a font no project face satisfies — the
             // Fonty card wears a warning badge instead of its count.

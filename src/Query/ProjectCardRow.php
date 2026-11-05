@@ -13,7 +13,7 @@ readonly final class ProjectCardRow
 {
     public function __construct(
         public int $manualsCount,
-        /** Any manual of the project has a colour (detected from a logo or custom). */
+        /** The project palette (Paleta barev, F7) has at least one colour. */
         public bool $hasPalette,
         public int $fontsCount,
     ) {

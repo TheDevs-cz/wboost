@@ -10,7 +10,8 @@ use WBoost\Web\Entity\Project;
 
 /**
  * One batched query for the projects dashboard cards (no per-card N+1):
- * manual count, "has a palette" and font count per project.
+ * manual count, "has a palette" (F7 P2: any colour on Paleta barev — the
+ * project palette, linked to a manual or not) and font count per project.
  */
 readonly final class GetProjectCardFacts
 {
@@ -39,12 +40,7 @@ readonly final class GetProjectCardFacts
             <<<'SQL'
                 SELECT p.id,
                        (SELECT COUNT(*) FROM manual m WHERE m.project_id = p.id) AS manuals,
-                       EXISTS (
-                           SELECT 1 FROM manual m
-                           WHERE m.project_id = p.id
-                             AND (m.custom_colors <> '[]'::jsonb
-                                  OR jsonb_path_exists(m.logo, '$.*.detectedColors[0]'))
-                       ) AS has_palette,
+                       EXISTS (SELECT 1 FROM project_color c WHERE c.project_id = p.id) AS has_palette,
                        (SELECT COUNT(*) FROM font f WHERE f.project_id = p.id) AS fonts
                 FROM project p
                 WHERE p.id IN (:ids)

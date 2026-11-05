@@ -125,9 +125,11 @@ webu, Statistiky),
   otevřené". Pinned by `ShellLastProjectTest`. The editors are project
   pages, so the rail is unaffected.
 - `.side-nav-discover` is kept on the "Objevte další moduly" item (tests).
-- **Project menu order** (F6, 2026-11-05): Přehled, Manuály, Šablony,
-  Galerie, Fonty, *(slot: Paleta barev, F7)*, E-maily, Jídelníčky (+ sub
-  items), **Facebook a Instagram** — always last (before only the "Objevte
+- **Project menu order** (F6, 2026-11-05; Paleta barev F7 P2): Přehled,
+  Manuály, Šablony, Galerie, Fonty, **Paleta barev** (`project_palette`,
+  `icon('palette')`, `active_menu_item = 'palette'`; like Fonty always shown,
+  not a module — read-only for members without `project_edit`), E-maily,
+  Jídelníčky (+ sub items), **Facebook a Instagram** — always last (before only the "Objevte
   další moduly" CTA), shown in EVERY project (no module key): links to
   `user_profile` when `facebook_connected()`, otherwise opens the fake-door
   modal `#social-publish-fake-door` (`_social_publish_fake_door.html.twig`,
@@ -172,8 +174,8 @@ A project lists its switched-on modules in `project.modules` (JSONB list of
 `ProjectModule` values: `manuals`, `templates`, `email_signatures`,
 `weekly_menus`, kept in enum order). The left navigation and the project
 dashboard render a module only when `project.hasModule(...)` — Twig reaches the
-enum via `enum('WBoost\\Web\\Value\\ProjectModule')`. **Galerie and Fonty are
-not modules** (other modules draw on them — always shown); **Kalendáře** isn't
+enum via `enum('WBoost\\Web\\Value\\ProjectModule')`. **Galerie, Fonty and
+Paleta barev are not modules** (other modules draw on them — always shown); **Kalendáře** isn't
 built yet, so it is gone from the nav/dashboard and only linked from the
 discover page (`calendars.html.twig` highlights the discover nav item).
 

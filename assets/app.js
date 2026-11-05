@@ -25,6 +25,7 @@ import './styles/nocturne/manual.css';
 import './styles/nocturne/manual-mockups.css';
 import './styles/nocturne/gallery.css';
 import './styles/nocturne/fonts.css';
+import './styles/nocturne/palette.css';
 import './styles/nocturne/templates.css';
 import './styles/nocturne/admin.css';
 import './styles/nocturne/email.css';

@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { cmykFromRgb, isLightRgb } from './palette_color_math.js';
 
 /**
  * One colour card on the manual palette page (detected and custom colours).
@@ -27,8 +28,7 @@ export default class extends Controller {
         this.colorDisplayTarget.style.backgroundColor = hex ? `#${hex}` : '';
         // Contrast-aware text on the swatch (source label, copy icon).
         if (rgb) {
-            const luminance = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
-            this.colorDisplayTarget.classList.toggle('is-light', luminance > 0.6);
+            this.colorDisplayTarget.classList.toggle('is-light', isLightRgb(rgb));
         }
         if (this.hasRgbTarget) {
             this.rgbTarget.textContent = rgb ? `RGB ${rgb.join(', ')}` : 'RGB —';
@@ -41,11 +41,7 @@ export default class extends Controller {
         const hex = this.hex();
         const rgb = hex ? this.toRgb(hex) : null;
         if (!rgb || !this.hasCmykTarget) return;
-        const [r, g, b] = rgb.map((value) => value / 255);
-        const k = 1 - Math.max(r, g, b);
-        const cmyk = k >= 1
-            ? [0, 0, 0, 100]
-            : [(1 - r - k) / (1 - k), (1 - g - k) / (1 - k), (1 - b - k) / (1 - k), k].map((value) => Math.round(value * 100));
+        const cmyk = cmykFromRgb(rgb);
         this.cmykTargets.forEach((field, index) => {
             field.value = String(cmyk[index] ?? '');
             field.dispatchEvent(new Event('input', { bubbles: true }));

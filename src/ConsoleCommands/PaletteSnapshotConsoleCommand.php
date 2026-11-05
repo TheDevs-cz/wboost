@@ -13,9 +13,13 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\ProjectColor;
 use WBoost\Web\Query\GetManuals;
 use WBoost\Web\Query\GetProjectAvatars;
 use WBoost\Web\Query\GetProjectCardFacts;
+use WBoost\Web\Query\GetProjectPaletteUsage;
+use WBoost\Web\Query\PaletteColorUsageRow;
+use WBoost\Web\Repository\ProjectColorRepository;
 use WBoost\Web\Services\Print\BrandCmykPalette;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Value\LogoColorVariant;
@@ -29,7 +33,8 @@ use WBoost\Web\Value\ManualColor;
  *
  * It goes ONLY through the public read model — `Manual`'s colour methods,
  * `GetManuals`, `ResolveRichTextOptions`, `BrandCmykPalette`,
- * `GetProjectAvatars`, `GetProjectCardFacts` — so it keeps working when the
+ * `GetProjectAvatars`, `GetProjectCardFacts`, and since P2 the palette page's
+ * `ProjectColorRepository` + `GetProjectPaletteUsage` — so it keeps working when the
  * storage behind them changes. Output is deterministic (projects by id,
  * manuals in `allForProject` order, no timestamps of the run). Read-only.
  */
@@ -43,6 +48,8 @@ final class PaletteSnapshotConsoleCommand extends Command
         readonly private BrandCmykPalette $brandCmykPalette,
         readonly private GetProjectAvatars $getProjectAvatars,
         readonly private GetProjectCardFacts $getProjectCardFacts,
+        readonly private ProjectColorRepository $projectColorRepository,
+        readonly private GetProjectPaletteUsage $getProjectPaletteUsage,
     ) {
         parent::__construct();
     }
@@ -64,7 +71,7 @@ final class PaletteSnapshotConsoleCommand extends Command
         $avatars = $this->getProjectAvatars->forProjects($projects);
         $facts = $this->getProjectCardFacts->forProjects($projects);
 
-        $snapshot = ['snapshot' => 'app:palette:snapshot', 'version' => 1, 'projects' => []];
+        $snapshot = ['snapshot' => 'app:palette:snapshot', 'version' => 2, 'projects' => []];
         $manualCount = 0;
         $errorCount = 0;
 
@@ -103,7 +110,8 @@ final class PaletteSnapshotConsoleCommand extends Command
                 ],
                 'computeColors' => self::attempt(fn (): array => $this->resolveRichTextOptions->forProject($project->id)->colors, $errorCount),
                 'brandCmykPalette' => $cmyk,
-                'overviewChips' => self::attempt(static fn (): array => self::overviewChips($manuals), $errorCount),
+                'overviewChips' => self::attempt(fn (): array => $this->overviewChips($project), $errorCount),
+                'palette' => self::attempt(fn (): array => $this->palette($project), $errorCount),
                 'manuals' => $manualsOut,
             ];
         }
@@ -189,26 +197,45 @@ final class PaletteSnapshotConsoleCommand extends Command
     }
 
     /**
-     * The overview card chips (`project_dashboard.html.twig`): the first
-     * manual with colours, detected ++ custom, first 12.
+     * The overview card chips (`project_dashboard.html.twig`, since P2): the
+     * project palette, palette order, first 12.
      *
-     * @param array<Manual> $manuals
      * @return list<string>
      */
-    private static function overviewChips(array $manuals): array
+    private function overviewChips(Project $project): array
     {
-        foreach ($manuals as $manual) {
-            if ($manual->colorsCount() > 0) {
-                $chips = array_map(
-                    static fn (ManualColor $color): string => $color->color->hex,
-                    array_merge($manual->detectedColors(), self::customColors($manual)),
-                );
+        return array_slice(array_map(
+            static fn (ProjectColor $color): string => $color->hex,
+            $this->projectColorRepository->forProject($project->id),
+        ), 0, 12);
+    }
 
-                return array_slice(array_values($chips), 0, 12);
-            }
-        }
+    /**
+     * Every palette colour as the Paleta barev page shows it (P2): fields,
+     * palette position and the manuals using it — so a palette-only edit (an
+     * unlinked colour, a name) shows up in the diff too.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function palette(Project $project): array
+    {
+        $usage = $this->getProjectPaletteUsage->forProject($project->id);
 
-        return [];
+        return array_map(static fn (ProjectColor $color): array => [
+            'id' => $color->id->toString(),
+            'position' => $color->position,
+            'hex' => $color->hex,
+            'hexKey' => $color->hexKey,
+            'name' => $color->name,
+            'role' => $color->role?->value,
+            'cmyk' => $color->cmyk,
+            'pantone' => $color->pantone,
+            'ral' => $color->ral,
+            'usedIn' => array_map(
+                static fn (PaletteColorUsageRow $row): array => ['manual' => $row->manualName, 'fromLogo' => $row->fromLogo],
+                $usage[$color->id->toString()] ?? [],
+            ),
+        ], $this->projectColorRepository->forProject($project->id));
     }
 
     /**

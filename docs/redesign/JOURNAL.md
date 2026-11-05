@@ -1230,3 +1230,27 @@ gallery.css). The fill pickers (single, group, document) get the gallery's tile-
 sharing `wb-galsize` and following each other live; hidden on phones (`fill_gallery_controller`,
 fill.css). Puppeteer at 390/1440 both themes incl. reload. Not verified: the document fill
 picker (no local document with image slots; markup identical to the group picker).
+
+## Palette P2 — "Paleta barev" page (F7, 2026-11-05)
+
+New project page `/project/{id}/paleta` (`project_palette`), sidebar item after Fonty
+(always shown, `icon('palette')`, active `palette`; F6 slot comment removed). Every
+palette colour in "Z logotypu" / "Přidané barvy" `.pal-card`s (prototype renderPalette):
+swatch = copy HEX, HEX locked with a lock on logo colours, role select per PROJECT (D2),
+RGB, CMYK + "Dopočítat z HEX" (the conversion moved to `palette_color_math.js`, shared
+with the manual colours page), Název / Pantone / RAL, "Použito v:" manual chips or
+"Nepoužitá", ⋯ Kopírovat HEX / Posunout výš / níž / Smazat barvu, drag reorder
+(SortableJS forceFallback), "N barvám chybí CMYK" note. Autosave per field (JSON + CSRF,
+kit `.toasts` toast "Uloženo", requests queued) through `Message/Palette/*` →
+`ProjectPaletteWriter` (DBAL, project row locked, then `ManualPaletteWriter::mirrorProject`
+— the R2 JSONB mirror stays exact). Delete guard: logo colour blocked, added-to-manuals
+needs "Odebrat z manuálů a smazat", unused plain. Read-only members (§692): disabled
+fields, empty print values dashed peach, HEX strip instead of the toolbar, c-warning
+"Požádejte grafika o doplnění". Overview chips = palette (first 12) + pencil/eye link;
+`has_palette` = `EXISTS project_color`; `app:palette:snapshot` v2 (+ `palette` list).
+CSS `nocturne/palette.css` (kit stays in manual.css). Tests: `ProjectPaletteControllerTest`
+(14), `ProjectPaletteHandlersTest` (6), nav order in `ProjectModulesTest`. Puppeteer:
+Pantone / role / reorder (menu + drag) / add + delete / guard on the Čeladná prod copy,
+snapshot diffs = only the edited colour's manuals; data reverted, snapshot + palette
+tables byte-identical to before. Not verified: the client view in a browser (PHPUnit
+only), the Frýdlant palette interactively (screenshots only).

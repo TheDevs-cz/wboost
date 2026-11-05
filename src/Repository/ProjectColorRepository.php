@@ -7,6 +7,7 @@ namespace WBoost\Web\Repository;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\ProjectColor;
+use WBoost\Web\Exceptions\ProjectColorNotFound;
 
 /**
  * Project palette colours (F7) — ALL of them, linked or not (the P2 palette
@@ -38,6 +39,20 @@ readonly final class ProjectColorRepository
             ->getResult();
 
         return $colors;
+    }
+
+    /**
+     * @throws ProjectColorNotFound
+     */
+    public function get(UuidInterface $colorId): ProjectColor
+    {
+        $color = $this->entityManager->find(ProjectColor::class, $colorId);
+
+        if ($color instanceof ProjectColor) {
+            return $color;
+        }
+
+        throw new ProjectColorNotFound();
     }
 
     public function add(ProjectColor $color): void

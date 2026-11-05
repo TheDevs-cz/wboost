@@ -61,26 +61,26 @@
 
 {% block content %}
     {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
-    {% set color_manual = manuals|filter(manual => manual.colorsCount > 0)|first %}
     {% set can_edit_project = is_granted('project_edit', project) %}
 
     <div class="pd" data-controller="project-tiles">
-        {# Palette: the colours of the first manual that has any (detected from
-           the logo + custom). The pencil opens that manual's colour page. #}
+        {# Palette (F7 P2): the project palette — first 12 colours in palette
+           order, linked to a manual or not — and a link to Paleta barev:
+           pencil for editors, eye for read-only members (design-system §8). #}
         <section class="pd-pal" aria-label="Barevná paleta">
             <span class="lbl">Barevná paleta</span>
-            {% if color_manual %}
-                <div class="swatches">
-                    {% for manual_color in (color_manual.detectedColors|merge(color_manual.customColors))|slice(0, 12) %}
-                        <span class="pd-sw"><i style="background: #{{ manual_color.color.hex }}"></i>#{{ manual_color.color.hex|upper }}</span>
-                    {% endfor %}
-                    {% if is_granted('manual_edit', color_manual) %}
-                        <a class="pd-pall" href="{{ path('manual_colors', {'id': color_manual.id}) }}" aria-label="Upravit paletu barev" title="Upravit paletu">{{ icon('edit', 's16') }}</a>
-                    {% endif %}
-                </div>
-            {% else %}
-                <span class="miss">{{ icon('info', 's14') }}Chybí barevná paleta</span>
-            {% endif %}
+            <div class="swatches">
+                {% for palette_color in palette_colors|slice(0, 12) %}
+                    <span class="pd-sw"><i style="background: #{{ palette_color.hex }}"></i>#{{ palette_color.hex|upper }}</span>
+                {% else %}
+                    <span class="miss">{{ icon('info', 's14') }}Chybí barevná paleta</span>
+                {% endfor %}
+                {% if can_edit_project %}
+                    <a class="pd-pall" href="{{ path('project_palette', {'id': project.id}) }}" aria-label="Upravit paletu barev" title="Upravit paletu">{{ icon('edit', 's16') }}</a>
+                {% elseif palette_colors is not empty %}
+                    <a class="pd-pall" href="{{ path('project_palette', {'id': project.id}) }}" aria-label="Zobrazit paletu barev" title="Zobrazit paletu">{{ icon('eye', 's16') }}</a>
+                {% endif %}
+            </div>
         </section>
 
         {# Module tiles — one per left-nav item: the project's switched-on

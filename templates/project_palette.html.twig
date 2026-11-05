@@ -1,0 +1,245 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Paleta barev{% endblock %}
+{% set active_menu_item = 'palette' %}
+
+{#
+    Paleta barev (F7 P2, palette-plan.md §4, prototype renderPalette /
+    design-system §3.15 colour card, §8 client view). Every palette colour
+    of the project in two groups — "Z logotypu" (a manual's logo carries it:
+    HEX locked) and "Přidané barvy" — palette order inside each.
+    Editors autosave every field (project_palette_controller.js → JSON +
+    CSRF → toast "Uloženo"); the edit reaches every manual that links the
+    colour. Read-only members (§692): disabled fields, empty ones dashed
+    peach, the strip shows the HEX, no add / menu / drag.
+#}
+
+{% set can_edit = is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
+{% set no_cmyk = colors|filter(c => c.cmyk is null)|length %}
+
+{% block page_lead %}Barvy značky pro manuály, šablony a tisk. {{ can_edit ? 'Změny se ukládají samy.' : 'Specifikuje je grafik.' }}{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% macro role_label(role) %}{{ role is null ? 'Bez role' : (role.value == 'primary' ? 'Primární' : 'Sekundární') }}{% endmacro %}
+
+{% macro field(label, field, value, can_edit, extra_class = '', placeholder = '', required_for_print = true) %}
+    <label class="pal-f{{ extra_class ? ' ' ~ extra_class }}">
+        <span>{{ label }}</span>
+        <input type="text" class="form-control{{ not can_edit and required_for_print and value is empty ? ' ro-miss' }}" value="{{ value }}" autocomplete="off" spellcheck="false" maxlength="100"
+               {% if can_edit %}placeholder="{{ placeholder }}" data-field="{{ field }}" data-action="change->project-palette#save keydown->project-palette#blurOnEnter"{% else %}disabled{% endif %}>
+    </label>
+{% endmacro %}
+
+{% macro card(color, uses, can_edit, is_new) %}
+    {% set rgb = color.rgb %}
+    {% set from_logo = uses|filter(u => u.fromLogo)|length > 0 %}
+    {% set logo_manuals = uses|filter(u => u.fromLogo)|map(u => u.manualName) %}
+    {% set added_manuals = uses|filter(u => not u.fromLogo)|map(u => u.manualName) %}
+    {% set light = rgb ? ((0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255) > 0.6 : false %}
+    {% set cmyk = color.cmyk ?? [null, null, null, null] %}
+    <article class="pal-card{{ color.cmyk is null ? ' is-cmyk-missing' }}{{ is_new ? ' flash' }}" id="pal-{{ color.id }}"
+             data-project-palette-target="card"
+             data-color-id="{{ color.id }}"
+             data-hex="{{ color.hex }}"
+             {% if can_edit %}data-url="{{ path('project_palette_color_edit', {'colorId': color.id}) }}"{% endif %}>
+        <button type="button" class="pal-sw{{ light ? ' is-light' }}" style="background: #{{ color.hex }};" data-action="project-palette#copy" title="Kopírovat #{{ color.hex|upper }}" aria-label="Kopírovat HEX #{{ color.hex|upper }}">
+            <span class="pal-src">{{ from_logo ? 'Z logotypu' : 'Přidaná' }}</span>
+            {{ icon('copy', 's16') }}
+        </button>
+        <div class="pal-body">
+            <div class="pal-row1">
+                {% if from_logo or not can_edit %}
+                    <div class="pal-f hex">
+                        <span>HEX</span>
+                        <span class="pal-hex-ro{{ from_logo ? ' locked' }}" data-hex-label{% if from_logo %} title="HEX určuje logotyp"{% endif %}>#{{ color.hex|upper }}{% if from_logo %}{{ icon('lock', 's14') }}{% endif %}</span>
+                    </div>
+                {% else %}
+                    <label class="pal-f hex">
+                        <span>HEX</span>
+                        <input type="text" class="form-control" value="#{{ color.hex|upper }}" maxlength="7" autocomplete="off" spellcheck="false" aria-label="HEX"
+                               data-field="hex" data-action="input->project-palette#previewHex change->project-palette#save keydown->project-palette#blurOnEnter"{{ is_new ? ' autofocus' }}>
+                    </label>
+                {% endif %}
+                <label class="pal-f role" title="{{ uses is empty ? 'Role platí pro všechny manuály, které barvu použijí.' : 'Role platí pro všechny manuály s touto barvou: ' ~ uses|map(u => u.manualName)|join(', ') }}">
+                    <span>Role</span>
+                    <select class="form-select" aria-label="Role"{% if can_edit %} data-field="role" data-action="change->project-palette#save"{% else %} disabled{% endif %}>
+                        <option value="primary"{{ color.role and color.role.value == 'primary' ? ' selected' }}>Primární</option>
+                        <option value="secondary"{{ color.role and color.role.value == 'secondary' ? ' selected' }}>Sekundární</option>
+                        <option value=""{{ color.role is null ? ' selected' }}>Bez role</option>
+                    </select>
+                </label>
+                {% if can_edit %}
+                    <span class="pal-acts">
+                        <span class="pal-grip" title="Přetažením změníte pořadí" aria-hidden="true">{{ icon('grip', 's16') }}</span>
+                        <span class="dropdown">
+                            <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="menu" aria-label="Možnosti barvy #{{ color.hex|upper }}">{{ icon('more', 's16') }}</button>
+                            <span class="dropdown-menu dropdown-menu-end" role="menu">
+                                <button type="button" class="dropdown-item" role="menuitem" data-action="project-palette#copy">{{ icon('copy', 's16') }}Kopírovat HEX</button>
+                                <button type="button" class="dropdown-item" role="menuitem" data-action="project-palette#moveUp">{{ icon('arrow-up', 's16') }}Posunout výš</button>
+                                <button type="button" class="dropdown-item" role="menuitem" data-action="project-palette#moveDown">{{ icon('arrow-down', 's16') }}Posunout níž</button>
+                                <span class="dropdown-divider"></span>
+                                <button type="button" class="dropdown-item text-danger" role="menuitem" data-bs-toggle="modal" data-bs-target="#pal-del-{{ color.id }}">{{ icon('trash', 's16') }}Smazat barvu</button>
+                            </span>
+                        </span>
+                    </span>
+                {% endif %}
+            </div>
+            <span class="cap pal-rgb" data-rgb>{{ rgb ? 'RGB ' ~ rgb|join(', ') : 'RGB —' }}</span>
+            <div class="pal-cmyk" role="group" aria-label="CMYK">
+                {% for channel in ['C', 'M', 'Y', 'K'] %}
+                    <label class="pal-f">
+                        <span>{{ channel }}</span>
+                        <input type="text" class="form-control{{ not can_edit and cmyk[loop.index0] is empty ? ' ro-miss' }}" value="{{ cmyk[loop.index0] }}" inputmode="decimal" maxlength="10" autocomplete="off" aria-label="{{ channel }}"
+                               {% if can_edit %}data-cmyk data-action="change->project-palette#saveCmyk keydown->project-palette#blurOnEnter"{% else %}disabled{% endif %}>
+                    </label>
+                {% endfor %}
+                {% if can_edit %}
+                    <button type="button" class="btn btn-ghost xs pal-calc" data-action="project-palette#calcCmyk" title="Převod z HEX je jen orientační — pro tisk ho ověřte">Dopočítat z HEX</button>
+                {% endif %}
+            </div>
+            <div class="pal-row3">
+                {{ _self.field('Název', 'name', color.name, can_edit, 'name', 'např. Firemní modrá', false) }}
+                {{ _self.field('Pantone', 'pantone', color.pantone, can_edit, '', 'např. 534 C') }}
+                {{ _self.field('RAL', 'ral', color.ral, can_edit, '', 'např. RAL 5003') }}
+            </div>
+            <div class="pal-use">
+                <span class="cap">Použito v:</span>
+                {% for use in uses %}
+                    <span class="pill neutral" title="{{ use.fromLogo ? 'Z logotypu manuálu ' : 'Přidaná do manuálu ' }}{{ use.manualName }}">{% if use.fromLogo %}{{ icon('shape', 's12') }}{% endif %}{{ use.manualName }}</span>
+                {% else %}
+                    <span class="pill pal-unused" title="Žádný manuál barvu nepoužívá — šablony ji zatím nenabízejí">Nepoužitá</span>
+                {% endfor %}
+            </div>
+        </div>
+    </article>
+
+    {% if can_edit %}
+        {# Delete guard (plan §4): a logo colour is blocked, one manuals added
+           needs "Odebrat z manuálů a smazat", an unused one is a plain confirm. #}
+        <div class="modal fade" id="pal-del-{{ color.id }}" tabindex="-1" aria-hidden="true" aria-labelledby="pal-del-{{ color.id }}-h" role="alertdialog">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" method="post" action="{{ path('project_palette_color_delete', {'colorId': color.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('project_palette') }}">
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="pal-del-{{ color.id }}-h">{{ from_logo ? 'Barvu nelze smazat' : 'Smazat barvu #' ~ color.hex|upper ~ '?' }}</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                    </div>
+                    <div class="modal-body">
+                        {% if from_logo %}
+                            <p class="mb-0">Barva je v logotypu manuálu {{ logo_manuals|join(', ') }} — změní se až s novým logem.</p>
+                        {% elseif added_manuals is not empty %}
+                            <p>Barvu používá {{ added_manuals|length == 1 ? 'manuál' : 'tyto manuály' }}:</p>
+                            <ul class="pal-del-l">
+                                {% for name in added_manuals %}<li>{{ name }}</li>{% endfor %}
+                            </ul>
+                            <p class="cap mb-0">Z {{ added_manuals|length == 1 ? 'manuálu' : 'manuálů' }} se odebere i z palety. Šablony, které ji mají v omezení barev, ji zachovají.</p>
+                            <input type="hidden" name="removeFromManuals" value="1">
+                        {% else %}
+                            <p class="mb-0">Žádný manuál barvu nepoužívá, z palety se odebere. Šablony, které ji mají v omezení barev, ji zachovají.</p>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        {% if from_logo %}
+                            <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Rozumím</button>
+                        {% else %}
+                            <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zrušit</button>
+                            <button type="submit" class="btn btn-danger sm">{{ added_manuals is not empty ? 'Odebrat z manuálů a smazat' : 'Smazat barvu' }}</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% macro group(id, title, caption, colors, usage, can_edit, new_color_id, empty_text) %}
+    <section class="pal-group" aria-labelledby="{{ id }}-h">
+        <div class="pal-gh">
+            <h2 id="{{ id }}-h">{{ title }} <span class="pd-n">{{ colors|length }}</span></h2>
+            {% if caption %}<span class="cap">{{ caption }}</span>{% endif %}
+        </div>
+        {% if colors is empty %}
+            <p class="cap pal-none">{{ empty_text }}</p>
+        {% endif %}
+        <div class="pal-grid" data-project-palette-target="grid">
+            {% for color in colors %}
+                {{ _self.card(color, usage[color.id.toString()]|default([]), can_edit, new_color_id == color.id.toString()) }}
+            {% endfor %}
+        </div>
+    </section>
+{% endmacro %}
+
+{% block content %}
+    <div class="stack pal-page{{ can_edit ? '' : ' is-readonly' }}"
+         data-controller="project-palette"
+         {% if can_edit %}data-project-palette-sort-url-value="{{ path('project_palette_sort', {'id': project.id}) }}"
+         data-project-palette-csrf-value="{{ csrf_token('project_palette') }}"{% endif %}>
+
+        {% if can_edit or colors is not empty %}
+            <div class="gal-nav pal-nav" role="toolbar" aria-label="Paleta barev">
+                {% if can_edit %}
+                    <form method="post" action="{{ path('project_palette_add', {'id': project.id}) }}" class="pal-add">
+                        <input type="hidden" name="_token" value="{{ csrf_token('project_palette') }}">
+                        <button type="submit" class="btn btn-primary sm">{{ icon('plus', 's16') }}Přidat barvu</button>
+                    </form>
+                    <span class="gal-nav-sp" aria-hidden="true"></span>
+                {% endif %}
+                {% if colors is not empty %}
+                    <span class="pal-strip" aria-label="Náhled palety" data-project-palette-target="strip">
+                        {% for color in colors %}
+                            {% set rgb = color.rgb %}
+                            <span data-color-id="{{ color.id }}" class="{{ rgb and ((0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255) > 0.6 ? 'is-light' }}" style="background: #{{ color.hex }};" title="#{{ color.hex|upper }}{{ color.role ? ' · ' ~ _self.role_label(color.role) }}"><b>#{{ color.hex|upper }}</b></span>
+                        {% endfor %}
+                    </span>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if not can_edit %}
+            {% set missing = [
+                ['CMYK', no_cmyk],
+                ['Pantone', colors|filter(c => c.pantone is null)|length],
+                ['RAL', colors|filter(c => c.ral is null)|length],
+            ]|filter(m => m[1] > 0) %}
+            {% if colors is not empty and missing is not empty %}
+                <div class="alert c-warning" role="status">
+                    {{ icon('alert') }}
+                    <div>
+                        <div class="alert-t">Některé hodnoty u barev nejsou specifikované</div>
+                        <div class="alert-d">Chybí: {% for m in missing %}{{ m[0] }} u {{ m[1] }} {{ m[1] == 1 ? 'barvy' : 'barev' }}{{ not loop.last ? ', ' }}{% endfor %}. Požádejte grafika o doplnění, aby barvy seděly i v tisku.</div>
+                    </div>
+                </div>
+            {% endif %}
+        {% elseif no_cmyk > 0 %}
+            <div class="alert c-info pal-note" data-project-palette-target="cmykNote">
+                {{ icon('info') }}
+                <div class="alert-d"><span data-project-palette-target="cmykCount">{{ no_cmyk == 1 ? '1 barvě chybí' : no_cmyk ~ ' barvám chybí' }}</span> CMYK pro tisk. Doplňte ho, nebo ho dopočítejte z HEX (převod je orientační).</div>
+            </div>
+        {% endif %}
+
+        {% if colors is empty %}
+            <div class="empty">
+                <span class="ico-c">{{ icon('palette') }}</span>
+                <h2>Paleta je prázdná</h2>
+                <p>{% if can_edit %}Nahrajte logo do manuálu — barvy z něj se doplní samy — nebo přidejte barvu ručně.{% else %}Barvy značky specifikuje grafik.{% endif %}</p>
+                {% if can_edit %}
+                    <form method="post" action="{{ path('project_palette_add', {'id': project.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('project_palette') }}">
+                        <button type="submit" class="btn btn-tertiary sm">{{ icon('plus', 's16') }}Přidat barvu</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% else %}
+            {% if logo_colors is not empty %}
+                {{ _self.group('pal-logo', 'Z logotypu', 'Barvy z nahraných logotypů manuálů. HEX určuje logo; roli, tiskové hodnoty a název doplníte tady.', logo_colors, usage, can_edit, new_color_id, '') }}
+            {% endif %}
+            {{ _self.group('pal-added', 'Přidané barvy', 'Barvy, které v logu nejsou — doplňkové, textové, pozadí.', added_colors, usage, can_edit, new_color_id, can_edit ? 'Zatím žádné. Přidejte barvu tlačítkem Přidat barvu.' : 'Zatím žádné.') }}
+        {% endif %}
+    </div>
+{% endblock %}
