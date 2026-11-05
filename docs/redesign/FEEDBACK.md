@@ -11,6 +11,6 @@ Status: `open` · `wip` (agent working) · `done` (on main) ·
 | ID | Area | Feedback (short) | Status | Commit | Notes |
 |---|---|---|---|---|---|
 | F1 | Shell / projects | Project logos: no white plate, no padding — the bare logo fills the symbol box everywhere (cards, detail, sidebar, quick nav, admin). Monogram keeps the dark plate. | done | (this commit) | dark-on-transparent logos are now low-contrast in the dark theme (user's call) |
-| F2 | Projects | /projects: "Upravit" (card menu) and "Nový projekt" open the form in a modal like Sdílet, without leaving the page | wip | | subagent |
-| F3 | Project detail | Header: "Upravit projekt" → ⋯ menu (Upravit = F2 modal, Sdílet projekt); remove the "Naposledy přidané šablony" card; meta line keeps only "Založeno …" (drop users/templates/owner) | done | (this commit) | with F2; admin module-change history now only on the full /edit-project page |
+| F2 | Projects | /projects: "Upravit" (card menu) and "Nový projekt" open the form in a modal like Sdílet, without leaving the page | done | b6722ddd | one shared dialog (`_project_form_dialog`, `?modal=1` fragments); committed together with F3 (shared partial/JS/CSS) |
+| F3 | Project detail | Header: "Upravit projekt" → ⋯ menu (Upravit = F2 modal, Sdílet projekt); remove the "Naposledy přidané šablony" card; meta line keeps only "Založeno …" (drop users/templates/owner) | done | b6722ddd | with F2; admin module-change history now only on the full /edit-project page |
 | F4 | Templates list | All categories collapsed on load, only "Nejpoužívanější" open; drag & drop to reorder categories (Nejpoužívanější pinned first) — reuses existing SortTemplateCategories | wip | | subagent |
