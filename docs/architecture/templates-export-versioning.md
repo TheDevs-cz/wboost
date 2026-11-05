@@ -168,7 +168,8 @@ version.
   context — the flipped pin / relabelled row is the confirmation). The
   history page keeps plain forms + the redirect: the page IS the list.
   Listing surfaces read
-  `Query/GetExportVersions` (`latestForProjectTemplates` /
-  `latestForTemplateVariants`, Postgres DISTINCT ON): template cards show
-  "Naposledy exportováno", variant tiles add a "Načíst poslední export" menu
-  item.
+  `Query/GetExportVersions::latestForTemplateVariants` (Postgres DISTINCT
+  ON): variant tiles show "Naposledy exportováno" and add a "Načíst poslední
+  export" menu item. The template listing cards dropped that line on
+  2026-11-05 (feedback F22) — only "Nejpoužívanější" cards keep their
+  30-day export count.

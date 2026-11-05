@@ -35,7 +35,6 @@
 {% set first = variants|first %}
 {% set thumb = template.image ?: (first ? (first.previewImagePath ?: first.backgroundImage) : null) %}
 {% set labels = variants|map(v => v.dimension.label)|reduce((carry, label) => label in carry ? carry : carry|merge([label]), []) %}
-{% set last_export = last_exports[template.id.toString]|default(null) %}
 
 <li class="tp-card"{% if not top %} data-entity-id="{{ template.id }}"{% endif %} data-name="{{ template.name|lower }}">
     <div class="tp-h">
@@ -94,16 +93,9 @@
         <span class="tp-ph" aria-hidden="true">{{ icon('template') }}</span>
     </a>
 
-    <span class="cap tp-exp">
-        {{ icon('history', 's14') }}
-        {% if top %}
-            {{ uses }}× exportováno za 30 dní
-        {% elseif last_export %}
-            Naposledy exportováno {{ last_export.lastExportedAt|date('j. n. Y H:i') }}
-        {% else %}
-            Zatím neexportováno
-        {% endif %}
-    </span>
+    {% if top %}
+        <span class="cap tp-exp">{{ icon('history', 's14') }}{{ uses }}× exportováno za 30 dní</span>
+    {% endif %}
 
     {% if labels is not empty or grouped %}
         <div class="tp-vars" aria-label="Formáty: {{ labels|join(', ') }}">

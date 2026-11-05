@@ -59,46 +59,6 @@ readonly final class GetExportVersions
     }
 
     /**
-     * The freshest EXPORTED version per template of one project — the listing
-     * cards' "naposledy exportováno" line (a saved draft is not an export).
-     * Keyed by template id (string).
-     *
-     * @return array<string, array{versionId: string, variantId: null|string, groupId: null|string, lastExportedAt: DateTimeImmutable}>
-     */
-    public function latestForProjectTemplates(UuidInterface $projectId): array
-    {
-        $sql = <<<SQL
-            SELECT DISTINCT ON (version.template_id)
-              version.template_id,
-              version.id,
-              version.variant_id,
-              version.group_id,
-              version.last_exported_at
-            FROM template_export_version version
-            JOIN template ON template.id = version.template_id
-            WHERE template.project_id = :projectId AND NOT version.draft
-            ORDER BY version.template_id, version.last_exported_at DESC
-        SQL;
-
-        /** @var list<array{template_id: string, id: string, variant_id: null|string, group_id: null|string, last_exported_at: string}> $rows */
-        $rows = $this->entityManager->getConnection()
-            ->fetchAllAssociative($sql, ['projectId' => $projectId->toString()]);
-
-        $latest = [];
-
-        foreach ($rows as $row) {
-            $latest[$row['template_id']] = [
-                'versionId' => $row['id'],
-                'variantId' => $row['variant_id'],
-                'groupId' => $row['group_id'],
-                'lastExportedAt' => new DateTimeImmutable($row['last_exported_at']),
-            ];
-        }
-
-        return $latest;
-    }
-
-    /**
      * The freshest EXPORTED version per VARIANT of one template — the variant listing's
      * per-row "naposledy exportováno" link. Keyed by variant id (string).
      *

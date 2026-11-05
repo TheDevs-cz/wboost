@@ -31,3 +31,4 @@ Status: `open` · `wip` (agent working) · `done` (on main) ·
 | F19 | Template editor | Container popover ("Kontejner": Mezera mezi prvky / Mezera za kontejnerem / Max. výška) — titles unreadable: light popover background with dark-theme label colours | done | a7ffe077 | |
 | F20 | Editor gallery modal | "Vyberte obrázek" modal (editor) lacks the tile-size slider the standalone gallery has — add it | done | 61ee6f51 | subagent |
 | F21 | Gallery picker (phone) | At 390 px the picker toolbar's "Nová složka" button overflows; fill-page pickers (single/group/document) still have no size slider | done | 9ca367d5 | found by the F20 agent |
+| F22 | Templates listing | Drop the "Naposledy exportováno / Zatím neexportováno" line from the template cards (Nejpoužívanější keep the 30-day count) | done | (this commit) | orchestrator |

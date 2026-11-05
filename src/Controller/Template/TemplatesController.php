@@ -13,7 +13,6 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\TemplateCategory;
-use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Query\GetTemplateExportCounts;
 use WBoost\Web\Query\GetTemplateListing;
@@ -25,7 +24,6 @@ final class TemplatesController extends AbstractController
 {
     public function __construct(
         readonly private GetTemplateCategories $getTemplateCategories,
-        readonly private GetExportVersions $getExportVersions,
         readonly private GetTemplateListing $getTemplateListing,
         readonly private GetTemplateExportCounts $getTemplateExportCounts,
     ) {
@@ -57,9 +55,6 @@ final class TemplatesController extends AbstractController
             // this list, so hidden empty categories keep their place when
             // the full order goes to sort_template_categories.
             'category_order' => array_map(static fn (TemplateCategory $category): string => $category->id->toString(), $allCategories),
-            // templateId → latest export version summary, for the cards'
-            // "naposledy exportováno" line.
-            'last_exports' => $this->getExportVersions->latestForProjectTemplates($project->id),
             'top' => $this->mostUsed($project, $items),
         ]);
     }
