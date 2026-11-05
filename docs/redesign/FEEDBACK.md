@@ -14,3 +14,4 @@ Status: `open` · `wip` (agent working) · `done` (on main) ·
 | F2 | Projects | /projects: "Upravit" (card menu) and "Nový projekt" open the form in a modal like Sdílet, without leaving the page | done | b6722ddd | one shared dialog (`_project_form_dialog`, `?modal=1` fragments); committed together with F3 (shared partial/JS/CSS) |
 | F3 | Project detail | Header: "Upravit projekt" → ⋯ menu (Upravit = F2 modal, Sdílet projekt); remove the "Naposledy přidané šablony" card; meta line keeps only "Založeno …" (drop users/templates/owner) | done | b6722ddd | with F2; admin module-change history now only on the full /edit-project page |
 | F4 | Templates list | All categories collapsed on load, only "Nejpoužívanější" open; drag & drop to reorder categories (Nejpoužívanější pinned first) — reuses existing SortTemplateCategories | wip | | subagent |
+| F5 | Manuals list | Remove the logo colour circles from the manual cards | done | (this commit) | |

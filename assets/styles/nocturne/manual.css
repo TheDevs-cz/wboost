@@ -26,8 +26,6 @@
 .mn-name a:hover { color: var(--lav-ink); }
 .mn-acts { position: relative; z-index: 2; margin: -4px -6px 0 0; }
 .mn-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.mn-colors { display: flex; flex-wrap: wrap; gap: 6px; }
-.mn-colors .man-col { width: 22px; height: 22px; }
 
 /* ---- Section tabs ---------------------------------------------------------- */
 .man-tabs { overflow-x: auto; scrollbar-width: none; }

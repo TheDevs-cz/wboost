@@ -68,13 +68,6 @@
                             <span class="pill">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
                             <span class="cap">{{ manual.logo.imagesCount }} {{ manual.logo.imagesCount == 1 ? 'logotyp' : (manual.logo.imagesCount >= 2 and manual.logo.imagesCount <= 4 ? 'logotypy' : 'logotypů') }}</span>
                         </div>
-                        {% if manual.detectedColors %}
-                            <div class="mn-colors" aria-label="Barvy z loga">
-                                {% for detectedColor in manual.detectedColors %}
-                                    <span class="man-col" style="background: {{ '#' ~ detectedColor.color.hex }};" title="#{{ detectedColor.color.hex|upper }}"></span>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
                     </div>
                 </article>
 
