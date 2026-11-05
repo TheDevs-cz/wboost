@@ -57,6 +57,13 @@ readonly final class GetManuals
     }
 
     /**
+     * Oldest first, id as the tie-break (`created_at` has second precision).
+     * The order is load-bearing: the project-wide brand swatches
+     * (`ResolveRichTextOptions::computeColors`), the print CMYK "first manual
+     * wins" (`BrandCmykPalette`), the overview chips and the palette backfill
+     * all walk manuals in this order — without it Postgres returned heap
+     * order, which shifts whenever a manual row is updated.
+     *
      * @return array<Manual>
      */
     public function allForProject(UuidInterface $projectId): array
@@ -67,6 +74,8 @@ readonly final class GetManuals
             ->join('m.project', 'p')
             ->where('p.id = :projectId')
             ->setParameter('projectId', $projectId->toString())
+            ->orderBy('m.createdAt', 'ASC')
+            ->addOrderBy('m.id', 'ASC')
             ->getQuery()
             ->getResult();
     }

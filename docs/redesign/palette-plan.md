@@ -6,15 +6,16 @@ colours; manuals pick (and order) the project colours they use. Always in the pr
 Facebook a Instagram. Includes a prod data migration. Manual pages lose "Barevná paleta" (F8).
 
 **Bar:** for existing data the customer manual (`manual_preview`) renders byte-for-byte the
-same, logo recolouring is identical, and template swatches / print CMYK / API stay identical
-until someone edits the palette.
+same — **except the manuals the dry-run report lists under "role changes" (D2) and
+"custom HEX literal changes"** — logo recolouring is identical, and template swatches /
+print CMYK / API stay identical until someone edits the palette.
 
-Status: PLAN — decisions taken 2026-11-05 (§6). **D2 differs from the draft below: roles
-are PER PROJECT** (`role` lives on `project_color`, not on the link). Sections 1–4 still
-describe per-link roles; the P0 agent updates them. Consequence: manuals that disagree on a
-colour's role today will change — proposed migration rule: role = the one most manuals use,
-tie → primary > secondary > none; every manual whose primary/secondary pages would change is
-listed in the dry-run report for the owner to review BEFORE P1a ships.
+Status: decisions taken 2026-11-05 (§6); §1–§5 updated for **D2 = roles PER PROJECT**
+(`role` lives on `project_color`, not on the link). Consequence: manuals that disagree on a
+colour's role today change — migration rule: role = the one most manuals use, tie →
+primary > secondary > none; every manual whose primary/secondary pages would change is
+listed in the dry-run report (§2a) for the owner to review BEFORE P1a ships. **P0 done**
+(snapshot + planner dry run, §2a).
 
 ## 0. What exists today (verified)
 
@@ -54,10 +55,12 @@ project_color                         manual_palette_color
   project_id → project CASCADE          manual_id → manual CASCADE
   hex varchar   (as written, no '#')    project_color_id → project_color  (NO ACTION; app guard)
   hex_key varchar ('#rrggbb', indexed)  logo_hex varchar null  ← literal logo colour; non-null = "Z logotypu"
-  name varchar null   (new "Název")     role varchar null      ← primary|secondary, PER MANUAL
-  cmyk jsonb null  ([c,m,y,k] strings)  position int           ← order within the manual
-  pantone, ral varchar null             created_at
-  position int, created_at              UNIQUE (manual_id, logo_hex) WHERE logo_hex IS NOT NULL
+  name varchar null   (new "Název")     position int           ← order within the manual
+  role varchar null  ← primary|secondary, created_at
+                       PER PROJECT (D2)  UNIQUE (manual_id, logo_hex) WHERE logo_hex IS NOT NULL
+  cmyk jsonb null  ([c,m,y,k] strings)
+  pantone, ral varchar null
+  position int, created_at
 ```
 
 - FK to `project_color` uses NO ACTION (checked at statement end) — RESTRICT would break the
@@ -66,7 +69,11 @@ project_color                         manual_palette_color
   method; Twig `manual.customColors` still resolves), `color(n)`, `colorsCount()`,
   `primaryColors()`, `secondaryColors()`, all returning `ManualColor` VOs built from links:
   logo links (by position) use `new Color(logo_hex)`, custom links use `palette.hex`;
-  cmyk/pantone/ral from the palette; type = link role. `color(n)` = logo segment ++ custom segment.
+  cmyk/pantone/ral from the palette; **type = the palette colour's role** (one role per
+  project colour — every manual linking it shows it on the same page). `color(n)` = logo
+  segment ++ custom segment. `primaryColors()` / `secondaryColors()` = links in position
+  order filtered by the palette role (today they read the raw persisted list, stale
+  detected colours included — those drop, see the report).
 - **HEX of a palette colour is locked while any logo link references it** (today detected HEX
   is read-only too) — otherwise the FROM keys stop matching the SVG.
 - `name` renders in the manual swatch only when set (RAL precedent) → migrated output unchanged.
@@ -78,22 +85,62 @@ project_color                         manual_palette_color
 Pure planner `Services/Palette/PaletteBackfillPlanner` (arrays in → palette rows + link rows +
 report out; no entity dependency; marked FROZEN, used by the migration) + unit tests.
 
-Per project, manuals ordered `created_at, id`:
+Pure planner (implemented in P0: `src/Services/Palette/PaletteBackfillPlanner.php`, result
+`Value/PaletteProjectPlan`, tests `tests/Services/Palette/PaletteBackfillPlannerTest.php`).
+It reads the RAW columns (`manualFromStorage()` — DBAL, no hydration), so the migration can
+call it unchanged. Per project, manuals ordered `created_at, id`:
 1. Rebuild each manual's old lists exactly as today: detected = `detectedColors()` semantics
-   from `logo` + `detected_colors`; custom = `custom_colors`.
+   from `logo` + `detected_colors` (incl. its LOOSE `in_array`: logo `#000` is not appended
+   when `000000` is listed — numeric strings); custom = `custom_colors`.
 2. **Palette order** = the old `orderedManualColors` walk (all primaries, then secondaries,
-   then untyped) → `computeColors` and `BrandCmykPalette` produce identical output.
-3. **Dedupe (D1 strict):** key = (`hex_key`, trimmed cmyk tuple, pantone, ral). Identical →
-   one palette colour. Same `hex_key`, different print data (incl. empty vs filled) → separate
-   entries, flagged duplicate. Display `hex` = first occurrence's literal.
-4. **Links:** detected → logo links (`logo_hex` literal, role, position); custom → custom links.
-   Roles stay per link, so role conflicts can't happen.
+   then untyped) → `computeColors` and `BrandCmykPalette` produce identical output (the
+   planner asserts both and reports `parity_broken` otherwise). Typed stale detected colours
+   are in that walk (today's `primaryColors()` reads them), so they become palette colours
+   without a link.
+3. **Dedupe (D1 strict):** key = (`hex_key`, trimmed cmyk tuple, trimmed pantone, trimmed
+   ral; an all-null cmyk = null, like `ManualColor`). Identical → one palette colour. Same
+   `hex_key`, different print data (incl. empty vs filled) → separate entries, flagged
+   duplicate. Display `hex` = first occurrence's literal.
+4. **Role (D2 per project):** every manual using the palette colour votes with the
+   strongest role it gives it (primary > secondary > none — a manual listing it twice votes
+   once); the role most manuals vote for wins; tie → primary > secondary > none.
+5. **Links:** rebuilt detected → logo links (`logo_hex` literal, position); custom → custom
+   links; one position sequence per manual, logo segment first. In-manual duplicates keep
+   one link each (positional parity of `color(n)`).
 
-**Report** (CSV + summary, from `app:palette:plan --report`), never auto-fixed:
-split duplicates; case/3-digit variants merged (another manual's printed HEX string may change);
-persisted detected colours not in the logo (today in `primaryColors()`, would drop); non-hex
-detected strings (`rgb(...)` from `DetectImageColors` — `new Color()` throws); duplicate
-entries within one manual; CMYK conflicts `BrandCmykPalette` logs today.
+**Report** (CSV + summary, from `app:palette:plan --report=<csv>`), never auto-fixed:
+split duplicates; case/3-digit variants merged + the custom links whose printed HEX /
+`color(n)` literal changes (logo links keep their literal); print data merged up to
+whitespace; persisted detected colours not in the logo (typed ones are on today's primary/
+secondary page and drop); non-hex detected strings (`rgb(...)` from `DetectImageColors` —
+`new Color()` throws, `detectedColors()` fails today); invalid persisted colours (hydration
+throws); duplicate hexes within one manual (+ `UNIQUE (manual_id, logo_hex)` violations);
+CMYK conflicts `BrandCmykPalette` logs today; **role votes where manuals disagree, and the
+role-change list: every manual whose primary/secondary set (= its customer-manual colour
+pages) changes**, old → new; monogram (avatar) colour changes.
+
+### 2a. P0 dry run — local prod copy, 2026-11-05
+
+`app:palette:plan` over 25 projects / 33 manuals (20 projects with manuals): **115 palette
+colours, 155 links (85 logo, 70 custom)**. Findings: 9 split-duplicate entries (3 hexes in
+2 projects), 1 case variant merged (`FFFFFF`/`ffffff`), 1 custom literal change, 3 CMYK
+conflicts (= the 3 warnings `BrandCmykPalette` logs today), 2 role votes, **3 role changes**,
+0 stale detected, 0 non-hex / invalid strings, 0 in-manual duplicates, 0 avatar changes,
+0 parity breaks. Logo colours come from the logo JSONB (`detectedColors`), not the SVG
+files, so the missing local Minio files affect nothing here.
+
+Role changes (owner to confirm before P1a):
+- **Čeladná → Fotbal - Čeladná:** `#17375f` primary → secondary (4 of 5 manuals say
+  secondary) — leaves its primary page, appears on a new secondary page.
+- **Frýdlant n. O. → Turistické informační centrum** and **→ Knihovna – logomanuál:** white
+  `#ffffff` secondary → primary (tie 2:2 with "Frýdlant nad Ostravicí manuál" + "Erb města"
+  → primary) — white moves to their primary pages. TIC's white is also printed `FFFFFF`
+  instead of `ffffff` (case merge, `color(5)`, not a recolouring key).
+
+Split duplicates the palette would show twice (P4 "Sloučit"): Čeladná `a2c62c` ×3 (pantone
+empty vs `2299 C`, CMYK 95 vs 90 Y) and `17375f` ×2 (M 80 vs 85); Frýdlant `d19e5d` ×2
+(pantone empty vs `7509C`) and `c6c6c6` ×2 (K 30 vs 20). Snapshot A:
+`app:palette:snapshot <json>` (deterministic, two runs byte-identical).
 
 **Logo re-upload later (D3):** `UpdateManualImagesHandler` → `SyncManualLogoColors`: delete logo
 links whose literal left the logo (palette colour stays, shown "Nepoužitá"); append new literals
@@ -118,16 +165,16 @@ phases → plain revert. After R5b → restore the dump.
 
 | Consumer | Change |
 |---|---|
-| Manual preview, `_manual_color_swatch` | none (Manual read model); optional `name` line only when set |
+| Manual preview, `_manual_color_swatch` | none (Manual read model); optional `name` line only when set. Output changes only for the §2a role-change / literal-change manuals |
 | Logo recolouring (`DefaultLogoColors`, `logoColorMapping/Background`, `LogoColorsMapping`) | none — `color(n)` keeps literal logo hex + order |
 | `ResolveRichTextOptions::computeColors` | input = `GetProjectPalette::forProject()` (palette order, normalised, deduped). Editors, group editor, fill, API, MCP `get_context`/`describe_variant`, `LintContext::forProject` follow automatically |
 | `BrandCmykPalette` | iterate the palette in order; same first-wins + warning |
 | Allowlists (text `allowedColors`, shape `allowedColors`) | stay hex snapshots (D4); validation unchanged |
 | API `richTextOptions.colors`, `colorOptions` | same shape + same order; `consumer-prompt.md`: "project palette, palette order" (was "primary first") |
 | mfkfm | `lib/infrastructure/wboost/types.ts:139` comment only; no code |
-| Avatar | unchanged code (`primaryColors()`); fetch-join links + colours to avoid N+1 |
+| Avatar | unchanged code (`primaryColors()` — now palette-role based); fetch-join links + colours to avoid N+1. Dry run: no monogram changes |
 | Overview chips / `has_palette` | palette colours (first 12, palette order), pencil/eye → palette page; `EXISTS project_color` |
-| `GetManuals::allForProject` | add `ORDER BY created_at, id` (P0) |
+| `GetManuals::allForProject` | `ORDER BY created_at, id` — done in P0 (also fixes the overview chips' "first manual with colours", `ResolveEditorFontDefaults` first-primary and the Manuály / dashboard listing order, all heap order before) |
 | Docs | `manuals.md` colours section, `templates-text-inputs.md`, `templates-render.md` (print), `app-shell.md` (nav), `consumer-prompt.md`, `FEEDBACK.md` F7/F8 |
 
 ## 4. UX (Nocturne, Czech)
@@ -139,7 +186,9 @@ Layout from prototype js:1963-2056 / design-system §573:
 - Toolbar: "Přidat barvu" (one lavender primary), `.pal-strip` preview.
 - Groups "Z logotypu" (colour has ≥1 logo link) and "Přidané barvy". `.pal-card`: swatch
   (click = copy HEX), HEX (locked with a lock icon + title "HEX určuje logotyp" when logo-linked),
-  Název, RGB caption, CMYK 4-up + "Dopočítat z HEX", Pantone, RAL, ⋯ menu (Kopírovat HEX,
+  Název, **Role select (Primární / Sekundární / Bez role — D2: one role for every manual
+  using the colour; the hint lists the manuals whose colour pages it changes)**, RGB
+  caption, CMYK 4-up + "Dopočítat z HEX", Pantone, RAL, ⋯ menu (Kopírovat HEX,
   Posunout výš/níž, Smazat barvu), drag reorder (`colors-dragula`).
 - Per card "Použito v:" chips per manual (logo mark when from the logo), or "Nepoužitá".
 - Duplicate HEX chip "Stejný HEX jako …" + "Sloučit" (P4).
@@ -154,7 +203,7 @@ Layout from prototype js:1963-2056 / design-system §573:
 `#manual-colors-<id>`; only when Manuály is on; `manual_edit`). Per manual:
 - an ordered list in two segments: "Z logotypu" (automatic, reorder only) and "Další barvy" (reorder, remove);
 - number badges 1-2-3 with the hint "Pořadí určuje výchozí přebarvení variant loga";
-- role select per row (Primární / Sekundární / Bez role);
+- the palette colour's role shown read-only per row (pill; edited on the card — D2);
 - "Přidat z palety" dialog (palette colours not yet in the manual, multi-select);
 - the "Manuál potřebuje alespoň 3 barvy" warning moves here.
 
@@ -170,9 +219,9 @@ Layout from prototype js:1963-2056 / design-system §573:
 
 | P | Scope | Tests / verification | Effort |
 |---|---|---|---|
-| P0 | `app:palette:snapshot <json>` (per manual: detected/custom/primary/secondary all fields, `color(1..n)`, `colorsCount`, mapping + background for 5 types × 5 colour variants; per project: `computeColors`, `BrandCmykPalette`, avatar hex, `has_palette`) + `app:palette:plan --report` (planner dry-run, read-only) + allForProject ORDER BY. Run on the prod mirror: snapshot A + curl every `/nahled-manualu/…` → HTML A; owner reviews the report | planner unit tests (merge/split, case + 3-digit, stale detected, rgb strings, in-manual dups, order parity) | S–M, 1 d |
-| P1a | entities, migration (CREATE + backfill via planner), `ProjectManualColors` re-projection on `EditManualColors` + logo upload, `app:palette:verify`, `app:palette:reconcile` | kernel test: fixtures → backfill → link read model == JSONB read model; mirror: migrate, verify = 0 diffs | M, 1–1.5 d |
-| P1b | read switch (Manual read model from links), writes to links + JSONB mirror, `SyncManualLogoColors`, `GetProjectPalette` → computeColors / BrandCmykPalette / MCP / lint, fixture + test updates, docs + consumer-prompt + mfkfm comment | ResolveRichTextOptionsTest, BrandCmykPalette, ManualColorsControllerTest still green (old page writes through), parity tests for `color(n)`; mirror: snapshot C == A, HTML C == A except reported rows, API listing JSON diff | M–L, 1.5–2 d |
+| P0 ✔ | `app:palette:snapshot <json>` (per manual: detected/custom/primary/secondary all fields, `color(1..n)`, `colorsCount`, mapping + background for 5 types × 5 colour variants; per project: `computeColors`, `BrandCmykPalette`, avatar, `has_palette`, overview chips) + `app:palette:plan --report` (planner dry-run, read-only) + allForProject ORDER BY. Ran on the local prod copy (§2a); still TODO on the prod mirror: snapshot A + curl every `/nahled-manualu/…` → HTML A; owner reviews the report | planner unit tests (merge/split, trim, case + 3-digit, stale detected, rgb strings, in-manual dups, role majority + tie, order parity vs the entities) + command smoke test | S–M, 1 d |
+| P1a | entities, migration (CREATE + backfill via planner), `ProjectManualColors` re-projection on `EditManualColors` + logo upload, `app:palette:verify`, `app:palette:reconcile`. D2: the old per-manual colours page still posts a type per manual — re-projection sets the palette colour's role (last write wins) and must re-project EVERY manual linking that colour; `verify` expects diffs exactly for the §2a role-change manuals | kernel test: fixtures → backfill → link read model == JSONB read model (minus reported role changes); mirror: migrate, verify = only reported diffs | M, 1–1.5 d |
+| P1b | read switch (Manual read model from links), writes to links + JSONB mirror, `SyncManualLogoColors`, `GetProjectPalette` → computeColors / BrandCmykPalette / MCP / lint, fixture + test updates, docs + consumer-prompt + mfkfm comment | ResolveRichTextOptionsTest, BrandCmykPalette, ManualColorsControllerTest still green (old page writes through), parity tests for `color(n)`; mirror: snapshot C == A and HTML C == A except the §2a role-change / literal-change manuals, API listing JSON diff | M–L, 1.5–2 d |
 | P2 | Paleta barev page + sidebar + autosave endpoints + delete guard + usage chips + client read-only + overview chips + `has_palette` | controller tests (VIEW vs EDIT, guard, locked HEX, CSRF), `shoot.cjs` 390/820/1440 both themes | M–L, 2 d |
 | P3 | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |
 | P4 | "Sloučit" duplicates (repoint links, delete loser), template usage count (scan text inputs + shape `allowedColors`) | merge tests, manual output change only for touched manuals | S–M, 0.5–1 d |

@@ -1030,3 +1030,36 @@ DOMContentLoaded), edited stored signature → back; width 30 → Uložit → re
 shots 390/1440 × dark/light; full PHPUnit green.
 **Not verified:** Safari/Firefox spinner widths; a real logo upload re-showing
 the alert (simulated via the signature).
+## F7 Paleta barev — P0: snapshot + backfill planner dry run (2026-11-05)
+
+**What:** read-only tooling for the palette migration (`docs/redesign/palette-plan.md`),
+no schema or behaviour change except a deterministic manual order.
+- `GetManuals::allForProject` now `ORDER BY created_at, id` (was heap order). Callers
+  checked: `computeColors` (editor / group editor / fill / API / MCP `get_context`,
+  `LintContext`), `BrandCmykPalette` (CMYK first-wins), `ResolveEditorFontDefaults`
+  (first primary font wins), the overview chips ("first manual with colours"), the
+  Manuály listing + dashboard, the Fonty page box (sorts itself anyway). All only get
+  a stable order; none relied on another one.
+- `app:palette:snapshot <out.json>` — every colour-derived output per project
+  (computeColors via `ResolveRichTextOptions::forProject`, `BrandCmykPalette`,
+  avatar, `has_palette`, overview chips) and per manual (detected / custom / primary /
+  secondary with all fields, `colorN`, `colorsCount`, mapping pairs + background for
+  5 logo types × 5 colour variants). Public read model only; `customColors` read in
+  ONE helper (becomes a method in P1b). Throwing fields → `{"error": …}`.
+- `Services/Palette/PaletteBackfillPlanner` (pure, raw columns in via
+  `manualFromStorage()`) + `Value/PaletteProjectPlan` (in Value/ because
+  Services/** is autowired) + `app:palette:plan [--report=<csv>]` (DBAL, read-only).
+- Plan §1–§5 rewritten for D2 (role per project, majority, tie primary > secondary >
+  none) + §2a dry-run results.
+
+**Dry run (local prod copy):** 115 palette colours, 155 links; 3 role changes
+(Čeladná/Fotbal `#17375f` primary → secondary; Frýdlant TIC + Knihovna white →
+primary on a 2:2 tie), 9 split-duplicate entries, 1 case merge, 3 CMYK conflicts,
+0 stale / non-hex / in-manual dups / avatar changes / parity breaks. Detected colours
+come from the logo JSONB, so missing Minio files don't matter.
+
+**Tests:** `tests/Services/Palette/PaletteBackfillPlannerTest.php` (12, incl. parity
+against real `Manual` entities: computeColors, BrandCmykPalette, `color(n)`, the
+loose-`in_array` `#000`/`000000` quirk), `tests/ConsoleCommands/PaletteCommandsTest.php`
+(snapshot byte-identical twice; plan leaves `manual`/`project` untouched).
+**Not done:** HTML A of every `/nahled-manualu/…` on the prod mirror (plan P0 row).
