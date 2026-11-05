@@ -9,7 +9,7 @@
     {{ form_row(form.color, {'help': 'HEX bez mřížky, např. 1D2A5C. Prázdné = výchozí barva textu.', 'attr': {'placeholder': 'např. 1D2A5C'}}) }}
     {{ form_rest(form) }}
     <div class="man-formfoot">
-        <a href="{{ path('manual_fonts', {'id': manual.id}) }}" class="btn btn-tertiary sm">Zrušit</a>
+        <a href="{{ path('fonts_list', {'id': manual.project.id}) }}#manual-fonts-{{ manual.id }}" class="btn btn-tertiary sm">Zrušit</a>
         <button class="btn btn-primary sm" type="submit">{{ submit_label }}</button>
     </div>
 {{ form_end(form) }}

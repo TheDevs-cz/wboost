@@ -56,8 +56,10 @@ final class AddManualFontController extends AbstractController
 
             $this->addFlash('success', 'Přidán font do manuálu!');
 
-            return $this->redirectToRoute('manual_fonts', [
-                'id' => $manual->id->toString(),
+            // F8: manual fonts are edited on the project Fonty page.
+            return $this->redirectToRoute('fonts_list', [
+                'id' => $manual->project->id->toString(),
+                '_fragment' => 'manual-fonts-' . $manual->id->toString(),
             ]);
         }
 

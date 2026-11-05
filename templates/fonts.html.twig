@@ -179,5 +179,90 @@
                 </section>
             {% endfor %}
         </div>
+
+        {# "Písma v manuálech" (F8, 2026-11-05 — replaces the manual's Fonty
+           tab): per BRAND manual its ManualFonts — role, display colour,
+           enabled cuts (switched in place, update_manual_font_faces), order
+           (drag, sort_manual_fonts) — the data the customer manual preview
+           and the editor's font defaults read. Add / edit / delete keep their
+           routes and redirect back to #manual-fonts-{manualId}. #}
+        {% if manual_fonts is not empty %}
+            <section class="pd-box fn-mans" id="manual-fonts" aria-labelledby="fn-mans-h">
+                <div class="pd-box-h">
+                    <div>
+                        <h2 id="fn-mans-h">Písma v manuálech</h2>
+                        <span class="cap">Která písma manuál představí jako primární a sekundární, jakou barvou se vysází jejich ukázka a které řezy se v manuálu ukážou. Řezy se ukládají hned po kliknutí, pořadí změníte přetažením.</span>
+                    </div>
+                </div>
+
+                {% for entry in manual_fonts %}
+                    {% set manual = entry.manual %}
+                    {% set can_edit_manual = is_granted('manual_edit', manual) %}
+                    <div class="fn-man" id="manual-fonts-{{ manual.id }}">
+                        <div class="fn-man-h">
+                            {{ icon('copy', 's16') }}
+                            <a href="{{ path('manual_logos', {'id': manual.id}) }}" class="fn-man-n">{{ manual.name }}</a>
+                            <span class="pd-n" title="Písma v manuálu">{{ entry.fonts|length }}</span>
+                            {% if can_edit_manual %}
+                                <a href="{{ path('add_manual_font', {'id': manual.id}) }}" class="btn btn-tertiary sm">{{ icon('plus', 's16') }}Přidat písmo</a>
+                            {% endif %}
+                        </div>
+
+                        {% if entry.fonts is empty %}
+                            <p class="cap fn-man-empty">Manuál zatím nepředstavuje žádné písmo{% if can_edit_manual %} — přidejte primární a sekundární písmo značky{% endif %}.</p>
+                        {% else %}
+                            <ul class="fn-mrows"{% if can_edit_manual %}
+                                data-controller="dragula"
+                                data-dragula-sort-url-value="{{ path('sort_manual_fonts', {'manualId': manual.id}) }}"
+                                data-dragula-target="container"{% endif %}>
+                                {% for manual_font in entry.fonts %}
+                                    {% set mf_font = manual_font.font %}
+                                    {% set can_edit_mf = is_granted('manual_font_edit', manual_font) %}
+                                    {% set mf_family = mf_font.faces is not empty ? mf_font.faceFamily(mf_font.faces|first) : mf_font.name %}
+                                    {% set mf_color = (manual_font.color ?? '6c757d')|upper %}
+                                    <li class="fn-mrow" data-entity-id="{{ manual_font.id }}">
+                                        {% if can_edit_mf %}
+                                            <span class="dragula-handle fn-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
+                                        {% endif %}
+                                        <div class="fn-mrow-t">
+                                            <b style="font-family: '{{ mf_family }}', var(--font);">{{ mf_font.name }}</b>
+                                            <span class="pill{{ manual_font.secondary ? ' neutral' }}">{{ manual_font.primary ? 'Primární' : 'Sekundární' }}</span>
+                                            <span class="fn-mrow-c" title="Barva ukázky v manuálu{{ manual_font.color is null ? ' (výchozí)' }}"><span class="fn-dot" style="background: #{{ mf_color }};"></span>#{{ mf_color }}</span>
+                                        </div>
+                                        <div class="fn-mcuts" role="group" aria-label="Řezy v manuálu"{% if can_edit_mf %} data-controller="manual-font-faces-toggle" data-manual-font-faces-toggle-url-value="{{ path('update_manual_font_faces', {'manualFontId': manual_font.id}) }}"{% endif %}>
+                                            {% for font_face in mf_font.faces %}
+                                                <label class="chip sm fn-mcut" title="{{ can_edit_mf ? 'Zobrazit řez v manuálu' : 'Řez ' ~ (manual_font.faceEnabled(font_face.name) ? 'se v manuálu ukáže' : 'se v manuálu neukáže') }}">
+                                                    <input type="checkbox" class="sr" value="{{ font_face.name }}"{% if can_edit_mf %} data-manual-font-faces-toggle-target="checkbox"{% else %} disabled{% endif %}{% if manual_font.faceEnabled(font_face.name) %} checked{% endif %}>
+                                                    {{ icon('check', 's14') }}<span style="font-family: '{{ mf_font.faceFamily(font_face) }}', var(--font);">{{ font_face.name }}</span>
+                                                </label>
+                                            {% else %}
+                                                <span class="cap">Písmo nemá žádný řez.</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% if can_edit_mf %}
+                                            <div class="dropdown">
+                                                <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti písma {{ mf_font.name }} v manuálu {{ manual.name }}">{{ icon('more', 's16') }}</button>
+                                                <div class="dropdown-menu dropdown-menu-end">
+                                                    <a href="{{ path('edit_manual_font', {'id': manual_font.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit roli a barvu</a>
+                                                    <div class="dropdown-divider"></div>
+                                                    <a href="#"
+                                                       class="dropdown-item text-danger"
+                                                       data-modal-id="mf-{{ manual_font.id }}"
+                                                       data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Odebrat z manuálu</a>
+                                                </div>
+                                            </div>
+                                            <twig:ConfirmModal
+                                                id="mf-{{ manual_font.id }}"
+                                                url="{{ path('delete_manual_font', {'id': manual_font.id}) }}"
+                                                confirmationText="Opravdu chcete odebrat písmo {{ mf_font.name }} z manuálu {{ manual.name }}? Písmo zůstane v projektu." />
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </section>
+        {% endif %}
     </div>
 {% endblock %}

@@ -1,17 +1,20 @@
-{% extends 'base_manual.html.twig' %}
+{% extends 'base.html.twig' %}
 
-{% block title %}Přidat font do manuálu{% endblock %}
-{% set active_menu_item = 'manuals' %}
+{# Reached from the "Písma v manuálech" box of the project Fonty page (F8) —
+   so it is a Fonty sub-page: nav item, back trail and redirects lead there. #}
+{% block title %}Přidat písmo do manuálu{% endblock %}
+{% set active_menu_item = 'fonts' %}
 
-{% block page_lead %}Vyberte písmo projektu a jeho roli v manuálu. Barva určuje, jakou barvou se ukázka písma v manuálu vysází.{% endblock %}
+{% block page_lead %}Manuál {{ manual.name }}: vyberte písmo projektu a jeho roli. Barva určuje, jakou barvou se ukázka písma v manuálu vysází.{% endblock %}
 
 {% block breadcrumb %}
     <ol class="breadcrumb m-0 pt-0">
-        <li class="breadcrumb-item"><a href="{{ path('manual_fonts', {'id': manual.id}) }}">{{ manual.name }} · Fonty</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('fonts_list', {'id': project.id}) }}#manual-fonts-{{ manual.id }}">Fonty</a></li>
         <li class="breadcrumb-item active">{{ block('title') }}</li>
     </ol>
 {% endblock %}
 
 {% block content %}
-    {{ include('_manual_font_form.html.twig', {'submit_label': 'Přidat font'}) }}
+    {{ include('_manual_font_form.html.twig', {'submit_label': 'Přidat písmo'}) }}
 {% endblock %}

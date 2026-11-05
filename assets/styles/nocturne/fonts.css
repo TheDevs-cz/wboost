@@ -1,6 +1,7 @@
 /* ==========================================================================
    Nocturne — Fonty (P4): project fonts page, the font upload drop zone
-   (_font_uploader, also on the manual Fonty tab), manual font cards.
+   (_font_uploader), and the "Písma v manuálech" box (F8 — the manual's own
+   Fonty tab is gone).
    Values from prototype app.css § "Fonty projektu". The upload strip reuses
    the gallery's `.gal-drop` (gallery.css).
    ========================================================================== */
@@ -58,12 +59,33 @@
 .fn-del { color: var(--subtle); }
 .fn-del:hover { color: var(--rose-ink) !important; background: var(--rose-deep) !important; }
 
-/* Manual font cards: on/off switch per cut (manual-font-faces-toggle) */
-.fn-cut-sw { display: inline-flex; flex: none; margin: 0; cursor: pointer; }
-.fn-cut-sw:has(input:checked) .sw { background: var(--a-deep); border-color: var(--a-line); }
-.fn-cut-sw:has(input:checked) .sw::after { left: 17px; background: var(--a); box-shadow: 0 0 12px var(--a-glow); }
-.fn-cut-sw:has(input:focus-visible) .sw { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
-.fn-cut:has(.fn-cut-sw input:not(:checked)) .fn-prev { opacity: .45; }
+/* "Písma v manuálech" (F8): per brand manual its fonts as rows — role pill,
+   sample colour, the cuts as toggle chips (manual-font-faces-toggle saves on
+   change), drag order (dragula → sort_manual_fonts). */
+.fn-man { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); scroll-margin-top: 80px; }
+.fn-man-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--subtle); }
+.fn-man-n { font-size: 15px; font-weight: 600; color: var(--text); text-decoration: none; }
+.fn-man-n:hover { color: var(--lav-ink); }
+.fn-man-h .btn { margin-left: auto; }
+.fn-man-empty { margin: 0; }
+.fn-mrows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fn-mrow { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; padding: 12px 14px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); min-width: 0; }
+.fn-mrow.gu-transit { opacity: .45; }
+.fn-mrow.gu-mirror { box-shadow: var(--shadow-3); }
+.fn-mrow .fn-grip { margin-top: 0; }
+.fn-mrow-t { flex: 0 1 300px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+.fn-mrow-t b { font-size: 18px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; }
+.fn-mrow-c { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fn-mrow-c .fn-dot { width: 14px; height: 14px; }
+.fn-mcuts { flex: 1 1 280px; display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.fn-mcut { margin: 0; }
+.fn-mcut > .i { display: none; }
+.fn-mcut:has(input:checked) { background: var(--a-deep); border-color: var(--a-line); color: var(--a-ink); }
+.fn-mcut:has(input:checked) > .i { display: inline-block; }
+.fn-mcut:has(input:focus-visible) { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.fn-mcut:has(input:disabled) { cursor: default; }
+.fn-mcut:has(input:disabled):not(:has(input:checked)) { opacity: .55; }
+.fn-mrow > .dropdown { margin-left: auto; }
 
 @media (max-width: 900px) { .fn-size input { width: 100px; } }
 @media (max-width: 560px) {
@@ -75,4 +97,7 @@
     .fn-fam-t h2 { font-size: 22px; }
     .fn-css { display: none; }
 }
-.fn-cut-sw ~ .fn-cut-b .fn-prev { font-size: 22px; }
+@media (max-width: 700px) {
+    .fn-mrow-t { flex: 1 1 0; }
+    .fn-mcuts { order: 3; flex-basis: 100%; }
+}

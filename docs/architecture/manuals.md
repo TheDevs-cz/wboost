@@ -1,4 +1,4 @@
-# Manuals — mockup pages, logo variants/widths, colours, page texts
+# Manuals — mockup pages, logo variants/widths, colours, fonts, page texts
 
 ### Manual mockup pages — canonical grid geometry
 
@@ -110,6 +110,34 @@ copy-pasted palette blocks — and only when the designer filled it, so a manual
 with no RAL looks exactly as before. `ManualColorsFormType::isBlankColor()`
 counts `ral` too, otherwise a row holding nothing but a RAL code would be
 dropped on save.
+
+### Manual fonts — edited on the project Fonty page (F8, 2026-11-05)
+
+A brand manual's `ManualFont`s (role primary/secondary, sample colour,
+enabled cuts `fontFaces`, `position`) feed the customer manual preview's font
+pages and the editor's font defaults (`ResolveEditorFontDefaults`, see
+`templates-text-inputs.md`). The manual's own **Fonty tab is gone**
+(`_manual_nav.html.twig` = Logotypy · Barevná paleta · Stránky s mockupy):
+they are edited in the **"Písma v manuálech"** box (`#manual-fonts`, one
+`#manual-fonts-{manualId}` section per manual) at the bottom of the project
+Fonty page (`FontsController` → `fonts.html.twig`).
+
+- Only BRAND manuals are listed (logo manuals have no fonts), and only while
+  the Manuály module is on. Sections are ordered by manual `createdAt`.
+- Per row: font name in its first face, role pill, colour dot + hex, the
+  cuts as toggle chips (`manual-font-faces-toggle` → `update_manual_font_faces`,
+  saves on change), drag grip (`dragula` → `sort_manual_fonts`), ⋯ Upravit
+  (`edit_manual_font`) / Odebrat (`delete_manual_font`, ConfirmModal
+  `mf-{id}`). Read-only members see disabled chips and no actions
+  (`manual_edit` / `manual_font_edit`).
+- The routes stay: `manual_fonts` (`/manual/{id}/fonts`) only REDIRECTS to
+  `fonts_list#manual-fonts-{manualId}`; add / edit / delete redirect there
+  too, and `add_manual_font` / `edit_manual_font` are Fonty sub-pages
+  (`active_menu_item = 'fonts'`, back trail Project → Fonty).
+- `ManualFont::edit()` clears `fontFaces` only when the FONT changes (F11:
+  it used to compare with its own id, so every save wiped the cuts).
+- Pinned by `tests/Controller/Font/FontsPageManualFontsTest.php`,
+  `tests/Entity/ManualFontTest.php`.
 
 ### Manual logo width — a three-level cascade
 

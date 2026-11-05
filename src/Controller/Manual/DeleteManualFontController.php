@@ -30,8 +30,10 @@ final class DeleteManualFontController extends AbstractController
 
         $this->addFlash('success', 'Font smazán z manuálu');
 
-        return $this->redirectToRoute('manual_fonts', [
-            'id' => $manualFont->manual->id,
+        // F8: manual fonts are edited on the project Fonty page.
+        return $this->redirectToRoute('fonts_list', [
+            'id' => $manualFont->manual->project->id->toString(),
+            '_fragment' => 'manual-fonts-' . $manualFont->manual->id->toString(),
         ]);
     }
 }
