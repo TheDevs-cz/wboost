@@ -16,7 +16,7 @@
         <div class="qn-sec lbl" data-shell-target="qnAllHead">Všechny projekty</div>
         <div data-shell-target="qnAll">
             {% for row in shell_projects %}
-                {% set is_current = project is defined and project.id.toString == row.id %}
+                {% set is_current = shell_project is not null and shell_project.id.toString == row.id %}
                 <a href="{{ path('project_dashboard', {'id': row.id}) }}" class="qn" role="option" id="qn-{{ row.id }}"
                    data-qn-id="{{ row.id }}" data-qn-name="{{ row.name|lower }}" aria-selected="{{ is_current ? 'true' : 'false' }}">
                     {{ include('_project_avatar.html.twig', {'logo_path': row.iconPath, 'initials': row.initials, 'class': 'sm'}, with_context = false) }}

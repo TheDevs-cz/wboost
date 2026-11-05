@@ -80,6 +80,9 @@
     {% endif %}
     {% block full_content %}
         {% set shell_projects = shell_projects() %}
+        {# The sidebar's project: the page's own `project`, else the last one
+           the user opened (session, voter re-checked) — F15, app-shell.md. #}
+        {% set shell_project = shell_project(project ?? null) %}
         <div class="app" id="app"
              data-controller="shell"
              data-shell-persist-value="{{ shell_force_rail ? 'false' : 'true' }}"

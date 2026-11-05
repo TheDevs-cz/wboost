@@ -212,15 +212,18 @@ export default class extends Controller {
 
     arrangeRecent() {
         // Put every row back into the alphabetical list (server order), then
-        // lift the last 3 opened projects (other than the open one) into
+        // lift the last 3 opened projects (other than the current one) into
         // "Naposledy otevřené".
         const all = this.qnAllTarget;
         const rows = this.rows();
         rows.forEach((row, i) => { if (row.dataset.qnOrder === undefined) row.dataset.qnOrder = String(i); });
         rows.sort((a, b) => Number(a.dataset.qnOrder) - Number(b.dataset.qnOrder)).forEach((row) => all.appendChild(row));
 
+        // The ticked row is the open project — or, on a page without one,
+        // the remembered last project (F15); it stays in the main list.
+        const current = this.projectIdValue || all.querySelector('.qn[aria-selected="true"]')?.dataset.qnId || '';
         this.recentIds()
-            .filter((id) => id !== this.projectIdValue)
+            .filter((id) => id !== current)
             .slice(0, 3)
             .forEach((id) => {
                 const row = all.querySelector(`.qn[data-qn-id="${CSS.escape(id)}"]`);

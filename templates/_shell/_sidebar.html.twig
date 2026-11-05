@@ -1,11 +1,16 @@
 {#
     Nocturne sidebar (docs/architecture/app-shell.md). Rendered by
     base.html.twig inside `.app`; behaviour = the `shell` Stimulus controller.
-    Context: `project` (optional, inside a project), `active_menu_item` /
-    `active_submenu_item` (set by the page), `shell_projects` (list).
+    Context: `project` (optional, inside a project), `shell_project` (the
+    sidebar's project: `project`, else the remembered last one — F15),
+    `active_menu_item` / `active_submenu_item` (set by the page),
+    `shell_projects` (list).
 #}
 {% set route = app.request.attributes.get('_route') %}
 {% set active = active_menu_item|default('') %}
+{% set nav_project = shell_project|default(null) %}
+{# A remembered project (page without its own) never highlights an item. #}
+{% set project_active = project is defined ? active : '' %}
 
 <aside class="sb" id="sidebar" aria-label="Hlavní navigace" data-shell-target="sidebar">
     <div class="sb-brand">
@@ -26,11 +31,11 @@
 
     {% if shell_projects is not empty %}
         <div class="qn-head hide-c"><span class="lbl">Rychlá navigace</span></div>
-        <button type="button" class="qn-trigger" data-shell-target="qnTrigger" data-action="shell#toggleQuickNav" aria-haspopup="dialog" aria-expanded="false" aria-controls="qnPop" title="Rychlá navigace" aria-label="Rychlá navigace: {{ project is defined ? project.name : 'vybrat projekt' }}">
-            {% if project is defined %}
-                {% set nav_avatar = project_avatar(project) %}
+        <button type="button" class="qn-trigger" data-shell-target="qnTrigger" data-action="shell#toggleQuickNav" aria-haspopup="dialog" aria-expanded="false" aria-controls="qnPop" title="Rychlá navigace" aria-label="Rychlá navigace: {{ nav_project ? nav_project.name : 'vybrat projekt' }}">
+            {% if nav_project %}
+                {% set nav_avatar = project_avatar(nav_project) %}
                 {{ include('_project_avatar.html.twig', {'logo_path': nav_avatar.logoPath, 'initials': nav_avatar.initials, 'class': 'sm'}, with_context = false) }}
-                <span class="nm hide-c">{{ project.name }}</span>
+                <span class="nm hide-c">{{ nav_project.name }}</span>
                 {{ icon('chev-down', 's16 chev hide-c') }}
             {% else %}
                 {{ icon('sort', 's18') }}
@@ -41,57 +46,57 @@
     {% endif %}
 
     <div class="sb-scroll">
-        {% if project is defined %}
+        {% if nav_project %}
             {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
             <nav aria-label="Moduly projektu" class="sb-group pnav">
                 <div class="sb-sec lbl hide-c">Projekt</div>
                 <span class="sb-div" aria-hidden="true"></span>
 
-                <a href="{{ path('project_dashboard', {'id': project.id}) }}" class="nav-i" title="Přehled" aria-current="{{ route == 'project_dashboard' ? 'page' : 'false' }}">
+                <a href="{{ path('project_dashboard', {'id': nav_project.id}) }}" class="nav-i" title="Přehled" aria-current="{{ project is defined and route == 'project_dashboard' ? 'page' : 'false' }}">
                     {{ icon('grid') }}<span class="nm hide-c">Přehled</span>
                 </a>
 
-                {% if project.hasModule(project_module.Manuals) %}
-                    <a href="{{ path('manuals_list', {'id': project.id}) }}" class="nav-i" title="Manuály" aria-current="{{ active == 'manuals' ? 'page' : 'false' }}">
+                {% if nav_project.hasModule(project_module.Manuals) %}
+                    <a href="{{ path('manuals_list', {'id': nav_project.id}) }}" class="nav-i" title="Manuály" aria-current="{{ project_active == 'manuals' ? 'page' : 'false' }}">
                         {{ icon('copy') }}<span class="nm hide-c">Manuály</span>
                     </a>
                 {% endif %}
 
-                {% if project.hasModule(project_module.Templates) %}
-                    <a href="{{ path('templates', {'projectId': project.id}) }}" class="nav-i" title="Šablony" aria-current="{{ active == 'templates' ? 'page' : 'false' }}">
+                {% if nav_project.hasModule(project_module.Templates) %}
+                    <a href="{{ path('templates', {'projectId': nav_project.id}) }}" class="nav-i" title="Šablony" aria-current="{{ project_active == 'templates' ? 'page' : 'false' }}">
                         {{ icon('template') }}<span class="nm hide-c">Šablony</span>
                     </a>
                 {% endif %}
 
-                {% if is_granted('project_edit', project) %}
-                    <a href="{{ path('project_gallery', {'projectId': project.id}) }}" class="nav-i" title="Galerie" aria-current="{{ active == 'gallery' ? 'page' : 'false' }}">
+                {% if is_granted('project_edit', nav_project) %}
+                    <a href="{{ path('project_gallery', {'projectId': nav_project.id}) }}" class="nav-i" title="Galerie" aria-current="{{ project_active == 'gallery' ? 'page' : 'false' }}">
                         {{ icon('image') }}<span class="nm hide-c">Galerie</span>
                     </a>
                 {% endif %}
 
-                <a href="{{ path('fonts_list', {'id': project.id}) }}" class="nav-i" title="Fonty" aria-current="{{ active == 'fonts' ? 'page' : 'false' }}">
+                <a href="{{ path('fonts_list', {'id': nav_project.id}) }}" class="nav-i" title="Fonty" aria-current="{{ project_active == 'fonts' ? 'page' : 'false' }}">
                     {{ icon('font') }}<span class="nm hide-c">Fonty</span>
                 </a>
 
                 {# Slot: "Paleta barev" (project-level colour palette, F7) goes
                    here, between Fonty and E-maily — planned separately. #}
 
-                {% if project.hasModule(project_module.EmailSignatures) %}
-                    <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="nav-i" title="E-maily" aria-current="{{ active == 'emails' ? 'page' : 'false' }}">
+                {% if nav_project.hasModule(project_module.EmailSignatures) %}
+                    <a href="{{ path('email_signature_templates', {'id': nav_project.id}) }}" class="nav-i" title="E-maily" aria-current="{{ project_active == 'emails' ? 'page' : 'false' }}">
                         {{ icon('mail') }}<span class="nm hide-c">E-maily</span>
                     </a>
                 {% endif %}
 
-                {% if project.hasModule(project_module.WeeklyMenus) %}
-                    <a href="{{ path('weekly_menus', {'projectId': project.id}) }}" class="nav-i" title="Jídelníčky" aria-current="{{ active == 'weekly_menus' and active_submenu_item|default('') == '' ? 'page' : 'false' }}">
+                {% if nav_project.hasModule(project_module.WeeklyMenus) %}
+                    <a href="{{ path('weekly_menus', {'projectId': nav_project.id}) }}" class="nav-i" title="Jídelníčky" aria-current="{{ project_active == 'weekly_menus' and active_submenu_item|default('') == '' ? 'page' : 'false' }}">
                         {{ icon('utensils') }}<span class="nm hide-c">Jídelníčky</span>
                     </a>
-                    {% if active == 'weekly_menus' %}
+                    {% if project_active == 'weekly_menus' %}
                         {% set sub = active_submenu_item|default('') %}
                         <div class="nav-sub hide-c">
-                            <a href="{{ path('meals', {'projectId': project.id}) }}" class="nav-i" aria-current="{{ sub == 'meals' ? 'page' : 'false' }}"><span class="nm">Seznam jídel</span></a>
-                            <a href="{{ path('diets', {'projectId': project.id}) }}" class="nav-i" aria-current="{{ sub == 'diets' ? 'page' : 'false' }}"><span class="nm">Diety</span></a>
-                            <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="nav-i" aria-current="{{ sub == 'dish_types' ? 'page' : 'false' }}"><span class="nm">Druhy jídel</span></a>
+                            <a href="{{ path('meals', {'projectId': nav_project.id}) }}" class="nav-i" aria-current="{{ sub == 'meals' ? 'page' : 'false' }}"><span class="nm">Seznam jídel</span></a>
+                            <a href="{{ path('diets', {'projectId': nav_project.id}) }}" class="nav-i" aria-current="{{ sub == 'diets' ? 'page' : 'false' }}"><span class="nm">Diety</span></a>
+                            <a href="{{ path('dish_types', {'projectId': nav_project.id}) }}" class="nav-i" aria-current="{{ sub == 'dish_types' ? 'page' : 'false' }}"><span class="nm">Druhy jídel</span></a>
                         </div>
                     {% endif %}
                 {% endif %}
@@ -111,8 +116,8 @@
                     </a>
                 {% endif %}
 
-                {% if project.disabledModules is not empty %}
-                    <a href="{{ path('project_modules', {'projectId': project.id}) }}" class="nav-i discover side-nav-discover" title="Objevte další moduly" aria-current="{{ active == 'project_modules' ? 'page' : 'false' }}">
+                {% if nav_project.disabledModules is not empty %}
+                    <a href="{{ path('project_modules', {'projectId': nav_project.id}) }}" class="nav-i discover side-nav-discover" title="Objevte další moduly" aria-current="{{ project_active == 'project_modules' ? 'page' : 'false' }}">
                         {{ icon('sparkle') }}<span class="nm hide-c">Objevte další moduly</span>
                     </a>
                 {% endif %}

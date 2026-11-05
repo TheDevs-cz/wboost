@@ -85,7 +85,8 @@ content keeps its own spacing; redesigned pages can use `.stack`).
 Top → bottom: logo (inline themable SVG `_shell/_logo.html.twig`, app icon
 `_logo_icon` in the rail) + collapse / drawer-close buttons · **Všechny
 projekty** with the project count (`shell_projects()|length`) · **Rychlá
-navigace** trigger (current project symbol + name, or "Vybrat projekt…") ·
+navigace** trigger (current — or remembered, see below — project symbol +
+name, or "Vybrat projekt…") ·
 scroll area with **Projekt** (Přehled, then the module items — see below),
 **Administrace** (ROLE_ADMIN: Uživatelé with the pending registration
 request count `pending_registration_requests_count()` — requests are the
@@ -106,6 +107,23 @@ webu, Statistiky),
   projects in `localStorage['wb-recent']` and lifts the last 3 into
   "Naposledy otevřené". Rows show the project icon or a monogram (no manual
   logo lookup — cheap on every page).
+- **Remembered project** (F15, 2026-11-05): the sidebar's project is
+  `shell_project` = `shell_project(project ?? null)` (`ShellExtension`,
+  called once in `base.html.twig` — the single place the shell resolves it).
+  A page that passes its own `project` stores the id in the session
+  (`ShellExtension::LAST_PROJECT_SESSION_KEY`); a page without one (admin,
+  Propojené aplikace, AI, profile, **/projects** too — one rule, and the nav
+  doesn't jump when you step back to the list) gets the remembered project:
+  quick-nav trigger + ticked row + the whole PROJEKT section, but **no
+  project item is `aria-current`** (`project_active` is '' — the page's own
+  item, e.g. Uživatelé / Všechny projekty, is current) and the eyebrow stays
+  the page's own ("Administrace"). Every render re-loads the project by PK
+  and re-runs `project_view`; deleted or no longer viewable → key removed,
+  nothing shown. Logout invalidates the session (Symfony default). The
+  `data-shell-project-id-value` (localStorage recents) stays the page's own
+  project only; the controller keeps the ticked row out of "Naposledy
+  otevřené". Pinned by `ShellLastProjectTest`. The editors are project
+  pages, so the rail is unaffected.
 - `.side-nav-discover` is kept on the "Objevte další moduly" item (tests).
 - **Project menu order** (F6, 2026-11-05): Přehled, Manuály, Šablony,
   Galerie, Fonty, *(slot: Paleta barev, F7)*, E-maily, Jídelníčky (+ sub
@@ -113,7 +131,8 @@ webu, Statistiky),
   další moduly" CTA), shown in EVERY project (no module key): links to
   `user_profile` when `facebook_connected()`, otherwise opens the fake-door
   modal `#social-publish-fake-door` (`_social_publish_fake_door.html.twig`,
-  included once by `base.html.twig`). Outside a project there is no FB item.
+  included once by `base.html.twig`). With no current or remembered
+  project there is no PROJEKT section, so no FB item.
   Pinned by `ProjectModulesTest::testFacebookInstagramIsTheLastProjectMenuItem`.
 
 ### Page header blocks
