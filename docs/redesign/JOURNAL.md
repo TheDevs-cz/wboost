@@ -1010,3 +1010,23 @@ controller + endpoint as before); the connected-FB branch only in PHPUnit.
 `SortTemplatesHandler`, `SortManualFontsHandler` and
 `SortManualMockupPagesHandler` don't verify the posted ids belong
 to the project/manual in the URL.
+## Feedback round — F9, F10 manual logos: dismissible warning + width reset (2026-11-05)
+
+**What (F9):** the "V manuálu chybí N varianty loga" alert on /manual/{id}/logos
+has an x button ("Skrýt upozornění"); the dismissal sticks per browser until
+the manual's logo set changes (upload / replace / removal), then it re-appears.
+**How:** new generic `dismiss_alert_controller.js` (values `key`, `signature`);
+localStorage `wb-logo-warn-<manualId>` = Twig signature `Variant=filePath|…`
+(`-` for missing; upload paths carry a timestamp, so a replace changes it too).
+An inline script right after the alert hides it before first paint (no flash);
+connect() repeats the check. No backend change. Only this page has the warning.
+**What (F10):** the "Výchozí" / "N %" value label above the width box is gone;
+in its place a small `btn-tertiary` pill "Výchozí" (`i-undo`), shown only while a
+custom width is set, clears slider + box (`range-sync#reset`), saved by Uložit.
+Box widened 76 → 116 px so the "výchozí" placeholder fits beside the spinners.
+**Verified:** puppeteer — dismiss → reload stays hidden (already hidden at
+DOMContentLoaded), edited stored signature → back; width 30 → Uložit → reload
+→ reset → Uložit → reload empty (manual JSON restored byte-for-byte after);
+shots 390/1440 × dark/light; full PHPUnit green.
+**Not verified:** Safari/Firefox spinner widths; a real logo upload re-showing
+the alert (simulated via the signature).
