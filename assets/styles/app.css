@@ -967,37 +967,46 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .container-zone-popover {
     position: absolute;
     z-index: 1001;
-    width: 230px;
-    padding: 10px 12px;
-    background: #fff;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    border-radius: 6px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    width: 260px;
+    padding: 14px 16px;
+    /* Nocturne surface like the editor inspector popovers (F19: it kept the
+       pre-redesign white background while its labels/inputs follow the theme). */
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    box-shadow: var(--shadow-3);
     pointer-events: auto;
 }
 
 .container-zone-popover__title {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     padding-right: 20px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
+    color: var(--text);
+}
+
+.container-zone-popover .form-label {
+    color: var(--text-2);
+    font-weight: 500;
 }
 
 .container-zone-popover__close {
     position: absolute;
-    top: 4px;
-    right: 8px;
+    top: 8px;
+    right: 10px;
     padding: 0;
     border: none;
     background: none;
     font-size: 16px;
     line-height: 1;
-    color: #98a6ad;
+    color: var(--subtle);
     cursor: pointer;
 }
 
 .container-zone-popover__close:hover {
-    color: #343a40;
+    color: var(--text);
 }
 
 /* ---- User-fill placeholder overlay (variant_fill_overlay_controller) ----
