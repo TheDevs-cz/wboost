@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Controller\Project;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -30,6 +31,13 @@ final class EditProjectController extends AbstractController
     #[IsGranted(ProjectVoter::EDIT, 'project')]
     public function __invoke(Request $request, Project $project): Response
     {
+        // `?modal=1`: the /projects page loads this form into its shared dialog
+        // (project_form_modal_controller) — same form + handling, fragment
+        // template, and a JSON redirect instead of a 302 on success: back to
+        // /projects, or to the project overview when opened there (`back=dashboard`).
+        $inModal = $request->query->getBoolean('modal');
+        $backToDashboard = $request->query->getString('back') === 'dashboard';
+
         $data = new ProjectFormData();
         $data->name = $project->name;
 
@@ -50,8 +58,23 @@ final class EditProjectController extends AbstractController
 
             $this->addFlash('success', 'Projekt upraven!');
 
+            if ($inModal) {
+                return new JsonResponse(['redirect' => $backToDashboard
+                    ? $this->generateUrl('project_dashboard', ['id' => $project->id->toString()])
+                    : $this->generateUrl('projects'),
+                ]);
+            }
+
             return $this->redirectToRoute('project_dashboard', [
                 'id' => $project->id->toString(),
+            ]);
+        }
+
+        if ($inModal) {
+            return $this->render('_project_form_modal.html.twig', [
+                'form' => $form,
+                'project' => $project,
+                'back_to_dashboard' => $backToDashboard,
             ]);
         }
 

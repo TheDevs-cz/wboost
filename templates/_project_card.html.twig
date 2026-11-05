@@ -32,7 +32,7 @@
             <div class="card-acts dropdown">
                 <button type="button" class="btn btn-ghost icon xs card-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="menu" aria-label="Možnosti projektu {{ project.name }}">{{ icon('more', 's16') }}</button>
                 <div class="dropdown-menu dropdown-menu-end" role="menu">
-                    <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item" role="menuitem">{{ icon('edit', 's16') }}Změnit název a logo</a>
+                    <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item" role="menuitem" data-project-form-modal>{{ icon('edit', 's16') }}Změnit název a logo</a>
                     {% if can_share %}
                         <a href="#" class="dropdown-item" role="menuitem" data-bs-toggle="modal" data-bs-target="#share-modal-{{ project.id }}">
                             {{ icon('share', 's16') }}Sdílet

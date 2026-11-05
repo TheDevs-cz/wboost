@@ -1,0 +1,14 @@
+{# The shared add / edit project dialog shell (#project-form-modal) — on
+   /projects and the project overview. Every link carrying
+   `data-project-form-modal` (also the shell's phone primary action) is
+   intercepted by project_form_modal_controller, which loads `<href>?modal=1`
+   (_project_form_modal.html.twig) into .modal-content and submits it via fetch
+   (multipart). `data-project-form-modal="dashboard"` adds `back=dashboard`, so
+   a save returns to the overview instead of /projects. The links keep their
+   real href, so modified clicks / no-JS open the full pages. #}
+<div class="modal fade text-start" id="project-form-modal" tabindex="-1" aria-labelledby="project-form-modal-title"
+     data-controller="project-form-modal">
+    <div class="modal-dialog dlg-project">
+        <div class="modal-content" data-project-form-modal-target="content"></div>
+    </div>
+</div>

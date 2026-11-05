@@ -907,3 +907,37 @@ to load still swaps to `.mono` (plate comes back). `shoot.cjs` gained
 Gate tip: a stale `tests/.database.cache` copied with the checkout skips creating
 `wboost_test` (672 connection errors) — delete the file.
 
+## Feedback round — F2 project form in a dialog, F3 project overview header (2026-11-05)
+
+**What (F2):** on /projects, "Nový projekt" (header, phone +, empty state) and the
+card menu's "Změnit název a logo" open the add / edit form in a dialog styled like
+Sdílet (same `.modal` shell + width, title + project-name subline) instead of
+leaving the page; success reloads /projects with the flash ("Projekt upraven!" /
+new "Projekt vytvořen!").
+**What (F3):** project overview header: "Upravit projekt" button → ⋯ menu (same
+look as the card menu) with Upravit (the F2 dialog, save returns to the overview)
+and Sdílet projekt (admin-only, opens the existing share modal); meta line keeps
+only "Založeno …" (users/templates/owner gone); "Naposledy přidané šablony" box
+removed, with its now-dead controller sort + `.pd-recent/.pd-tpl` CSS.
+**How:** one shared modal partial `_project_form_dialog.html.twig` +
+`project_form_modal_controller.js` lazy-loads `<href>?modal=1`; add/edit
+controllers only switch template/response in modal mode (fragment
+`_project_form_modal.html.twig`, 422 on errors, JSON `{redirect}` on success,
+`back=dashboard`). `_project_form.html.twig` gained a `modal` variant (no card,
+Zrušit dismisses, explicit action). No business logic touched; routes and full
+pages unchanged. Contract in `docs/architecture/app-shell.md`. One commit for
+both items — they share the partial, JS, CSS and EditProjectController.
+**Tests:** new `ProjectFormModalTest`; `ProjectDashboardControllerTest` updated
+for the removed owner line / recent strip (asserts the new menu + gating instead).
+**Verified:** gate green; puppeteer at 390/1440 × dark/light: both dialogs on
+/projects, overview ⋯ menu + edit + share dialogs, validation error rendered
+inside the dialog (URL unchanged, field focused), valid edit + revert on both
+pages (prod-copy DB left as found), new project with a PNG logo via the phone
+dialog (multipart works, logo shows on the card) then deleted; no JS errors,
+no overflow. shoot.cjs 390/820/1440 × both themes on the four pages.
+**Not verified:** real drag & drop onto the dialog's drop zone (file chooser
+path only); keyboard-only flow beyond focus-on-open.
+**Note:** the admin "Moduly projektu" change history is now only reachable via
+the full `/edit-project/{id}` page (direct URL / module e-mail link) — the
+overview no longer links there on a plain click.
+

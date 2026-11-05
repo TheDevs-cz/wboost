@@ -10,7 +10,9 @@ use WBoost\Web\Tests\TestingLogin;
 
 /**
  * The project dashboard lists a tile per module (including the edit-gated
- * gallery) plus the brand header and recent templates strip.
+ * gallery) under the brand header: "Založeno" line + ⋯ menu (Upravit opens the
+ * shared edit dialog, Sdílet projekt is admin-only). Since F3 (2026-11-05) it
+ * has no users/templates/owner meta and no recent-templates strip.
  */
 final class ProjectDashboardControllerTest extends WebTestCase
 {
@@ -46,16 +48,20 @@ final class ProjectDashboardControllerTest extends WebTestCase
         // The social module died with the template merge — no tile, no nav item.
         self::assertSelectorNotExists(sprintf('a[href="/project/%s/social-networks"]', $projectId));
 
-        // Recent templates: a grouped template opens its group fill page, a
-        // plain one its variants page.
-        self::assertSelectorExists(sprintf('a[href="/template-group/%s/fill"]', TestDataFixture::TEMPLATE_GROUP_1_ID));
-        self::assertSelectorExists(sprintf('a[href="/template/%s/variants"]', TestDataFixture::CUSTOM_TEMPLATE_1_ID));
+        // No recent-templates strip any more.
+        self::assertSelectorNotExists('#pdRecentH');
+        self::assertSelectorNotExists(sprintf('a[href="/template/%s/variants"]', TestDataFixture::CUSTOM_TEMPLATE_1_ID));
 
-        // Owner can edit, so the header offers the edit action.
-        self::assertSelectorExists(sprintf('a[href="/edit-project/%s"]', $projectId));
+        // Owner can edit: the header ⋯ menu offers Upravit in the shared dialog
+        // (returning here), but sharing stays admin-only.
+        self::assertSelectorExists(sprintf('.dhead a[href="/edit-project/%s"][data-project-form-modal="dashboard"]', $projectId));
+        self::assertSelectorExists('#project-form-modal[data-controller="project-form-modal"]');
+        self::assertSelectorNotExists(sprintf('.dhead [data-bs-target="#share-modal-%s"]', $projectId));
 
-        // Your own project carries no owner line.
-        self::assertSelectorNotExists('[title^="Vlastník:"]');
+        // The meta line only carries the creation date.
+        self::assertSelectorTextContains('.dhead .meta', 'Založeno');
+        self::assertSelectorTextNotContains('.dhead .meta', 'uživatel');
+        self::assertSelectorTextNotContains('.dhead .meta', 'šablon');
     }
 
     public function testReadOnlyUserSeesNoEditGatedTiles(): void
@@ -71,22 +77,28 @@ final class ProjectDashboardControllerTest extends WebTestCase
         self::assertSelectorExists(sprintf('a[href="/project/%s/manuals"]', $projectId));
         self::assertSelectorNotExists(sprintf('a[href="/project/%s/gallery"]', $projectId));
         self::assertSelectorNotExists(sprintf('a[href="/edit-project/%s"]', $projectId));
+        // Nothing to offer, so no ⋯ menu and no edit dialog.
+        self::assertSelectorNotExists('.dhead .card-menu-btn');
+        self::assertSelectorNotExists('#project-form-modal');
 
-        // Shared with this user, so the header names who shared it.
-        self::assertSelectorTextContains('[title^="Vlastník:"]', 'Sdíleno od');
+        // F3: the owner / "Sdíleno od" line is gone from the header.
+        self::assertSelectorNotExists('[title^="Vlastník:"]');
     }
 
-    public function testAdminSeesOwnerOfProjectNotSharedWithThem(): void
+    public function testAdminMenuOffersEditAndSharing(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
         // PROJECT_2 (owned by user2) is not shared with the admin — god-mode access.
-        $client->request('GET', '/project/' . TestDataFixture::PROJECT_2_ID);
+        $projectId = TestDataFixture::PROJECT_2_ID;
+        $client->request('GET', '/project/' . $projectId);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('[title^="Vlastník:"]');
-        self::assertSelectorTextNotContains('[title^="Vlastník:"]', 'Sdíleno od');
+        self::assertSelectorExists(sprintf('.dhead a[href="/edit-project/%s"][data-project-form-modal="dashboard"]', $projectId));
+        self::assertSelectorTextContains(sprintf('.dhead [data-bs-target="#share-modal-%s"]', $projectId), 'Sdílet projekt');
+        self::assertSelectorExists(sprintf('#share-modal-%s', $projectId));
+        self::assertSelectorNotExists('[title^="Vlastník:"]');
     }
 
     public function testForbiddenForUnrelatedUser(): void

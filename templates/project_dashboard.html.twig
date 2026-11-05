@@ -5,18 +5,18 @@
 
 {#
     Project overview (prototype renderDetail): header with the large symbol,
-    palette chips, module tiles (personal order, drag & drop, localStorage —
-    project_tiles_controller), Uživatelé box (owner + shares; admins add
+    "Založeno" line and a ⋯ menu (Upravit = shared add/edit dialog, Sdílet =
+    sharing modal; F3 2026-11-05 dropped the users/templates/owner meta and
+    the recently added templates box), palette chips, module tiles (personal
+    order, drag & drop, localStorage — project_tiles_controller), Uživatelé box (owner + shares; admins add
     colleagues through the ManageProjectSharing modal), admin-only "Moduly
-    projektu" switches (same endpoints as edit_project, `back=dashboard`) and
-    the recently added templates.
+    projektu" switches (same endpoints as edit_project, `back=dashboard`).
 #}
 
 {% block page_title_row %}
-    {% set is_own = project.owner.id.equals(app.user.id) %}
     {% set avatar = project_avatar(project) %}
-    {% set users_count = 1 + project.shares|length %}
-    {% set tpl_count = templates|length %}
+    {% set can_edit = is_granted('project_edit', project) %}
+    {% set can_share = is_granted('ROLE_ADMIN') %}
     <a href="{{ path('projects') }}" class="back">{{ icon('arrow-left', 's16') }}Všechny projekty</a>
     <header class="dhead">
         {{ include('_project_avatar.html.twig', {'logo_path': avatar.logoPath, 'initials': avatar.initials, 'alt': project.name}, with_context = false) }}
@@ -24,22 +24,27 @@
             <span class="lbl">Projekt</span>
             <h1 class="page-title">{{ project.name }}</h1>
             <div class="meta">
-                {{ icon('users', 's16') }}
-                <span>{{ users_count }} {{ users_count == 1 ? 'uživatel' : (users_count < 5 ? 'uživatelé' : 'uživatelů') }}</span>
-                <span class="dot" aria-hidden="true">·</span>
-                <span>{{ tpl_count }} {{ tpl_count == 1 ? 'šablona' : (tpl_count in [2, 3, 4] ? 'šablony' : 'šablon') }}</span>
-                {% if not is_own %}
-                    {% set owner_name = project.owner.getDisplayName() %}
-                    <span class="dot" aria-hidden="true">·</span>
-                    <span class="dhead-owner" title="Vlastník: {{ owner_name }}">{{ project.getUserSharingLevel(app.user) is not null ? 'Sdíleno od ' ~ owner_name : 'Vlastník ' ~ owner_name }}</span>
-                {% endif %}
-                <span class="dot" aria-hidden="true">·</span>
+                {{ icon('calendar', 's16') }}
                 <span>Založeno {{ project.createdAt|date('j. n. Y') }}</span>
             </div>
         </div>
-        {% if is_granted('project_edit', project) %}
-            <div class="dhead-acts">
-                <a href="{{ path('edit_project', {'id': project.id}) }}" class="btn btn-tertiary sm">{{ icon('edit', 's16') }}Upravit projekt</a>
+        {# ⋯ menu, the /projects card menu look: Upravit opens the shared add /
+           edit dialog (_project_form_dialog.html.twig, back=dashboard), Sdílet
+           the ManageProjectSharing modal rendered in the Uživatelé box. #}
+        {% if can_edit or can_share %}
+            <div class="dhead-acts card-acts dropdown">
+                <button type="button" class="btn btn-tertiary icon card-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="menu" aria-label="Možnosti projektu {{ project.name }}">{{ icon('more', 's18') }}</button>
+                <div class="dropdown-menu dropdown-menu-end" role="menu">
+                    {% if can_edit %}
+                        <a href="{{ path('edit_project', {'id': project.id}) }}" class="dropdown-item" role="menuitem" data-project-form-modal="dashboard">{{ icon('edit', 's16') }}Upravit</a>
+                    {% endif %}
+                    {% if can_share %}
+                        <a href="#" class="dropdown-item" role="menuitem" data-bs-toggle="modal" data-bs-target="#share-modal-{{ project.id }}">
+                            {{ icon('share', 's16') }}Sdílet projekt
+                            {% if project.shares|length > 0 %}<span class="end">{{ project.shares|length }}</span>{% endif %}
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         {% endif %}
     </header>
@@ -57,6 +62,7 @@
 {% block content %}
     {% set project_module = enum('WBoost\\Web\\Value\\ProjectModule') %}
     {% set color_manual = manuals|filter(manual => manual.colorsCount > 0)|first %}
+    {% set can_edit_project = is_granted('project_edit', project) %}
 
     <div class="pd" data-controller="project-tiles">
         {# Palette: the colours of the first manual that has any (detected from
@@ -177,39 +183,9 @@
                 <p class="cap pd-foot">{{ icon('info', 's14') }}Galerie a Fonty jsou vždy zapnuté — čerpají z nich ostatní moduly.</p>
             </section>
         {% endif %}
-
-        {% if recent_templates|length %}
-            <section class="pd-box" aria-labelledby="pdRecentH">
-                <div class="pd-box-h">
-                    <div><h2 id="pdRecentH">Naposledy přidané šablony</h2></div>
-                    {% if project.hasModule(project_module.Templates) %}
-                        <a href="{{ path('templates', {'projectId': project.id}) }}" class="btn btn-tertiary sm">Všechny šablony</a>
-                    {% endif %}
-                </div>
-                <div class="pd-recent">
-                    {% for template in recent_templates %}
-                        {# A grouped template opens its fill page — safe for every viewer
-                           of the dashboard (designers reach the group editor from there
-                           or from the listing). #}
-                        {% set template_url = template.group
-                            ? path('template_group_fill', {'groupId': template.group.id})
-                            : path('template_variants', {'templateId': template.id}) %}
-                        <a href="{{ template_url }}" class="pd-tpl">
-                            <span class="pd-tpl-prev">
-                                <img src="{{ template.image ? uploaded_asset(template.image) : asset('images/manual-placeholder.png') }}" alt="" loading="lazy" onerror="this.onerror=null;this.src='{{ asset('images/manual-placeholder.png') }}'">
-                            </span>
-                            <b>{{ template.name }}</b>
-                            <span class="cap">
-                                {%- if template.category -%}
-                                    {{ template.category.name }}
-                                {%- else -%}
-                                    {{ template.variants|map(variant => variant.dimension.label)|join(' · ')|default('Šablona') }}
-                                {%- endif -%}
-                            </span>
-                        </a>
-                    {% endfor %}
-                </div>
-            </section>
-        {% endif %}
     </div>
+
+    {% if can_edit_project %}
+        {{ include('_project_form_dialog.html.twig') }}
+    {% endif %}
 {% endblock %}

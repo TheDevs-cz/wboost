@@ -1,9 +1,12 @@
 {# add_project / edit_project form in the Nocturne dialog language (prototype
    #dlgNew / #dlgLogo): labelled name field, logo dropzone over the existing
    `icon` file field (logo_drop_controller), optional "remove icon", footer
-   actions. Vars: form, submit_label, cancel_url, current_icon (path|null), project_name. #}
-<div class="pf-card">
-    {{ form_start(form, {'attr': {'class': 'dlg pf-form', 'novalidate': 'novalidate'}}) }}
+   actions. Vars: form, submit_label, cancel_url, current_icon (path|null), project_name,
+   modal (bool, default false) + form_action — the /projects dialog variant
+   (_project_form_modal.html.twig): no card, Zrušit dismisses, explicit action. #}
+{% set modal = modal|default(false) %}
+<div class="{{ modal ? 'pf-modal' : 'pf-card' }}">
+    {{ form_start(form, {'action': form_action|default(''), 'attr': {'class': 'dlg pf-form', 'novalidate': 'novalidate'}}) }}
         {{ form_row(form.name, {'attr': {'placeholder': 'Např. Obec Čeladná', 'autocomplete': 'off', 'maxlength': 30}}) }}
 
         <div class="field" data-controller="logo-drop">
@@ -34,7 +37,11 @@
         {% endif %}
 
         <div class="dlg-f pf-foot">
-            <a href="{{ cancel_url }}" class="btn btn-tertiary sm">Zrušit</a>
+            {% if modal %}
+                <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zrušit</button>
+            {% else %}
+                <a href="{{ cancel_url }}" class="btn btn-tertiary sm">Zrušit</a>
+            {% endif %}
             <button type="submit" class="btn btn-primary sm">{{ submit_label }}</button>
         </div>
     {{ form_end(form) }}

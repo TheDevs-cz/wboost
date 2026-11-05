@@ -123,6 +123,23 @@ editors) gets its plain breadcrumb instead. `inner_class` adds classes to
 `.inner` (`inner-wide` = no max width). Flashes (`_flashes.html.twig`) render
 under the header as kit alerts (`.alert.alert-{label}` + accent circle icon).
 
+### Project add / edit dialog (2026-11-05, F2/F3)
+
+`/projects` ("Nový projekt" header + phone primary action + empty state, card
+⋯ "Změnit název a logo") and the project overview (header ⋯ "Upravit") open
+ONE shared Bootstrap modal, `_project_form_dialog.html.twig`
+(`#project-form-modal`, `project_form_modal_controller`). The controller
+intercepts plain clicks on any `a[data-project-form-modal]` (document-level,
+so the shell's phone action works too), GETs `<href>?modal=1`
+(`add_project` / `edit_project` render `_project_form_modal.html.twig`
+instead of the page) and POSTs it via fetch as multipart `FormData`
+(logo upload). Contract: invalid → the fragment again with **422**; success →
+**JSON `{redirect}`** (flash already queued): `/projects`, or the overview
+when the trigger is `data-project-form-modal="dashboard"` (→ `back=dashboard`,
+kept in the form action). Links keep their real href: modified clicks, fetch
+failures and expired sessions fall back to the full pages, which are
+unchanged (the admin "Moduly projektu" history lives only there).
+
 ### Project modules — nav shows only what the project uses (2026-10-11)
 
 A project lists its switched-on modules in `project.modules` (JSONB list of

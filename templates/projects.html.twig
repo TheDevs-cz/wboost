@@ -26,7 +26,7 @@
                 </label>
             {% endif %}
             {% if is_granted('ROLE_DESIGNER') %}
-                <a href="{{ path('add_project') }}" class="btn btn-primary head-primary">{{ icon('plus', 's16') }}Nový projekt</a>
+                <a href="{{ path('add_project') }}" class="btn btn-primary head-primary" data-project-form-modal>{{ icon('plus', 's16') }}Nový projekt</a>
             {% endif %}
         </div>
     </header>
@@ -34,7 +34,7 @@
 
 {% block mobile_primary_action %}
     {% if is_granted('ROLE_DESIGNER') %}
-        <a href="{{ path('add_project') }}" class="btn btn-primary icon" aria-label="Nový projekt">{{ icon('plus', 's18') }}</a>
+        <a href="{{ path('add_project') }}" class="btn btn-primary icon" aria-label="Nový projekt" data-project-form-modal>{{ icon('plus', 's18') }}</a>
     {% endif %}
 {% endblock %}
 
@@ -101,7 +101,7 @@
                 <h2>Zatím tu nejsou žádné projekty</h2>
                 <p>Projekt sdružuje šablony, logomanuál a e-mailové podpisy jednoho klienta.</p>
                 {% if is_granted('ROLE_DESIGNER') %}
-                    <a href="{{ path('add_project') }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Vytvořit první projekt</a>
+                    <a href="{{ path('add_project') }}" class="btn btn-primary sm" data-project-form-modal>{{ icon('plus', 's16') }}Vytvořit první projekt</a>
                 {% endif %}
             </div>
         {% else %}
@@ -121,4 +121,6 @@
             </div>
         {% endif %}
     </div>
+
+    {{ include('_project_form_dialog.html.twig') }}
 {% endblock %}

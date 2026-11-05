@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Controller\Project;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -32,6 +33,10 @@ final class AddProjectController extends AbstractController
     #[IsGranted(User::ROLE_DESIGNER)]
     public function __invoke(Request $request, #[CurrentUser] UserInterface $user): Response
     {
+        // `?modal=1`: the /projects page loads this form into its shared dialog
+        // (project_form_modal_controller); on success it reloads /projects.
+        $inModal = $request->query->getBoolean('modal');
+
         $data = new ProjectFormData();
         $form = $this->createForm(ProjectFormType::class, $data);
         $form->handleRequest($request);
@@ -48,12 +53,18 @@ final class AddProjectController extends AbstractController
                 ),
             );
 
+            if ($inModal) {
+                $this->addFlash('success', 'Projekt vytvořen!');
+
+                return new JsonResponse(['redirect' => $this->generateUrl('projects')]);
+            }
+
             return $this->redirectToRoute('project_dashboard', [
                 'id' => $projectId,
             ]);
         }
 
-        return $this->render('add_project.html.twig', [
+        return $this->render($inModal ? '_project_form_modal.html.twig' : 'add_project.html.twig', [
             'form' => $form,
         ]);
     }

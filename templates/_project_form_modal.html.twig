@@ -1,0 +1,30 @@
+{# Fragment for the shared /projects dialog (#project-form-modal,
+   project_form_modal_controller): add_project / edit_project with `?modal=1`
+   render this instead of the full page — it replaces the dialog's
+   .modal-content, on GET and again on a 422 (validation errors). The form
+   action keeps `modal=1` so the POST answers with this fragment or a JSON
+   `{redirect}`. Vars: form, project (edit only), back_to_dashboard (edit
+   opened on the project overview — the POST keeps `back=dashboard`). #}
+{% set project = project|default(null) %}
+{% set edit_params = {'id': project ? project.id : null, 'modal': 1}|merge(back_to_dashboard|default(false) ? {'back': 'dashboard'} : {}) %}
+<div class="modal-header">
+    <h5 class="modal-title" id="project-form-modal-title">
+        {% if project %}
+            Upravit projekt <span class="share-pn">{{ project.name }}</span>
+        {% else %}
+            Nový projekt
+        {% endif %}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+</div>
+<div class="modal-body">
+    {{ include('_project_form.html.twig', {
+        'form': form,
+        'modal': true,
+        'form_action': project ? path('edit_project', edit_params) : path('add_project', {'modal': 1}),
+        'submit_label': project ? 'Uložit změny' : 'Vytvořit projekt',
+        'cancel_url': path('projects'),
+        'current_icon': project ? project.icon : null,
+        'project_name': project ? project.name : null,
+    }) }}
+</div>
