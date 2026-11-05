@@ -32,7 +32,7 @@
 
     Nocturne layout (P4, prototype renderGallery): toolbar card (.gal-nav:
     upload · new folder · Koš in rose), breadcrumb path + client-side filter
-    tools (.gal-bar: format chips, search, thumbnail size — gallery-filter
+    tools (.gal-bar: format chips, thumbnail size, search — gallery-filter
     controller, re-applied after every Live morph), folder cards, dashed drop
     strip (.gal-drop), tile grid (.gal-card). Every LiveAction, data-model,
     data-live-*-param, `.gallery-asset[data-storage-path]` and the caption
@@ -172,14 +172,21 @@
                             {% endfor %}
                         </div>
                     {% endif %}
-                    {% if not modal %}
-                        <label class="sz-ctl" data-live-ignore title="Velikost náhledů">
-                            {{ icon('image', 's12') }}
-                            <input type="range" min="120" max="280" step="4" value="168" aria-label="Velikost náhledů" data-gallery-filter-target="size" data-action="input->gallery-filter#resize">
-                            {{ icon('image', 's18') }}
-                        </label>
-                    {% endif %}
-                    <label class="inp sm gal-search" data-live-ignore>
+                    {# The two data-live-ignore islands carry stable ids: without
+                       them the morph that adds the format chips (entering a
+                       folder with mixed formats) failed to match the search
+                       island and left a second search box behind.
+                       Thumbnail size: the same slider + the same remembered size
+                       (`wb-galsize`) in both modes — one preference per browser,
+                       which the picker modal already applied before it had a
+                       slider of its own. Only the unset default differs: the
+                       modal's tighter grid starts at 150 px (gallery.css). #}
+                    <label class="sz-ctl" id="gal-size-{{ modal ? 'modal' : 'page' }}" data-live-ignore title="Velikost náhledů">
+                        {{ icon('image', 's12') }}
+                        <input type="range" min="120" max="280" step="2" value="{{ modal ? 150 : 168 }}" aria-label="Velikost náhledů" data-gallery-filter-target="size" data-action="input->gallery-filter#resize">
+                        {{ icon('image', 's18') }}
+                    </label>
+                    <label class="inp sm gal-search" id="gal-search-{{ modal ? 'modal' : 'page' }}" data-live-ignore>
                         {{ icon('search', 's14') }}
                         <input type="search" placeholder="Hledat podle názvu" aria-label="Hledat podle názvu" data-gallery-filter-target="search" data-action="input->gallery-filter#search">
                     </label>
