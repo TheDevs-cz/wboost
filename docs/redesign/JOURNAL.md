@@ -1209,3 +1209,15 @@ monthly values were stored per project only, so projects handed over between cli
 mixed months (cells ≠ totals). Now every number is scoped to client+project; the top tiles count
 a handed-over project once. Test `testProjectHandedOverBetweenClientsIsScopedPerClient`.
 Not verified: screen readers.
+
+## Feedback round — F16 "Vzorový text" (2026-11-05, 2422996b)
+
+Rich inputs' "Vzorový text" dialog uses the fill page's `rich-text-editor` controller, which
+needs `window.WBoostRichTextRuns` at connect. The editor pages never loaded
+`rich_text_runs.js` / `rich_text_blocks.js` (missing since e57b9ab3, 2026-08-05), so the
+controller crashed: the stored sample didn't show and typed text was lost on save — the client
+only hit it after turning on rich text for "Kategorie". Both scripts now load in the shared
+`editor/_editor_scripts.html.twig` (variant + group editor), with a script-tag test per editor.
+P7 only checked that the dialog opens. The name chips over the text are unchanged pre-redesign
+behaviour (hide via Zobrazení → Popisky vstupů pro klienta). Not verified: lists / checkbox
+lists inside a rich sample.
