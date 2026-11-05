@@ -26,8 +26,8 @@ Status: `open` · `wip` (agent working) · `done` (on main) ·
 | F14 | Templates list | "Synchronizováno" pill on synced (multi-format) template cards is misleading → icon-only "layers" pill with tooltip "Šablona ve více formátech…" | done | 3a09af9a | |
 | F15 | Shell nav | Remember the last visited project on admin / non-project pages: quick nav keeps it selected and the PROJEKT section stays | done | 8e1fc6e0 | subagent |
 | F16 | Template editor | Bug report: "Přestal fungovat a zobrazovat se vzorový text" (sample text / sampleValue) on /template-variant/01a19bda-5cce-7317-badb-98889a8016c4/editor | wip | | debug subagent |
-| F17 | Admin statistics | /admin/usage heatmap: hovering a row breaks the cells (borders between cells vanish, row grows) | wip | | folded into the F18 agent |
-| F18 | Admin statistics | Heatmap rework (client feedback): rows show user NAME + round badge with project count, projects collapsed → expand on click; search; numbers visible without hover — cells show downloads (Stažení / Šablony toggle, tooltip both) | wip | | same subagent as F17 |
+| F17 | Admin statistics | /admin/usage heatmap: hovering a row breaks the cells (borders between cells vanish, row grows) | done | 112a9e9b | with F18 |
+| F18 | Admin statistics | Heatmap rework (client feedback): rows show user NAME + round badge with project count, projects collapsed → expand on click; search; numbers visible without hover — cells show downloads (Stažení / Šablony toggle, tooltip both) | done | 112a9e9b, c2418c65 | same subagent as F17 |
 | F19 | Template editor | Container popover ("Kontejner": Mezera mezi prvky / Mezera za kontejnerem / Max. výška) — titles unreadable: light popover background with dark-theme label colours | done | a7ffe077 | |
 | F20 | Editor gallery modal | "Vyberte obrázek" modal (editor) lacks the tile-size slider the standalone gallery has — add it | done | 61ee6f51 | subagent |
 | F21 | Gallery picker (phone) | At 390 px the picker toolbar's "Nová složka" button overflows; fill-page pickers (single/group/document) still have no size slider | open | | found by the F20 agent |

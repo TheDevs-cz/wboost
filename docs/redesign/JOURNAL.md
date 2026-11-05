@@ -1194,3 +1194,18 @@ Fill-page pickers are separate and still lack the slider (F21).
 
 CI note: `ProjectsTest::testTokenEndpoint…` flaked on `expires_in` 3599 vs 3600 — now accepts
 both (2af71b3b).
+
+## Feedback round — F17, F18 usage heatmap (2026-11-05, 112a9e9b + c2418c65)
+
+Hover rings only the hovered cell (inset) and highlights the row name — no scaling; group
+gaps are a `tr.hm-gap` spacer row. Client rows show the user's name (email fallback) with a
+`.count` project badge as the expand button; projects start collapsed (whole-row click,
+aria-expanded/aria-controls, Rozbalit/Sbalit vše). Search over client name, email and projects
+(accent-insensitive, auto-expands project matches, "Nic nenalezeno"). Stažení / Šablony
+`.seg.soft` switch reads per-metric values + levels rendered server-side (`data-ld`/`data-lt`),
+choice in `localStorage['wb-usage-metric']`; owner name joined in `GetUsageOverview`.
+**Data bug (since 3645b757, 2026-06-29):** a client row = project owner at download time, but
+monthly values were stored per project only, so projects handed over between clients showed
+mixed months (cells ≠ totals). Now every number is scoped to client+project; the top tiles count
+a handed-over project once. Test `testProjectHandedOverBetweenClientsIsScopedPerClient`.
+Not verified: screen readers.
