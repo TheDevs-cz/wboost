@@ -14,7 +14,7 @@
 
 {% block page_lead %}
     {% if can_create %}
-        Šablony příspěvků, tiskovin a grafik. Kategorie sbalíte klikem na název, šablony v kategorii přeskládáte přetažením za úchyt.
+        Šablony příspěvků, tiskovin a grafik. Kategorii rozbalíte klikem na název; přetažením za úchyt změníte pořadí kategorií i šablon v nich.
     {% else %}
         Vyberte šablonu, doplňte texty a obrázky a exportujte.
     {% endif %}
@@ -35,13 +35,23 @@
 
 {% block content %}
     {# Collapse state, search and card size are client-side view tools
-       (templates_list_controller, remembered per browser). Sorting stays the
-       shared Sortable `dragula` controller, one per category grid — templates
-       and multi-page documents share the sort space (SortTemplatesHandler
-       resolves either kind of id). #}
+       (templates_list_controller). Every load starts with the categories
+       collapsed and only "Nejpoužívanější" open (a lone section stays open);
+       the card size is remembered per browser. Card sorting stays the shared
+       Sortable `dragula` controller, one per category grid — templates and
+       multi-page documents share the sort space (SortTemplatesHandler resolves
+       either kind of id). Category sections reorder by their header grip
+       (templates_list_controller → sort_template_categories, project_edit
+       only); "Nejpoužívanější" sits above the list and "Nezařazené" stays
+       last, neither draggable. #}
+    {% set can_sort_categories = can_create and categories|length > 1 %}
     <div class="tp-page"
          data-controller="templates-list"
-         data-templates-list-project-value="{{ project.id }}">
+         data-templates-list-project-value="{{ project.id }}"
+         {% if can_sort_categories %}
+         data-templates-list-sort-url-value="{{ path('sort_template_categories', {'projectId': project.id}) }}"
+         data-templates-list-category-order-value="{{ category_order|json_encode }}"
+         {% endif %}>
 
         {% if total > 0 or can_create %}
             <div class="gal-nav tp-nav">
@@ -100,25 +110,30 @@
                 </section>
             {% endif %}
 
-            <div class="tp-groups">
+            <div class="tp-groups" data-templates-list-target="groups">
                 {% set groups = [] %}
                 {% for entry in categories %}
-                    {% set groups = groups|merge([{key: entry.category.id.toString, name: entry.category.name, items: entry.items}]) %}
+                    {% set groups = groups|merge([{key: entry.category.id.toString, name: entry.category.name, items: entry.items, category: true}]) %}
                 {% endfor %}
                 {% if uncategorized is not empty %}
-                    {% set groups = groups|merge([{key: 'none', name: categories is empty ? 'Šablony' : 'Nezařazené', items: uncategorized}]) %}
+                    {% set groups = groups|merge([{key: 'none', name: categories is empty ? 'Šablony' : 'Nezařazené', items: uncategorized, category: false}]) %}
                 {% endif %}
+                {# Mirrors templates_list_controller#connect: collapsed unless it is the only section. #}
+                {% set start_open = groups|length == 1 %}
 
                 {% for group in groups %}
-                    <section class="tp-group" data-templates-list-target="group" data-key="{{ group.key }}" aria-labelledby="tpc-{{ group.key }}">
+                    <section class="tp-group{{ start_open ? '' : ' closed' }}" data-templates-list-target="group" data-key="{{ group.key }}"{% if group.category %} data-category-id="{{ group.key }}"{% endif %} aria-labelledby="tpc-{{ group.key }}">
                         <div class="tp-gh">
-                            <button type="button" class="tp-tg" data-action="templates-list#toggle" aria-expanded="true" aria-controls="tpb-{{ group.key }}">
+                            {% if can_sort_categories and group.category %}
+                                <span class="man-grip tp-ggrip" title="Přetažením přesunete celou kategorii">{{ icon('grip', 's16') }}</span>
+                            {% endif %}
+                            <button type="button" class="tp-tg" data-action="templates-list#toggle" aria-expanded="{{ start_open ? 'true' : 'false' }}" aria-controls="tpb-{{ group.key }}">
                                 <h2 id="tpc-{{ group.key }}">{{ group.name }}</h2>
                                 <span class="pd-n" data-count>{{ group.items|length }}</span>
                                 <span class="tp-chev" aria-hidden="true">{{ icon('chev-down', 's16') }}</span>
                             </button>
                         </div>
-                        <div class="tp-body" id="tpb-{{ group.key }}">
+                        <div class="tp-body" id="tpb-{{ group.key }}"{{ start_open ? '' : ' hidden' }}>
                             <ul class="tp-grid"
                                 data-controller="dragula"
                                 data-dragula-sort-url-value="{{ path('sort_templates', {'projectId': project.id}) }}"

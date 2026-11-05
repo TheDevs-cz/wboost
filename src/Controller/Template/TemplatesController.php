@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\TemplateCategory;
 use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Query\GetTemplateCategories;
 use WBoost\Web\Query\GetTemplateExportCounts;
@@ -36,10 +37,8 @@ final class TemplatesController extends AbstractController
         #[MapEntity(id: 'projectId')]
         Project $project,
     ): Response {
-        $listing = $this->getTemplateListing->forProject(
-            $project->id,
-            array_values($this->getTemplateCategories->allForProject($project->id)),
-        );
+        $allCategories = array_values($this->getTemplateCategories->allForProject($project->id));
+        $listing = $this->getTemplateListing->forProject($project->id, $allCategories);
 
         $items = $listing['uncategorized'];
         foreach ($listing['categories'] as $entry) {
@@ -53,6 +52,11 @@ final class TemplatesController extends AbstractController
             // out (the document card stands for them).
             'categories' => array_values(array_filter($listing['categories'], static fn (array $entry): bool => $entry['items'] !== [])),
             'uncategorized' => $listing['uncategorized'],
+            // Every category id in position order, empty ones included — the
+            // header drag-reorder re-slots the visible (non-empty) ones into
+            // this list, so hidden empty categories keep their place when
+            // the full order goes to sort_template_categories.
+            'category_order' => array_map(static fn (TemplateCategory $category): string => $category->id->toString(), $allCategories),
             // templateId → latest export version summary, for the cards'
             // "naposledy exportováno" line.
             'last_exports' => $this->getExportVersions->latestForProjectTemplates($project->id),

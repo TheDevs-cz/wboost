@@ -68,6 +68,62 @@ final class TemplatesListingTest extends WebTestCase
         self::assertCount(1, $dialog->filter('.tp-type.prem button[disabled]'));
     }
 
+    /**
+     * F4: every load starts with all category sections collapsed (server-side
+     * markup mirrors templates_list_controller); editors get a header grip on
+     * each real category and the full category order (empty ones included)
+     * for sort_template_categories, the uncategorized bucket gets no grip.
+     */
+    public function testCategorySectionsStartCollapsedAndEditorsGetCategoryGrips(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $secondId = '00000000-0000-0000-0000-0000000004f1';
+        $emptyId = '00000000-0000-0000-0000-0000000004f2';
+        foreach ([[$secondId, 'Druhá', 1], [$emptyId, 'Prázdná', 2]] as [$id, $name, $position]) {
+            $connection->insert('template_category', [
+                'id' => $id,
+                'created_at' => '2026-11-05 10:00:00',
+                'name' => $name,
+                'position' => $position,
+                'project_id' => TestDataFixture::PROJECT_1_ID,
+            ]);
+        }
+        $connection->update('template', ['category_id' => $secondId], ['id' => TestDataFixture::GROUPED_TEMPLATE_ID]);
+
+        $crawler = $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID . '/templates');
+        self::assertResponseIsSuccessful();
+
+        $sections = $crawler->filter('.tp-groups > .tp-group');
+        self::assertGreaterThan(1, $sections->count());
+        self::assertCount($sections->count(), $crawler->filter('.tp-groups > .tp-group.closed'));
+        self::assertCount(0, $crawler->filter('.tp-groups .tp-body:not([hidden])'));
+        self::assertCount(0, $crawler->filter('.tp-groups .tp-tg[aria-expanded="true"]'));
+
+        // Empty categories are not rendered, but stay in the order list.
+        self::assertCount(0, $crawler->filter('[data-category-id="' . $emptyId . '"]'));
+        self::assertCount(2, $crawler->filter('.tp-groups > .tp-group[data-category-id]'));
+        $grips = $crawler->filter('.tp-groups > .tp-group[data-category-id] > .tp-gh > .tp-ggrip');
+        self::assertCount($crawler->filter('.tp-groups > .tp-group[data-category-id]')->count(), $grips);
+        self::assertCount(0, $crawler->filter('.tp-group[data-key="none"] .tp-ggrip'));
+
+        $page = $crawler->filter('.tp-page');
+        self::assertSame('/sort-template-categories/' . TestDataFixture::PROJECT_1_ID, $page->attr('data-templates-list-sort-url-value'));
+        /** @var list<string> $order */
+        $order = json_decode((string) $page->attr('data-templates-list-category-order-value'), true);
+        self::assertSame([TestDataFixture::TEMPLATE_CATEGORY_1_ID, $secondId, $emptyId], $order);
+
+        // Read-only viewers (no project_edit) get neither grips nor the sort URL.
+        TestingLogin::logInAsUser($client, TestDataFixture::SHARED_USER_EMAIL);
+        $crawler = $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID . '/templates');
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('.tp-groups > .tp-group[data-category-id].closed'));
+        self::assertCount(0, $crawler->filter('.tp-ggrip'));
+        self::assertNull($crawler->filter('.tp-page')->attr('data-templates-list-sort-url-value'));
+    }
+
     private function recordExports(string $templateId, int $count, string $when): void
     {
         $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();

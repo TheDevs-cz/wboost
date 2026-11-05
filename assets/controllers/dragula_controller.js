@@ -10,6 +10,9 @@ export default class extends Controller {
     };
 
     connect() {
+        // Still alive from a disconnect skipped mid-drag (see disconnect()).
+        if (this.sortable) return;
+
         this.sortable = Sortable.create(this.containerTarget, withMoveCursor({
             handle: '.dragula-handle',
             direction: this.directionValue,
@@ -27,6 +30,14 @@ export default class extends Controller {
     }
 
     disconnect() {
+        // An outer Sortable that moves this list's ancestor (the Šablony
+        // category reorder drags whole sections holding these grids) makes
+        // Stimulus disconnect + reconnect us on every swap. Sortable#destroy()
+        // calls _onDrop() on the shared global drag state and would kill that
+        // outer drag — so keep the instance while someone else is dragging;
+        // connect() reuses it.
+        if (Sortable.active && Sortable.active !== this.sortable) return;
+
         if (this.sortable) {
             this.sortable.destroy();
             this.sortable = null;

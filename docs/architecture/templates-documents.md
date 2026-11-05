@@ -53,7 +53,15 @@ on `template_document_page`. `_document.html.twig` = stacked page thumbnails
 templates). `GetTemplates::allForProject(…, excludeDocumentPages:)` for the
 dashboard and the attach dialog. `GetGalleryImageUsage` still links a picture
 used on a page to that template's variants page (reachable, just not on the
-listing).
+listing). Listing view (`templates_list_controller`, F4 2026-11-05): every load
+starts with all category sections collapsed, only "Nejpoužívanější" open (a
+lone section stays open; open state is NOT persisted). Editors (`project_edit`,
+≥ 2 non-empty categories) reorder whole sections by the header grip
+`.tp-ggrip` → `sort_template_categories` with the FULL category id list
+(`category_order`, empty/hidden categories re-slotted in place); "Nezařazené"
+stays last. Card grids inside keep the `dragula` controller, which skips its
+`destroy()` while another Sortable is dragging (Stimulus disconnects it on
+every section move, and `Sortable#destroy` would end the outer drag).
 
 **Document page** (`/template-document/{id}`, `template_document.html.twig`):
 sidebar of page thumbnails (the shared Sortable `dragula` controller posts

@@ -941,3 +941,32 @@ path only); keyboard-only flow beyond focus-on-open.
 the full `/edit-project/{id}` page (direct URL / module e-mail link) — the
 overview no longer links there on a plain click.
 
+
+## Feedback round — F4 templates list: categories collapsed + drag reorder (2026-11-05)
+
+**What:** /project/{id}/templates now opens with every category section
+collapsed (incl. "Nezařazené") and only "Nejpoužívanější" open; editors drag
+whole category sections by a header grip to reorder them.
+**How:** `templates_list_controller` starts with all non-top keys closed (a lone
+section stays open), no longer persists the open state and drops the old
+`wb-tpclosed-<projectId>` key; Twig renders the same collapsed state server-side
+(no flash). Reorder = SortableJS on `.tp-groups` (handle `.tp-ggrip` = `man-grip`
++ `i-grip`, `forceFallback`, `.gu-transit`/`.gu-mirror` styles in templates.css),
+only `[data-category-id]` sections move, `onMove` forces "Nezařazené" to stay
+last; disabled while searching. It POSTs the FULL category order to the existing
+`sort_template_categories` (new view var `category_order`; empty categories are
+not rendered, so the visible order is re-slotted around them). Grips only for
+`project_edit` (the endpoint's voter) and ≥ 2 non-empty categories.
+"Nejpoužívanější" stays above the list, not draggable, still collapsible.
+**Shared-file fix:** `dragula_controller.js` — moving a section makes Stimulus
+disconnect/reconnect the card-grid controller inside it, and `Sortable#destroy()`
+runs `_onDrop()` on the global drag state, killing the outer drag. disconnect()
+now skips destroy while another Sortable is active; connect() reuses the instance.
+**Tests:** `TemplatesListingTest::testCategorySectionsStartCollapsedAndEditorsGetCategoryGrips`.
+**Verified:** shots 390/820/1440 × dark/light; puppeteer (mouse events, fallback
+mode): initial state, expand/collapse, drag Obecní ↓ Fotbal → POST + psql +
+reload persisted, restored; drag past "Nezařazené" keeps it last; an open section
+dragged up, then card sorting inside it still works (POST intercepted).
+**Not verified:** touch drag on a real phone (grip has `touch-action: none`).
+**Follow-up (pre-existing, not changed):** `SortTemplateCategoriesHandler` does
+not check that the posted category ids belong to the URL's project.

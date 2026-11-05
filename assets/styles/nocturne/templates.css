@@ -30,6 +30,11 @@
 .tp-group.closed .tp-chev .i, .tp-top.closed .tp-chev .i { transform: none; }
 .tp-tg:hover .tp-chev { background: var(--surface-3); color: var(--text); }
 .tp-body { display: flex; flex-direction: column; }
+/* Category reorder (F4): header grip, dragged section dims in place, the
+   fallback clone reads as a lifted header. */
+.tp-gh > .tp-ggrip { margin-right: -4px; touch-action: none; }
+.tp-group.gu-transit { opacity: .45; }
+.tp-group.gu-mirror { padding-inline: 12px; border: 1px solid var(--lav); border-radius: 18px; background: var(--surface); box-shadow: 0 0 0 3px var(--lav-glow), var(--shadow-3); overflow: hidden; }
 .tp-body[hidden] { display: none; }
 
 /* ---- Listing: cards ------------------------------------------------------- */
