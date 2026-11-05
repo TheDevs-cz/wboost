@@ -970,3 +970,43 @@ dragged up, then card sorting inside it still works (POST intercepted).
 **Not verified:** touch drag on a real phone (grip has `touch-action: none`).
 **Follow-up (pre-existing, not changed):** `SortTemplateCategoriesHandler` does
 not check that the posted category ids belong to the URL's project.
+
+## Feedback round — F6, F8 (fonts), F11, F12 (2026-11-05)
+
+**F6 (c1037bfc):** "Facebook a Instagram" left the global Propojení section and
+is the project menu's last item (before only the "Objevte další moduly" CTA),
+in every project (no module key), same behaviour: `user_profile` when
+`facebook_connected()`, else the `#social-publish-fake-door` modal. Order:
+Přehled, Manuály, Šablony, Galerie, Fonty, *(slot comment for Paleta barev,
+F7)*, E-maily, Jídelníčky, Facebook a Instagram. Propojení keeps Propojené
+aplikace + AI (MCP server) — no heading there anyway, only the divider.
+Outside a project there is no FB entry. Test:
+`ProjectModulesTest::testFacebookInstagramIsTheLastProjectMenuItem`.
+**F8 fonts (31d5e6f5):** manual tab "Fonty" removed (Barevná paleta stays
+until F7; tab bar never drops to one tab, so it stays). New box
+"Písma v manuálech" (`#manual-fonts`, `.pd-box`) at the bottom of
+/project/{id}/fonts: per BRAND manual (Manuály module on) its fonts as rows —
+name in its face, role pill, colour dot + hex, cuts as toggle chips
+(`manual-font-faces-toggle`, saves on change), grip (`dragula` →
+`sort_manual_fonts`), ⋯ Upravit / Odebrat; read-only = disabled chips. The
+`manual_fonts` route only redirects to `fonts_list#manual-fonts-{id}`
+(`manual_fonts.html.twig` deleted); add/edit/delete redirect there; add/edit
+pages extend base.html.twig as Fonty sub-pages (back trail Projekt → Fonty).
+CSS in `fonts.css` (old `.fn-cut-sw` rules removed). Doc: `manuals.md`.
+Test: `tests/Controller/Font/FontsPageManualFontsTest.php`.
+**F11 + F12 (56b45dea):** `ManualFont::edit()` compares with the CURRENT
+font's id; `SortTemplateCategories` carries the URL's project id and the
+handler skips malformed / unknown / foreign ids. Tests:
+`tests/Entity/ManualFontTest.php`, `SortTemplateCategoriesControllerTest`.
+**Verified:** gate green (1631 tests); shots 390/820/1440 × dark/light of a
+project overview, the Fonty page, a manual Logotypy page; puppeteer: FB item
+last + opens the fake-door modal in the expanded sidebar, the icon rail and
+the 390 drawer (URL unchanged); edit-manual-font save keeps the 5 cuts and
+lands on `#manual-fonts-…`; cut chip toggle → 200, persists across reload,
+toggled back (psql: row identical to before).
+**Not verified:** manual-font drag reorder in a browser (same dragula
+controller + endpoint as before); the connected-FB branch only in PHPUnit.
+**Follow-up (pre-existing, same class as F12, not changed):**
+`SortTemplatesHandler`, `SortManualFontsHandler` and
+`SortManualMockupPagesHandler` don't verify the posted ids belong
+to the project/manual in the URL.
