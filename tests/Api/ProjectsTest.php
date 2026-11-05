@@ -90,7 +90,10 @@ final class ProjectsTest extends ApiTestCase
         $payload = $response->toArray();
         self::assertIsString($payload['access_token'] ?? null);
         self::assertSame('Bearer', $payload['token_type'] ?? null);
-        self::assertSame(3600, $payload['expires_in'] ?? null);
+        // 3600 s TTL; the server computes it from "now", so a second boundary
+        // crossed mid-request yields 3599 (flaked on CI 2026-11-05).
+        self::assertIsInt($payload['expires_in'] ?? null);
+        self::assertContains($payload['expires_in'], [3599, 3600]);
 
         $segments = explode('.', $payload['access_token']);
         self::assertCount(3, $segments, 'JWT must have three segments.');
