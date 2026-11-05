@@ -24,4 +24,4 @@ Status: `open` · `wip` (agent working) · `done` (on main) ·
 | F12 | Bug (found) | `SortTemplateCategoriesHandler` does not check the posted category ids belong to the project in the URL | done | 56b45dea | pre-existing, found by the F4 agent |
 | F13 | Manual mockup pages | Prototype layout: toolbar (Přidat stránku · "Pořadí změníte přetažením" · Mřížka / Náhled stránek toggle); Náhled = big page previews in the middle + sticky "Stránky N" thumbnail strip on the right | done | 6bf953d4 | subagent |
 | F14 | Templates list | "Synchronizováno" pill on synced (multi-format) template cards is misleading → icon-only "layers" pill with tooltip "Šablona ve více formátech…" | done | 3a09af9a | |
-| F15 | Shell nav | Remember the last visited project on admin / non-project pages: quick nav keeps it selected and the PROJEKT section stays | wip | | subagent |
+| F15 | Shell nav | Remember the last visited project on admin / non-project pages: quick nav keeps it selected and the PROJEKT section stays | done | 8e1fc6e0 | subagent |

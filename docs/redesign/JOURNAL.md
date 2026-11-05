@@ -1082,3 +1082,14 @@ touch drag and screen readers not verified.
 "Synchronizováno" on synced (multi-format) template cards read as a sync status. It is now an
 icon-only `icon('layers')` pill right before the format pills, `title` "Šablona ve více
 formátech — formáty se upravují společně (skupina)" + `aria-label`. Checked both themes.
+
+## Feedback round — F15 sidebar remembers the last project (2026-11-05, 8e1fc6e0)
+
+The sidebar remembers the last opened project in the session (`ShellExtension::shell_project`,
+the one place the shell resolves its project). Pages without their own project (admin,
+Propojené aplikace, AI, profile, /projects) keep its PROJEKT section and quick-nav selection,
+with no project item highlighted. The `project_view` voter is re-checked on every render, so
+deleted or unshared projects are forgotten; logout clears the session. /projects keeps it too,
+so the nav doesn't jump. Tests: `ShellLastProjectTest` (7 cases). Not verified: 820 px.
+Gate note: `gate.sh --clear-assets` removes the dev container PHPStan needs — load one page
+before the gate.
