@@ -22,6 +22,7 @@ import './styles/nocturne/shell.css';
 import './styles/nocturne/auth.css';
 import './styles/nocturne/projects.css';
 import './styles/nocturne/manual.css';
+import './styles/nocturne/manual-mockups.css';
 import './styles/nocturne/gallery.css';
 import './styles/nocturne/fonts.css';
 import './styles/nocturne/templates.css';

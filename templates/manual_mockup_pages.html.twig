@@ -3,75 +3,115 @@
 {% block title %}{{ manual.name }}{% endblock %}
 {% set active_menu_item = 'manuals' %}
 
-{% block page_lead %}Stránky s ukázkami značky na konci manuálu — vizitky, merch, polepy. Pořadí změníte přetažením karty za úchyt.{% endblock %}
+{% block page_lead %}Stránky s ukázkami značky na konci manuálu — vizitky, merch, polepy. Pořadí změníte přetažením — v mřížce za úchyt karty, v náhledu stránek za miniaturu.{% endblock %}
 
 {% block content %}
 <div class="stack">
     {{ include('_manual_nav.html.twig') }}
 
-    <div class="gal-nav" role="toolbar" aria-label="Stránky s mockupy">
-        <a href="{{ path('add_manual_mockup_page', {'id': manual.id}) }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Přidat stránku</a>
-        {% if pages|length > 1 %}
-            <span class="cap man-hint">{{ icon('grip', 's16') }}Pořadí změníte přetažením</span>
-        {% endif %}
-    </div>
+    {# Two views of the same pages (F13, prototype `manMockList`): Mřížka = the
+       sortable card grid, Náhled stránek = the pages stacked like a PDF reader
+       with a sticky thumbnail rail (drag to reorder, click / arrows to jump).
+       ONE list serves both views — CSS restyles it by `data-view` — so the
+       grid's dragula hooks and the per-page ConfirmModal exist once. The rail
+       is extra; `manual_mockup_pages_controller` keeps the two in order. #}
+    <div class="man-mock" data-view="pdf"
+         data-controller="manual-mockup-pages"
+         data-manual-mockup-pages-sort-url-value="{{ path('sort_manual_mockup_pages', {'manualId': manual.id}) }}">
+        {# Apply the remembered view before first paint (no grid→Náhled flash). #}
+        <script>(function(e){try{if(localStorage.getItem('wb-manview')==='grid'){e.setAttribute('data-view','grid');}}catch(x){}})(document.currentScript.parentElement);</script>
 
-    {% if pages|length == 0 %}
-        <div class="empty">
-            <span class="ico-c">{{ icon('book') }}</span>
-            <h2>Zatím žádné stránky s mockupy</h2>
-            <p>Přidejte stránku, vyberte rozložení a nahrajte ukázky brandu — stránky se zobrazí na konci manuálu.</p>
-            <a href="{{ path('add_manual_mockup_page', {'id': manual.id}) }}" class="btn btn-primary btn-sm">{{ icon('plus', 's16') }}Přidat první stránku</a>
-        </div>
-    {% endif %}
-
-    <ol class="man-pages" aria-label="Stránky s mockupy" data-controller="dragula"
-        data-dragula-sort-url-value="{{ path('sort_manual_mockup_pages', {'manualId': manual.id}) }}"
-        data-dragula-direction-value="horizontal"
-        data-dragula-target="container">
-        {% for page in pages %}
-            {% set can_edit = is_granted('mockup_page_edit', page) %}
-            <li class="man-pg" data-entity-id="{{ page.id }}">
-                <div class="man-pgh">
-                    <span class="dragula-handle man-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
-                    <span class="man-pgn" aria-hidden="true">{{ loop.index }}</span>
-                    <h3 title="{{ page.name }}">{{ page.name }}</h3>
-                    {% if page.hasAnyDownload %}
-                        <span class="man-att" title="Obsahuje soubory ke stažení" role="img" aria-label="Obsahuje soubory ke stažení">{{ icon('paperclip', 's16') }}</span>
-                    {% endif %}
-                    {% if can_edit %}
-                        <div class="dropdown">
-                            <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti stránky {{ page.name }}">{{ icon('more', 's16') }}</button>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit</a>
-                                {% if page.downloadFile %}
-                                    <a href="{{ path('download_mockup_page_file', {'pageId': page.id, 'slot': 'stranka'}) }}" class="dropdown-item">{{ icon('download', 's16') }}Stáhnout soubor stránky</a>
-                                {% endif %}
-                                <div class="dropdown-divider"></div>
-                                <a href="#"
-                                   class="dropdown-item text-danger"
-                                   data-modal-id="{{ page.id }}"
-                                   data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat</a>
-                            </div>
-                        </div>
-                    {% endif %}
+        <div class="gal-nav" role="toolbar" aria-label="Stránky s mockupy">
+            <a href="{{ path('add_manual_mockup_page', {'id': manual.id}) }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Přidat stránku</a>
+            {% if pages|length > 1 %}
+                <span class="cap man-hint">{{ icon('grip', 's16') }}Pořadí změníte přetažením</span>
+            {% endif %}
+            {% if pages|length > 0 %}
+                <div class="seg soft man-viewsw" role="group" aria-label="Zobrazení stránek">
+                    <button type="button" data-view-set="grid" data-manual-mockup-pages-target="viewButton" data-action="manual-mockup-pages#setView" data-manual-mockup-pages-view-param="grid" aria-pressed="false">{{ icon('grid', 's16') }}Mřížka</button>
+                    <button type="button" data-view-set="pdf" data-manual-mockup-pages-target="viewButton" data-action="manual-mockup-pages#setView" data-manual-mockup-pages-view-param="pdf" class="on" aria-pressed="true">{{ icon('book', 's16') }}<span>Náhled<span class="man-vs-x"> stránek</span></span></button>
                 </div>
+            {% endif %}
+        </div>
 
-                {% if can_edit %}
-                    <a class="man-pgv" href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}" aria-label="Upravit stránku {{ page.name }}" draggable="false">
-                        {{ include('_mockup_page.html.twig', {'mockup_page': page, 'show_placeholders': true, 'show_downloads': false}) }}
-                    </a>
-                    <twig:ConfirmModal
-                        id="{{ page.id }}"
-                        url="{{ path('delete_manual_mockup_page', {'id': page.id}) }}"
-                        confirmationText="Opravdu chcete smazat tuto stránku?" />
-                {% else %}
-                    <div class="man-pgv">
-                        {{ include('_mockup_page.html.twig', {'mockup_page': page, 'show_placeholders': true, 'show_downloads': false}) }}
-                    </div>
-                {% endif %}
-            </li>
-        {% endfor %}
-    </ol>
+        {% if pages|length == 0 %}
+            <div class="empty">
+                <span class="ico-c">{{ icon('book') }}</span>
+                <h2>Zatím žádné stránky s mockupy</h2>
+                <p>Přidejte stránku, vyberte rozložení a nahrajte ukázky brandu — stránky se zobrazí na konci manuálu.</p>
+                <a href="{{ path('add_manual_mockup_page', {'id': manual.id}) }}" class="btn btn-primary btn-sm">{{ icon('plus', 's16') }}Přidat první stránku</a>
+            </div>
+        {% endif %}
+
+        <div class="man-pdf">
+            <ol class="man-pages" aria-label="Stránky s mockupy" data-controller="dragula"
+                data-dragula-sort-url-value="{{ path('sort_manual_mockup_pages', {'manualId': manual.id}) }}"
+                data-dragula-direction-value="horizontal"
+                data-dragula-target="container"
+                data-manual-mockup-pages-target="list"
+                data-action="update->manual-mockup-pages#listSorted">
+                {% for page in pages %}
+                    {% set can_edit = is_granted('mockup_page_edit', page) %}
+                    <li class="man-pg" data-entity-id="{{ page.id }}" id="manp-{{ page.id }}" data-manual-mockup-pages-target="page" aria-label="Stránka {{ loop.index }}: {{ page.name }}" data-name="{{ page.name }}">
+                        <div class="man-pgh">
+                            <span class="dragula-handle man-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
+                            <span class="man-pgn" aria-hidden="true">{{ loop.index }}</span>
+                            <h3 title="{{ page.name }}">{{ page.name }}</h3>
+                            {% if page.hasAnyDownload %}
+                                <span class="man-att" title="Obsahuje soubory ke stažení" role="img" aria-label="Obsahuje soubory ke stažení">{{ icon('paperclip', 's16') }}</span>
+                            {% endif %}
+                            {% if can_edit %}
+                                <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}" class="btn btn-tertiary sm man-pg-edit">{{ icon('edit', 's16') }}Upravit</a>
+                                <div class="dropdown">
+                                    <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti stránky {{ page.name }}">{{ icon('more', 's16') }}</button>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Upravit</a>
+                                        {% if page.downloadFile %}
+                                            <a href="{{ path('download_mockup_page_file', {'pageId': page.id, 'slot': 'stranka'}) }}" class="dropdown-item">{{ icon('download', 's16') }}Stáhnout soubor stránky</a>
+                                        {% endif %}
+                                        <div class="dropdown-divider"></div>
+                                        <a href="#"
+                                           class="dropdown-item text-danger"
+                                           data-modal-id="{{ page.id }}"
+                                           data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}Smazat</a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {% if can_edit %}
+                            <a class="man-pgv" href="{{ path('edit_manual_mockup_page', {'id': page.id}) }}" aria-label="Upravit stránku {{ page.name }}" draggable="false">
+                                {{ include('_mockup_page.html.twig', {'mockup_page': page, 'show_placeholders': true, 'show_downloads': false}) }}
+                            </a>
+                            <twig:ConfirmModal
+                                id="{{ page.id }}"
+                                url="{{ path('delete_manual_mockup_page', {'id': page.id}) }}"
+                                confirmationText="Opravdu chcete smazat tuto stránku?" />
+                        {% else %}
+                            <div class="man-pgv">
+                                {{ include('_mockup_page.html.twig', {'mockup_page': page, 'show_placeholders': true, 'show_downloads': false}) }}
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ol>
+
+            {% if pages|length > 0 %}
+                <aside class="man-pdf-side" aria-label="Stránky">
+                    <div class="man-pdf-sh"><b>Stránky</b><span class="pd-n">{{ pages|length }}</span></div>
+                    <ol class="man-thumbs" data-manual-mockup-pages-target="rail" data-action="keydown->manual-mockup-pages#railKey">
+                        {% for page in pages %}
+                            <li class="man-th{% if loop.first %} on{% endif %}" data-page-id="{{ page.id }}" data-name="{{ page.name }}">
+                                <button type="button" data-action="manual-mockup-pages#select" data-manual-mockup-pages-id-param="{{ page.id }}"{% if loop.first %} aria-current="true"{% endif %} aria-label="Stránka {{ loop.index }}: {{ page.name }}" title="{{ page.name }}">
+                                    {{ include('_mockup_page.html.twig', {'mockup_page': page, 'show_placeholders': true, 'show_downloads': false}) }}
+                                </button>
+                                <span class="man-th-n" aria-hidden="true">{{ loop.index }}</span>
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </aside>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}

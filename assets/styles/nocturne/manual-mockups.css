@@ -1,0 +1,63 @@
+/* Nocturne — manual mockup pages list: view switch Mřížka / Náhled stránek
+   (F13, prototype app.css `.man-viewsw`, `.man-pdf*`, `.man-thumbs`, `.man-th*`).
+   templates/manual_mockup_pages.html.twig + manual_mockup_pages_controller.js.
+   ONE list (`.man-pages` > `.man-pg`) serves both views; `.man-mock[data-view]`
+   restyles it. The grid styles themselves live in manual.css. */
+
+/* ---- toolbar view switch -------------------------------------------------- */
+.man-viewsw { margin-left: auto; }
+.man-viewsw button { height: 34px; padding: 0 14px; }
+.man-hint + .man-viewsw { margin-left: 12px; }
+
+/* ---- view toggling ---------------------------------------------------------- */
+.man-mock { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.man-pdf-side, .man-pg-edit { display: none; }
+.man-mock[data-view="pdf"] .man-grip { display: none; }
+
+/* ---- Náhled stránek: pages stacked on the left, thumbnail rail right ------- */
+.man-mock[data-view="pdf"] .man-pdf { display: grid; grid-template-columns: minmax(0, 1fr) 168px; gap: 16px; align-items: start; }
+.man-mock[data-view="pdf"] .man-pages { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.man-mock[data-view="pdf"] .man-pg { gap: 14px; padding: 18px; scroll-margin-top: 12px; }
+.man-mock[data-view="pdf"] .man-pg-edit { display: inline-flex; flex: none; text-decoration: none; }
+.man-mock[data-view="pdf"] .man-pgv { padding: 18px; border-radius: 16px; background: var(--bg); }
+
+.man-mock[data-view="pdf"] .man-pdf-side { position: sticky; top: 12px; display: flex; flex-direction: column; max-height: calc(100vh - 140px); border-radius: 22px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.man-pdf-sh { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.man-pdf-sh b { font-weight: 600; }
+.man-thumbs { position: relative; list-style: none; margin: 0; padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
+.man-th { display: flex; flex-direction: column; gap: 6px; border-radius: 12px; }
+.man-th button { display: block; width: 100%; padding: 4px; border: 2px solid transparent; border-radius: 12px; background: var(--bg); cursor: pointer; transition: border-color .15s; }
+.man-th button:hover { border-color: var(--line-3); }
+.man-th.on button { border-color: var(--lav); }
+.man-th button:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.man-th-n { display: block; text-align: center; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.man-th.on .man-th-n { color: var(--lav-ink); }
+.man-th.man-dragging { opacity: .45; }
+.man-th.gu-mirror button { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+/* the shared page render (_mockup_page.html.twig) at thumbnail size */
+.man-th .mockup-slot { background: var(--surface-3); }
+.man-th .mockup-slot-placeholder { background: var(--surface-3); border: 0; color: var(--subtle); }
+.man-th .mockup-slot-placeholder .i { width: 12px; height: 12px; }
+.man-th .mockup-slot img { color: transparent; font-size: 0; }
+
+/* phones/tablets: the document scrolls under the sticky top bar */
+@media (max-width: 860px) {
+    .man-mock[data-view="pdf"] .man-pg { scroll-margin-top: calc(var(--mbar-h) + 12px); }
+    .man-mock[data-view="pdf"] .man-pdf-side { top: calc(var(--mbar-h) + 12px); max-height: calc(100vh - var(--mbar-h) - 40px); }
+}
+@media (max-width: 1100px) { .man-mock[data-view="pdf"] .man-pdf { grid-template-columns: minmax(0, 1fr) 140px; } }
+@media (max-width: 760px) {
+    .man-mock[data-view="pdf"] .man-pdf { grid-template-columns: minmax(0, 1fr); }
+    .man-mock[data-view="pdf"] .man-pdf-side { display: none; }
+    /* no rail = no reorder in Náhled; the hint would promise something absent */
+    .man-mock[data-view="pdf"] .man-hint { display: none; }
+    .man-mock[data-view="pdf"] .man-hint + .man-viewsw { margin-left: auto; }
+}
+@media (max-width: 560px) {
+    .man-viewsw { margin-left: 0; width: 100%; }
+    .man-hint + .man-viewsw, .man-mock[data-view="pdf"] .man-hint + .man-viewsw { margin-left: 0; }
+    .man-viewsw button { flex: 1; justify-content: center; white-space: nowrap; }
+    .man-vs-x { display: none; }
+    .man-mock[data-view="pdf"] .man-pg { padding: 12px; }
+    .man-mock[data-view="pdf"] .man-pgv { padding: 8px; }
+}
