@@ -1063,3 +1063,22 @@ against real `Manual` entities: computeColors, BrandCmykPalette, `color(n)`, the
 loose-`in_array` `#000`/`000000` quirk), `tests/ConsoleCommands/PaletteCommandsTest.php`
 (snapshot byte-identical twice; plan leaves `manual`/`project` untouched).
 **Not done:** HTML A of every `/nahled-manualu/…` on the prod mirror (plan P0 row).
+
+## Feedback round — F13 mockup pages "Náhled stránek" (2026-11-05, 6bf953d4)
+
+The mockup pages list gets the prototype's Mřížka / Náhled stránek switch. Default is
+Náhled, stored in `localStorage['wb-manview']` and applied by an inline script before first
+paint (no flash). One `.man-pages` list serves both views, restyled by `.man-mock[data-view]`,
+so the dragula hooks and delete confirmations exist once. A new rail (`.man-pdf-side` /
+`.man-thumbs`, `manual_mockup_pages_controller.js`) highlights the page in the viewport's
+reading band, jumps on click, handles arrow/Home/End keys and reorders by drag (SortableJS,
+`forceFallback`, 4 px threshold, same `{sorted}` payload to `sort_manual_mockup_pages`);
+pages renumber after a drag in either view. CSS in `nocturne/manual-mockups.css`. Rail is
+140 px under 1100 px and hidden under 760 px (phones reorder in Mřížka). Puppeteer-verified;
+touch drag and screen readers not verified.
+
+## Feedback round — F14 synced template pill (2026-11-05, 3a09af9a)
+
+"Synchronizováno" on synced (multi-format) template cards read as a sync status. It is now an
+icon-only `icon('layers')` pill right before the format pills, `title` "Šablona ve více
+formátech — formáty se upravují společně (skupina)" + `aria-label`. Checked both themes.
