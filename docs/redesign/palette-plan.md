@@ -250,3 +250,16 @@ Original options:
    primary → secondary → untyped). Alternative: always role-sorted.
 6. **D6 Where a manual picks colours.** Default **"Barvy v manuálech" box on Paleta barev**
    (mirrors F8 "Písma v manuálech"). Alternative: a panel on the manual's Logotypy tab.
+
+## 7. Dry-run decisions (owner, 2026-11-05, after P0 report)
+
+- **Role ties:** keep the tie rule (primary > secondary > none). Frýdlant nad Ostravicí white
+  becomes primary for the project (TIC + Knihovna change). Accepted role changes: Čeladná →
+  Fotbal - Čeladná `#17375f` primary → secondary; Frýdlant TIC + Knihovna white → primary.
+- **D1 refined — "fill the gap" merge:** same `hex_key` where the print data differs ONLY by
+  empty vs filled fields (no two non-empty values disagree) → ONE palette colour carrying the
+  union of the filled values. A manual that lacked the value gains it on its colour page
+  (listed in the report). Real conflicts (two different non-empty CMYK/Pantone/RAL) stay
+  separate entries, flagged, merged later via "Sloučit" (P4).
+- **HEX spelling:** custom colours print the palette's HEX spelling (`ffffff` → `FFFFFF` in one
+  manual is accepted). Logo links keep their literal `logo_hex` (recolouring needs it).
