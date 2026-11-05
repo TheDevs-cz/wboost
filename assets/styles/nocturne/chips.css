@@ -39,9 +39,12 @@
 
 .sym { width: 56px; height: 56px; flex: none; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; letter-spacing: -.02em; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow: hidden; }
 .sym.mono { background: var(--surface-3); color: var(--text-2); box-shadow: inset 0 0 0 1px var(--line-2); }
-.sym img { width: 100%; height: 100%; object-fit: contain; padding: 8px; background: #fff; }
+/* A project logo is shown bare: no plate, frame or padding — the image fills
+   the whole symbol box (object-fit keeps its proportions). A logo that fails
+   to load becomes `.mono` (see _project_avatar.html.twig) and gets the plate. */
+.sym:not(.mono) { background: none; box-shadow: none; overflow: visible; }
+.sym img { width: 100%; height: 100%; object-fit: contain; }
 .sym.sm { width: 26px; height: 26px; border-radius: 8px; font-size: 10px; }
-.sym.sm img { padding: 3px; }
 
 /* ---- Bootstrap .badge → Nocturne pill (tinted, not solid) --------------- */
 .badge {

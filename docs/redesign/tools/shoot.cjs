@@ -13,6 +13,10 @@
  *   FULL       "1" = full-page screenshots (default 1)
  *   PUPPETEER_DIR  directory containing node_modules/puppeteer-core
  *   CHROME     Chrome binary (default macOS Google Chrome)
+ *   IMG_FROM / IMG_TO  rewrite request URLs starting with IMG_FROM to IMG_TO,
+ *              e.g. IMG_FROM=http://localhost:19000 IMG_TO=https://img.wboost.cz
+ *              shows real (public) uploads when the local DB is a prod copy
+ *              but local Minio has no files
  *
  * Output: <outDir>/<slug>--<width>--<theme>.png and a console summary with
  * horizontal-overflow detection (document wider than the viewport = layout bug).
@@ -43,6 +47,17 @@ const slug = (p) => p.replace(/^\//, '').replace(/[^a-z0-9]+/gi, '_').slice(0, 8
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--no-sandbox', '--hide-scrollbars'] });
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
+  if (process.env.IMG_FROM && process.env.IMG_TO) {
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      const u = req.url();
+      if (!u.startsWith(process.env.IMG_FROM)) return req.continue();
+      // continue({url}) cannot change the protocol (http -> https): fetch + respond.
+      fetch(process.env.IMG_TO + u.slice(process.env.IMG_FROM.length))
+        .then(async (r) => req.respond({ status: r.status, contentType: r.headers.get('content-type') || undefined, body: Buffer.from(await r.arrayBuffer()) }))
+        .catch(() => req.abort());
+    });
+  }
   await page.goto(BASE + '/login', { waitUntil: 'networkidle2' });
   if (await page.$('input[name="_username"]')) {
     await page.type('input[name="_username"]', EMAIL);

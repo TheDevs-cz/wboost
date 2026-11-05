@@ -891,3 +891,19 @@ look without a `.head` — consistent, deliberate.
   switched back immediately, no loss.
 - Open items for the merge-request description: see "Not verified" and
   "Follow-ups" in each phase entry above; backend features in `new-features.md`.
+
+## Feedback round — F1 project logos bare (2026-11-05)
+
+**What:** project logos/icons are no longer on a white plate with padding; the bare
+image fills the whole `.sym` box (cards, project detail, sidebar switcher, quick nav,
+admin users/edit user). The initials monogram keeps its dark `--surface-3` plate.
+**How:** one rule in `nocturne/chips.css` — `.sym:not(.mono)` drops background,
+inset ring and overflow clip; `.sym img` loses padding + `#fff`. A logo that fails
+to load still swaps to `.mono` (plate comes back). `shoot.cjs` gained
+`IMG_FROM`/`IMG_TO` so a prod-copy dev DB shows the real public uploads.
+**Verified:** shots at 390/820/1440 × dark/light on /projects, project detail,
+/admin/users with real prod logos; gate green.
+**Note:** logos drawn dark on transparent are now low-contrast in the dark theme.
+Gate tip: a stale `tests/.database.cache` copied with the checkout skips creating
+`wboost_test` (672 connection errors) — delete the file.
+
