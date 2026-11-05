@@ -77,7 +77,11 @@
             </div>
 
             <div class="pal-f man-scale" data-controller="range-sync">
-                <span><label for="{{ width_field.vars.id }}">Šířka loga v manuálu</label> <b data-range-sync-target="label">{{ width_field.vars.value ? width_field.vars.value ~ ' %' : 'Výchozí' }}</b></span>
+                <span>
+                    <label for="{{ width_field.vars.id }}">Šířka loga v manuálu</label>
+                    {# F10: back to the default size; shown only while a custom width is set #}
+                    <button type="button" class="btn btn-tertiary xs man-scale-reset" data-range-sync-target="reset" data-action="range-sync#reset" title="Vrátit výchozí šířku loga"{% if not width_field.vars.value %} hidden{% endif %}>{{ icon('undo', 's14') }}Výchozí</button>
+                </span>
                 <div class="man-scale-row">
                     <input type="range" min="0" max="100" step="1" value="{{ width_field.vars.value ?: 0 }}" aria-label="Šířka loga v manuálu" data-range-sync-target="range" data-action="input->range-sync#fromRange">
                     {{ form_widget(width_field, {'attr': {
@@ -118,13 +122,26 @@
     {% set missing = variants|filter(v => v[2] is null)|map(v => v[1]) %}
 
     {% if missing is not empty %}
-        <div class="alert c-warning man-miss">
+        {#
+            Dismissible per viewer (F9): the dismissal is stored in localStorage
+            against a signature of the whole logo set (variant + file path, the
+            path carries the upload timestamp), so any upload / removal brings
+            the warning back. The inline script hides an already-dismissed alert
+            before first paint; dismiss_alert_controller handles the button.
+        #}
+        {% set logo_signature = variants|map(v => v[0] ~ '=' ~ (v[2] ? v[2].filePath : '-'))|join('|') %}
+        <div class="alert c-warning man-miss"
+             data-controller="dismiss-alert"
+             data-dismiss-alert-key-value="wb-logo-warn-{{ manual.id }}"
+             data-dismiss-alert-signature-value="{{ logo_signature }}">
             {{ icon('alert') }}
-            <div>
+            <div class="man-miss-txt">
                 <div class="alert-t">V manuálu chybí {{ missing|length == 1 ? '1 varianta' : missing|length ~ (missing|length < 5 ? ' varianty' : ' variant') }} loga</div>
                 <div class="alert-d">{{ missing|join(', ') }}. Bez nich nebude manuál kompletní.</div>
             </div>
+            <button type="button" class="btn btn-ghost icon xs man-miss-x" data-action="dismiss-alert#dismiss" aria-label="Skrýt upozornění" title="Skrýt upozornění">{{ icon('x', 's16') }}</button>
         </div>
+        <script>(function(a){try{if(a&&localStorage.getItem(a.getAttribute('data-dismiss-alert-key-value'))===a.getAttribute('data-dismiss-alert-signature-value')){a.hidden=true;}}catch(e){}})(document.currentScript.previousElementSibling);</script>
     {% endif %}
 
     {{ form_start(form, {'attr': {'class': 'man-form'}}) }}
