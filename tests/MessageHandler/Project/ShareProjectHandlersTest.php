@@ -7,6 +7,7 @@ namespace WBoost\Web\Tests\MessageHandler\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Bundle\FrameworkBundle\Test\MailerAssertionsTrait;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Message\Project\ShareProject;
@@ -20,6 +21,8 @@ use WBoost\Web\Value\SharingLevel;
 
 final class ShareProjectHandlersTest extends KernelTestCase
 {
+    use MailerAssertionsTrait;
+
     public function testShareAddsCollaborator(): void
     {
         $handler = self::getContainer()->get(ShareProjectHandler::class);
@@ -34,6 +37,13 @@ final class ShareProjectHandlersTest extends KernelTestCase
         $project = $this->project(TestDataFixture::PROJECT_2_ID);
         $user1 = $this->user(TestDataFixture::USER_1_ID);
         self::assertSame(SharingLevel::Read, $project->getUserSharingLevel($user1));
+
+        // A registered user is told about the new project.
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        self::assertNotNull($email);
+        self::assertEmailAddressContains($email, 'To', TestDataFixture::USER_1_EMAIL);
+        self::assertEmailSubjectContains($email, $project->name);
     }
 
     public function testSharingWithOwnerIsNoOp(): void
@@ -48,6 +58,7 @@ final class ShareProjectHandlersTest extends KernelTestCase
         $this->flushAndClear();
 
         self::assertCount(0, $this->project(TestDataFixture::PROJECT_2_ID)->getShares());
+        self::assertEmailCount(0);
     }
 
     public function testSharingTwiceKeepsSingleCollaborator(): void
@@ -65,6 +76,8 @@ final class ShareProjectHandlersTest extends KernelTestCase
         $this->flushAndClear();
 
         self::assertCount(1, $this->project(TestDataFixture::PROJECT_2_ID)->getShares());
+        // Only the first (new) share notifies.
+        self::assertEmailCount(1);
     }
 
     public function testUnshareRemovesCollaborator(): void

@@ -55,6 +55,10 @@ final class InviteUserHandlersTest extends KernelTestCase
         $email = self::getMailerMessage();
         self::assertNotNull($email);
         self::assertEmailAddressContains($email, 'To', 'fresh-invitee@test.cz');
+        // The pre-shared project and the inviter are named.
+        self::assertEmailSubjectContains($email, $project->name);
+        self::assertEmailHtmlBodyContains($email, $project->name);
+        self::assertEmailHtmlBodyContains($email, 'Pozvánku vám posílá');
     }
 
     public function testReInviteReusesPendingUser(): void

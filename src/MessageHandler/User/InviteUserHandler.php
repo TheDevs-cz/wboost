@@ -62,15 +62,17 @@ readonly final class InviteUserHandler
 
         $invitedBy = $this->userRepository->getById(Uuid::fromString($message->invitedById));
 
+        $projects = [];
         foreach ($message->projectIds as $projectId) {
             $project = $this->projectRepository->get(Uuid::fromString($projectId));
             $project->share($user, SharingLevel::Read, $this->clock->now(), $invitedBy);
+            $projects[] = $project;
         }
 
         // Close out a matching open registration request, if any.
         $pendingRequest = $this->registrationRequestRepository->findPendingByEmail($message->email);
         $pendingRequest?->markInvited();
 
-        $this->invitationMailer->sendInvitation($user);
+        $this->invitationMailer->sendInvitation($user, $projects, $invitedBy);
     }
 }

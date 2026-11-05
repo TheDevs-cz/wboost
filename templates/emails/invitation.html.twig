@@ -18,8 +18,13 @@
                     <tr>
                         <td style="padding: 32px;">
                             <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
-                                Byl vám vytvořen účet <strong>{{ user.email }}</strong> v aplikaci WBoost.
+                                {% if invitedByName is defined and invitedByName %}Pozvánku vám posílá <strong>{{ invitedByName }}</strong>. {% endif %}Byl vám vytvořen účet <strong>{{ user.email }}</strong> v aplikaci WBoost.
                             </p>
+                            {% if projectNames is defined and projectNames is not empty %}
+                            <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
+                                {{ projectNames|length == 1 ? 'Čeká na vás projekt' : 'Čekají na vás projekty' }} <strong>{{ projectNames|join(', ') }}</strong> – po aktivaci účtu {{ projectNames|length == 1 ? 'ho' : 'je' }} najdete mezi svými projekty.
+                            </p>
+                            {% endif %}
 
                             <p style="margin: 0 0 24px; color: #333; font-size: 15px; line-height: 1.5;">
                                 Pro aktivaci účtu si níže nastavte heslo. Po nastavení budete rovnou přihlášeni.

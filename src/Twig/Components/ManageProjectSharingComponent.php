@@ -169,7 +169,7 @@ final class ManageProjectSharingComponent extends AbstractController
                 SharingLevel::Read->value,
                 $admin->id->toString(),
             ));
-            $this->notice = sprintf('%s už WBoost používá — projekt má nyní nasdílený.', $existing->email);
+            $this->notice = sprintf('%s už WBoost používá — projekt je nasdílený, upozornění odešlo e-mailem.', $existing->email);
         } else {
             // New address, or a pending invitee (re-invited: fresh link, this
             // project added, their stored role kept). New people start as a
@@ -181,7 +181,7 @@ final class ManageProjectSharingComponent extends AbstractController
                 [$project->id->toString()],
                 $admin->id->toString(),
             ));
-            $this->notice = sprintf('Pozvánka do WBoost odeslána na %s, projekt je mu nasdílený.', $existing->email ?? $email);
+            $this->notice = sprintf('Pozvánka do WBoost odeslána na %s, projekt je nasdílený.', $existing->email ?? $email);
         }
 
         $this->query = '';
