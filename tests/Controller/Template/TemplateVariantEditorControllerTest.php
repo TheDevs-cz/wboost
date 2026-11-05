@@ -89,6 +89,26 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         );
     }
 
+    /**
+     * The "Vzorový text" modal hosts the fill page's rich-text-editor
+     * controller for rich inputs, and that controller reads the classic-script
+     * globals window.WBoostRichTextRuns / WBoostRichTextBlocks on connect.
+     * Without their <script> tags on the editor page the WYSIWYG throws on
+     * connect: the stored sample never shows and typed text is dropped (F16).
+     */
+    public function testEditorPageLoadsRichTextScriptsForSampleModal(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request('GET', $this->editorUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('#sampleTextModal [data-canvas-input-properties-target="sampleHost"]');
+        self::assertSelectorExists('script[src*="editor/rich_text_runs"]');
+        self::assertSelectorExists('script[src*="editor/rich_text_blocks"]');
+    }
+
     public function testGroupedVariantRedirectsToGroupEditor(): void
     {
         $client = self::createClient();

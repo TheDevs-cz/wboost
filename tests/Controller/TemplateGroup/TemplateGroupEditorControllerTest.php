@@ -39,6 +39,23 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-group-editor-target="card"][data-variant-id="' . TestDataFixture::UNGROUPED_VARIANT_ON_GROUPED_TEMPLATE_ID . '"]');
     }
 
+    /**
+     * Same contract as the single-variant editor: the rich "Vzorový text"
+     * WYSIWYG needs the rich-text classic scripts on the page (F16).
+     */
+    public function testEditorLoadsRichTextScriptsForSampleModal(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('GET', $this->editorUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('#sampleTextModal [data-canvas-input-properties-target="sampleHost"]');
+        self::assertSelectorExists('script[src*="editor/rich_text_runs"]');
+        self::assertSelectorExists('script[src*="editor/rich_text_blocks"]');
+    }
+
     public function testSavePersistsCanvasOfEveryMemberVariant(): void
     {
         $client = self::createClient();

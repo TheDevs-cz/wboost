@@ -303,6 +303,14 @@ export agree. Admin UX: "Vzorový text" button in the text popover opens
 `_editor_stage.html.twig`, stamps the textbox's values, Stimulus connects on
 insert; the editor writes its wire value into the `[data-sample-mirror]`
 hidden input via the usual `data-text-mirror` lookup), plain inputs get a
-textarea. Both editor controllers pass `rich_toolbar`
+textarea. That WYSIWYG reads `window.WBoostRichTextRuns` (+ `…Blocks` for
+lists) on connect, so `editor/_editor_scripts.html.twig` (both editors)
+loads `rich_text_runs.js` + `rich_text_blocks.js` as classic scripts —
+without them the controller throws on connect, the stored sample never
+shows and typed text is dropped (F16, 2026-11-05; the tags were missing
+since the feature shipped, so rich-input samples never worked in the editor;
+plain inputs were unaffected). `TemplateVariantEditorControllerTest` /
+`TemplateGroupEditorControllerTest` assert the tags.
+Both editor controllers pass `rich_toolbar`
 (`RichTextOptions::toToolbarArray()`, also used by the fill page) for the
 modal's toolbar markup. API: `inputs[].sampleValue` (raw wire string).
