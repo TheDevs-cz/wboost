@@ -1254,3 +1254,35 @@ Pantone / role / reorder (menu + drag) / add + delete / guard on the Čeladná p
 snapshot diffs = only the edited colour's manuals; data reverted, snapshot + palette
 tables byte-identical to before. Not verified: the client view in a browser (PHPUnit
 only), the Frýdlant palette interactively (screenshots only).
+
+## Palette P3 — "Barvy v manuálech" + manual colours tab removed (F7, F8 colours, 2026-11-06)
+
+What: a "Barvy v manuálech" `.pd-box` at the bottom of Paleta barev (D6, like "Písma v
+manuálech"): per manual (all types, 2-column grid on wide screens, anchor
+`#manual-colors-{id}`) its colours in manual order — "Z logotypu" (reorder only) then
+"Další barvy" — with number badges 1…n (= `color(n)`, 1–3 highlighted: the default logo
+recolouring keys), swatch, HEX, Název, CMYK · Pantone · RAL summary and the palette
+role as a read-only pill linking to the colour card (D2). Editors (`manual_edit`): drag
+per segment (SortableJS forceFallback) or ⋯ Posunout výš / níž (JSON, badges renumbered),
+⋯ Odebrat z manuálu (added colours only; logo rows show why not), "Přidat z palety"
+dialog (palette colours not in the manual, multi-select, submit disabled until one is
+ticked). "Manuál potřebuje alespoň 3 barvy" moved into the manual's section. The
+manual "Barevná paleta" tab is gone; `/manual/{id}/colors` → 302 to the section (VIEW).
+How: `Message/Palette/{Add,Remove,Sort}ManualPalette*` → new `ManualPaletteWriter`
+`addColors` / `removeColor` / `sortColors` (project row FOR UPDATE, R2 JSONB mirror,
+`refreshManaged`); logo + added links each permute among their own positions.
+Deleted the old colours form stack + template + `colors_dragula_controller.js`, dead CSS
+in manual.css (`.man-tab-warn`, copied overlay, form errors); `custom_color_controller`
+trimmed to the live swatch of `LogoColorsMapping`. Phones: rows switch to a small grid
+(HEX + print on line 1, role pill below, menu right).
+Tests: `ManualPaletteColorsControllerTest` (11 — box EDIT vs VIEW, add incl. template
+swatch path, remove + logo refusal, reorder + logo-first invariant, CSRF / rights,
+redirect, tab gone, palette edits reach the customer manual); `ManualColorsControllerTest`
+deleted. Verified: puppeteer on the Čeladná prod copy (add / remove / menu move / drag,
+persisted after reload, no JS errors), shoot.cjs + box clips at 390/820/1440 both themes
+for Čeladná + Frýdlant (editor and a temporary read-only member), manual pages without
+the tab. Snapshot diff after the moves = only the moved manual; data restored, snapshot
+byte-identical, verify OK. Not verified: the add dialog on a phone (desktop only), a
+manual with no logo colours in the browser (PHPUnit only). Follow-ups: drop
+`EditManualColors` / `editColors()` with P5a; maybe link "Barvy manuálu" from the
+manual's ⋯ menu if users miss the tab.

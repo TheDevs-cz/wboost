@@ -1,5 +1,5 @@
 /**
- * Colour helpers shared by the manual colours page (custom_color_controller)
+ * Colour helpers shared by the logo colour mapping (custom_color_controller)
  * and Paleta barev (project_palette_controller) — F7 P2.
  */
 

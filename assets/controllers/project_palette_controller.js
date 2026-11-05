@@ -13,6 +13,11 @@ import { cmykFromRgb, hexToRgb, isLightRgb } from './palette_color_math.js';
  *             dragula_controller.js why), posted to `sortUrl`
  *   strip     the palette strip preview (segments by data-color-id)
  *   cmykNote / cmykCount   the "N barvám chybí CMYK pro tisk" note
+ *   manualList one segment ("Z logotypu" / "Další barvy") of a manual in the
+ *             "Barvy v manuálech" box (F7 P3); drag reorder inside it, or
+ *             the row menu's Posunout výš / níž, posted to its data-sort-url
+ *             (absent for read-only members); the number badges of that
+ *             manual (= `color(n)`) are renumbered after a move
  *
  * Every change posts ONE field (`field` + `value`, CMYK as `cmyk[]`) with
  * the CSRF token and answers the stored colour; requests are queued one at a
@@ -20,7 +25,7 @@ import { cmykFromRgb, hexToRgb, isLightRgb } from './palette_color_math.js';
  * with the server's message and the field marked `.is-invalid`.
  */
 export default class extends Controller {
-    static targets = ['card', 'grid', 'strip', 'cmykNote', 'cmykCount'];
+    static targets = ['card', 'grid', 'strip', 'cmykNote', 'cmykCount', 'manualList'];
     static values = { sortUrl: String, csrf: String };
 
     connect() {
@@ -40,6 +45,21 @@ export default class extends Controller {
                 })));
             });
         }
+
+        this.manualListTargets.forEach((list) => {
+            if (!list.dataset.sortUrl) return;
+            this.sortables.push(Sortable.create(list, withMoveCursor({
+                handle: '.pal-grip',
+                forceFallback: true,
+                ghostClass: 'gu-transit',
+                dragClass: 'gu-mirror',
+                onEnd: (event) => {
+                    if (event.oldIndex !== event.newIndex) this.sendManualOrder(list);
+                },
+            })));
+        });
+
+        this.element.querySelectorAll('[data-pick-submit]').forEach((button) => { button.disabled = true; });
 
         const flashed = this.cardTargets.find((card) => card.classList.contains('flash'));
         if (flashed) {
@@ -235,6 +255,67 @@ export default class extends Controller {
 
     stripSegment(id) {
         return this.hasStripTarget ? this.stripTarget.querySelector(`[data-color-id="${id}"]`) : null;
+    }
+
+    // ---- "Barvy v manuálech" (F7 P3) -----------------------------------
+
+    moveColorUp(event) {
+        this.moveColor(event, -1);
+    }
+
+    moveColorDown(event) {
+        this.moveColor(event, 1);
+    }
+
+    moveColor(event, step) {
+        event.preventDefault();
+        const row = event.target.closest('.pal-mrow');
+        const list = row.parentElement;
+        const rows = Array.from(list.querySelectorAll(':scope > .pal-mrow'));
+        const target = rows[rows.indexOf(row) + step];
+        if (!target) {
+            this.toast(step < 0 ? 'Barva už je v této skupině první' : 'Barva už je v této skupině poslední');
+            return;
+        }
+        if (step < 0) list.insertBefore(row, target); else list.insertBefore(target, row);
+        this.sendManualOrder(list);
+    }
+
+    sendManualOrder(list) {
+        const sorted = Array.from(list.querySelectorAll(':scope > .pal-mrow')).map((row) => row.dataset.linkId);
+        this.renumber(list.closest('.pal-man'));
+
+        this.queue = this.queue.then(async () => {
+            try {
+                const response = await fetch(list.dataset.sortUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify({ sorted, _token: this.csrfValue }),
+                });
+                const payload = await response.json().catch(() => null);
+                if (!response.ok || !payload) throw new Error();
+                this.toast('Pořadí barev manuálu uloženo');
+            } catch (error) {
+                this.toast('Pořadí se nepodařilo uložit. Zkuste to znovu.', true);
+            }
+        });
+    }
+
+    /** Badges 1…n across both segments of one manual (logo colours first). */
+    renumber(section) {
+        if (!section) return;
+        section.querySelectorAll('.pal-mrow [data-manual-number]').forEach((badge, index) => {
+            badge.textContent = String(index + 1);
+            badge.title = `Barva ${index + 1} manuálu`;
+            badge.classList.toggle('key', index < 3);
+        });
+    }
+
+    /** "Přidat z palety": the submit button needs at least one colour ticked. */
+    pickChanged(event) {
+        const form = event.currentTarget;
+        const button = form.querySelector('[data-pick-submit]');
+        if (button) button.disabled = form.querySelector('input[name="colors[]"]:checked') === null;
     }
 
     // ---- toast (kit .toasts / .toast-n, design-system §3.10) -------------

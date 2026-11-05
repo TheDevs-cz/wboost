@@ -17,7 +17,7 @@ Auth (full_content, Hyper `authentication-bg`/`account-pages`): login, registrat
 
 Projects: `/dashboard` → redirect; projects (`projects.html.twig`, `_project_card`, `_project_avatar`); project_dashboard; project_modules; add_project/edit_project; project_gallery (Live `Project:ImageGallery`); calendars; fonts_list; add_font_face/rename_font.
 
-Manuals (`base_manual`, `_manual_nav`): manuals_list, add/edit_manual, manual_logos, manual_colors, manual_fonts (+add/edit), manual_mockup_pages (+add/edit), manual_preview (standalone, customer-facing — do NOT restyle).
+Manuals (`base_manual`, `_manual_nav`): manuals_list, add/edit_manual, manual_logos, manual_colors (since F7 P3 only a redirect to `project_palette#manual-colors-{id}`), manual_fonts (+add/edit), manual_mockup_pages (+add/edit), manual_preview (standalone, customer-facing — do NOT restyle).
 
 Templates: templates (`_template`, `_document`), template_categories (+add/edit), add/edit_template, template_variants, add_template_variant, **template_variant_editor** (+ `templates/editor/_editor_*` 6 partials), template_variant_export (single fill, Live `VariantFiller`), template_variant_print_settings, *_export_history (shared `template_export_history.html.twig`), add_template_group(+dimension), template_group_from_template, **template_group_editor**, template_group_fill, add/edit_template_document, template_document, template_document_fill, export_failed.
 

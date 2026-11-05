@@ -13,6 +13,8 @@ use Doctrine\ORM\PersistentCollection;
 use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Doctrine\ManualColorsDoctrineType;
+use WBoost\Web\Exceptions\ManualPaletteColorFromLogo;
+use WBoost\Web\Exceptions\ManualPaletteColorNotFound;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\ManualPaletteColor;
 use WBoost\Web\Entity\ProjectColor;
@@ -29,13 +31,17 @@ use WBoost\Web\Value\ManualColorType;
  * the shape R1 code reads), so the old container during a blue-green overlap
  * and a code-revert rollback both see current colours.
  *
- * Two entry points:
- *  - {@see editColors()} — the old per-manual colours page (still live until
- *    P3) posts the manual's whole detected + custom lists;
+ * Entry points:
  *  - {@see syncLogoColors()} — D3 after a logo upload: colours that left the
  *    logo lose their logo link (the palette colour stays, unlinked), new
  *    literals are appended to the logo segment without a role, reusing a
- *    palette colour of the same hex (first by position) or appending one.
+ *    palette colour of the same hex (first by position) or appending one;
+ *  - {@see addColors()}, {@see removeColor()}, {@see sortColors()} — the
+ *    "Barvy v manuálech" box of Paleta barev (F7 P3): pick palette colours,
+ *    drop an added one, reorder; they only touch the manual's links;
+ *  - {@see editColors()} — posts a manual's whole detected + custom lists
+ *    (the old per-manual colours page, removed in P3; no UI caller is left —
+ *    kept because `PaletteSyncTest` pins the matching rules below through it).
  *
  * Matching a posted colour to a palette colour (same hex key only):
  *  1. its PREVIOUS palette colour (logo row → by literal, added row → the
@@ -96,6 +102,173 @@ readonly final class ManualPaletteWriter
             'custom' => $current['custom'],
             'setsRoles' => false,
         ]);
+    }
+
+    /**
+     * "Barvy v manuálech" → "Přidat z palety" (F7 P3): links the given
+     * palette colours to the manual as ADDED colours, appended after its
+     * current last colour in the given order. Colours of another project,
+     * unknown ids and colours the manual already links are skipped. Roles and
+     * print data stay the palette's (D2). Once linked, a colour is a template
+     * swatch ({@see \WBoost\Web\Query\GetProjectPalette} is linked-only).
+     *
+     * @param array<string> $colorIds palette colour ids
+     * @return int how many colours were added
+     */
+    public function addColors(UuidInterface $manualId, array $colorIds): int
+    {
+        $result = $this->connection->transactional(function () use ($manualId, $colorIds): null|array {
+            $projectId = $this->lockedManualProject($manualId);
+
+            if ($projectId === null) {
+                return null;
+            }
+
+            /** @var list<string> $palette */
+            $palette = $this->connection->fetchFirstColumn('SELECT id FROM project_color WHERE project_id = ?', [$projectId]);
+            /** @var list<string> $linked */
+            $linked = $this->connection->fetchFirstColumn('SELECT project_color_id FROM manual_palette_color WHERE manual_id = ?', [$manualId->toString()]);
+
+            $allowed = array_fill_keys($palette, true);
+            $skip = array_fill_keys($linked, true);
+            $position = $this->connection->fetchOne('SELECT COALESCE(MAX(position) + 1, 0) FROM manual_palette_color WHERE manual_id = ?', [$manualId->toString()]);
+            $position = is_numeric($position) ? (int) $position : 0;
+            $now = $this->clock->now()->format('Y-m-d H:i:s');
+            $added = 0;
+
+            foreach ($colorIds as $colorId) {
+                $colorId = strtolower($colorId);
+
+                if (!isset($allowed[$colorId]) || isset($skip[$colorId])) {
+                    continue;
+                }
+
+                $this->connection->executeStatement(
+                    'INSERT INTO manual_palette_color (id, manual_id, project_color_id, logo_hex, position, created_at) VALUES (?, ?, ?, NULL, ?, ?)',
+                    [$this->provideIdentity->next()->toString(), $manualId->toString(), $colorId, $position++, $now],
+                );
+                $skip[$colorId] = true;
+                $added++;
+            }
+
+            if ($added > 0) {
+                $this->mirrorProject($projectId);
+            }
+
+            return ['projectId' => $projectId, 'added' => $added];
+        });
+
+        if ($result === null) {
+            return 0;
+        }
+
+        $this->refreshManaged($result['projectId']);
+
+        return $result['added'];
+    }
+
+    /**
+     * "Odebrat z manuálu" (F7 P3): drops one ADDED colour of the manual; the
+     * palette colour stays (it may become "Nepoužitá"). A logo colour is
+     * refused — it comes from the logo and leaves with a new one (D3). The
+     * later colours move up one place (`position` keeps its gap; the order is
+     * what counts).
+     *
+     * @throws ManualPaletteColorNotFound
+     * @throws ManualPaletteColorFromLogo
+     */
+    public function removeColor(UuidInterface $manualId, UuidInterface $linkId): void
+    {
+        $projectId = $this->connection->transactional(function () use ($manualId, $linkId): string {
+            $projectId = $this->lockedManualProject($manualId) ?? throw new ManualPaletteColorNotFound();
+
+            /** @var false|array{logo_hex: null|string} $link */
+            $link = $this->connection->fetchAssociative(
+                'SELECT logo_hex FROM manual_palette_color WHERE id = ? AND manual_id = ?',
+                [$linkId->toString(), $manualId->toString()],
+            );
+
+            if ($link === false) {
+                throw new ManualPaletteColorNotFound();
+            }
+
+            if ($link['logo_hex'] !== null) {
+                throw new ManualPaletteColorFromLogo();
+            }
+
+            $this->connection->executeStatement('DELETE FROM manual_palette_color WHERE id = ?', [$linkId->toString()]);
+            $this->mirrorProject($projectId);
+
+            return $projectId;
+        });
+
+        $this->refreshManaged($projectId);
+    }
+
+    /**
+     * Reorders the manual's colours (F7 P3 — drag or "Posunout výš / níž").
+     * The logo colours and the added colours are each permuted only among
+     * the positions they already hold, so the logo segment stays first
+     * (`color(n)` = logo ++ added) whatever is posted. Ids of other manuals
+     * and unknown ids are ignored. This order is what `color(n)` indexes —
+     * the default logo recolouring uses colours 1–3 — and the order of the
+     * manual's colour pages; the palette order is untouched.
+     *
+     * @param array<string> $linkIds `manual_palette_color` ids, new order
+     */
+    public function sortColors(UuidInterface $manualId, array $linkIds): void
+    {
+        $projectId = $this->connection->transactional(function () use ($manualId, $linkIds): null|string {
+            $projectId = $this->lockedManualProject($manualId);
+
+            if ($projectId === null) {
+                return null;
+            }
+
+            /** @var list<array{id: string, logo_hex: null|string, position: int|string}> $rows */
+            $rows = $this->connection->fetchAllAssociative('SELECT id, logo_hex, position FROM manual_palette_color WHERE manual_id = ?', [$manualId->toString()]);
+
+            /** @var array<string, array{logo: bool, position: int}> $links */
+            $links = [];
+            foreach ($rows as $row) {
+                $links[$row['id']] = ['logo' => $row['logo_hex'] !== null, 'position' => (int) $row['position']];
+            }
+
+            /** @var array{logo: list<string>, added: list<string>} $segments */
+            $segments = ['logo' => [], 'added' => []];
+            $seen = [];
+            foreach ($linkIds as $linkId) {
+                $linkId = strtolower($linkId);
+
+                if (isset($links[$linkId]) && !isset($seen[$linkId])) {
+                    $segments[$links[$linkId]['logo'] ? 'logo' : 'added'][] = $linkId;
+                    $seen[$linkId] = true;
+                }
+            }
+
+            $changed = false;
+            foreach ($segments as $ids) {
+                $slots = array_map(static fn (string $id): int => $links[$id]['position'], $ids);
+                sort($slots);
+
+                foreach ($ids as $index => $id) {
+                    if ($links[$id]['position'] !== $slots[$index]) {
+                        $this->connection->executeStatement('UPDATE manual_palette_color SET position = ? WHERE id = ?', [$slots[$index], $id]);
+                        $changed = true;
+                    }
+                }
+            }
+
+            if ($changed) {
+                $this->mirrorProject($projectId);
+            }
+
+            return $projectId;
+        });
+
+        if ($projectId !== null) {
+            $this->refreshManaged($projectId);
+        }
     }
 
     /**
@@ -205,6 +378,23 @@ readonly final class ManualPaletteWriter
                 }
             }
         }
+    }
+
+    /**
+     * The manual's project id with the project row locked FOR UPDATE (the
+     * lock every palette writer takes), null when the manual does not exist.
+     */
+    private function lockedManualProject(UuidInterface $manualId): null|string
+    {
+        $projectId = $this->connection->fetchOne('SELECT project_id FROM manual WHERE id = ?', [$manualId->toString()]);
+
+        if (!is_string($projectId)) {
+            return null;
+        }
+
+        $this->connection->executeStatement('SELECT id FROM project WHERE id = ? FOR UPDATE', [$projectId]);
+
+        return $projectId;
     }
 
     /**

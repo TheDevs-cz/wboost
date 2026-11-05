@@ -108,9 +108,8 @@ the JSONB mirror stores it via `ManualColorsDoctrineType`) carries `ral` alongsi
 and reads back as null). Every code is
 printed by `_manual_color_swatch.html.twig` — extracted from the two
 copy-pasted palette blocks — and only when the designer filled it, so a manual
-with no RAL looks exactly as before. `ManualColorsFormType::isBlankColor()`
-counts `ral` too, otherwise a row holding nothing but a RAL code would be
-dropped on save.
+with no RAL looks exactly as before. Since F7 P3 the codes are edited only on
+the Paleta barev cards (the per-manual colours form is gone).
 
 ### Project palette — the source of truth for colours (F7; P1a R1 → P1b R2, 2026-11-05)
 
@@ -151,7 +150,7 @@ read model (old `detectedColors()` incl. its loose `in_array`, old primary → s
 
 **Project-wide colours** = `Query/GetProjectPalette::forProject()` / `colorsForProject()`:
 palette order (D5) and **only colours ≥1 manual links** (R2 decision: R1 never
-deleted palette colours and the old colours page still splits / abandons them, so
+deleted palette colours and the old colours page (gone since P3) split / abandoned them, so
 leftovers must not become swatches or win the print "first CMYK"; the P2 palette page
 lists them as "Nepoužitá" via `ProjectColorRepository::forProject()`, which returns
 all). Feeds `ResolveRichTextOptions::computeColors()` (now takes the palette
@@ -162,13 +161,16 @@ all). Feeds `ResolveRichTextOptions::computeColors()` (now takes the palette
 then `mirrorProject()` rewrites EVERY manual of the project's JSONB from its links
 (`detected_colors` = logo links, `custom_colors` = the rest, palette role + print data
 — the shape R1 reads, so a role / print change reaches the other manuals' mirrors
-too). Callers: `EditManualColorsHandler` → `editColors()` (the old colours page, still
-live until P3) and `UpdateManualImagesHandler` → `syncLogoColors()` after flushing
+too). Callers: the "Barvy v manuálech" box (P3, see below) → `addColors()` /
+`removeColor()` / `sortColors()`, `UpdateManualImagesHandler` → `syncLogoColors()` after flushing
 the new logo (D3: colours that left the logo lose their link and stay in the palette;
 new literals are appended to the logo segment without a role, reusing a same-hex
 palette colour — first by position — or appending one). `Manual::editLogo()` only
 sets the logo now; `Manual::mirrorJsonbColors()` only sets the mirror (fixtures /
-tests). A posted colour maps to a palette colour of its hex key:
+tests). `EditManualColorsHandler` → `editColors()` (a manual's whole detected +
+custom lists) has had no UI caller since the old colours page went (P3); it stays
+because `PaletteSyncTest` pins the matching rules through it — drop it with P5a.
+A posted colour maps to a palette colour of its hex key:
 
 1. its previous palette colour (logo row by literal, added row = the n-th earlier
    added link of that hex) when the print data is unchanged;
@@ -249,10 +251,65 @@ mark when its link is a logo link). VIEW to see; `project_edit` to change.
   colours, pencil (edit) / eye (view) → the page; `GetProjectCardFacts`
   `has_palette` = `EXISTS project_color`. `app:palette:snapshot` (v2) mirrors
   both and adds a `palette` list per project.
-- The old per-manual colours page (`manual_colors`) still writes through
-  `ManualPaletteWriter` until P3, so both pages read and write the same rows.
+- The old per-manual colours page (`manual_colors`) is gone since P3 —
+  `/manual/{id}/colors` redirects to the box below.
 - Pinned by `tests/Controller/Palette/ProjectPaletteControllerTest.php` and
   `tests/MessageHandler/Palette/ProjectPaletteHandlersTest.php`.
+
+### Barvy v manuálech — a manual's colours, on Paleta barev (F7 P3, 2026-11-06)
+
+The manual's own **Barevná paleta tab is gone** (`_manual_nav.html.twig`);
+which palette colours a manual uses, and in which order, is edited in the
+**"Barvy v manuálech"** box (`#manual-colors`, one `#manual-colors-{manualId}`
+section per manual — `ProjectPaletteController::manualAnchor()`) at the bottom
+of Paleta barev (D6, mirrors "Písma v manuálech").
+
+- Every manual (logo AND brand — both have colours), `created_at, id` order,
+  only while the Manuály module is on. Sections sit in a 2-column grid on wide
+  screens (`.pal-man-grid`).
+- Per manual two ordered segments: **Z logotypu** (logo links — the logo adds
+  them, reorder only, no remove: the row menu says why) and **Další barvy**
+  (added links). Number badges 1…n across both = `color(n)`; 1–3 highlighted
+  (they are the default logo recolouring keys, `DefaultLogoColors`). Each row:
+  swatch, HEX (a logo link shows its LITERAL), Název, print summary (CMYK ·
+  Pantone · RAL — tells split duplicates apart until P4 "Sloučit") and the
+  palette colour's **role as a read-only pill** linking to its card (D2: the
+  role is per project, edited on the card).
+- "Manuál potřebuje alespoň 3 barvy" (`colorsCount() < 3`) is shown in the
+  manual's section (moved from the old page / tab warning icon).
+- Writes (`manual_edit`, CSRF `project_palette`), all CQRS →
+  `ManualPaletteWriter` (project row FOR UPDATE, one transaction, then
+  `mirrorProject()` — the R2 JSONB mirror — and `refreshManaged()`):
+  - **Přidat z palety** (`manual_palette_add`, POST `/manual/{id}/paleta/pridat`,
+    `colors[]`, Bootstrap dialog `#mc-add-{manualId}` listing the palette
+    colours the manual does not link yet, multi-select) →
+    `AddManualPaletteColors` → `addColors()`: appended after the manual's last
+    colour as added links; already-linked / foreign / unknown ids skipped. A
+    palette colour linked this way becomes a template swatch
+    (`GetProjectPalette` is linked-only) — that is how "Přidat barvu" colours
+    reach templates.
+  - **Odebrat z manuálu** (`manual_palette_remove`, POST
+    `/manual/{id}/paleta/{linkId}/odebrat`) → `RemoveManualPaletteColor` →
+    `removeColor()`: deletes the link (the palette colour stays, maybe
+    "Nepoužitá"); a logo link throws `ManualPaletteColorFromLogo` (flash
+    warning), a link of another manual `ManualPaletteColorNotFound` (404).
+  - **Reorder** (`manual_palette_sort`, JSON `{sorted: [linkId…], _token}`;
+    drag on `.pal-grip` per segment `<ol>` via SortableJS forceFallback, or
+    ⋯ Posunout výš / níž) → `SortManualPaletteColors` → `sortColors()`:
+    logo links and added links are each permuted among the positions THEY
+    hold, so the logo segment stays first whatever is posted. Changes
+    `color(n)` → the default recolouring and the colour pages' order of that
+    manual only; the palette order (templates, print, API) is untouched.
+    Answers `{order}`; the page renumbers the badges.
+- Read-only members: same rows, no grip / menu / add dialog, plain manual
+  name (the manual pages are editors-only).
+- `/manual/{id}/colors` (`manual_colors`, `ManualVoter::VIEW`) only REDIRECTS
+  (302 — target depends on the project and the viewer; a 301 would be cached
+  for good) to `project_palette#manual-colors-{id}`. The old form stack
+  (`ManualColorsFormType` / `ManualColorFormType` / FormData, the template,
+  `colors_dragula_controller.js`) is deleted; `custom_color_controller.js`
+  only paints the live swatch of `LogoColorsMapping` now.
+- Pinned by `tests/Controller/Palette/ManualPaletteColorsControllerTest.php`.
 
 ### Manual fonts — edited on the project Fonty page (F8, 2026-11-05)
 
@@ -260,7 +317,8 @@ A brand manual's `ManualFont`s (role primary/secondary, sample colour,
 enabled cuts `fontFaces`, `position`) feed the customer manual preview's font
 pages and the editor's font defaults (`ResolveEditorFontDefaults`, see
 `templates-text-inputs.md`). The manual's own **Fonty tab is gone**
-(`_manual_nav.html.twig` = Logotypy · Barevná paleta · Stránky s mockupy):
+(`_manual_nav.html.twig` = Logotypy · Stránky s mockupy — the Barevná
+paleta tab went in F7 P3, see "Barvy v manuálech"):
 they are edited in the **"Písma v manuálech"** box (`#manual-fonts`, one
 `#manual-fonts-{manualId}` section per manual) at the bottom of the project
 Fonty page (`FontsController` → `fonts.html.twig`).

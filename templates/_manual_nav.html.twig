@@ -1,17 +1,15 @@
 {# Manual section tabs (prototype `.tabs-u.man-tabs`). Real links — every
-   section is its own route. Counts: logos n/5, colours, mockup pages.
-   Mockup pages exist only for brand manuals. The Fonty tab is gone (F8,
-   2026-11-05): manual fonts are edited in the "Písma v manuálech" box of the
-   project Fonty page (`fonts_list`). #}
+   section is its own route. Counts: logos n/5, mockup pages. Mockup pages
+   exist only for brand manuals. The Fonty tab is gone (F8, 2026-11-05):
+   manual fonts are edited in the "Písma v manuálech" box of the project
+   Fonty page (`fonts_list`); so is the "Barevná paleta" tab (F7 P3): the
+   manual's colours are picked and ordered in the "Barvy v manuálech" box of
+   Paleta barev (`project_palette#manual-colors-{id}`). #}
 {% set manual_route = app.request.attributes.get('_route') %}
 {% set logo_total = 5 %}
 <nav class="tabs-u man-tabs" aria-label="Části manuálu">
     <a href="{{ path('manual_logos', {'id': manual.id}) }}"{% if manual_route == 'manual_logos' %} aria-current="page"{% endif %}>
         {{ icon('image', 's16') }}Logotypy <span class="pd-n">{{ manual.logo.imagesCount }}/{{ logo_total }}</span>
-    </a>
-    <a href="{{ path('manual_colors', {'id': manual.id}) }}"{% if manual_route == 'manual_colors' %} aria-current="page"{% endif %}>
-        {{ icon('palette', 's16') }}Barevná paleta <span class="pd-n">{{ manual.colorsCount }}</span>
-        {% if manual.colorsCount < 3 %}<span class="man-tab-warn" title="Manuál potřebuje alespoň 3 barvy" aria-label="Málo barev">{{ icon('warn-f', 's14') }}</span>{% endif %}
     </a>
     {% if manual.brandManual %}
         <a href="{{ path('manual_mockup_pages', {'id': manual.id}) }}"{% if manual_route in ['manual_mockup_pages', 'add_manual_mockup_page', 'edit_manual_mockup_page'] %} aria-current="page"{% endif %}>

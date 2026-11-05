@@ -31,7 +31,6 @@
 .man-tabs { overflow-x: auto; scrollbar-width: none; }
 .man-tabs a { flex: none; }
 .man-tabs .pd-n { margin-left: 2px; }
-.man-tab-warn { display: inline-flex; color: var(--pch-ink); }
 .man-miss { flex-wrap: wrap; }
 .man-miss-txt { flex: 1 1 0; min-width: 0; }
 .man-miss > .man-miss-x { flex: none; margin: -4px -6px -4px 0; }
@@ -104,7 +103,7 @@
     .man-savebar .btn { flex: 1; }
 }
 
-/* ---- Colour palette (prototype § Paleta barev) ------------------------------ */
+/* ---- Colour palette kit (prototype § Paleta barev; used by project_palette) -- */
 .pal-strip { display: flex; height: 28px; min-width: 160px; max-width: 360px; flex: 0 1 360px; border-radius: 999px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line-2); }
 .pal-strip span { flex: 1; min-width: 0; }
 .pal-group { display: flex; flex-direction: column; gap: 12px; }
@@ -120,7 +119,6 @@
 .pal-sw .i { opacity: 0; transition: opacity .15s; }
 .pal-sw:hover .i, .pal-sw:focus-visible .i { opacity: .85; }
 .pal-sw:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: -4px; }
-.pal-sw[data-copied]::after { content: attr(data-copied); position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%); padding: 4px 6px; border-radius: 8px; background: rgba(20,18,24,.78); color: #fff; font-size: 11px; font-weight: 600; text-align: center; }
 .pal-src { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
 .pal-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 14px 14px 16px; }
 .pal-row1 { display: flex; align-items: flex-end; gap: 8px; }
@@ -137,7 +135,6 @@
 .pal-calc { grid-column: 1 / -1; justify-self: start; margin-left: -8px; color: var(--lav-ink) !important; }
 .pal-card:not(.is-cmyk-missing) .pal-calc { display: none; }
 .pal-row3 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.pal-body .invalid-feedback, .pal-body .form-error-message { display: block; }
 @media (max-width: 560px) {
     .pal-strip { flex-basis: 100%; max-width: none; }
     .pal-card { flex-direction: column; }

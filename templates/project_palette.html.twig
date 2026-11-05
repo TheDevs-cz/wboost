@@ -12,6 +12,10 @@
     CSRF → toast "Uloženo"); the edit reaches every manual that links the
     colour. Read-only members (§692): disabled fields, empty ones dashed
     peach, the strip shows the HEX, no add / menu / drag.
+    "Barvy v manuálech" (F7 P3, D6 — replaces the manual's "Barevná paleta"
+    tab) closes the page: per manual its colours in manual order (logo
+    colours first, numbered — colours 1–3 drive the default logo
+    recolouring), reorder / remove / "Přidat z palety" for `manual_edit`.
 #}
 
 {% set can_edit = is_granted(constant('WBoost\\Web\\Services\\Security\\ProjectVoter::EDIT'), project) %}
@@ -175,6 +179,148 @@
     </section>
 {% endmacro %}
 
+{% macro role_pill(role, color_id, can_edit) %}
+    {# Read-only: the role is the palette colour's, edited on its card (D2). #}
+    <a href="#pal-{{ color_id }}" class="pill pal-mrole{{ role is null ? ' none' : (role.value == 'secondary' ? ' neutral') }}" title="{{ can_edit ? 'Roli barvy změníte na její kartě — platí pro všechny manuály' : 'Role barvy platí pro všechny manuály' }}">{{ _self.role_label(role) }}</a>
+{% endmacro %}
+
+{% macro print_caption(color) %}
+    {#- Tells same-HEX palette colours apart (split duplicates until P4 "Sloučit"). -#}
+    {%- set parts = [] -%}
+    {%- if color.cmyk is not null %}{% set parts = parts|merge(['CMYK ' ~ color.cmyk|map(v => v ?? '–')|join('/')]) %}{% endif -%}
+    {%- if color.pantone %}{% set parts = parts|merge([color.pantone]) %}{% endif -%}
+    {%- if color.ral %}{% set parts = parts|merge([color.ral]) %}{% endif -%}
+    {{- parts|join(' · ') -}}
+{% endmacro %}
+
+{% macro manual_row(link, number, manual, can_edit) %}
+    {% set color = link.projectColor %}
+    {% set hex = (link.logoHex ?? color.hex)|upper %}
+    <li class="pal-mrow" data-link-id="{{ link.id }}">
+        {% if can_edit %}<span class="pal-grip" title="Přetažením změníte pořadí" aria-hidden="true">{{ icon('grip', 's16') }}</span>{% endif %}
+        <span class="pal-mnum{{ number <= 3 ? ' key' }}" data-manual-number title="Barva {{ number }} manuálu">{{ number }}</span>
+        <span class="pal-mdot" style="background: #{{ hex }};" aria-hidden="true"></span>
+        {% set print = _self.print_caption(color)|trim %}
+        <span class="pal-mrow-t"><b>#{{ hex }}</b>{% if color.name %}<span class="cap">{{ color.name }}</span>{% endif %}{% if print %}<span class="cap pal-mprint">{{ print }}</span>{% endif %}</span>
+        {{ _self.role_pill(color.role, color.id, can_edit) }}
+        {% if can_edit %}
+            <span class="dropdown">
+                <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="menu" aria-label="Možnosti barvy #{{ hex }} v manuálu {{ manual.name }}">{{ icon('more', 's16') }}</button>
+                <span class="dropdown-menu dropdown-menu-end" role="menu">
+                    <button type="button" class="dropdown-item" role="menuitem" data-action="project-palette#moveColorUp">{{ icon('arrow-up', 's16') }}Posunout výš</button>
+                    <button type="button" class="dropdown-item" role="menuitem" data-action="project-palette#moveColorDown">{{ icon('arrow-down', 's16') }}Posunout níž</button>
+                    {% if link.fromLogo %}
+                        <span class="dropdown-divider"></span>
+                        <span class="dropdown-item-text cap pal-mlogo-note">Barva z logotypu — odebere se až s novým logem.</span>
+                    {% else %}
+                        <span class="dropdown-divider"></span>
+                        <form method="post" action="{{ path('manual_palette_remove', {'id': manual.id, 'linkId': link.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('project_palette') }}">
+                            <button type="submit" class="dropdown-item text-danger" role="menuitem">{{ icon('x', 's16') }}Odebrat z manuálu</button>
+                        </form>
+                    {% endif %}
+                </span>
+            </span>
+        {% endif %}
+    </li>
+{% endmacro %}
+
+{% macro manual_section(entry, usage) %}
+    {% set manual = entry.manual %}
+    {% set can_edit = is_granted('manual_edit', manual) %}
+    {% set count = entry.logo|length + entry.added|length %}
+    <div class="pal-man" id="manual-colors-{{ manual.id }}">
+        <div class="pal-man-h">
+            {{ icon('copy', 's16') }}
+            {% if can_edit %}
+                <a href="{{ path('manual_logos', {'id': manual.id}) }}" class="pal-man-n">{{ manual.name }}</a>
+            {% else %}
+                <span class="pal-man-n">{{ manual.name }}</span>
+            {% endif %}
+            <span class="pd-n" title="Barvy v manuálu">{{ count }}</span>
+            {% if can_edit %}
+                <button type="button" class="btn btn-tertiary sm" data-bs-toggle="modal" data-bs-target="#mc-add-{{ manual.id }}">{{ icon('plus', 's16') }}Přidat z palety</button>
+            {% endif %}
+        </div>
+
+        {% if count < 3 %}
+            <div class="alert c-warning pal-man-warn" role="status">
+                {{ icon('alert') }}
+                <div>
+                    <div class="alert-t">Manuál potřebuje alespoň 3 barvy</div>
+                    <div class="alert-d">{{ can_edit ? 'Přidejte barvy z palety, aby se paleta v manuálu zobrazila správně.' : 'Požádejte grafika o doplnění, aby se paleta v manuálu zobrazila správně.' }}</div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if entry.logo is not empty %}
+            <div class="pal-mseg">
+                <h3>Z logotypu</h3>
+                <span class="cap">Přidává je logo samo{{ can_edit ? ' — měnit lze jen pořadí' }}.</span>
+            </div>
+            <ol class="pal-mrows" data-project-palette-target="manualList"{% if can_edit %} data-sort-url="{{ path('manual_palette_sort', {'id': manual.id}) }}"{% endif %}>
+                {% for link in entry.logo %}
+                    {{ _self.manual_row(link, loop.index, manual, can_edit) }}
+                {% endfor %}
+            </ol>
+        {% endif %}
+
+        <div class="pal-mseg">
+            <h3>Další barvy</h3>
+            <span class="cap">Barvy z palety projektu.</span>
+        </div>
+        {% if entry.added is empty %}
+            <p class="cap pal-man-empty">Zatím žádné{% if can_edit %} — přidejte je tlačítkem Přidat z palety{% endif %}.</p>
+        {% else %}
+            <ol class="pal-mrows" data-project-palette-target="manualList"{% if can_edit %} data-sort-url="{{ path('manual_palette_sort', {'id': manual.id}) }}"{% endif %}>
+                {% for link in entry.added %}
+                    {{ _self.manual_row(link, entry.logo|length + loop.index, manual, can_edit) }}
+                {% endfor %}
+            </ol>
+        {% endif %}
+    </div>
+
+    {% if can_edit %}
+        {# "Přidat z palety": the palette colours the manual does not use yet. #}
+        <div class="modal fade" id="mc-add-{{ manual.id }}" tabindex="-1" aria-hidden="true" aria-labelledby="mc-add-{{ manual.id }}-h">
+            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                <form class="modal-content" method="post" action="{{ path('manual_palette_add', {'id': manual.id}) }}" data-action="change->project-palette#pickChanged">
+                    <input type="hidden" name="_token" value="{{ csrf_token('project_palette') }}">
+                    <div class="modal-header">
+                        <h4 class="modal-title" id="mc-add-{{ manual.id }}-h">Přidat barvy do manuálu {{ manual.name }}</h4>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                    </div>
+                    <div class="modal-body">
+                        {% if entry.available is empty %}
+                            <p class="mb-0">Manuál už má všechny barvy palety. Novou barvu založíte tlačítkem Přidat barvu nahoře na stránce.</p>
+                        {% else %}
+                            <p class="cap">Vybrané barvy se přidají na konec barev manuálu. Roli a tiskové hodnoty si nesou z palety.</p>
+                            <div class="pal-picks" role="group" aria-label="Barvy palety">
+                                {% for color in entry.available %}
+                                    <label class="pal-pick">
+                                        <input type="checkbox" class="form-check-input" name="colors[]" value="{{ color.id }}">
+                                        <span class="pal-mdot" style="background: #{{ color.hex }};" aria-hidden="true"></span>
+                                        {% set print = _self.print_caption(color)|trim %}
+                                        <span class="pal-mrow-t"><b>#{{ color.hex|upper }}</b>{% if color.name %}<span class="cap">{{ color.name }}</span>{% endif %}{% if print %}<span class="cap pal-mprint">{{ print }}</span>{% endif %}</span>
+                                        <span class="pill pal-mrole{{ color.role is null ? ' none' : (color.role.value == 'secondary' ? ' neutral') }}">{{ _self.role_label(color.role) }}</span>
+                                        {% if usage[color.id.toString()] is not defined %}<span class="pill pal-unused">Nepoužitá</span>{% endif %}
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zrušit</button>
+                        {% if entry.available is not empty %}
+                            <button type="submit" class="btn btn-primary sm" data-pick-submit>{{ icon('plus', 's16') }}Přidat do manuálu</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+{% endmacro %}
+
 {% block content %}
     <div class="stack pal-page{{ can_edit ? '' : ' is-readonly' }}"
          data-controller="project-palette"
@@ -240,6 +386,22 @@
                 {{ _self.group('pal-logo', 'Z logotypu', 'Barvy z nahraných logotypů manuálů. HEX určuje logo; roli, tiskové hodnoty a název doplníte tady.', logo_colors, usage, can_edit, new_color_id, '') }}
             {% endif %}
             {{ _self.group('pal-added', 'Přidané barvy', 'Barvy, které v logu nejsou — doplňkové, textové, pozadí.', added_colors, usage, can_edit, new_color_id, can_edit ? 'Zatím žádné. Přidejte barvu tlačítkem Přidat barvu.' : 'Zatím žádné.') }}
+        {% endif %}
+
+        {% if manual_colors is not empty %}
+            <section class="pd-box pal-mans" id="manual-colors" aria-labelledby="pal-mans-h">
+                <div class="pd-box-h">
+                    <div>
+                        <h2 id="pal-mans-h">Barvy v manuálech</h2>
+                        <span class="cap">Které barvy palety manuál představí a v jakém pořadí. Pořadí určuje výchozí přebarvení variant loga (barvy 1–3) a pořadí barev v manuálu{{ can_edit ? '; roli barvy změníte na její kartě výše' }}.</span>
+                    </div>
+                </div>
+                <div class="pal-man-grid">
+                    {% for entry in manual_colors %}
+                        {{ _self.manual_section(entry, usage) }}
+                    {% endfor %}
+                </div>
+            </section>
         {% endif %}
     </div>
 {% endblock %}

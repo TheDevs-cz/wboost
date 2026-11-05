@@ -19,7 +19,8 @@ listed in the dry-run report (§2a) for the owner to review BEFORE P1a ships. **
 `Version20261105170659`, write-path sync, `app:palette:verify` / `reconcile` — §2b).
 **P1b done** (2026-11-05, release R2: reads from links/palette, writes mirrored to JSONB,
 linked-only project palette — §2c). **P2 done** (2026-11-05, release R3: Paleta barev page,
-sidebar item, overview chips, `has_palette` — §2d).
+sidebar item, overview chips, `has_palette` — §2d). **P3 done** (2026-11-06: "Barvy v
+manuálech" box, manual colours tab + old colours page removed — §2e).
 
 ## 0. What exists today (verified)
 
@@ -295,6 +296,51 @@ After reverting: `app:palette:snapshot` byte-identical to before, and `project_c
 `manual_palette_color`, `manual.detected_colors/custom_colors` identical to the pg_dump
 taken before the work. Nothing to run on prod after deploy (no migration, no backfill).
 
+### 2e. P3 — 2026-11-06 ("Barvy v manuálech", manual colours tab removed)
+
+Shipped as §4 describes; implementation notes in `docs/architecture/manuals.md`
+("Barvy v manuálech"). No schema change, no data migration. Refinements / deviations:
+- **Write path** = three new `ManualPaletteWriter` methods (CQRS
+  `Message/Palette/{Add,Remove,Sort}ManualPalette*`): `addColors()` appends added links,
+  `removeColor()` deletes one added link (logo link → `ManualPaletteColorFromLogo`),
+  `sortColors()` permutes logo links and added links each among their OWN positions (the
+  logo segment stays first even for a crafted request). Each mirrors the project's JSONB
+  (R2) and refreshes the managed entities. Palette colours, roles and print data are never
+  touched by the box.
+- **Remove has no confirm dialog**: it only unlinks; the palette colour (role, print data)
+  stays and can be picked again. Flash "… v paletě zůstává".
+- Rows show a **print summary** (CMYK · Pantone · RAL) next to the HEX, and the add dialog
+  does too — the split duplicates (§2b: Čeladná `17375f` M80/M85, `a2c62c` …) are otherwise
+  indistinguishable until P4 "Sloučit".
+- The role pill links to the colour's card (`#pal-{id}`) — that is where it is edited (D2).
+- All manual types are listed (logo manuals have colours too — unlike "Písma v manuálech",
+  which lists brand manuals only); 2-column grid of manual sections on wide screens.
+- `/manual/{id}/colors` → **302** (not 301) to `project_palette#manual-colors-{id}`, gated
+  by `ManualVoter::VIEW` (was EDIT): read-only members land on the read-only box. 301 was
+  rejected because browsers cache it indefinitely and the target depends on the project.
+- Deleted: `ManualColorsFormType`, `ManualColorFormType`, `ManualColorsFormData`,
+  `ManualColorFormData`, `manual_colors.html.twig`, `colors_dragula_controller.js`,
+  `ManualColorsControllerTest` (its RAL-in-preview + role → colour-page assertions moved to
+  `ManualPaletteColorsControllerTest`), dead CSS (`.man-tab-warn`, swatch "copied"
+  overlay, form-error rule). `custom_color_controller.js` trimmed to the live swatch
+  `LogoColorsMapping` uses. **Kept:** `EditManualColors` + `ManualPaletteWriter::editColors()`
+  — no UI caller is left, but `PaletteSyncTest` pins the §7 matching rules through it;
+  remove with P5a.
+
+Verified on the local prod copy (puppeteer, Čeladná, as ROLE_ADMIN): "Přidat z palety" on
+Fotbal - Čeladná (submit disabled until a colour is ticked) → row 5 appended, flash; "Odebrat
+z manuálu" → back to 4; a logo row's menu shows the "odebere se až s novým logem" note
+instead of remove; menu "Posunout níž" and a drag in the logo segment of Čeladná - logotyp
+obce persist after reload, badges renumbered. Snapshot diff after that = exactly that
+manual (colours 1↔2, 4↔5, its detected/primary/secondary lists and the logo mappings that
+follow `color(n)`), no project-level change (computeColors, BrandCmykPalette, chips,
+palette); `app:palette:verify` = only the pre-existing accepted `palette_order`. A
+temporary read-only member saw the box without grip / menus / add. After restoring
+positions + mirror from the pre-work dump and deleting the temp member:
+`app:palette:snapshot` byte-identical to before, `project_color`, `manual_palette_color`,
+`manual.detected_colors/custom_colors`, `user`, `project_share` identical to the pg_dump.
+Nothing to run on prod after deploy.
+
 ## 3. Consumers
 
 | Consumer | Change |
@@ -357,7 +403,7 @@ Layout from prototype js:1963-2056 / design-system §573:
 | P1a ✔ | entities, migration (CREATE + backfill via planner), `ProjectManualColors` re-projection on `EditManualColors` + logo upload, `app:palette:verify`, `app:palette:reconcile` (§2b). D2: the old per-manual colours page still posts a type per manual — re-projection sets the palette colour's role (last write wins) and must re-project EVERY manual linking that colour; `verify` expects diffs exactly for the §2a role-change manuals | kernel test: fixtures → backfill → link read model == JSONB read model (minus reported role changes); mirror: migrate, verify = only reported diffs | M, 1–1.5 d |
 | P1b ✔ | read switch (Manual read model from links), writes to links + JSONB mirror, `SyncManualLogoColors` (= `ManualPaletteWriter::syncLogoColors`), `GetProjectPalette` → computeColors / BrandCmykPalette / MCP / lint, fixture + test updates, docs + consumer-prompt + mfkfm comment (§2c) | ResolveRichTextOptionsTest, BrandCmykPalette, ManualColorsControllerTest still green (old page writes through), parity tests for `color(n)`; mirror: snapshot C == A and HTML C == A except the §2a role-change / literal-change manuals, API listing JSON diff | M–L, 1.5–2 d |
 | P2 ✔ | Paleta barev page + sidebar + autosave endpoints + delete guard + usage chips + client read-only + overview chips + `has_palette` | controller tests (VIEW vs EDIT, guard, locked HEX, CSRF), `shoot.cjs` 390/820/1440 both themes | M–L, 2 d |
-| P3 | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |
+| P3 ✔ | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |
 | P4 | "Sloučit" duplicates (repoint links, delete loser), template usage count (scan text inputs + shape `allowedColors`) | merge tests, manual output change only for touched manuals | S–M, 0.5–1 d |
 | P5a / P5b | stop mirroring + unmap columns; then a separate backup-gated DROP migration; remove planner usage from runtime | phpstan, full suite; pg_dump before P5b deploy | S, 0.5 d |
 

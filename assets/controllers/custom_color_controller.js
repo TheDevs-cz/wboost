@@ -1,21 +1,15 @@
 import { Controller } from '@hotwired/stimulus';
-import { cmykFromRgb, isLightRgb } from './palette_color_math.js';
+import { isLightRgb } from './palette_color_math.js';
 
 /**
- * One colour card on the manual palette page (detected and custom colours).
+ * Live swatch next to a HEX field (the logo colour-mapping component,
+ * `LogoColorsMapping.html.twig`).
  *
- *   input        the HEX field (text for custom colours, hidden for detected)
+ *   input        the HEX field
  *   colorDisplay the swatch painted with the colour
- *   rgb          optional caption "RGB r, g, b", computed from the HEX
- *   cmyk         optional C, M, Y, K inputs (in this order) — `calc` fills
- *                them from the HEX ("Dopočítat z HEX", a naive conversion;
- *                print values from the designer always win, so it never
- *                overwrites a filled field without the button)
- *
- * The swatch copies the HEX on click (`copy`).
  */
 export default class extends Controller {
-    static targets = ['input', 'colorDisplay', 'rgb', 'cmyk'];
+    static targets = ['input', 'colorDisplay'];
 
     connect() {
         this.updateColor();  // Initial color update on load if needed
@@ -26,39 +20,9 @@ export default class extends Controller {
         const rgb = hex ? this.toRgb(hex) : null;
 
         this.colorDisplayTarget.style.backgroundColor = hex ? `#${hex}` : '';
-        // Contrast-aware text on the swatch (source label, copy icon).
+        // Contrast-aware text on the swatch.
         if (rgb) {
             this.colorDisplayTarget.classList.toggle('is-light', isLightRgb(rgb));
-        }
-        if (this.hasRgbTarget) {
-            this.rgbTarget.textContent = rgb ? `RGB ${rgb.join(', ')}` : 'RGB —';
-        }
-        this.element.classList.toggle('is-cmyk-missing', this.hasCmykTarget && this.cmykTargets.every((field) => field.value.trim() === ''));
-    }
-
-    calc(event) {
-        event.preventDefault();
-        const hex = this.hex();
-        const rgb = hex ? this.toRgb(hex) : null;
-        if (!rgb || !this.hasCmykTarget) return;
-        const cmyk = cmykFromRgb(rgb);
-        this.cmykTargets.forEach((field, index) => {
-            field.value = String(cmyk[index] ?? '');
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-        this.updateColor();
-    }
-
-    async copy(event) {
-        event.preventDefault();
-        const hex = this.hex();
-        if (!hex) return;
-        try {
-            await navigator.clipboard.writeText(`#${hex}`);
-            this.colorDisplayTarget.dataset.copied = 'Zkopírováno';
-            setTimeout(() => { delete this.colorDisplayTarget.dataset.copied; }, 1400);
-        } catch (error) {
-            // Clipboard unavailable (insecure context) — nothing to do.
         }
     }
 

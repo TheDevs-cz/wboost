@@ -9,12 +9,16 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use WBoost\Web\Entity\Manual;
+use WBoost\Web\Entity\ManualPaletteColor;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\ProjectColor;
+use WBoost\Web\Query\GetManuals;
 use WBoost\Web\Query\GetProjectPaletteUsage;
 use WBoost\Web\Query\PaletteColorUsageRow;
 use WBoost\Web\Repository\ProjectColorRepository;
 use WBoost\Web\Services\Security\ProjectVoter;
+use WBoost\Web\Value\ProjectModule;
 
 /**
  * "Paleta barev" (F7 P2, `docs/redesign/palette-plan.md` §4): every palette
@@ -23,6 +27,13 @@ use WBoost\Web\Services\Security\ProjectVoter;
  * inside each. Anyone who can view the project sees it (read-only, §692);
  * `project_edit` autosaves the cards through
  * {@see EditProjectColorController} and friends.
+ *
+ * Below them the "Barvy v manuálech" box (F7 P3, D6 — it replaced the
+ * manual's "Barevná paleta" tab): per manual its colours in manual order
+ * (logo colours first — what `color(n)` and the default logo recolouring
+ * index), edited with `manual_edit` through
+ * {@see AddManualPaletteColorsController}, {@see RemoveManualPaletteColorController}
+ * and {@see SortManualPaletteColorsController}.
  */
 final class ProjectPaletteController extends AbstractController
 {
@@ -31,6 +42,7 @@ final class ProjectPaletteController extends AbstractController
     public function __construct(
         readonly private ProjectColorRepository $projectColorRepository,
         readonly private GetProjectPaletteUsage $getProjectPaletteUsage,
+        readonly private GetManuals $getManuals,
     ) {
     }
 
@@ -54,6 +66,53 @@ final class ProjectPaletteController extends AbstractController
             'usage' => $usage,
             // The colour "Přidat barvu" just created: flashed + HEX focused.
             'new_color_id' => $request->query->getString('nova'),
+            'manual_colors' => $this->manualColors($project, $colors),
         ]);
+    }
+
+    /**
+     * Fragment of one manual's section in "Barvy v manuálech" — where the
+     * box's writes and the old `/manual/{id}/colors` URL land.
+     */
+    public static function manualAnchor(Manual $manual): string
+    {
+        return 'manual-colors-' . $manual->id->toString();
+    }
+
+    /**
+     * "Barvy v manuálech": every manual of the project (logo and brand —
+     * both have colours), `created_at, id` order; per manual its logo
+     * colours and added colours in manual order and the palette colours it
+     * does not use yet ("Přidat z palety", palette order). Empty while the
+     * Manuály module is switched off.
+     *
+     * @param array<ProjectColor> $colors the palette, palette order
+     * @return list<array{manual: Manual, logo: list<ManualPaletteColor>, added: list<ManualPaletteColor>, available: list<ProjectColor>}>
+     */
+    private function manualColors(Project $project, array $colors): array
+    {
+        if (!$project->hasModule(ProjectModule::Manuals)) {
+            return [];
+        }
+
+        $entries = [];
+
+        foreach ($this->getManuals->allForProject($project->id) as $manual) {
+            $links = $manual->paletteLinks();
+            $used = [];
+
+            foreach ($links as $link) {
+                $used[$link->projectColor->id->toString()] = true;
+            }
+
+            $entries[] = [
+                'manual' => $manual,
+                'logo' => array_values(array_filter($links, static fn (ManualPaletteColor $link): bool => $link->isFromLogo())),
+                'added' => array_values(array_filter($links, static fn (ManualPaletteColor $link): bool => !$link->isFromLogo())),
+                'available' => array_values(array_filter($colors, static fn (ProjectColor $color): bool => !isset($used[$color->id->toString()]))),
+            ];
+        }
+
+        return $entries;
     }
 }

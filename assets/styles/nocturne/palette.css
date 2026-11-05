@@ -1,10 +1,11 @@
 /* =============================================================================
    Nocturne — Paleta barev (F7 P2, `project_palette.html.twig`).
    The colour card kit (.pal-strip, .pal-group, .pal-card, .pal-sw, .pal-f,
-   .pal-cmyk, .pal-calc …) lives in manual.css, shared with the manual colours
-   page; this file adds the project palette page on top: locked HEX, Název,
-   "Použito v:" chips, flash, mirror, and the read-only client view
-   (design-system §8 / prototype body[data-as="user"] .pal-*).
+   .pal-cmyk, .pal-calc …) lives in manual.css (the manual colours page that
+   shared it is gone since P3); this file adds the project palette page on
+   top: locked HEX, Název, "Použito v:" chips, flash, mirror, the read-only
+   client view (design-system §8 / prototype body[data-as="user"] .pal-*) and
+   the "Barvy v manuálech" box (P3, rows like "Písma v manuálech").
    ========================================================================== */
 
 .pal-add { display: contents; }
@@ -35,6 +36,45 @@
 .pal-del-l { margin: 0 0 12px; padding-left: 20px; }
 .pal-del-l li { font-weight: 600; }
 
+/* ---- "Barvy v manuálech" (F7 P3) — per manual its colours as rows -------- */
+/* two manuals side by side on wide screens — a project can have many */
+.pal-man-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(480px, 100%), 1fr)); gap: 16px 28px; align-items: start; }
+.pal-man { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); scroll-margin-top: 80px; }
+.pal-man:target { scroll-margin-top: 96px; }
+.pal-man-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--subtle); }
+.pal-man-n { font-size: 15px; font-weight: 600; color: var(--text); text-decoration: none; }
+a.pal-man-n:hover { color: var(--lav-ink); }
+.pal-man-h .btn { margin-left: auto; }
+.pal-man-empty { margin: 0; }
+.pal-man-warn { margin: 0; }
+.pal-mseg { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; }
+.pal-mseg h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.pal-mrows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pal-mrow { display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); min-width: 0; }
+.pal-mrow.gu-transit { opacity: .45; }
+.pal-mrow.gu-mirror { box-shadow: var(--shadow-3); }
+.pal-mrow .pal-grip { width: 24px; height: 24px; flex: none; margin: 0 -4px 0 -4px; }
+.pal-mnum { display: inline-grid; place-items: center; flex: none; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pal-mnum.key { background: var(--lav-deep); color: var(--lav-ink); }
+.pal-mdot { width: 22px; height: 22px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15), 0 0 0 1px var(--line-2); }
+.pal-mrow-t { flex: 1 1 auto; display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; min-width: 0; }
+.pal-mrow-t b { font-size: 13px; font-weight: 600; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.pal-mrow-t .cap { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-mprint { font-variant-numeric: tabular-nums; }
+.pal-mrole { text-decoration: none; }
+a.pal-mrole:hover { box-shadow: 0 0 0 1px var(--lav-line); }
+.pal-mrole.none { background: transparent; border: 1px dashed var(--line-3); color: var(--subtle); }
+.pal-mrow > .dropdown { flex: none; }
+.pal-mrow .dropdown-menu { min-width: 220px; }
+.pal-mrow .dropdown-menu form { margin: 0; }
+.pal-mlogo-note { display: block; max-width: 240px; padding: 6px 12px; white-space: normal; }
+
+/* "Přidat z palety" dialog: one checkbox row per palette colour */
+.pal-picks { display: flex; flex-direction: column; gap: 6px; }
+.pal-pick { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); cursor: pointer; min-width: 0; }
+.pal-pick .form-check-input { flex: none; margin: 0; }
+.pal-pick:has(input:checked) { border-color: var(--lav-line); background: var(--lav-deep); }
+
 /* ---- Read-only (members without project_edit — §692) ---------------------- */
 .pal-page.is-readonly .pal-f .form-control:disabled,
 .pal-page.is-readonly .pal-f .form-select:disabled { color: var(--text); -webkit-text-fill-color: var(--text); opacity: 1; cursor: default; }
@@ -49,6 +89,17 @@
 .pal-page.is-readonly .pal-strip b { display: block; font-size: 13px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 560px) {
+    .pal-man-h .btn { margin-left: 0; flex: 1 1 100%; }
+    /* rows: HEX + print data on line 1, the role pill under it, menu right */
+    .pal-mrow, .pal-pick { display: grid; grid-template-columns: [lead] auto [num] auto [dot] auto [text] minmax(0, 1fr) [end] auto; column-gap: 8px; row-gap: 4px; }
+    .pal-mrow > *, .pal-pick > * { grid-row: 1 / span 2; }
+    .pal-mrow > .pal-grip, .pal-pick > .form-check-input { grid-column: lead; }
+    .pal-mrow > .pal-mnum { grid-column: num; }
+    .pal-mrow > .pal-mdot, .pal-pick > .pal-mdot { grid-column: dot; }
+    .pal-mrow > .pal-mrow-t, .pal-pick > .pal-mrow-t { grid-column: text; grid-row: 1; }
+    .pal-mrow > .pal-mrole, .pal-pick > .pill { grid-column: text; grid-row: 2; justify-self: start; }
+    .pal-pick > .pill.pal-unused { grid-column: end; grid-row: 2; }
+    .pal-mrow > .dropdown { grid-column: end; }
     .pal-page.is-readonly .pal-strip { height: 36px; }
     .pal-page.is-readonly .pal-strip span { padding: 0 6px; justify-content: center; }
     .pal-page.is-readonly .pal-strip b { font-size: 10px; }
