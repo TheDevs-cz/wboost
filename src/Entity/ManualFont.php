@@ -72,7 +72,7 @@ class ManualFont
     ): void
     {
         // When changing font, remove all enabled font faces
-        if ($font->id->equals($this->id) === false) {
+        if ($font->id->equals($this->font->id) === false) {
             $this->fontFaces = [];
         }
 
