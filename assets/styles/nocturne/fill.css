@@ -244,7 +244,11 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 .fi-gfold .i { color: var(--lav-ink); }
 .fi-gfold span:not(.i) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fi-gfold:hover { border-color: var(--line-3); background: var(--surface-3); }
-.fi-ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; align-items: start; margin: 0 0 12px; padding: 2px; }
+/* Thumbnail size: fill-gallery sets --galmin from the gallery's slider
+   (`wb-galsize`); the slider sits at the right end of the crumb row and
+   hides on phones (gallery.css), where the grid keeps its 150 px floor. */
+.fi-gnav .sz-ctl { margin-left: auto; height: 30px; padding-right: 0; }
+.fi-ggrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--galmin, 150px), 100%), 1fr)); gap: 12px; align-items: start; margin: 0 0 12px; padding: 2px; }
 .fi-gcell { min-width: 0; }
 .gallery-asset.fi-gt { display: flex; flex-direction: column; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface); overflow: hidden; transition: border-color var(--dur-2), box-shadow var(--dur-2); }
 .gallery-asset.fi-gt:hover { border-color: var(--line-3); }
@@ -326,4 +330,5 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 }
 @media (max-width: 560px) {
     .fi-zoom { display: none; }
+    .fi-ggrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }

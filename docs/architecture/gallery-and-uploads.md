@@ -58,6 +58,14 @@ lazy size backfill too. A fresh upload is cloned from the same partial's
 `PlaceholderImageUploader::uploadWithCaption()` (`caption` object added); the
 OAuth API upload keeps `upload()`'s shape — the public contract did not move.
 
+**Thumbnail size is one per-browser preference (`localStorage['wb-galsize']`,
+2026-11-05).** The gallery page and the `Project:ImageGallery` picker modal
+(`gallery-filter`) and the fill pickers (single / group / document,
+`fill-gallery` `size` target, slider at the end of the `.fi-gnav` crumb row)
+all read and write it and set it as `--galmin` on their grid; `fill-gallery`
+also broadcasts `wb:galsize` so a page's other pickers follow live. The
+slider (`.sz-ctl`) hides at ≤ 560 px, where the grids ignore `--galmin`.
+
 Stage 8 added a **filesystem-like nested folder tree** on top:
 
 - `FileDirectory` entity (`src/Entity/FileDirectory.php`) — nullable self-ref

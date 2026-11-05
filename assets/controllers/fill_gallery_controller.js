@@ -29,13 +29,19 @@ import { Controller } from "@hotwired/stimulus";
  * the server's resolveTargetDirectory. Thumb visibility is filtered by
  * `data-directory-id` ('' = root); `data-always-visible` thumbs (the group
  * page's "Výchozí" keep-designed option) show in every view.
+ *
+ * Thumbnail size: the same slider + the same per-browser preference
+ * (`wb-galsize`) as the Project:ImageGallery page and picker modal
+ * (gallery-filter) — the tiles are the same gallery tile. The size lands as
+ * `--galmin` on the grid; a change is broadcast (`wb:galsize`) so the page's
+ * other pickers follow without a reload.
  */
 export default class extends Controller {
     static targets = [
         "folders", "folderCard", "grid", "thumb", "thumbTemplate", "emptyNote",
         "rootCrumb", "crumbSep", "crumbName",
         "uploadWrap", "uploadTargetLabel", "pickFolderHint",
-        "dropzone", "fileInput", "queue",
+        "dropzone", "fileInput", "queue", "size",
     ];
 
     static values = {
@@ -55,6 +61,20 @@ export default class extends Controller {
         this._batchSuccess = 0;
         this._lastThumb = null;
 
+        this.sizePx = null;
+        try {
+            const stored = Number.parseInt(window.localStorage.getItem("wb-galsize") || "", 10);
+            if (Number.isFinite(stored)) this.sizePx = stored;
+        } catch (error) {
+            // Storage unavailable — default size.
+        }
+        this._onSize = (event) => {
+            this.sizePx = event.detail;
+            this.applySize();
+        };
+        window.addEventListener("wb:galsize", this._onSize);
+        this.applySize();
+
         // Restricted slot with a single folder: enter it right away.
         if (!this.includesRootValue && this.folderCardTargets.length === 1) {
             const card = this.folderCardTargets[0];
@@ -66,8 +86,30 @@ export default class extends Controller {
     }
 
     disconnect() {
+        window.removeEventListener("wb:galsize", this._onSize);
         this.queue.forEach((item) => item.url && URL.revokeObjectURL(item.url));
         this.queue = [];
+    }
+
+    // --- thumbnail size ----------------------------------------------------
+
+    resize(event) {
+        const size = Number.parseInt(event.currentTarget.value, 10);
+        if (!Number.isFinite(size)) return;
+        try {
+            window.localStorage.setItem("wb-galsize", String(size));
+        } catch (error) {
+            // Non-fatal.
+        }
+        window.dispatchEvent(new CustomEvent("wb:galsize", { detail: size }));
+    }
+
+    applySize() {
+        if (!this.sizePx) return;
+        this.gridTargets.forEach((grid) => grid.style.setProperty("--galmin", `${this.sizePx}px`));
+        this.sizeTargets.forEach((input) => {
+            if (input.value !== String(this.sizePx)) input.value = String(this.sizePx);
+        });
     }
 
     // --- navigation --------------------------------------------------------

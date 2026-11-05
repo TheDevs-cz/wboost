@@ -130,8 +130,12 @@
     .gal-search, .gal-tools { width: 100%; max-width: none; }
     .gal-nav { padding: 8px; gap: 8px; }
     .gal-nav > .btn, .gal-newf { flex: 1 1 100%; }
-    .gal-newf { flex-wrap: nowrap; }
+    /* min-width: 0 — a flex item's automatic minimum is its content's
+       min-content width (the input's intrinsic ~150 px + the button), which
+       pushed "Nová složka" out of the narrower picker modal (F21). */
+    .gal-newf { flex-wrap: nowrap; min-width: 0; }
     .gal-newf .inp { flex: 1; width: auto; min-width: 0; }
+    .gal-newf .btn { flex: none; }
     .gal-nav-sp { display: none; }
     .gal-trash-b { width: 100%; justify-content: center; }
     .sz-ctl { display: none; }

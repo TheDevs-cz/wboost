@@ -434,6 +434,12 @@
                                                     data-fill-gallery-target="rootCrumb" data-action="fill-gallery#openRoot">{{ icon('image', 's14') }}Galerie</button>
                                             <span class="fi-gsep d-none" data-fill-gallery-target="crumbSep" aria-hidden="true">/</span>
                                             <span class="fi-gcrumb on d-none" data-fill-gallery-target="crumbName"></span>
+                                            {# Thumbnail size — the gallery's slider + its `wb-galsize` preference (fill-gallery). #}
+                                            <label class="sz-ctl" title="Velikost náhledů">
+                                                {{ icon('image', 's12') }}
+                                                <input type="range" min="120" max="280" step="2" value="150" aria-label="Velikost náhledů" data-fill-gallery-target="size" data-action="input->fill-gallery#resize">
+                                                {{ icon('image', 's18') }}
+                                            </label>
                                         </nav>
 
                                         {% if slot.directories is not empty %}
