@@ -13,6 +13,8 @@ cd "$(dirname "$0")/../../.."
 if [ "${1:-}" = "--clear-assets" ]; then
   docker compose exec -T web rm -rf var/cache/dev public/assets && echo "gate: dev cache + compiled assets cleared"; exit 0
 fi
+# Same mapping check CI runs (migrations-up-to-date job) — a missing inversedBy slipped past phpstan+phpunit once.
+docker compose exec -T web bin/console doctrine:schema:validate --skip-sync || { echo "gate: DOCTRINE MAPPING INVALID"; exit 1; }
 docker compose exec -T web composer phpstan || { echo "gate: PHPSTAN FAILED"; exit 1; }
 docker compose exec -T web vendor/bin/phpunit "$@" || { echo "gate: PHPUNIT FAILED"; exit 1; }
 echo "gate: GREEN"

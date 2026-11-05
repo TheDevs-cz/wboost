@@ -44,7 +44,7 @@ class ManualPaletteColor
         #[Column(type: UuidType::NAME, unique: true)]
         public UuidInterface $id,
 
-        #[ManyToOne]
+        #[ManyToOne(inversedBy: 'paletteLinks')]
         #[JoinColumn(nullable: false, onDelete: 'CASCADE')]
         readonly public Manual $manual,
 
