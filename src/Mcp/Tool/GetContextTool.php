@@ -21,7 +21,7 @@ use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpScopeChecker;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Query\GetFonts;
-use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Query\GetProjects;
 use WBoost\Web\Query\GetProjectTemplateStats;
 use WBoost\Web\Query\ProjectTemplateStats;
@@ -83,7 +83,7 @@ readonly final class GetContextTool
         private GetProjects $getProjects,
         private GetProjectTemplateStats $getProjectTemplateStats,
         private GetFonts $getFonts,
-        private GetManuals $getManuals,
+        private GetProjectPalette $getProjectPalette,
         private McpScopeChecker $scopeChecker,
         #[Autowire(service: 'cache.app')]
         private CacheInterface $cache,
@@ -222,7 +222,7 @@ readonly final class GetContextTool
                 // listing and export-time validation resolve their swatches
                 // through. A second copy here would let the palette an agent
                 // is offered drift from the one the app considers "the brand".
-                colors: ResolveRichTextOptions::computeColors($this->getManuals->allForProject($project->id)),
+                colors: ResolveRichTextOptions::computeColors($this->getProjectPalette->colorsForProject($project->id)),
                 dimensions: array_map(
                     static fn (TemplateDimensionUsage $usage): ContextDimensionResponse => new ContextDimensionResponse(
                         label: $usage->dimension->label(),

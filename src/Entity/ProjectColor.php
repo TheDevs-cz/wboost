@@ -15,6 +15,8 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\Color;
+use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
 
 /**
@@ -22,10 +24,10 @@ use WBoost\Web\Value\ManualColorType;
  * `docs/redesign/palette-plan.md`). Manuals use it through
  * {@see ManualPaletteColor} links.
  *
- * Release R1 (P1a): ADDITIVE. `manual.detected_colors` / `custom_colors`
- * stay authoritative and nothing reads this table yet; every write path
- * re-projects the touched manual into it
- * ({@see \WBoost\Web\Services\Palette\ProjectManualColors}).
+ * Release R2 (P1b): the SOURCE OF TRUTH for colours — the `Manual` read
+ * model, swatches and print CMYK read the palette; every write goes through
+ * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter}, which also mirrors
+ * the links back into `manual.detected_colors` / `custom_colors` for R1 code.
  */
 #[Entity]
 #[Index(name: 'idx_project_color_project_hex', columns: ['project_id', 'hex_key'])]
@@ -81,5 +83,11 @@ class ProjectColor
         #[Column(nullable: true)]
         public null|string $name = null,
     ) {
+    }
+
+    /** The palette colour as a swatch / print entry (palette HEX spelling). */
+    public function manualColor(): ManualColor
+    {
+        return new ManualColor(new Color($this->hex), $this->role, $this->pantone, $this->cmyk, $this->ral);
     }
 }

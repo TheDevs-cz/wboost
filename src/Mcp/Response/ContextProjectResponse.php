@@ -10,8 +10,8 @@ namespace WBoost\Web\Mcp\Response;
  *
  * `fonts` are the EXACT face strings (`"Rubik (Rubik Bold)"`) a canvas and the
  * design DSL address a typeface by — reproduced byte for byte or the design
- * fails to compile. `colors` are the project's brand-manual colours, lowercase
- * `#rrggbb`, primary first, then secondary, then untyped.
+ * fails to compile. `colors` are the project palette (the colours its manuals
+ * use), lowercase `#rrggbb`, in palette order.
  */
 readonly final class ContextProjectResponse
 {

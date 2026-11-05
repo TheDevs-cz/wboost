@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 /**
- * One difference `app:palette:verify` found between a read model built from
- * the manual JSONB columns and the same read model built from the palette
+ * One difference `app:palette:verify` found between the read model R1 code
+ * builds from the manual JSONB columns and the one R2 serves from the palette
  * tables. `accepted` = a change the owner signed off (palette-plan.md §6/§7):
- * D2 roles, §7 HEX spelling + fill the gap, D5 palette order, R1's
- * never-delete; anything else is a sync bug.
+ * D2 roles, §7 HEX spelling + fill the gap, D5 palette order, never-delete;
+ * anything else is a sync bug — and since R2 every per-manual difference also
+ * means the JSONB mirror is stale (`jsonb_mirror_stale`, reconcile repairs it).
  */
 readonly final class PaletteParityDiff
 {
@@ -20,7 +21,7 @@ readonly final class PaletteParityDiff
         'print_gap_filled' => '§7 — fill the gap: the merged palette colour carries a value this manual left empty',
         'print_whitespace' => '§2 — print data merged up to whitespace',
         'palette_order' => 'D5 — palette order is authoritative (seeded = computeColors walk; drifts after role edits)',
-        'unused_palette_colour' => 'R1 never deletes palette colours — no manual links it any more',
+        'unused_palette_colour' => 'palette colours are never deleted — no manual links it any more, so it is no swatch (GetProjectPalette)',
         'cmyk_first_wins_order' => 'conflicting CMYK across manuals today: "first wins" follows palette order',
         'jsonb_unreadable' => 'the JSONB read model throws today (reported by the planner, never auto-fixed)',
     ];

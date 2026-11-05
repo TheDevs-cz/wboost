@@ -7,9 +7,8 @@ namespace WBoost\Web\Services\SocialNetwork;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Font;
-use WBoost\Web\Entity\Manual;
 use WBoost\Web\Query\GetFonts;
-use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ManualColor;
@@ -42,14 +41,16 @@ use WBoost\Web\Value\RichTextOptions;
  * Colours, per input: the admin's allowlist ({@see EditorTextInput::$allowedColors})
  * rides along unchanged — null means the brand palette + free picker.
  *
- * Colors: the union of brand manual colors across all project manuals,
- * primary first, then secondary, then untyped, deduped by normalized hex.
+ * Colors: the project palette ({@see GetProjectPalette}: palette order, colours
+ * some manual links), deduped by normalized hex — F7 R2. The palette was
+ * seeded with the old manual walk (primary → secondary → untyped), so the
+ * swatches only move when someone edits the palette (D5).
  */
 readonly final class ResolveRichTextOptions
 {
     public function __construct(
         private GetFonts $getFonts,
-        private GetManuals $getManuals,
+        private GetProjectPalette $getProjectPalette,
         private UploaderHelper $uploaderHelper,
         private TextInputObjectBinder $textInputObjectBinder,
     ) {
@@ -73,7 +74,7 @@ readonly final class ResolveRichTextOptions
             $faces,
             $variant->inputs,
             $designedFamilies,
-            self::computeColors($this->getManuals->allForProject($project->id)),
+            self::computeColors($this->getProjectPalette->colorsForProject($project->id)),
         );
     }
 
@@ -86,7 +87,7 @@ readonly final class ResolveRichTextOptions
     {
         return new RichTextOptions(
             fonts: self::projectFaces($this->getFonts->allForProject($projectId), $this->uploaderHelper),
-            colors: self::computeColors($this->getManuals->allForProject($projectId)),
+            colors: self::computeColors($this->getProjectPalette->colorsForProject($projectId)),
         );
     }
 
@@ -231,16 +232,14 @@ readonly final class ResolveRichTextOptions
     /**
      * Pure core, unit-tested directly.
      *
-     * @param array<Manual> $manuals
-     * @return list<string> lowercase `#rrggbb`, primary → secondary → untyped
+     * @param array<ManualColor> $palette {@see GetProjectPalette::colorsForProject()}, palette order
+     * @return list<string> lowercase `#rrggbb`, palette order, first spelling of a hex wins
      */
-    public static function computeColors(array $manuals): array
+    public static function computeColors(array $palette): array
     {
-        $ordered = self::orderedManualColors($manuals);
-
         $colors = [];
 
-        foreach ($ordered as $manualColor) {
+        foreach ($palette as $manualColor) {
             $normalized = RichText::normalizeHexColor($manualColor->color->hex);
 
             if ($normalized !== null && !in_array($normalized, $colors, true)) {
@@ -249,40 +248,5 @@ readonly final class ResolveRichTextOptions
         }
 
         return $colors;
-    }
-
-    /**
-     * Every manual colour of the given manuals, primary → secondary → untyped
-     * (duplicates kept — callers dedupe by whatever key they need).
-     *
-     * @param array<Manual> $manuals
-     * @return list<ManualColor>
-     */
-    public static function orderedManualColors(array $manuals): array
-    {
-        /** @var list<ManualColor> $ordered */
-        $ordered = [];
-
-        foreach ($manuals as $manual) {
-            foreach ($manual->primaryColors() as $color) {
-                $ordered[] = $color;
-            }
-        }
-
-        foreach ($manuals as $manual) {
-            foreach ($manual->secondaryColors() as $color) {
-                $ordered[] = $color;
-            }
-        }
-
-        foreach ($manuals as $manual) {
-            foreach (array_merge($manual->detectedColors(), $manual->customColors) as $color) {
-                if ($color->type === null) {
-                    $ordered[] = $color;
-                }
-            }
-        }
-
-        return $ordered;
     }
 }

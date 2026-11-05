@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
+use Doctrine\ORM\Mapping\OrderBy;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Doctrine\ManualColorsDoctrineType;
 use WBoost\Web\Doctrine\ManualPageTextsDoctrineType;
@@ -36,14 +37,33 @@ use WBoost\Web\Value\ManualType;
 #[Entity(repositoryClass: ManualDoctrineRepository::class)]
 class Manual
 {
-    /** @var array<ManualColor> */
-    #[Column(type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
-    private array $detectedColors = [];
+    /**
+     * R2 (F7 P1b): a MIRROR of the palette links, written by
+     * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter} after every colour /
+     * logo write so R1 code (blue-green overlap, a code-revert rollback) reads
+     * current colours. Nothing in R2 reads it except the parity checks
+     * ({@see \WBoost\Web\Services\Palette\JsonbManualColors}); dropped in R5.
+     *
+     * @var array<ManualColor>
+     */
+    #[Column(name: 'detected_colors', type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
+    private array $jsonbDetectedColors = [];
 
-    /** @var array<ManualColor> */
-    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-    #[Column(type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
-    public array $customColors = [];
+    /** @var array<ManualColor> R2 mirror — see {@see $jsonbDetectedColors} */
+    #[Column(name: 'custom_colors', type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
+    private array $jsonbCustomColors = [];
+
+    /**
+     * The manual's colours (F7, R2: the source of truth): links to project
+     * palette colours in the manual's colour order — logo segment first, then
+     * the added colours. EAGER (batch-loaded, palette colour joined): every
+     * listing that shows several manuals reads their colours.
+     *
+     * @var Collection<int, ManualPaletteColor>
+     */
+    #[OneToMany(targetEntity: ManualPaletteColor::class, mappedBy: 'manual', fetch: 'EAGER')]
+    #[OrderBy(['position' => 'ASC'])]
+    private Collection $paletteLinks;
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: LogoDoctrineType::NAME, nullable: false)]
@@ -112,6 +132,7 @@ class Manual
     ) {
         $this->pages = new ArrayCollection();
         $this->fonts = new ArrayCollection();
+        $this->paletteLinks = new ArrayCollection();
         $this->logo = Logo::withoutImages();
         $this->changeName($name);
     }
@@ -123,43 +144,33 @@ class Manual
         $this->changeName($name);
     }
 
+    /**
+     * Only the logo — its colours reach the palette through
+     * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter::syncLogoColors()} (D3),
+     * which the caller runs after flushing.
+     */
     public function editLogo(Logo $logo): void
     {
         $this->logo = $logo;
-
-        /** @var array<string> $detectedColorsHexFromLogos */
-        $detectedColorsHexFromLogos = [];
-        $detectedColors = $this->detectedColors;
-
-        foreach ($logo->getDetectedColors() as $detectedColor) {
-            if (!in_array($detectedColor->hex, $detectedColorsHexFromLogos)) {
-                $detectedColorsHexFromLogos[] = $detectedColor->hex;
-            }
-        }
-
-        foreach ($detectedColors as $key => $detectedColor) {
-            if (!in_array($detectedColor->color->hex, $detectedColorsHexFromLogos, true)) {
-                unset($detectedColors[$key]);
-            }
-        }
-
-        $this->detectedColors = array_values($detectedColors);
     }
 
     /**
+     * Positional: the logo segment, then the added colours — what logo
+     * recolouring indexes (`DefaultLogoColors` uses colours 1–3 as FROM keys).
+     *
      * @throws MissingManualColor
      */
     public function color(int $number): Color
     {
         /** @var array<ManualColor> $colors */
-        $colors = array_merge($this->detectedColors(), $this->customColors);
+        $colors = array_merge($this->detectedColors(), $this->customColors());
 
         return ($colors[$number - 1] ?? throw new MissingManualColor())->color;
     }
 
     public function colorsCount(): int
     {
-        return count($this->detectedColors()) + count($this->customColors);
+        return count($this->sortedPaletteLinks());
     }
 
     public function logoBackground(string $logoType, string $logoColor): string
@@ -203,16 +214,59 @@ class Manual
     }
 
     /**
+     * Sets the R1 JSONB MIRROR only — never the manual's colours (those are
+     * palette links, written by
+     * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter}). Fixtures and
+     * parity tests seed legacy data with it.
+     *
      * @param array<ManualColor> $detectedColors
      * @param array<ManualColor> $customColors
      */
-    public function editColors(
+    public function mirrorJsonbColors(
         array $detectedColors,
         array $customColors,
     ): void
     {
-        $this->detectedColors = $detectedColors;
-        $this->customColors = $customColors;
+        $this->jsonbDetectedColors = $detectedColors;
+        $this->jsonbCustomColors = $customColors;
+    }
+
+    /**
+     * The STORED detected list of the JSONB mirror (not logo-filtered).
+     *
+     * @return array<ManualColor>
+     */
+    public function jsonbDetectedColors(): array
+    {
+        return $this->jsonbDetectedColors;
+    }
+
+    /** @return array<ManualColor> */
+    public function jsonbCustomColors(): array
+    {
+        return $this->jsonbCustomColors;
+    }
+
+    /**
+     * Keeps the inverse side in step for links created through the ORM
+     * (fixtures, tests) — {@see ManualPaletteColor::__construct()} calls it.
+     * The runtime writer works over DBAL and refreshes the manual instead.
+     *
+     * @internal
+     */
+    public function addPaletteLink(ManualPaletteColor $link): void
+    {
+        if (!$this->paletteLinks->contains($link)) {
+            $this->paletteLinks->add($link);
+        }
+    }
+
+    /**
+     * @return list<ManualPaletteColor> manual colour order
+     */
+    public function paletteLinks(): array
+    {
+        return $this->sortedPaletteLinks();
     }
 
     public function isBrandManual(): bool
@@ -230,55 +284,74 @@ class Manual
         return $this->fonts->count();
     }
 
-    /** @return array<ManualColor> */
+    /**
+     * "Z logotypu": the logo links in manual order, each with its LITERAL logo
+     * colour (recolouring `str_ireplace`s it on the SVG) and the palette
+     * colour's role + print data.
+     *
+     * @return list<ManualColor>
+     */
     public function detectedColors(): array
     {
-        /** @var array<string> $detectedColorsHex */
-        $detectedColorsHex = [];
+        $colors = [];
 
-        /** @var array<string> $detectedColorsHexFromLogos */
-        $detectedColorsHexFromLogos = [];
-
-        /** @return array<ManualColor> */
-        $detectedColors = [];
-
-        foreach ($this->detectedColors as $detectedColor) {
-            $detectedColors[] = $detectedColor;
-            $detectedColorsHex[] = $detectedColor->color->hex;
-        }
-
-        foreach ($this->logo->getDetectedColors() as $detectedColor) {
-            if (!in_array($detectedColor->hex, $detectedColorsHex)) {
-                $detectedColors[] = new ManualColor($detectedColor, null, null, null);
-                $detectedColorsHex[] = $detectedColor->hex;
-            }
-
-            if (!in_array($detectedColor->hex, $detectedColorsHexFromLogos)) {
-                $detectedColorsHexFromLogos[] = $detectedColor->hex;
+        foreach ($this->sortedPaletteLinks() as $link) {
+            if ($link->isFromLogo()) {
+                $colors[] = $link->manualColor();
             }
         }
 
-        foreach ($detectedColors as $key => $detectedColor) {
-            if (!in_array($detectedColor->color->hex, $detectedColorsHexFromLogos, true)) {
-                unset($detectedColors[$key]);
-            }
-        }
-
-        return array_values($detectedColors);
+        return $colors;
     }
 
     /**
-     * @return array<ManualColor>
+     * The added colours, in manual order — the palette colour's HEX spelling
+     * (§7), role and print data.
+     *
+     * @return list<ManualColor>
+     */
+    public function customColors(): array
+    {
+        $colors = [];
+
+        foreach ($this->sortedPaletteLinks() as $link) {
+            if (!$link->isFromLogo()) {
+                $colors[] = $link->manualColor();
+            }
+        }
+
+        return $colors;
+    }
+
+    /**
+     * The customer manual's "primary colours" page: the manual's colours whose
+     * PROJECT palette colour is primary (D2), in manual order.
+     *
+     * @return list<ManualColor>
      */
     public function primaryColors(): array
     {
-        /** @var array<ManualColor> $manualColors */
-        $manualColors = array_merge($this->detectedColors, $this->customColors);
+        return $this->colorsOfRole(ManualColorType::Primary);
+    }
+
+    /**
+     * @return list<ManualColor>
+     */
+    public function secondaryColors(): array
+    {
+        return $this->colorsOfRole(ManualColorType::Secondary);
+    }
+
+    /**
+     * @return list<ManualColor>
+     */
+    private function colorsOfRole(ManualColorType $role): array
+    {
         $colors = [];
 
-        foreach ($manualColors as $manualColor) {
-            if ($manualColor->type === ManualColorType::Primary) {
-                $colors[] = $manualColor;
+        foreach ([...$this->detectedColors(), ...$this->customColors()] as $color) {
+            if ($color->type === $role) {
+                $colors[] = $color;
             }
         }
 
@@ -286,21 +359,14 @@ class Manual
     }
 
     /**
-     * @return array<ManualColor>
+     * @return list<ManualPaletteColor>
      */
-    public function secondaryColors(): array
+    private function sortedPaletteLinks(): array
     {
-        /** @var array<ManualColor> $manualColors */
-        $manualColors = array_merge($this->detectedColors, $this->customColors);
-        $colors = [];
+        $links = $this->paletteLinks->toArray();
+        usort($links, static fn (ManualPaletteColor $a, ManualPaletteColor $b): int => $a->position <=> $b->position);
 
-        foreach ($manualColors as $manualColor) {
-            if ($manualColor->type === ManualColorType::Secondary) {
-                $colors[] = $manualColor;
-            }
-        }
-
-        return $colors;
+        return $links;
     }
 
     private function changeName(string $name): void

@@ -14,8 +14,11 @@ use WBoost\Web\Services\ProvideIdentity;
  * (`project_color`) and the manual's links (`manual_palette_color`) — the
  * release-R1 write-path sync of `docs/redesign/palette-plan.md` (P1a).
  *
- * The JSONB columns are authoritative in R1; this only keeps the new tables
- * in step, with the backfill's own rules ({@see PaletteBackfillPlanner}):
+ * Since R2 (P1b) the app writes through {@see ManualPaletteWriter}; this
+ * projector is only `app:palette:reconcile`'s "the JSONB is newer" repair (R1
+ * code wrote it during a blue-green overlap / rollback) — exactly what the R1
+ * handlers ran, so a manual R1 wrote ends up with the links R1 would give it.
+ * Rules = the backfill's own ({@see PaletteBackfillPlanner}):
  *  - the manual is split exactly like the backfill split it (rebuilt logo
  *    segment, custom segment, typed stale detected colours);
  *  - every colour reuses a palette colour of the same hex key — first one

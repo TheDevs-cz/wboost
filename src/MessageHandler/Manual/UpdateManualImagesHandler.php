@@ -15,7 +15,7 @@ use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\UpdateManualImages;
 use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Services\DetectImageColors;
-use WBoost\Web\Services\Palette\ProjectManualColors;
+use WBoost\Web\Services\Palette\ManualPaletteWriter;
 use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\SvgImage;
 
@@ -29,7 +29,7 @@ readonly final class UpdateManualImagesHandler
         private DetectImageColors $detectImageColors,
         private TagAwareCacheInterface $cache,
         private EntityManagerInterface $entityManager,
-        private ProjectManualColors $projectManualColors,
+        private ManualPaletteWriter $manualPaletteWriter,
     ) {
     }
 
@@ -94,10 +94,11 @@ readonly final class UpdateManualImagesHandler
             )
         );
 
-        // Palette R1 sync (F7): new logo colours join the palette (no role),
-        // links follow the rebuilt logo segment. Reads the STORED columns.
+        // F7 R2 / D3: new logo colours join the palette (no role) and the
+        // manual's logo segment; colours that left the logo stay in the palette
+        // unlinked. Reads the STORED logo, so flush first.
         $this->entityManager->flush();
-        $this->projectManualColors->reproject($manual->id);
+        $this->manualPaletteWriter->syncLogoColors($manual->id);
     }
 
     private function uploadImage(

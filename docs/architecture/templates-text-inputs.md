@@ -137,9 +137,11 @@ just swap `fontFamily`), brand-color swatches + free picker, underline.
 - **Options = `ResolveRichTextOptions`** (single source of truth, the
   PlaceholderAllowedDirectories pattern): fonts = canvas-used families expanded
   to ALL their faces (fallback: all project fonts when nothing matches), colors
-  = manual brand colors across `GetManuals::allForProject` (primary →
-  secondary → untyped, deduped lowercase `#rrggbb`; swatches are SUGGESTIONS —
-  export accepts any hex). Consumed by the fill component, the API listing
+  = the project palette (`GetProjectPalette::colorsForProject` — F7 R2: palette
+  order, only colours some manual links; seeded with the old primary →
+  secondary → untyped manual walk, so swatches move only when the palette is
+  edited — `manuals.md`), deduped lowercase `#rrggbb`; swatches are SUGGESTIONS —
+  export accepts any hex. Consumed by the fill component, the API listing
   provider (`variants[].richTextOptions`, emitted only when a rich input
   exists), the `ExportProcessor` (font whitelist) and the download controller.
 - **Fill page**: `rich_text_editor_controller.js` (per-popover contenteditable;

@@ -7,7 +7,6 @@ namespace WBoost\Web\Tests\Services\SocialNetwork;
 use PHPUnit\Framework\TestCase;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\Font;
-use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
@@ -17,7 +16,6 @@ use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FontFace;
 use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
-use WBoost\Web\Value\ManualType;
 use WBoost\Web\Value\RichTextFontOption;
 
 /**
@@ -178,35 +176,28 @@ final class ResolveRichTextOptionsTest extends TestCase
         );
     }
 
-    public function testColorsAreOrderedPrimarySecondaryUntypedAndDeduped(): void
+    /**
+     * F7 R2: the swatches are the project palette in PALETTE order (seeded
+     * with the old primary → secondary → untyped walk, D5) — no re-sorting by
+     * role here; deduped by normalised hex, the first spelling wins.
+     */
+    public function testColorsFollowThePaletteOrderAndAreDeduped(): void
     {
-        $manualA = $this->manual('Manual A');
-        $manualA->editColors(
-            detectedColors: [],
-            customColors: [
-                new ManualColor(new Color('#C8102E'), ManualColorType::Primary, null, null),
-                new ManualColor(new Color('#00FF00'), ManualColorType::Secondary, null, null),
-                // Untyped custom color — lands in the last swatch bucket.
-                new ManualColor(new Color('#ABCDEF'), null, null, null),
-            ],
-        );
+        $colors = ResolveRichTextOptions::computeColors([
+            new ManualColor(new Color('C8102E'), ManualColorType::Primary, null, null),
+            new ManualColor(new Color('ABCDEF'), null, null, null),
+            new ManualColor(new Color('00FF00'), ManualColorType::Secondary, null, null),
+            // A split duplicate (other print data) of the first colour — one swatch.
+            new ManualColor(new Color('c8102e'), ManualColorType::Secondary, '186 C', null),
+            new ManualColor(new Color('fff'), null, null, null),
+            // Valid for Color (4 digits) but no #rgb/#rrggbb — never a swatch.
+            new ManualColor(new Color('abcd'), null, null, null),
+        ]);
 
-        $manualB = $this->manual('Manual B');
-        $manualB->editColors(
-            detectedColors: [],
-            customColors: [
-                new ManualColor(new Color('#123456'), ManualColorType::Primary, null, null),
-                // Duplicate of manual A's primary, different case — must dedup.
-                new ManualColor(new Color('#c8102e'), ManualColorType::Secondary, null, null),
-            ],
-        );
-
-        $colors = ResolveRichTextOptions::computeColors([$manualA, $manualB]);
-
-        self::assertSame(['#c8102e', '#123456', '#00ff00', '#abcdef'], $colors);
+        self::assertSame(['#c8102e', '#abcdef', '#00ff00', '#ffffff'], $colors);
     }
 
-    public function testNoManualsMeansNoSwatches(): void
+    public function testEmptyPaletteMeansNoSwatches(): void
     {
         self::assertSame([], ResolveRichTextOptions::computeColors([]));
     }
@@ -271,24 +262,5 @@ final class ResolveRichTextOptionsTest extends TestCase
         assert($font instanceof Font);
 
         return $font;
-    }
-
-    private function manual(string $name): Manual
-    {
-        $project = new Project(
-            Uuid::uuid4(),
-            new User(Uuid::uuid4(), 'owner@example.com', new \DateTimeImmutable(), true),
-            new \DateTimeImmutable(),
-            'Project 1',
-        );
-
-        return new Manual(
-            Uuid::uuid4(),
-            $project,
-            new \DateTimeImmutable(),
-            ManualType::Brand,
-            $name,
-            null,
-        );
     }
 }

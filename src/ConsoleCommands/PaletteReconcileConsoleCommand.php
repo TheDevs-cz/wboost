@@ -15,20 +15,26 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Services\Palette\ManualPaletteWriter;
 use WBoost\Web\Services\Palette\ProjectManualColors;
 use WBoost\Web\Services\Palette\VerifyPalette;
 use WBoost\Web\Value\PaletteParityDiff;
 
 /**
- * F7 release R1 (P1a): re-projects every manual whose palette links do not
- * match its JSONB colours ({@see VerifyPalette}: an unexpected difference) —
- * e.g. a manual written by code that predates the sync during a blue-green
- * overlap. A project-level difference re-projects all of the project's
- * manuals. Never deletes palette colours and never sets roles (D2 roles
- * only change through a colours edit). One transaction per project; safe
- * to run on prod and to re-run.
+ * F7 release R2 (P1b) — run after every deploy that overlaps with R1 code:
+ * a manual whose JSONB colours differ from the mirror of its links
+ * ({@see VerifyPalette}: `jsonb_mirror_stale` or any other unexpected
+ * difference) was written by R1 code during the blue-green overlap (or a
+ * rollback), so its JSONB is the newer truth: the manual is RE-PROJECTED from
+ * its JSONB ({@see ProjectManualColors}, the R1 rules — never sets roles,
+ * never deletes palette colours), then the whole project's JSONB is
+ * re-mirrored from the links ({@see ManualPaletteWriter::mirrorProject()}),
+ * which also clears the owner-accepted differences R1 data still shows
+ * (D2 roles, §7 gap fill / HEX spelling). A project-level difference
+ * re-projects all of the project's manuals. One transaction per project;
+ * safe to run on prod and to re-run (a second run finds nothing).
  */
-#[AsCommand('app:palette:reconcile', 'Re-project manuals whose palette links do not match their JSONB colours')]
+#[AsCommand('app:palette:reconcile', 'Re-project manuals whose JSONB colours differ from their palette links, then re-mirror the JSONB')]
 final class PaletteReconcileConsoleCommand extends Command
 {
     public function __construct(
@@ -37,6 +43,7 @@ final class PaletteReconcileConsoleCommand extends Command
         readonly private GetManuals $getManuals,
         readonly private VerifyPalette $verifyPalette,
         readonly private ProjectManualColors $projectManualColors,
+        readonly private ManualPaletteWriter $manualPaletteWriter,
     ) {
         parent::__construct();
     }
@@ -72,11 +79,17 @@ final class PaletteReconcileConsoleCommand extends Command
                 continue;
             }
 
-            $this->connection->transactional(function () use ($manualIds): void {
+            $this->connection->transactional(function () use ($manualIds, $project): void {
                 foreach (array_keys($manualIds) as $manualId) {
                     $this->projectManualColors->reproject(Uuid::fromString($manualId));
                 }
+
+                $this->manualPaletteWriter->mirrorProject($project->id->toString());
             });
+
+            // Verify reads the manuals again — not the entities hydrated before the DBAL writes.
+            $this->entityManager->clear();
+            $project = $this->entityManager->find(Project::class, $project->id) ?? $project;
 
             foreach ($this->verifyPalette->project($project)['diffs'] as $diff) {
                 if (!$diff->accepted()) {
@@ -90,7 +103,7 @@ final class PaletteReconcileConsoleCommand extends Command
         $reprojected === [] ? $io->text('Every manual matches — nothing to do.') : $io->listing($reprojected);
 
         if ($remaining > 0) {
-            $io->error(sprintf('%d differences remain — a projector bug, not stale data.', $remaining));
+            $io->error(sprintf('%d differences remain — a projector / mirror bug, not stale data.', $remaining));
 
             return self::FAILURE;
         }

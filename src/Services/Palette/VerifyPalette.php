@@ -5,13 +5,10 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Palette;
 
 use Doctrine\DBAL\Connection;
-use Psr\Log\NullLogger;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Query\GetManuals;
-use WBoost\Web\Services\Print\BrandCmykPalette;
-use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Value\CmykColor;
 use WBoost\Web\Value\Color;
 use WBoost\Web\Value\ManualColor;
@@ -19,15 +16,20 @@ use WBoost\Web\Value\PaletteParityDiff;
 use WBoost\Web\Value\RichText;
 
 /**
- * Compares, per project, the colour read model built from the manual JSONB
- * columns (authoritative in R1 — `Manual`, `ResolveRichTextOptions::
- * computeColors`, `BrandCmykPalette`) with the SAME read model built from the
- * palette tables the way P1b will build it (logo links → `logo_hex`, custom
- * links → palette HEX; type = the palette role; CMYK/Pantone/RAL from the
- * palette; swatches + print CMYK in palette order). Read-only.
+ * Compares, per project, the colour read model R1 code builds from the manual
+ * JSONB columns ({@see JsonbManualColors} — the pre-R2 `Manual` methods and
+ * swatch / print-CMYK walk) with the read model R2 serves from the palette
+ * tables (logo links → `logo_hex`, custom links → palette HEX; type = the
+ * palette role; CMYK/Pantone/RAL from the palette; swatches + print CMYK =
+ * the LINKED palette colours in palette order, {@see \WBoost\Web\Query\GetProjectPalette}).
+ * Read-only.
  *
- * Every difference is classified ({@see PaletteParityDiff::ACCEPTED_KINDS});
- * an unclassified one is a sync bug that `app:palette:reconcile` re-projects.
+ * Every difference is classified ({@see PaletteParityDiff::ACCEPTED_KINDS}).
+ * Since R2 the JSONB is a mirror of the links, so after
+ * `app:palette:reconcile` a manual has NO per-manual difference at all; one
+ * that has any (even an accepted kind) is additionally reported as
+ * `jsonb_mirror_stale` — R1 code wrote it (blue-green overlap / rollback) or
+ * the R2 mirror never ran — and reconcile repairs it.
  *
  * @phpstan-type PaletteRow array{id: string, project_id: string, hex: string, hex_key: string, role: null|string, cmyk: null|array{null|string, null|string, null|string, null|string}, pantone: null|string, ral: null|string, position: int}
  * @phpstan-type LinkRow array{manual_id: string, project_color_id: string, logo_hex: null|string, position: int}
@@ -35,18 +37,14 @@ use WBoost\Web\Value\RichText;
  */
 readonly final class VerifyPalette
 {
-    private BrandCmykPalette $brandCmykPalette;
-
     public function __construct(
         private Connection $connection,
         private GetManuals $getManuals,
     ) {
-        // Quiet copy: today's conflict warnings are part of the comparison, not noise for the console.
-        $this->brandCmykPalette = new BrandCmykPalette($getManuals, new NullLogger());
     }
 
     /**
-     * @return array{diffs: list<PaletteParityDiff>, palette: int, logoLinks: int, customLinks: int}
+     * @return array{diffs: list<PaletteParityDiff>, palette: int, logoLinks: int, customLinks: int, staleManuals: array<string, string>}
      */
     public function project(Project $project): array
     {
@@ -68,9 +66,19 @@ readonly final class VerifyPalette
             }
         }
 
+        /** @var array<string, string> $staleManuals manual id → name */
+        $staleManuals = [];
+
         foreach ($manuals as $manual) {
-            foreach ($this->manual($manual, $palette, $links[$manual->id->toString()] ?? []) as [$kind, $detail]) {
+            $manualDiffs = $this->manual($manual, $palette, $links[$manual->id->toString()] ?? []);
+
+            foreach ($manualDiffs as [$kind, $detail]) {
                 $diffs[] = new PaletteParityDiff($projectId, $project->name, $manual->id->toString(), $manual->name, $kind, $detail);
+            }
+
+            if ($manualDiffs !== []) {
+                $staleManuals[$manual->id->toString()] = $manual->name;
+                $diffs[] = new PaletteParityDiff($projectId, $project->name, $manual->id->toString(), $manual->name, 'jsonb_mirror_stale', sprintf('%d differences between the JSONB mirror and the links — app:palette:reconcile', count($manualDiffs)));
             }
         }
 
@@ -78,7 +86,7 @@ readonly final class VerifyPalette
             $diffs[] = new PaletteParityDiff($projectId, $project->name, null, null, $kind, $detail);
         }
 
-        return ['diffs' => $diffs, 'palette' => count($palette), 'logoLinks' => $logoLinks, 'customLinks' => $customLinks];
+        return ['diffs' => $diffs, 'palette' => count($palette), 'logoLinks' => $logoLinks, 'customLinks' => $customLinks, 'staleManuals' => $staleManuals];
     }
 
     /**
@@ -91,10 +99,10 @@ readonly final class VerifyPalette
         $diffs = [];
 
         try {
-            $detected = $manual->detectedColors();
-            $custom = array_values($manual->customColors);
-            $primary = $manual->primaryColors();
-            $secondary = $manual->secondaryColors();
+            $detected = JsonbManualColors::detected($manual);
+            $custom = JsonbManualColors::custom($manual);
+            $primary = JsonbManualColors::primary($manual);
+            $secondary = JsonbManualColors::secondary($manual);
         } catch (\Throwable $e) {
             return [['jsonb_unreadable', $e::class . ': ' . $e->getMessage()]];
         }
@@ -193,7 +201,7 @@ readonly final class VerifyPalette
         }
 
         foreach ([['primary', $primary], ['secondary', $secondary]] as [$role, $jsonbPage]) {
-            $before = array_map(static fn (ManualColor $color): string => RichText::normalizeHexColor($color->color->hex) ?? $color->color->hex, array_values($jsonbPage));
+            $before = array_map(static fn (ManualColor $color): string => RichText::normalizeHexColor($color->color->hex) ?? $color->color->hex, $jsonbPage);
             $after = [];
 
             foreach ([...$logoColors, ...$customColors] as $linkColor) {
@@ -214,6 +222,10 @@ readonly final class VerifyPalette
     }
 
     /**
+     * Swatches + print CMYK: the JSONB walk vs the LINKED palette colours in
+     * palette order (what R2 serves); palette colours no manual links are
+     * listed as `unused_palette_colour` (informational).
+     *
      * @param array<Manual> $manuals
      * @param array<string, PaletteRow> $palette
      * @param array<string, true> $usedPaletteIds
@@ -224,38 +236,38 @@ readonly final class VerifyPalette
         $diffs = [];
 
         try {
-            $jsonbColors = ResolveRichTextOptions::computeColors($manuals);
-            $jsonbCmyk = $this->brandCmykPalette->fromManuals($manuals);
-            $ordered = ResolveRichTextOptions::orderedManualColors($manuals);
+            $jsonbColors = JsonbManualColors::computeColors($manuals);
+            $jsonbCmyk = JsonbManualColors::brandCmyk($manuals);
+            $ordered = JsonbManualColors::ordered($manuals);
         } catch (\Throwable $e) {
             return [['jsonb_unreadable', 'project colours: ' . $e::class . ': ' . $e->getMessage()]];
         }
 
-        /** @var array<string, bool> $hexUsed normalised hex → some linked palette colour carries it */
-        $hexUsed = [];
         $paletteColors = [];
+        /** @var list<PaletteRow> $linked */
+        $linked = [];
 
         foreach ($palette as $row) {
-            $normalized = RichText::normalizeHexColor($row['hex']);
-
-            if ($normalized === null) {
+            if (!isset($usedPaletteIds[$row['id']])) {
+                $diffs[] = ['unused_palette_colour', sprintf('%s (%s) — no manual links it; not a swatch', $row['hex'], $row['hex_key'])];
                 continue;
             }
 
-            $hexUsed[$normalized] = ($hexUsed[$normalized] ?? false) || isset($usedPaletteIds[$row['id']]);
+            $linked[] = $row;
+            $normalized = RichText::normalizeHexColor($row['hex']);
 
-            if (!in_array($normalized, $paletteColors, true)) {
+            if ($normalized !== null && !in_array($normalized, $paletteColors, true)) {
                 $paletteColors[] = $normalized;
             }
         }
 
         if ($jsonbColors !== $paletteColors) {
             foreach (array_diff($jsonbColors, $paletteColors) as $missing) {
-                $diffs[] = ['compute_colors_missing', sprintf('%s is a brand swatch today but not in the palette', $missing)];
+                $diffs[] = ['compute_colors_missing', sprintf('%s is a swatch in the JSONB read model but no linked palette colour', $missing)];
             }
 
             foreach (array_diff($paletteColors, $jsonbColors) as $extra) {
-                $diffs[] = [($hexUsed[$extra] ?? false) ? 'compute_colors_extra' : 'unused_palette_colour', sprintf('%s is in the palette but no manual uses it', $extra)];
+                $diffs[] = ['compute_colors_extra', sprintf('%s is a linked palette colour but not in the JSONB read model', $extra)];
             }
 
             $common = array_values(array_intersect($paletteColors, $jsonbColors));
@@ -264,11 +276,10 @@ readonly final class VerifyPalette
             }
         }
 
-        // BrandCmykPalette, over the palette in order (first CMYK wins).
+        // BrandCmykPalette, over the linked palette in order (first CMYK wins).
         $paletteCmyk = [];
-        $paletteCmykUsed = [];
 
-        foreach ($palette as $row) {
+        foreach ($linked as $row) {
             $normalized = RichText::normalizeHexColor($row['hex']);
 
             if ($normalized === null || isset($paletteCmyk[$normalized]) || !Color::isValidHex($row['hex'])) {
@@ -279,7 +290,6 @@ readonly final class VerifyPalette
 
             if ($cmyk !== null) {
                 $paletteCmyk[$normalized] = $cmyk;
-                $paletteCmykUsed[$normalized] = isset($usedPaletteIds[$row['id']]);
             }
         }
 
@@ -296,17 +306,13 @@ readonly final class VerifyPalette
 
         foreach ($jsonbCmyk as $hex => $cmyk) {
             if (!isset($paletteCmyk[$hex])) {
-                $diffs[] = ['brand_cmyk_missing', sprintf('%s has print CMYK today but none in the palette', $hex)];
+                $diffs[] = ['brand_cmyk_missing', sprintf('%s has print CMYK in the JSONB read model but none in the linked palette', $hex)];
                 continue;
             }
 
             if ($paletteCmyk[$hex] != $cmyk) {
                 $diffs[] = [
-                    match (true) {
-                        !$paletteCmykUsed[$hex] => 'unused_palette_colour',
-                        count($jsonbCmykVariants[$hex] ?? []) > 1 => 'cmyk_first_wins_order',
-                        default => 'brand_cmyk_value',
-                    },
+                    count($jsonbCmykVariants[$hex] ?? []) > 1 ? 'cmyk_first_wins_order' : 'brand_cmyk_value',
                     sprintf('%s CMYK %s → %s', $hex, self::cmykLabel($cmyk), self::cmykLabel($paletteCmyk[$hex])),
                 ];
             }
@@ -314,7 +320,7 @@ readonly final class VerifyPalette
 
         foreach ($paletteCmyk as $hex => $cmyk) {
             if (!isset($jsonbCmyk[$hex])) {
-                $diffs[] = [$paletteCmykUsed[$hex] ? 'brand_cmyk_extra' : 'unused_palette_colour', sprintf('%s has print CMYK %s only in the palette', $hex, self::cmykLabel($cmyk))];
+                $diffs[] = ['brand_cmyk_extra', sprintf('%s has print CMYK %s only in the linked palette', $hex, self::cmykLabel($cmyk))];
             }
         }
 

@@ -9,9 +9,10 @@ use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\ProjectColor;
 
 /**
- * Project palette colours (F7). In release R1 the palette is written by
- * {@see \WBoost\Web\Services\Palette\ProjectManualColors} (DBAL) and read by
- * nothing user-facing yet; this is the ORM side P1b's read switch builds on.
+ * Project palette colours (F7) — ALL of them, linked or not (the P2 palette
+ * page lists unlinked ones as "Nepoužitá"). Templates / print / API read the
+ * linked-only {@see \WBoost\Web\Query\GetProjectPalette}; writes go through
+ * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter} (DBAL).
  */
 readonly final class ProjectColorRepository
 {

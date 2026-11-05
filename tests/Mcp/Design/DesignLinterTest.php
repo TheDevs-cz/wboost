@@ -27,7 +27,7 @@ use WBoost\Web\Mcp\Design\Lint\LintCode;
 use WBoost\Web\Mcp\Design\Lint\LintContext;
 use WBoost\Web\Mcp\Design\Lint\LintFinding;
 use WBoost\Web\Mcp\Design\Lint\LintReport;
-use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 
@@ -524,16 +524,16 @@ final class DesignLinterTest extends KernelTestCase
 
     /**
      * The palette is the app's palette — {@see ResolveRichTextOptions::computeColors()}
-     * over the project's manuals, the same list `get_context` reports and the
+     * over the project palette, the same list `get_context` reports and the
      * fill toolbar offers.
      */
-    public function testTheBrandPaletteComesFromTheProjectsManuals(): void
+    public function testTheBrandPaletteComesFromTheProjectPalette(): void
     {
-        $manuals = self::getContainer()->get(GetManuals::class)->allForProject(self::projectId());
+        $palette = self::getContainer()->get(GetProjectPalette::class)->colorsForProject(self::projectId());
 
-        $context = LintContext::forProject(self::projectId(), CompilationContext::empty(), $manuals);
+        $context = LintContext::forProject(self::projectId(), CompilationContext::empty(), $palette);
 
-        self::assertSame(ResolveRichTextOptions::computeColors($manuals), $context->brandColors);
+        self::assertSame(ResolveRichTextOptions::computeColors($palette), $context->brandColors);
         self::assertContains(self::BRAND_PRIMARY, $context->brandColors);
         self::assertTrue($context->isBrandColor('#C8102E'), 'Case and shorthand are normalized the app\'s way.');
     }

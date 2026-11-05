@@ -11,7 +11,7 @@ use WBoost\Web\Mcp\Design\Dsl\DesignDocument;
 use WBoost\Web\Mcp\Design\Dsl\DslParser;
 use WBoost\Web\Mcp\Design\Lint\DesignLinter;
 use WBoost\Web\Mcp\Design\Lint\LintContext;
-use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Query\GetProjectPalette;
 
 /**
  * Everything that happens to a design document BEFORE anyone spends a render on
@@ -66,7 +66,7 @@ readonly final class DesignPreflight
         private CompilationContextFactory $compilationContextFactory,
         private DesignLinter $linter,
         private DesignCompiler $compiler,
-        private GetManuals $getManuals,
+        private GetProjectPalette $getProjectPalette,
     ) {
     }
 
@@ -93,7 +93,7 @@ readonly final class DesignPreflight
         $report = $this->linter->lint($document, LintContext::forProject(
             $project->id,
             $compilation,
-            $this->getManuals->allForProject($project->id),
+            $this->getProjectPalette->colorsForProject($project->id),
         ));
 
         foreach (DesignIssue::fromLintReport($report) as $issue) {

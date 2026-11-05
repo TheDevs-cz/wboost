@@ -21,9 +21,11 @@ use WBoost\Web\Entity\TemplateCategory;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Entity\ManualPaletteColor;
 use WBoost\Web\Entity\McpAccessToken;
 use WBoost\Web\Entity\OAuth2ClientUser;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Entity\ProjectColor;
 use WBoost\Web\Entity\RegistrationRequest;
 use WBoost\Web\Entity\SocialAccount;
 use WBoost\Web\Mcp\Security\McpScope;
@@ -93,6 +95,9 @@ final class TestDataFixture extends Fixture
     public const string FONT_RUBIK_ID = '00000000-0000-0000-0000-0000000000f1';
 
     public const string MANUAL_1_ID = '00000000-0000-0000-0000-000000000001';
+    /** Project 1's palette (F7): Manual 1's two added colours. */
+    public const string PROJECT_1_COLOR_RED_ID = '0f7c0000-0000-7000-8000-000000000001';
+    public const string PROJECT_1_COLOR_BLUE_ID = '0f7c0000-0000-7000-8000-000000000002';
     public const string MANUAL_2_ID = '00000000-0000-0000-0000-000000000002';
 
     // OAuth2 fixtures (active client linked to USER_1, plus an inactive one)
@@ -366,14 +371,22 @@ final class TestDataFixture extends Fixture
             null,
         );
         // Brand colors — the swatch source for rich-text (WYSIWYG) inputs.
-        $manual1->editColors(
+        // Since F7 R2 they live in the project palette (Manual 1 links both);
+        // the JSONB columns carry the mirror R1 code reads.
+        $manual1->mirrorJsonbColors(
             detectedColors: [],
             customColors: [
-                new ManualColor(new Color('#C8102E'), ManualColorType::Primary, null, null),
-                new ManualColor(new Color('#004E7C'), ManualColorType::Secondary, null, null),
+                new ManualColor(new Color('C8102E'), ManualColorType::Primary, null, null),
+                new ManualColor(new Color('004E7C'), ManualColorType::Secondary, null, null),
             ],
         );
         $manager->persist($manual1);
+
+        foreach ([[self::PROJECT_1_COLOR_RED_ID, 'C8102E', ManualColorType::Primary], [self::PROJECT_1_COLOR_BLUE_ID, '004E7C', ManualColorType::Secondary]] as $position => [$colorId, $hex, $role]) {
+            $paletteColor = new ProjectColor(Uuid::fromString($colorId), $project1, $hex, '#' . strtolower($hex), $role, null, null, null, $position, $date);
+            $manager->persist($paletteColor);
+            $manager->persist(new ManualPaletteColor(Uuid::fromString(sprintf('0f7c0000-0000-7000-8000-0000000001%02d', $position)), $manual1, $paletteColor, null, $position, $date));
+        }
 
         // Project font matching the family used by variant 1's headline textbox
         // ("Rubik (Rubik Bold)") — the rich-text whitelist expands it to BOTH

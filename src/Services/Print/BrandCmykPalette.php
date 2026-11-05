@@ -6,10 +6,9 @@ namespace WBoost\Web\Services\Print;
 
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\UuidInterface;
-use WBoost\Web\Entity\Manual;
-use WBoost\Web\Query\GetManuals;
-use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Value\CmykColor;
+use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\RichText;
 
 /**
@@ -17,16 +16,17 @@ use WBoost\Web\Value\RichText;
  * the "keep the numbers" half of the print conversion: a pixel painted in a
  * brand colour gets the manual's exact ink values instead of an ICC guess.
  *
- * Union of every project manual, primary → secondary → untyped (the same
- * order the editor offers them in). When two manuals give one hex different
- * CMYK values, the first wins and the conflict is logged. Colours without a
- * usable CMYK (blank, unparseable, implausible for the hex) are left out and
- * simply go through the ICC conversion.
+ * The project palette in palette order ({@see GetProjectPalette} — the colours
+ * some manual links, the order the editor offers them in; F7 R2). When two
+ * palette colours of one hex carry different CMYK (split duplicates), the
+ * first wins and the conflict is logged. Colours without a usable CMYK
+ * (blank, unparseable, implausible for the hex) are left out and simply go
+ * through the ICC conversion.
  */
 readonly final class BrandCmykPalette
 {
     public function __construct(
-        private GetManuals $getManuals,
+        private GetProjectPalette $getProjectPalette,
         private LoggerInterface $logger,
     ) {
     }
@@ -36,18 +36,18 @@ readonly final class BrandCmykPalette
      */
     public function forProject(UuidInterface $projectId): array
     {
-        return $this->fromManuals($this->getManuals->allForProject($projectId));
+        return $this->fromPalette($this->getProjectPalette->colorsForProject($projectId));
     }
 
     /**
-     * @param array<Manual> $manuals
+     * @param array<ManualColor> $colors palette order
      * @return array<string, CmykColor>
      */
-    public function fromManuals(array $manuals): array
+    public function fromPalette(array $colors): array
     {
         $palette = [];
 
-        foreach (ResolveRichTextOptions::orderedManualColors($manuals) as $manualColor) {
+        foreach ($colors as $manualColor) {
             $hex = RichText::normalizeHexColor($manualColor->color->hex);
             $cmyk = CmykColor::fromManualColor($manualColor);
 

@@ -16,12 +16,13 @@ use WBoost\Web\Services\Palette\VerifyPalette;
 use WBoost\Web\Value\PaletteParityDiff;
 
 /**
- * F7 release R1 (P1a): compares the colour read model built from the manual
- * JSONB (authoritative) with the one built from `project_color` +
- * `manual_palette_color`, per manual and per project. Read-only, safe on prod.
- * Exits 1 when a difference is not one of the owner-accepted kinds
- * ({@see PaletteParityDiff::ACCEPTED_KINDS}) — those are sync bugs,
- * `app:palette:reconcile` re-projects the manuals concerned.
+ * F7: compares the colour read model R1 code builds from the manual JSONB
+ * (since R2 a mirror of the links) with the one R2 serves from
+ * `project_color` + `manual_palette_color`, per manual and per project.
+ * Read-only, safe on prod. Exits 1 when a difference is not one of the
+ * owner-accepted kinds ({@see PaletteParityDiff::ACCEPTED_KINDS}) — sync bugs
+ * or a stale JSONB mirror (`jsonb_mirror_stale`: R1 code wrote it, or the R2
+ * mirror never ran); `app:palette:reconcile` repairs the manuals concerned.
  */
 #[AsCommand('app:palette:verify', 'Compare the JSONB colour read model with the palette tables (read-only)')]
 final class PaletteVerifyConsoleCommand extends Command
@@ -59,7 +60,7 @@ final class PaletteVerifyConsoleCommand extends Command
             array_push($diffs, ...$result['diffs']);
         }
 
-        $io->title('Palette verify — JSONB read model vs palette tables');
+        $io->title('Palette verify — JSONB mirror vs palette links');
         $io->table(['Metric', 'Value'], [
             ['Projects', (string) count($projects)],
             ['Palette colours (project_color)', (string) $palette],

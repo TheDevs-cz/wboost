@@ -17,6 +17,8 @@ primary > secondary > none; every manual whose primary/secondary pages would cha
 listed in the dry-run report (§2a) for the owner to review BEFORE P1a ships. **P0 done**
 (snapshot + planner dry run, §2a). **P1a done** (2026-11-05: tables, backfill migration
 `Version20261105170659`, write-path sync, `app:palette:verify` / `reconcile` — §2b).
+**P1b done** (2026-11-05, release R2: reads from links/palette, writes mirrored to JSONB,
+linked-only project palette — §2c).
 
 ## 0. What exists today (verified)
 
@@ -64,8 +66,9 @@ project_color                         manual_palette_color
   position int, created_at
 ```
 
-- FK to `project_color` uses NO ACTION (checked at statement end) — RESTRICT would break the
-  project-delete cascade. Deleting a manual deletes its links; palette colours survive.
+- FK to `project_color`: P1a used NO ACTION — **wrong**: the project-delete cascade then
+  depends on RI trigger order (fixed in P1b with ON DELETE CASCADE, §2c). Deleting a
+  manual deletes its links; palette colours survive.
 - **Read model unchanged:** `Manual` keeps `detectedColors()`, `customColors()` (property →
   method; Twig `manual.customColors` still resolves), `color(n)`, `colorsCount()`,
   `primaryColors()`, `secondaryColors()`, all returning `ManualColor` VOs built from links:
@@ -153,7 +156,7 @@ position) or creating one at the palette end. That's today's `detectedColors()`,
 | Rel | Schema | Authority | Notes |
 |---|---|---|---|
 | R1 (P1a) | additive: CREATE tables + backfill migration | JSONB | every write path re-projects that manual's links via the planner; reads unchanged; `app:palette:verify` compares both read models |
-| R2 (P1b) | none | links/palette | reads switch; every write ALSO mirrors links → JSONB (so R1 code/rollback stay correct). Post-deploy `app:palette:reconcile`: JSONB ≠ mirror(links) ⇒ old code wrote during overlap ⇒ re-project that manual |
+| R2 (P1b) | FK link → palette ON DELETE CASCADE (§2c) | links/palette | reads switch; every write ALSO mirrors links → JSONB (so R1 code/rollback stay correct). Post-deploy `app:palette:reconcile`: JSONB ≠ mirror(links) ⇒ old code wrote during overlap ⇒ re-project that manual |
 | R3–R4 | none | links | UI phases |
 | R5a | none | links | stop mirroring, unmap the JSONB columns (they keep `'[]'` defaults, so overlapping code still works) |
 | R5b | DROP `detected_colors`, `custom_colors` | — | ≥1 week after R2; **pg_dump to lily `/root/db-backups/` first**, ship only after the backup |
@@ -198,8 +201,61 @@ How it differs from / refines the text above:
   keeps its order. `verify` accepts both (`unused_palette_colour`, `palette_order`).
   **P1b must decide** whether `GetProjectPalette` (computeColors, BrandCmykPalette)
   skips palette colours no manual links — otherwise leftovers become swatches.
+  → decided in §2c: linked colours only.
 - `app:palette:reconcile` never sets roles; it re-projects manuals whose links don't
   match (e.g. written by the old container during the blue-green overlap).
+
+### 2c. P1b — release R2, 2026-11-05 (reads switch, JSONB mirrored)
+
+Local prod copy (P1a-migrated): `app:palette:snapshot` before (R1) vs after (R2) differs
+in **exactly the 12 accepted items** — Fotbal - Čeladná `17375f` primary → secondary page
+(+ Pantone 2299 C gap fill on `A2C62C`), TIC white → primary page printed `FFFFFF`
+(+ 7509C gap fill on `d19e5d`), Knihovna white → primary page; per-project
+`computeColors`, `BrandCmykPalette`, avatars, overview chips, `has_palette` and every
+logo mapping/background identical. `/nahled-manualu/…` HTML for all 33 manuals:
+identical except those 3 manuals (swatch lines + Fotbal's new secondary page, which
+renumbers its later pages). `reconcile` then re-mirrored 11 manuals' JSONB (the 2
+affected projects) without changing a single link or palette row; verify afterwards = 1
+accepted `palette_order` (Čeladná: the JSONB walk now sees Fotbal's navy as secondary;
+the served swatches keep palette order). Snapshot + HTML after reconcile == before.
+
+How it differs from / refines the text above:
+- **Read model** from `Manual::$paletteLinks` (OneToMany `fetch: EAGER` + EAGER
+  `projectColor`): Doctrine batch-loads the links of every hydrated manual in ONE
+  query with the palette joined — no per-listing fetch-joins needed (measured: 1 link
+  query on `/projects`, the dashboard, the manuals list). `customColors` is a method.
+  The old JSONB logic lives on, FROZEN, in `JsonbManualColors` (verify, reconcile,
+  parity tests). `Manual::editColors()` → `mirrorJsonbColors()` (mirror only);
+  `editLogo()` only sets the logo.
+- **Unlinked palette colours (decision):** `GetProjectPalette::forProject()` returns
+  only colours ≥1 manual links — swatches, print CMYK, API, MCP stay identical to today
+  even though R1/R2 never delete palette colours; P2 shows the rest as "Nepoužitá"
+  (`ProjectColorRepository::forProject()` = all).
+- **Write path** `ManualPaletteWriter` (`editColors()` for the old colours page,
+  `syncLogoColors()` = D3 after a logo upload): a posted colour keeps its previous
+  palette colour when unchanged, else **edits it in place when no other manual links
+  it** (new vs §2b — without it a cleared Pantone would come back via §7 and every
+  CMYK edit would orphan a colour), else §7 match, else append. Then the whole
+  project's JSONB is mirrored. Managed entities are reset afterwards (`refreshManaged`:
+  `EntityManager::refresh()` throws on the readonly `createdAt`).
+- **verify / reconcile in R2:** any per-manual difference also reports
+  `jsonb_mirror_stale` (unexpected) — after the post-deploy reconcile there are none.
+  Reconcile re-projects stale manuals FROM their JSONB with the R1 projector (the R1
+  container wrote it, so it is newer) and re-mirrors the project.
+- **Schema fix (the only R2 migration, `Version20261105193000`):** link → palette FK
+  ON DELETE CASCADE. P1a's NO ACTION made `DELETE project` fail whenever Postgres fired
+  the `project_color` cascade before the `manual` one (RI triggers run in trigger-name
+  order; the test DB had it, the local prod copy did not, prod depends on its OIDs) —
+  surfaced by `DeleteProjectStorageTest` once the fixtures got a palette.
+  Non-destructive, blue-green safe (nothing deletes palette colours before P2).
+- Known R2 limits of the old colours page (removed in P3): changing a custom colour's
+  HEX or a shared colour's print data leaves the old palette colour unlinked (no
+  swatch); a role change is project-wide (D2, as in R1).
+
+**Post-deploy on prod:** `app:palette:verify` (expect exactly the 3 `jsonb_mirror_stale`
+manuals above + the accepted kinds) → `app:palette:reconcile --dry-run` → `app:palette:reconcile`
+→ `app:palette:verify` (expect only accepted kinds, i.e. `palette_order` for Čeladná).
+Re-run reconcile whenever R1 code may have written (overlap, rollback + re-deploy).
 
 ## 3. Consumers
 
@@ -261,7 +317,7 @@ Layout from prototype js:1963-2056 / design-system §573:
 |---|---|---|---|
 | P0 ✔ | `app:palette:snapshot <json>` (per manual: detected/custom/primary/secondary all fields, `color(1..n)`, `colorsCount`, mapping + background for 5 types × 5 colour variants; per project: `computeColors`, `BrandCmykPalette`, avatar, `has_palette`, overview chips) + `app:palette:plan --report` (planner dry-run, read-only) + allForProject ORDER BY. Ran on the local prod copy (§2a); still TODO on the prod mirror: snapshot A + curl every `/nahled-manualu/…` → HTML A; owner reviews the report | planner unit tests (merge/split, trim, case + 3-digit, stale detected, rgb strings, in-manual dups, role majority + tie, order parity vs the entities) + command smoke test | S–M, 1 d |
 | P1a ✔ | entities, migration (CREATE + backfill via planner), `ProjectManualColors` re-projection on `EditManualColors` + logo upload, `app:palette:verify`, `app:palette:reconcile` (§2b). D2: the old per-manual colours page still posts a type per manual — re-projection sets the palette colour's role (last write wins) and must re-project EVERY manual linking that colour; `verify` expects diffs exactly for the §2a role-change manuals | kernel test: fixtures → backfill → link read model == JSONB read model (minus reported role changes); mirror: migrate, verify = only reported diffs | M, 1–1.5 d |
-| P1b | read switch (Manual read model from links), writes to links + JSONB mirror, `SyncManualLogoColors`, `GetProjectPalette` → computeColors / BrandCmykPalette / MCP / lint, fixture + test updates, docs + consumer-prompt + mfkfm comment | ResolveRichTextOptionsTest, BrandCmykPalette, ManualColorsControllerTest still green (old page writes through), parity tests for `color(n)`; mirror: snapshot C == A and HTML C == A except the §2a role-change / literal-change manuals, API listing JSON diff | M–L, 1.5–2 d |
+| P1b ✔ | read switch (Manual read model from links), writes to links + JSONB mirror, `SyncManualLogoColors` (= `ManualPaletteWriter::syncLogoColors`), `GetProjectPalette` → computeColors / BrandCmykPalette / MCP / lint, fixture + test updates, docs + consumer-prompt + mfkfm comment (§2c) | ResolveRichTextOptionsTest, BrandCmykPalette, ManualColorsControllerTest still green (old page writes through), parity tests for `color(n)`; mirror: snapshot C == A and HTML C == A except the §2a role-change / literal-change manuals, API listing JSON diff | M–L, 1.5–2 d |
 | P2 | Paleta barev page + sidebar + autosave endpoints + delete guard + usage chips + client read-only + overview chips + `has_palette` | controller tests (VIEW vs EDIT, guard, locked HEX, CSRF), `shoot.cjs` 390/820/1440 both themes | M–L, 2 d |
 | P3 | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |
 | P4 | "Sloučit" duplicates (repoint links, delete loser), template usage count (scan text inputs + shape `allowedColors`) | merge tests, manual output change only for touched manuals | S–M, 0.5–1 d |

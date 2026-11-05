@@ -179,14 +179,13 @@ final class PaletteSnapshotConsoleCommand extends Command
     }
 
     /**
-     * The single place that reads the custom list — `Manual::$customColors`
-     * becomes a method in P1b; adjust here only.
+     * The single place that reads the custom list (a method since P1b).
      *
      * @return array<ManualColor>
      */
     private static function customColors(Manual $manual): array
     {
-        return $manual->customColors;
+        return $manual->customColors();
     }
 
     /**

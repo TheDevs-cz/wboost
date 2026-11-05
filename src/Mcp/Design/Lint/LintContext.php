@@ -6,9 +6,9 @@ namespace WBoost\Web\Mcp\Design\Lint;
 
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\DependencyInjection\Attribute\Exclude;
-use WBoost\Web\Entity\Manual;
 use WBoost\Web\Mcp\Design\CompilationContext;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\RichText;
 
 /**
@@ -34,8 +34,7 @@ readonly final class LintContext
         /** The context the compiler will be handed: allowed faces + referenced gallery assets. */
         public CompilationContext $compilation,
         /**
-         * The brand palette, lowercase `#rrggbb`, primary → secondary →
-         * untyped.
+         * The brand palette, lowercase `#rrggbb`, palette order.
          *
          * **Empty means "this project has no brand colours"**, not "no colour is
          * allowed": {@see DesignLinter} then skips the palette check entirely
@@ -54,14 +53,14 @@ readonly final class LintContext
      * would give the agent one palette to design against and a different one to
      * fill with.
      *
-     * @param array<Manual> $manuals `GetManuals::allForProject()`
+     * @param array<ManualColor> $palette `GetProjectPalette::colorsForProject()`
      */
     public static function forProject(
         UuidInterface $projectId,
         CompilationContext $compilation,
-        array $manuals,
+        array $palette,
     ): self {
-        return new self($projectId, $compilation, ResolveRichTextOptions::computeColors($manuals));
+        return new self($projectId, $compilation, ResolveRichTextOptions::computeColors($palette));
     }
 
     public function hasBrandColors(): bool

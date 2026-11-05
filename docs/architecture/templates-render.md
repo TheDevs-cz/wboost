@@ -138,10 +138,10 @@ structure of the Illustrator-exported reference file.
   shapes that are lines or ≤ 2 mm thick OVERPRINT (suppressed in pass 1);
   larger black shapes KNOCK OUT (painted white in pass 1 — no ink under
   them, so the picture beneath cannot ghost through the black). "Black" =
-  `#000000` + every brand colour whose manual CMYK is 0/0/0/100.
+  `#000000` + every brand colour whose palette CMYK is 0/0/0/100.
 - **`PrintColorConverter`** (Imagick + lcms): flatten on white → sRGB
   (`resources/icc/sRGB-v4.icc`, CC0 compact profile) → `CoatedFOGRA39.icc`
-  relative colorimetric + BPC → **brand colours keep the manual's numbers**
+  relative colorimetric + BPC → **brand colours keep the palette's numbers**
   (pixels whose RGB is EXACTLY a brand hex get its CMYK; only colours the
   design references are masked, each costs a full-size pass) → **K
   overprint** `K + a·(1−K)` with C/M/Y untouched, done on separated grey
@@ -154,8 +154,9 @@ structure of the Illustrator-exported reference file.
   leniently ("100 %", "35,5", blank channel next to filled = 0) and drops
   entries implausible for their hex (a naive CMYK→RGB distance check — prod
   had `000000` stored as 0/0/0/0); dropped colours simply take the ICC path.
-  `BrandCmykPalette` = union of the project manuals, first manual wins on a
-  conflicting hex (logged).
+  `BrandCmykPalette` = the project palette (`GetProjectPalette` — F7 R2:
+  palette order, linked colours only), the first palette colour wins on a
+  conflicting hex (split duplicates, logged).
 - **`PdfX1aWriter::write(list<PrintPage>, $profile, $title, $createdAt)`**
   writes the file by hand, ONE page or MANY (documents): per page MediaBox /
   TrimBox / BleedBox of its own, crop marks as Illustrator draws them

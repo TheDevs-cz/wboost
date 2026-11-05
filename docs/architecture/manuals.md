@@ -102,20 +102,22 @@ cascade.
 
 ### Manual colours — HEX, CMYK, Pantone, RAL
 
-`ManualColor` (in the JSONB `manual.detected_colors` / `.custom_colors` via
-`ManualColorsDoctrineType`) carries `ral` alongside `pantone`. No migration:
-the key is simply absent on older rows and reads back as null. Every code is
+`ManualColor` (the read-model VO — since F7 R2 built from the palette, see below;
+the JSONB mirror stores it via `ManualColorsDoctrineType`) carries `ral` alongside
+`pantone` (`project_color.ral`; in the JSONB the key is simply absent on older rows
+and reads back as null). Every code is
 printed by `_manual_color_swatch.html.twig` — extracted from the two
 copy-pasted palette blocks — and only when the designer filled it, so a manual
 with no RAL looks exactly as before. `ManualColorsFormType::isBlankColor()`
 counts `ral` too, otherwise a row holding nothing but a RAL code would be
 dropped on save.
 
-### Project palette tables — R1 shadow copy of the manual colours (F7 P1a, 2026-11-05)
+### Project palette — the source of truth for colours (F7; P1a R1 → P1b R2, 2026-11-05)
 
-Plan + decisions: `docs/redesign/palette-plan.md`. Two tables, written since
-`Version20261105170659` (CREATE + backfill), **read by nothing user-facing yet** —
-`manual.detected_colors` / `custom_colors` stay authoritative until P1b (R2):
+Plan + decisions: `docs/redesign/palette-plan.md`. Two tables (`Version20261105170659`
+CREATE + backfill). **Since P1b (release R2) they are what everything reads**; the
+JSONB columns `manual.detected_colors` / `custom_colors` are a MIRROR kept for R1 code
+(blue-green overlap, a code-revert rollback) until R5 drops them:
 
 - `project_color` (`ProjectColor`): one palette colour — `hex` (literal, no `#`),
   `hex_key` (normalised `#rrggbb`, the dedupe key; indexed with `project_id`),
@@ -124,40 +126,81 @@ Plan + decisions: `docs/redesign/palette-plan.md`. Two tables, written since
   CASCADE.
 - `manual_palette_color` (`ManualPaletteColor`): a manual's use of one, `position` =
   the manual's colour order (logo segment first, then added colours = what `color(n)`
-  will index), `logo_hex` non-null = "Z logotypu", the SVG's LITERAL (recolouring
+  indexes), `logo_hex` non-null = "Z logotypu", the SVG's LITERAL (recolouring
   `str_ireplace`s it), `UNIQUE (manual_id, logo_hex) WHERE logo_hex IS NOT NULL`.
-  Manual CASCADE; FK to `project_color` is NO ACTION on purpose (statement-end check,
-  so the project-delete cascade passes; RESTRICT would not).
+  Manual CASCADE; FK to `project_color` is **ON DELETE CASCADE since P1b**
+  (`Version20261105193000`). P1a's NO ACTION broke deleting a project whenever
+  Postgres fired the `project_color` cascade before the `manual` one — RI triggers run
+  in trigger-NAME order (OID digits compared as text), and NO ACTION is checked right
+  after the cascaded palette delete, while the links still exist (the test DB had that
+  order; prod's depends on its OIDs). Deleting a palette colour manuals still use is
+  guarded in the app (P2).
 
-**Sync contract (R1).** Every write that changes a manual's colours or logo
-re-projects THAT manual with `Services/Palette/ProjectManualColors::reproject()`
-after flushing it: `EditManualColorsHandler` (passes `rolesOf()` taken before the
-write) and `UpdateManualImagesHandler` (no roles). Nothing else writes those columns
-(manual create = empty, delete / project delete = FK cascade, logo colour MAPPING
-edits don't touch the colours). A new writer of `detected_colors` / `custom_colors` /
-`manual.logo` detected colours MUST call it too, or `app:palette:verify` flags the
-manual. Projection rules = the backfill's (`PaletteBackfillPlanner`, FROZEN):
+**Read model (R2).** `Manual::$paletteLinks` (OneToMany, `fetch: EAGER` = one batch
+query per hydration, palette colour EAGER-joined — no N+1 on listings / avatars, no
+fetch-join needed) feeds the unchanged method API: `detectedColors()` = logo links
+with their literal `logo_hex`, `customColors()` (a METHOD now — Twig
+`manual.customColors` still resolves) = the other links with the palette HEX spelling
+(§7), type = the palette role, CMYK/Pantone/RAL from the palette; `color(n)` = logo
+segment ++ custom; `colorsCount()`; `primaryColors()` / `secondaryColors()` = links in
+manual order filtered by the palette role. `ManualPaletteColor::manualColor()` builds
+the `ManualColor` VO. The JSONB is reachable only as `jsonbDetectedColors()` /
+`jsonbCustomColors()` for `Services/Palette/JsonbManualColors` — the FROZEN pre-R2
+read model (old `detectedColors()` incl. its loose `in_array`, old primary → secondary
+→ untyped walk, old print-CMYK first-wins) used by verify / reconcile / parity tests.
 
-- reuse a palette colour of the same `hex_key` — the first already carrying the
-  colour's CMYK/Pantone/RAL, else the first whose filled values don't disagree (its
-  empty fields get filled: §7 "fill the gap"), else append a new one at the end;
-- role: new colour = the role this manual gives it; an existing one changes only when
-  THIS write changed the manual's role for it ("last write wins", but an untouched
-  save of the old colours page — which re-posts every type — changes nothing); a logo
-  upload never sets roles;
-- links are rewritten DELETE-then-INSERT over **DBAL** (the ORM unit of work runs
-  inserts before deletes and would trip the partial unique index); the project row
-  is locked `FOR UPDATE` so concurrent writes can't create the same colour twice;
-- palette colours are **never deleted** in R1 (leftovers show as "unused" in verify).
+**Project-wide colours** = `Query/GetProjectPalette::forProject()` / `colorsForProject()`:
+palette order (D5) and **only colours ≥1 manual links** (R2 decision: R1 never
+deleted palette colours and the old colours page still splits / abandons them, so
+leftovers must not become swatches or win the print "first CMYK"; the P2 palette page
+lists them as "Nepoužitá" via `ProjectColorRepository::forProject()`, which returns
+all). Feeds `ResolveRichTextOptions::computeColors()` (now takes the palette
+`ManualColor`s — editors, group editor, fill, API, MCP `get_context` /
+`describe_variant`), `LintContext::forProject()` and `BrandCmykPalette::fromPalette()`.
 
-**Checks (prod-safe):** `app:palette:verify [--report=<csv>]` builds the read model
-from JSONB (`Manual`, `computeColors`, `BrandCmykPalette`) and from the tables (P1b's
-future model) and classifies every difference (`PaletteParityDiff::ACCEPTED_KINDS`:
-D2 role / role pages, §7 HEX spelling + gap fill, whitespace, D5 palette order,
-unused colours, CMYK first-wins order); anything else exits 1.
-`app:palette:reconcile [--dry-run]` re-projects the manuals with unexpected
-differences (all of a project's manuals for a project-level one). No path columns —
-`BuildStorageReferenceIndex` is unaffected.
+**Write path (R2) = `Services/Palette/ManualPaletteWriter`** — palette + links FIRST,
+then `mirrorProject()` rewrites EVERY manual of the project's JSONB from its links
+(`detected_colors` = logo links, `custom_colors` = the rest, palette role + print data
+— the shape R1 reads, so a role / print change reaches the other manuals' mirrors
+too). Callers: `EditManualColorsHandler` → `editColors()` (the old colours page, still
+live until P3) and `UpdateManualImagesHandler` → `syncLogoColors()` after flushing
+the new logo (D3: colours that left the logo lose their link and stay in the palette;
+new literals are appended to the logo segment without a role, reusing a same-hex
+palette colour — first by position — or appending one). `Manual::editLogo()` only
+sets the logo now; `Manual::mirrorJsonbColors()` only sets the mirror (fixtures /
+tests). A posted colour maps to a palette colour of its hex key:
+
+1. its previous palette colour (logo row by literal, added row = the n-th earlier
+   added link of that hex) when the print data is unchanged;
+2. else that previous colour EDITED IN PLACE when no other manual links it (a cleared
+   Pantone stays cleared, nothing is orphaned);
+3. else the backfill's §7 rule (`PaletteBackfillPlanner::matchPrint`: first colour
+   carrying its print data, else first compatible one, whose gaps it fills) — so a
+   CMYK edit of a SHARED colour splits it (the other manual keeps the old one);
+4. else a new palette colour at the end of the palette.
+
+Roles (D2) change only when THIS write changed the manual's role for the colour (the
+old page re-posts every type), never from a logo sync. Palette colours are never
+deleted. DBAL on purpose (DELETE-then-INSERT vs the partial unique index), project
+row `FOR UPDATE`, one transaction. **Afterwards `refreshManaged()` detaches the
+project's managed `ProjectColor` / `ManualPaletteColor` entities and gives every
+managed `Manual` an uninitialised link collection + its stored mirror** — so the
+writing request reads what it wrote. NOT `EntityManager::refresh()`: it throws
+"Attempting to change readonly property ::$createdAt" on these entities. A new
+writer of manual colours MUST go through `ManualPaletteWriter`.
+
+**Checks (prod-safe):** `app:palette:verify [--report=<csv>]` compares
+`JsonbManualColors` (what R1 code would show) with the links read model and
+classifies every difference (`PaletteParityDiff::ACCEPTED_KINDS`: D2 role / role
+pages, §7 HEX spelling + gap fill, whitespace, D5 palette order, unused colours,
+CMYK first-wins order). Since R2 any per-manual difference also yields
+`jsonb_mirror_stale` (unexpected → exit 1). `app:palette:reconcile [--dry-run]`
+re-projects such manuals FROM their JSONB with the R1 projector
+(`ProjectManualColors::reproject`, no roles — the JSONB was written by R1 code, so it
+is the newer truth) and then re-mirrors the project; on the first R2 deploy that is
+what turns the owner-accepted differences into a mirror. Run it after every deploy
+that overlapped with R1 code. No path columns — `BuildStorageReferenceIndex` is
+unaffected.
 
 ### Manual fonts — edited on the project Fonty page (F8, 2026-11-05)
 

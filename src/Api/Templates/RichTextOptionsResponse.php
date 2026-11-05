@@ -12,7 +12,7 @@ namespace WBoost\Web\Api\Templates;
  * faces to `@font-face`. The export-time whitelist is PER INPUT (the
  * designer decides which fonts each input may switch to): a run's
  * `fontFamily` outside that input's `fontOptions` is a 400 `font_not_allowed`.
- * `colors` are brand swatch SUGGESTIONS (primary first): any well-formed hex
+ * `colors` are brand swatch SUGGESTIONS (the project palette, palette order): any well-formed hex
  * color is accepted by the export.
  */
 final readonly class RichTextOptionsResponse

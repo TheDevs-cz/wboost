@@ -18,7 +18,7 @@ use WBoost\Web\FormData\TemplateVariantEditorFormData;
 use WBoost\Web\FormType\TemplateVariantEditorFormType;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
-use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Repository\FileDirectoryRepository;
@@ -32,7 +32,7 @@ final class TemplateVariantEditorController extends AbstractController
 {
     public function __construct(
         readonly private GetFonts $getFonts,
-        readonly private GetManuals $getManuals,
+        readonly private GetProjectPalette $getProjectPalette,
         readonly private MessageBusInterface $bus,
         readonly private ClockInterface $clock,
         readonly private FileDirectoryRepository $fileDirectoryRepository,
@@ -140,7 +140,7 @@ final class TemplateVariantEditorController extends AbstractController
             'editor_form' => $editorForm,
             'font_faces' => $fontFaceNames,
             'gallery_directories' => $galleryDirectories,
-            'brand_colors' => ResolveRichTextOptions::computeColors($this->getManuals->allForProject($template->project->id)),
+            'brand_colors' => ResolveRichTextOptions::computeColors($this->getProjectPalette->colorsForProject($template->project->id)),
             // EVERY project face: the "Vzorový text" WYSIWYG narrows it to the
             // active input's offer client-side, and the "Uživatel může
             // přepínat písmo" checklist picks from the whole set.

@@ -39,7 +39,7 @@ final class ManualColorsFormData
             );
         }
 
-        foreach ($manual->customColors as $index => $customColor) {
+        foreach ($manual->customColors() as $index => $customColor) {
             $customColors[] = new ManualColorFormData(
                 color: $customColor->color->hex,
                 order: $index,

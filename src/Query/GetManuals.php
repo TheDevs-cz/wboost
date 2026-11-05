@@ -58,11 +58,11 @@ readonly final class GetManuals
 
     /**
      * Oldest first, id as the tie-break (`created_at` has second precision).
-     * The order is load-bearing: the project-wide brand swatches
-     * (`ResolveRichTextOptions::computeColors`), the print CMYK "first manual
-     * wins" (`BrandCmykPalette`), the overview chips and the palette backfill
-     * all walk manuals in this order — without it Postgres returned heap
-     * order, which shifts whenever a manual row is updated.
+     * The order is load-bearing: the overview chips, `ResolveEditorFontDefaults`
+     * and the palette backfill / verify (the frozen JSONB walk,
+     * `JsonbManualColors`) walk manuals in this order — without it Postgres
+     * returned heap order, which shifts whenever a manual row is updated.
+     * (Swatches and print CMYK follow the palette order since F7 R2.)
      *
      * @return array<Manual>
      */

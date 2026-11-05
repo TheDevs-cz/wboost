@@ -203,7 +203,7 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
               "weight": 700, "style": "normal",
               "url": "http://localhost:19000/.../rubik-bold.ttf" }
           ],
-          "colors": ["#c8102e", "#004e7c"]               // brand swatches, primary first — SUGGESTIONS only
+          "colors": ["#c8102e", "#004e7c"]               // the project palette, palette order — SUGGESTIONS only
         },
         "containers": [                                  // "smart text areas" (may be empty)
           {
@@ -531,7 +531,7 @@ Contract details:
   CORS headers for fonts).
 - Show the input's `colorOptions` as swatches when it carries a list (and no
   free picker), nothing when it is `[]`; with `colorOptions: null` show
-  `richTextOptions.colors` (primary brand colors first) plus a free color
+  `richTextOptions.colors` (the project palette, palette order) plus a free color
   picker — the server then accepts any well-formed hex.
 - `maxLength` counts the concatenated plain text; `uppercase` inputs uppercase
   each run server-side (styling survives).

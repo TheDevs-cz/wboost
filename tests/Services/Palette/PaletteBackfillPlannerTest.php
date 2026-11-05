@@ -5,17 +5,13 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Services\Palette;
 
 use DateTimeImmutable;
-use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
-use WBoost\Web\Query\GetManuals;
+use WBoost\Web\Services\Palette\JsonbManualColors;
 use WBoost\Web\Services\Palette\PaletteBackfillPlanner;
-use WBoost\Web\Services\Print\BrandCmykPalette;
-use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Value\Color;
 use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\ManualColor;
@@ -269,7 +265,8 @@ final class PaletteBackfillPlannerTest extends TestCase
 
     /**
      * The bar of the whole migration: for a realistic project the palette
-     * walk reproduces today's computeColors() + BrandCmykPalette, the links
+     * walk reproduces the pre-R2 computeColors() + BrandCmykPalette
+     * ({@see JsonbManualColors}, the frozen JSONB read model), the links
      * reproduce every manual's color(n), and — with no role conflicts — the
      * primary/secondary pages.
      */
@@ -304,11 +301,11 @@ final class PaletteBackfillPlannerTest extends TestCase
         [$manuals, $inputs] = $this->build($specs);
         $plan = PaletteBackfillPlanner::plan($inputs);
 
-        self::assertSame(ResolveRichTextOptions::computeColors($manuals), $plan->computeColorsBefore);
+        self::assertSame(JsonbManualColors::computeColors($manuals), $plan->computeColorsBefore);
         self::assertSame($plan->computeColorsBefore, $plan->computeColorsAfter);
 
         $cmyk = [];
-        foreach ((new BrandCmykPalette(new GetManuals(self::createStub(EntityManagerInterface::class)), new NullLogger()))->fromManuals($manuals) as $hex => $color) {
+        foreach (JsonbManualColors::brandCmyk($manuals) as $hex => $color) {
             $cmyk[$hex] = [$color->c, $color->m, $color->y, $color->k];
         }
         ksort($cmyk);
@@ -317,8 +314,8 @@ final class PaletteBackfillPlannerTest extends TestCase
 
         foreach ($manuals as $manual) {
             $expected = [];
-            for ($n = 1; $n <= $manual->colorsCount(); $n++) {
-                $expected[] = $manual->color($n)->hex;
+            for ($n = 1; $n <= JsonbManualColors::count($manual); $n++) {
+                $expected[] = JsonbManualColors::color($manual, $n)->hex;
             }
 
             self::assertSame($expected, self::colorN($plan, $manual->id->toString()), $manual->name);
@@ -387,7 +384,7 @@ final class PaletteBackfillPlannerTest extends TestCase
                 $manual->editLogo($logo);
                 // After editLogo(): it would drop the stale detected colours a
                 // test wants to keep.
-                $manual->editColors(self::manualColors($detected), self::manualColors($custom));
+                $manual->mirrorJsonbColors(self::manualColors($detected), self::manualColors($custom));
                 $manuals[] = $manual;
             }
 
