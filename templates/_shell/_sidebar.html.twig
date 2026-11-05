@@ -73,6 +73,9 @@
                     {{ icon('font') }}<span class="nm hide-c">Fonty</span>
                 </a>
 
+                {# Slot: "Paleta barev" (project-level colour palette, F7) goes
+                   here, between Fonty and E-maily — planned separately. #}
+
                 {% if project.hasModule(project_module.EmailSignatures) %}
                     <a href="{{ path('email_signature_templates', {'id': project.id}) }}" class="nav-i" title="E-maily" aria-current="{{ active == 'emails' ? 'page' : 'false' }}">
                         {{ icon('mail') }}<span class="nm hide-c">E-maily</span>
@@ -91,6 +94,21 @@
                             <a href="{{ path('dish_types', {'projectId': project.id}) }}" class="nav-i" aria-current="{{ sub == 'dish_types' ? 'page' : 'false' }}"><span class="nm">Druhy jídel</span></a>
                         </div>
                     {% endif %}
+                {% endif %}
+
+                {# Facebook / Instagram (F6, 2026-11-05: moved here from the
+                   global Propojení section) — the project menu's LAST item, no
+                   module key. A fake door for now (publishing isn't finished):
+                   unless already connected, it opens the "coming soon" modal
+                   in place, never leaving the page. #}
+                {% if facebook_connected() %}
+                    <a href="{{ path('user_profile') }}" class="nav-i" title="Facebook a Instagram">
+                        {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
+                    </a>
+                {% else %}
+                    <a href="#" class="nav-i" title="Facebook a Instagram" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door" role="button">
+                        {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
+                    </a>
                 {% endif %}
 
                 {% if project.disabledModules is not empty %}
@@ -125,18 +143,6 @@
 
         <nav aria-label="Propojení" class="sb-group">
             <span class="sb-div always" aria-hidden="true"></span>
-            {# Facebook / Instagram — a fake door for now (publishing isn't
-               finished): unless already connected, it opens the "coming soon"
-               modal in place, never leaving the page. #}
-            {% if facebook_connected() %}
-                <a href="{{ path('user_profile') }}" class="nav-i" title="Facebook a Instagram">
-                    {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
-                </a>
-            {% else %}
-                <a href="#" class="nav-i" title="Facebook a Instagram" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door" role="button">
-                    {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
-                </a>
-            {% endif %}
             <a href="{{ path('connected_apps') }}" class="nav-i" title="Propojené aplikace" aria-current="{{ route == 'connected_apps' ? 'page' : 'false' }}">
                 {{ icon('plug') }}<span class="nm hide-c">Propojené aplikace</span>
             </a>

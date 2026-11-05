@@ -92,8 +92,7 @@ request count `pending_registration_requests_count()` — requests are the
 users page's "Žádosti" chip, so there is no separate item; Uživatelé is also
 current on the still-routable `/admin/registration-requests` — Poptávky z
 webu, Statistiky),
-**Propojení** (Facebook a Instagram fake door, Propojené aplikace, AI (MCP
-server)) · Vzhled toggle · profile button `.sb-me` with the drop-up
+**Propojení** (Propojené aplikace, AI (MCP server)) · Vzhled toggle · profile button `.sb-me` with the drop-up
 `#meMenu` (Můj účet, Změnit heslo, Odhlásit se).
 
 - Current item = `aria-current="page"` from the page's `active_menu_item`
@@ -108,6 +107,14 @@ server)) · Vzhled toggle · profile button `.sb-me` with the drop-up
   "Naposledy otevřené". Rows show the project icon or a monogram (no manual
   logo lookup — cheap on every page).
 - `.side-nav-discover` is kept on the "Objevte další moduly" item (tests).
+- **Project menu order** (F6, 2026-11-05): Přehled, Manuály, Šablony,
+  Galerie, Fonty, *(slot: Paleta barev, F7)*, E-maily, Jídelníčky (+ sub
+  items), **Facebook a Instagram** — always last (before only the "Objevte
+  další moduly" CTA), shown in EVERY project (no module key): links to
+  `user_profile` when `facebook_connected()`, otherwise opens the fake-door
+  modal `#social-publish-fake-door` (`_social_publish_fake_door.html.twig`,
+  included once by `base.html.twig`). Outside a project there is no FB item.
+  Pinned by `ProjectModulesTest::testFacebookInstagramIsTheLastProjectMenuItem`.
 
 ### Page header blocks
 

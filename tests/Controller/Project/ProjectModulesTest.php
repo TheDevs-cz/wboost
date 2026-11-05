@@ -7,6 +7,7 @@ namespace WBoost\Web\Tests\Controller\Project;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use WBoost\Web\Repository\ProjectModuleChangeRepository;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
@@ -42,6 +43,35 @@ final class ProjectModulesTest extends WebTestCase
         // The left-nav item is the only entry point — no dashboard tile.
         self::assertCount(1, $client->getCrawler()->filter(sprintf('a[href="/project/%s/modules"]', self::PROJECT_2)));
         self::assertSelectorExists(sprintf('.sb a.side-nav-discover[href="/project/%s/modules"]', self::PROJECT_2));
+    }
+
+    /**
+     * F6 (2026-11-05): "Facebook a Instagram" is the project menu's last item
+     * (no module key, so it shows for every project) — no longer in the
+     * global Propojení section.
+     */
+    public function testFacebookInstagramIsTheLastProjectMenuItem(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $crawler = $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID);
+
+        self::assertResponseIsSuccessful();
+        $items = $crawler->filter('.sb nav[aria-label="Moduly projektu"] > a.nav-i:not(.side-nav-discover)')->each(
+            static fn (Crawler $node): string => trim($node->text()),
+        );
+        self::assertSame(['Přehled', 'Manuály', 'Šablony', 'Galerie', 'Fonty', 'E-maily', 'Jídelníčky', 'Facebook a Instagram'], $items);
+        self::assertSelectorNotExists('.sb nav[aria-label="Propojení"] [title="Facebook a Instagram"]');
+        // User 1 has Facebook connected → the item leads to the profile.
+        self::assertSelectorExists('.sb nav[aria-label="Moduly projektu"] a[title="Facebook a Instagram"][href="/user-profile"]');
+
+        // Not connected → the fake door opens the in-page modal.
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
+        $client->request('GET', '/project/' . self::PROJECT_2);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.sb nav[aria-label="Moduly projektu"] a[title="Facebook a Instagram"][data-bs-target="#social-publish-fake-door"]');
+        self::assertSelectorExists('#social-publish-fake-door');
     }
 
     public function testProjectUsingEveryModuleHasNothingToDiscover(): void
