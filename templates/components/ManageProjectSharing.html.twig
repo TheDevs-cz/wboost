@@ -16,30 +16,45 @@
                 <div class="modal-body dlg">
                     <div class="field">
                         <label class="field-l" for="share-search-{{ project.id }}">Přidat spolupracovníka</label>
-                        {% if candidates is empty %}
-                            <p class="share-empty">Žádní další uživatelé k nasdílení.</p>
-                        {% else %}
-                            <span class="inp">
-                                {{ icon('search', 's16') }}
-                                <input type="search" id="share-search-{{ project.id }}" placeholder="Jméno nebo e-mail" autocomplete="off" data-live-ignore
-                                       oninput="var q=this.value.trim().toLowerCase();this.closest('.field').querySelectorAll('[data-share-name]').forEach(function(r){r.hidden=q!==''&&r.dataset.shareName.indexOf(q)===-1;})">
-                            </span>
-                            <ul class="share-list share-cands" aria-label="Uživatelé k nasdílení">
-                                {% for candidate in candidates %}
-                                    <li class="share-row" data-share-name="{{ candidate.name|lower }}">
-                                        <span class="av" aria-hidden="true">{{ initials(candidate.name|split('@')|first|replace({'.': ' ', '_': ' ', '-': ' '})|title) }}</span>
-                                        <span class="who"><b>{{ candidate.name }}</b></span>
-                                        <button
-                                            type="button"
-                                            class="btn btn-tertiary xs"
-                                            data-action="live#action"
-                                            data-live-action-param="share"
-                                            data-live-userid-param="{{ candidate.id }}"
-                                        >{{ icon('plus', 's14') }}Přidat</button>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% endif %}
+                        {# One field for both cases: typing filters the registered
+                           candidates (client-side); an e-mail also shows "Pozvat",
+                           which shares with a registered user or invites a new one
+                           to WBoost with this project pre-shared (invite()). #}
+                        <span class="inp">
+                            {{ icon('search', 's16') }}
+                            <input type="search" id="share-search-{{ project.id }}" placeholder="Jméno nebo e-mail" autocomplete="off"
+                                   data-model="norender|query" value="{{ query }}"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();var b=this.closest('.field').querySelector('[data-share-invite]:not([hidden]) button');if(b)b.click();}"
+                                   oninput="var q=this.value.trim().toLowerCase(),f=this.closest('.field'),any=false;f.querySelectorAll('[data-share-name]').forEach(function(r){r.hidden=q!==''&&r.dataset.shareName.indexOf(q)===-1;if(!r.hidden)any=true;});var inv=f.querySelector('[data-share-invite]');inv.hidden=!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q);inv.querySelector('[data-share-invite-email]').textContent=q;var e=f.querySelector('[data-share-none]');if(e)e.hidden=any||!inv.hidden;">
+                        </span>
+                        {% if notice %}<p class="share-msg ok" role="status">{{ icon('check', 's14') }}{{ notice }}</p>{% endif %}
+                        {% if error %}<p class="share-msg err" role="alert">{{ icon('info', 's14') }}{{ error }}</p>{% endif %}
+                        <ul class="share-list share-cands" aria-label="Uživatelé k nasdílení">
+                            <li class="share-row share-invite" data-share-invite hidden>
+                                <span class="av inv" aria-hidden="true">{{ icon('mail', 's16') }}</span>
+                                <span class="who"><b data-share-invite-email></b><span>Nasdílet, nebo pozvat do WBoost e-mailem</span></span>
+                                <button
+                                    type="button"
+                                    class="btn btn-primary xs"
+                                    data-action="live#action"
+                                    data-live-action-param="invite"
+                                >{{ icon('mail', 's14') }}Pozvat</button>
+                            </li>
+                            {% for candidate in candidates %}
+                                <li class="share-row" data-share-name="{{ (candidate.name ~ ' ' ~ candidate.email)|lower }}">
+                                    <span class="av" aria-hidden="true">{{ initials(candidate.name|split('@')|first|replace({'.': ' ', '_': ' ', '-': ' '})|title) }}</span>
+                                    <span class="who"><b>{{ candidate.name }}</b>{% if candidate.name != candidate.email %}<span>{{ candidate.email }}</span>{% endif %}</span>
+                                    <button
+                                        type="button"
+                                        class="btn btn-tertiary xs"
+                                        data-action="live#action"
+                                        data-live-action-param="share"
+                                        data-live-userid-param="{{ candidate.id }}"
+                                    >{{ icon('plus', 's14') }}Přidat</button>
+                                </li>
+                            {% endfor %}
+                            <li class="share-none cap" data-share-none{% if candidates is not empty %} hidden{% endif %}>Nikdo takový tu není — zadejte e-mail a pošlete pozvánku.</li>
+                        </ul>
                     </div>
 
                     <div class="field">

@@ -62,6 +62,26 @@ readonly final class UserRepository
         throw new UserNotFound();
     }
 
+    /**
+     * Case-insensitive lookup for typed-in addresses (share dialog invite), so
+     * "Jan@X.cz" finds the stored "jan@x.cz" instead of minting a duplicate.
+     */
+    public function findByEmailCaseInsensitiveOrNull(string $email): null|User
+    {
+        $user = $this->entityManager->createQueryBuilder()
+            ->from(User::class, 'u')
+            ->select('u')
+            ->where('LOWER(u.email) = LOWER(:email)')
+            ->setParameter('email', trim($email))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        assert($user instanceof User || $user === null);
+
+        return $user;
+    }
+
     public function findByEmailOrNull(string $email): null|User
     {
         $user = $this->entityManager->createQueryBuilder()

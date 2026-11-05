@@ -144,6 +144,11 @@
 .dlg-share .share-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 6px 6px 10px; border-radius: 12px; }
 .dlg-share .share-row[hidden] { display: none; }
 .dlg-share .share-row:hover { background: var(--surface-3); }
+.dlg-share .share-none { padding: 14px 10px; text-align: center; }
+.dlg-share .share-none[hidden] { display: none; }
+.dlg-share .share-msg { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 13px; }
+.dlg-share .share-msg.ok { color: var(--mnt-ink); }
+.dlg-share .share-msg.err { color: var(--rose-ink); }
 .dlg-share .share-empty { margin: 0; padding: 18px 12px; text-align: center; font-size: 13px; color: var(--subtle); border: 1px dashed var(--line-2); border-radius: 16px; }
 
 /* Add / edit project dialog on /projects + the overview (#project-form-modal,

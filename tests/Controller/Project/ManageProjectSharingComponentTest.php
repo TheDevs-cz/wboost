@@ -48,6 +48,68 @@ final class ManageProjectSharingComponentTest extends WebTestCase
         self::assertNull($project->getUserSharingLevel($invited));
     }
 
+    public function testInviteUnknownEmailCreatesPendingUserWithProjectShared(): void
+    {
+        $client = self::createClient();
+
+        $this->mount($client, TestDataFixture::PROJECT_2_ID, TestDataFixture::ADMIN_USER_EMAIL)
+            ->set('query', '  Nova.Kolegyne@Example.com ')
+            ->call('invite');
+
+        $this->em()->clear();
+        $invited = self::getContainer()->get(UserRepository::class)->findByEmailOrNull('nova.kolegyne@example.com');
+        self::assertNotNull($invited);
+        self::assertFalse($invited->confirmed);
+        self::assertSame(['ROLE_USER'], $invited->getRoles());
+        self::assertSame(SharingLevel::Read, $this->project(TestDataFixture::PROJECT_2_ID)->getUserSharingLevel($invited));
+    }
+
+    public function testInviteRegisteredEmailJustShares(): void
+    {
+        $client = self::createClient();
+        $usersBefore = count(self::getContainer()->get(UserRepository::class)->findAll());
+
+        $html = (string) $this->mount($client, TestDataFixture::PROJECT_2_ID, TestDataFixture::ADMIN_USER_EMAIL)
+            ->set('query', strtoupper(TestDataFixture::USER_1_EMAIL))
+            ->call('invite')
+            ->render();
+
+        self::assertStringContainsString('už WBoost používá', $html);
+        $this->em()->clear();
+        self::assertCount($usersBefore, self::getContainer()->get(UserRepository::class)->findAll());
+        $user1 = self::getContainer()->get(UserRepository::class)->getById(Uuid::fromString(TestDataFixture::USER_1_ID));
+        self::assertSame(SharingLevel::Read, $this->project(TestDataFixture::PROJECT_2_ID)->getUserSharingLevel($user1));
+    }
+
+    public function testInvitePendingUserReinvitesAndShares(): void
+    {
+        $client = self::createClient();
+
+        $this->mount($client, TestDataFixture::PROJECT_2_ID, TestDataFixture::ADMIN_USER_EMAIL)
+            ->set('query', TestDataFixture::INVITED_USER_EMAIL)
+            ->call('invite');
+
+        $this->em()->clear();
+        $invited = self::getContainer()->get(UserRepository::class)->getById(Uuid::fromString(TestDataFixture::INVITED_USER_ID));
+        self::assertFalse($invited->confirmed);
+        self::assertSame(SharingLevel::Read, $this->project(TestDataFixture::PROJECT_2_ID)->getUserSharingLevel($invited));
+    }
+
+    public function testInviteRejectsInvalidEmail(): void
+    {
+        $client = self::createClient();
+        $usersBefore = count(self::getContainer()->get(UserRepository::class)->findAll());
+
+        $html = (string) $this->mount($client, TestDataFixture::PROJECT_2_ID, TestDataFixture::ADMIN_USER_EMAIL)
+            ->set('query', 'not-an-email')
+            ->call('invite')
+            ->render();
+
+        self::assertStringContainsString('Zadejte platný e-mail.', $html);
+        $this->em()->clear();
+        self::assertCount($usersBefore, self::getContainer()->get(UserRepository::class)->findAll());
+    }
+
     public function testNonAdminIsDenied(): void
     {
         $client = self::createClient();
