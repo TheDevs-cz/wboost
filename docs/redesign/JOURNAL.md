@@ -1314,3 +1314,14 @@ md5-identical to the pre-work dump. Not verified: Frýdlant's `c6c6c6` pair in t
 (PHPUnit covers the shape), a 3-way group in the browser, the read-only view in a browser
 (PHPUnit only).
 
+
+## 2026-11-06 — palette duplicates merged on prod (F7 P4 follow-up)
+
+Owner asked to merge the remaining same-HEX duplicates. Added
+`app:palette:merge-duplicates` (9082c6c2; dry run unless `--apply`, default
+survivor = the dialog's preselected radio, same `MergeProjectColors` message).
+Prod backup `/root/db-backups/wboost-before-palette-merge-20261106-0855.dump`,
+then merged: Čeladná #A2C62C (MŠ Beruška CMYK 45/0/90/0 → 45/0/95/0),
+Čeladná #17375F (Základní škola CMYK 100/85/35/25 → 100/80/35/25), Frýdlant
+#C6C6C6 (TIC CMYK 0/0/0/20 → 0/0/0/30, gains Pantone 420C). Re-run finds 0
+groups; `app:palette:verify` OK (1 accepted palette_order difference).
