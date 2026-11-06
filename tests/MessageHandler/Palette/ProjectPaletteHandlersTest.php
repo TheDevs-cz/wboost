@@ -38,17 +38,17 @@ use WBoost\Web\Value\ProjectColorField;
  */
 final class ProjectPaletteHandlersTest extends KernelTestCase
 {
-    public function testRoleChangeMovesTheColourOnEveryLinkedManualAndItsMirror(): void
+    public function testRoleChangeMovesTheColourOnEveryLinkedManual(): void
     {
         $this->dispatch(new EditProjectColor(Uuid::fromString(TestDataFixture::PROJECT_1_COLOR_BLUE_ID), ProjectColorField::Role, 'primary'));
 
         $manual = $this->manual();
         self::assertSame(['C8102E', '004E7C'], self::hexes($manual->primaryColors()));
         self::assertSame([], $manual->secondaryColors());
-        self::assertSame(['primary', 'primary'], array_map(static fn (ManualColor $c): ?string => $c->type?->value, $manual->jsonbCustomColors()));
+        self::assertSame(['primary', 'primary'], array_map(static fn (ManualColor $c): ?string => $c->type?->value, $manual->customColors()));
     }
 
-    public function testPrintDataAndHexEditsReachTheManualAndItsMirror(): void
+    public function testPrintDataAndHexEditsReachTheManual(): void
     {
         $blue = Uuid::fromString(TestDataFixture::PROJECT_1_COLOR_BLUE_ID);
         $this->dispatch(new EditProjectColor($blue, ProjectColorField::Pantone, '534 C'));
@@ -62,11 +62,6 @@ final class ProjectPaletteHandlersTest extends KernelTestCase
         self::assertSame('534 C', $color->pantone);
         self::assertSame(['100', '60', null, '20'], $color->cmyk);
         self::assertSame('1A2B3C', $manual->color(2)->hex);
-
-        $mirror = $manual->jsonbCustomColors()[1];
-        self::assertSame('1A2B3C', $mirror->color->hex);
-        self::assertSame('534 C', $mirror->pantone);
-        self::assertSame(['100', '60', null, '20'], $mirror->cmyk);
 
         $row = $this->connection()->fetchAssociative('SELECT hex_key, name FROM project_color WHERE id = ?', [TestDataFixture::PROJECT_1_COLOR_BLUE_ID]);
         self::assertSame(['hex_key' => '#1a2b3c', 'name' => 'Firemní modrá'], $row);
@@ -119,7 +114,6 @@ final class ProjectPaletteHandlersTest extends KernelTestCase
         $manual = $this->manual();
         self::assertSame(['004E7C'], self::hexes($manual->customColors()));
         self::assertSame('004E7C', $manual->color(1)->hex);
-        self::assertSame(['004E7C'], self::hexes($manual->jsonbCustomColors()));
         self::assertFalse($this->connection()->fetchOne('SELECT 1 FROM project_color WHERE id = ?', [$red->toString()]));
 
         // In a logo: never.

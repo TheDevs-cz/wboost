@@ -94,7 +94,7 @@ readonly final class UpdateManualImagesHandler
             )
         );
 
-        // F7 R2 / D3: new logo colours join the palette (no role) and the
+        // F7 D3: new logo colours join the palette (no role) and the
         // manual's logo segment; colours that left the logo stay in the palette
         // unlinked. Reads the STORED logo, so flush first.
         $this->entityManager->flush();

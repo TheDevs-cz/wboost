@@ -27,11 +27,10 @@ use WBoost\Web\Value\ProjectColorField;
  * ("Sloučit", P4 — {@see mergeColors()}).
  *
  * Same contract as {@see ManualPaletteWriter}: DBAL, the project row locked
- * FOR UPDATE, one transaction, then the R2 JSONB mirror of the project is
- * rewritten ({@see ManualPaletteWriter::mirrorProject()} — a role, HEX or
- * print edit has to reach the `detected_colors` / `custom_colors` of every
- * linking manual, R1 code reads those) and the managed entities are brought
- * in step ({@see ManualPaletteWriter::refreshManaged()}).
+ * FOR UPDATE, one transaction, then the managed entities are brought in step
+ * ({@see ManualPaletteWriter::refreshManaged()}). Every linking manual reads
+ * the edit through its links — there is no per-manual copy to rewrite (the
+ * R2 JSONB mirror is gone since P5a).
  *
  * Validation of the posted values is the caller's ({@see PaletteColorInput});
  * this class only enforces the invariants: the HEX of a logo-linked colour is
@@ -79,8 +78,6 @@ readonly final class ProjectPaletteWriter
         $projectId = $this->connection->transactional(function () use ($colorId, $field, $value, $cmyk): string {
             $color = $this->lockedColor($colorId);
             $id = $colorId->toString();
-            $changed = false;
-
             switch ($field) {
                 case ProjectColorField::Hex:
                     if ($value === null) {
@@ -93,7 +90,6 @@ readonly final class ProjectPaletteWriter
                         }
 
                         $this->connection->executeStatement('UPDATE project_color SET hex = ?, hex_key = ? WHERE id = ?', [$value, PaletteColorInput::hexKey($value), $id]);
-                        $changed = true;
                     }
                     break;
 
@@ -102,7 +98,6 @@ readonly final class ProjectPaletteWriter
 
                     if ($role !== $color['role']) {
                         $this->connection->executeStatement('UPDATE project_color SET role = ? WHERE id = ?', [$role, $id]);
-                        $changed = true;
                     }
                     break;
 
@@ -112,7 +107,6 @@ readonly final class ProjectPaletteWriter
 
                     if ($encoded !== $current) {
                         $this->connection->executeStatement('UPDATE project_color SET cmyk = CAST(? AS JSONB) WHERE id = ?', [$encoded, $id]);
-                        $changed = true;
                     }
                     break;
 
@@ -123,14 +117,8 @@ readonly final class ProjectPaletteWriter
 
                     if ($value !== $color[$column]) {
                         $this->connection->executeStatement(sprintf('UPDATE project_color SET %s = ? WHERE id = ?', $column), [$value, $id]);
-                        $changed = true;
                     }
                     break;
-            }
-
-            // The name is not part of the manual read model or its mirror.
-            if ($changed && $field !== ProjectColorField::Name) {
-                $this->manualPaletteWriter->mirrorProject($color['project_id']);
             }
 
             return $color['project_id'];
@@ -205,10 +193,6 @@ readonly final class ProjectPaletteWriter
             $this->connection->executeStatement('DELETE FROM manual_palette_color WHERE project_color_id = ?', [$id]);
             $this->connection->executeStatement('DELETE FROM project_color WHERE id = ?', [$id]);
 
-            if ($links > 0) {
-                $this->manualPaletteWriter->mirrorProject($color['project_id']);
-            }
-
             return $color['project_id'];
         });
 
@@ -230,7 +214,7 @@ readonly final class ProjectPaletteWriter
      *     keeps its logo links (each literal is a recolouring key) and drops
      *     the added ones; with no logo link it keeps ONE added link, at the
      *     earliest of their positions.
-     *  4. The losers are deleted, the project's JSONB mirrored (R2).
+     *  4. The losers are deleted.
      *
      * @param list<UuidInterface> $loserIds
      * @throws ProjectColorNotFound
@@ -331,7 +315,6 @@ readonly final class ProjectPaletteWriter
 
             // 4.
             $this->connection->executeStatement('DELETE FROM project_color WHERE id IN (?)', [$loserIdList], [ArrayParameterType::STRING]);
-            $this->manualPaletteWriter->mirrorProject($survivor['project_id']);
 
             return $survivor['project_id'];
         });

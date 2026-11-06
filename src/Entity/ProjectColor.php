@@ -24,10 +24,11 @@ use WBoost\Web\Value\ManualColorType;
  * `docs/redesign/palette-plan.md`). Manuals use it through
  * {@see ManualPaletteColor} links.
  *
- * Release R2 (P1b): the SOURCE OF TRUTH for colours — the `Manual` read
- * model, swatches and print CMYK read the palette; every write goes through
- * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter}, which also mirrors
- * the links back into `manual.detected_colors` / `custom_colors` for R1 code.
+ * The SOURCE OF TRUTH for colours since release R2 (P1b), the only storage
+ * since P5a — the `Manual` read model, swatches and print CMYK read the
+ * palette; every write goes through
+ * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter} /
+ * {@see \WBoost\Web\Services\Palette\ProjectPaletteWriter}.
  */
 #[Entity]
 #[Index(name: 'idx_project_color_project_hex', columns: ['project_id', 'hex_key'])]

@@ -1325,3 +1325,20 @@ then merged: Čeladná #A2C62C (MŠ Beruška CMYK 45/0/90/0 → 45/0/95/0),
 Čeladná #17375F (Základní škola CMYK 100/85/35/25 → 100/80/35/25), Frýdlant
 #C6C6C6 (TIC CMYK 0/0/0/20 → 0/0/0/30, gains Pantone 420C). Re-run finds 0
 groups; `app:palette:verify` OK (1 accepted palette_order difference).
+
+## Palette P5a — JSONB mirror stopped, columns unmapped (F7, 2026-11-06)
+
+What: the manual JSONB colour columns (`detected_colors` / `custom_colors`) are no longer
+written or read; they stay in the DB until P5b drops them. Owner moved P5 forward.
+How: removed the mirror (`mirrorProject` + calls), the Manual JSONB properties/methods,
+`ManualColorsDoctrineType`, `EditManualColors`, the R1 projector, the frozen JSONB read
+model, the planner + backfill SQL, and the `app:palette:plan|verify|reconcile` commands.
+D3 logo sync rewritten links-only (link ids survive a re-upload). A temporary
+`KeepRetiredManualColorColumns` schema listener keeps `schema:validate` / CI in sync while
+the columns still exist. The P1a migration's backfill became an abort guard (DB with
+manuals). Details: `palette-plan.md` §2g.
+Verified: gate green; snapshot + all 33 `/nahled-manualu/…` pages identical before/after;
+logo sync over all real manuals = no-op; fresh-DB migrate + full validate OK; shoot.cjs
+palette / manual / fill / editor 200, no JS errors. Not verified: a real SVG upload in the
+browser (PHPUnit covers D3 through `UpdateManualImagesHandler`).
+

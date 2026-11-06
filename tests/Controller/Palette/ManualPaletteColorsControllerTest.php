@@ -19,9 +19,8 @@ use WBoost\Web\Value\ManualColor;
 /**
  * "Barvy v manuálech" on Paleta barev (F7 P3): the box (VIEW read-only vs
  * EDIT), "Přidat z palety", "Odebrat z manuálu" (logo colours refused),
- * reorder (logo colours stay first), the "alespoň 3 barvy" warning, the R2
- * JSONB mirror after every write, and the old manual colours URL redirecting
- * to the box.
+ * reorder (logo colours stay first), the "alespoň 3 barvy" warning, and the
+ * old manual colours URL redirecting to the box.
  *
  * Fixture: Project 1 (owner USER_1, read-only share for SHARED_USER), Manual 1
  * links red C8102E (primary, link …0100) then blue 004E7C (secondary,
@@ -89,7 +88,7 @@ final class ManualPaletteColorsControllerTest extends WebTestCase
         self::assertStringContainsString('Požádejte grafika o doplnění', $section->filter('.pal-man-warn')->text());
     }
 
-    public function testAddFromPaletteAppendsTheColoursMirrorsThemAndOffersThemToTemplates(): void
+    public function testAddFromPaletteAppendsTheColoursAndOffersThemToTemplates(): void
     {
         $browser = $this->editor();
         $this->insertGreen();
@@ -109,7 +108,6 @@ final class ManualPaletteColorsControllerTest extends WebTestCase
 
         $manual = $this->manual();
         self::assertSame(['C8102E', '004E7C', '2E8B57'], self::hexes($manual->customColors()));
-        self::assertSame(['C8102E', '004E7C', '2E8B57'], self::hexes($manual->jsonbCustomColors()), 'R2 JSONB mirror');
         self::assertSame('2E8B57', $manual->color(3)->hex);
         self::assertContains('#2e8b57', $this->templateSwatches(), 'a linked palette colour is offered to templates');
 
@@ -135,7 +133,6 @@ final class ManualPaletteColorsControllerTest extends WebTestCase
 
         $manual = $this->manual();
         self::assertSame(['004E7C'], self::hexes($manual->customColors()));
-        self::assertSame(['004E7C'], self::hexes($manual->jsonbCustomColors()), 'R2 JSONB mirror');
         self::assertSame([], self::hexes($manual->primaryColors()), 'the primary colour page is gone');
         self::assertSame('004E7C', $manual->color(1)->hex, 'later colours move up a place');
         self::assertSame(1, self::intOf($this->connection()->fetchOne('SELECT COUNT(*) FROM project_color WHERE id = ?', [TestDataFixture::PROJECT_1_COLOR_RED_ID])));
@@ -167,7 +164,7 @@ final class ManualPaletteColorsControllerTest extends WebTestCase
         self::assertSame(2, self::intOf($this->connection()->fetchOne('SELECT COUNT(*) FROM manual_palette_color WHERE manual_id = ?', [TestDataFixture::MANUAL_1_ID])));
     }
 
-    public function testReorderPersistsMirrorsAndAnswersTheManualOrder(): void
+    public function testReorderPersistsAndAnswersTheManualOrder(): void
     {
         $browser = $this->editor();
         $token = $this->token($browser);
@@ -178,7 +175,6 @@ final class ManualPaletteColorsControllerTest extends WebTestCase
 
         $manual = $this->manual();
         self::assertSame(['004E7C', 'C8102E'], self::hexes($manual->customColors()));
-        self::assertSame(['004E7C', 'C8102E'], self::hexes($manual->jsonbCustomColors()), 'R2 JSONB mirror');
         self::assertSame('004E7C', $manual->color(1)->hex);
 
         $crawler = $browser->request('GET', self::PAGE_URL);

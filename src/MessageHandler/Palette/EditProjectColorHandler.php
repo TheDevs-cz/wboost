@@ -24,7 +24,7 @@ readonly final class EditProjectColorHandler
      */
     public function __invoke(EditProjectColor $message): void
     {
-        // F7 P2: palette rows first, then the JSONB mirror of the project.
+        // F7 P2: one palette row — every linking manual reads it through its links.
         $this->projectPaletteWriter->editColor($message->colorId, $message->field, $message->value, $message->cmyk);
     }
 }

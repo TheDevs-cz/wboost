@@ -58,10 +58,10 @@ readonly final class GetManuals
 
     /**
      * Oldest first, id as the tie-break (`created_at` has second precision).
-     * The order is load-bearing: the overview chips, `ResolveEditorFontDefaults`
-     * and the palette backfill / verify (the frozen JSONB walk,
-     * `JsonbManualColors`) walk manuals in this order — without it Postgres
-     * returned heap order, which shifts whenever a manual row is updated.
+     * The order is load-bearing: `ResolveEditorFontDefaults`, the avatar and
+     * `app:palette:snapshot` walk manuals in this order (so did the retired
+     * P1a palette backfill) — without it Postgres returned heap order, which
+     * shifts whenever a manual row is updated.
      * (Swatches and print CMYK follow the palette order since F7 R2.)
      *
      * @return array<Manual>

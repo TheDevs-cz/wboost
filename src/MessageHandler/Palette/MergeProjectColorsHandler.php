@@ -24,7 +24,7 @@ readonly final class MergeProjectColorsHandler
      */
     public function __invoke(MergeProjectColors $message): void
     {
-        // F7 P4: palette rows + links first, then the JSONB mirror of the project.
+        // F7 P4: palette rows + links.
         $this->projectPaletteWriter->mergeColors($message->survivorId, $message->loserIds);
     }
 }

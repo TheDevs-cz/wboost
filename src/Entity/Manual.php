@@ -11,7 +11,6 @@ use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
 use Doctrine\ORM\Mapping\OrderBy;
 use WBoost\Web\Doctrine\LogoDoctrineType;
-use WBoost\Web\Doctrine\ManualColorsDoctrineType;
 use WBoost\Web\Doctrine\ManualPageTextsDoctrineType;
 use WBoost\Web\Exceptions\MissingManualColor;
 use WBoost\Web\Repository\ManualDoctrineRepository;
@@ -38,23 +37,8 @@ use WBoost\Web\Value\ManualType;
 class Manual
 {
     /**
-     * R2 (F7 P1b): a MIRROR of the palette links, written by
-     * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter} after every colour /
-     * logo write so R1 code (blue-green overlap, a code-revert rollback) reads
-     * current colours. Nothing in R2 reads it except the parity checks
-     * ({@see \WBoost\Web\Services\Palette\JsonbManualColors}); dropped in R5.
-     *
-     * @var array<ManualColor>
-     */
-    #[Column(name: 'detected_colors', type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
-    private array $jsonbDetectedColors = [];
-
-    /** @var array<ManualColor> R2 mirror — see {@see $jsonbDetectedColors} */
-    #[Column(name: 'custom_colors', type: ManualColorsDoctrineType::NAME, options: ['default' => '[]'])]
-    private array $jsonbCustomColors = [];
-
-    /**
-     * The manual's colours (F7, R2: the source of truth): links to project
+     * The manual's colours (F7 — the only colour storage since P5a retired
+     * the `detected_colors` / `custom_colors` JSONB columns): links to project
      * palette colours in the manual's colour order — logo segment first, then
      * the added colours. EAGER (batch-loaded, palette colour joined): every
      * listing that shows several manuals reads their colours.
@@ -211,40 +195,6 @@ class Manual
         }
 
         return $finalMapping;
-    }
-
-    /**
-     * Sets the R1 JSONB MIRROR only — never the manual's colours (those are
-     * palette links, written by
-     * {@see \WBoost\Web\Services\Palette\ManualPaletteWriter}). Fixtures and
-     * parity tests seed legacy data with it.
-     *
-     * @param array<ManualColor> $detectedColors
-     * @param array<ManualColor> $customColors
-     */
-    public function mirrorJsonbColors(
-        array $detectedColors,
-        array $customColors,
-    ): void
-    {
-        $this->jsonbDetectedColors = $detectedColors;
-        $this->jsonbCustomColors = $customColors;
-    }
-
-    /**
-     * The STORED detected list of the JSONB mirror (not logo-filtered).
-     *
-     * @return array<ManualColor>
-     */
-    public function jsonbDetectedColors(): array
-    {
-        return $this->jsonbDetectedColors;
-    }
-
-    /** @return array<ManualColor> */
-    public function jsonbCustomColors(): array
-    {
-        return $this->jsonbCustomColors;
     }
 
     /**

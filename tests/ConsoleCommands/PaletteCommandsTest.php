@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\ConsoleCommands;
 
-use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
-use WBoost\Web\Services\Palette\PaletteBackfillSql;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 
 /**
- * Smoke test of the palette tooling (F7 P0 + P1a) over the fixtures.
+ * Smoke test of the palette snapshot (F7 P0) over the fixtures — since P5a
+ * the only palette tool besides `app:palette:merge-duplicates` (the JSONB
+ * plan / verify / reconcile commands were retired with the columns).
  */
 final class PaletteCommandsTest extends KernelTestCase
 {
@@ -71,74 +71,25 @@ final class PaletteCommandsTest extends KernelTestCase
         self::assertCount(5, $manual['logo']['horizontal']['colorVariants']);
     }
 
-    public function testPlanIsReadOnlyAndWritesTheReport(): void
+    public function testMergeDuplicatesIsADryRunUnlessApplied(): void
     {
-        $tester = $this->tester('app:palette:plan');
         $connection = self::getContainer()->get('doctrine.dbal.default_connection');
-        $tables = ['manual', 'project'];
-        $before = array_map(static fn (string $table): mixed => $connection->fetchOne("SELECT md5(string_agg(t::text, ',' ORDER BY t::text)) FROM {$table} t"), $tables);
+        $connection->executeStatement(
+            "INSERT INTO project_color (id, project_id, hex, hex_key, role, pantone, position, created_at) VALUES ('0f7c0000-0000-7000-8000-0000000000d9', ?, '004e7c', '#004e7c', NULL, '301 C', 5, NOW())",
+            [TestDataFixture::PROJECT_1_ID],
+        );
+        $count = static fn (): mixed => $connection->fetchOne("SELECT COUNT(*) FROM project_color WHERE project_id = ? AND hex_key = '#004e7c'", [TestDataFixture::PROJECT_1_ID]);
 
-        $report = $this->tempFile('csv');
+        $tester = $this->tester('app:palette:merge-duplicates');
+        self::assertSame(0, $tester->execute([]));
+        self::assertStringContainsString('#004E7C (2 colours)', $tester->getDisplay());
+        self::assertStringContainsString('dry run', $tester->getDisplay());
+        self::assertSame(2, $count());
 
-        self::assertSame(0, $tester->execute(['--report' => $report]));
-        $display = $tester->getDisplay();
-        self::assertStringContainsString('Palette colours (project_color)', $display);
-        self::assertStringContainsString('Role changes per manual', $display);
-        self::assertStringContainsString('nothing was written', $display);
-
-        $lines = file($report);
-        self::assertIsArray($lines);
-        self::assertSame("type,project_id,project,manual_id,manual,hex,detail\n", $lines[0]);
-
-        $after = array_map(static fn (string $table): mixed => $connection->fetchOne("SELECT md5(string_agg(t::text, ',' ORDER BY t::text)) FROM {$table} t"), $tables);
-        self::assertSame($before, $after);
-    }
-
-    public function testVerifyAfterBackfillThenReconcileRepairsTamperedLinks(): void
-    {
-        $verify = $this->tester('app:palette:verify');
-        $connection = self::getContainer()->get(Connection::class);
-
-        foreach (PaletteBackfillSql::statements($connection) as $statement) {
-            $connection->executeStatement($statement['sql'], $statement['params']);
-        }
-
-        $report = $this->tempFile('csv');
-        self::assertSame(0, $verify->execute(['--report' => $report]), $verify->getDisplay());
-        self::assertStringContainsString('Palette matches the JSONB read model', $verify->getDisplay());
-        $lines = file($report);
-        self::assertIsArray($lines);
-        self::assertSame("kind,accepted,project_id,project,manual_id,manual,detail\n", $lines[0]);
-
-        // A manual whose links went missing (e.g. written by pre-sync code).
-        $connection->executeStatement('DELETE FROM manual_palette_color WHERE manual_id = ?', [TestDataFixture::MANUAL_1_ID]);
-        self::assertSame(1, $verify->execute([]));
-        self::assertStringContainsString('UNEXPECTED', $verify->getDisplay());
-
-        $reconcile = $this->tester('app:palette:reconcile');
-        self::assertSame(0, $reconcile->execute(['--dry-run' => true]));
-        self::assertStringContainsString('Manual 1', $reconcile->getDisplay());
-        self::assertSame(0, self::rowCount($connection, 'SELECT COUNT(*) FROM manual_palette_color WHERE manual_id = ?', [TestDataFixture::MANUAL_1_ID]), 'dry run writes nothing');
-
-        $paletteBefore = self::rowCount($connection, 'SELECT COUNT(*) FROM project_color');
-        self::assertSame(0, $reconcile->execute([]), $reconcile->getDisplay());
-        self::assertSame(2, self::rowCount($connection, 'SELECT COUNT(*) FROM manual_palette_color WHERE manual_id = ?', [TestDataFixture::MANUAL_1_ID]));
-        self::assertSame($paletteBefore, self::rowCount($connection, 'SELECT COUNT(*) FROM project_color'), 'reuses the palette colours');
-
-        self::assertSame(0, $verify->execute([]), $verify->getDisplay());
-        self::assertSame(0, $reconcile->execute([]));
-        self::assertStringContainsString('nothing to do', $reconcile->getDisplay());
-    }
-
-    /**
-     * @param list<string> $params
-     */
-    private static function rowCount(Connection $connection, string $sql, array $params = []): int
-    {
-        $count = $connection->fetchOne($sql, $params);
-        self::assertIsInt($count);
-
-        return $count;
+        self::assertSame(0, $tester->execute(['--apply' => true]));
+        self::assertSame(1, $count());
+        // The survivor (the one Manual 1 links) gained the loser's Pantone.
+        self::assertSame('301 C', $connection->fetchOne('SELECT pantone FROM project_color WHERE id = ?', [TestDataFixture::PROJECT_1_COLOR_BLUE_ID]));
     }
 
     private function tester(string $name): CommandTester

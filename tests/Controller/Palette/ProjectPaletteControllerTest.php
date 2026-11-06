@@ -106,7 +106,6 @@ final class ProjectPaletteControllerTest extends WebTestCase
             'ral' => null,
         ], $payload['color']);
         self::assertSame('2945 C', $this->manual()->customColors()[1]->pantone);
-        self::assertSame('2945 C', $this->manual()->jsonbCustomColors()[1]->pantone);
     }
 
     public function testRoleChangePropagatesToTheLinkedManualsColourPages(): void
@@ -262,7 +261,6 @@ final class ProjectPaletteControllerTest extends WebTestCase
         $this->post($browser, '/paleta/barva/' . TestDataFixture::PROJECT_1_COLOR_RED_ID . '/smazat', ['removeFromManuals' => '1']);
         self::assertResponseRedirects(self::PAGE_URL);
         self::assertSame(['004E7C'], array_map(static fn (ManualColor $c): string => $c->color->hex, $this->manual()->customColors()));
-        self::assertSame(['004E7C'], array_map(static fn (ManualColor $c): string => $c->color->hex, $this->manual()->jsonbCustomColors()));
     }
 
     public function testOverviewChipsShowThePaletteAndLinkToIt(): void

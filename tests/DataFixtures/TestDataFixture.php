@@ -36,14 +36,12 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
 use WBoost\Web\Value\BackgroundMode;
-use WBoost\Web\Value\Color;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\FontFace;
 use WBoost\Web\Value\TemplateDimension;
-use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
 use WBoost\Web\Value\ManualType;
 use WBoost\Web\Value\SharingLevel;
@@ -370,17 +368,10 @@ final class TestDataFixture extends Fixture
             'Manual 1',
             null,
         );
-        // Brand colors — the swatch source for rich-text (WYSIWYG) inputs.
-        // Since F7 R2 they live in the project palette (Manual 1 links both);
-        // the JSONB columns carry the mirror R1 code reads.
-        $manual1->mirrorJsonbColors(
-            detectedColors: [],
-            customColors: [
-                new ManualColor(new Color('C8102E'), ManualColorType::Primary, null, null),
-                new ManualColor(new Color('004E7C'), ManualColorType::Secondary, null, null),
-            ],
-        );
         $manager->persist($manual1);
+
+        // Brand colors — the swatch source for rich-text (WYSIWYG) inputs:
+        // the project palette (F7), Manual 1 links both as added colours.
 
         foreach ([[self::PROJECT_1_COLOR_RED_ID, 'C8102E', ManualColorType::Primary], [self::PROJECT_1_COLOR_BLUE_ID, '004E7C', ManualColorType::Secondary]] as $position => [$colorId, $hex, $role]) {
             $paletteColor = new ProjectColor(Uuid::fromString($colorId), $project1, $hex, '#' . strtolower($hex), $role, null, null, null, $position, $date);

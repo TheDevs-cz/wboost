@@ -22,7 +22,7 @@ use WBoost\Web\Value\ManualType;
 
 /**
  * "Sloučit" (F7 P4) write path: fill the gap, link repoint, double-link
- * collapse, logo links keep their literal, the R2 JSONB mirror, refusals.
+ * collapse, logo links keep their literal, refusals.
  *
  * Fixture: Project 1's palette = red C8102E (primary, position 0) + blue
  * 004E7C (secondary, position 1, no print data), both ADDED colours of
@@ -57,21 +57,19 @@ final class MergeProjectColorsHandlerTest extends KernelTestCase
         self::assertSame(0, self::intOf($row['position']));
         self::assertFalse($this->connection()->fetchOne('SELECT 1 FROM project_color WHERE id = ?', [self::DUPLICATE_ID]));
 
-        // Manual 1 already showed blue: it gains the filled gaps, read model + mirror.
+        // Manual 1 already showed blue: it gains the filled gaps.
         $manual = $this->manual(TestDataFixture::MANUAL_1_ID);
         self::assertSame(['C8102E', '004E7C'], self::hexes($manual->customColors()));
         self::assertSame(['100', '40', null, '10'], $manual->customColors()[1]->cmyk);
         self::assertSame('RAL 5005', $manual->customColors()[1]->ral);
-        self::assertSame('2945 C', $manual->jsonbCustomColors()[1]->pantone);
-        self::assertSame(['100', '40', null, '10'], $manual->jsonbCustomColors()[1]->cmyk);
+        self::assertSame('2945 C', $manual->customColors()[1]->pantone);
     }
 
-    public function testRepointsTheLosersLinksAndMirrorsThem(): void
+    public function testRepointsTheLosersLinks(): void
     {
         $this->insertDuplicate('004e7c', position: 5, cmyk: '["100", "40", "0", "10"]', role: 'primary');
-        $manualB = $this->createManual();
+        $this->createManual();
         $this->link(self::MANUAL_B_ID, self::DUPLICATE_ID, null, 0);
-        $this->connection()->executeStatement('UPDATE manual SET custom_colors = ? WHERE id = ?', ['[{"color":"004e7c","type":"primary","pantone":null,"cmyk":["100","40","0","10"],"ral":null}]', $manualB->id->toString()]);
 
         $this->merge(TestDataFixture::PROJECT_1_COLOR_BLUE_ID, [self::DUPLICATE_ID]);
 
@@ -86,10 +84,6 @@ final class MergeProjectColorsHandlerTest extends KernelTestCase
         self::assertSame('004E7C', $color->color->hex);
         self::assertSame('secondary', $color->type?->value);
         self::assertSame(['100', '40', '0', '10'], $color->cmyk);
-        $mirror = $manual->jsonbCustomColors()[0];
-        self::assertSame('004E7C', $mirror->color->hex);
-        self::assertSame('secondary', $mirror->type?->value);
-        self::assertSame(['100', '40', '0', '10'], $mirror->cmyk);
 
         // Manual 1 untouched apart from the gained CMYK.
         self::assertSame(['C8102E', '004E7C'], self::hexes($this->manual(TestDataFixture::MANUAL_1_ID)->customColors()));
@@ -113,7 +107,6 @@ final class MergeProjectColorsHandlerTest extends KernelTestCase
         $manual = $this->manual(TestDataFixture::MANUAL_1_ID);
         self::assertSame(['004E7C', 'C8102E'], self::hexes($manual->customColors()));
         self::assertSame('004E7C', $manual->color(1)->hex);
-        self::assertSame(['004E7C', 'C8102E'], self::hexes($manual->jsonbCustomColors()));
     }
 
     public function testALogoLinkKeepsItsLiteralAndTheAddedTwinIsDropped(): void
@@ -138,8 +131,6 @@ final class MergeProjectColorsHandlerTest extends KernelTestCase
         self::assertSame(['004e7c'], self::hexes($manual->detectedColors()));
         self::assertSame('301 C', $manual->detectedColors()[0]->pantone);
         self::assertSame(['C8102E'], self::hexes($manual->customColors()));
-        self::assertSame(['004e7c'], self::hexes($manual->jsonbDetectedColors()));
-        self::assertSame(['C8102E'], self::hexes($manual->jsonbCustomColors()));
     }
 
     public function testTwoLogoLiteralsOfOneHexBothStay(): void
@@ -236,7 +227,6 @@ final class MergeProjectColorsHandlerTest extends KernelTestCase
         return [
             ...$this->connection()->fetchAllAssociative('SELECT * FROM project_color WHERE project_id = ? ORDER BY id', [TestDataFixture::PROJECT_1_ID]),
             ...$this->connection()->fetchAllAssociative('SELECT l.* FROM manual_palette_color l JOIN manual m ON m.id = l.manual_id WHERE m.project_id = ? ORDER BY l.id', [TestDataFixture::PROJECT_1_ID]),
-            ...$this->connection()->fetchAllAssociative('SELECT id, detected_colors, custom_colors FROM manual WHERE project_id = ? ORDER BY id', [TestDataFixture::PROJECT_1_ID]),
         ];
     }
 

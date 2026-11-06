@@ -26,7 +26,7 @@ readonly final class DeleteProjectColorHandler
      */
     public function __invoke(DeleteProjectColor $message): void
     {
-        // F7 P2: palette rows first, then the JSONB mirror of the project.
+        // F7 P2: the palette row and (with the confirmation) its links.
         $this->projectPaletteWriter->deleteColor($message->colorId, $message->removeFromManuals);
     }
 }

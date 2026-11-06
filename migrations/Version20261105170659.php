@@ -6,32 +6,36 @@ namespace WBoost\Web\Migrations;
 
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
-use WBoost\Web\Services\Palette\PaletteBackfillPlanner;
-use WBoost\Web\Services\Palette\PaletteBackfillSql;
 
 /**
  * Project colour palette (F7, `docs/redesign/palette-plan.md`), release R1:
- * CREATE `project_color` + `manual_palette_color` and backfill them from the
- * manuals' JSONB colours with the FROZEN {@see PaletteBackfillPlanner}
- * (rows → SQL in the equally frozen {@see PaletteBackfillSql}).
+ * CREATE `project_color` + `manual_palette_color`. On 2026-11-05 it also
+ * backfilled them from the manuals' JSONB colours (`detected_colors` /
+ * `custom_colors`) with the FROZEN `PaletteBackfillPlanner` +
+ * `PaletteBackfillSql`.
  *
- * ADDITIVE — the JSONB columns stay authoritative and nothing reads the new
- * tables yet, so the code deployed before this migration keeps working
- * (blue-green overlap) and a revert of the code needs no down().
- *
- * The backfill is deterministic and safe to replay (see PaletteBackfillSql):
- * UUIDv5 ids, one guarded statement per project, a project that already has
- * a palette is skipped as a whole.
+ * P5a (2026-11-06) retired that backfill code together with the JSONB
+ * columns: every live database (prod, the prod mirror, local copies) ran it,
+ * and a fresh database has no manuals to backfill. A database that still
+ * needs it — one restored from a dump taken BEFORE this migration ran — is
+ * refused below: migrate it with the code of commit 54b4226a (the last one
+ * shipping the planner) up to Version20261105193000 first, then return here.
  */
 final class Version20261105170659 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Project colour palette: project_color + manual_palette_color, backfilled from manual JSONB colours (F7 P1a, additive).';
+        return 'Project colour palette: project_color + manual_palette_color, backfilled from manual JSONB colours (F7 P1a, additive; backfill retired in P5a).';
     }
 
     public function up(Schema $schema): void
     {
+        $manuals = $this->connection->fetchOne('SELECT COUNT(*) FROM manual');
+        $this->abortIf(
+            is_numeric($manuals) && (int) $manuals > 0,
+            'This database has manuals but no palette yet: the palette backfill was retired in F7 P5a. Run doctrine:migrations:migrate with the code of commit 54b4226a first (see the class comment).',
+        );
+
         $this->addSql('CREATE TABLE manual_palette_color (id UUID NOT NULL, logo_hex VARCHAR(255) DEFAULT NULL, position INT DEFAULT 0 NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, manual_id UUID NOT NULL, project_color_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_C01BFC0A9BA073D6 ON manual_palette_color (manual_id)');
         $this->addSql('CREATE INDEX IDX_C01BFC0A4794946E ON manual_palette_color (project_color_id)');
@@ -43,24 +47,12 @@ final class Version20261105170659 extends AbstractMigration
         // NO ACTION (no ON DELETE): checked at statement end, so the project-delete cascade passes.
         $this->addSql('ALTER TABLE manual_palette_color ADD CONSTRAINT FK_C01BFC0A4794946E FOREIGN KEY (project_color_id) REFERENCES project_color (id) NOT DEFERRABLE');
         $this->addSql('ALTER TABLE project_color ADD CONSTRAINT FK_75034177166D1F9C FOREIGN KEY (project_id) REFERENCES project (id) ON DELETE CASCADE NOT DEFERRABLE');
-
-        $statements = PaletteBackfillSql::statements($this->connection);
-
-        foreach ($statements as $statement) {
-            $this->addSql($statement['sql'], $statement['params']);
-        }
-
-        $this->write(sprintf(
-            'Palette backfill: %d palette colours, %d links planned (%d projects).',
-            array_sum(array_column($statements, 'paletteRows')),
-            array_sum(array_column($statements, 'linkRows')),
-            count($statements),
-        ));
     }
 
     public function down(Schema $schema): void
     {
-        // R1 only: the JSONB columns are still authoritative, dropping loses nothing they hold.
+        // Lossless only in R1, while the JSONB columns were authoritative. Since R2 the palette is
+        // the only colour storage (since P5b the JSONB columns are gone) — restore a pg_dump instead.
         $this->addSql('ALTER TABLE manual_palette_color DROP CONSTRAINT FK_C01BFC0A9BA073D6');
         $this->addSql('ALTER TABLE manual_palette_color DROP CONSTRAINT FK_C01BFC0A4794946E');
         $this->addSql('ALTER TABLE project_color DROP CONSTRAINT FK_75034177166D1F9C');

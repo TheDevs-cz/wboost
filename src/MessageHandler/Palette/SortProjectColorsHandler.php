@@ -18,7 +18,7 @@ readonly final class SortProjectColorsHandler
 
     public function __invoke(SortProjectColors $message): void
     {
-        // F7 P2: palette order only — manual colour order (and the JSONB mirror) is unaffected.
+        // F7 P2: palette order only — manual colour order is unaffected.
         $this->projectPaletteWriter->sortColors($message->projectId, $message->colorIds);
     }
 }

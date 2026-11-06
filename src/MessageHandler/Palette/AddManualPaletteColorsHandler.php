@@ -18,7 +18,7 @@ readonly final class AddManualPaletteColorsHandler
 
     public function __invoke(AddManualPaletteColors $message): void
     {
-        // F7 P3: links first, then the JSONB mirror of the project (R2).
+        // F7 P3: links only (the palette colours stay as they are).
         $this->manualPaletteWriter->addColors($message->manualId, $message->colorIds);
     }
 }

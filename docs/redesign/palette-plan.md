@@ -21,7 +21,8 @@ listed in the dry-run report (§2a) for the owner to review BEFORE P1a ships. **
 linked-only project palette — §2c). **P2 done** (2026-11-05, release R3: Paleta barev page,
 sidebar item, overview chips, `has_palette` — §2d). **P3 done** (2026-11-06: "Barvy v
 manuálech" box, manual colours tab + old colours page removed — §2e). **P4 done**
-(2026-11-06: "Sloučit" same-HEX duplicates, template usage count — §2f).
+(2026-11-06: "Sloučit" same-HEX duplicates, template usage count — §2f). **P5a done**
+(2026-11-06: JSONB mirror stopped, columns unmapped, plan/verify/reconcile retired — §2g).
 
 ## 0. What exists today (verified)
 
@@ -388,6 +389,63 @@ byte-identical to before, `project_color`, `manual_palette_color`, `manual` JSON
 identical (md5) to the dump. Nothing to run on prod after deploy; the real duplicates
 (Čeladná `17375f`, `a2c62c`; Frýdlant `c6c6c6`) wait for the owner to merge them.
 
+### 2g. P5a — 2026-11-06 (JSONB mirror stopped, columns unmapped)
+
+Owner moved P5 forward (2026-11-06) instead of the planned ≥1 week after R2. No
+migration in P5a; the columns stay in the database (NOT NULL `'[]'` defaults, so the
+P4 container in the blue-green overlap still hydrates and mirrors happily).
+- **Unmapped:** `Manual::$jsonbDetectedColors` / `$jsonbCustomColors`,
+  `mirrorJsonbColors()`, `jsonbDetectedColors()` / `jsonbCustomColors()` and
+  `ManualColorsDoctrineType` (+ its DBAL registration) are gone. The ORM never reads or
+  writes the columns. So that the mapping still matches the database (gate
+  `schema:validate --skip-sync`, CI's full `schema:validate` after `migrations:migrate`),
+  the TEMPORARY `Services/Doctrine/KeepRetiredManualColorColumns` listener
+  (`postGenerateSchemaTable`) adds both columns back to the ORM-generated `manual` table —
+  deleted with P5b. (DBAL `schema_filter` filters tables only, not columns.)
+- **No mirror:** `ManualPaletteWriter::mirrorProject()` and every call
+  (`ProjectPaletteWriter` edit / delete / merge, the "Barvy v manuálech" box) are gone;
+  `refreshManaged()` no longer re-reads JSONB.
+- **D3 logo sync rewritten links-only** (`ManualPaletteWriter::syncLogoColors()`): it no
+  longer re-projects through the planner. Logo links whose literal is still in the stored
+  logo stay (id, order, palette colour), the others are deleted (palette colour stays),
+  new literals append in logo order → first palette colour of that `hex_key` by
+  position, else a new role-less colour at the palette end; added links follow,
+  positions renumbered. Same result as before except (a) link ids now survive a re-upload
+  (the old path DELETE+INSERTed every link) and (b) literals compare strictly — the old
+  `detectedColors()` loose `in_array` quirk (`000` vs `000000` numeric strings) is gone.
+  Proof on the local prod copy: `syncLogoColors()` over all 33 manuals left
+  `manual_palette_color` + `project_color` md5-identical.
+- **Removed (runtime):** `EditManualColors` + handler + `ManualPaletteWriter::editColors()`
+  (no UI caller since P3; the §7 matching rules it pinned died with it — P4's
+  `PaletteColorMerge` has its own fill-the-gap), `ProjectManualColors` (R1 projector),
+  `JsonbManualColors` (frozen JSONB read model), `VerifyPalette` + `PaletteParityDiff`,
+  `PaletteBackfillPlanner` + `PaletteBackfillSql` + `PaletteProjectPlan`.
+- **Retired commands:** `app:palette:plan`, `app:palette:verify`,
+  `app:palette:reconcile` — all three compared / projected the JSONB. Not reduced to a
+  links-only check: the invariants left (link → palette FK, same-project, logo-literal
+  uniqueness) are enforced by FKs / the partial unique index / the writers, and
+  `app:palette:snapshot` covers before/after diffs. **Kept:** `app:palette:snapshot`
+  (already links-only — no field dropped, output identical) and
+  `app:palette:merge-duplicates` (now with a smoke test).
+- **The P1a migration** `Version20261105170659` lost its backfill (the planner is gone):
+  it now `abortIf`s when the database has manuals. Every live DB ran it on 2026-11-05;
+  a fresh DB (CI) has none. Restoring a pre-R1 dump means migrating it with commit
+  `54b4226a` first.
+- **Tests:** `PaletteSyncTest` rewritten links-only (palette + links built directly: D3
+  add / unlink / unchanged re-upload keeps link ids / literal re-spelling + non-hex,
+  consumers, linked-only swatches, managed-entity refresh, cascades);
+  `PaletteBackfillPlannerTest` and the plan/verify/reconcile command tests deleted;
+  mirror assertions dropped from the handler / controller tests; fixture Manual 1 no
+  longer seeds JSONB.
+
+Verified on the local prod copy: `app:palette:snapshot` before (P4 code) == after
+(md5 `3a02d5e7…`, byte-identical — per-manual colours, `color(n)`, mappings, overview
+chips, computeColors, BrandCmykPalette, avatars, palette list), `/nahled-manualu/…` HTML
+of all 33 manuals identical (debug toolbar stripped); fresh-DB `migrations:migrate` +
+`schema:update --dump-sql` (nothing) + full `schema:validate` OK; shoot.cjs (Čeladná
+palette, Fotbal - Čeladná manual, a fill page, the editor) 200 without JS errors.
+Nothing to run on prod after the P5a deploy.
+
 ## 3. Consumers
 
 | Consumer | Change |
@@ -452,7 +510,8 @@ Layout from prototype js:1963-2056 / design-system §573:
 | P2 ✔ | Paleta barev page + sidebar + autosave endpoints + delete guard + usage chips + client read-only + overview chips + `has_palette` | controller tests (VIEW vs EDIT, guard, locked HEX, CSRF), `shoot.cjs` 390/820/1440 both themes | M–L, 2 d |
 | P3 ✔ | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |
 | P4 ✔ | "Sloučit" duplicates (repoint links, delete loser), template usage count (scan text inputs + shape `allowedColors`) | merge tests, manual output change only for touched manuals | S–M, 0.5–1 d |
-| P5a / P5b | stop mirroring + unmap columns; then a separate backup-gated DROP migration; remove planner usage from runtime | phpstan, full suite; pg_dump before P5b deploy | S, 0.5 d |
+| P5a ✔ | stop mirroring + unmap columns; remove planner usage from runtime; retire plan/verify/reconcile (§2g) | phpstan, full suite, snapshot + manual HTML identical | S, 0.5 d |
+| P5b | separate backup-gated DROP migration | phpstan, full suite; pg_dump before P5b deploy | S |
 
 Total ≈ 7–9 dev-days. Every phase: `composer phpstan`, PHPUnit, `/verify` before commit.
 

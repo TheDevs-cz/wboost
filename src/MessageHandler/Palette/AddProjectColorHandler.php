@@ -18,7 +18,7 @@ readonly final class AddProjectColorHandler
 
     public function __invoke(AddProjectColor $message): void
     {
-        // F7 P2: an unlinked colour — no manual, so no JSONB mirror to rewrite.
+        // F7 P2: an unlinked colour — no manual uses it yet.
         $this->projectPaletteWriter->addColor($message->colorId, $message->projectId, $message->hex);
     }
 }
