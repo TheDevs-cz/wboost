@@ -110,6 +110,31 @@ final class ManageProjectSharingComponentTest extends WebTestCase
         self::assertCount($usersBefore, self::getContainer()->get(UserRepository::class)->findAll());
     }
 
+    public function testPendingCollaboratorShowsInvitationSentAndCanBeReinvited(): void
+    {
+        $client = self::createClient();
+
+        // PROJECT_1 is pre-shared with the (unconfirmed) invited user by the fixture.
+        $component = $this->mount($client, TestDataFixture::PROJECT_1_ID, TestDataFixture::ADMIN_USER_EMAIL);
+        $html = (string) $component->render();
+        self::assertStringContainsString('Pozvánka odeslána', $html);
+        self::assertStringContainsString('Znovu poslat pozvánku: ' . TestDataFixture::INVITED_USER_EMAIL, $html);
+
+        $html = (string) $component->call('resend', ['userid' => TestDataFixture::INVITED_USER_ID])->render();
+        self::assertStringContainsString('Pozvánka znovu odeslána na ' . TestDataFixture::INVITED_USER_EMAIL, $html);
+    }
+
+    public function testResendIgnoresActiveUsers(): void
+    {
+        $client = self::createClient();
+
+        $html = (string) $this->mount($client, TestDataFixture::PROJECT_1_ID, TestDataFixture::ADMIN_USER_EMAIL)
+            ->call('resend', ['userid' => TestDataFixture::USER_1_ID])
+            ->render();
+
+        self::assertStringNotContainsString('Pozvánka znovu odeslána', $html);
+    }
+
     public function testNonAdminIsDenied(): void
     {
         $client = self::createClient();

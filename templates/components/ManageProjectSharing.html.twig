@@ -1,4 +1,5 @@
 <div {{ attributes }}>
+    {% import 'admin/_macros.html.twig' as adm %}
     {% set collaborators = this.collaborators() %}
     {% set candidates = this.candidateUsers() %}
 
@@ -67,8 +68,24 @@
                             </li>
                             {% for collaborator in collaborators %}
                                 <li class="share-row">
-                                    <span class="av" aria-hidden="true">{{ initials(collaborator.name|split('@')|first|replace({'.': ' ', '_': ' ', '-': ' '})|title) }}</span>
-                                    <span class="who"><b>{{ collaborator.name }}</b></span>
+                                    {% if collaborator.pending %}
+                                        {# Same pending look as Správa uživatelů (admin/_macros status). #}
+                                        <span class="av inv" aria-hidden="true">{{ icon('mail', 's16') }}</span>
+                                        <span class="who"><b>{{ collaborator.name }}</b><span>Pozvánka odeslána {{ adm.ago(collaborator.invitedAt) }} · čeká na přijetí</span></span>
+                                        <span class="pill">Pozvánka</span>
+                                        <button
+                                            type="button"
+                                            class="btn btn-ghost icon xs"
+                                            title="Znovu poslat pozvánku"
+                                            aria-label="Znovu poslat pozvánku: {{ collaborator.email }}"
+                                            data-action="live#action"
+                                            data-live-action-param="resend"
+                                            data-live-userid-param="{{ collaborator.id }}"
+                                        >{{ icon('refresh', 's16') }}</button>
+                                    {% else %}
+                                        <span class="av" aria-hidden="true">{{ initials(collaborator.name|split('@')|first|replace({'.': ' ', '_': ' ', '-': ' '})|title) }}</span>
+                                        <span class="who"><b>{{ collaborator.name }}</b>{% if collaborator.name != collaborator.email %}<span>{{ collaborator.email }}</span>{% endif %}</span>
+                                    {% endif %}
                                     <button
                                         type="button"
                                         class="btn btn-ghost-danger icon xs"

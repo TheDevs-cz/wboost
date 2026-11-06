@@ -20,6 +20,7 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Message\Project\ShareProject;
 use WBoost\Web\Message\Project\UnshareProject;
 use WBoost\Web\Message\User\InviteUser;
+use WBoost\Web\Message\User\ResendInvitation;
 use WBoost\Web\Repository\UserRepository;
 use WBoost\Web\Value\SharingLevel;
 
@@ -69,7 +70,10 @@ final class ManageProjectSharingComponent extends AbstractController
     }
 
     /**
-     * @return list<array{id: string, name: string, level: string}>
+     * Pending invitees (account not activated yet) are flagged so the dialog
+     * shows "Pozvánka odeslána" + resend, like Správa uživatelů.
+     *
+     * @return list<array{id: string, name: string, email: string, level: string, pending: bool, invitedAt: \DateTimeImmutable}>
      */
     public function collaborators(): array
     {
@@ -80,7 +84,10 @@ final class ManageProjectSharingComponent extends AbstractController
             $result[] = [
                 'id' => $share->user->id->toString(),
                 'name' => $share->user->getDisplayName(),
+                'email' => $share->user->email,
                 'level' => $share->level->value,
+                'pending' => !$share->user->confirmed,
+                'invitedAt' => $share->user->registeredAt,
             ];
         }
 
@@ -185,6 +192,22 @@ final class ManageProjectSharingComponent extends AbstractController
         }
 
         $this->query = '';
+    }
+
+    #[LiveAction]
+    public function resend(#[LiveArg('userid')] string $userId): void
+    {
+        $project = $this->guard();
+
+        foreach ($project->getShares() as $share) {
+            // Only a pending collaborator of THIS project can be re-invited here.
+            if ($share->user->id->toString() === $userId && !$share->user->confirmed) {
+                $this->bus->dispatch(new ResendInvitation($userId));
+                $this->notice = sprintf('Pozvánka znovu odeslána na %s.', $share->user->email);
+
+                return;
+            }
+        }
     }
 
     #[LiveAction]
