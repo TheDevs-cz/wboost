@@ -23,6 +23,7 @@ sidebar item, overview chips, `has_palette` — §2d). **P3 done** (2026-11-06: 
 manuálech" box, manual colours tab + old colours page removed — §2e). **P4 done**
 (2026-11-06: "Sloučit" same-HEX duplicates, template usage count — §2f). **P5a done**
 (2026-11-06: JSONB mirror stopped, columns unmapped, plan/verify/reconcile retired — §2g).
+**P5b done** (2026-11-06: `manual.detected_colors` / `custom_colors` dropped — §2g).
 
 ## 0. What exists today (verified)
 
@@ -163,7 +164,7 @@ position) or creating one at the palette end. That's today's `detectedColors()`,
 | R2 (P1b) | FK link → palette ON DELETE CASCADE (§2c) | links/palette | reads switch; every write ALSO mirrors links → JSONB (so R1 code/rollback stay correct). Post-deploy `app:palette:reconcile`: JSONB ≠ mirror(links) ⇒ old code wrote during overlap ⇒ re-project that manual |
 | R3–R4 | none | links | UI phases |
 | R5a | none | links | stop mirroring, unmap the JSONB columns (they keep `'[]'` defaults, so overlapping code still works) |
-| R5b | DROP `detected_colors`, `custom_colors` | — | ≥1 week after R2; **pg_dump to lily `/root/db-backups/` first**, ship only after the backup |
+| R5b | DROP `detected_colors`, `custom_colors` | — | owner moved it to 2026-11-06 (P5); **pg_dump to lily `/root/db-backups/` first**, ship only after the backup |
 
 **Rollback:** R1 → revert (tables ignored). R2 → revert to R1 code: JSONB is current via the
 mirror, and R1's projector never deletes palette colours, so palette-only data survives. UI
@@ -446,6 +447,16 @@ of all 33 manuals identical (debug toolbar stripped); fresh-DB `migrations:migra
 palette, Fotbal - Čeladná manual, a fill page, the editor) 200 without JS errors.
 Nothing to run on prod after the P5a deploy.
 
+**P5b (separate commit / deploy):** `Version20261106120000` =
+`ALTER TABLE manual DROP detected_colors` + `ALTER TABLE manual DROP custom_colors`
+(no index or constraint used them); `down()` re-adds them `JSONB DEFAULT '[]' NOT NULL`
+**empty** — the restore path is the pg_dump taken before the deploy (lily
+`/root/db-backups/`). The `KeepRetiredManualColorColumns` bridge is deleted; without it
+`schema:update --dump-sql` showed exactly those two DROPs. Blue-green safe: the P5a
+container never touches the columns. Local prod copy after `migrate`: snapshot and all
+33 manual pages still identical to the pre-P5 state; scratch DB up → down → up +
+full `schema:validate` OK.
+
 ## 3. Consumers
 
 | Consumer | Change |
@@ -511,7 +522,7 @@ Layout from prototype js:1963-2056 / design-system §573:
 | P3 ✔ | "Barvy v manuálech" box (order, role, add from palette, remove), drop the manual tab + redirect, delete the old colours page | controller tests, redirect test, snapshot diff after reorder = expected, screenshots | M, 1–1.5 d |
 | P4 ✔ | "Sloučit" duplicates (repoint links, delete loser), template usage count (scan text inputs + shape `allowedColors`) | merge tests, manual output change only for touched manuals | S–M, 0.5–1 d |
 | P5a ✔ | stop mirroring + unmap columns; remove planner usage from runtime; retire plan/verify/reconcile (§2g) | phpstan, full suite, snapshot + manual HTML identical | S, 0.5 d |
-| P5b | separate backup-gated DROP migration | phpstan, full suite; pg_dump before P5b deploy | S |
+| P5b ✔ | separate backup-gated DROP migration (`Version20261106120000`, §2g) | phpstan, full suite; pg_dump before P5b deploy | S |
 
 Total ≈ 7–9 dev-days. Every phase: `composer phpstan`, PHPUnit, `/verify` before commit.
 

@@ -115,10 +115,8 @@ Plan + decisions: `docs/redesign/palette-plan.md`. Two tables (`Version202611051
 CREATE + the one-off backfill from the old JSONB columns). **Since P1b (release R2)
 they are what everything reads; since P5 they are the only colour storage** — the
 old per-manual JSONB columns `manual.detected_colors` / `custom_colors` were a
-mirror for R1 code until P5a stopped writing + unmapped them (they stay in the
-database, `'[]'` defaults, until the separate P5b DROP migration; meanwhile
-`Services/Doctrine/KeepRetiredManualColorColumns` adds them back to the ORM-generated
-schema so `doctrine:schema:validate` / CI stay in sync). The backfill code (`PaletteBackfillPlanner`,
+mirror for R1 code until P5a stopped writing + unmapped them and P5b
+(`Version20261106120000`) dropped them. The backfill code (`PaletteBackfillPlanner`,
 `PaletteBackfillSql`) went with them: `Version20261105170659` now REFUSES to run on
 a database that has manuals (only a pre-R1 dump would need it — migrate that with
 commit `54b4226a` first, see the class comment):

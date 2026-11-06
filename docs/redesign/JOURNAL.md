@@ -1342,3 +1342,13 @@ logo sync over all real manuals = no-op; fresh-DB migrate + full validate OK; sh
 palette / manual / fill / editor 200, no JS errors. Not verified: a real SVG upload in the
 browser (PHPUnit covers D3 through `UpdateManualImagesHandler`).
 
+## Palette P5b — JSONB colour columns dropped (F7, 2026-11-06)
+
+What/how: migration `Version20261106120000` drops `manual.detected_colors` and
+`manual.custom_colors`; `down()` re-adds them empty (data only in the pre-deploy
+pg_dump). The P5a schema bridge `KeepRetiredManualColorColumns` is deleted.
+Why separate from P5a: the drop is destructive and backup-gated; P5a code never touches
+the columns, so the blue-green overlap is safe.
+Verified: local migrate + full `schema:validate`; scratch DB up/down/up; snapshot + all
+33 manual pages identical to pre-P5; gate green.
+
