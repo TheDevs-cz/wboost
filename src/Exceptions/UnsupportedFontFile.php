@@ -21,6 +21,14 @@ final class UnsupportedFontFile extends \Exception
         ));
     }
 
+    public static function variableNotExpandable(string $fileName): self
+    {
+        return new self(sprintf(
+            'Soubor „%s“ je variabilní písmo, ze kterého se nepodařilo vytvořit jednotlivé řezy. Nahrajte prosím statické řezy (TTF, OTF nebo WOFF).',
+            $fileName,
+        ));
+    }
+
     public static function unreadable(string $fileName): self
     {
         return new self(sprintf(

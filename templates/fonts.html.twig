@@ -39,7 +39,7 @@
         </div>
 
         {% if can_upload %}
-            {{ include('_font_uploader.html.twig', {'project': project, 'hint': 'TTF, OTF, WOFF · víc souborů najednou · max. 10 MB na soubor · řezy se zařadí do rodiny podle názvu uvnitř souboru'}) }}
+            {{ include('_font_uploader.html.twig', {'project': project, 'hint': 'TTF, OTF, WOFF · víc souborů najednou · max. 10 MB na soubor · řezy se zařadí do rodiny podle názvu uvnitř souboru · variabilní písmo se rozloží na jednotlivé řezy'}) }}
         {% endif %}
 
         {# References no project face satisfies: a deleted face, or the editor's

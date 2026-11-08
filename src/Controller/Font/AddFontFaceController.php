@@ -17,12 +17,14 @@ use WBoost\Web\Exceptions\UnsupportedFontFile;
 use WBoost\Web\FormData\FontFormData;
 use WBoost\Web\FormType\FontFormType;
 use WBoost\Web\Message\Font\AddFont;
+use WBoost\Web\Services\Font\AddVariableFontFaces;
 use WBoost\Web\Services\Security\ProjectVoter;
 
 final class AddFontFaceController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
+        readonly private AddVariableFontFaces $addVariableFontFaces,
     ) {
     }
 
@@ -43,6 +45,18 @@ final class AddFontFaceController extends AbstractController
             // Every file is its own dispatch, so one refused file never
             // blocks the rest of the batch — the flashes say what happened.
             foreach ($data->fonts as $fontFile) {
+                // A variable font becomes one face per named instance.
+                if ($this->addVariableFontFaces->isVariable($fontFile)) {
+                    try {
+                        $upload = ($this->addVariableFontFaces)($project->id, $fontFile);
+                        $this->addFlash($upload->created !== [] ? 'success' : 'warning', $upload->message());
+                    } catch (UnsupportedFontFile $exception) {
+                        $this->addFlash('danger', $exception->getMessage());
+                    }
+
+                    continue;
+                }
+
                 try {
                     $this->bus->dispatch(new AddFont($project->id, $fontFile));
                     $added++;

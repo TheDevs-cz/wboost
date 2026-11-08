@@ -6,7 +6,8 @@ import { Controller } from "@hotwired/stimulus";
  * files POSTed ONE per request to `upload_font` so a refused file (WOFF2, an
  * unreadable table) never blocks the rest of the batch. Each file gets a
  * result row: the family it was filed under and the face it became, "already
- * uploaded", or the server's refusal message. The family cards are
+ * uploaded", or the server's refusal message (a variable font answers with
+ * the server's "Variabilní písmo — vytvořeno N řezů" line). The family cards are
  * server-rendered, so a batch with at least one new face reloads the page
  * once it has drained (after the rows have been readable for a moment).
  *
@@ -104,7 +105,13 @@ export default class extends Controller {
             this.render();
             try {
                 const result = await this.uploadOne(item.file);
-                if (result.status === "added") {
+                if (result.variable) {
+                    // A variable font was expanded into one face per named
+                    // instance — the server words the outcome.
+                    item.status = result.status === "added" ? "done" : "exists";
+                    item.message = result.message;
+                    if (result.status === "added") this._batchAdded++;
+                } else if (result.status === "added") {
                     item.status = "done";
                     item.message = result.faces > 1
                         ? `Přidáno do písma ${result.family} jako řez „${result.face}“ (${result.faces} řezy).`

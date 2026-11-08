@@ -20,6 +20,7 @@ use WBoost\Web\FormData\UploadFontFormData;
 use WBoost\Web\FormType\UploadFontFormType;
 use WBoost\Web\Message\Font\AddFont;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Services\Font\AddVariableFontFaces;
 use WBoost\Web\Services\Security\ProjectVoter;
 
 /**
@@ -28,12 +29,18 @@ use WBoost\Web\Services\Security\ProjectVoter;
  * it was filed under and the face it became, "already uploaded", or the
  * refusal reason (WOFF2, unreadable). 200 for added / already-there so the
  * batch keeps rolling; 422 for a refused file.
+ *
+ * A VARIABLE font is expanded into one face per named instance
+ * ({@see AddVariableFontFaces}); its answer adds `variable: true`, the
+ * `created` / `existing` face names and the Czech `message`
+ * ("Variabilní písmo — vytvořeno 18 řezů.").
  */
 final class UploadFontController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private GetFonts $getFonts,
+        readonly private AddVariableFontFaces $addVariableFontFaces,
     ) {
     }
 
@@ -55,6 +62,26 @@ final class UploadFontController extends AbstractController
         }
 
         $fileName = $data->file->getClientOriginalName();
+
+        if ($this->addVariableFontFaces->isVariable($data->file)) {
+            try {
+                $upload = ($this->addVariableFontFaces)($project->id, $data->file);
+            } catch (UnsupportedFontFile $exception) {
+                return $this->json(['status' => 'unsupported', 'file' => $fileName, 'error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            return $this->json([
+                'status' => $upload->created !== [] ? 'added' : 'exists',
+                'file' => $fileName,
+                'variable' => true,
+                'family' => $upload->family,
+                'face' => $upload->created[0] ?? null,
+                'faces' => $upload->familyFaceCount,
+                'created' => $upload->created,
+                'existing' => $upload->existing,
+                'message' => $upload->message(),
+            ]);
+        }
 
         try {
             $this->bus->dispatch(new AddFont($project->id, $data->file));
