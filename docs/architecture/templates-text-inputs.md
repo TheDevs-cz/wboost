@@ -78,6 +78,35 @@ font" to the designed family unless the designer ticks more.
   still weight-ordered, appends once the designer dragged an order of their
   own. The fonts page shows a 100–900 weight axis per family (filled =
   upright, slanted mark = italic).
+- **Variable fonts (2026-11-08).** A TTF/OTF/WOFF with an `fvar` table
+  (`Services/Font/VariableFontExpander::isVariable()` reads the table
+  directory only) is never stored as-is: `expand()` runs
+  `resources/fonttools/expand_variable_font.py` (the vendored, pinned
+  fontTools 4.68.0 pure-Python wheel on the base image's `python3 -I`, up
+  to 4 worker processes — Inter's 18 instances take ~7 s, synchronous) and
+  instantiates EVERY distinct fvar named instance (none → the default
+  instance) into a static cut. Each cut's name table is rewritten the way
+  foundry statics are named — RIBBI (Regular/Italic/Bold/Bold Italic) keep
+  the family in nameID 1 and the style in 2; anything else gets
+  "Inter ExtraBold"/"Regular" + typographic 16/17 = "Inter"/"ExtraBold" —
+  plus OS/2 weight (= `wght`), fsSelection, macStyle, `post.italicAngle`
+  (= `slnt`); italic = name says Italic/Oblique, `ital`≥0.5 or `slnt`<0.
+  Face names come from the variable font's OWN instance names, so they can
+  differ from a foundry's older static zip (Inter 3.19 statics say
+  "Inter Extra Bold"). `Services/Font/AddVariableFontFaces` then dispatches
+  the ordinary `AddFont` once per cut (own transaction each) — family
+  filing, `FontAlreadyHasFontFace` dedupe (reported as `existing`),
+  weight ordering, storage and the manual auto-enable are exactly those of
+  N single uploads; the variable file is NOT kept. Surfaces: the dropzone
+  (`upload_font` JSON gains `variable`, `created`, `existing`, `message`
+  = "Variabilní písmo — vytvořeno N řezů."), the legacy add-face form
+  (flash) and MCP `upload_font`. Expansion failure →
+  `UnsupportedFontFile::variableNotExpandable` (422). Tests:
+  `VariableFontExpanderTest`, `UploadVariableFontControllerTest` (incl.
+  "identical to uploading the static cuts one by one"), golden
+  `VariableFontRenderTest` (expanded ExtraBold vs Inter 3.19 static
+  ExtraBold, MSE ≈1e-5). If the base image ever loses `python3`, these
+  tests fail in CI.
 - **Font usage scan (2026-09-03).** `Query/GetFontUsage::forProject()` scans
   every variant document of the project — textbox `fontFamily` (per-char
   `styles` included), `inputs[].allowedFonts`, rich `sampleValue` runs —
