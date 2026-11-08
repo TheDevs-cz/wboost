@@ -275,7 +275,7 @@ export default class extends Controller {
             this.placeholderButtonTarget.setAttribute('aria-label', label);
             this.placeholderButtonTarget.setAttribute('aria-pressed', String(placeholder));
             const icon = this.placeholderButtonTarget.querySelector('i');
-            if (icon) icon.className = 'i i-user s16';
+            if (icon) icon.className = 'i i-image-edit s16';
         }
 
         if (type === 'image' && this.hasEditorLockButtonTarget) {

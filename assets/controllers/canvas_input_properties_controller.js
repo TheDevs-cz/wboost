@@ -828,7 +828,7 @@ export default class extends Controller {
             this.sampleLabelTarget.textContent = checklist ? 'Položky seznamu' : 'Vzorový text';
         }
         if (this.hasSampleIconTarget) {
-            this.sampleIconTarget.classList.toggle('i-type', !checklist);
+            this.sampleIconTarget.classList.toggle('i-text-box', !checklist);
             this.sampleIconTarget.classList.toggle('i-list', checklist);
         }
         if (this.hasSampleTitleTarget) {

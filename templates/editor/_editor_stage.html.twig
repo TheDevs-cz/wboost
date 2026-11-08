@@ -28,10 +28,10 @@
        options popover below. #}
     <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="miniToolbar">
         <button type="button" class="btn btn-sm btn-light" title="Upravit" data-action="canvas-floating-toolbar#openPopover"><i class="i i-edit s16"></i></button>
-        <button type="button" class="btn btn-sm btn-light d-none" title="Nahradit obrázek z galerie" data-canvas-floating-toolbar-target="replaceImageButton" data-action="canvas-editor#showReplaceImageModal"><i class="i i-upload s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Nahradit obrázek z galerie" data-canvas-floating-toolbar-target="replaceImageButton" data-action="canvas-editor#showReplaceImageModal"><i class="i i-image-search s16"></i></button>
         <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="i i-copy s16"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout text" data-canvas-floating-toolbar-target="lockButton" data-action="canvas-input-properties#toggleLocked canvas-floating-toolbar#refreshContextToggle"><i class="i i-unlock s16"></i></button>
-        <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="i i-user s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light d-none" title="Označit jako placeholder" data-canvas-floating-toolbar-target="placeholderButton" data-action="canvas-image-properties#togglePlaceholder canvas-floating-toolbar#refreshContextToggle"><i class="i i-image-edit s16"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Uzamknout obrázek v editoru (proti posunutí)" data-canvas-floating-toolbar-target="editorLockButton" data-action="canvas-image-properties#toggleEditorLock canvas-floating-toolbar#refreshContextToggle"><i class="i i-unlock s16"></i></button>
         {# Horizontal mirror (Fabric flipX) — decorative images only: a fill
            re-places a placeholder's picture and resets its flip server-side
@@ -301,7 +301,7 @@
                                     <option value="check">✓ Fajfka</option>
                                     <option value="image">Vlastní obrázek</option>
                                 </select>
-                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vybrat obrázek odrážky z galerie" data-canvas-input-properties-target="listBulletPick" data-action="canvas-input-properties#pickBulletImage"><i class="i i-image s14"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vybrat obrázek odrážky z galerie" data-canvas-input-properties-target="listBulletPick" data-action="canvas-input-properties#pickBulletImage"><i class="i i-image-search s14"></i></button>
                                 <i class="i i-check-circle s14 ed-ok d-none flex-shrink-0" title="" data-canvas-input-properties-target="listBulletPreview"></i>
                             </div>
                         </div>
@@ -331,13 +331,13 @@
                             <label class="form-label small mb-1">Vzhled políček <i class="i i-info s12 ed-tip" title="Bez vlastního obrázku se vykreslí čtvereček v barvě textu; zaškrtnutý s bílou fajfkou."></i></label>
                             <div class="d-flex align-items-center gap-1 mb-1">
                                 <span class="small text-muted flex-shrink-0" style="width: 6.5rem;">Nezaškrtnuté</span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="unchecked"><i class="i i-image s14"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="unchecked"><i class="i i-image-search s14"></i></button>
                                 <i class="i i-check-circle s14 ed-ok d-none flex-shrink-0" title="" data-canvas-input-properties-target="checkboxImagePreview"></i>
                                 <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vrátit výchozí vzhled" data-canvas-input-properties-target="checkboxImageClear" data-action="canvas-input-properties#clearCheckboxImage" data-canvas-input-properties-state-param="unchecked"><i class="i i-x s14"></i></button>
                             </div>
                             <div class="d-flex align-items-center gap-1">
                                 <span class="small text-muted flex-shrink-0" style="width: 6.5rem;">Zaškrtnuté</span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="checked"><i class="i i-image s14"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Vybrat obrázek z galerie" data-action="canvas-input-properties#pickCheckboxImage" data-canvas-input-properties-state-param="checked"><i class="i i-image-search s14"></i></button>
                                 <i class="i i-check-circle s14 ed-ok d-none flex-shrink-0" title="" data-canvas-input-properties-target="checkboxCheckedImagePreview"></i>
                                 <button type="button" class="btn btn-sm btn-outline-secondary d-none flex-shrink-0" title="Vrátit výchozí vzhled" data-canvas-input-properties-target="checkboxCheckedImageClear" data-action="canvas-input-properties#clearCheckboxImage" data-canvas-input-properties-state-param="checked"><i class="i i-x s14"></i></button>
                             </div>
@@ -351,7 +351,7 @@
                    "Položky seznamu" (its sample IS the item list). #}
                 <div class="col-12">
                     <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-input-properties#openSampleModal">
-                        <i class="i i-type s14 me-1" data-canvas-input-properties-target="sampleIcon"></i><span data-canvas-input-properties-target="sampleLabel">Vzorový text</span>
+                        <i class="i i-text-box s14 me-1" data-canvas-input-properties-target="sampleIcon"></i><span data-canvas-input-properties-target="sampleLabel">Vzorový text</span>
                         <span class="badge bg-info-lighten text-info d-none" data-canvas-input-properties-target="sampleBadge">nastaven</span>
                     </button>
                 </div>
@@ -535,7 +535,7 @@
                    white 100 % is a fade-in overlay over a photo. #}
                 <div class="d-flex align-items-center gap-1 mb-1">
                     <div class="shape-gradient-preview flex-grow-1" data-canvas-shape-properties-target="gradientPreview" aria-hidden="true"></div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Obrátit přechod" aria-label="Obrátit přechod" data-action="canvas-shape-properties#swapGradient"><i class="i i-sort s14" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Obrátit přechod" aria-label="Obrátit přechod" data-action="canvas-shape-properties#swapGradient"><i class="i i-swap-horizontal s14" aria-hidden="true"></i></button>
                 </div>
                 <div class="shape-gradient-stop shape-gradient-stop--head text-muted small">
                     <span>Barva</span><span>Krytí</span><span>Pozice</span><span></span>

@@ -299,7 +299,7 @@ export default class extends Controller {
         const icon = document.createElement('i');
         const iconGlyph = isText
             ? (isChecklist ? 'i-list' : 'i-type')
-            : (isBackground ? 'i-layers' : (isShape ? 'i-shape' : 'i-image'));
+            : (isBackground ? 'i-layers' : (isShape ? 'i-shape' : (isPlaceholder ? 'i-image-edit' : 'i-image')));
         icon.className = `canvas-layer-row__icon i ${iconGlyph} s14`;
         icon.setAttribute('aria-hidden', 'true');
         main.appendChild(icon);
