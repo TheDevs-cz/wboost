@@ -207,6 +207,19 @@ never see any of this.
   (`AbstractVariantFiller::fillStateHash`) and JS
   (`assets/controllers/fill_state_hash.js`, shared with the overlay) are
   pinned byte-identical by test (Czech diacritics covered).
+- **The hash is only as good as the mirrors' BROWSER-visible values
+  (2026-11-08).** Prod report "jumping text on hiding an element": the text
+  mirror was an `<input type="text">`, whose value sanitization strips every
+  `"\n"` at parse time, while the server kept them → the client hash NEVER
+  matched. The eye toggle (a pure checkbox flip) entered echo mode, the echo
+  repainted EVERY echo-capable text from the stripped mirrors (multi-line
+  texts snapped onto one line — the jump), and no settle could ever rest it.
+  Fixed by the `<textarea>` mirror; `fillStateHash()` also canonicalizes
+  CRLF/CR → `"\n"` (a seeded version/draft can carry CRLF from a textarea
+  POST; the browser only ever shows `"\n"`). Pinned by
+  `FillMirrorStateHashTest`, which hashes the rendered mirrors as a browser
+  reads them and compares with the server's `data-state-hash` — any future
+  mirror markup that loses bytes fails it.
 - **"A settle landed" = Live's `render:finished` hook (2026-09-08)**, wired
   through `assets/controllers/live_component.js` in BOTH the echo controller
   and `variant_fill_overlay_controller` (the render veil); the
