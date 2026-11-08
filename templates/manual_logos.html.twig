@@ -76,21 +76,35 @@
                 </label>
             </div>
 
+            {# % of the logo's DEFAULT size (LogoScale): 10–200 %, 100 % = výchozí
+               near the middle with a detent (range_sync_controller). #}
+            {% set scale_value = width_field.vars.value ?: 100 %}
             <div class="pal-f man-scale" data-controller="range-sync">
                 <span>
                     <label for="{{ width_field.vars.id }}">Šířka loga v manuálu</label>
                     {# F10: back to the default size; shown only while a custom width is set #}
-                    <button type="button" class="btn btn-tertiary xs man-scale-reset" data-range-sync-target="reset" data-action="range-sync#reset" title="Vrátit výchozí šířku loga"{% if not width_field.vars.value %} hidden{% endif %}>{{ icon('undo', 's14') }}Výchozí</button>
+                    <button type="button" class="btn btn-tertiary xs man-scale-reset" data-range-sync-target="reset" data-action="range-sync#reset" title="Vrátit výchozí šířku loga (100 %)"{% if scale_value == 100 %} hidden{% endif %}>{{ icon('undo', 's14') }}Výchozí</button>
                 </span>
                 <div class="man-scale-row">
-                    <input type="range" min="0" max="100" step="1" value="{{ width_field.vars.value ?: 0 }}" aria-label="Šířka loga v manuálu" data-range-sync-target="range" data-action="input->range-sync#fromRange">
-                    {{ form_widget(width_field, {'attr': {
-                        'class': 'form-control-sm man-scale-n',
-                        'data-range-sync-target': 'number',
-                        'data-action': 'input->range-sync#fromNumber',
-                    }}) }}
+                    <div class="man-scale-track">
+                        <input type="range" min="10" max="200" step="1" value="{{ scale_value }}" list="{{ width_field.vars.id }}-ticks" aria-label="Šířka loga v manuálu (% výchozí velikosti)" data-range-sync-target="range" data-action="input->range-sync#fromRange">
+                        <datalist id="{{ width_field.vars.id }}-ticks"><option value="100"></option></datalist>
+                        <div class="man-scale-ticks" aria-hidden="true">
+                            <span>10 %</span>
+                            <span class="man-scale-tick-default" style="left: {{ ((100 - 10) / (200 - 10) * 100)|round(2) }}%">výchozí</span>
+                            <span>200 %</span>
+                        </div>
+                    </div>
+                    <div class="man-scale-num">
+                        {{ form_widget(width_field, {'attr': {
+                            'class': 'form-control-sm man-scale-n',
+                            'data-range-sync-target': 'number',
+                            'data-action': 'input->range-sync#fromNumber',
+                        }}) }}
+                        <span class="man-scale-unit" aria-hidden="true">%</span>
+                    </div>
                 </div>
-                <span class="cap">0 nebo prázdné = výchozí velikost. 1–100 = šířka v procentech rámečku (výška zůstává stejná).</span>
+                <span class="cap">100 % = výchozí velikost loga v manuálu, 50 % = poloviční, 200 % = dvojnásobná (nejvýše na šířku rámečku). Rozsah 10–200 %.</span>
                 {{ form_errors(width_field) }}
             </div>
 

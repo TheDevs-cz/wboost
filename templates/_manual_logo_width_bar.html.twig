@@ -14,14 +14,18 @@
                 <div class="small text-muted">jen tento rámeček</div>
             </div>
 
-            <input type="range" class="form-range flex-grow-1" min="1" max="100" step="1"
-                   aria-label="Šířka loga v tomto rámečku (%)"
+            {# 10–200 % of the default (decided with Jan 2026-11-09), 100 % =
+               výchozí near the middle; the controller snaps onto 100 % nearby. #}
+            <input type="range" class="form-range flex-grow-1" min="10" max="200" step="1"
+                   list="manual-logo-width-ticks"
+                   aria-label="Šířka loga v tomto rámečku (% výchozí velikosti)"
                    data-manual-logo-width-target="range"
                    data-action="input->manual-logo-width#slide">
+            <datalist id="manual-logo-width-ticks"><option value="100"></option></datalist>
 
             <div class="input-group input-group-sm manual-logo-width-number">
-                <input type="number" class="form-control" min="0" max="100" step="1"
-                       aria-label="Šířka loga v tomto rámečku (%)"
+                <input type="number" class="form-control" min="10" max="200" step="1"
+                       aria-label="Šířka loga v tomto rámečku (% výchozí velikosti)"
                        data-manual-logo-width-target="number"
                        data-action="input->manual-logo-width#type keydown.enter->manual-logo-width#save:prevent">
                 <span class="input-group-text">%</span>

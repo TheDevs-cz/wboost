@@ -14,6 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Message\Manual\EditManualLogoSlotWidth;
+use WBoost\Web\Value\LogoScale;
 use WBoost\Web\Services\Security\ManualVoter;
 use WBoost\Web\Value\LogoColorVariant;
 use WBoost\Web\Value\LogoTypeVariant;
@@ -63,11 +64,11 @@ final class EditManualLogoSlotWidthController extends AbstractController
 
         if ($rawWidth !== '') {
             $displayWidth = filter_var($rawWidth, FILTER_VALIDATE_INT, [
-                'options' => ['min_range' => 0, 'max_range' => 100],
+                'options' => ['min_range' => 0, 'max_range' => LogoScale::MAX],
             ]);
 
             if ($displayWidth === false) {
-                return new JsonResponse(['error' => 'Zadejte hodnotu mezi 0 a 100.'], Response::HTTP_BAD_REQUEST);
+                return new JsonResponse(['error' => 'Zadejte hodnotu mezi ' . LogoScale::MIN . ' a ' . LogoScale::MAX . ' %.'], Response::HTTP_BAD_REQUEST);
             }
         }
 

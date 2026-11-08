@@ -17,7 +17,7 @@ final class SvgImage
         public array $colorsMapping = [],
         public null|string $widthInfo = null,
         public null|string $heightInfo = null,
-        /** Logo width in the manual preview, as a percentage of the card (1-100); null = default. */
+        /** Logo size in the manual, % of its default size (10–200, {@see LogoScale}); null = default. */
         public null|int $displayWidth = null,
         /**
          * The variant gets a page of its OWN in the manual, showing all of its
@@ -113,9 +113,10 @@ final class SvgImage
      */
     public function updateDisplayWidth(null|int $displayWidth): void
     {
-        $this->displayWidth = ($displayWidth !== null && $displayWidth > 0)
-            ? min($displayWidth, 100)
-            : null;
+        $displayWidth = LogoScale::normalize($displayWidth);
+
+        // 100 % IS the default — nothing to store at the variant level.
+        $this->displayWidth = $displayWidth === LogoScale::DEFAULT ? null : $displayWidth;
     }
 
     public function updateOwnPage(bool $ownPage): void

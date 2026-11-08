@@ -1714,18 +1714,26 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     position: relative;
 }
 
+/* Logo size in a manual card = the default × `--logo-scale` ("Šířka loga v
+   manuálu", % of the DEFAULT size, set inline by _manual_logo_image.html.twig;
+   absent = 1). The default is "as wide as the card, height capped at
+   --logo-cap"; scaling BOTH the width and the cap scales the visible logo
+   exactly, whatever its aspect ratio (the SVG letterboxes inside the box).
+   The width factor stops at 1, so growing is clamped to the frame.
+   Each card type sets only its cap — never `max-height` on the img. */
+.manual-image-wrapper {
+    --logo-cap: 200px;
+}
+
+.manual-image-wrapper.manual-image-horizontal,
+.manual-image-wrapper.manual-image-vertical-big {
+    --logo-cap: 120px;
+}
+
 .manual-image-wrapper img {
-    max-height: 200px;
+    max-height: calc(var(--logo-cap) * var(--logo-scale, 1));
     max-width: 100%;
-    width: 100%;
-}
-
-.manual-image-wrapper.manual-image-square img {
-    max-height: 200px;
-}
-
-.manual-image-wrapper.manual-image-horizontal img {
-    max-height: 120px;
+    width: calc(100% * min(var(--logo-scale, 1), 1));
 }
 
 /* Equal-height logo cards.
@@ -1752,40 +1760,30 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     min-height: 346px;
 }
 
-.manual-image-wrapper.manual-image-square-smaller img {
-    max-height: 200px;
-}
-
 .manual-image-wrapper.manual-image-square-symbol {
     height: 416px;
 }
 
-.manual-image-wrapper.manual-image-square-symbol img {
-    max-height: 200px;
-}
-
-.manual-image-wrapper.manual-image-vertical-big img {
-    max-height: 120px;
-}
-
 .manual-kozelsky-koupelny-logomanual .manual-image-vertical-big.protected-zone-wrapper img {
-    width: 400px !important;
+    width: calc(400px * var(--logo-scale, 1)) !important;
 }
 
 .manual-kozelsky-koupelny-logomanual .manual-image-symbol.protected-zone-wrapper img {
-    width: 110px !important;
+    width: calc(110px * var(--logo-scale, 1)) !important;
 }
 
 .manual-kozelsky-koupelny-logomanual .manual-image-vertical.protected-zone-wrapper img {
-    width: 400px !important;
+    width: calc(400px * var(--logo-scale, 1)) !important;
 }
 
 .manual-page {
     margin-bottom: 50px;
 }
 
+/* Protected zone: the default is the full frame width, uncapped — so a
+   --logo-scale above 1 is clamped to it, below 1 shrinks it. */
 .protected-zone-wrapper img {
-    width: 100% !important;
+    width: calc(100% * min(var(--logo-scale, 1), 1)) !important;
     max-height: unset !important;
 }
 

@@ -453,8 +453,44 @@ How big a logo renders inside one manual card resolves through
    by slot id) — edited from a pencil on the card itself (see **Editing a
    card's width** below);
 2. the width of the **logo variant** (`manual.logo -> <variant> ->
-   displayWidth`, the "Šířka loga v manuálu (%)" field on the Loga page);
+   displayWidth`, the "Šířka loga v manuálu" slider on the Loga page);
 3. nothing — the stylesheet decides.
+
+**The value is a % of the logo's DEFAULT size in that card (since
+2026-11-09, `Value/LogoScale`)** — 100 % = výchozí, 50 % = half, 200 % =
+double; range **10–200 %** (decided with Jan: 0 would hide the logo). Before,
+it was "% of the frame" (0/empty = default, 1–100 = frame %), which left no
+way to say "half the default" (user feedback). Rules:
+
+- `LogoScale::normalize()`: null / ≤ 0 = no value, else clamped to 10–200.
+  The variant level stores 100 as null (it IS the default); a CARD stores 100
+  (it overrides a scaled variant back to default for that one card).
+- **Rendering is CSS only.** `_manual_logo_image.html.twig` emits
+  `style="--logo-scale: 0.5"` (`Manual::logoDisplayScale()`, nothing for
+  null/100). app.css: every card type declares only a height cap
+  `--logo-cap` on the wrapper (200 px, 120 px for horizontal / vertical-big);
+  `.manual-image-wrapper img` = `width: calc(100% * min(scale, 1))`,
+  `max-height: calc(cap * scale)`. The default box is "card width × cap" and
+  the SVG letterboxes inside it, so scaling both scales the VISIBLE logo
+  exactly, for any aspect ratio, with no PHP knowledge of the geometry.
+  **Growing is clamped to the frame** (the width factor stops at 1) —
+  `LogoScale::renderedWidth()` = min(default × scale, frame) is the contract,
+  pinned by `tests/Value/LogoScaleTest.php` and verified in Chromium (50 % /
+  150 % measured 50.0 / 150.0 % of the default). The protected-zone rule and
+  the per-slug kozelsky hacks multiply their own default by the same
+  variable. Never set `max-height` on the img per card type again — set the
+  wrapper's `--logo-cap`, or the scale stops applying.
+- **Legacy data** was converted by `Version20261109010000` with values
+  MEASURED per card on the prod previews (the default is a layout result, not
+  computable in SQL): 14 slot rows changed + 1 pinned card
+  (`minimum_dimensions.verticalWithClaim.base` = 111 in logo-spolecne, whose
+  variant-level 85 means something else there). Re-verified by swapping the
+  new app.css into the live prod pages: 126 cards, worst drift 1.9 px.
+  Guarded by the old value, so it is idempotent.
+- UI: Loga page slider (`range_sync_controller.js`) and the per-card bar
+  (`manual_logo_width_controller.js`) both run 10–200 with a **detent**
+  (±4 snaps onto 100), a datalist tick at 100 and a "Výchozí" reset; the
+  number field always shows a number (empty variant = 100).
 
 **Slot ids** are `<manualPage>.<logoVariant>.<colorVariant|base>`
 (`protection_zone.vertical.base`, `symbol.symbol.darkBackground`) — stable
@@ -467,21 +503,12 @@ setting reach all of them. Before, three sites emitted a raw `<img>` and
 ignored the width entirely: the vertical + symbol cards of the
 protected-zone page and every card of `_logo_min_dimensions.html.twig`.
 
-Two things in that partial's inline style are load-bearing, both verified in
-real Chromium against a live manual:
-
-- **`!important`** — a few manuals carry per-slug `width: … !important` hacks
-  in `app.css` from before this control existed (e.g.
-  `.manual-kozelsky-koupelny-logomanual .manual-image-vertical-big
-  .protected-zone-wrapper img`), and an admin's explicit number has to win
-  over them. Those hacks still apply where no width is set.
-- **`max-height: none`** — `.manual-image-wrapper img` caps the height
-  (120/200px) while the stylesheet also sets `width: 100%`. With an explicit
-  width that cap does NOT scale the picture down, it SQUASHES it (the browser
-  clamps the height and keeps the width — measured: a 100×125 logo in a 500px
-  card renders 500×120), so an admin asking for a wide logo would get a
-  distorted one. Lifting the cap lets a card grow, which is the honest reading
-  of "width = N % of the frame".
+History (pre-2026-11-09, "% of the frame"): the partial wrote `width: N%
+!important; max-height: none !important` — `!important` to beat the per-slug
+`width … !important` hacks, `max-height: none` because the 120/200 px cap
+SQUASHES an explicitly-width'd `<img>` instead of scaling it. Both are gone:
+the scale variable multiplies the cap instead of lifting it, and the hacks
+themselves multiply by `--logo-scale`.
 
 **Editing a card's width — one live-preview bar, no reload (2026-10-11).**
 It began as a Live component + Bootstrap modal PER CARD whose save redirected
@@ -494,7 +521,7 @@ threw the admin back to the top of a manual dozens of screens long. Now:
   `manual_preview.html.twig`, together with `data-controller=
   "manual-logo-width"` on the manual root — only when `manual_edit` is granted;
 - `manual_logo_width_controller.js` previews on the card's `<img>` (found by
-  `data-logo-slot`) with the SAME two `!important` declarations the partial
+  `data-logo-slot`) by setting the SAME `--logo-scale` the partial
   renders; Zrušit / Escape restore the original inline style; Uložit (or
   Enter) POSTs to `EditManualLogoSlotWidthController`
   (`/manual/{manualId}/sirka-loga`, CSRF `manual_logo_slot_width`), which
@@ -503,10 +530,9 @@ threw the admin back to the top of a manual dozens of screens long. Now:
   (`ManualPage`, `LogoTypeVariant`, `LogoColorVariant`|`base`) — the old Live
   prop was server-signed, a POST field is not, and without the check any key
   could be planted in `logo_slot_widths`;
-- the slider starts from the logo's **visible** width: with no explicit width
-  the stylesheet stretches the `<img>` box across the card and caps its height,
-  and the SVG letterboxes inside it, so the box width (≈100 %) overstates the
-  logo and the first nudge would make it jump;
+- the slider starts from the card's effective value (its own, else the
+  variant's, else 100) — no measuring needed since the value is relative to
+  the default;
 - the bar is **anchored above the card being sized** (2026-10-13, user
   feedback — it was fixed to the viewport bottom): `position: absolute`
   against the manual root (`.manual-logo-width-root { position: relative }`,

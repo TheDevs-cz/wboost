@@ -26,6 +26,7 @@ use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Value\DefaultLogoColors;
 use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\LogoColorVariant;
+use WBoost\Web\Value\LogoScale;
 use WBoost\Web\Value\LogoTypeVariant;
 use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
@@ -462,6 +463,15 @@ class Manual
      * The width THIS card carries on its own, ignoring the variant fallback —
      * what the card's own edit form is editing.
      */
+    /**
+     * The card's `--logo-scale` (see {@see LogoScale}), or null when it
+     * renders at the default size.
+     */
+    public function logoDisplayScale(string $slot, string $logoVariant): null|string
+    {
+        return LogoScale::cssFactor($this->logoDisplayWidth($slot, $logoVariant));
+    }
+
     public function logoSlotWidth(string $slot): null|int
     {
         return $this->logoSlotWidths[$slot] ?? null;
@@ -473,18 +483,20 @@ class Manual
     }
 
     /**
-     * Null, 0 or an out-of-range value clears the card's own width, so the
-     * card falls back to its variant — the same normalization
-     * SvgImage::updateDisplayWidth does for the variant level.
+     * Null or 0 clears the card's own width, so the card falls back to its
+     * variant; anything else is clamped into {@see LogoScale} MIN–MAX. Unlike
+     * the variant level, 100 IS stored here: it puts this one card back to
+     * the default size even when its variant is scaled.
      */
     public function editLogoSlotWidth(string $slot, null|int $displayWidth): void
     {
         $widths = $this->logoSlotWidths;
+        $displayWidth = LogoScale::normalize($displayWidth);
 
-        if ($displayWidth === null || $displayWidth <= 0) {
+        if ($displayWidth === null) {
             unset($widths[$slot]);
         } else {
-            $widths[$slot] = min($displayWidth, 100);
+            $widths[$slot] = $displayWidth;
         }
 
         // Reassigned, not mutated: Doctrine compares a JSON column by value.

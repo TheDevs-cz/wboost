@@ -36,6 +36,17 @@ final class EditManualLogoSlotWidthControllerTest extends WebTestCase
         self::assertSame(35, $this->manual()->logoSlotWidth(self::SLOT));
     }
 
+    public function testAcceptsUpToTwiceTheDefault(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        $this->post($browser, self::SLOT, '180');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(180, $this->manual()->logoSlotWidth(self::SLOT));
+    }
+
     public function testEmptyWidthClearsTheCard(): void
     {
         $browser = self::createClient();
@@ -70,7 +81,7 @@ final class EditManualLogoSlotWidthControllerTest extends WebTestCase
         $browser = self::createClient();
         TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
 
-        foreach (['101', '-5', 'abc', '12.5'] as $width) {
+        foreach (['201', '-5', 'abc', '12.5'] as $width) {
             $this->post($browser, self::SLOT, $width);
             self::assertResponseStatusCodeSame(400, $width);
         }

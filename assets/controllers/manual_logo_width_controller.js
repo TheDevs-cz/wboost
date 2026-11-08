@@ -6,15 +6,21 @@ import { Controller } from '@hotwired/stimulus';
  * root; every card's pencil (`_manual_logo_image.html.twig`) opens it for its
  * own slot via action params, and it is placed just above that card.
  *
- * Dragging / typing previews the width live on the card's `<img>` (found by
- * `data-logo-slot`); Uložit POSTs it to `EditManualLogoSlotWidthController`
- * and the page stays where it is. Zrušit / Escape put the original inline
- * style back.
- *
- * The preview writes the same two `!important` declarations the Twig partial
- * renders — `width` must beat the per-slug hacks in app.css and `max-height:
- * none` keeps the height cap from squashing a wide logo (see the partial).
+ * The value is a % of the logo's DEFAULT size in the card (`LogoScale`):
+ * the slider runs 10–200 % with 100 % = výchozí near the middle and a detent
+ * around it. Dragging / typing previews it live on the card's
+ * `<img>` (found by `data-logo-slot`) by setting the same `--logo-scale` the
+ * Twig partial renders — app.css does the rest. Uložit POSTs it to
+ * `EditManualLogoSlotWidthController` and the page stays where it is.
+ * Zrušit / Escape put the original inline style back.
  */
+const MIN = 10;
+const MAX = 200;
+const DEFAULT = 100;
+// Slider positions this close to 100 % snap onto it, so "back to default"
+// is easy to hit by hand.
+const DETENT = 4;
+
 export default class extends Controller {
     static targets = ['bar', 'range', 'number', 'reset', 'save', 'hint', 'error'];
     static values = { url: String, csrf: String };
@@ -58,11 +64,11 @@ export default class extends Controller {
         };
 
         this.numberTarget.value = this.active.slotWidth ?? '';
-        this.numberTarget.placeholder = this.active.variantWidth ?? 'auto';
+        this.numberTarget.placeholder = String(this.fallbackWidth());
         this.rangeTarget.value = this.active.slotWidth ?? this.fallbackWidth();
         this.hintTarget.textContent = this.active.variantWidth !== null
-            ? `Prázdné pole = ${this.active.variantWidth} % nastavených pro celou variantu loga v sekci Loga.`
-            : 'Prázdné pole = výchozí velikost.';
+            ? `% výchozí velikosti loga. Prázdné pole = ${this.active.variantWidth} % nastavených pro celou variantu loga v sekci Loga.`
+            : '% výchozí velikosti loga (100 % = výchozí, 50 % = poloviční, nejvýše na šířku rámečku). Prázdné pole = výchozí.';
         this.errorTarget.textContent = '';
         this.setSaving(false);
 
@@ -83,8 +89,10 @@ export default class extends Controller {
             return;
         }
 
-        this.numberTarget.value = this.rangeTarget.value;
-        this.preview(Number(this.rangeTarget.value));
+        const width = snap(Number(this.rangeTarget.value));
+        this.rangeTarget.value = width;
+        this.numberTarget.value = width;
+        this.preview(width);
     }
 
     type() {
@@ -94,8 +102,6 @@ export default class extends Controller {
 
         const width = toWidth(this.numberTarget.value);
         this.preview(width);
-        // Measured AFTER the preview, so a cleared field shows the size the
-        // card falls back to, not the one it had a moment ago.
         this.rangeTarget.value = width ?? this.fallbackWidth();
     }
 
@@ -186,9 +192,9 @@ export default class extends Controller {
         this.setSaving(false);
     }
 
-    /** The width the card shows with no number of its own. */
+    /** The scale the card shows with no number of its own. */
     fallbackWidth() {
-        return this.active.variantWidth ?? measureWidth(this.active.img);
+        return this.active.variantWidth ?? DEFAULT;
     }
 
     setSaving(saving) {
@@ -224,7 +230,7 @@ export default class extends Controller {
     }
 }
 
-/** '' / null / 0 → null (no own width), otherwise an integer clamped to 1–100. */
+/** '' / null / 0 → null (no own width), otherwise an integer clamped to MIN–MAX. */
 function toWidth(value) {
     if (value === null || value === undefined || value === '') {
         return null;
@@ -235,44 +241,25 @@ function toWidth(value) {
         return null;
     }
 
-    return Math.min(width, 100);
+    return Math.max(MIN, Math.min(width, MAX));
 }
 
+/** Slider value → MIN–MAX, pulled onto 100 % inside the detent. */
+function snap(value) {
+    const width = Math.max(MIN, Math.min(Math.round(value), MAX));
+
+    return Math.abs(width - DEFAULT) <= DETENT ? DEFAULT : width;
+}
+
+/** Same output as `Manual::logoDisplayScale()`: 100 % / none = no style. */
 function applyWidth(img, width) {
-    if (width === null) {
-        img.style.removeProperty('width');
-        img.style.removeProperty('max-height');
+    if (width === null || width === DEFAULT) {
+        img.style.removeProperty('--logo-scale');
         if (img.getAttribute('style') === '') {
             img.removeAttribute('style');
         }
         return;
     }
 
-    img.style.setProperty('width', `${width}%`, 'important');
-    img.style.setProperty('max-height', 'none', 'important');
-}
-
-/**
- * The logo's VISIBLE width as a % of its parent's content box. Without an
- * explicit width the stylesheet stretches the `<img>` box across the card and
- * caps its height, and the SVG letterboxes itself inside that box — so the
- * box width overstates the logo. The visible width is what the slider has to
- * start from, or the first nudge would make the logo jump.
- */
-function measureWidth(img) {
-    const parent = img.parentElement;
-    const style = getComputedStyle(parent);
-    const inner = parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-    const box = img.getBoundingClientRect();
-
-    if (inner <= 0 || box.width <= 0) {
-        return 50;
-    }
-
-    let visible = box.width;
-    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-        visible = Math.min(box.width, box.height * (img.naturalWidth / img.naturalHeight));
-    }
-
-    return Math.max(1, Math.min(100, Math.round((visible / inner) * 100)));
+    img.style.setProperty('--logo-scale', String(width / 100));
 }

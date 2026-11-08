@@ -6,6 +6,7 @@ namespace WBoost\Web\FormData;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Value\LogoScale;
 
 final class ManualImagesFormData
 {
@@ -45,23 +46,23 @@ final class ManualImagesFormData
 
         $self->logoHorizontalWidthInfo = $manual->logo->horizontal?->widthInfo;
         $self->logoHorizontalHeightInfo = $manual->logo->horizontal?->heightInfo;
-        $self->logoHorizontalDisplayWidth = $manual->logo->horizontal?->displayWidth;
+        $self->logoHorizontalDisplayWidth = $manual->logo->horizontal->displayWidth ?? LogoScale::DEFAULT;
         $self->logoHorizontalOwnPage = $manual->logo->horizontal?->ownPage === true;
         $self->logoVerticalWidthInfo = $manual->logo->vertical?->widthInfo;
         $self->logoVerticalHeightInfo = $manual->logo->vertical?->heightInfo;
-        $self->logoVerticalDisplayWidth = $manual->logo->vertical?->displayWidth;
+        $self->logoVerticalDisplayWidth = $manual->logo->vertical->displayWidth ?? LogoScale::DEFAULT;
         $self->logoVerticalOwnPage = $manual->logo->vertical?->ownPage === true;
         $self->logoHorizontalWithClaimWidthInfo = $manual->logo->horizontalWithClaim?->widthInfo;
         $self->logoHorizontalWithClaimHeightInfo = $manual->logo->horizontalWithClaim?->heightInfo;
-        $self->logoHorizontalWithClaimDisplayWidth = $manual->logo->horizontalWithClaim?->displayWidth;
+        $self->logoHorizontalWithClaimDisplayWidth = $manual->logo->horizontalWithClaim->displayWidth ?? LogoScale::DEFAULT;
         $self->logoHorizontalWithClaimOwnPage = $manual->logo->horizontalWithClaim?->ownPage === true;
         $self->logoVerticalWithClaimWidthInfo = $manual->logo->verticalWithClaim?->widthInfo;
         $self->logoVerticalWithClaimHeightInfo = $manual->logo->verticalWithClaim?->heightInfo;
-        $self->logoVerticalWithClaimDisplayWidth = $manual->logo->verticalWithClaim?->displayWidth;
+        $self->logoVerticalWithClaimDisplayWidth = $manual->logo->verticalWithClaim->displayWidth ?? LogoScale::DEFAULT;
         $self->logoVerticalWithClaimOwnPage = $manual->logo->verticalWithClaim?->ownPage === true;
         $self->logoSymbolWidthInfo = $manual->logo->symbol?->widthInfo;
         $self->logoSymbolHeightInfo = $manual->logo->symbol?->heightInfo;
-        $self->logoSymbolDisplayWidth = $manual->logo->symbol?->displayWidth;
+        $self->logoSymbolDisplayWidth = $manual->logo->symbol->displayWidth ?? LogoScale::DEFAULT;
         $self->logoSymbolOwnPage = $manual->logo->symbol?->ownPage === true;
 
         return $self;

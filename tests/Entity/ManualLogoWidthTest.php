@@ -79,12 +79,48 @@ final class ManualLogoWidthTest extends TestCase
         }
     }
 
-    public function testAnOversizedWidthIsCappedAtTheFrame(): void
+    public function testAnOversizedWidthIsCappedAtTwiceTheDefault(): void
     {
         $manual = $this->manual(horizontalWidth: null);
         $manual->editLogoSlotWidth('basic_logos.horizontal.base', 250);
 
-        self::assertSame(100, $manual->logoSlotWidth('basic_logos.horizontal.base'));
+        self::assertSame(200, $manual->logoSlotWidth('basic_logos.horizontal.base'));
+    }
+
+    public function testATinyWidthIsRaisedToTheMinimum(): void
+    {
+        $manual = $this->manual(horizontalWidth: null);
+        $manual->editLogoSlotWidth('basic_logos.horizontal.base', 3);
+
+        self::assertSame(10, $manual->logoSlotWidth('basic_logos.horizontal.base'));
+    }
+
+    /**
+     * 100 % on a CARD is a real override when its variant is scaled: it puts
+     * that one card back to the default size.
+     */
+    public function testACardCanOverrideItsVariantBackToTheDefault(): void
+    {
+        $manual = $this->manual(horizontalWidth: 60);
+        $manual->editLogoSlotWidth('basic_logos.horizontal.base', 100);
+
+        self::assertSame(100, $manual->logoDisplayWidth('basic_logos.horizontal.base', 'horizontal'));
+    }
+
+    public function testTheVariantWidthIsBoundedAndHundredMeansDefault(): void
+    {
+        $logo = new SvgImage('m/horizontal.svg', [], [], null, null, null);
+
+        $logo->updateDisplayWidth(150);
+        self::assertSame(150, $logo->displayWidth);
+        $logo->updateDisplayWidth(999);
+        self::assertSame(200, $logo->displayWidth);
+        $logo->updateDisplayWidth(4);
+        self::assertSame(10, $logo->displayWidth);
+        $logo->updateDisplayWidth(100);
+        self::assertNull($logo->displayWidth, '100 % = výchozí, nothing to store');
+        $logo->updateDisplayWidth(0);
+        self::assertNull($logo->displayWidth);
     }
 
     /**

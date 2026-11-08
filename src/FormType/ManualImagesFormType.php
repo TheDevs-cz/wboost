@@ -7,6 +7,7 @@ namespace WBoost\Web\FormType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use WBoost\Web\FormData\ManualImagesFormData;
+use WBoost\Web\Value\LogoScale;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
@@ -20,6 +21,8 @@ use Symfony\Component\Validator\Constraints\Range;
  */
 final class ManualImagesFormType extends AbstractType
 {
+    public const string DISPLAY_WIDTH_HELP = '100 % = výchozí velikost loga v manuálu, 50 % = poloviční, 200 % = dvojnásobná (nejvýše na šířku rámečku). Rozsah 10–200 %.';
+
     /**
      * @param mixed[] $options
      */
@@ -157,28 +160,29 @@ final class ManualImagesFormType extends AbstractType
     }
 
     /**
-     * Shared options for the "logo width in the manual (%)" fields.
+     * Shared options for the "logo width in the manual" fields — % of the
+     * logo's DEFAULT size ({@see LogoScale}); empty / 100 = výchozí.
      *
      * @return array<string, mixed>
      */
     private function displayWidthOptions(): array
     {
         return [
-            'label' => 'Šířka loga v manuálu (%)',
+            'label' => 'Šířka loga v manuálu (% výchozí velikosti)',
             'required' => false,
-            'help' => '0 nebo prázdné = výchozí velikost. 1–100 = šířka v procentech rámečku (výška zůstává stejná).',
+            'help' => self::DISPLAY_WIDTH_HELP,
             'constraints' => [
                 new Range(
-                    min: 0,
-                    max: 100,
-                    notInRangeMessage: 'Zadejte hodnotu mezi {{ min }} a {{ max }}.',
+                    min: LogoScale::MIN,
+                    max: LogoScale::MAX,
+                    notInRangeMessage: 'Zadejte hodnotu mezi {{ min }} a {{ max }} %.',
                 ),
             ],
             'attr' => [
-                'min' => 0,
-                'max' => 100,
+                'min' => LogoScale::MIN,
+                'max' => LogoScale::MAX,
                 'step' => 1,
-                'placeholder' => 'výchozí',
+                'placeholder' => (string) LogoScale::DEFAULT,
             ],
         ];
     }
