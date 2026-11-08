@@ -142,17 +142,20 @@
         {% for input in variant.inputs %}
             {% if not input.locked %}
                 {# Echo-capable inputs settle LAZILY (the instant client echo
-                   covers the gap); everything else keeps the fast debounce. #}
-                <input
-                    type="text"
+                   covers the gap); everything else keeps the fast debounce.
+                   A <textarea>, NOT an <input type="text">: an input's value
+                   sanitization strips literal newlines the instant `.value`
+                   is set, and every fill text field is multi-line. The
+                   leading "\n" is eaten by the HTML parser, so a value that
+                   itself starts with a newline keeps it. #}
+                <textarea
                     class="visually-hidden"
                     tabindex="-1"
                     aria-hidden="true"
                     name="textValues[{{ input.inputId }}]"
                     data-text-mirror="{{ input.inputId }}"
                     data-model="on(input)|debounce({{ input.inputId in echoIds ? 2500 : 600 }})|textValues[{{ input.inputId }}]"
-                    value="{{ this.textValues[input.inputId] ?? '' }}"
-                >
+                >{{ "\n" }}{{- this.textValues[input.inputId] ?? '' -}}</textarea>
                 {# The whole-text FONT choice mirror (inputs the designer opened
                    up): the popover's font select writes here — same debounce
                    class as the text, the echo repaints it instantly. #}

@@ -40,6 +40,19 @@ final class ResolveTextOverridesTest extends TestCase
         self::assertSame('abcde', $result->texts[self::INPUT_ID]);
     }
 
+    public function testFormPostedCrlfNewlinesAreNormalizedBeforeTheMaxLengthCheck(): void
+    {
+        // A <textarea> fill field posts its line breaks as CRLF (HTML form
+        // encoding). "\r" must neither count against maxLength nor reach the
+        // render: "ab\r\ncd" is the 5-character value "ab\ncd".
+        $result = (new ResolveTextOverrides())->resolve(
+            [$this->input(maxLength: 5)],
+            [self::INPUT_ID => "ab\r\ncd"],
+        );
+
+        self::assertSame("ab\ncd", $result->texts[self::INPUT_ID]);
+    }
+
     public function testTruncationCountsMultibyteCharacters(): void
     {
         $result = (new ResolveTextOverrides())->resolve(

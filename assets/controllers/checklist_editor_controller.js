@@ -93,6 +93,8 @@ export default class extends Controller {
     keydown(event) {
         if (event.key !== "Enter") return;
         event.preventDefault();
+        // Ctrl/Cmd+Enter = the popover's keyboard "Uložit", not a new item.
+        if (event.ctrlKey || event.metaKey) return;
         if (!this.canAddValue) return;
         const index = this._rowIndex(event.target);
         if (index === null) return;

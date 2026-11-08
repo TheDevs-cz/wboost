@@ -213,7 +213,7 @@ readonly final class ResolveTextOverrides
                 }
             }
 
-            return [$raw, null, null, null, null];
+            return [self::normalizeNewlines($raw), null, null, null, null];
         }
 
         if (!is_array($raw)) {
@@ -255,7 +255,7 @@ readonly final class ResolveTextOverrides
             if (!is_string($raw['value'])) {
                 throw InvalidExportValue::invalidValue(sprintf('Input "%s".value must be a string.', $label));
             }
-            $textValue = $raw['value'];
+            $textValue = self::normalizeNewlines($raw['value']);
 
             if ($richAllowed) {
                 $envelope = RichText::tryExtractEnvelope($textValue);
@@ -267,6 +267,16 @@ readonly final class ResolveTextOverrides
         }
 
         return [$textValue, $this->parseHide($label, $raw), $rawRuns, $rawLines, $fontFamily];
+    }
+
+    /**
+     * Fill text fields are multi-line <textarea>s, and an HTML form POST
+     * encodes their line breaks as CRLF — canonicalize to "\n" so a "\r"
+     * never counts against maxLength nor reaches the render.
+     */
+    private static function normalizeNewlines(string $value): string
+    {
+        return str_replace(["\r\n", "\r"], "\n", $value);
     }
 
     /**

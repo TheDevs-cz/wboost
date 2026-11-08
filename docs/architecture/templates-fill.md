@@ -136,9 +136,17 @@ are **visually-hidden mirror inputs** (`data-text-mirror` / `data-hide-mirror`,
 with the form `name`): the popover text input writes into the mirror and
 dispatches `input` (`syncText`); the eye flips the mirror / a `data-image-hide`
 checkbox and dispatches `change` (`toggleHide`) so the debounced backdrop
-re-render fires and the form POST carries the values. **Enter in a fill field is
-blocked from submitting** (`blockEnter`) — only the Export button downloads; the
-preview updates live via the debounce. Progressive enhancement: without
+re-render fires and the form POST carries the values. **Every fill text field is
+MULTI-LINE** (2026-11-08): plain Enter inserts a newline in the textarea, a new
+line / list item in the WYSIWYG and a new item in the checklist; **Ctrl/Cmd+Enter
+= "Uložit"** (closes the open popover — one handler in the overlay's document
+`keydown`; the rich + checklist editors ignore modified Enter). Enter never
+submits: a textarea can't, `blockEnter` stops a single-line `<input>`, and only
+the Export button downloads; the preview updates live via the debounce. The
+single page's text mirror is a hidden **`<textarea>`** — an `<input type="text">`
+strips literal `"\n"` the moment `.value` is set (the group/document pages use
+`type="hidden"`, which keeps it); form POSTs then send CRLF, which
+`ResolveTextOverrides` canonicalizes to `"\n"` before the maxLength check. Progressive enhancement: without
 `.fill-js` (added on connect) the popovers are a plain stacked editable list. The
 text-only branch drives its ignored preview `<img>` from a Live-updated
 `previewSource` span via MutationObserver (the image branch keeps the existing

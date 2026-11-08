@@ -101,6 +101,9 @@ export default class extends Controller {
      *  standard editor convention). Handles undo/redo + B/I/U shortcuts. */
     keydown(event) {
         if (event.key === "Enter") {
+            // Ctrl/Cmd+Enter is the fill popover's keyboard "Uložit" (the
+            // overlay's document keydown) — no newline, nothing else to do.
+            if (event.ctrlKey || event.metaKey) return;
             event.preventDefault();
             if (this.listsValue) {
                 const sel = this._selectionOffsets();

@@ -249,6 +249,16 @@ export default class extends Controller {
             this.closePopover();
             return;
         }
+        // Ctrl/Cmd+Enter = "Uložit" from the keyboard: plain Enter inserts a
+        // newline in every (multi-line) editor, so the confirm needs a modifier.
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && this._openId !== null) {
+            const popover = this._popoverFor(this._openId);
+            if (popover && popover.contains(event.target)) {
+                event.preventDefault();
+                this.closePopover();
+            }
+            return;
+        }
         if (event.key === "Tab") {
             const modal = this.modalTargets.find((m) => m.classList.contains("is-open"));
             if (modal) this._trapFocus(event, modal);
@@ -905,12 +915,18 @@ export default class extends Controller {
         if (this.hasSpinnerTarget) this.spinnerTarget.classList.remove("is-active");
     }
 
-    /** Enter in a fill field must not submit the form (only Export downloads). */
+    /**
+     * Enter in a fill field must not submit the form (only Export downloads).
+     * Every text field is MULTI-LINE (a <textarea>; values keep their "\n"),
+     * so a plain Enter inserts a newline natively — a textarea never submits
+     * its form. Ctrl/Cmd+Enter confirms the popover: handled once for every
+     * editor (textarea, WYSIWYG, checklist) in `_onKeydown`. A single-line
+     * <input> routed here keeps the old Enter = close.
+     */
     blockEnter(event) {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            this.closePopover();
-        }
+        if (event.key !== "Enter" || event.target instanceof HTMLTextAreaElement) return;
+        event.preventDefault();
+        this.closePopover();
     }
 
     // --- Positioning ---------------------------------------------------------

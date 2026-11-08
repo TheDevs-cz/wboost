@@ -33,7 +33,7 @@
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                 >{{ icon(ph.hidden ? 'eye-off' : 'eye', 's14') }}</button>
             {% endif %}
-            <button type="button" class="btn btn-success xs fill-popover__ok fill-popover__chrome" data-action="variant-fill-overlay#close">{{ icon('check', 's14') }}Uložit</button>
+            <button type="button" class="btn btn-success xs fill-popover__ok fill-popover__chrome" title="Uložit (Ctrl/⌘+Enter)" data-action="variant-fill-overlay#close">{{ icon('check', 's14') }}Uložit</button>
             <button type="button" class="btn btn-ghost icon xs fill-popover__x fill-popover__chrome" aria-label="Zavřít" data-action="variant-fill-overlay#close">{{ icon('x', 's16') }}</button>
         </div>
         {% if ph.description %}<p class="cap fill-popover__desc">{{ ph.description }}</p>{% endif %}
@@ -134,7 +134,7 @@
                     data-action="input->rich-text-editor#input beforeinput->rich-text-editor#beforeInput keydown->rich-text-editor#keydown paste->rich-text-editor#paste compositionstart->rich-text-editor#compositionStart compositionend->rich-text-editor#compositionEnd click->rich-text-editor#editorClick"
                 ></div>
                 <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
-                    <small class="text-muted">{% if ph.uppercase %}Zobrazí se VELKÝMI písmeny · {% endif %}{% if ph.listCheckboxes %}Kliknutím na čtvereček (za)odškrtnete položku · {% endif %}Shift+Enter pro nový řádek</small>
+                    <small class="text-muted">{% if ph.uppercase %}Zobrazí se VELKÝMI písmeny · {% endif %}{% if ph.listCheckboxes %}Kliknutím na čtvereček (za)odškrtnete položku · {% endif %}Ctrl/⌘+Enter uloží</small>
                     <small class="text-muted" data-rich-text-editor-target="counter"></small>
                 </div>
             </div>
@@ -164,7 +164,9 @@
             {% endif %}
             {# Auto-growing textarea: rows="1" is the collapsed start; the
                controller resizes it to fit the full value so long text is
-               never clipped/scrolled. #}
+               never clipped/scrolled. MULTI-LINE: plain Enter = newline,
+               Ctrl/Cmd+Enter = Uložit (variant-fill-overlay). The leading
+               "\n" is eaten by the HTML parser (keeps a value's own one). #}
             <textarea
                 id="fill-text-{{ ph.inputId }}"
                 class="form-control form-control-sm fill-popover__input"
@@ -172,7 +174,7 @@
                 {% if ph.maxLength %}maxlength="{{ ph.maxLength }}" aria-describedby="fill-text-hint-{{ ph.inputId }}"{% endif %}
                 data-action="input->variant-fill-overlay#syncText keydown->variant-fill-overlay#blockEnter"
                 data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
-            >{{- ph.value -}}</textarea>
+            >{{ "\n" }}{{- ph.value -}}</textarea>
             <div class="d-flex justify-content-between mt-1" id="fill-text-hint-{{ ph.inputId }}">
                 {% if ph.uppercase %}<small class="text-muted">Zobrazí se VELKÝMI písmeny</small>{% else %}<span></span>{% endif %}
                 {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }} / {{ ph.maxLength }} znaků</small>{% endif %}
