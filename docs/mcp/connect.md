@@ -167,7 +167,7 @@ Pick the narrowest that does the job.
 |---|---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` | the default when `--scopes` is omitted |
 | `templates:export` | `export_variant` — the full-size lossless PNG | **implies** `templates:read`; exports are counted in the usage report |
-| `templates:design` | `preview_design`, `set_design` — author a variant's design | **implies** `templates:read`; also needs you to OWN the project |
+| `templates:design` | `preview_design`, `set_design` — author a variant's design; `upload_font` — add a font file (a variable font is expanded into its cuts) | **implies** `templates:read`; also needs you to OWN the project (`upload_font`: to be able to edit it) |
 | `gallery:write` | `upload_image` — add a picture to a project's gallery | implies **nothing**: grant it alongside another scope if the agent should also browse |
 
 A tool the credential lacks the scope for is **not listed** to the client at all,
@@ -332,12 +332,12 @@ Nine tools:
 | `upload_image` | `gallery:write` | add a picture to a project's gallery and get its id back |
 | `preview_design` | `templates:design` | compile and draw a design document without saving anything |
 | `set_design` | `templates:design` | replace a variant's design, guarded against destroying what it cannot express |
+| `upload_font` | `templates:design` | add a TTF/OTF/WOFF font to a project; a variable font becomes one face per named instance (Inter → 18 cuts); the reply lists the exact font strings to design with |
 
-**Nothing here deletes anything** — not a template, not a variant, not a picture.
+**Nothing here deletes anything** — not a template, not a variant, not a picture, not a font.
 Gallery pictures can be added but never removed, moved or renamed from a client;
 that stays a human job in wboost.
 
-Two capabilities are deliberately absent: there is **no tool that reads a design
 **Backgrounds.** A design document should always carry exactly one `background`
 element — a colour (`"fill"`) or a gallery picture (`"asset"`). It compiles to
 the editor's locked "Pozadí" layer (an `isBackground` object, full-bleed incl.
@@ -346,6 +346,7 @@ the print bleed), never to Fabric's canvas-level colour. `preview_design` /
 `canvas_color_under_background`) when a design has none or draws it by hand, and
 the server's connect instructions say the same.
 
+Two capabilities are deliberately absent: there is **no tool that reads a design
 back** as a document (so `set_design` authors designs rather than edits them),
 and there is **no tool for group design** (a synchronized group's shared design
 is authored in the wboost group editor).

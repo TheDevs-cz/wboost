@@ -28,7 +28,7 @@ enum McpScope: string
     /** Produce a full-size, lossless PNG export. */
     case TemplatesExport = 'templates:export';
 
-    /** Author designs: create templates/variants and write canvases. */
+    /** Author designs: create templates/variants, write canvases, upload fonts. */
     case TemplatesDesign = 'templates:design';
 
     /** Upload new pictures into a project's gallery. */

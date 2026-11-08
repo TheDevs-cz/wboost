@@ -60,6 +60,7 @@ readonly final class DescribeMcpCapabilities
         'export_document',
         'document_history',
         'upload_image',
+        'upload_font',
         'preview_design',
         'set_design',
         'manage_document',
@@ -221,6 +222,12 @@ readonly final class DescribeMcpCapabilities
                 . 'aby ho šlo hned použít. Limit WBoostu je 10 MB, přes AI klienta se ale kvůli '
                 . 'omezení přenosu vejde zhruba 3 MB. Mazat ani přejmenovávat obrázky odsud '
                 . 'nejde — to zůstává na člověku ve WBoostu.',
+            ],
+            'upload_font' => [
+                'Nahrát písmo',
+                'Přidá do projektu soubor písma (TTF, OTF nebo WOFF), který asistentovi pošlete. '
+                . 'Variabilní písmo rozloží na jednotlivé řezy — stejně jako při nahrání ve WBoostu. '
+                . 'Nic se nepřepisuje ani nemaže.',
             ],
             'preview_design' => [
                 'Navrhnout design nanečisto',

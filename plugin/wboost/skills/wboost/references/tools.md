@@ -22,7 +22,7 @@ called anyway.
 |---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` |
 | `templates:export` | `export_variant`, `export_document`, `document_history` |
-| `templates:design` | `preview_design`, `set_design`, `manage_document` |
+| `templates:design` | `preview_design`, `set_design`, `manage_document`, `upload_font` |
 | `gallery:write` | `upload_image` |
 
 Each row lists the tools that **declare** that scope. Implication is separate and
@@ -258,6 +258,30 @@ background that has no gallery id cannot be named in a design, but the same
 picture uploaded here can.
 
 ---
+
+## `upload_font(projectId, fontBase64, filename)`
+
+Scope `templates:design`; you must be able to edit the project. Adds a TTF,
+OTF or WOFF (not WOFF2) to the project's fonts, filed under the family the
+file's name table declares. A **variable font** (`fvar` axes) is expanded into
+one static face per named instance — exactly as if each cut had been uploaded
+alone (Inter 3.x/4.x → Thin…Black, each also Italic). base64 only, keep it
+under ~3 MB (4 MiB request cap); wboost's limit is 10 MB.
+
+```jsonc
+{
+  "family": "Inter",                       // null for a static file already present
+  "variable": true,
+  "created": ["Inter (Inter Thin)", …],     // faces this call added
+  "alreadyPresent": ["Inter (Inter Bold)"],// kept untouched — re-sending is harmless
+  "fonts": ["Inter (Inter Thin)", …],       // the whole family afterwards
+  "message": "Variable font: 17 face(s) created, 1 already present."
+}
+```
+
+All three lists use the exact `font` strings a design element and
+`input.allowedFonts` take. A file that is not a readable font is a tool error
+naming the file; nothing is stored. Nothing is ever replaced or deleted.
 
 ## `render_variant(variantId, inputs?, images?, shapeColors?)`
 

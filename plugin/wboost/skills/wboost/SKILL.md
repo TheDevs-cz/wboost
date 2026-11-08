@@ -1,6 +1,6 @@
 ---
 name: wboost
-description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the twelve wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, preview_design, set_design, manage_document), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
+description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the thirteen wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, upload_font, preview_design, set_design, manage_document), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
 ---
 
 # wboost templates
@@ -16,9 +16,10 @@ This connector gives you twelve tools across three jobs:
 - **fill and deliver** a design somebody already made (`render_variant`,
   `export_variant`, and `export_document` + `document_history` for a
   multi-page document);
-- **author** — add pictures to the gallery, write a variant's design yourself
-  and arrange multi-page documents (`upload_image`, `preview_design`,
-  `set_design`, `manage_document`).
+- **author** — add pictures to the gallery, add font files, write a
+  variant's design yourself and arrange multi-page documents
+  (`upload_image`, `upload_font`, `preview_design`, `set_design`,
+  `manage_document`).
 
 Which of those you can actually do depends on the scopes the connection was
 granted; `get_context` echoes them back and a tool you lack the scope for is not
@@ -45,9 +46,16 @@ get_context          → the exact font faces and brand colours you may use
   └ find_templates   → the variant to design on, and its size
       └ describe_variant  → its canvas size, and what it holds today
           ├ list_gallery / upload_image  → picture ids your design references
+          ├ upload_font      → only if a cut the design needs is missing
           ├ preview_design   → compile + draw WITHOUT saving; iterate here
           └ set_design       → the commit, once
 ```
+
+A cut missing from `get_context` fonts (e.g. only "Inter (Inter Regular)" when
+the design wants ExtraBold) is fixed with `upload_font` and the user's font
+file — a **variable font** (one file with weight/slant axes, e.g.
+`Inter-VariableFont_slnt,wght.ttf`) is expanded into every named cut
+(Inter → 18 faces). Design with the strings its reply lists.
 
 Every step feeds the next with **ids**. Never skip `get_context`, and never skip
 `describe_variant` — there is no other source for the ids a fill is keyed by, or
