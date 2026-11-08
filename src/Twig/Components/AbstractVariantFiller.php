@@ -787,12 +787,7 @@ abstract class AbstractVariantFiller extends AbstractController
         $texts = $this->textValues;
         ksort($texts);
         foreach ($texts as $inputId => $value) {
-            // The browser only ever sees "\n" in the <textarea> mirror (the
-            // HTML parser and the textarea API value normalize CRLF/CR), and a
-            // CRLF can be SEEDED here (a loaded version / draft of a textarea
-            // form POST) — hash what the client hashes, or no settle would
-            // ever match and the echo would never rest.
-            $parts[] = 'T:' . $inputId . '=' . str_replace(["\r\n", "\r"], "\n", $value);
+            $parts[] = 'T:' . $inputId . '=' . $value;
         }
 
         $hidden = $this->hiddenValues;

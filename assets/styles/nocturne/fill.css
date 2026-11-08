@@ -148,6 +148,16 @@
 .fill-box__tool:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; box-shadow: 0 2px 6px rgb(0 0 0 / .25); }
 .fill-box__tool--hide.is-active { background: var(--pch-deep); color: var(--pch-ink); border-color: var(--surface); }
 .fill-box__tool .i { width: 13px; height: 13px; }
+/* Chrome follows the ON-CANVAS part of the box: a frame that runs past the
+   artwork (box top < 0 …) shifts its tag + cluster by the clipped insets the
+   overlay controller writes (`_placeChrome`), so the stage edge never cuts a
+   pencil in half. 0 for a box fully on the canvas = the rules above. */
+.fill-box__name { top: calc(var(--fill-vis-top, 0px) - 1px); left: calc(var(--fill-vis-left, 0px) - 1px); }
+.fill-box--tools-left .fill-box__name { left: auto; right: calc(var(--fill-vis-right, 0px) - 1px); }
+.fill-box__tools { top: calc(var(--fill-vis-top, 0px) - 11px); right: calc(var(--fill-vis-right, 0px) - 11px); }
+.fill-box--tools-left .fill-box__tools { right: auto; left: calc(var(--fill-vis-left, 0px) - 11px); }
+.fill-box.fill-box--tools-inside .fill-box__tools { top: calc(var(--fill-vis-top, 0px) + 4px); right: calc(var(--fill-vis-right, 0px) + 4px); }
+.fill-box.fill-box--tools-left.fill-box--tools-inside .fill-box__tools { right: auto; left: calc(var(--fill-vis-left, 0px) + 4px); }
 
 /* Live-preview veil + spinner badge. */
 .fill-spinner { background: color-mix(in oklab, var(--bg) 30%, transparent); }

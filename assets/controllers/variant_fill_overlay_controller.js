@@ -937,9 +937,12 @@ export default class extends Controller {
 
         (this._surfaces || []).forEach((surface) => {
             const scale = this._scaleFor(surface);
-            const previewWidth = surface.preview
-                ? surface.preview.getBoundingClientRect().width / z
-                : 0;
+            const previewRect = surface.preview ? surface.preview.getBoundingClientRect() : null;
+            const previewWidth = previewRect ? previewRect.width / z : 0;
+            const previewHeight = previewRect ? previewRect.height / z : 0;
+            // "Near an edge" in UNSCALED stage px for a ~16 screen-px margin:
+            // the clusters are counter-scaled to a constant on-screen size.
+            const edge = 18 / z;
 
             surface.boxes.forEach((box) => {
                 const frame = this._frameOf(box, surface);
@@ -956,14 +959,45 @@ export default class extends Controller {
                 box.style.width = `${frame.width * scale}px`;
                 box.style.height = `${frame.height * scale}px`;
 
-                // Edge-aware icon cluster: keep it from hanging off the top or right
-                // of the preview (where it would detach from the artwork / clip).
-                box.classList.toggle("fill-box--tools-inside", top < 30);
-                box.classList.toggle("fill-box--tools-left", previewWidth > 0 && previewWidth - right < 60);
+                this._placeChrome(box, { left, top, right, bottom: top + frame.height * scale }, previewWidth, previewHeight, edge);
             });
         });
 
         this._reanchorOpenPopover();
+    }
+
+    /**
+     * Edge-aware chrome (pencil / eye cluster + name tag): anchor it to the
+     * part of the box that is ON the canvas, never to the box itself. A frame
+     * may run off the artwork (the designer bled a photo past the top edge:
+     * box top < 0), and the stage's viewport clips everything past the canvas
+     * — so "inside the box" alone still left the pencil half cut off. The
+     * visible rect's insets go to CSS vars the cluster + tag offset by
+     * (fill.css), and the inside / flip-left decisions are taken against it.
+     */
+    _placeChrome(box, rect, previewWidth, previewHeight, edge) {
+        if (!(previewWidth > 0)) {
+            box.classList.remove("fill-box--tools-inside", "fill-box--tools-left");
+            return;
+        }
+        const height = previewHeight > 0 ? previewHeight : Infinity;
+        const visible = {
+            left: Math.max(rect.left, 0),
+            top: Math.max(rect.top, 0),
+            right: Math.min(rect.right, previewWidth),
+            bottom: Math.min(rect.bottom, height),
+        };
+        box.style.setProperty("--fill-vis-top", `${visible.top - rect.top}px`);
+        box.style.setProperty("--fill-vis-left", `${visible.left - rect.left}px`);
+        box.style.setProperty("--fill-vis-right", `${rect.right - visible.right}px`);
+
+        const nearTop = visible.top < edge;
+        const nearRight = previewWidth - visible.right < edge;
+        const nearLeft = visible.left < edge;
+        // Flip the cluster to the left corner when the right one is at the
+        // edge; tuck it INSIDE when it would still hang off (top, or both sides).
+        box.classList.toggle("fill-box--tools-left", nearRight && !nearLeft);
+        box.classList.toggle("fill-box--tools-inside", nearTop || (nearRight && nearLeft));
     }
 
     /** Display px per canvas px on one surface. Divides by zoom: the box

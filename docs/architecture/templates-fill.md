@@ -124,7 +124,13 @@ the overflow signal survives off-artwork (the alert, the disabled export, and
 on the group page a per-dimension `[data-fill-overflow-badge]` in the card
 header toggled by `_recomputeLayout`). Box
 positions come from the designer frame scaled to the displayed preview
-(`scale = previewWidth / variant.dimension.width()`). The overlay, popovers and
+(`scale = previewWidth / variant.dimension.width()`). **Box chrome (tag + pencil/eye
+cluster) anchors to the ON-CANVAS part of the box** (`_placeChrome`, 2026-11-08):
+a frame may run past the artwork (a photo bled over the top edge → box top < 0)
+and everything past the canvas is clipped by the viewport, so the controller
+writes the clipped insets as `--fill-vis-top/left/right` (fill.css offsets the
+tag + cluster by them) and takes the flip-left / tuck-inside decisions against
+the visible rect with an ~18 screen-px margin. The overlay, popovers and
 modals all live in `data-live-ignore` subtrees so a Live re-render never wipes
 open state or the picker's chosen folder — but the **text popovers sit in their
 own `.fill-popovers` wrapper OUTSIDE the zoom-scaled `.fill-stage` / scrolling
@@ -207,19 +213,6 @@ never see any of this.
   (`AbstractVariantFiller::fillStateHash`) and JS
   (`assets/controllers/fill_state_hash.js`, shared with the overlay) are
   pinned byte-identical by test (Czech diacritics covered).
-- **The hash is only as good as the mirrors' BROWSER-visible values
-  (2026-11-08).** Prod report "jumping text on hiding an element": the text
-  mirror was an `<input type="text">`, whose value sanitization strips every
-  `"\n"` at parse time, while the server kept them → the client hash NEVER
-  matched. The eye toggle (a pure checkbox flip) entered echo mode, the echo
-  repainted EVERY echo-capable text from the stripped mirrors (multi-line
-  texts snapped onto one line — the jump), and no settle could ever rest it.
-  Fixed by the `<textarea>` mirror; `fillStateHash()` also canonicalizes
-  CRLF/CR → `"\n"` (a seeded version/draft can carry CRLF from a textarea
-  POST; the browser only ever shows `"\n"`). Pinned by
-  `FillMirrorStateHashTest`, which hashes the rendered mirrors as a browser
-  reads them and compares with the server's `data-state-hash` — any future
-  mirror markup that loses bytes fails it.
 - **"A settle landed" = Live's `render:finished` hook (2026-09-08)**, wired
   through `assets/controllers/live_component.js` in BOTH the echo controller
   and `variant_fill_overlay_controller` (the render veil); the
