@@ -64,6 +64,31 @@ response's `directoryId` is null for root uploads.
   ghost box converts the px step to a ratio of THAT dimension's frame and takes
   focus on pointerdown — cancelling pointerdown cancels focus-on-press, so
   before that the box was Tab-only and arrows scrolled the page after a click.
+  **Image adjust (2026-11-08)**: selecting a picked picture (click, or the
+  box's "Upravit velikost a polohu" tool for keyboard/touch) opens a panel —
+  the shared `_fill_image_adjust.html.twig` body driven by
+  `image_adjust_toolbar.js` on BOTH fill pages (single: fixed `.fill-adjust`
+  next to the picture's visible box, a bottom sheet under 768 px; group /
+  document: inside `.group-fill-placement-toolbar`, now window-aware so it may
+  hang outside the small card instead of covering the picture). Controls:
+  gallery-style zoom slider (`.sz-ctl`, 100 % = contain = "Přizpůsobit",
+  range 25 % … max(400 %, 2× cover)), width/height (aspect locked) and the
+  unrotated picture's top-left X/Y from the CANVAS origin in the variant's
+  unit (mm/cm 300 DPI, px for screen formats; `image_placement.js`
+  `placementToBox` and inverses), rotation, Vyplnit (cover + centre) /
+  Přizpůsobit (contain + centre) / Vycentrovat. Nothing new is stored: every
+  control maps onto the same `scale`/`offsetX|Y`(`Ratio`)/`rotation` the drag
+  writes, so render, export, history and drafts are untouched (API contract
+  unchanged). Every resize — handles, slider, typed size — scales about the
+  picture CENTRE, so the pan never drifts. On the single page Fabric's own
+  controls are OFF (`hasControls:false`): they are painted inside the canvas
+  bitmap, so a corner pushed past the canvas edge (the reported "can't grab
+  the corner any more") was unreachable. `image_adjust_handles.js` draws the
+  outline + corner/rotate handles in a fixed layer on `<body>`, clipped only
+  to the viewport box + 10 px, and CLAMPS an off-screen corner onto that edge
+  (`.is-clamped`) — the centre-anchored distance-ratio drag works the same
+  from a clamped handle. While selected, the part of the picture outside its
+  frame is painted faintly (Fabric `after:render`, never exported).
   Design content the admin stacked
   ABOVE a placeholder (locked image, title over a photo) renders as transparent
   **overlay slices** — one per placeholder gap that actually holds content

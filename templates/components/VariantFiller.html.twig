@@ -90,6 +90,7 @@
             data-variant-image-fill-height-value="{{ variant.dimension.height }}"
             data-variant-image-fill-backdrop-id-value="variant-backdrop-source"
             data-variant-image-fill-overlays-id-value="variant-overlay-sources"
+            data-variant-image-fill-unit-value="{{ variant.dimension.unit.value }}"
         {% endif %}
         {% if this.canPublish() and this.facebookConnected %}
             data-variant-publish-publish-url-value="{{ this.publishPath() }}"
@@ -380,6 +381,7 @@
                     text_frames: textFrames,
                     image_frames: imageFrames,
                     image_hidden: imageHidden,
+                    image_adjust_tool: true,
                     shape_placeholders: shapePlaceholders,
                     shape_frames: shapeFrames,
                 }) }}
@@ -399,6 +401,25 @@
            mode (`fill-panel-open` on the form): this container docks into a
            modal listing every popover + image card as a stacked form — the
            SAME editor instances, no second copy of any field. #}
+        {# ---- Image adjust panels (one per adjustable slot) ------------------
+           Opened by selecting the picked picture (variant-image-fill). Fixed
+           in viewport coords OUTSIDE the zoom-scaled stage like the text
+           popovers; docked to the bottom edge on phones. #}
+        {% if hasImages %}
+            <div class="fill-adjust-layer" data-live-ignore>
+                {% for ph in imagePlaceholders|filter(ph => not ph.isBackground and (ph.allowMove or ph.allowResize or ph.allowRotate)) %}
+                    <div class="fill-adjust" hidden role="group" aria-label="Úprava obrázku: {{ ph.name ?: 'Obrázek' }}"
+                         data-image-adjust="{{ ph.inputId }}">
+                        {{ include('_fill_image_adjust.html.twig', {
+                            slot: ph,
+                            unit: variant.dimension.unit.value,
+                            id_prefix: 'fill-adjust-' ~ ph.inputId,
+                            hint: ph.allowMove ? 'Obrázek posunete tažením, velikost změníte rohy nebo posuvníkem.' : 'Velikost změníte rohy nebo posuvníkem.',
+                        }) }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
         <div class="fill-panel-backdrop" data-live-ignore data-action="click->variant-fill-overlay#closePanel"></div>
         {% set canArrangeFields = is_granted('ROLE_ADMIN') %}
         <div class="fill-popovers" data-live-ignore data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title"
@@ -455,7 +476,7 @@
                             <button type="button" class="btn btn-tertiary xs"
                                     data-action="variant-fill-overlay#openImageModal"
                                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}">
-                                {{ icon('image', 's14') }}{{ ph.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
+                                {{ icon('image-search', 's14') }}{{ ph.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
                             </button>
                         </div>
                         {% if ph.hidable %}

@@ -1,0 +1,93 @@
+{#
+    Image-adjust controls for ONE picked picture in ONE dimension — the body of
+    the single page's floating `.fill-adjust` panel and of the group/document
+    pages' `.group-fill-placement-toolbar`. Behaviour-free markup: the owning
+    controller (variant-image-fill / group-fill) wires every `[data-adjust]`
+    control and `[data-adjust-action]` button by delegation, so this partial
+    names no controller.
+
+    Every value maps onto the SAME placement the drag writes (scale × contain,
+    centre offset, rotation) — see image_placement.js "Image-adjust toolbar".
+
+    Params:
+    - slot:      {inputId, name, allowMove, allowResize, allowRotate}
+    - unit:      the variant's DimensionUnit value ('px' | 'mm' | 'cm')
+    - id_prefix: unique per rendered toolbar (label `for` ids)
+    - hint:      optional one-line caption under the controls
+#}
+{% set slot_name = slot.name ?: 'Obrázek' %}
+{% set step = unit == 'px' ? '1' : (unit == 'cm' ? '0.01' : '0.1') %}
+<div class="fill-adjust__head">
+    <span class="fill-adjust__name text-truncate">{{ icon('image', 's14') }}<span class="text-truncate">{{ slot_name }}</span></span>
+    <button type="button" class="btn-close fill-adjust__close" aria-label="Zavřít úpravu obrázku" data-adjust-action="close"></button>
+</div>
+{% if slot.allowResize %}
+    <div class="fill-adjust__zoom">
+        <label class="sz-ctl fill-adjust__slider" for="{{ id_prefix }}-scale" title="Velikost obrázku">
+            {{ icon('image', 's12') }}
+            <span class="visually-hidden">Velikost obrázku</span>
+            <input type="range" id="{{ id_prefix }}-scale" min="25" max="400" step="1" value="100"
+                   data-adjust="scale" aria-valuetext="100 %">
+            {{ icon('image', 's18') }}
+        </label>
+        <output class="fill-adjust__value" for="{{ id_prefix }}-scale" data-adjust="scale-value">100 %</output>
+    </div>
+{% endif %}
+{% if slot.allowResize or slot.allowMove %}
+    <div class="fill-adjust__grid">
+        {% if slot.allowResize %}
+            <label class="fill-adjust__field" title="Šířka obrázku (výška se dopočítá)">
+                <span class="fill-adjust__key" aria-hidden="true">Š</span>
+                <input type="number" class="form-control" step="{{ step }}" min="0" inputmode="decimal"
+                       data-adjust="width" aria-label="Šířka obrázku v {{ unit }}">
+                <span class="fill-adjust__unit" aria-hidden="true">{{ unit }}</span>
+            </label>
+            <label class="fill-adjust__field" title="Výška obrázku (šířka se dopočítá)">
+                <span class="fill-adjust__key" aria-hidden="true">V</span>
+                <input type="number" class="form-control" step="{{ step }}" min="0" inputmode="decimal"
+                       data-adjust="height" aria-label="Výška obrázku v {{ unit }}">
+                <span class="fill-adjust__unit" aria-hidden="true">{{ unit }}</span>
+            </label>
+        {% endif %}
+        {% if slot.allowMove %}
+            <label class="fill-adjust__field" title="Levý okraj obrázku od levého okraje plátna">
+                <span class="fill-adjust__key" aria-hidden="true">X</span>
+                <input type="number" class="form-control" step="{{ step }}" inputmode="decimal"
+                       data-adjust="x" aria-label="Poloha obrázku zleva v {{ unit }}">
+                <span class="fill-adjust__unit" aria-hidden="true">{{ unit }}</span>
+            </label>
+            <label class="fill-adjust__field" title="Horní okraj obrázku od horního okraje plátna">
+                <span class="fill-adjust__key" aria-hidden="true">Y</span>
+                <input type="number" class="form-control" step="{{ step }}" inputmode="decimal"
+                       data-adjust="y" aria-label="Poloha obrázku shora v {{ unit }}">
+                <span class="fill-adjust__unit" aria-hidden="true">{{ unit }}</span>
+            </label>
+        {% endif %}
+    </div>
+{% endif %}
+{% if slot.allowRotate %}
+    <div class="fill-adjust__zoom">
+        <label class="sz-ctl fill-adjust__slider" for="{{ id_prefix }}-rotation" title="Otočení">
+            {{ icon('refresh', 's14') }}
+            <span class="visually-hidden">Otočení obrázku</span>
+            <input type="range" id="{{ id_prefix }}-rotation" min="-180" max="180" step="1" value="0"
+                   data-adjust="rotation" aria-valuetext="0°">
+        </label>
+        <output class="fill-adjust__value" for="{{ id_prefix }}-rotation" data-adjust="rotation-value">0°</output>
+    </div>
+{% endif %}
+<div class="fill-adjust__actions">
+    {% if slot.allowResize %}
+        <button type="button" class="btn btn-tertiary xs" data-adjust-action="cover"
+                title="Zvětšit tak, aby obrázek vyplnil celou oblast (okraje se oříznou)">Vyplnit</button>
+        <button type="button" class="btn btn-tertiary xs" data-adjust-action="contain"
+                title="Zmenšit tak, aby byl vidět celý obrázek">Přizpůsobit</button>
+    {% endif %}
+    {% if slot.allowMove %}
+        <button type="button" class="btn btn-tertiary xs" data-adjust-action="center"
+                title="Posunout obrázek doprostřed oblasti">Vycentrovat</button>
+    {% endif %}
+</div>
+{% if hint|default('') %}
+    <p class="cap fill-adjust__hint">{{ icon('grip', 's12') }} {{ hint }}</p>
+{% endif %}

@@ -836,6 +836,52 @@ final class TemplateVariantExportControllerTest extends WebTestCase
     }
 
     /**
+     * Image adjust (zoom slider / size / position) on the single fill page:
+     * one hidden panel per ADJUSTABLE slot, outside the zoom-scaled stage,
+     * in the variant's unit, plus the box tool that opens it (hidden until a
+     * picture is picked). A slot without move/resize/rotate gets neither, and
+     * the panel's controls are never posted — only the hidden placement
+     * fields drive the render.
+     */
+    public function testImageVariantRendersAdjustPanelForAdjustableSlotsOnly(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $rendered = (string) $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID)],
+            client: $client,
+        )->render();
+
+        $crawler = new Crawler($rendered);
+        $photo = TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID;
+        $locked = TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID;
+
+        self::assertSame('px', $crawler->filter('[data-controller~="variant-image-fill"]')->attr('data-variant-image-fill-unit-value'));
+
+        $panel = $crawler->filter('[data-image-adjust="' . $photo . '"]');
+        self::assertCount(1, $panel);
+        self::assertNotNull($panel->attr('hidden'));
+        self::assertCount(0, $crawler->filter('.fill-stage [data-image-adjust]'));
+        self::assertCount(1, $panel->filter('input[type="range"][data-adjust="scale"]'));
+        self::assertCount(1, $panel->filter('input[type="range"][data-adjust="rotation"]'));
+        foreach (['width', 'height', 'x', 'y'] as $field) {
+            self::assertCount(1, $panel->filter('input[type="number"][data-adjust="' . $field . '"]'));
+        }
+        self::assertSame('px', trim($panel->filter('.fill-adjust__unit')->first()->text()));
+        self::assertCount(0, $panel->filter('input[name]'));
+
+        $tool = $crawler->filter('[data-adjust-tool="' . $photo . '"]');
+        self::assertCount(1, $tool);
+        self::assertNotNull($tool->attr('hidden'));
+        self::assertSame('variant-image-fill#openAdjust', $tool->attr('data-action'));
+
+        self::assertCount(0, $crawler->filter('[data-image-adjust="' . $locked . '"]'));
+        self::assertCount(0, $crawler->filter('[data-adjust-tool="' . $locked . '"]'));
+    }
+
+    /**
      * Admin-set opacity on an image placeholder reaches the interactive fill
      * canvas: the user's picture (and the stand-in) is drawn client-side, so
      * the payload must carry the designed opacity — a fill never changes it.

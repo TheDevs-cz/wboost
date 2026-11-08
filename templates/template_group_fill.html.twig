@@ -333,43 +333,13 @@
                                                 <div class="group-fill-placement-toolbar" hidden
                                                      role="group" aria-label="{{ slot_name }} — úprava v rozměru {{ v.dimension_label }}"
                                                      data-group-fill-target="placementToolbar"
-                                                     data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">
-                                                    <div class="d-flex align-items-center justify-content-between gap-2">
-                                                        <span class="group-fill-placement-toolbar__name text-truncate">{{ icon('image', 's14') }} {{ slot_name }}</span>
-                                                        <span class="d-inline-flex align-items-center gap-2">
-                                                            <button type="button" class="btn btn-link btn-sm group-fill-placement-toolbar__center"
-                                                                    data-action="group-fill#resetVariantPlacement"
-                                                                    data-group-fill-variantid-param="{{ variantId }}"
-                                                                    data-group-fill-inputid-param="{{ input.inputId }}">Vycentrovat</button>
-                                                            <button type="button" class="btn-close group-fill-placement-toolbar__close" aria-label="Zavřít"
-                                                                    data-action="group-fill#deselectPlacement"></button>
-                                                        </span>
-                                                    </div>
-                                                    {% if input.allowResize %}
-                                                        <div class="group-fill-placement-control">
-                                                            <label for="group-fill-zoom-{{ variantId }}-{{ input.inputId }}" title="Zvětšení">{{ icon('search', 's16') }}<span class="visually-hidden">Zvětšení</span></label>
-                                                            <input type="range" class="form-range" id="group-fill-zoom-{{ variantId }}-{{ input.inputId }}"
-                                                                   min="1" max="4" step="0.01" value="1"
-                                                                   data-group-fill-target="variantZoomRange"
-                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
-                                                                   data-action="input->group-fill#variantZoomChanged">
-                                                            <span class="group-fill-placement-control__value" data-group-fill-target="variantZoomLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">100 %</span>
-                                                        </div>
-                                                    {% endif %}
-                                                    {% if input.allowRotate %}
-                                                        <div class="group-fill-placement-control">
-                                                            <label for="group-fill-rotation-{{ variantId }}-{{ input.inputId }}" title="Otočení">{{ icon('refresh', 's16') }}<span class="visually-hidden">Otočení</span></label>
-                                                            <input type="range" class="form-range" id="group-fill-rotation-{{ variantId }}-{{ input.inputId }}"
-                                                                   min="-180" max="180" step="1" value="0"
-                                                                   data-group-fill-target="variantRotationRange"
-                                                                   data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}"
-                                                                   data-action="input->group-fill#variantRotationChanged">
-                                                            <span class="group-fill-placement-control__value" data-group-fill-target="variantRotationLabel" data-variant-id="{{ variantId }}" data-input-id="{{ input.inputId }}">0°</span>
-                                                        </div>
-                                                    {% endif %}
-                                                    {% if input.allowMove %}
-                                                        <p class="cap group-fill-placement-toolbar__hint">{{ icon('grip', 's12') }} Posunete tažením obrázku{{ input.allowResize ? ', kolečkem myši přiblížíte' }}.</p>
-                                                    {% endif %}
+                                                     data-variant-id="{{ variantId }}" data-unit="{{ v.variant.dimension.unit.value }}" data-input-id="{{ input.inputId }}">
+                                                    {{ include('_fill_image_adjust.html.twig', {
+                                                        slot: input,
+                                                        unit: v.variant.dimension.unit.value,
+                                                        id_prefix: 'group-fill-adjust-' ~ variantId ~ '-' ~ input.inputId,
+                                                        hint: input.allowMove ? 'Posunete tažením obrázku' ~ (input.allowResize ? ', kolečkem myši přiblížíte' : '') ~ '.' : '',
+                                                    }) }}
                                                 </div>
                                             {% endif %}
                                         {% endfor %}
@@ -443,7 +413,7 @@
                                 <button type="button" class="btn btn-tertiary xs"
                                         data-action="variant-fill-overlay#openImageModal"
                                         data-variant-fill-overlay-inputid-param="{{ input.inputId }}">
-                                    {{ icon('image', 's14') }}{{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
+                                    {{ icon('image-search', 's14') }}{{ slot.canUpload ? 'Vybrat / nahrát obrázek' : 'Vybrat obrázek' }}
                                 </button>
                             </div>
                             <input type="hidden" name="images[{{ input.inputId }}][imageId]" value="{{ seededImage ? seededImage.imageId : '' }}"

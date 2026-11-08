@@ -150,11 +150,20 @@ final class TemplateGroupFillControllerTest extends WebTestCase
             $toolbar = $surface->filter('[data-group-fill-target="placementToolbar"][data-variant-id="' . $variantId . '"][data-input-id="' . $slotId . '"]');
             self::assertCount(1, $toolbar);
             self::assertNotNull($toolbar->attr('hidden'));
-            // Slot allows move + resize, not rotate.
-            self::assertCount(1, $toolbar->filter('[data-group-fill-target="variantZoomRange"][data-variant-id="' . $variantId . '"]'));
-            self::assertCount(0, $toolbar->filter('[data-group-fill-target="variantRotationRange"]'));
-            self::assertCount(1, $toolbar->filter('[data-action="group-fill#resetVariantPlacement"][data-group-fill-variantid-param="' . $variantId . '"]'));
-            self::assertCount(1, $toolbar->filter('[data-action="group-fill#deselectPlacement"]'));
+            // The shared image-adjust body (_fill_image_adjust.html.twig):
+            // slot allows move + resize, not rotate — zoom slider, W/H + X/Y
+            // in the dimension's unit, fill / fit / centre, close; no rotation.
+            self::assertNotEmpty($toolbar->attr('data-unit'));
+            self::assertCount(1, $toolbar->filter('input[type="range"][data-adjust="scale"]'));
+            self::assertCount(0, $toolbar->filter('[data-adjust="rotation"]'));
+            foreach (['width', 'height', 'x', 'y'] as $field) {
+                self::assertCount(1, $toolbar->filter('input[type="number"][data-adjust="' . $field . '"]'));
+            }
+            foreach (['cover', 'contain', 'center', 'close'] as $action) {
+                self::assertCount(1, $toolbar->filter('[data-adjust-action="' . $action . '"]'));
+            }
+            // The controls are never posted: only the hidden placement fields are.
+            self::assertCount(0, $toolbar->filter('input[name]'));
 
             foreach (['scale', 'offsetXRatio', 'offsetYRatio'] as $field) {
                 self::assertCount(1, $crawler->filter('input[type="hidden"][name="imagePlacements[' . $variantId . '][' . $slotId . '][' . $field . ']"][data-group-fill-target="overrideField"]'));

@@ -1,5 +1,8 @@
 import { Controller } from "@hotwired/stimulus";
 import { Canvas, FabricImage, Rect } from "fabric";
+import { ImageAdjustToolbar } from "./image_adjust_toolbar.js";
+import { ImageAdjustHandles } from "./image_adjust_handles.js";
+import { ADJUST_SCALE_MIN, adjustScaleMax, clamp } from "./image_placement.js";
 
 /**
  * Interactive image-fill canvas for the user-fill page (Stage 5 hybrid).
@@ -31,6 +34,15 @@ import { Canvas, FabricImage, Rect } from "fabric";
  * controller anchors its dashed box + pencil/eye cluster to the artwork
  * instead of the designed frame (a contain-fitted or user-moved image can sit
  * far from the frame's corner).
+ *
+ * Image adjust (2026-11-08): selecting a picked picture opens its
+ * `[data-image-adjust]` panel (`_fill_image_adjust.html.twig` — zoom slider,
+ * width/height/X/Y in the variant's unit, rotation, Vyplnit / Přizpůsobit /
+ * Vycentrovat) and the `ImageAdjustHandles` layer, which replaces Fabric's
+ * own controls: those are painted inside the canvas bitmap, so a corner
+ * pushed past the canvas edge could never be grabbed again. Every path —
+ * drag, handles, slider, typed numbers, arrow keys — lands in the same Fabric
+ * object and `_writeTransform`, i.e. the same four placement fields.
  */
 export default class extends Controller {
     static targets = ["canvas", "wrapper"];
@@ -40,6 +52,7 @@ export default class extends Controller {
         height: Number,
         backdropId: String,
         overlaysId: String,
+        unit: { type: String, default: "px" },
     };
 
     connect() {
@@ -94,7 +107,10 @@ export default class extends Controller {
 
         // The overlay's box must FOLLOW the artwork while it is being dragged /
         // scaled / rotated — not jump only on mouse-up (object:modified).
-        const track = (event) => this._broadcastObjectFrame(event.target);
+        const track = (event) => {
+            this._broadcastObjectFrame(event.target);
+            this._syncAdjust(event.target);
+        };
         this.canvas.on('object:moving', track);
         this.canvas.on('object:scaling', track);
         this.canvas.on('object:rotating', track);
@@ -104,9 +120,12 @@ export default class extends Controller {
         // canvas is not focusable, so there is no element to hang it on.
         this._boundKeydown = (event) => this._onKeydown(event);
         document.addEventListener('keydown', this._boundKeydown);
+
+        this._connectAdjust();
     }
 
     disconnect() {
+        this._disconnectAdjust();
         if (this._boundKeydown) document.removeEventListener('keydown', this._boundKeydown);
         if (this._boundFit) window.removeEventListener('resize', this._boundFit);
         if (this._backdropObserver) this._backdropObserver.disconnect();
@@ -337,6 +356,7 @@ export default class extends Controller {
     _replaceObject(inputId, fabricObject) {
         const existing = this.objects[inputId];
         if (existing && existing.object) {
+            if (this._adjustId === inputId) this._closeAdjust();
             this.canvas.remove(existing.object);
         }
         this.objects[inputId] = { object: fabricObject };
@@ -351,6 +371,7 @@ export default class extends Controller {
         // Every slot change repaints in the designed z-order (this also puts
         // background slots at the bottom — their layerIndex is the lowest).
         this._restack();
+        this._refreshAdjustTools();
     }
 
     async pickImage(event) {
@@ -442,7 +463,12 @@ export default class extends Controller {
             lockScalingX: !placeholder.allowResize,
             lockScalingY: !placeholder.allowResize,
             lockRotation: !placeholder.allowRotate,
-            hasControls: placeholder.allowResize || placeholder.allowRotate,
+            // Resize / rotate run through the ImageAdjustHandles layer (it
+            // can reach corners past the canvas edge); Fabric only moves.
+            hasControls: false,
+            hasBorders: false,
+            hoverCursor: placeholder.allowMove ? 'move' : 'pointer',
+            moveCursor: 'move',
             selectable: adjustable,
             evented: adjustable,
             clipPath: this._frameClip(frame),
@@ -460,6 +486,7 @@ export default class extends Controller {
         this._replaceObject(inputId, img);
         if (adjustable && activate) {
             this.canvas.setActiveObject(img);
+            this._openAdjust(inputId);
         }
         this.canvas.requestRenderAll();
         this._broadcastFrame(inputId, img, frame);
@@ -506,6 +533,288 @@ export default class extends Controller {
         }
     }
 
+    // --- Image adjust: panel + handles ----------------------------------------
+
+    _connectAdjust() {
+        this._adjustId = null;
+        this._adjustToolbars = {};
+        this.element.querySelectorAll('[data-image-adjust]').forEach((element) => {
+            const inputId = element.getAttribute('data-image-adjust');
+            this._adjustToolbars[inputId] = new ImageAdjustToolbar(element, {
+                unit: this.unitValue,
+                getState: () => this._adjustState(inputId),
+                apply: (patch, options) => this._applyAdjust(inputId, patch, options),
+                close: (options) => this.closeAdjust(options),
+            });
+        });
+
+        this._handles = new ImageAdjustHandles({
+            canvasElement: () => this.canvas && this.canvas.lowerCanvasEl,
+            clipElement: () => this.element.querySelector('.fill-viewport'),
+            canvasWidth: this.widthValue,
+            onScale: (factor, final) => this._handleScale(factor, final),
+            onRotate: (degrees, final) => this._applyAdjust(this._adjustId, { rotation: degrees }, { final }),
+        });
+
+        // Selecting the picture (click on the canvas) opens its panel;
+        // clicking anywhere else on the canvas closes it.
+        const selected = () => {
+            const object = this.canvas.getActiveObject();
+            if (object && object._placeholderId && object._containScale) this._openAdjust(object._placeholderId);
+        };
+        this.canvas.on('selection:created', selected);
+        this.canvas.on('selection:updated', selected);
+        this.canvas.on('selection:cleared', () => {
+            if (this._handles && this._handles.isDragging()) return;
+            this._closeAdjust();
+        });
+        // The picture outside its frame, faint — only while selected, so the
+        // user sees what the crop cuts away (the export never shows it).
+        this.canvas.on('after:render', (event) => this._paintCropGhost(event && event.ctx));
+
+        // A press anywhere outside the picture's chrome closes the panel
+        // (the canvas itself is handled by Fabric's selection events).
+        this._boundAdjustOutside = (event) => {
+            if (!this._adjustId || (this._handles && this._handles.isDragging())) return;
+            const target = event.target;
+            if (!target || typeof target.closest !== 'function') return;
+            if (target.closest('[data-image-adjust], .fill-adjust-handles, .canvas-container, [data-adjust-tool], .fill-modal, .modal')) return;
+            this.closeAdjust();
+        };
+        document.addEventListener('pointerdown', this._boundAdjustOutside, true);
+
+        this._boundAdjustReposition = () => this._positionAdjust();
+        window.addEventListener('resize', this._boundAdjustReposition);
+        window.addEventListener('scroll', this._boundAdjustReposition, true);
+    }
+
+    _disconnectAdjust() {
+        Object.values(this._adjustToolbars || {}).forEach((toolbar) => toolbar.destroy());
+        if (this._handles) this._handles.destroy();
+        if (this._boundAdjustOutside) document.removeEventListener('pointerdown', this._boundAdjustOutside, true);
+        if (this._boundAdjustReposition) {
+            window.removeEventListener('resize', this._boundAdjustReposition);
+            window.removeEventListener('scroll', this._boundAdjustReposition, true);
+        }
+    }
+
+    /** The overlay box's tool "Upravit velikost a polohu" (keyboard path). */
+    openAdjust(event) {
+        const inputId = event.params && event.params.inputid;
+        const slot = inputId && this.objects[inputId];
+        const object = slot && slot.object;
+        if (!object || !object._containScale) return;
+        this.canvas.setActiveObject(object);
+        this.canvas.requestRenderAll();
+        this._openAdjust(inputId);
+        const toolbar = this._adjustToolbars[inputId];
+        if (toolbar) {
+            this._adjustTrigger = event.currentTarget;
+            toolbar.focusFirst();
+        }
+    }
+
+    closeAdjust(options = {}) {
+        const trigger = this._adjustTrigger;
+        this.canvas.discardActiveObject();
+        this.canvas.requestRenderAll();
+        this._closeAdjust();
+        if (options.restoreFocus && trigger && document.contains(trigger)) trigger.focus({ preventScroll: true });
+    }
+
+    _openAdjust(inputId) {
+        const placeholder = this.placeholdersById[inputId];
+        const object = this.objects[inputId] && this.objects[inputId].object;
+        if (!placeholder || !object || !object._containScale) return;
+
+        if (this._adjustId !== inputId) this._closeAdjust();
+        this._adjustId = inputId;
+
+        Object.entries(this._adjustToolbars).forEach(([id, toolbar]) => {
+            toolbar.element.hidden = id !== inputId;
+        });
+        const toolbar = this._adjustToolbars[inputId];
+        if (toolbar) toolbar.sync();
+        this._handles.show(object, { allowResize: placeholder.allowResize, allowRotate: placeholder.allowRotate });
+        this.element.classList.add('fill-adjust-open');
+        this._positionAdjust();
+    }
+
+    _closeAdjust() {
+        if (this._adjustId === null || this._adjustId === undefined) return;
+        Object.values(this._adjustToolbars).forEach((toolbar) => { toolbar.element.hidden = true; });
+        this._adjustId = null;
+        this._adjustTrigger = null;
+        if (this._handles) this._handles.hide();
+        this.element.classList.remove('fill-adjust-open');
+        document.body.style.paddingBottom = '';
+        if (this.canvas) this.canvas.requestRenderAll();
+    }
+
+    _adjustState(inputId) {
+        const placeholder = this.placeholdersById[inputId];
+        const object = this.objects[inputId] && this.objects[inputId].object;
+        if (!placeholder || !placeholder.frame || !object || !object._containScale) return null;
+        const frame = placeholder.frame;
+        const center = object.getCenterPoint();
+
+        return {
+            frame,
+            natural: { width: object.width || 1, height: object.height || 1 },
+            scale: (object.scaleX || object._containScale) / object._containScale,
+            offsetX: center.x - (frame.x + frame.width / 2),
+            offsetY: center.y - (frame.y + frame.height / 2),
+            rotation: object.angle || 0,
+            allowMove: placeholder.allowMove,
+        };
+    }
+
+    /**
+     * Apply a toolbar / handle change to the live object, honouring the
+     * slot's limits, then run the SAME path a Fabric drag ends in
+     * (object:modified → hidden fields + overlay box + toolbar sync).
+     */
+    _applyAdjust(inputId, patch) {
+        const placeholder = inputId && this.placeholdersById[inputId];
+        const object = inputId && this.objects[inputId] && this.objects[inputId].object;
+        if (!placeholder || !placeholder.frame || !object || !object._containScale) return;
+        const frame = placeholder.frame;
+        const changes = {};
+
+        if (placeholder.allowResize && Number.isFinite(patch.scale)) {
+            const scale = object._containScale * patch.scale;
+            changes.scaleX = scale;
+            changes.scaleY = scale;
+        }
+        if (placeholder.allowMove && Number.isFinite(patch.offsetX)) changes.left = frame.x + frame.width / 2 + patch.offsetX;
+        if (placeholder.allowMove && Number.isFinite(patch.offsetY)) changes.top = frame.y + frame.height / 2 + patch.offsetY;
+        if (placeholder.allowRotate && Number.isFinite(patch.rotation)) changes.angle = patch.rotation;
+        if (Object.keys(changes).length === 0) return;
+
+        object.set(changes);
+        object.setCoords();
+        this.canvas.requestRenderAll();
+        this.canvas.fire('object:modified', { target: object });
+    }
+
+    /** Corner drag: a factor of the scale at drag start, about the centre. */
+    _handleScale(factor, final) {
+        const inputId = this._adjustId;
+        const state = inputId && this._adjustState(inputId);
+        if (!state) return;
+        if (!this._scaleDragStart || this._scaleDragStart.inputId !== inputId) {
+            this._scaleDragStart = { inputId, scale: state.scale };
+        }
+        const max = adjustScaleMax(state.frame, state.natural);
+        const scale = clamp(this._scaleDragStart.scale * factor, ADJUST_SCALE_MIN, max);
+        this._applyAdjust(inputId, { scale });
+        if (final) this._scaleDragStart = null;
+    }
+
+    _syncAdjust(object) {
+        if (!object || object._placeholderId !== this._adjustId) return;
+        const toolbar = this._adjustToolbars[this._adjustId];
+        if (toolbar) toolbar.sync();
+        this._positionAdjust();
+    }
+
+    /** Show the box tool "Upravit velikost a polohu" only for slots holding
+     *  a user-picked, adjustable picture (the designed stand-in can't be
+     *  transformed — the server 400s a transform without an imageId). */
+    _refreshAdjustTools() {
+        this.element.querySelectorAll('[data-adjust-tool]').forEach((button) => {
+            const slot = this.objects[button.getAttribute('data-adjust-tool')];
+            button.hidden = !(slot && slot.object && slot.object._containScale && slot.object.selectable);
+        });
+    }
+
+    /**
+     * Float the panel next to the picture's VISIBLE box (the overlay's image
+     * box follows it): below, else above, else pinned inside the window —
+     * position:fixed like the text popovers, so no zoom/overflow clips it.
+     * Phones dock it to the bottom edge via CSS instead.
+     */
+    _positionAdjust() {
+        const toolbar = this._adjustId && this._adjustToolbars[this._adjustId];
+        if (!toolbar || toolbar.element.hidden) return;
+        const panel = toolbar.element;
+        if (window.matchMedia && window.matchMedia('(max-width: 767.98px)').matches) {
+            // Bottom sheet (CSS): reserve its height under the page so the
+            // artwork it covers can still be scrolled into view.
+            panel.style.left = '';
+            panel.style.top = '';
+            document.body.style.paddingBottom = `${panel.offsetHeight + 16}px`;
+            return;
+        }
+        document.body.style.paddingBottom = '';
+        const box = this.element.querySelector(`.fill-box--image[data-inputid="${this._adjustId}"]`);
+        const viewport = this.element.querySelector('.fill-viewport');
+        const anchor = (box && box.offsetParent !== null ? box : viewport);
+        if (!anchor) return;
+        const visible = anchor.getBoundingClientRect();
+        const area = viewport ? viewport.getBoundingClientRect() : visible;
+        // Anchor to the part of the box that is actually on screen.
+        const rect = {
+            left: Math.max(visible.left, area.left),
+            right: Math.min(visible.right, area.right),
+            top: Math.max(visible.top, area.top),
+            bottom: Math.min(visible.bottom, area.bottom),
+        };
+        const gap = 12;
+        const margin = 8;
+        const width = panel.offsetWidth;
+        const height = panel.offsetHeight;
+
+        const clampLeft = (value) => Math.min(Math.max(value, margin), window.innerWidth - width - margin);
+        const clampTop = (value) => Math.min(Math.max(value, margin), window.innerHeight - height - margin);
+        const centredLeft = clampLeft((rect.left + rect.right) / 2 - width / 2);
+        const sideTop = clampTop(rect.top);
+        // Below → above → right → left of the picture; only when none fits
+        // (a picture filling the screen) does it pin over the artwork.
+        let left;
+        let top;
+        if (rect.bottom + gap + height <= window.innerHeight - margin) {
+            [left, top] = [centredLeft, rect.bottom + gap];
+        } else if (rect.top - gap - height >= margin) {
+            [left, top] = [centredLeft, rect.top - gap - height];
+        } else if (rect.right + gap + width <= window.innerWidth - margin) {
+            [left, top] = [rect.right + gap, sideTop];
+        } else if (rect.left - gap - width >= margin) {
+            [left, top] = [rect.left - gap - width, sideTop];
+        } else {
+            [left, top] = [centredLeft, clampTop(window.innerHeight - height - margin)];
+        }
+        panel.style.left = `${Math.round(left)}px`;
+        panel.style.top = `${Math.round(top)}px`;
+    }
+
+    _paintCropGhost(ctx) {
+        if (!ctx || !this._adjustId) return;
+        const placeholder = this.placeholdersById[this._adjustId];
+        const object = this.objects[this._adjustId] && this.objects[this._adjustId].object;
+        const element = object && typeof object.getElement === 'function' ? object.getElement() : null;
+        if (!placeholder || !placeholder.frame || !element) return;
+        const frame = placeholder.frame;
+        const vpt = this.canvas.viewportTransform;
+        const retina = typeof this.canvas.getRetinaScaling === 'function' ? this.canvas.getRetinaScaling() : 1;
+        const center = object.getCenterPoint();
+
+        ctx.save();
+        ctx.setTransform(vpt[0] * retina, vpt[1] * retina, vpt[2] * retina, vpt[3] * retina, vpt[4] * retina, vpt[5] * retina);
+        // Everything EXCEPT the frame (even-odd): the frame already shows
+        // the real, clipped picture.
+        ctx.beginPath();
+        ctx.rect(0, 0, this.widthValue, this.heightValue);
+        ctx.rect(frame.x, frame.y, frame.width, frame.height);
+        ctx.clip('evenodd');
+        ctx.globalAlpha = 0.28 * (typeof object.opacity === "number" ? object.opacity : 1);
+        ctx.translate(center.x, center.y);
+        ctx.rotate(((object.angle || 0) * Math.PI) / 180);
+        ctx.scale(object.scaleX || 1, object.scaleY || 1);
+        ctx.drawImage(element, -(object.width || 0) / 2, -(object.height || 0) / 2, object.width || 0, object.height || 0);
+        ctx.restore();
+    }
+
     // --- Placement <-> form-field mirroring ---------------------------------
 
     _onObjectModified(event) {
@@ -515,6 +824,7 @@ export default class extends Controller {
         if (!placeholder || !placeholder.frame) return;
         this._writeTransform(object._placeholderId, object, placeholder.frame);
         this._broadcastFrame(object._placeholderId, object, placeholder.frame);
+        this._syncAdjust(object);
     }
 
     // --- Keyboard nudge ------------------------------------------------------

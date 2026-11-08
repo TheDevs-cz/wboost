@@ -73,10 +73,14 @@ Vrstvy panel and the API `layerIndex` are unaffected. Contracts:
   slot whose frame exists in THAT dimension — zoom / rotation ranges (only
   what the slot allows), "Vycentrovat", ×. Selecting the picture's stand-in
   (`.group-fill-ghost`, pointerdown or focus) opens that one toolbar,
-  anchored under the frame (flips above, last resort inside the bottom
-  edge) by `_positionToolbars`, which every `renderGhosts` re-runs; a press
+  anchored under the frame (flips above) by `_positionToolbars`, which every `renderGhosts` re-runs; a press
   outside ghost + toolbar, Escape or × closes it, and it hides while the
-  picture is dragged. Stand-ins exist only for PICKED pictures, so the
+  picture is dragged. Since 2026-11-08 the toolbar body is the shared
+  `_fill_image_adjust.html.twig` (zoom slider, W/H/X/Y in the dimension's
+  unit, rotation, Vyplnit / Přizpůsobit / Vycentrovat — see
+  templates-image-placeholders.md "Image adjust"), and it is positioned
+  against the WINDOW (below the visible frame, else above), free to hang
+  outside the card. Stand-ins exist only for PICKED pictures, so the
   designed picture never gets one (`ResolveImageOverrides` 400s a transform
   without `imageId`). The `imagePlacements[<variantId>][<inputId>][…]`
   hidden fields sit with the text mirrors at the top of the form, one per

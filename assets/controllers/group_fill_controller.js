@@ -1,11 +1,8 @@
 import { Controller } from '@hotwired/stimulus';
 import * as fabric from 'fabric';
-import { NEUTRAL_PLACEMENT, clamp, frameBox, ghostStyle } from './image_placement.js';
+import { ADJUST_SCALE_MIN, NEUTRAL_PLACEMENT, adjustScaleMax, clamp, frameBox, ghostStyle } from './image_placement.js';
+import { ImageAdjustToolbar } from './image_adjust_toolbar.js';
 
-const ZOOM_MIN = 1;
-const ZOOM_MAX = 4;
-const ROTATION_MIN = -180;
-const ROTATION_MAX = 180;
 /**
  * Keyboard nudge step in CANVAS px (arrow keys on a focused picture) — the
  * same 1 px the admin editor moves a selected object by. The stored pan is a
@@ -91,7 +88,6 @@ export default class extends Controller {
     static targets = [
         'preview', 'imageThumb', 'imageValue', 'imageOptions', 'exportButton',
         'placementLayer', 'placementToolbar', 'overrideField',
-        'variantZoomRange', 'variantZoomLabel', 'variantRotationRange', 'variantRotationLabel',
         'echoBase', 'echoCanvas',
     ];
 
@@ -179,6 +175,7 @@ export default class extends Controller {
         });
         this._applySeed();
         this.slotsValue.forEach((slot) => this._writePlacementFields(slot.inputId));
+        this._connectAdjustToolbars();
         this.renderGhosts();
         this._syncPlacementControls();
 
@@ -281,6 +278,8 @@ export default class extends Controller {
         window.removeEventListener('pageshow', this._onPageShow);
         document.removeEventListener('pointerdown', this._onOutsidePress, true);
         document.removeEventListener('keydown', this._onEscape, true);
+        (this._adjustToolbars || []).forEach((toolbar) => toolbar.destroy());
+        this._adjustToolbars = [];
         window.removeEventListener('resize', this._onResize);
         this._selected = null;
         clearTimeout(this.refreshTimer);
@@ -1146,7 +1145,7 @@ export default class extends Controller {
         const direction = event.deltaY < 0 ? 1 : -1;
 
         this._mutatePlacement(variantId, slot.inputId, (placement) => {
-            placement.scale = clamp((placement.scale ?? 1) + direction * step, ZOOM_MIN, ZOOM_MAX);
+            placement.scale = clamp((placement.scale ?? 1) + direction * step, ADJUST_SCALE_MIN, this._scaleMax(variantId, slot.inputId));
         });
     }
 
@@ -1191,6 +1190,7 @@ export default class extends Controller {
         }
 
         this._selected = { variantId, inputId };
+        this._syncPlacementControls();
         this._positionToolbars();
     }
 
@@ -1246,75 +1246,121 @@ export default class extends Controller {
             return;
         }
 
+        // Window-aware, not surface-bound: the toolbar (zoom, size, position,
+        // fill / fit) is taller than a small dimension preview, so pinning it
+        // INSIDE the surface covered the very picture being adjusted. It may
+        // hang below / above the card (the card does not clip); only the
+        // window bounds it.
         const gap = 8;
+        const margin = 8;
         const area = surface.getBoundingClientRect();
         const frame = ghost.getBoundingClientRect();
+        // The frame may bleed past the preview — anchor to its visible part.
+        const visibleTop = Math.max(frame.top, area.top);
+        const visibleBottom = Math.min(frame.bottom, area.bottom);
         const width = toolbar.offsetWidth;
         const height = toolbar.offsetHeight;
 
-        let top = frame.bottom - area.top + gap;
-        if (top + height > area.height) {
-            top = frame.top - area.top - gap - height;
-        }
-        if (top < 0) {
-            top = Math.max(0, area.height - height - gap);
+        let top = visibleBottom + gap;
+        if (top + height > window.innerHeight - margin && visibleTop - gap - height >= margin) {
+            top = visibleTop - gap - height;
         }
 
-        const centred = frame.left - area.left + frame.width / 2 - width / 2;
-        const left = Math.min(Math.max(centred, gap), Math.max(gap, area.width - width - gap));
+        const centred = (Math.max(frame.left, area.left) + Math.min(frame.right, area.right)) / 2 - width / 2;
+        const left = Math.min(Math.max(centred, margin), Math.max(margin, window.innerWidth - width - margin));
 
-        toolbar.style.top = `${top}px`;
-        toolbar.style.left = `${left}px`;
+        toolbar.style.top = `${top - area.top}px`;
+        toolbar.style.left = `${left - area.left}px`;
     }
 
-    variantZoomChanged(event) {
-        this._mutateVariantPlacement(event.target, (placement) => {
-            placement.scale = clamp(parseFloat(event.target.value) || 1, ZOOM_MIN, ZOOM_MAX);
+    /**
+     * One `ImageAdjustToolbar` per toolbar (dimension × slot) — the shared
+     * `_fill_image_adjust.html.twig` body: zoom slider, width/height/X/Y in
+     * the dimension's unit, rotation, Vyplnit / Přizpůsobit / Vycentrovat.
+     * It speaks canvas px; this page stores the pan as a FRACTION of the
+     * frame, converted here against THIS dimension's frame.
+     */
+    _connectAdjustToolbars() {
+        (this._adjustToolbars || []).forEach((toolbar) => toolbar.destroy());
+        this._adjustToolbars = this.placementToolbarTargets.map((element) => {
+            const { variantId, inputId } = element.dataset;
+            const toolbar = new ImageAdjustToolbar(element, {
+                unit: element.dataset.unit || 'px',
+                getState: () => this._adjustState(variantId, inputId),
+                apply: (patch) => this._applyAdjust(variantId, inputId, patch),
+                close: (options = {}) => {
+                    const ghost = this._ghostFor(variantId, inputId);
+                    this.deselectPlacement();
+                    if (options.restoreFocus) ghost?.focus({ preventScroll: true });
+                },
+            });
+            toolbar.variantId = variantId;
+            toolbar.inputId = inputId;
+            return toolbar;
         });
     }
 
-    variantRotationChanged(event) {
-        this._mutateVariantPlacement(event.target, (placement) => {
-            placement.rotation = clamp(parseInt(event.target.value, 10) || 0, ROTATION_MIN, ROTATION_MAX);
-        });
+    _ghostFor(variantId, inputId) {
+        const layer = this.placementLayerTargets.find((element) => element.dataset.variantId === variantId);
+        return layer?.querySelector(`[data-ghost="${inputId}"]`) ?? null;
     }
 
-    resetVariantPlacement(event) {
-        const { variantid: variantId, inputid: inputId } = event.params;
+    _adjustState(variantId, inputId) {
+        const frame = this._variant(variantId)?.frames?.[inputId];
+        const natural = this.pictures[inputId]?.natural;
+        const slot = this._slot(inputId);
+        if (!frame || !natural || !slot) {
+            return null;
+        }
+        const placement = this._effectivePlacement(variantId, inputId);
+
+        return {
+            frame,
+            natural,
+            scale: placement.scale ?? 1,
+            offsetX: (placement.offsetXRatio ?? 0) * frame.width,
+            offsetY: (placement.offsetYRatio ?? 0) * frame.height,
+            rotation: placement.rotation ?? 0,
+            allowMove: slot.allowMove,
+        };
+    }
+
+    _scaleMax(variantId, inputId) {
+        const frame = this._variant(variantId)?.frames?.[inputId];
+        const natural = this.pictures[inputId]?.natural;
+
+        return frame && natural ? adjustScaleMax(frame, natural) : 4;
+    }
+
+    _applyAdjust(variantId, inputId, patch) {
+        const frame = this._variant(variantId)?.frames?.[inputId];
+        const slot = this._slot(inputId);
+        if (!frame || !slot) {
+            return;
+        }
         this._mutatePlacement(variantId, inputId, (placement) => {
-            Object.assign(placement, NEUTRAL_PLACEMENT);
+            if (slot.allowResize && Number.isFinite(patch.scale)) {
+                placement.scale = clamp(patch.scale, ADJUST_SCALE_MIN, this._scaleMax(variantId, inputId));
+            }
+            if (slot.allowMove && Number.isFinite(patch.offsetX) && frame.width > 0) {
+                placement.offsetXRatio = patch.offsetX / frame.width;
+            }
+            if (slot.allowMove && Number.isFinite(patch.offsetY) && frame.height > 0) {
+                placement.offsetYRatio = patch.offsetY / frame.height;
+            }
+            if (slot.allowRotate && Number.isFinite(patch.rotation)) {
+                placement.rotation = clamp(patch.rotation, -180, 180);
+            }
         });
-        this._activateGhosts(variantId);
-    }
-
-    _mutateVariantPlacement(control, mutate) {
-        const { variantId, inputId } = control.dataset;
-        this._mutatePlacement(variantId, inputId, mutate);
         this._activateGhosts(variantId);
     }
 
     /**
-     * Keep the chrome truthful: every range mirrors what its dimension
+     * Keep the chrome truthful: every toolbar mirrors what its dimension
      * currently renders with. (The toolbars themselves only open over a
      * stand-in, which exists only once a picture is picked.)
      */
     _syncPlacementControls() {
-
-        const mirror = (ranges, labels, key, format) => {
-            ranges.forEach((range) => {
-                const { variantId, inputId } = range.dataset;
-                const value = this._effectivePlacement(variantId, inputId)[key] ?? (key === 'scale' ? 1 : 0);
-                range.value = String(value);
-                const label = labels.find(
-                    (element) => element.dataset.variantId === variantId && element.dataset.inputId === inputId,
-                );
-                if (label) {
-                    label.textContent = format(value);
-                }
-            });
-        };
-
-        mirror(this.variantZoomRangeTargets, this.variantZoomLabelTargets, 'scale', (v) => `${Math.round(v * 100)} %`);
-        mirror(this.variantRotationRangeTargets, this.variantRotationLabelTargets, 'rotation', (v) => `${Math.round(v)}°`);
+        (this._adjustToolbars || []).forEach((toolbar) => toolbar.sync());
     }
 }

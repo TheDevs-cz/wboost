@@ -14,6 +14,8 @@
       px — a placeholder without a frame here gets no box (the popover stays
       reachable from the panel / layers list)
     - image_hidden: inputId → bool, the initial eye state of image slots
+    - image_adjust_tool: (single page) render the hidden "Upravit velikost a
+      polohu" tool on adjustable image slots
     - shape_placeholders / shape_frames: (optional) the recolourable shapes
       (FillShapePlaceholders rows) + their frames in THIS surface — a box
       with a palette button opening the shape's colour popover
@@ -75,6 +77,17 @@
                     data-action="variant-fill-overlay#openImageModal"
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                 >{{ icon('image', 's14') }}</button>
+                {% if image_adjust_tool|default(false) and not ph.isBackground|default(false) and (ph.allowMove|default(false) or ph.allowResize|default(false) or ph.allowRotate|default(false)) %}
+                    {# Single page: keyboard / touch path to the image-adjust
+                       panel; shown by variant-image-fill only once a picture
+                       is picked (the designed stand-in can't be placed). #}
+                    <button type="button" class="fill-box__tool fill-box__tool--adjust" hidden
+                        title="Upravit velikost a polohu" aria-label="Upravit velikost a polohu{% if ph.name %}: {{ ph.name }}{% endif %}"
+                        data-adjust-tool="{{ ph.inputId }}"
+                        data-action="variant-image-fill#openAdjust"
+                        data-variant-image-fill-inputid-param="{{ ph.inputId }}"
+                    >{{ icon('fit', 's14') }}</button>
+                {% endif %}
                 {% if ph.hidable %}
                     <button type="button" class="fill-box__tool fill-box__tool--hide{{ hidden ? ' is-active' : '' }}"
                         data-hide-toggle="{{ ph.inputId }}"
