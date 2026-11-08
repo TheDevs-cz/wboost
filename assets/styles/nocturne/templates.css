@@ -95,8 +95,17 @@
 .tp-type-b .cap { flex: 1; line-height: 1.5; font-size: 13px; color: var(--muted); }
 /* quiet grey button that lights up on hover of the whole card, so the four don't shout */
 .tp-type-go { margin-top: 10px; align-self: stretch; justify-content: center; text-decoration: none; }
-.tp-type-go::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+/* The CTA's ::after stretches over the WHOLE card (.tp-type is the positioned
+   ancestor). Radius = the card's 18px, NOT `inherit`: that took the pill
+   button's 999px and shrank the hit area to a stadium missing the corners
+   and most of the wireframe. */
+.tp-type-go::after { content: ""; position: absolute; inset: 0; border-radius: 18px; }
+/* …and no .btn:active press transform: a transform makes the button the
+   containing block on mousedown, the ::after collapses onto it and the mouseup
+   lands outside the link — no click from anywhere but the button itself. */
+.tp-type .tp-type-go:active { transform: none; }
 .tp-type:hover .tp-type-go, .tp-type-go:focus-visible { background: var(--lav); border-color: var(--lav); color: var(--on-accent, #141218); }
+.tp-type:has(.tp-type-go:focus-visible) { border-color: var(--lav); box-shadow: 0 0 0 1.5px var(--lav); }
 .tp-type-alt { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--lav-ink); font-size: 13px; font-weight: 600; text-decoration: none; }
 .tp-type-alt:hover { text-decoration: underline; text-underline-offset: 3px; }
 .tp-type-t { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -104,9 +113,12 @@
 .tp-prem .i { width: 14px; height: 14px; }
 .tp-type.prem { border-color: color-mix(in oklab, var(--pch) 45%, var(--line-2)); }
 .tp-type.prem:hover { border-color: var(--pch); box-shadow: 0 0 0 1.5px var(--pch); }
+/* "Brzy" card is inert: no pointer, no hover ring (always disabled today — when
+   it ships, drop .is-soon and it becomes a stretched link like the others) */
 .tp-type.is-soon { cursor: default; }
+.tp-type.prem.is-soon:hover { border-color: color-mix(in oklab, var(--pch) 45%, var(--line-2)); box-shadow: none; }
 .tp-type.is-soon .tp-type-go::after { content: none; }
-.tp-type.is-soon .tp-type-go:disabled { opacity: 1; background: var(--surface-3); color: var(--muted); }
+.tp-type.is-soon .tp-type-go:disabled { opacity: 1; background: var(--surface-3); border-color: var(--line-2); color: var(--muted); }
 .wf-card { fill: var(--surface-3); } .wf-card.op { opacity: .45; } .wf-card.op2 { opacity: .7; }
 .wf-ph { fill: color-mix(in oklab, var(--line-3) 55%, var(--surface-3)); } .wf-b { fill: var(--line-3); } .wf-acc { fill: var(--lav); }
 .wf-dash { fill: none; stroke: var(--lav); stroke-width: 1.4; stroke-dasharray: 4 3; } .wf-spark { fill: var(--pch); }
