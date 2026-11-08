@@ -140,7 +140,8 @@ webu, Statistiky),
 ### Page header blocks
 
 `page_title_row` (default) renders, inside `.inner`: the `breadcrumb` block
-as a quiet back-trail (`.page-crumbs`; first item gets a ← arrow, the
+as a quiet back-trail (`.page-crumbs`; first item gets a ← arrow drawn as
+`a::before` INSIDE the link — arrow + text are one padded hit area — the
 `.active` last item — which duplicates the h1 — is hidden; a breadcrumb that
 is only the current page is hidden entirely), then `header.head` with the
 `eyebrow` block (default: "Projekt · {name}" inside a project,

@@ -47,8 +47,15 @@
 .breadcrumb-item, .breadcrumb-item a { color: var(--muted); font-weight: 500; text-decoration: none; }
 .breadcrumb-item a:hover { color: var(--text); }
 .breadcrumb-item > i { display: none; }
-.page-crumbs .breadcrumb-item:first-child::before {
-    content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 8px; vertical-align: -3px; float: none; padding: 0;
+/* The ← arrow belongs INSIDE the first crumb's link so arrow + text are one
+   hit area (it used to sit on the <li>, outside the <a>, and was dead). The
+   link gets an invisible padded hit box (padding offset by negative margin,
+   so the layout does not move). A first crumb without a link keeps the
+   arrow on the <li>. */
+.page-crumbs .breadcrumb-item a { display: inline-flex; align-items: center; padding: 6px 4px; margin: -6px -4px; border-radius: var(--bs-border-radius-sm); outline-offset: 0; }
+.page-crumbs .breadcrumb-item:first-child > a::before,
+.page-crumbs .breadcrumb-item:first-child:not(:has(> a))::before {
+    content: ""; display: inline-block; flex: none; width: 16px; height: 16px; margin-right: 8px; vertical-align: -3px; float: none; padding: 0;
     background: currentColor;
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M19 12H5M11 6l-6 6 6 6'/></svg>") center / contain no-repeat;
     mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M19 12H5M11 6l-6 6 6 6'/></svg>") center / contain no-repeat;
