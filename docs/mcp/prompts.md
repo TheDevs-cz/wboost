@@ -80,7 +80,9 @@ long edge, and not counted as an export. Iterate here as much as you like.
 in the project's usage report, so ask for it once, at the end. For a print
 format (mm / cm) ask for **"PDF pro tisk"** and the assistant passes
 `format: "pdf"`: the print PDF (PDF/X-1a, CMYK FOGRA39, the variant's bleed +
-crop marks) comes back as an embedded file. Artwork meant to reach the paper
+crop marks) comes back as an embedded file. `bleedMm` is the bleed only (new
+print formats default to 3 mm); the crop marks always sit in a fixed 5 mm
+margin outside the bleed, so the page is trim + 2 × bleed + 2 × 5 mm. Artwork meant to reach the paper
 edge should extend into the bleed (`dimension.bleedPx` past every canvas edge)
 — the design linter accepts it there.
 
