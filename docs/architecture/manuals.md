@@ -375,10 +375,18 @@ Fonty page (`FontsController` → `fonts.html.twig`).
   `fonts_list#manual-fonts-{manualId}`; add / edit / delete redirect there
   too, and `add_manual_font` / `edit_manual_font` are Fonty sub-pages
   (`active_menu_item = 'fonts'`, back trail Project → Fonty).
-- `ManualFont::edit()` clears `fontFaces` only when the FONT changes (F11:
+- `ManualFont::edit()` resets `fontFaces` only when the FONT changes (F11:
   it used to compare with its own id, so every save wiped the cuts).
-- Pinned by `tests/Controller/Font/FontsPageManualFontsTest.php`,
-  `tests/Entity/ManualFontTest.php`.
+- **A manual font starts with EVERY cut enabled** (`AddManualFontHandler`
+  passes `Font::faceNames()`; switching the font in `edit()` enables all of
+  the new font's cuts). The preview (`manual_preview.html.twig`) skips a font
+  with no enabled cut, so the old `[]` default made a freshly added font
+  invisible in the manual (Sagena, 2026-11-08 — the chip row reads like a
+  list of cuts, not toggles that are off). The Fonty row now warns
+  (`.fn-mrow-warn`) when no cut is on. `Version20261108120000` gave the
+  pre-existing empty rows all their font's cuts (one row on prod).
+- Pinned by `tests/Controller/Font/FontsPageManualFontsTest.php` (incl. add →
+  preview shows every cut), `tests/Entity/ManualFontTest.php`.
 
 ### Manual logo width — a three-level cascade
 

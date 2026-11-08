@@ -39,6 +39,11 @@ readonly final class AddManualFontHandler
             $message->color,
             $nextPosition,
             $this->clock->now(),
+            // Every cut is on from the start: the manual preview skips a font
+            // with no enabled cut, so an empty list made a freshly added font
+            // invisible in the manual (2026-11-08). The designer switches cuts
+            // off on the Fonty page.
+            $font->faceNames(),
         );
 
         $this->manualFontRepository->add($manualFont);

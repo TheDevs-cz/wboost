@@ -40,7 +40,11 @@ final class ManualFontTest extends TestCase
         self::assertSame('1D2A5C', $manualFont->color);
     }
 
-    public function testSwitchingToAnotherFontClearsTheEnabledCuts(): void
+    /**
+     * Switching the font enables every cut of the NEW font (it used to clear
+     * them, and a manual font without cuts is not shown in the manual).
+     */
+    public function testSwitchingToAnotherFontEnablesAllItsCuts(): void
     {
         $project = $this->project();
         $manualFont = $this->manualFont($project, $this->font($project, 'Rubik'));
@@ -49,7 +53,7 @@ final class ManualFontTest extends TestCase
         $other = $this->font($project, 'Inter');
         $manualFont->edit($other, ManualFontType::Primary, null);
 
-        self::assertSame([], $manualFont->fontFaces);
+        self::assertSame(['Regular'], $manualFont->fontFaces);
         self::assertSame($other, $manualFont->font);
     }
 

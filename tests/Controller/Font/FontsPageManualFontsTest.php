@@ -95,6 +95,61 @@ final class FontsPageManualFontsTest extends WebTestCase
         self::assertSame(['Rubik Bold'], json_decode($row['font_faces'], true));
     }
 
+    /**
+     * Regression (2026-11-08, Sagena on prod): a font added to a manual
+     * started with NO enabled cuts, and the manual preview skips a font
+     * without cuts — so "Přidat písmo" never showed up in the manual. A newly
+     * added manual font now presents every cut of its font (the designer
+     * switches cuts off on the Fonty page).
+     */
+    public function testAFontAddedToAManualShowsAllItsCutsInThePreview(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        $this->connection()->update('manual', ['type' => 'brand'], ['id' => TestDataFixture::MANUAL_1_ID]);
+
+        $crawler = $client->request('GET', '/manual/' . TestDataFixture::MANUAL_1_ID . '/add-font');
+        self::assertResponseIsSuccessful();
+        $form = $crawler->selectButton('Přidat písmo')->form();
+        $values = $form->getPhpValues();
+        $formName = array_key_first($values);
+        self::assertIsString($formName);
+        $fields = $values[$formName];
+        self::assertIsArray($fields);
+        $client->request('POST', '/manual/' . TestDataFixture::MANUAL_1_ID . '/add-font', [
+            $formName => array_merge($fields, ['font' => TestDataFixture::FONT_RUBIK_ID, 'type' => 'primary', 'color' => '']),
+        ]);
+        self::assertResponseRedirects('/project/' . TestDataFixture::PROJECT_1_ID . '/fonts#manual-fonts-' . TestDataFixture::MANUAL_1_ID);
+
+        $crawler = $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID . '/fonts');
+        $section = '#manual-fonts-' . TestDataFixture::MANUAL_1_ID;
+        self::assertCount(2, $crawler->filter($section . ' [data-controller="manual-font-faces-toggle"] input[checked]'));
+
+        $crawler = $client->request('GET', '/nahled-manualu/project-1/manual-1');
+        self::assertResponseIsSuccessful();
+        $cuts = $crawler->filter('.manual-font');
+        self::assertCount(2, $cuts);
+        self::assertStringContainsString('Rubik Regular', $cuts->eq(0)->text());
+        self::assertStringContainsString('Rubik Bold', $cuts->eq(1)->text());
+    }
+
+    /**
+     * A manual font with every cut switched off is not shown in the manual —
+     * the Fonty page says so instead of leaving it to be discovered there.
+     */
+    public function testAManualFontWithoutCutsWarnsItIsHiddenInTheManual(): void
+    {
+        $client = $this->clientWithBrandManualFont();
+        $section = '#manual-fonts-' . TestDataFixture::MANUAL_1_ID;
+
+        $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID . '/fonts');
+        self::assertSelectorNotExists($section . ' .fn-mrow-warn');
+
+        $this->connection()->update('manual_font', ['font_faces' => '[]'], ['id' => self::MANUAL_FONT_ID]);
+        $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID . '/fonts');
+        self::assertSelectorTextContains($section . ' .fn-mrow-warn', 'v manuálu nezobrazí');
+    }
+
     private function clientWithBrandManualFont(): KernelBrowser
     {
         $client = self::createClient();

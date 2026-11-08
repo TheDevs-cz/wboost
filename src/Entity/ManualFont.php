@@ -71,9 +71,11 @@ class ManualFont
         null|string $color,
     ): void
     {
-        // When changing font, remove all enabled font faces
+        // A different font presents all of ITS cuts — the old font's names
+        // mean nothing there, and a manual font without enabled cuts is not
+        // shown in the manual at all (2026-11-08).
         if ($font->id->equals($this->font->id) === false) {
-            $this->fontFaces = [];
+            $this->fontFaces = $font->faceNames();
         }
 
         $this->font = $font;

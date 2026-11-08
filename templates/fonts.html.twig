@@ -239,6 +239,11 @@
                                                 <span class="cap">Písmo nemá žádný řez.</span>
                                             {% endfor %}
                                         </div>
+                                        {# The manual preview skips a font with no enabled cut — say so
+                                           here, where the cuts are switched (2026-11-08). #}
+                                        {% if mf_font.faces is not empty and mf_font.faces|filter(face => manual_font.faceEnabled(face.name)) is empty %}
+                                            <p class="cap fn-mrow-warn">{{ icon('alert', 's14') }}Není zapnutý žádný řez — písmo se v manuálu nezobrazí.</p>
+                                        {% endif %}
                                         {% if can_edit_mf %}
                                             <div class="dropdown">
                                                 <button type="button" class="btn btn-ghost icon xs" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Možnosti písma {{ mf_font.name }} v manuálu {{ manual.name }}">{{ icon('more', 's16') }}</button>

@@ -86,6 +86,7 @@
 .fn-mcut:has(input:disabled) { cursor: default; }
 .fn-mcut:has(input:disabled):not(:has(input:checked)) { opacity: .55; }
 .fn-mrow > .dropdown { margin-left: auto; }
+.fn-mrow-warn { order: 4; flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 6px; color: var(--pch-ink); }
 
 @media (max-width: 900px) { .fn-size input { width: 100px; } }
 @media (max-width: 560px) {

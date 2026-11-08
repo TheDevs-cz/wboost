@@ -78,6 +78,14 @@ class Font
     }
 
     /**
+     * @return list<string>
+     */
+    public function faceNames(): array
+    {
+        return array_values(array_map(static fn (FontFace $face): string => $face->name, $this->faces));
+    }
+
+    /**
      * A new face lands in WEIGHT order — uprights Thin→Black, then italics —
      * as long as the existing faces still sit in that order; once the
      * designer has dragged the list into an order of their own, new faces
