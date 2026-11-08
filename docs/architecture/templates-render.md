@@ -117,7 +117,17 @@ structure of the Illustrator-exported reference file.
 - **Print setup lives on `TemplateDimension`** (`bleedMm`, `cropMarks`;
   0 / false for every pre-existing variant; add forms default to 3 mm +
   marks, an Instagram preset clears both; "Tiskové nastavení" page edits an
-  existing variant). `withPrintSettings()` keeps px dimensions without a
+  existing variant). **Bleed ≠ crop-mark margin (2026-11-08)**: `bleedMm`
+  ("Spadávka", the ONLY input) is how far the artwork runs past the cut; the
+  crop marks live in a FIXED 5 mm band OUTSIDE the bleed
+  (`PrintPageGeometry::MARK_MARGIN_MM`, no input) — each mark sits on a trim
+  line, starts at the bleed edge (never on artwork) and runs to the media
+  edge. Page = trim + 2 × bleed + 2 × 5 mm (210 × 99 mm, bleed 3 →
+  MediaBox 226 × 115 mm, BleedBox inset 5 mm, TrimBox inset 8 mm); without
+  marks the page is the BleedBox. Before, the marks sat at max(3 mm, bleed),
+  27 pt long, so the single input was used as the MARK margin (every prod
+  print row stored 5 mm) — `Version20261108230000` moved those 5 mm + marks
+  rows to 3 mm. `withPrintSettings()` keeps px dimensions without a
   print setup, so the rule cannot be bypassed by a form post. **The bleed is
   not part of the canvas**:
   coordinates stay trim-relative and the bleed is the area past the edges.
@@ -166,8 +176,7 @@ structure of the Illustrator-exported reference file.
 - **`PdfX1aWriter::write(list<PrintPage>, $profile, $title, $createdAt)`**
   writes the file by hand, ONE page or MANY (documents): per page MediaBox /
   TrimBox / BleedBox of its own, crop marks as Illustrator draws them
-  (1.25 pt white halo + 0.25 pt registration `Separation /All`, 27 pt long,
-  offset max(3 mm, bleed)); ONCE per file the OutputIntent with the embedded
+  (1.25 pt white halo + 0.25 pt registration `Separation /All`); ONCE per file the OutputIntent with the embedded
   profile, the registration colour space and Info with the GTS keys +
   `Trapped`; trailer `/ID` = digest of title + date + EVERY page's JPEG.
   Object numbers are allocated by **`PdfObjects`** (catalog, pages tree,

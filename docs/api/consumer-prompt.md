@@ -290,7 +290,10 @@ so what previews fine exports fine. The difference is what they ARE:
   history"). Call it only when the user actually downloads.
 - **`/export` with `"format": "pdf"`** (2026-10-30) returns the **print PDF**
   instead (`application/pdf`): PDF/X-1a:2001, CMYK Coated FOGRA39, with the
-  variant's bleed (`bleedMm`) and crop marks (`cropMarks`). Same body, same
+  variant's bleed (`bleedMm`) and crop marks (`cropMarks`). `bleedMm` is the
+  bleed ONLY; the crop marks sit in a fixed 5 mm margin outside it (since
+  2026-11-08), so the PDF page = trim + 2 × bleed + 2 × 5 mm when
+  `cropMarks` is on (210 × 99 mm, bleed 3 → 226 × 115 mm). Same body, same
   strict validation, same usage/history recording. Only for print formats
   (`printFormat: true`, i.e. mm / cm); a px variant answers 400
   `pdf_not_available`, any other `format` value 400 `invalid_format`. Offer

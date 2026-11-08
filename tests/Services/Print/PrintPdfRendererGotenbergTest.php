@@ -53,10 +53,11 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         self::assertStringContainsString('/ColorSpace /DeviceCMYK', $pdf);
         self::assertStringNotContainsString('/DeviceRGB', $pdf);
 
-        // A5 = 419.528 × 595.276 pt, bleed 3 mm = 8.504 pt, marks 8.504 + 27.
-        self::assertMatchesRegularExpression('#/TrimBox \[ 35\.5039 35\.5039 455\.0315 630\.7795 \]#', $pdf);
-        self::assertMatchesRegularExpression('#/BleedBox \[ 27 27 463\.5354 639\.2835 \]#', $pdf);
-        self::assertMatchesRegularExpression('#/MediaBox \[ 0 0 490\.5354 666\.2835 \]#', $pdf);
+        // A5 = 419.528 × 595.276 pt, bleed 3 mm = 8.504 pt, + the fixed 5 mm
+        // (14.173 pt) crop-mark margin outside it.
+        self::assertMatchesRegularExpression('#/TrimBox \[ 22\.6772 22\.6772 442\.2047 617\.9528 \]#', $pdf);
+        self::assertMatchesRegularExpression('#/BleedBox \[ 14\.1732 14\.1732 450\.7087 626\.4567 \]#', $pdf);
+        self::assertMatchesRegularExpression('#/MediaBox \[ 0 0 464\.8819 640\.6299 \]#', $pdf);
 
         if (is_string(getenv('PRINT_PDF_DUMP'))) {
             file_put_contents((string) getenv('PRINT_PDF_DUMP'), $pdf);
@@ -66,7 +67,7 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
 
         // Inside the bleed (1 mm outside the trim, top-left): the full-bleed
         // blue rectangle, not paper.
-        $bleed = $ink(35.5039 - 2.8, 630.7795 + 2.8);
+        $bleed = $ink(22.6772 - 2.8, 617.9528 + 2.8);
         self::assertGreaterThan(50, $bleed['c'], 'artwork extends into the bleed');
 
         // Outside the bleed but on the media: paper, except the marks.
@@ -74,17 +75,17 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         self::assertSame([0, 0, 0, 0], array_values($paper));
 
         // The crop mark: registration colour = every plate at 100 %.
-        $mark = $ink(35.5039 - 8.504 - 13.5, 630.7795);
+        $mark = $ink(22.6772 - 8.504 - 7.087, 617.9528);
         self::assertGreaterThan(90, min($mark), 'crop mark prints on all four plates');
 
         // Inside the black headline: K100 OVERPRINTING the blue — the cyan of
         // the rectangle is still there under the black.
-        $text = $ink(35.5039 + 40 / 300 * 72 + 6, 630.7795 - (60 + 90) / 300 * 72);
+        $text = $ink(22.6772 + 40 / 300 * 72 + 6, 617.9528 - (60 + 90) / 300 * 72);
         self::assertGreaterThanOrEqual(97, $text['k'], 'black text prints as solid K');
         self::assertGreaterThan(50, $text['c'], 'black text overprints, it does not knock out the blue');
 
         // Inside the large black area: K100 KNOCKING OUT the blue (no ghosting).
-        $area = $ink(35.5039 + 500 / 300 * 72, 630.7795 - 1800 / 300 * 72);
+        $area = $ink(22.6772 + 500 / 300 * 72, 617.9528 - 1800 / 300 * 72);
         self::assertGreaterThanOrEqual(97, $area['k'], 'black areas print as solid K too');
         self::assertLessThan(5, $area['c'], 'black areas knock the background out');
     }
@@ -112,18 +113,18 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
 
         self::assertStringStartsWith('%PDF-1.3', $pdf);
         self::assertStringContainsString('/Count 2', $pdf);
-        self::assertSame(2, substr_count($pdf, '/TrimBox [ 35.5039 35.5039 455.0315 630.7795 ]'));
+        self::assertSame(2, substr_count($pdf, '/TrimBox [ 22.6772 22.6772 442.2047 617.9528 ]'));
         self::assertSame(1, substr_count($pdf, '/Type /OutputIntent'));
         self::assertStringNotContainsString('/DeviceRGB', $pdf);
 
         $page1 = $this->separations($pdf, 1);
         $page2 = $this->separations($pdf, 2);
-        $centre = [35.5039 + 419.528 / 2, 35.5039 + 595.276 / 2];
+        $centre = [22.6772 + 419.528 / 2, 22.6772 + 595.276 / 2];
 
         self::assertGreaterThan(50, $page1(...$centre)['c'], 'page 1 is the blue design');
         self::assertGreaterThan(80, $page2(...$centre)['m'], 'page 2 is the magenta design');
         self::assertLessThan(10, $page2(...$centre)['c'], 'page 2 does not repeat page 1');
-        self::assertGreaterThan(90, min($page2(35.5039 - 8.504 - 13.5, 630.7795)), 'page 2 has its own crop marks');
+        self::assertGreaterThan(90, min($page2(22.6772 - 8.504 - 7.087, 617.9528)), 'page 2 has its own crop marks');
     }
 
     public function testScreenPdf(): void

@@ -20,15 +20,34 @@ use WBoost\Web\Value\TemplateDimension;
  */
 final class PdfX1aWriterTest extends TestCase
 {
+    /**
+     * Two separate things around the trim: the BLEED (artwork past the cut,
+     * the designer's "Spadávka", default 3 mm) and, outside it, a FIXED 5 mm
+     * crop-mark margin. Page = trim + 2 × bleed + 2 × 5 mm.
+     */
     public function testGeometryFollowsThePrintSetup(): void
     {
-        $a4 = PrintPageGeometry::fromDimension((new TemplateDimension(DimensionUnit::Mm, 210, 297))->withPrintSettings(5, true));
+        $voucher = PrintPageGeometry::fromDimension((new TemplateDimension(DimensionUnit::Mm, 210, 99))->withPrintSettings(3, true));
 
-        self::assertEqualsWithDelta(595.276, $a4->trimWidth, 0.001);
-        self::assertEqualsWithDelta(14.173, $a4->bleed, 0.001);
-        // A 5 mm bleed pushes the marks out past it.
-        self::assertEqualsWithDelta(14.173, $a4->markOffset(), 0.001);
-        self::assertEqualsWithDelta(14.173 + 27, $a4->margin(), 0.001);
+        self::assertEqualsWithDelta(595.276, $voucher->trimWidth, 0.001);
+        self::assertEqualsWithDelta(8.504, $voucher->bleed, 0.001);
+        // The marks start where the bleed ends — never on artwork…
+        self::assertEqualsWithDelta(8.504, $voucher->markOffset(), 0.001);
+        // …and live in the fixed 5 mm margin outside it.
+        self::assertEqualsWithDelta(5.0, self::ptToMm($voucher->margin() - $voucher->bleed), 0.0001);
+        self::assertBoxMm([0, 0, 226, 115], $voucher->mediaBox());
+        self::assertBoxMm([5, 5, 221, 110], $voucher->bleedBox());
+        self::assertBoxMm([8, 8, 218, 107], $voucher->trimBox());
+
+        // A bigger bleed grows the page; the mark margin stays 5 mm.
+        $wide = PrintPageGeometry::fromDimension((new TemplateDimension(DimensionUnit::Mm, 210, 99))->withPrintSettings(5, true));
+        self::assertBoxMm([0, 0, 230, 119], $wide->mediaBox());
+        self::assertBoxMm([5, 5, 225, 114], $wide->bleedBox());
+
+        // No marks = no mark margin: the page is the bleed box.
+        $noMarks = PrintPageGeometry::fromDimension((new TemplateDimension(DimensionUnit::Mm, 210, 99))->withPrintSettings(3, false));
+        self::assertBoxMm([0, 0, 216, 105], $noMarks->mediaBox());
+        self::assertSame($noMarks->bleedBox(), $noMarks->mediaBox());
 
         $plain = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Mm, 210, 297));
         self::assertSame(0.0, $plain->margin(), 'no bleed, no marks: the page IS the trim');
@@ -37,6 +56,20 @@ final class PdfX1aWriterTest extends TestCase
         // Social formats map to paper at 300 DPI: 1080 px = 259.2 pt.
         $post = PrintPageGeometry::fromDimension(TemplateDimension::fromPreset(DimensionPreset::InstagramPost));
         self::assertEqualsWithDelta(259.2, $post->trimWidth, 0.001);
+    }
+
+    /**
+     * @param array{float|int, float|int, float|int, float|int} $expectedMm
+     * @param array{float, float, float, float} $boxPt
+     */
+    private static function assertBoxMm(array $expectedMm, array $boxPt): void
+    {
+        self::assertEqualsWithDelta($expectedMm, array_map(self::ptToMm(...), $boxPt), 0.0001);
+    }
+
+    private static function ptToMm(float $pt): float
+    {
+        return $pt / 72 * 25.4;
     }
 
     public function testDocumentStructure(): void
@@ -110,7 +143,7 @@ final class PdfX1aWriterTest extends TestCase
         self::assertSame(3, substr_count($pdf, '/MediaBox '));
         self::assertSame(3, substr_count($pdf, '/TrimBox '));
         self::assertSame(3, substr_count($pdf, '/BleedBox '));
-        self::assertSame(2, substr_count($pdf, '/MediaBox [ 0 0 171.008 271.008 ]'));
+        self::assertSame(2, substr_count($pdf, '/MediaBox [ 0 0 145.3545 245.3545 ]'));
         self::assertSame(1, substr_count($pdf, '/MediaBox [ 0 0 300 150 ]'));
         // ONE output intent, ONE embedded profile, ONE Info.
         self::assertSame(1, substr_count($pdf, '/Type /OutputIntent'));
@@ -177,6 +210,23 @@ final class PdfX1aWriterTest extends TestCase
         self::assertStringContainsString("0.25 w 1 SCN\n", $content, 'then the registration hairline');
         // 8 marks per pass (2 per corner).
         self::assertSame(16, substr_count($content, ' l'));
+
+        // Every mark lies in the 5 mm margin OUTSIDE the bleed box: it starts
+        // on the bleed edge and ends on the media edge, on the trim line.
+        $geometry = new PrintPageGeometry(100, 200, 8.504, true);
+        [$bx0, $by0, $bx1, $by1] = $geometry->bleedBox();
+        [, , $mx1, $my1] = $geometry->mediaBox();
+        preg_match_all('/^(\S+) (\S+) m (\S+) (\S+) l$/m', $content, $segments, PREG_SET_ORDER);
+        self::assertCount(16, $segments);
+        foreach ($segments as [, $x0, $y0, $x1, $y1]) {
+            foreach ([[(float) $x0, (float) $y0], [(float) $x1, (float) $y1]] as [$x, $y]) {
+                self::assertTrue($x >= -0.001 && $x <= $mx1 + 0.001 && $y >= -0.001 && $y <= $my1 + 0.001, 'mark stays on the media');
+                $insideBleed = $x > $bx0 + 0.001 && $x < $bx1 - 0.001 && $y > $by0 + 0.001 && $y < $by1 - 0.001;
+                self::assertFalse($insideBleed, sprintf('mark point %s,%s overlaps the artwork', $x, $y));
+            }
+            $length = hypot((float) $x1 - (float) $x0, (float) $y1 - (float) $y0);
+            self::assertEqualsWithDelta(PrintPageGeometry::mmToPt(5), $length, 0.001, 'a mark spans the whole 5 mm margin');
+        }
         self::assertStringContainsString('/Separation /All /DeviceCMYK', $pdf);
     }
 

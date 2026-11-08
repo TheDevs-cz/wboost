@@ -127,7 +127,7 @@ final class PdfX1aWriter
     {
         [$x0, $y0, $x1, $y1] = $geometry->trimBox();
         $offset = $geometry->markOffset();
-        $end = $offset + PrintPageGeometry::MARK_LENGTH_PT;
+        $end = $offset + $geometry->markLength();
         $paths = '';
 
         foreach ([[$x0, -1], [$x1, 1]] as [$x, $dx]) {
