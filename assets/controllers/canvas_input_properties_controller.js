@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
 import { applyChecklistItems, applySampleToCanvasText, checklistItems, itemsFromValue } from './canvas_checklist_sample.js';
+import { applySampleStyles } from './canvas_sample_styles.js';
 import {
     buildFontOptgroups,
     collectAllowedFonts,
@@ -763,6 +764,11 @@ export default class extends Controller {
             this.canvasEditorOutlet.canvas.fire('text:changed', { target: obj });
             this.canvasEditorOutlet.canvas.renderAll();
         }
+        // The sample's run styling shows on the stand-in too — also when only
+        // a colour/face changed and the text stayed the same (no text:changed).
+        if (applySampleStyles(obj) && this.hasCanvasEditorOutlet) {
+            this.canvasEditorOutlet.canvas.renderAll();
+        }
 
         this._syncSampleChrome(obj);
         if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.markUnsaved();
@@ -773,6 +779,9 @@ export default class extends Controller {
         const obj = this._sampleObject || this._getActiveTextbox();
         if (!obj) return;
         obj.sampleValue = null;
+        if (applySampleStyles(obj) && this.hasCanvasEditorOutlet) {
+            this.canvasEditorOutlet.canvas.renderAll();
+        }
         this._syncSampleChrome(obj);
         if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.markUnsaved();
         this._hideSampleModal();
@@ -888,6 +897,7 @@ export default class extends Controller {
         const activeObject = this._getActiveTextbox();
         if (!activeObject) return;
         activeObject.richText = event.target.checked;
+        applySampleStyles(activeObject);
         this.refreshFontChoice();
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
@@ -947,6 +957,7 @@ export default class extends Controller {
         if (textbox.uppercase) {
             textbox.text = textbox.text.toUpperCase();
         }
+        applySampleStyles(textbox);
         this.canvasEditorOutlet.canvas.renderAll();
     }
 

@@ -10,6 +10,7 @@ import { applyEditorLock, applyBackdropState, isBackdropCovering } from './canva
 import { createShapeObject, isShapeObject } from './canvas_shapes.js';
 import { applyChecklistPreview, sweepChecklistPreviews } from './canvas_checklist_preview.js';
 import { syncChecklistSample, syncTextSample, sweepChecklistSamples } from './canvas_checklist_sample.js';
+import { applySampleStyles, sweepSampleStyles } from './canvas_sample_styles.js';
 import { collectAllowedFonts } from './canvas_font_choice.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
 
@@ -180,7 +181,13 @@ export default class extends Controller {
         // Checklist components paint their own checkboxes in the editor (see
         // canvas_checklist_preview) — every freshly added / re-loaded object
         // needs the instance patch, so sweep on add (load re-runs it too).
-        this.canvas.on('object:added', (opt) => applyChecklistPreview(opt.target));
+        this.canvas.on('object:added', (opt) => {
+            applyChecklistPreview(opt.target);
+            // A rich input's sample runs (coloured word, other face) are what
+            // the export draws — show them on the stand-in, display-only
+            // (canvas_sample_styles keeps them out of every serialization).
+            applySampleStyles(opt.target);
+        });
         // ...and their sample envelope IS the exported value, so an inline
         // text edit has to be written into it (canvas_checklist_sample) —
         // otherwise the canvas shows the new items and the PNG keeps the old.
@@ -191,6 +198,7 @@ export default class extends Controller {
         this.canvas.on('text:changed', (opt) => {
             syncChecklistSample(opt.target);
             syncTextSample(opt.target);
+            applySampleStyles(opt.target);
         });
         // Pointer modifiers (applyPointerModifiers): Alt/⌥+drag always
         // rubber-bands, Ctrl/⌘+drag always grabs the object under the cursor
@@ -598,6 +606,8 @@ export default class extends Controller {
             // consistent objects, and deliberately does NOT mark the form dirty
             // — the reconciliation rides along with the designer's next save.
             sweepChecklistSamples(this.canvas);
+            // Rich samples' run styling on the stand-ins (display-only).
+            sweepSampleStyles(this.canvas);
 
             this.canvas.renderAll();
         } finally {

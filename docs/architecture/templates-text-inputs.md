@@ -287,9 +287,19 @@ API consumer who merely omitted the input (per-input `$lenient` flag).
 `canvas_checklist_sample.js` despite the name).** The sample is what exports,
 so a stand-in showing different text is an editor preview that lies (prod
 report). Modal save → `applySampleToCanvasText` points the canvas text at the
-sample's plain text (uppercased for display; rich styling stays invisible on
-the single-styled stand-in — the fill preview/export is where it shows) and
-fires `text:changed` so reflow + group propagation ride along. Inline canvas
+sample's plain text (uppercased for display) and
+fires `text:changed` so reflow + group propagation ride along. **Sample run
+styling on the stand-in (2026-11-08, `canvas_sample_styles.js`)**: a rich
+input's styled sample (coloured word, other face, underline) is shown on the
+canvas through the SAME shared converter as render/fill
+(`WBoostRichTextRuns.toFabric` → `fabric.util.stylesFromArray`), applied on
+object add, canvas load/undo, `text:changed`, modal save/clear, rich/uppercase
+toggles — only while the canvas text equals the sample's display text. It is
+DISPLAY-ONLY: a per-instance `toObject` patch writes the DESIGNED styles
+(snapshot, normally `[]`) into every serialization (save, undo, clones, group
+sync), so stored objects never gain per-char styles (MCP `StyleDropped`, font
+scan). Before this the editor showed the whole text in the base colour
+(prod report "Dárkový poukaz"). Inline canvas
 edit of a SAMPLED input → `syncTextSample` rewrites the sample: plain stays
 plain, an envelope keeps its LEAD run's whole-text style (a multi-run partial
 mapping has nothing to attach to after a rewrite), list line types carry by
