@@ -157,7 +157,11 @@ readonly final class SetDesignTool
      * The design document is the same wboost design DSL preview_design takes:
      * {"canvas": {"width": ..., "height": ...}, "elements": [...]}, elements in
      * stack order bottom to top. Set canvas.width and canvas.height to the
-     * variant's own size, which describe_variant reports.
+     * variant's own size, which describe_variant reports. Every design should
+     * have exactly ONE background element - {"kind": "background", "id":
+     * "pozadi", "fill": "#ffffff"} (a colour or gradient) or "asset": "<gallery
+     * id>" (a picture) - which becomes the editor's locked "Pozadí" layer over
+     * the whole canvas incl. the print bleed; never a full-canvas shape.
      *
      * Read "saved" first. False means NOTHING was written and the variant still
      * has its previous design; "issues" then says why, and every entry carries

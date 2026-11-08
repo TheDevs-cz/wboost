@@ -18,9 +18,14 @@ namespace WBoost\Web\Mcp\Design\Dsl;
  *   into the layer-mode background object (plan §4.3). Declaring it here is a
  *   convenience alternative to a `kind: "background"` element — never both,
  *   since both compile to the same stack-index-0 layer.
- * - {@see $backgroundFill} is a flat canvas colour, normalized to lowercase
- *   `#rrggbb`. It composes fine WITH a background element (a transparent PNG
- *   over a colour), which is why only the image half conflicts.
+ * - {@see $backgroundFill} is a flat colour, normalized to lowercase
+ *   `#rrggbb`. With no PICTURE background it compiles to the colour
+ *   background LAYER (a locked `isBackground` rectangle — the same thing a
+ *   `{"kind": "background", "fill": …}` element compiles to), never to
+ *   Fabric's canvas-level colour, which the editor cannot show or change.
+ *   Under a picture background (a transparent PNG over a colour) it has
+ *   nowhere else to go and stays the legacy canvas-level colour — the linter
+ *   warns (`canvas_color_under_background`).
  */
 readonly final class CanvasSpec
 {

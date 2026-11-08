@@ -383,11 +383,19 @@ rules and scrims rather than uploading a picture of one. A `container` groups `m
 images) and `children` (nested containers) into one vertical flow — a **top-level
 container must carry `maxHeight`**, a nested one must not need it.
 
+**Every design should have exactly one `background` element** — the editor's
+locked "Pozadí" layer at the bottom, always covering the whole canvas incl. the
+print bleed: a picture (`"asset": "<gallery id>"`) or a colour (`"fill":
+"#ffffff"`, or a gradient object like a shape's). Never draw the background as a
+full-canvas `shape` — that is an ordinary layer, not "Pozadí", and the linter
+says so (`background_drawn_as_element`); no background at all is linted as
+`missing_background` (it exports transparent).
+
 This document parses, and exercises all five kinds:
 
 ```json
 {
-  "canvas": { "width": 1080, "height": 1350, "background": { "fill": "#111111" } },
+  "canvas": { "width": 1080, "height": 1350 },
   "elements": [
     { "kind": "background", "id": "bg", "asset": "6f9619ff-8b86-d011-b42d-00cf4fc964ff", "fillable": true },
     {

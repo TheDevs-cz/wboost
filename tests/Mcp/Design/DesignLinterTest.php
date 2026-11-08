@@ -12,6 +12,7 @@ use WBoost\Web\Exceptions\DesignCompilationFailed;
 use WBoost\Web\Mcp\Design\CompilationContext;
 use WBoost\Web\Mcp\Design\DesignCompiler;
 use WBoost\Web\Mcp\Design\DesignIdentity;
+use WBoost\Web\Mcp\Design\Dsl\BackgroundElement;
 use WBoost\Web\Mcp\Design\Dsl\CanvasSpec;
 use WBoost\Web\Mcp\Design\Dsl\ContainerElement;
 use WBoost\Web\Mcp\Design\Dsl\DesignDocument;
@@ -19,6 +20,7 @@ use WBoost\Web\Mcp\Design\Dsl\DesignElement;
 use WBoost\Web\Mcp\Design\Dsl\ImageElement;
 use WBoost\Web\Mcp\Design\Dsl\ImageInputSpec;
 use WBoost\Web\Mcp\Design\Dsl\Placement;
+use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
 use WBoost\Web\Mcp\Design\Dsl\TextAlign;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Dsl\TextInputSpec;
@@ -29,6 +31,8 @@ use WBoost\Web\Mcp\Design\Lint\LintFinding;
 use WBoost\Web\Mcp\Design\Lint\LintReport;
 use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Value\CanvasShapeKind;
+use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 
 /**
@@ -80,6 +84,8 @@ final class DesignLinterTest extends KernelTestCase
     private const string BRAND_SECONDARY = '#004e7c';
 
     private const int CANVAS_SIDE = 1080;
+
+    private const string BACKGROUND_ASSET = '77777777-7777-4777-8777-777777777777';
 
     /** @var list<string> */
     private array $writtenPaths = [];
@@ -189,6 +195,22 @@ final class DesignLinterTest extends KernelTestCase
             LintCode::MaxLengthBelowStandIn => self::document([
                 self::text('headline', 80.0, 80.0, 920.0, text: 'SLEVA 50 % NA VŠECHNO', maxLength: 10),
             ]),
+            LintCode::MissingBackground => self::document([
+                self::text('headline', 80.0, 80.0, 920.0),
+            ], background: null),
+            LintCode::BackgroundDrawnAsElement => self::document([
+                // The 2026-11-05 "Poukaz linie" shape: a full-bleed rectangle
+                // named Pozadí at the bottom, instead of the background layer.
+                self::shape('pozadi', 0.0, 0.0, 1080.0, 1080.0),
+                self::text('headline', 80.0, 80.0, 920.0),
+            ], background: null),
+            LintCode::CanvasColorUnderBackground => new DesignDocument(
+                new CanvasSpec(self::CANVAS_SIDE, self::CANVAS_SIDE, null, '#111111'),
+                [
+                    new BackgroundElement('pozadi', self::BACKGROUND_ASSET, false),
+                    self::text('headline', 80.0, 80.0, 920.0),
+                ],
+            ),
         };
     }
 
@@ -210,6 +232,30 @@ final class DesignLinterTest extends KernelTestCase
         self::assertSame([], $report->toArray());
         self::assertTrue($report->isClean());
         self::assertFalse($report->hasErrors());
+    }
+
+    /**
+     * The background advisories stay quiet when the design has its layer, when
+     * it declares a transparent one on purpose, and when the full-canvas shape
+     * is NOT the bottom of the stack (a scrim over a picture background).
+     */
+    public function testTheBackgroundAdvisoriesStayQuietWhenTheLayerIsThere(): void
+    {
+        $codes = static fn (LintReport $report): array => array_map(static fn (LintFinding $finding): LintCode => $finding->code, $report->findings);
+
+        self::assertSame([], $codes($this->lint(self::document([self::text('headline', 80.0, 80.0, 920.0)]))));
+        self::assertSame([], $codes($this->lint(self::document(
+            [self::text('headline', 80.0, 80.0, 920.0)],
+            background: new BackgroundElement('pozadi', null, false),
+        ))), 'an explicit transparent background is a decision, not an omission');
+        self::assertSame([], $codes($this->lint(new DesignDocument(
+            new CanvasSpec(self::CANVAS_SIDE, self::CANVAS_SIDE, null, '#111111'),
+            [self::text('headline', 80.0, 80.0, 920.0)],
+        ))), 'canvas.background.fill alone compiles to the background layer');
+        self::assertSame([], $codes($this->lint(self::document([
+            self::shape('scrim', 0.0, 0.0, 1080.0, 1080.0),
+            self::text('headline', 80.0, 80.0, 920.0),
+        ]))));
     }
 
     /**
@@ -414,7 +460,7 @@ final class DesignLinterTest extends KernelTestCase
 
         $print = $this->lint(new DesignDocument(
             new CanvasSpec(2480, 3508),
-            [self::text('legal', 200.0, 3000.0, 2080.0, text: 'Drobné písmo', size: 38.8)],
+            [new BackgroundElement('pozadi', null, false, '#ffffff'), self::text('legal', 200.0, 3000.0, 2080.0, text: 'Drobné písmo', size: 38.8)],
         ));
 
         self::assertSame([], $print->toArray());
@@ -614,9 +660,31 @@ final class DesignLinterTest extends KernelTestCase
     /**
      * @param list<DesignElement> $elements
      */
-    private static function document(array $elements): DesignDocument
+    private static function document(array $elements, null|BackgroundElement $background = new BackgroundElement('pozadi', null, false, '#ffffff')): DesignDocument
     {
-        return new DesignDocument(new CanvasSpec(self::CANVAS_SIDE, self::CANVAS_SIDE), $elements);
+        // Every design should have its background layer (LintCode::MissingBackground),
+        // so the fixtures carry one unless a test is about its absence.
+        return new DesignDocument(
+            new CanvasSpec(self::CANVAS_SIDE, self::CANVAS_SIDE),
+            $background === null ? $elements : [$background, ...$elements],
+        );
+    }
+
+    private static function shape(string $id, float $x, float $y, float $width, float $height): ShapeElement
+    {
+        return new ShapeElement(
+            id: $id,
+            shape: CanvasShapeKind::Rectangle,
+            fill: '#eef8fc',
+            stroke: null,
+            strokeWidth: 0.0,
+            strokeStyle: CanvasShapeStroke::Solid,
+            cornerRadius: 0.0,
+            opacity: 1.0,
+            name: 'Pozadí',
+            locked: false,
+            placement: new Placement(null, $x, $y, $width, $height),
+        );
     }
 
     private static function text(

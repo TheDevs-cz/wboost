@@ -76,6 +76,29 @@ final class DslParserTest extends TestCase
         self::assertSame(ElementKind::Background, $background->kind());
     }
 
+    /**
+     * A colour (or gradient) background is first-class: `fill` on the
+     * background element, the same vocabulary a shape's `fill` speaks.
+     */
+    public function testParsesAColourBackgroundElement(): void
+    {
+        $flat = DslParser::parse(self::documentWith(['kind' => 'background', 'id' => 'pozadi', 'fill' => '#EEF8FC']))->backgroundElement();
+
+        self::assertInstanceOf(BackgroundElement::class, $flat);
+        self::assertNull($flat->assetId);
+        self::assertSame('#eef8fc', $flat->fill);
+        self::assertSame('#eef8fc', $flat->toArray()['fill']);
+
+        $gradient = DslParser::parse(self::documentWith([
+            'kind' => 'background',
+            'id' => 'pozadi',
+            'fill' => ['type' => 'linear', 'angle' => 90, 'from' => '#ffffff', 'to' => '#65bde6'],
+        ]))->backgroundElement();
+
+        self::assertInstanceOf(BackgroundElement::class, $gradient);
+        self::assertInstanceOf(CanvasShapeGradient::class, $gradient->fill);
+    }
+
     public function testParsesATextElementWithEveryField(): void
     {
         $text = DslParser::parse(self::fullDocument())->element('headline');
@@ -844,7 +867,7 @@ final class DslParserTest extends TestCase
             self::documentWith(['kind' => 'background', 'id' => 'bg', 'cover' => true]),
             'elements[0].cover',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, asset, fillable.',
+            'Allowed keys: kind, id, asset, fill, fillable.',
         ];
         yield 'unknown container key' => [
             self::documentWith(['kind' => 'container', 'id' => 'body', 'padding' => 4]),
@@ -1047,6 +1070,21 @@ final class DslParserTest extends TestCase
             'canvas.background.image',
             DslErrorCode::InvalidStructure,
             'both define the background layer',
+        ];
+        yield 'background with both a picture and a colour' => [
+            self::documentWith(['kind' => 'background', 'id' => 'bg', 'asset' => self::ASSET, 'fill' => '#ffffff']),
+            'elements[0].fill',
+            DslErrorCode::InvalidStructure,
+            'is a picture OR a colour',
+        ];
+        yield 'canvas background colour plus a colour background element' => [
+            [
+                'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#111111']],
+                'elements' => [['kind' => 'background', 'id' => 'bg', 'fill' => '#ffffff']],
+            ],
+            'canvas.background.fill',
+            DslErrorCode::InvalidStructure,
+            'both define the background colour',
         ];
         yield 'container with a single member' => [
             self::documentWith(

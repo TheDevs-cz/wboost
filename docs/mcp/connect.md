@@ -338,6 +338,14 @@ Gallery pictures can be added but never removed, moved or renamed from a client;
 that stays a human job in wboost.
 
 Two capabilities are deliberately absent: there is **no tool that reads a design
+**Backgrounds.** A design document should always carry exactly one `background`
+element — a colour (`"fill"`) or a gallery picture (`"asset"`). It compiles to
+the editor's locked "Pozadí" layer (an `isBackground` object, full-bleed incl.
+the print bleed), never to Fabric's canvas-level colour. `preview_design` /
+`set_design` warn (`missing_background`, `background_drawn_as_element`,
+`canvas_color_under_background`) when a design has none or draws it by hand, and
+the server's connect instructions say the same.
+
 back** as a document (so `set_design` authors designs rather than edits them),
 and there is **no tool for group design** (a synchronized group's shared design
 is authored in the wboost group editor).

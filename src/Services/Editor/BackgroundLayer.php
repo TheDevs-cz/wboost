@@ -104,6 +104,72 @@ readonly final class BackgroundLayer
     }
 
     /**
+     * The COLOUR flavour of the background layer: a flat-colour or gradient
+     * rectangle covering the whole canvas — the bleed box for print, anchored
+     * at (-bleed, -bleed) exactly like the picture cover — marked
+     * `isBackground` and seeded locked (click-through) for the same reason.
+     *
+     * It is what a design-DSL colour background compiles to, so the editor's
+     * Vrstvy panel shows a real "Pozadí" row the designer can recolour, and
+     * the "Pozadí" gallery pick REPLACES it in place
+     * (`setBackgroundLayer`) instead of sliding a picture underneath it. It
+     * never becomes a fill slot (`imageInputs` are pictures) and carries no
+     * `assetPath`, so the `background_image` pointer stays null.
+     *
+     * @param string|array<array-key, mixed> $fill lowercase `#rrggbb`, or a Fabric gradient object
+     * @return array<string, mixed>
+     */
+    public function buildColorObject(
+        string|array $fill,
+        float $canvasWidth,
+        float $canvasHeight,
+        null|string $inputId = null,
+        int $bleed = 0,
+    ): array {
+        $bleed = max(0, $bleed);
+
+        return [
+            'type' => 'Rect',
+            'version' => '5.2.4',
+            'originX' => 'left',
+            'originY' => 'top',
+            'left' => -$bleed,
+            'top' => -$bleed,
+            'width' => $canvasWidth + 2 * $bleed,
+            'height' => $canvasHeight + 2 * $bleed,
+            'scaleX' => 1.0,
+            'scaleY' => 1.0,
+            'angle' => 0,
+            'opacity' => 1.0,
+            'fill' => $fill,
+            'stroke' => null,
+            'strokeWidth' => 0.0,
+            'strokeUniform' => true,
+            'rx' => 0.0,
+            'ry' => 0.0,
+            'shapeKind' => 'rectangle',
+            'isBackground' => true,
+            'editorLocked' => true,
+            'inputId' => $inputId ?? \Ramsey\Uuid\Uuid::uuid4()->toString(),
+        ];
+    }
+
+    /**
+     * Whether a stored background layer is the COLOUR flavour
+     * ({@see buildColorObject()}) rather than a picture — the projector and
+     * the design decompiler branch on it, since a colour has no natural size
+     * to re-cover.
+     *
+     * @param array<array-key, mixed> $object
+     */
+    public static function isColorLayer(array $object): bool
+    {
+        return ($object['isBackground'] ?? false) === true
+            && is_string($object['type'] ?? null)
+            && strtolower($object['type']) !== 'image';
+    }
+
+    /**
      * @param array<string, mixed> $backgroundObject
      */
     public function applyToCanvas(string $canvasJson, array $backgroundObject): string

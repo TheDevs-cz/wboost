@@ -500,7 +500,7 @@ within the document. Slugs carry input identity across saves.
 | `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
-| `background` element | `kind`, `id`, `asset`, `fillable` |
+| `background` element | `kind`, `id`, `asset`, `fill`, `fillable` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter` |
 
 ### Enumerated values
@@ -520,10 +520,12 @@ within the document. Slugs carry input identity across saves.
 - **root**: `canvas` and `elements` are both required; `elements` may be `[]`.
 - **`canvas`**: `width` and `height` required, each 1…20000 canvas px, and both
   must equal the variant's own size. Print sizes are authored at their 300 DPI
-  raster size (A4 = 2480 × 3508), never in millimetres. `background` is optional;
-  `background.fill` is a flat colour that may be combined with a `background`
-  element, but `background.image` and a `background` element are mutually
-  exclusive — they define the same layer.
+  raster size (A4 = 2480 × 3508), never in millimetres. `background` is an
+  optional shorthand for the background layer: `background.image` is the same
+  as a `background` element with that `asset` (never both), and
+  `background.fill` with no picture is the same as a `background` element with
+  that `fill`. Prefer the element. A `background.fill` UNDER a picture
+  background stays a canvas-level colour no editor panel shows (linted).
 - **`text`**: `text`, `font` and `size` are required, plus a placement.
   `color` defaults to `#000000`, `align` to `left`, `lineHeight` to `1.16`,
   `opacity` to `1` (a fraction 0…1, like a shape's — `0.6` = 60 % opaque).
@@ -565,9 +567,18 @@ within the document. Slugs carry input identity across saves.
 - **`image` `mirror`**: `true` flips a **decorative** image horizontally (default
   `false`). Rejected on a fillable placeholder — filling re-places the picture
   and resets any mirroring.
-- **`background`**: at most **one** per document; it compiles to the single
-  background layer pinned to the bottom of the stack. `fillable: true` makes it a
-  fillable whole-canvas cover slot.
+- **`background`**: **every design should have exactly one** — it is the
+  editor's locked "Pozadí" layer, pinned to the bottom of the stack and always
+  covering the whole canvas **including the print bleed** (it has no placement).
+  It is a picture **or** a colour, never both: `asset` (a gallery image,
+  cover-fitted) or `fill` (a colour string or a gradient object, exactly like a
+  shape's `fill`). `{"kind": "background", "id": "pozadi", "fill": "#ffffff"}` is
+  the plain white page. `fillable: true` (pictures only) makes it a fillable
+  whole-canvas cover slot. With neither `asset` nor `fill` it is a deliberately
+  transparent background. **Never draw the background as a full-canvas
+  `shape` or `image`** — that is an ordinary clickable layer, not "Pozadí"
+  (lint `background_drawn_as_element`); a design with no background at all
+  exports transparent (lint `missing_background`).
 - **`container`**: needs at least 2 referenced items counting `members` and
   `children` together. `members` are texts, shapes and **decorative** images — never
   a

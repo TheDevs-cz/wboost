@@ -41,7 +41,10 @@ use WBoost\Web\Value\CanvasShape;
  *    `isBackground` object is swapped for a top-left-anchored cover layer
  *    pointing at the target's own file ({@see BackgroundLayer::buildObject}),
  *    keeping its stack position and input metadata (shared inputId = the
- *    group join key). No target background → the layer is dropped; a blank
+ *    group join key). A COLOUR layer ({@see BackgroundLayer::buildColorObject},
+ *    e.g. MCP-authored) is re-fitted to the target's bleed box when the
+ *    target has no picture of its own. No target background → a picture
+ *    layer is dropped; a blank
  *    layer-mode design with a background becomes a single-layer document
  *    (the '{}' contract only renders backgrounds for canvas-mode rows).
  */
@@ -100,6 +103,20 @@ readonly final class CanvasDesignProjector
         foreach ($decoded['objects'] as $object) {
             if (is_array($object) && ($object['isBackground'] ?? false) === true) {
                 // Background layer: re-covered for the target, never scaled.
+                if ($backgroundSrc === null && BackgroundLayer::isColorLayer($object)) {
+                    // A COLOUR layer has no picture to re-cover: re-fit it to
+                    // the target's own bleed box, keeping fill + metadata.
+                    $objects[] = $this->backgroundLayer->mergePreservedProperties($object, $this->backgroundLayer->buildColorObject(
+                        is_string($object['fill'] ?? null) || is_array($object['fill'] ?? null) ? $object['fill'] : '#ffffff',
+                        $targetWidth,
+                        $targetHeight,
+                        is_string($object['inputId'] ?? null) ? $object['inputId'] : null,
+                        $targetBleed,
+                    ));
+
+                    continue;
+                }
+
                 if ($backgroundSrc === null) {
                     continue;
                 }

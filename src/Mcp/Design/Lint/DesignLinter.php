@@ -148,7 +148,8 @@ readonly final class DesignLinter
 
     /**
      * Findings in document order: per-element checks first (elements[0],
-     * elements[1], …), then the cross-element ones — overlap, then containers.
+     * elements[1], …), then the cross-element ones — overlap, containers, and
+     * last the document-level background advisory.
      */
     public function lint(DesignDocument $document, LintContext $context): LintReport
     {
@@ -193,7 +194,121 @@ readonly final class DesignLinter
             $findings[] = $finding;
         }
 
+        $background = self::checkBackground($document, $indexById, $rects, $heights);
+
+        if ($background !== null) {
+            $findings[] = $background;
+        }
+
         return new LintReport($findings);
+    }
+
+    // -----------------------------------------------------------------
+    // the background layer
+    // -----------------------------------------------------------------
+
+    /**
+     * Every design should have exactly one background layer (the editor's
+     * locked "Pozadí"). At most one finding:
+     *
+     * - a colour under a PICTURE background → {@see LintCode::CanvasColorUnderBackground};
+     * - no background at all, but the bottom element is a full-canvas
+     *   rectangle or picture → {@see LintCode::BackgroundDrawnAsElement};
+     * - no background at all → {@see LintCode::MissingBackground}.
+     *
+     * `canvas.background.fill` alone is a background (it compiles to the
+     * colour layer), and a `background` element with neither `asset` nor
+     * `fill` is a deliberate transparent one — neither is warned about.
+     *
+     * @param array<string, int> $indexById
+     * @param array<string, Rect> $rects
+     * @param array<string, float> $heights
+     */
+    private static function checkBackground(DesignDocument $document, array $indexById, array $rects, array $heights): null|LintFinding
+    {
+        $canvas = $document->canvas;
+        $element = $document->backgroundElement();
+        $assetId = $element !== null ? $element->assetId : $canvas->backgroundImageAssetId;
+
+        if ($assetId !== null && $canvas->backgroundFill !== null) {
+            return new LintFinding(
+                LintCode::CanvasColorUnderBackground,
+                $element->id ?? 'canvas',
+                'canvas.background.fill',
+                sprintf(
+                    'canvas.background.fill (%s) sits under a picture background, so it is stored as a canvas-level colour that no editor panel shows or can change. Flatten the picture onto that colour (upload_image) and drop canvas.background.fill, or drop the picture and declare the colour as the background: {"kind": "background", "id": "pozadi", "fill": "%s"}.',
+                    $canvas->backgroundFill,
+                    $canvas->backgroundFill,
+                ),
+            );
+        }
+
+        if ($element !== null || $assetId !== null || $canvas->backgroundFill !== null) {
+            return null;
+        }
+
+        $bottom = $document->drawableElements()[0] ?? null;
+
+        if (($bottom instanceof ShapeElement || $bottom instanceof ImageElement)
+            && isset($rects[$bottom->id], $heights[$bottom->id])
+            && self::coversCanvas($bottom, $rects[$bottom->id], $heights[$bottom->id], $canvas)
+        ) {
+            $path = sprintf('elements[%d]', $indexById[$bottom->id] ?? 0);
+
+            if ($bottom instanceof ShapeElement) {
+                $fill = is_string($bottom->fill) ? sprintf('"%s"', $bottom->fill) : 'its gradient object';
+                $replacement = sprintf('{"kind": "background", "id": "%s", "fill": %s}', $bottom->id, $fill);
+                $what = 'rectangle';
+            } else {
+                $replacement = sprintf(
+                    '{"kind": "background", "id": "%s", "asset": %s%s}',
+                    $bottom->id,
+                    $bottom->assetId === null ? '"<gallery image id>"' : sprintf('"%s"', $bottom->assetId),
+                    $bottom->isPlaceholder() ? ', "fillable": true' : '',
+                );
+                $what = 'picture';
+            }
+
+            return new LintFinding(
+                LintCode::BackgroundDrawnAsElement,
+                $bottom->id,
+                $path,
+                sprintf(
+                    '%s ("%s") is a full-canvas %s at the bottom of the stack - a background drawn by hand, not the background layer: the editor shows it as an ordinary clickable layer instead of the locked "Pozadí", and its background picker would slide a new picture UNDER it. Replace it with %s - the background layer, which always covers the whole canvas incl. the print bleed.',
+                    $path,
+                    $bottom->id,
+                    $what,
+                    $replacement,
+                ),
+            );
+        }
+
+        return new LintFinding(
+            LintCode::MissingBackground,
+            'background',
+            'elements',
+            'elements: this design has no background layer, so it exports TRANSPARENT and the editor\'s Vrstvy panel shows no "Pozadí" - every design should have exactly one. Add {"kind": "background", "id": "pozadi", "fill": "#ffffff"} (a colour, or a gradient object like a shape\'s fill) or {"kind": "background", "id": "pozadi", "asset": "<gallery image id>"} (a picture, cover-fitted): it compiles to the locked background layer covering the whole canvas incl. the print bleed. For a deliberately transparent design, declare {"kind": "background", "id": "pozadi"} with neither.',
+        );
+    }
+
+    /**
+     * A rectangle (no rounded corners) or a picture whose box covers the whole
+     * trim box — what a hand-drawn background looks like.
+     */
+    private static function coversCanvas(ShapeElement|ImageElement $element, Rect $rect, float $height, CanvasSpec $canvas): bool
+    {
+        if ($element instanceof ShapeElement
+            && ($element->shape->fabricType() !== 'Rect' || $element->cornerRadius > 0.0 || $element->opacity < 1.0)
+        ) {
+            return false;
+        }
+
+        $tolerance = 1.0;
+
+        return $rect->x <= $tolerance
+            && $rect->y <= $tolerance
+            && $rect->x + $rect->width >= $canvas->width - $tolerance
+            && $rect->y + $height >= $canvas->height - $tolerance;
     }
 
     // -----------------------------------------------------------------

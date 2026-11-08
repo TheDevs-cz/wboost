@@ -23,6 +23,7 @@ use WBoost\Web\Mcp\Design\Dsl\TextAlign;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Dsl\TextInputSpec;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
+use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasShape;
@@ -406,7 +407,9 @@ readonly final class DesignDecompiler
                 continue;
             }
 
-            if ($type === 'image') {
+            // A COLOUR background layer (BackgroundLayer::buildColorObject) is a
+            // shape-typed object; it is still THE background, not a shape.
+            if ($type === 'image' || ($isBackground && CanvasShape::isShapeType($type))) {
                 if ($isBackground && $backgroundSeen) {
                     $losses[] = new DesignLoss($path, DesignLossCode::ObjectDropped, sprintf(
                         '%s is a SECOND background layer; a design may have only one (it is the object at the bottom of the stack), so this one is dropped.',
@@ -814,6 +817,10 @@ readonly final class DesignDecompiler
         self::reportSharedTransforms($path, $object, $losses);
         self::reportSharedStyles($path, $object, $losses, allowEditorLock: true);
 
+        if (BackgroundLayer::isColorLayer($object)) {
+            return self::colorBackgroundElement($slug, $object, $path, $canvas, $context->bleed, $losses);
+        }
+
         $assetPath = self::string($object, 'assetPath');
         $asset = $context->forObject($assetPath, self::string($object, 'src'));
         $assetId = $asset === null ? self::galleryId($object) : $asset->id;
@@ -857,6 +864,53 @@ readonly final class DesignDecompiler
         }
 
         return new BackgroundElement($slug, $assetId, $fillable);
+    }
+
+    /**
+     * The COLOUR flavour of the background layer: its fill is the element's
+     * `fill`, and its geometry — like a picture's cover — is not authored: it
+     * is the bleed box, so a layer the designer unlocked and moved snaps back.
+     *
+     * @param array<array-key, mixed> $object
+     * @param list<DesignLoss> $losses
+     */
+    private static function colorBackgroundElement(
+        string $slug,
+        array $object,
+        string $path,
+        CanvasSpec $canvas,
+        int $bleed,
+        array &$losses,
+    ): BackgroundElement {
+        /** @var mixed $rawFill */
+        $rawFill = $object['fill'] ?? null;
+        $fill = CanvasShapeGradient::fromFabric($rawFill)
+            ?? (is_string($rawFill) ? self::normalizeColor($rawFill) : null);
+
+        if ($fill === null) {
+            $losses[] = new DesignLoss($path . '.fill', DesignLossCode::StyleDropped, sprintf(
+                '%s.fill is a background paint the DSL cannot name (it words flat colours and hex/rgba gradients of 2–8 stops only), so saving repaints the background %s.',
+                $path,
+                ShapeElement::DEFAULT_FILL,
+            ));
+            $fill = ShapeElement::DEFAULT_FILL;
+        }
+
+        $width = (self::number($object, 'width') ?? 0.0) * (self::number($object, 'scaleX') ?? 1.0);
+        $height = (self::number($object, 'height') ?? 0.0) * (self::number($object, 'scaleY') ?? 1.0);
+        $offGrid = abs((self::number($object, 'left') ?? 0.0) + $bleed) > self::GEOMETRY_EPSILON
+            || abs((self::number($object, 'top') ?? 0.0) + $bleed) > self::GEOMETRY_EPSILON
+            || abs($width - ($canvas->width + 2 * $bleed)) > self::GEOMETRY_EPSILON
+            || abs($height - ($canvas->height + 2 * $bleed)) > self::GEOMETRY_EPSILON;
+
+        if ($offGrid) {
+            $losses[] = new DesignLoss($path, DesignLossCode::TransformDropped, sprintf(
+                '%s: the colour background layer has been moved or resized off the full canvas. The DSL has no geometry for a background (it always covers the whole canvas incl. the print bleed), so saving snaps it back.',
+                $path,
+            ));
+        }
+
+        return new BackgroundElement($slug, null, false, $fill);
     }
 
     /**

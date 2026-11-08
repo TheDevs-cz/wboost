@@ -153,3 +153,26 @@ Key facts:
   consumer-prompt.md describe the contract; mfkfm is ported.
 - `'isBackground'` is in `CANVAS_CUSTOM_PROPERTIES` (and stripped on
   clipboard paste — only ever ONE background layer per canvas).
+- **Colour background layer (2026-11-08)**: the background layer may also be a
+  flat-colour / gradient **`Rect`** marked `isBackground` (seeded
+  `editorLocked: true`, `shapeKind: 'rectangle'`, no `assetPath`), covering
+  the bleed box at (-bleed, -bleed) — built ONLY by
+  `BackgroundLayer::buildColorObject()` (`isColorLayer()` detects it). It is
+  what the MCP design DSL compiles a colour background to
+  (`{"kind": "background", "fill": …}` and the legacy
+  `canvas.background.fill` shorthand when there is no picture background) —
+  root cause of the 2026-11-05 "Poukaz linie" report: the compiler used to
+  write that colour as Fabric's canvas-level `background`, which no editor
+  panel shows or edits, so Vrstvy had no "Pozadí" and Claude then hand-drew a
+  full-bleed rect instead. Contracts: the layers panel labels it "Pozadí"
+  (background wins over the shape label); the editor's "Pozadí" gallery pick
+  replaces it in place with a picture (`setBackgroundLayer` swaps any
+  `isBackground` object); `CanvasDesignProjector` re-fits it to the target's
+  bleed box when the target has no picture of its own (a picture still
+  replaces it); it never becomes an `imageInputs` slot and
+  `background_image` stays null. The canvas-level `background` key is now
+  written by the compiler only for a colour UNDER a picture background (linted
+  `canvas_color_under_background`). The design linter warns
+  `missing_background` / `background_drawn_as_element` so agents self-correct;
+  the DSL side is documented in `plugin/wboost/skills/wboost/` and the
+  `preview_design` / `set_design` descriptions + server instructions.

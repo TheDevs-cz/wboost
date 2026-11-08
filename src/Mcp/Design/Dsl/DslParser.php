@@ -109,7 +109,7 @@ final class DslParser
     public const array SHAPE_FILL_STOP_KEYS = ['at', 'color', 'opacity'];
 
     /** @var list<string> */
-    public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fillable'];
+    public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable'];
 
     /** @var list<string> */
     public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter'];
@@ -836,13 +836,21 @@ final class DslParser
     private function parseBackgroundElement(string $path, array $raw, null|string $id): null|BackgroundElement
     {
         $assetId = $this->readAssetId($path, $raw, 'asset');
+        $fill = $this->readShapeFill($path, $raw);
         $fillable = $this->readBool($path, $raw, 'fillable', false);
+
+        if ($assetId !== null && $fill !== null) {
+            $this->violation(self::join($path, 'fill'), DslErrorCode::InvalidStructure, sprintf(
+                '%s: a background is a picture OR a colour - give it "asset" (a gallery image id) or "fill" (a colour or gradient), not both. For a colour under a transparent picture, flatten the picture onto that colour first.',
+                $path,
+            ));
+        }
 
         if ($id === null) {
             return null;
         }
 
-        return new BackgroundElement($id, $assetId, $fillable);
+        return new BackgroundElement($id, $assetId, $fillable, $fill);
     }
 
     /**
@@ -1289,6 +1297,17 @@ final class DslParser
                 $index,
                 $firstIndex,
             ));
+        }
+
+        if ($firstIndex !== null && $canvas?->backgroundFill !== null) {
+            $first = $elements[$firstIndex];
+
+            if ($first instanceof BackgroundElement && $first->fill !== null) {
+                $this->violation('canvas.background.fill', DslErrorCode::InvalidStructure, sprintf(
+                    'canvas.background.fill and the "background" element at elements[%d] both define the background colour - keep the element\'s "fill" and drop canvas.background.',
+                    $firstIndex,
+                ));
+            }
         }
 
         if ($firstIndex !== null && $canvas?->backgroundImageAssetId !== null) {

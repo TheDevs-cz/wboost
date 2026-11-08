@@ -1378,21 +1378,52 @@ final class DesignCompilerTest extends TestCase
     }
 
     /**
-     * The `canvas.background.fill` shorthand becomes Fabric's canvas-level
-     * `background` key — the one the renderer's slicer strips for a transparent
-     * export — and composes with a background LAYER (a transparent PNG over a
-     * colour), which is why only the image half of the shorthand conflicts.
+     * The `canvas.background.fill` shorthand on a design with NO picture
+     * background compiles to the real background LAYER — a locked
+     * `isBackground` rectangle at stack index 0 covering the bleed box — and
+     * never to Fabric's canvas-level `background` key. The canvas-level colour
+     * is invisible in the editor's Vrstvy panel and cannot be changed there
+     * (the 2026-11-05 "Poukaz linie" report: "Nevidím tam vrstvu pozadí?").
      */
-    public function testCanvasBackgroundFillIsEmittedAsTheFabricBackgroundKey(): void
+    public function testCanvasBackgroundFillCompilesToTheBackgroundLayerNotACanvasColour(): void
     {
-        $compiled = $this->compile([
+        $design = [
             'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS, 'background' => ['fill' => '#111111']],
             'elements' => [
                 ['kind' => 'text', 'id' => 'a', 'text' => 'A', 'font' => self::FONT, 'size' => 40, 'x' => 0, 'y' => 0, 'width' => 500],
             ],
-        ]);
+        ];
 
-        self::assertSame('#111111', $compiled->canvas['background'] ?? null);
+        $compiled = $this->compiler()->compile(DslParser::parse($design), $this->context()->withBleed(59), DesignIdentity::fresh());
+
+        self::assertArrayNotHasKey('background', $compiled->canvas, 'never the legacy canvas-level colour');
+        self::assertCount(2, $compiled->objects());
+
+        $background = $compiled->objects()[0];
+        self::assertIsString($background['inputId']);
+        self::assertSame(
+            (new BackgroundLayer())->buildColorObject('#111111', (float) self::CANVAS, (float) self::CANVAS, $background['inputId'], 59),
+            $background,
+            'the colour layer is built by the shared BackgroundLayer builder, never hand-rolled',
+        );
+        self::assertSame('Rect', $background['type']);
+        self::assertTrue($background['isBackground']);
+        self::assertTrue($background['editorLocked']);
+        self::assertSame(-59, $background['left']);
+        self::assertSame(-59, $background['top']);
+        self::assertSame((float) self::CANVAS + 118, $background['width']);
+        self::assertSame((float) self::CANVAS + 118, $background['height']);
+        self::assertSame('#111111', $background['fill']);
+        self::assertNull($compiled->backgroundAssetPath, 'a colour has no picture to denormalize');
+        self::assertSame([], $compiled->imageInputs, 'a colour background is never a fill slot');
+
+        // Identity: the shorthand keeps its inputId across set_design calls.
+        $again = $this->compiler()->compile(
+            DslParser::parse($design),
+            $this->context(),
+            DesignIdentity::fromMap([DesignCompiler::CANVAS_BACKGROUND_SLUG => $background['inputId']]),
+        );
+        self::assertSame($background['inputId'], $again->objects()[0]['inputId']);
 
         $plain = $this->compile([
             'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
@@ -1402,6 +1433,63 @@ final class DesignCompilerTest extends TestCase
         ]);
 
         self::assertArrayNotHasKey('background', $plain->canvas);
+        self::assertCount(1, $plain->objects());
+    }
+
+    /**
+     * The first-class way: a `background` element with a `fill` (flat colour or
+     * gradient) is the same locked colour layer, pinned to index 0 wherever it
+     * was declared.
+     */
+    public function testABackgroundElementWithAFillCompilesToTheColourLayer(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                ['kind' => 'text', 'id' => 'a', 'text' => 'A', 'font' => self::FONT, 'size' => 40, 'x' => 0, 'y' => 0, 'width' => 500],
+                ['kind' => 'background', 'id' => 'pozadi', 'fill' => '#EEF8FC'],
+            ],
+        ]);
+
+        $background = $compiled->objects()[0];
+        self::assertTrue($background['isBackground']);
+        self::assertSame('Rect', $background['type']);
+        self::assertSame('#eef8fc', $background['fill']);
+        self::assertSame(0, $background['left']);
+        self::assertSame((float) self::CANVAS, $background['width']);
+        self::assertSame('Textbox', $compiled->objects()[1]['type']);
+
+        $gradient = $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                ['kind' => 'background', 'id' => 'pozadi', 'fill' => ['type' => 'linear', 'angle' => 90, 'from' => '#ffffff', 'to' => '#65bde6']],
+            ],
+        ]);
+
+        $fill = $gradient->objects()[0]['fill'];
+        self::assertIsArray($fill);
+        self::assertSame('linear', $fill['type']);
+        self::assertSame('percentage', $fill['gradientUnits']);
+    }
+
+    /**
+     * Backward compatibility: a `canvas.background.fill` UNDER a picture
+     * background (a transparent PNG over a colour) still has nowhere to go but
+     * the canvas-level colour — there is only ever one background layer. The
+     * linter warns about it ({@see \WBoost\Web\Mcp\Design\Lint\LintCode::CanvasColorUnderBackground}).
+     */
+    public function testCanvasBackgroundFillUnderAPictureBackgroundStaysTheCanvasColour(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS, 'background' => ['fill' => '#111111']],
+            'elements' => [
+                ['kind' => 'background', 'id' => 'bg', 'asset' => self::ASSET_BACKGROUND],
+            ],
+        ]);
+
+        self::assertSame('#111111', $compiled->canvas['background'] ?? null);
+        self::assertCount(1, $compiled->objects());
+        self::assertSame('Image', $compiled->objects()[0]['type']);
     }
 
     /**
@@ -1631,6 +1719,13 @@ final class DesignCompilerTest extends TestCase
             ],
         ]];
         yield 'shapes among texts' => [self::shapeDesign()];
+        yield 'colour background layer' => [[
+            'canvas' => ['width' => self::CANVAS, 'height' => 1350],
+            'elements' => [
+                ['kind' => 'background', 'id' => 'pozadi', 'fill' => '#eef8fc'],
+                ['kind' => 'text', 'id' => 'quote', 'text' => 'Na barvě', 'font' => self::FONT, 'size' => 64, 'at' => ['area' => 'middle', 'col' => [2, 11]]],
+            ],
+        ]];
         yield 'fillable background over a full-bleed photo' => [[
             'canvas' => ['width' => 2480, 'height' => 3508, 'background' => ['fill' => '#0a0a0a']],
             'elements' => [

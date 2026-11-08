@@ -192,9 +192,19 @@ final class SetDesignTest extends WebTestCase
                         [$object['left'], $object['top'], $object['width']],
                     );
                 },
-                $this->canvasObjects(TestDataFixture::BLANK_VARIANT_ID),
+                array_values(array_filter(
+                    $this->canvasObjects(TestDataFixture::BLANK_VARIANT_ID),
+                    static fn (array $object): bool => ($object['type'] ?? null) === 'Textbox',
+                )),
             ),
         );
+
+        // canvas.background.fill became the real, locked background LAYER at
+        // the bottom of the stack — what the editor shows as "Pozadí".
+        $bottom = $this->canvasObjects(TestDataFixture::BLANK_VARIANT_ID)[0];
+        self::assertTrue($bottom['isBackground'] ?? null);
+        self::assertTrue($bottom['editorLocked'] ?? null);
+        self::assertSame('#ffffff', $bottom['fill'] ?? null);
     }
 
     /**
@@ -432,7 +442,7 @@ final class SetDesignTest extends WebTestCase
         // Same "headline" slug carrying different copy and different geometry;
         // "legal" RENAMED to "small-print"; plus one genuinely new element.
         $second = [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 [
                     'kind' => 'text', 'id' => 'headline', 'text' => 'Rewritten headline',
@@ -534,7 +544,7 @@ final class SetDesignTest extends WebTestCase
         $before = $this->row(TestDataFixture::BLANK_VARIANT_ID);
 
         $result = $this->call(TestDataFixture::MCP_TOKEN_DESIGN_ONLY, TestDataFixture::BLANK_VARIANT_ID, [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 [
                     'kind' => 'text', 'id' => 'headline', 'text' => 'Wrong face',
@@ -579,7 +589,7 @@ final class SetDesignTest extends WebTestCase
         $this->expectThumbnail(TestDataFixture::BLANK_VARIANT_ID);
 
         $result = $this->call(TestDataFixture::MCP_TOKEN_DESIGN_ONLY, TestDataFixture::BLANK_VARIANT_ID, [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 [
                     'kind' => 'text', 'id' => 'headline', 'text' => 'Too far right',
@@ -821,7 +831,7 @@ final class SetDesignTest extends WebTestCase
     private static function cleanDesign(): array
     {
         return [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 [
                     'kind' => 'text', 'id' => 'headline', 'text' => 'Stand-in headline',

@@ -222,6 +222,45 @@ final class CanvasDesignProjectorTest extends TestCase
         self::assertEqualsWithDelta(0.5 * (2480 / 1080), $image['scaleX'], 0.001);
     }
 
+    /**
+     * A COLOUR background layer (an `isBackground` Rect, e.g. MCP-authored) has
+     * no picture to re-cover: with no target picture it is kept and re-fitted
+     * to the target's own bleed box, never dropped and never ratio-scaled.
+     */
+    public function testLayerModeRefitsAColourBackgroundLayerToTheTargetBleedBox(): void
+    {
+        $colour = (new BackgroundLayer())->buildColorObject('#eef8fc', 1080.0, 1080.0, 'bg-1', 0);
+        $canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                $colour,
+                ['type' => 'Textbox', 'inputId' => 'a', 'left' => 100, 'top' => 90, 'width' => 520],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $projected = $this->decode($this->projector->project(
+            $canvas,
+            1080,
+            1080,
+            2480,
+            3508,
+            null,
+            null,
+            null,
+            BackgroundMode::Layer,
+            null,
+            36,
+        ));
+
+        self::assertIsArray($projected['objects']);
+        self::assertCount(2, $projected['objects']);
+        // assertEquals: the JSON round trip turns 1.0 into 1.
+        self::assertEquals(
+            (new BackgroundLayer())->buildColorObject('#eef8fc', 2480.0, 3508.0, 'bg-1', 36),
+            $this->objectAt($projected, 0),
+        );
+    }
+
     public function testLayerModeDropsBackgroundLayerWhenTargetHasNoBackground(): void
     {
         $canvas = json_encode([

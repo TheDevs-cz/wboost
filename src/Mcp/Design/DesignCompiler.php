@@ -310,9 +310,13 @@ readonly final class DesignCompiler
             'containers' => $this->compileContainers($document, $inputIds, $objectByInputId, $canvasSpec->height),
         ];
 
-        if ($canvasSpec->backgroundFill !== null) {
-            // Fabric serializes `Canvas.backgroundColor` under `background`; it
-            // is what the renderer's slicer strips for a transparent export.
+        if ($canvasSpec->backgroundFill !== null && self::backgroundAssetId($document) !== null) {
+            // Only UNDER a picture background (a transparent PNG over a
+            // colour): there is one background layer and the picture has it,
+            // so the colour stays Fabric's canvas-level `Canvas.backgroundColor`
+            // (serialized under `background`; the renderer's slicer strips it
+            // for a transparent export). The linter warns — no editor panel
+            // shows it. Without a picture the colour IS the layer (compileBackground).
             $canvas['background'] = $canvasSpec->backgroundFill;
         }
 
@@ -363,7 +367,9 @@ readonly final class DesignCompiler
             $claim($element->id);
         }
 
-        if ($document->backgroundElement() === null && $document->canvas->backgroundImageAssetId !== null) {
+        if ($document->backgroundElement() === null
+            && ($document->canvas->backgroundImageAssetId !== null || $document->canvas->backgroundFill !== null)
+        ) {
             $claim(self::CANVAS_BACKGROUND_SLUG);
         }
 
@@ -393,6 +399,17 @@ readonly final class DesignCompiler
     // -----------------------------------------------------------------
 
     /**
+     * The background PICTURE, from the element or the `canvas.background.image`
+     * shorthand (the parser refuses both at once).
+     */
+    private static function backgroundAssetId(DesignDocument $document): null|string
+    {
+        $element = $document->backgroundElement();
+
+        return $element !== null ? $element->assetId : $document->canvas->backgroundImageAssetId;
+    }
+
+    /**
      * The stack-index-0 layer, or null when the design has none.
      *
      * A design with no background renders a TRANSPARENT PNG and that is legal,
@@ -409,7 +426,7 @@ readonly final class DesignCompiler
      * @param array<string, string> $inputIds
      * @param array<string, int> $indexById
      * @param list<CompileViolation> $violations
-     * @return null|array{object: array<string, mixed>, input: null|EditorImageInput, assetPath: string}
+     * @return null|array{object: array<string, mixed>, input: null|EditorImageInput, assetPath: null|string}
      */
     private function compileBackground(
         DesignDocument $document,
@@ -419,7 +436,7 @@ readonly final class DesignCompiler
         array &$violations,
     ): null|array {
         $element = $document->backgroundElement();
-        $assetId = $element !== null ? $element->assetId : $document->canvas->backgroundImageAssetId;
+        $assetId = self::backgroundAssetId($document);
         $fillable = $element !== null && $element->fillable;
         $slug = $element !== null ? $element->id : self::CANVAS_BACKGROUND_SLUG;
         $path = $element !== null
@@ -432,13 +449,32 @@ readonly final class DesignCompiler
                     $path,
                     CompileErrorCode::InertDeclaration,
                     sprintf(
-                        '%s: a fillable background needs an "asset" — the designed picture that renders when the user fills nothing. Either give it one, or set "fillable": false for a transparent background.',
+                        '%s: a fillable background needs an "asset" — the designed picture that renders when the user fills nothing. Either give it one, or set "fillable": false for a colour or transparent background.',
                         $path,
                     ),
                 );
             }
 
-            return null;
+            // No picture: a COLOUR background (element `fill`, or the
+            // `canvas.background.fill` shorthand) is the background layer —
+            // never Fabric's canvas-level colour, which no editor panel shows.
+            $fill = $element->fill ?? $document->canvas->backgroundFill;
+
+            if ($fill === null || $fillable) {
+                return null;
+            }
+
+            return [
+                'object' => $this->backgroundLayer->buildColorObject(
+                    $fill instanceof CanvasShapeGradient ? $fill->toFabric() : $fill,
+                    (float) $document->canvas->width,
+                    (float) $document->canvas->height,
+                    $inputIds[$slug] ?? null,
+                    $context->bleed,
+                ),
+                'input' => null,
+                'assetPath' => null,
+            ];
         }
 
         $asset = $context->asset($assetId);
@@ -755,7 +791,7 @@ readonly final class DesignCompiler
             // otherwise would drift from an editor-made one the first time the
             // group fanned it out.
             'strokeUniform' => true,
-            'strokeDashArray' => $element->strokeStyle->dashArray($element->strokeWidth),
+            'strokeDashArray' => $element->strokeStyle->dashArrayFor($element->shape, $element->strokeWidth, $width, $height),
             'strokeLineCap' => $element->strokeStyle->lineCap(),
             'inputId' => $inputId,
             'shapeKind' => $element->shape->value,

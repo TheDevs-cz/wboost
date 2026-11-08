@@ -424,6 +424,50 @@ final class DesignDecompilerTest extends TestCase
         self::assertSame('background', $decompiled->document->elements[0]->id, 'The background must lead the document, since the compiler pins it to stack index 0.');
     }
 
+    /**
+     * A colour background LAYER (an `isBackground` Rect over the canvas) reads
+     * back as the `background` element with its `fill`, leads the document,
+     * and survives compile → decompile → compile byte-for-byte.
+     */
+    public function testAColourBackgroundLayerRoundTripsAsABackgroundElementWithAFill(): void
+    {
+        $design = DslParser::parse([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                ['kind' => 'text', 'id' => 'nadpis', 'text' => 'Ahoj', 'font' => 'Rubik (Rubik Bold)', 'size' => 40, 'x' => 80, 'y' => 80, 'width' => 600],
+                ['kind' => 'background', 'id' => 'pozadi', 'fill' => '#eef8fc'],
+            ],
+        ]);
+        $context = CanvasComparison::compilationContext($design, []);
+        $compiled = (new DesignCompiler(new BackgroundLayer()))->compile($design, $context, DesignIdentity::fresh());
+
+        // A stored layer the editor moved below another object is still found.
+        $decompiled = self::decompile($compiled->canvas, $compiled->textInputs, $compiled->imageInputs);
+
+        self::assertSame([], $decompiled->losses, 'A colour background has a DSL word; nothing is lost.');
+
+        $background = $decompiled->document->backgroundElement();
+        self::assertNotNull($background);
+        self::assertSame($decompiled->document->elements[0], $background);
+        self::assertNull($background->assetId);
+        self::assertSame('#eef8fc', $background->fill);
+
+        $recompiled = (new DesignCompiler(new BackgroundLayer()))->compile($decompiled->document, $context, $decompiled->identity());
+        self::assertSame($compiled->objects()[0], $recompiled->objects()[0]);
+    }
+
+    public function testAColourBackgroundLayerMovedOffTheBleedBoxIsReportedAsSnappingBack(): void
+    {
+        $canvas = ['objects' => [
+            ['type' => 'Rect', 'shapeKind' => 'rectangle', 'isBackground' => true, 'editorLocked' => true, 'left' => 100, 'top' => 0, 'width' => 500, 'height' => 500, 'scaleX' => 1, 'scaleY' => 1, 'fill' => '#ff0000'],
+        ]];
+
+        $decompiled = self::decompile($canvas, [], []);
+
+        self::assertSame([DesignLossCode::TransformDropped], self::codes($decompiled));
+        self::assertSame('#ff0000', $decompiled->document->backgroundElement()?->fill);
+    }
+
     public function testTransformsAndPaintingTheDslCannotCarryAreReported(): void
     {
         $canvas = ['objects' => [

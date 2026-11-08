@@ -262,8 +262,10 @@ export default class extends Controller {
         const isPlaceholder = !isText && !isShape && !!obj.imagePlaceholder;
         // Background layer: visually distinct row so the designer always knows
         // which layer is the background — but still an ordinary, freely
-        // reorderable row (no pinning).
-        const isBackground = !isText && !isShape && obj.isBackground === true;
+        // reorderable row (no pinning). A COLOUR background (MCP-authored —
+        // BackgroundLayer::buildColorObject) is a shape-typed Rect; it is the
+        // background all the same.
+        const isBackground = !isText && obj.isBackground === true;
 
         const row = document.createElement('div');
         row.className = isBackground ? 'canvas-layer-row canvas-layer-row--background' : 'canvas-layer-row';
@@ -284,10 +286,10 @@ export default class extends Controller {
 
         const typeLabel = isText
             ? (isChecklist ? 'Zaškrtávací seznam' : 'Text')
-            : (isShape
-                ? (shapeKind ? shapeKind.label : 'Tvar')
-                : (isBackground
-                    ? (isPlaceholder ? 'Pozadí (placeholder)' : 'Pozadí')
+            : (isBackground
+                ? (isPlaceholder ? 'Pozadí (placeholder)' : 'Pozadí')
+                : (isShape
+                    ? (shapeKind ? shapeKind.label : 'Tvar')
                     : (isPlaceholder ? 'Obrázkový placeholder' : 'Obrázek')));
         main.title = `${label} — ${typeLabel} (kliknutím upravíte, tažením změníte pořadí)`;
         main.setAttribute('aria-label', `${typeLabel}: ${label}`);
@@ -297,7 +299,7 @@ export default class extends Controller {
         const icon = document.createElement('i');
         const iconGlyph = isText
             ? (isChecklist ? 'i-list' : 'i-type')
-            : (isShape ? 'i-shape' : (isBackground ? 'i-layers' : 'i-image'));
+            : (isBackground ? 'i-layers' : (isShape ? 'i-shape' : 'i-image'));
         icon.className = `canvas-layer-row__icon i ${iconGlyph} s14`;
         icon.setAttribute('aria-hidden', 'true');
         main.appendChild(icon);
@@ -487,7 +489,7 @@ export default class extends Controller {
         const isText = type === 'textbox';
         const isShape = isShapeObject(obj);
         const isPlaceholder = !isText && !isShape && !!obj.imagePlaceholder;
-        const isBackground = !isText && !isShape && obj.isBackground === true;
+        const isBackground = !isText && obj.isBackground === true;
         const name = obj.name || '';
 
         if (isText) {
@@ -498,12 +500,13 @@ export default class extends Controller {
                 ? { name, fallback: firstLine, numbered: false }
                 : { name, fallback: 'Text', numbered: true };
         }
+        // Exactly one background per canvas — no ordinal needed. Checked
+        // before shapes: a colour background is a shape-typed Rect.
+        if (isBackground) return { name, fallback: 'Pozadí', numbered: false };
         if (isShape) {
             const kind = SHAPE_KINDS[obj.shapeKind];
             return { name, fallback: kind ? kind.label : 'Tvar', numbered: true };
         }
-        // Exactly one background per canvas — no ordinal needed.
-        if (isBackground) return { name, fallback: 'Pozadí', numbered: false };
 
         return { name, fallback: 'Obrázek', numbered: true, qualifier: isPlaceholder ? '(placeholder)' : null };
     }

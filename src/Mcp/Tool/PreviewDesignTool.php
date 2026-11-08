@@ -123,8 +123,20 @@ readonly final class PreviewDesignTool
      *
      * The design is the wboost design DSL: {"canvas": {"width": ..., "height":
      * ...}, "elements": [...]}, elements in stack order bottom to top, each
-     * with a "kind" of text, image, background or container and a short slug
-     * "id" you choose. Set canvas.width and canvas.height to the variant's own
+     * with a "kind" of text, image, shape, background or container and a short
+     * slug "id" you choose.
+     *
+     * Every design should have exactly ONE background element - the editor's
+     * locked "Pozadí" layer, always covering the whole canvas incl. the print
+     * bleed, so it takes no placement: {"kind": "background", "id": "pozadi",
+     * "fill": "#ffffff"} for a colour (fill may also be a gradient object, like
+     * a shape's), or "asset": "<gallery id>" for a picture (cover-fitted;
+     * "fillable": true lets the user replace it). Never draw the background as
+     * a full-canvas shape or image: that is an ordinary clickable layer, not
+     * the background, and the review warns (background_drawn_as_element; no
+     * background at all is missing_background - it exports transparent).
+     *
+     * Set canvas.width and canvas.height to the variant's own
      * size — describe_variant reports it — because the render always uses the
      * variant's size and a mismatch silently misplaces everything. Fonts must
      * be exact face strings from get_context; images are gallery ids from

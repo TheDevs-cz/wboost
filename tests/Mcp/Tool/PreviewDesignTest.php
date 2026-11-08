@@ -118,6 +118,27 @@ final class PreviewDesignTest extends WebTestCase
     }
 
     /**
+     * The 2026-11-05 "Nevidím tam vrstvu pozadí?" report: a design with no
+     * background layer still draws, but the reply tells the agent — with the
+     * exact element to add — so it self-corrects before set_design.
+     */
+    public function testADesignWithoutABackgroundLayerIsWarnedAboutWithTheFix(): void
+    {
+        $design = self::cleanDesign();
+        $design['canvas'] = ['width' => 1080, 'height' => 1080];
+
+        $result = $this->call(TestDataFixture::MCP_TOKEN_DESIGN_ONLY, TestDataFixture::ORIENTATION_VARIANT_ID, $design);
+
+        self::assertFalse($result['isError']);
+
+        $summary = $result['summary'];
+        self::assertTrue($summary['rendered']);
+        self::assertSame(['missing_background'], self::codes($summary));
+        self::assertSame('warning', self::issues($summary)[0]['severity']);
+        self::assertStringContainsString('{"kind": "background", "id": "pozadi", "fill": "#ffffff"}', self::text(self::issues($summary)[0]['message']));
+    }
+
+    /**
      * Warnings do not block: the picture comes back AND the concerns are listed,
      * each with the severity that says so.
      */
@@ -231,7 +252,7 @@ final class PreviewDesignTest extends WebTestCase
     public function testEveryParseViolationIsReportedAtOnceWithItsPath(): void
     {
         $result = $this->call(TestDataFixture::MCP_TOKEN_DESIGN_ONLY, TestDataFixture::ORIENTATION_VARIANT_ID, [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 // `fontSize` is the hallucinated key; `font` is then missing.
                 ['kind' => 'text', 'id' => 'headline', 'text' => 'Hi', 'fontSize' => 48, 'size' => 48, 'x' => 0, 'y' => 0, 'width' => 500],
@@ -277,7 +298,7 @@ final class PreviewDesignTest extends WebTestCase
     public function testAnUnknownGalleryAssetIsReportedAsACompileError(): void
     {
         $result = $this->call(TestDataFixture::MCP_TOKEN_DESIGN_ONLY, TestDataFixture::ORIENTATION_VARIANT_ID, [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 ['kind' => 'image', 'id' => 'photo', 'asset' => '00000000-0000-0000-0000-0000000000ff', 'x' => 80, 'y' => 80, 'width' => 400, 'height' => 300],
             ],
@@ -365,7 +386,7 @@ final class PreviewDesignTest extends WebTestCase
     public function testSlugsThatAlreadyNameAnInputKeepTheirIds(): void
     {
         $this->call(TestDataFixture::MCP_TOKEN_DESIGN_ONLY, TestDataFixture::ORIENTATION_VARIANT_ID, [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 // "intro" is the name of the variant's first text input, so
                 // DesignSlug names it "intro" on both sides.
@@ -648,7 +669,7 @@ final class PreviewDesignTest extends WebTestCase
     private static function cleanDesign(): array
     {
         return [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 [
                     'kind' => 'text', 'id' => 'headline', 'text' => 'Stand-in headline',
@@ -673,7 +694,7 @@ final class PreviewDesignTest extends WebTestCase
     private static function designWithWarnings(): array
     {
         return [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 [
                     'kind' => 'text', 'id' => 'headline', 'text' => 'Too far right',
@@ -693,7 +714,7 @@ final class PreviewDesignTest extends WebTestCase
     private static function designWithAForeignFontAndAnOffCanvasElement(): array
     {
         return [
-            'canvas' => ['width' => 1080, 'height' => 1080],
+            'canvas' => ['width' => 1080, 'height' => 1080, 'background' => ['fill' => '#ffffff']],
             'elements' => [
                 [
                     'kind' => 'text', 'id' => 'headline', 'text' => 'Wrong face',

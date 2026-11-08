@@ -172,6 +172,20 @@ unknown face is an error that stops the render, because Chromium would otherwise
 silently substitute one), set `canvas` to the variant's own pixel size, and read
 back the `issues[]` — `severity`, `stage` and a `path` like `elements[2].font`.
 
+**Every design should have exactly one background layer.** It is a `background`
+element — a colour `{"kind": "background", "id": "pozadi", "fill": "#eef8fc"}`
+(a gradient object works too, like a shape's `fill`) or a gallery picture
+`"asset": "<id>"` — and it compiles to the editor's locked **"Pozadí"** layer at
+the bottom of **Vrstvy**, covering the whole canvas including the print bleed. A
+full-canvas rectangle at the bottom is *not* a background (an ordinary clickable
+layer the "Pozadí" picker would slide a picture under): the review warns with
+`background_drawn_as_element`, and a design without any background with
+`missing_background` (it would export transparent). If the user says "Nevidím
+tam vrstvu pozadí", that is the fix. (The 2026-11-05 "Poukaz linie" design was
+saved with its colour on Fabric's canvas-level background — invisible in the
+editor — and then "fixed" with a hand-drawn rectangle; both are now linted, and
+`canvas.background.fill` alone compiles to the real layer.)
+
 Iterate here as much as you like; nothing is persisted.
 
 ---

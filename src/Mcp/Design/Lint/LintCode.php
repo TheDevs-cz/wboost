@@ -114,6 +114,34 @@ enum LintCode: string
      */
     case MaxLengthBelowStandIn = 'max_length_below_stand_in';
 
+    /**
+     * The design has no background layer at all: no `background` element and
+     * no `canvas.background`. It exports TRANSPARENT and the editor's Vrstvy
+     * panel shows no "Pozadí" row — almost never what anyone wanted (the
+     * 2026-11-05 "Nevidím tam vrstvu pozadí?" report). A `background` element
+     * with neither `asset` nor `fill` is an explicit transparent background
+     * and silences it.
+     */
+    case MissingBackground = 'missing_background';
+
+    /**
+     * There is no background layer, but the BOTTOM element is a shape or a
+     * decorative picture covering the whole canvas — a background drawn by
+     * hand. It is not the editor's locked "Pozadí" layer: it is clickable,
+     * stops short of the print bleed unless sized for it, and the editor's
+     * background picker would slide a new picture UNDER it. Replaces
+     * {@see self::MissingBackground} for that design (one finding, not two).
+     */
+    case BackgroundDrawnAsElement = 'background_drawn_as_element';
+
+    /**
+     * `canvas.background.fill` combined with a PICTURE background. There is
+     * only one background layer, so the colour stays the legacy canvas-level
+     * Fabric colour — it renders under a transparent picture, but no editor
+     * panel shows it or can change it.
+     */
+    case CanvasColorUnderBackground = 'canvas_color_under_background';
+
     public function severity(): LintSeverity
     {
         return match ($this) {

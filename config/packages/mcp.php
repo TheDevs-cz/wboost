@@ -74,8 +74,12 @@ return App::config([
             keyed by the inputId that describe_variant reports, never by an input's name.
             And preview with render_variant while you iterate: export_variant is the
             deliverable, it is stricter, and it is counted.
-            Designing new templates is not available through this connector yet; that is
-            done in the wboost editor.
+            With the templates:design scope you can also author a variant's design:
+            preview_design draws a design document without saving, set_design commits it.
+            Every design should have exactly ONE background element - {"kind": "background",
+            "id": "pozadi", "fill": "#ffffff"} (a colour or gradient) or "asset": "<gallery id>"
+            (a picture). It is the editor's locked "Pozadí" layer covering the whole canvas
+            incl. the print bleed; never draw the background as a full-canvas shape.
             INSTRUCTIONS,
 
         'client_transports' => [
