@@ -21,6 +21,16 @@ import { Circle, Color, Ellipse, Gradient, Polygon, Rect, Triangle } from "fabri
  * registration whatsoever (`canvas.loadFromJSON` enlivens every built-in type).
  */
 
+// A dotted / dashed "Čára" draws its BODY as dots / dashes, not a dashed
+// outline around the bar — the shared classic patch the headless render
+// template applies too (assets/editor/fabric_line_style.js, loaded by
+// templates/editor/_editor_scripts.html.twig). Patched here, at import, so
+// every surface that draws shapes (editor stage, group shadow canvases,
+// thumbnails) gets it before the first canvas loads.
+if (typeof window !== 'undefined' && window.WBoostFabricLineStyle) {
+    window.WBoostFabricLineStyle.enable(Rect);
+}
+
 /** Fabric type names (lower-cased) that count as a shape. */
 const SHAPE_FABRIC_TYPES = new Set([
     'rect', 'circle', 'ellipse', 'triangle', 'polygon', 'polyline', 'line', 'path',

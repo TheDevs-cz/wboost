@@ -21,6 +21,10 @@
        text measurement everywhere); container_layout.js is the single source
        of truth for the "smart text area" reflow algorithm. #}
     <script>{{ break_word_inline_script|raw }}</script>
+    {# fabric_line_style.js draws a dotted / dashed čára's BODY as dots /
+       dashes (Fabric would dash the outline around the thin bar) — the same
+       patch the admin editor applies, so the export matches the editor. #}
+    <script>{{ line_style_inline_script|default('')|raw }}</script>
     <script>{{ container_layout_inline_script|raw }}</script>
     {# rich_text_runs.js converts rich-text overrides (runs) into Fabric
        per-character styles — grapheme-indexed, styles-before-text ordering.
@@ -85,6 +89,11 @@
                 // exact same patch the admin editor and the fill page apply so
                 // all three surfaces wrap text identically.
                 WBoostFabricBreakWord.enable(fabric.Textbox);
+                if (window.WBoostFabricLineStyle) {
+                    // Dotted / dashed čára = dots along the line (see
+                    // assets/editor/fabric_line_style.js, same as the editor).
+                    WBoostFabricLineStyle.enable(fabric.Rect);
+                }
 
                 const designWidth = {{ variant.dimension.width }};
                 const designHeight = {{ variant.dimension.height }};

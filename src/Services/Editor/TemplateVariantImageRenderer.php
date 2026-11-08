@@ -86,6 +86,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         private readonly string $richTextBlocksScriptPath,
         #[Autowire(service: 'cache.gotenberg_preview')]
         private readonly TagAwareCacheInterface $previewCache,
+        // Last + defaulted so the positional test constructions stay valid.
+        #[Autowire('%kernel.project_dir%/assets/editor/fabric_line_style.js')]
+        private readonly string $lineStyleScriptPath = __DIR__ . '/../../../assets/editor/fabric_line_style.js',
     ) {
     }
 
@@ -428,6 +431,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         foreach ([
             $this->fabricUmdBundlePath,
             $this->breakWordScriptPath,
+            $this->lineStyleScriptPath,
             $this->containerLayoutScriptPath,
             $this->richTextRunsScriptPath,
             $this->richTextBlocksScriptPath,
@@ -565,6 +569,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'strict_container_overflow' => $strictContainerOverflow,
                 'fabric_inline_script' => $this->getInlineScript($this->fabricUmdBundlePath),
                 'break_word_inline_script' => $this->getInlineScript($this->breakWordScriptPath),
+                'line_style_inline_script' => $this->getInlineScript($this->lineStyleScriptPath),
                 'container_layout_inline_script' => $this->getInlineScript($this->containerLayoutScriptPath),
                 'rich_text_runs_inline_script' => $this->getInlineScript($this->richTextRunsScriptPath),
                 'rich_text_blocks_inline_script' => $this->getInlineScript($this->richTextBlocksScriptPath),

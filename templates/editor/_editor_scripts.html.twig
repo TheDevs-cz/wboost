@@ -7,6 +7,10 @@
    throws on connect, shows no stored sample and drops whatever is typed
    (F16). #}
 <script src="{{ asset('editor/fabric_break_word.js') }}"></script>
+{# Dotted / dashed čára = dots along the line, not a dashed outline around
+   the bar — same patch the render template inlines. Must load before the
+   ESM canvas_shapes.js (it enables the patch at import). #}
+<script src="{{ asset('editor/fabric_line_style.js') }}"></script>
 <script src="{{ asset('editor/container_layout.js') }}"></script>
 <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
 <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
