@@ -492,9 +492,9 @@ within the document. Slugs carry input identity across saves.
 | `canvas` | `width`, `height`, `background` |
 | `canvas.background` | `image`, `fill` |
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
-| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `at`, `x`, `y`, `width`, `input` |
+| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `opacity`, `at`, `x`, `y`, `width`, `input` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
-| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
 | `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
@@ -525,7 +525,8 @@ within the document. Slugs carry input identity across saves.
   element, but `background.image` and a `background` element are mutually
   exclusive — they define the same layer.
 - **`text`**: `text`, `font` and `size` are required, plus a placement.
-  `color` defaults to `#000000`, `align` to `left`, `lineHeight` to `1.16`.
+  `color` defaults to `#000000`, `align` to `left`, `lineHeight` to `1.16`,
+  `opacity` to `1` (a fraction 0…1, like a shape's — `0.6` = 60 % opaque).
 - **placement**: give either `at`, **or** all of `x`, `y` and `width`
   (`height` too for an `image`). `at.col` defaults to `[1, 12]` on the
   12-column grid, start ≤ end; margins and offsets default to `0`.
@@ -557,6 +558,10 @@ within the document. Slugs carry input identity across saves.
   `free: true` accepts any colour. Such a shape then appears in
   `describe_variant` `shapeInputs[]`. A gradient `fill` (or a border with
   `strokeWidth` 0) cannot be recoloured, so that part is simply not offered.
+- **`image` `opacity`**: a fraction 0…1 (default `1`), decorative or
+  fillable. A filled placeholder keeps it: the user's picture renders at the
+  designed opacity. Opacity is a design property only — nobody filling the
+  template can change it. The `background` has none.
 - **`image` `mirror`**: `true` flips a **decorative** image horizontally (default
   `false`). Rejected on a fillable placeholder — filling re-places the picture
   and resets any mirroring.

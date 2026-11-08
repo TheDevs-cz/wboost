@@ -137,7 +137,13 @@ structure of the Illustrator-exported reference file.
   designed styles / the user's rich runs, as the render applies them) and
   shapes that are lines or ≤ 2 mm thick OVERPRINT (suppressed in pass 1);
   larger black shapes KNOCK OUT (painted white in pass 1 — no ink under
-  them, so the picture beneath cannot ghost through the black). "Black" =
+  them, so the picture beneath cannot ghost through the black). Admin-set
+  OPACITY (2026-11-08): a translucent black shape (opacity < 1) OVERPRINTS
+  instead — pass 2 paints its alpha as a K tint over the picture, which is
+  the see-through the designer asked for (a knockout would blank the photo
+  and print flat grey); opacity 0 objects take no ink. Everything else that is
+  translucent is simply flattened in pass 1's browser composite, so the
+  PDF/X-1a file never carries live transparency (X-1a forbids it). "Black" =
   `#000000` + every brand colour whose palette CMYK is 0/0/0/100.
 - **`PrintColorConverter`** (Imagick + lcms): flatten on white → sRGB
   (`resources/icc/sRGB-v4.icc`, CC0 compact profile) → `CoatedFOGRA39.icc`

@@ -341,6 +341,11 @@ export default class extends Controller {
         }
         this.objects[inputId] = { object: fabricObject };
         if (fabricObject) {
+            // The admin-set design opacity rides every picture the slot shows
+            // — stand-in and user pick alike (the export keeps it the same
+            // way: ImagePlacement swaps src + placement, never opacity).
+            const slot = this.placeholdersById && this.placeholdersById[inputId];
+            fabricObject.set('opacity', slot && typeof slot.opacity === 'number' ? slot.opacity : 1);
             this.canvas.add(fabricObject);
         }
         // Every slot change repaints in the designed z-order (this also puts

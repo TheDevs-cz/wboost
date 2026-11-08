@@ -70,13 +70,13 @@ final class DslParser
     public const array AT_KEYS = ['area', 'col', 'marginX', 'marginY', 'offsetX', 'offsetY'];
 
     /** @var list<string> */
-    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'at', 'x', 'y', 'width', 'input'];
+    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'opacity', 'at', 'x', 'y', 'width', 'input'];
 
     /** @var list<string> */
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
-    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror'];
+    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity'];
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
@@ -388,6 +388,7 @@ final class DslParser
         $color = $this->readHexColor($path, $raw, 'color') ?? TextElement::DEFAULT_COLOR;
         $align = $this->readTextAlign($path, $raw);
         $lineHeight = $this->readPositiveNumber($path, $raw, 'lineHeight') ?? TextElement::DEFAULT_LINE_HEIGHT;
+        $opacity = $this->readOpacity($path, $raw);
         $placement = $this->parsePlacement($path, $raw, allowHeight: false);
         $input = $this->parseTextInput($path, $raw['input'] ?? null);
 
@@ -395,7 +396,7 @@ final class DslParser
             return null;
         }
 
-        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input);
+        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity);
     }
 
     /**
@@ -407,6 +408,7 @@ final class DslParser
         $placement = $this->parsePlacement($path, $raw, allowHeight: true);
         $input = $this->parseImageInput($path, $raw['input'] ?? null);
         $mirror = $this->readBool($path, $raw, 'mirror', false);
+        $opacity = $this->readOpacity($path, $raw);
 
         // A fill re-places a placeholder's picture and resets its flip
         // (ImagePlacement) — a mirrored placeholder would preview a state no
@@ -423,7 +425,7 @@ final class DslParser
             return null;
         }
 
-        return new ImageElement($id, $assetId, $placement, $input, $mirror);
+        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity);
     }
 
     /**

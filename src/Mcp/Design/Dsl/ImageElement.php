@@ -35,6 +35,12 @@ readonly final class ImageElement implements DesignElement
         /** Null = decorative image (never fillable). */
         public null|ImageInputSpec $input,
         public bool $mirror = false,
+        /**
+         * Admin-set opacity, a 0…1 fraction like a shape's. A fillable
+         * placeholder keeps it for the USER's picture too — the fill swaps
+         * the source and the placement, never the opacity.
+         */
+        public float $opacity = 1.0,
     ) {
     }
 
@@ -72,6 +78,7 @@ readonly final class ImageElement implements DesignElement
             'height' => $placement['height'],
             'input' => $this->input?->toArray(),
             'mirror' => $this->mirror,
+            'opacity' => $this->opacity,
         ];
     }
 }

@@ -20,10 +20,48 @@ orchestrator dispatches on Fabric's selection lifecycle:
 | `canvas_input_properties_controller` | Editor-side input metadata (name, description, locked, hidable, uppercase). Persists onto the canvas object as custom properties via `CANVAS_CUSTOM_PROPERTIES`. Exposes `toggleLocked` for the mini-toolbar. |
 | `canvas_image_properties_controller` | Image-placeholder metadata (placeholder flag, name/description, allowMove/Resize/Rotate, hidable, allowedDirectoryIds). Exposes `togglePlaceholder` for the mini-toolbar. |
 | `canvas_shape_properties_controller` | Vector-shape styling — fill (solid or gradient), stroke, corner radius, opacity, editor lock. See the dedicated section below. |
+| `canvas_opacity_controller` | Admin-set **opacity** ("Průhlednost", 0–100 %) for texts and images (placeholders included) plus a compact slider in the **multi-select bar** that writes every selected member (shapes too). See "Element opacity" below. |
 | `canvas_alignment_controller` | Multi-object align ops, z-order, delete. `updateButtonStates` is `has*Target`-guarded since its buttons live in the floating chrome. |
 | `canvas_layers_controller` | Photoshop-style layers panel ("Vrstvy"): topmost-first rows, hover outline, click-select, SortableJS restack, and a per-layer **visibility eye**. Row label = the object's `name` (every popover — text, image, shape — has a "Název" field; the image one is offered for EVERY image since 2026-09-03, not just placeholders, and doubles as the fill-page field tag once the image becomes one), else a per-type fallback **numbered in stack order, bottom = 1** ("Obrázek 1", "Obrázek 2 (placeholder)", "Obdélník 1"; a text falls back to its first line, the single "Pozadí" is never numbered) — `canvas_layer_labels.js`, pure and node-testable. The ordinal is display-only: blank names stay blank in the canvas JSON, so nothing reaches `imageInputs[].name` or the API. The eye is PERSISTED (`visible: false` rides the canvas JSON): hidden layers vanish from renders/exports/thumbnails, are **excluded from fillable inputs** (`buildVariantPayload` + `TextInputObjectBinder` skip invisible objects — the positional textbox↔input contract counts only VISIBLE textboxes), drop out of container membership at layout time (`collectMembers` skips them; fill-time `hide` still collapses), are filtered from API `containers[].memberInputIds`, and propagate through group sync (`visible` ∈ META_KEYS). Also a per-layer **padlock**, which is the element's OWN popover lock and therefore means two different things (each row's title says which): an image — the background included — flips `editorLocked` (editor lock: click-through, immovable), a text flips `locked` (fill-time: the user can't overwrite it). When the row is the active object it delegates to `canvas-input-properties#toggleLocked` / `canvas-image-properties#toggleEditorLock` (+ `refreshContextToggle`) so the popover checkbox and mini-toolbar stay in step; otherwise it flips the flag directly. Selecting a row opens the popover WITHOUT focusing a field (`openPopoverKeepFocus`) — a focused input makes `handleKeydown` bail, which used to swallow Delete for anything selected from the panel. The eye and the padlock are `filter`ed OUT of the row's SortableJS drag (`preventOnFilter: false`) and the list has `fallbackTolerance: 4`: in `forceFallback` mode Sortable owns the pointer from pointerdown and its default 0 px tolerance turned any sub-pixel wobble of a click into a drag whose onEnd rebuild replaced the row before the click landed (2026-09-03, "the eye sometimes does nothing"). |
 | `canvas_floating_toolbar_controller` | The element-anchored floating UX (see below). |
 | `canvas_container_controller` | Containers ("smart text areas") — see the dedicated section below. |
+
+**Element opacity (2026-11-08)**
+
+- **Carrier = Fabric's NATIVE `opacity` (0…1)** on the object — no custom
+  property, so `canvas_payload.js` serializes it untouched, undo snapshots and
+  group sync (`opacity` ∈ `STYLE_KEYS`) carry it, the PHP projector copies it
+  verbatim, and every surface that enlivens the canvas JSON paints it: the
+  headless render (incl. the rich-text block stack, whose children inherit the
+  replaced object's opacity), the fill page's echo canvas (enlivens the
+  designed textbox verbatim) and — the one client-side picture that is NOT the
+  designed object — the interactive image-fill canvas, which reads the slot's
+  `opacity` from `AbstractVariantFiller::imagePlaceholders()` and applies it in
+  `_replaceObject` to the stand-in AND the user's pick. Server-side the fill
+  never resets it (`ImagePlacement` merges src + placement only).
+  `ObjectOpacityRenderTest` (group `gotenberg`) pins text + filled placeholder.
+- **Admin-only design property**: no fill-page control, no API field. Offered
+  on text + image (shapes have had their own slider in the shape popover since
+  2026-08-11); NEVER on the background layer (`isBackground` — the row hides,
+  the multi bar skips it) and not on containers.
+- **UI**: `canvas-opacity` targets `row` / `slider` / `value`, one set per
+  surface (text popover, image popover, multi bar). `input` repaints live,
+  `change` fires the synthetic `object:modified` = ONE undo step. In a
+  multi-selection the value goes to each MEMBER, never the ActiveSelection
+  (its own opacity would only tint the transient group). Mixed values read
+  "různá".
+- **Collisions checked**: suppression everywhere (slices, print passes, echo
+  base `transparentTextInputIds`) overwrites `opacity` to 0 on a COPY of the
+  canvas; layer visibility is `visible`; pasteboard dimming is painted on the
+  bitmap — none of them read or write the designed opacity.
+- **Print PDF**: the raster passes flatten transparency in the browser, so the
+  PDF/X-1a file holds no live transparency. A TRANSLUCENT black shape
+  overprints (K tint over the picture) instead of knocking out — see
+  `BlackInkObjects` in `templates-render.md`.
+- **MCP**: `text` and `image` elements take `opacity` (fraction, default 1);
+  the compiler emits the key only when < 1 so older designs recompile
+  byte-identically, the decompiler reads it back loss-free (only a background's
+  opacity is still a `style_dropped` loss).
 
 **Vector shapes ("Přidat tvar", 2026-08-11)**
 

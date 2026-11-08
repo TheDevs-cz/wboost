@@ -15,6 +15,7 @@ use WBoost\Web\Mcp\Design\DesignLoss;
 use WBoost\Web\Mcp\Design\DesignLossCode;
 use WBoost\Web\Mcp\Design\Dsl\CanvasSpec;
 use WBoost\Web\Mcp\Design\Dsl\DslParser;
+use WBoost\Web\Mcp\Design\Dsl\ImageElement;
 use WBoost\Web\Mcp\Design\Dsl\Placement;
 use WBoost\Web\Mcp\Design\Dsl\PlacementArea;
 use WBoost\Web\Mcp\Design\Dsl\Rect;
@@ -245,6 +246,31 @@ final class DesignDecompilerTest extends TestCase
         self::assertTrue($decompiled->losses[0]->destructive);
     }
 
+    /**
+     * Texts and images word their own opacity (2026-11-08), so it reads back
+     * without a loss; the BACKGROUND has no opacity in the editor or the DSL
+     * and keeps reporting one.
+     */
+    public function testTextAndImageOpacityReadBackLosslessly(): void
+    {
+        $canvas = ['objects' => [
+            self::textbox(['opacity' => 0.4]),
+            self::image(['opacity' => 0.25, 'top' => 600.0, 'assetPath' => 'gallery/logo.png', 'name' => 'Logo']),
+        ]];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'Nadpis')], [], self::context());
+
+        self::assertSame([], $decompiled->losses, 'Opacity on a text or an image has a DSL word; nothing is lost.');
+        self::assertSame(0.4, $decompiled->document->textElements()[0]->opacity);
+
+        $images = array_values(array_filter(
+            $decompiled->document->elements,
+            static fn (object $element): bool => $element instanceof ImageElement,
+        ));
+        self::assertCount(1, $images);
+        self::assertSame(0.25, $images[0]->opacity);
+    }
+
     public function testAVectorShapeSurvivesWithItsKindFillAndBorder(): void
     {
         $canvas = ['objects' => [
@@ -408,7 +434,7 @@ final class DesignDecompilerTest extends TestCase
                 'charSpacing' => 40,
                 'fill' => ['type' => 'linear'],
             ]),
-            self::image(['flipY' => true, 'cropX' => 20, 'filters' => ['grayscale'], 'opacity' => 0.5, 'editorLocked' => true]),
+            self::image(['flipY' => true, 'cropX' => 20, 'filters' => ['grayscale'], 'shadow' => ['color' => '#000000'], 'editorLocked' => true]),
         ]];
 
         $decompiled = self::decompile($canvas, [], []);

@@ -473,6 +473,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     canUpload: bool,
      *     isBackground: bool,
      *     layerIndex: int,
+     *     opacity: float,
      *     seed: null|array<string, mixed>
      * }>
      */
@@ -556,6 +557,12 @@ abstract class AbstractVariantFiller extends AbstractController
                 // Designed z-position — the fill controller restacks the live
                 // objects (and the overlay slices above them) by this.
                 'layerIndex' => $stackIndexes[$input->inputId] ?? 0,
+                // Admin-set design opacity (Fabric's native 0…1 key). The fill
+                // controller draws the slot's picture client-side, so it
+                // applies this to the stand-in AND the user's pick — a fill
+                // never changes it (the server render keeps the object's
+                // opacity through ImagePlacement's merge the same way).
+                'opacity' => self::designOpacity($object),
                 // Loaded-version state for this slot (see the LiveProp).
                 'seed' => $this->seedImageValues[$input->inputId] ?? null,
             ];
@@ -910,6 +917,18 @@ abstract class AbstractVariantFiller extends AbstractController
             ],
             $files,
         );
+    }
+
+    /**
+     * A canvas object's own opacity, clamped to 0…1 (absent = 1).
+     *
+     * @param null|array<array-key, mixed> $object
+     */
+    private static function designOpacity(null|array $object): float
+    {
+        $value = $object['opacity'] ?? 1;
+
+        return is_numeric($value) ? max(0.0, min(1.0, (float) $value)) : 1.0;
     }
 
     /**

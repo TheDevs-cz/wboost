@@ -245,6 +245,10 @@ a.ed-sync:hover { color: var(--text); }
 .ed .canvas-mini-toolbar .btn.text-danger { color: var(--rose-ink) !important; }
 .ed .canvas-mini-toolbar .btn.text-danger:hover { background: var(--rose-deep); }
 .ed .canvas-mini-toolbar-sep { width: 1px; height: 22px; align-self: center; margin: 0 4px; background: var(--line-2); }
+/* Multi-select opacity: a compact range + its "NN %" readout inside the bar. */
+.ed .canvas-mini-toolbar-opacity { display: inline-flex; align-items: center; gap: 6px; margin: 0 4px; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.ed .canvas-mini-toolbar-opacity .form-range { width: 88px; height: 18px; }
+.ed .canvas-mini-toolbar-opacity__value { min-width: 38px; text-align: right; }
 .i-flip { --i: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3v18'/><path d='M9 7L3 17h6z'/><path d='M15 7l6 10h-6z'/></svg>"); }
 
 /* ---- inspector (the floating property popovers, prototype screen 21) ---- */

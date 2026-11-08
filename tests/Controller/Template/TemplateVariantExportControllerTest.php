@@ -836,6 +836,50 @@ final class TemplateVariantExportControllerTest extends WebTestCase
     }
 
     /**
+     * Admin-set opacity on an image placeholder reaches the interactive fill
+     * canvas: the user's picture (and the stand-in) is drawn client-side, so
+     * the payload must carry the designed opacity — a fill never changes it.
+     */
+    public function testImagePlaceholderPayloadCarriesTheDesignedOpacity(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
+        $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($canvas);
+        $objects = $canvas['objects'] ?? null;
+        self::assertIsArray($objects);
+        foreach ($objects as $index => $object) {
+            if (is_array($object) && ($object['inputId'] ?? null) === TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID) {
+                $object['opacity'] = 0.4;
+                $objects[$index] = $object;
+            }
+        }
+        $canvas['objects'] = $objects;
+        $variant->canvas = json_encode($canvas, JSON_THROW_ON_ERROR);
+
+        $rendered = (string) $this->createLiveComponent(
+            name: 'Template:VariantFiller',
+            data: ['variant' => $variant],
+            client: $client,
+        )->render();
+
+        $json = (new Crawler($rendered))->filter('[data-variant-image-fill-placeholders-value]')->attr('data-variant-image-fill-placeholders-value');
+        $placeholders = json_decode((string) $json, true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($placeholders);
+
+        $opacityById = [];
+        foreach ($placeholders as $placeholder) {
+            self::assertIsArray($placeholder);
+            self::assertIsString($placeholder['inputId'] ?? null);
+            $opacityById[$placeholder['inputId']] = $placeholder['opacity'] ?? null;
+        }
+        self::assertSame(0.4, $opacityById[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_PHOTO_ID] ?? null);
+        self::assertEquals(1, $opacityById[TestDataFixture::SOCIAL_NETWORK_VARIANT_1_IMAGE_LOCKED_ID] ?? null, 'No opacity key = fully opaque.');
+    }
+
+    /**
      * The form POST that downloads the PNG carries image placements
      * (images[inputId][imageId|scale|offsetX|offsetY|rotation]) alongside the
      * text values. The download controller normalises the string form fields,

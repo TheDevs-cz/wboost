@@ -149,6 +149,41 @@ final class DslParserTest extends TestCase
         self::assertSame('elements[0].mirror', $exception->violations[0]->path);
     }
 
+    /**
+     * Opacity is the admin's design property on texts and images too
+     * (2026-11-08) — the same 0…1 fraction a shape takes, defaulting to fully
+     * opaque, and a percentage is refused the same way.
+     */
+    public function testTextsAndImagesTakeAnOpacityFraction(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['opacity' => 0.4]),
+            self::imageElement(['opacity' => 0.25]),
+            self::textElement(['id' => 'plain', 'at' => ['area' => 'middle']]),
+        ));
+
+        $text = $document->element('headline');
+        self::assertInstanceOf(TextElement::class, $text);
+        self::assertSame(0.4, $text->opacity);
+        self::assertSame(0.4, $text->toArray()['opacity']);
+
+        $image = $document->element('photo');
+        self::assertInstanceOf(ImageElement::class, $image);
+        self::assertSame(0.25, $image->opacity);
+        self::assertSame(0.25, $image->toArray()['opacity']);
+
+        $plain = $document->element('plain');
+        self::assertInstanceOf(TextElement::class, $plain);
+        self::assertSame(1.0, $plain->opacity, 'Absent = fully opaque.');
+
+        $exception = self::reject(self::documentWith(self::textElement(['opacity' => 40])));
+        self::assertSame('elements[0].opacity', $exception->violations[0]->path);
+        self::assertSame(DslErrorCode::InvalidValue, $exception->violations[0]->code);
+
+        $exception = self::reject(self::documentWith(self::imageElement(['opacity' => 250])));
+        self::assertSame('elements[0].opacity', $exception->violations[0]->path);
+    }
+
     public function testParsesAShapeElementWithEveryField(): void
     {
         $shape = DslParser::parse(self::fullDocument())->element('scrim');
@@ -803,7 +838,7 @@ final class DslParserTest extends TestCase
             self::documentWith(self::imageElement(['src' => 'x.png'])),
             'elements[0].src',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror.',
+            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror, opacity.',
         ];
         yield 'unknown background key' => [
             self::documentWith(['kind' => 'background', 'id' => 'bg', 'cover' => true]),

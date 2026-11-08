@@ -38,7 +38,7 @@
     <div
         id="canvas-container"
         class="editor-shell ed"
-        data-controller="editor-chrome canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-shape-properties canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator"
+        data-controller="editor-chrome canvas-editor canvas-history canvas-clipboard canvas-zoom canvas-text-toolbar canvas-input-properties canvas-image-properties canvas-shape-properties canvas-opacity canvas-alignment canvas-floating-toolbar canvas-container canvas-layers canvas-snapping canvas-rulers canvas-navigator"
         {# Canvas-mode only: layer-mode backgrounds live inside the canvas JSON
            as an isBackground object — a canvas-level override would shadow them. #}
         data-canvas-editor-background-image-value="{{ variant.backgroundMode.value == 'canvas' and variant.backgroundImage ? uploaded_asset(variant.backgroundImage) }}"
@@ -60,6 +60,7 @@
         data-canvas-input-properties-font-faces-value='{{ (rich_toolbar ? rich_toolbar.fonts : [])|json_encode }}'
         data-canvas-image-properties-canvas-editor-outlet="#canvas-container"
         data-canvas-shape-properties-canvas-editor-outlet="#canvas-container"
+        data-canvas-opacity-canvas-editor-outlet="#canvas-container"
         data-canvas-alignment-canvas-editor-outlet="#canvas-container"
         data-canvas-floating-toolbar-canvas-editor-outlet="#canvas-container"
         data-canvas-container-canvas-editor-outlet="#canvas-container"
@@ -77,6 +78,7 @@
             canvas-editor:selection:changed->canvas-input-properties#updateFromSelection
             canvas-editor:selection:changed->canvas-image-properties#updateFromSelection
             canvas-editor:selection:changed->canvas-shape-properties#updateFromSelection
+            canvas-editor:selection:changed->canvas-opacity#updateFromSelection
             canvas-editor:selection:changed->canvas-alignment#onSelectionChanged
             canvas-editor:selection:changed->canvas-floating-toolbar#onSelectionChanged
             canvas-editor:selection:changed->canvas-container#onSelectionChanged

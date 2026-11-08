@@ -73,7 +73,12 @@ response's `directoryId` is null for root uploads.
   (`layerIndex` in the placeholder payload). Slicing suppresses out-of-range objects
   via `opacity: 0`, NEVER `visible: false` (invisible objects fall out of the
   positional textbox binding and container membership → per-slice reflow drift), and
-  stubs sliced-out image srcs (headless Chromium can't reach Minio). Placements
+  stubs sliced-out image srcs (headless Chromium can't reach Minio). The
+  admin-set design **opacity** rides the payload too (`opacity`, 0…1) and
+  `_replaceObject` applies it to whatever picture the slot shows — stand-in or
+  the user's pick; the server keeps the object's own `opacity` through
+  `ImagePlacement`'s merge, so a filled slot exports at the designed opacity
+  (2026-11-08, `ObjectOpacityRenderTest`). Placements
   mirror into hidden `images[<uuid>][...]` form fields so the plain download POST
   drives the same server render. The canvas + placement fields live in a
   `data-live-ignore` subtree; the backdrop + overlay sources are re-read from

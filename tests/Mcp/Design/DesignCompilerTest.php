@@ -504,6 +504,36 @@ final class DesignCompilerTest extends TestCase
         self::assertSame(0.5, $radialCoords['r2']);
     }
 
+    /**
+     * Text + image opacity compile to Fabric's native `opacity`. Fully opaque
+     * elements emit NO key, so every design compiled before opacity existed
+     * still compiles to the byte-identical canvas.
+     */
+    public function testTextAndImageOpacityCompileToTheNativeKeyOnlyWhenTranslucent(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => 1080, 'height' => 1080],
+            'elements' => [
+                ['kind' => 'text', 'id' => 'faded', 'text' => 'Faded', 'font' => self::FONT, 'size' => 40, 'x' => 80, 'y' => 80, 'width' => 900, 'opacity' => 0.4],
+                ['kind' => 'text', 'id' => 'solid', 'text' => 'Solid', 'font' => self::FONT, 'size' => 40, 'x' => 80, 'y' => 300, 'width' => 900],
+                ['kind' => 'image', 'id' => 'photo', 'asset' => self::ASSET_PHOTO, 'x' => 80, 'y' => 500, 'width' => 400, 'height' => 300, 'opacity' => 0.25, 'input' => ['name' => 'Foto', 'placeholder' => true]],
+                ['kind' => 'image', 'id' => 'logo', 'asset' => self::ASSET_PHOTO, 'x' => 600, 'y' => 500, 'width' => 400, 'height' => 300],
+            ],
+        ]);
+
+        $byName = [];
+        foreach ($compiled->objects() as $object) {
+            $key = $object['text'] ?? $object['name'] ?? 'logo';
+            self::assertIsString($key);
+            $byName[$key] = $object;
+        }
+
+        self::assertSame(0.4, $byName['Faded']['opacity']);
+        self::assertArrayNotHasKey('opacity', $byName['Solid']);
+        self::assertSame(0.25, $byName['Foto']['opacity']);
+        self::assertArrayNotHasKey('opacity', $byName['logo']);
+    }
+
     public function testADottedStrokeScalesItsDashPatternWithTheStrokeWidth(): void
     {
         // The gradient panel is the second `rectangle`; compiledShapes() keeps

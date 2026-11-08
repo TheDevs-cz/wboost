@@ -45,7 +45,7 @@ enum DesignLossCode: string
 
     /**
      * Painting the DSL has no words for: per-character styles, gradients and
-     * patterns, shadows, strokes, opacity, text decoration, letter spacing,
+     * patterns, shadows, strokes, a background's opacity, text decoration, letter spacing,
      * image filters, the editor's lock flag.
      */
     case StyleDropped = 'style_dropped';

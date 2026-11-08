@@ -26,6 +26,9 @@ use WBoost\Web\Value\RichText;
  *  - KNOCKOUT — every other black shape (filled black, no non-black
  *    border): the background is removed under it, because black ink alone
  *    over a large area lets the picture beneath show through (ghosting).
+ *    Unless it is TRANSLUCENT (admin-set opacity < 1): then showing the
+ *    picture through IS the design, so it overprints as a K tint (its alpha
+ *    is the K amount). Opacity 0 objects are ignored.
  *
  * "Black" is `#000000` plus every brand colour whose manual CMYK is 0/0/0/100
  * (the typical brand black is a near-black hex such as #1d1d1b).
@@ -77,6 +80,12 @@ final class BlackInkObjects
                 continue;
             }
 
+            // Admin-set opacity: 0 paints nothing, so it takes no ink.
+            $opacity = self::opacity($object);
+            if ($opacity <= 0.0) {
+                continue;
+            }
+
             $type = is_string($object['type'] ?? null) ? strtolower($object['type']) : null;
 
             if (in_array($type, self::TEXT_TYPES, true)) {
@@ -88,7 +97,11 @@ final class BlackInkObjects
             }
 
             if (CanvasShape::isShapeType($type) && self::isBlackShape($object, $black)) {
-                if (self::isHairline($object, $hairlinePx)) {
+                // A TRANSLUCENT black shape always overprints: pass 2 paints
+                // its alpha as K over what lies beneath — the darkened photo
+                // the designer sees. A knockout would blank that picture and
+                // print a flat tint on bare paper.
+                if ($opacity < 1.0 || self::isHairline($object, $hairlinePx)) {
                     $indexes[] = $index;
                 } else {
                     $knockout[] = $index;
@@ -141,6 +154,18 @@ final class BlackInkObjects
     private static function isBlackShape(array $object, array $black): bool
     {
         return self::isBlack($object['fill'] ?? null, $black) && self::strokeIsBlackOrAbsent($object, $black);
+    }
+
+    /**
+     * The object's own opacity (Fabric's native 0…1 `opacity`, default 1).
+     *
+     * @param array<mixed> $object
+     */
+    private static function opacity(array $object): float
+    {
+        $value = $object['opacity'] ?? 1;
+
+        return is_numeric($value) ? max(0.0, min(1.0, (float) $value)) : 1.0;
     }
 
     /**

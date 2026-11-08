@@ -38,6 +38,30 @@ final class BlackInkObjectsTest extends TestCase
         );
     }
 
+    /**
+     * Admin-set opacity (2026-11-08). The black-ink pass paints the object's
+     * alpha as K, so a translucent black prints as a K tint ON TOP of what is
+     * beneath it — that is overprint by construction. Knocking it out would
+     * blank the picture under a 50 % black overlay and print flat grey
+     * paper instead of the darkened photo the designer sees. An object at
+     * opacity 0 paints nothing and never takes part.
+     */
+    public function testTranslucentBlackOverprintsAndInvisibleBlackIsIgnored(): void
+    {
+        $canvas = ['objects' => [
+            ['type' => 'Rect', 'width' => 1000, 'height' => 1000, 'fill' => '#000000', 'opacity' => 0.5], // 0 translucent area → overprint
+            ['type' => 'Rect', 'width' => 1000, 'height' => 1000, 'fill' => '#000000', 'opacity' => 1],   // 1 opaque area → knockout
+            ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Half', 'opacity' => 0.4],               // 2 translucent text → overprint
+            ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Gone', 'opacity' => 0],                 // 3 invisible
+            ['type' => 'Rect', 'width' => 1000, 'height' => 1000, 'fill' => '#000000', 'opacity' => 0],   // 4 invisible
+        ]];
+
+        self::assertSame(
+            ['overprint' => [0, 2], 'knockout' => [1]],
+            BlackInkObjects::classify($canvas, new ResolvedInputOverrides([], []), self::BLACK, 24),
+        );
+    }
+
     public function testDesignedStylesAndUserRunsDecide(): void
     {
         $canvas = ['objects' => [

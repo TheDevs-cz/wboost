@@ -63,6 +63,13 @@
         <span class="canvas-mini-toolbar-sep"></span>
         <button type="button" class="btn btn-sm btn-light" title="Vytvořit kontejner" data-canvas-container-target="createButton" data-action="canvas-container#createFromSelection"><i class="i i-list s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
+        {# One opacity for every selected element (the background excluded). #}
+        <label class="canvas-mini-toolbar-opacity" data-canvas-opacity-target="row" title="Průhlednost vybraných prvků">
+            <span class="visually-hidden">Průhlednost</span>
+            <input type="range" class="form-range" min="0" max="100" step="1" aria-label="Průhlednost vybraných prvků" data-canvas-opacity-target="slider" data-action="input->canvas-opacity#update change->canvas-opacity#update">
+            <span class="canvas-mini-toolbar-opacity__value" data-canvas-opacity-target="value">100 %</span>
+        </label>
+        <span class="canvas-mini-toolbar-sep" data-canvas-opacity-target="row"></span>
         <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="i i-front s16"></i></button>
         <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="i i-back s16"></i></button>
         <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="i i-trash s16"></i></button>
@@ -193,6 +200,15 @@
                         <option value="line-through">Přeškrtnutí</option>
                         <option value="overline">Nadtržení</option>
                     </select>
+                </div>
+
+                {# Admin-only design opacity (canvas-opacity, Fabric's native
+                   `opacity`) — the fill page keeps it, nobody can override it. #}
+                <div class="col-12" data-canvas-opacity-target="row">
+                    <label for="text-opacity-control" class="form-label small mb-1">
+                        Průhlednost <span class="text-muted" data-canvas-opacity-target="value">100 %</span>
+                    </label>
+                    <input type="range" id="text-opacity-control" class="form-range" min="0" max="100" step="1" data-canvas-opacity-target="slider" data-action="input->canvas-opacity#update change->canvas-opacity#update">
                 </div>
 
                 <div class="col-12"><h3 class="ed-sec-h">Vyplňování</h3></div>
@@ -387,6 +403,15 @@
             <div class="mb-2 form-check">
                 <input type="checkbox" id="image-editor-locked-control" class="form-check-input" data-canvas-image-properties-target="editorLocked" data-action="change->canvas-image-properties#updateEditorLock">
                 <label for="image-editor-locked-control" class="form-check-label small">Zamknout v editoru <span class="text-muted">(chrání před náhodným posunutím — kliknutí prochází skrz, prvek pak vyberete v panelu Vrstvy; neovlivní export)</span></label>
+            </div>
+
+            {# Design opacity — decorative images AND placeholders (the user's
+               picture keeps it); hidden for the background layer. #}
+            <div class="mb-2" data-canvas-opacity-target="row">
+                <label for="image-opacity-control" class="form-label small mb-1">
+                    Průhlednost <span class="text-muted" data-canvas-opacity-target="value">100 %</span>
+                </label>
+                <input type="range" id="image-opacity-control" class="form-range" min="0" max="100" step="1" data-canvas-opacity-target="slider" data-action="input->canvas-opacity#update change->canvas-opacity#update">
             </div>
 
 

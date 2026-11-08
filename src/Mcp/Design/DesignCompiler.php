@@ -511,7 +511,7 @@ readonly final class DesignCompiler
      */
     private function compileTextObject(TextElement $element, Rect $rect, string $inputId): array
     {
-        return [
+        $object = [
             'type' => 'Textbox',
             'version' => self::CANVAS_VERSION,
             // §4.2-5: Fabric v7 defaults both origins to 'center'. Every canvas
@@ -552,6 +552,26 @@ readonly final class DesignCompiler
             'fontChoice' => $element->input->fontChoice,
             'allowedColors' => $element->input->allowedColors,
         ];
+
+        return self::withOpacity($object, $element->opacity);
+    }
+
+    /**
+     * Fabric's native `opacity` on a text / image — emitted ONLY when the
+     * element is translucent, so a fully opaque one compiles to exactly the
+     * object it compiled to before opacity existed for these kinds (Fabric's
+     * default is 1 either way).
+     *
+     * @param array<string, mixed> $object
+     * @return array<string, mixed>
+     */
+    private static function withOpacity(array $object, float $opacity): array
+    {
+        if ($opacity < 1.0) {
+            $object['opacity'] = $opacity;
+        }
+
+        return $object;
     }
 
     /**
@@ -689,7 +709,7 @@ readonly final class DesignCompiler
             $object['allowedDirectoryIds'] = $element->input->allowedDirectories;
         }
 
-        return $object;
+        return self::withOpacity($object, $element->opacity);
     }
 
     /**

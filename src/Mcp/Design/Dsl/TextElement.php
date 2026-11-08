@@ -42,6 +42,12 @@ readonly final class TextElement implements DesignElement
         public float $lineHeight,
         public Placement $placement,
         public TextInputSpec $input,
+        /**
+         * Admin-set opacity, a 0…1 fraction like a shape's (Fabric's native
+         * `opacity`). Fill-time values keep it: it is a design property, never
+         * a user override.
+         */
+        public float $opacity = 1.0,
     ) {
     }
 
@@ -71,6 +77,7 @@ readonly final class TextElement implements DesignElement
             'y' => $placement['y'],
             'width' => $placement['width'],
             'input' => $this->input->toArray(),
+            'opacity' => $this->opacity,
         ];
     }
 }

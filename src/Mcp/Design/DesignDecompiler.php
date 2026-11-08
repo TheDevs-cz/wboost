@@ -706,14 +706,15 @@ readonly final class DesignDecompiler
                 // A decorative image words its own horizontal mirror.
                 allowFlipX: $slot['kind'] === 'image' && ($object['imagePlaceholder'] ?? false) !== true,
             );
-            // A shape words its own opacity, stroke and editor lock.
+            // A shape words its own opacity, stroke and editor lock; texts
+            // and images word their opacity (the background never has one).
             $isShape = $slot['kind'] === 'shape';
             self::reportSharedStyles(
                 $path,
                 $object,
                 $losses,
                 allowEditorLock: $isShape,
-                allowOpacity: $isShape,
+                allowOpacity: in_array($slot['kind'], ['shape', 'text', 'image'], true),
                 allowStroke: $isShape,
             );
 
@@ -921,6 +922,7 @@ readonly final class DesignDecompiler
             self::positive(self::number($object, 'lineHeight') ?? self::FABRIC_DEFAULT_LINE_HEIGHT, self::FABRIC_DEFAULT_LINE_HEIGHT),
             $placement,
             self::textInputSpec($object, $input),
+            self::opacity($object),
         );
     }
 
@@ -981,6 +983,7 @@ readonly final class DesignDecompiler
             $placement,
             self::imageInputSpec($object, $input, $placeholder, $path, $losses),
             mirror: !$placeholder && ($object['flipX'] ?? false) === true,
+            opacity: self::opacity($object),
         );
     }
 
@@ -1050,7 +1053,7 @@ readonly final class DesignDecompiler
             strokeWidth: max(0.0, $strokeWidth),
             strokeStyle: CanvasShapeStroke::fromDashArray($object['strokeDashArray'] ?? null),
             cornerRadius: $cornerRadius,
-            opacity: min(1.0, max(0.0, self::number($object, 'opacity') ?? 1.0)),
+            opacity: self::opacity($object),
             name: self::string($object, 'name'),
             locked: ($object['editorLocked'] ?? false) === true,
             placement: self::placement(
@@ -1700,6 +1703,16 @@ readonly final class DesignDecompiler
                 ));
             }
         }
+    }
+
+    /**
+     * Fabric's native `opacity`, clamped to 0…1 (absent = fully opaque).
+     *
+     * @param array<array-key, mixed> $object
+     */
+    private static function opacity(array $object): float
+    {
+        return min(1.0, max(0.0, self::number($object, 'opacity') ?? 1.0));
     }
 
     /**
