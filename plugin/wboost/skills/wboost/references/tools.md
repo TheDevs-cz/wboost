@@ -591,6 +591,15 @@ within the document. Slugs carry input identity across saves.
 - **colours**: `#rrggbb` or `#rgb` shorthand, normalized to lowercase. No alpha.
 - **`asset` / `allowedDirectories[]`**: gallery UUIDs from `list_gallery` or
   `upload_image` — never a file name or a URL.
+- **Dotted / dashed lines**: on a `line`, `strokeStyle` styles the LINE itself —
+  a `dotted` line is a row of round dots as big as the line is thick (its
+  `height` for a horizontal line, `width` for a vertical one), spaced with a
+  two-dot gap and fitted to start and end on a dot; `dashed` is 3 : 2 dashes.
+  The dots take the `fill` colour, and the border (`stroke` / `strokeWidth`)
+  is not drawn on a styled line, so leave it out. An InDesign 1 pt dotted rule
+  on a 300 DPI canvas is `{"shape": "line", "height": 4, "fill": "#…",
+  "strokeStyle": "dotted"}`. On every other shape `strokeStyle` dashes the
+  border and needs `stroke` + `strokeWidth`.
 
 A worked document that exercises all five kinds is in `SKILL.md`.
 

@@ -38,6 +38,35 @@ enum CanvasShapeStroke: string
         };
     }
 
+    /**
+     * The dash array for a shape of the given kind and displayed size.
+     *
+     * A `line` is a filled bar, and its style is the style of the LINE: the
+     * render patch (`assets/editor/fabric_line_style.js`) draws a styled line's
+     * body as dots / dashes as thick as the bar and does not trace its border.
+     * Its pattern is therefore derived from that thickness (the bar's short
+     * side), with a two-dot gap for dots — the array is descriptive (the
+     * patch reads only the style off it and fits the pattern to the length),
+     * but it is what an editor save writes, so compiled and authored canvases
+     * stay identical. Every other kind dashes its BORDER, by stroke width.
+     *
+     * @return null|list<float>
+     */
+    public function dashArrayFor(CanvasShapeKind $kind, float $strokeWidth, float $width, float $height): null|array
+    {
+        if ($kind !== CanvasShapeKind::Line) {
+            return $this->dashArray($strokeWidth);
+        }
+
+        $thickness = max(1.0, min($width, $height));
+
+        return match ($this) {
+            self::Solid => null,
+            self::Dashed => [$thickness * 3, $thickness * 2],
+            self::Dotted => [0.0, $thickness * 3],
+        };
+    }
+
     public function lineCap(): string
     {
         return $this === self::Dotted ? 'round' : 'butt';
