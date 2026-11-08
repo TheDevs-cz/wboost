@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { Canvas, FabricImage, Rect } from "fabric";
+import { Canvas, FabricImage, Point, Rect } from "fabric";
 import { ImageAdjustToolbar } from "./image_adjust_toolbar.js";
 import { ImageAdjustHandles } from "./image_adjust_handles.js";
 import { ADJUST_SCALE_MIN, adjustScaleMax, clamp } from "./image_placement.js";
@@ -586,6 +586,54 @@ export default class extends Controller {
         this._boundAdjustReposition = () => this._positionAdjust();
         window.addEventListener('resize', this._boundAdjustReposition);
         window.addEventListener('scroll', this._boundAdjustReposition, true);
+        // The single page's viewport pans with a transform (fill_viewport.js),
+        // which fires no scroll event — it announces every view change instead.
+        this.element.addEventListener('fill-viewport:change', this._boundAdjustReposition);
+
+        // The pan clamp widens to the selected picture's box while it is
+        // selected (fill_viewport.js); tell the overlay when that box settles
+        // or goes away so the view can ease back inside the new bounds.
+        const viewBounds = () => this.dispatch('view-bounds');
+        this.canvas.on('selection:cleared', viewBounds);
+        this.canvas.on('object:modified', viewBounds);
+    }
+
+    // --- Pan viewport hooks (variant-fill-overlay / fill_viewport.js) ---------
+
+    /** The selected picture's axis-aligned bounding box (rotation included) in
+     *  the canvas element's CSS px, or null when nothing is selected. */
+    activePictureBounds() {
+        const object = this.canvas && this.canvas.getActiveObject();
+        if (!object || !object._placeholderId) return null;
+        const vpt = this.canvas.viewportTransform;
+        const xs = [];
+        const ys = [];
+        object.getCoords().forEach((point) => {
+            xs.push(point.x * vpt[0] + vpt[4]);
+            ys.push(point.y * vpt[3] + vpt[5]);
+        });
+        return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    }
+
+    /** True while a picture is selected — its arrow keys nudge it. */
+    hasActivePicture() {
+        const object = this.canvas && this.canvas.getActiveObject();
+        return Boolean(object && object._placeholderId);
+    }
+
+    /** Does a press at this pointer event land on a draggable picture? (A
+     *  one-finger touch there drags the picture, not the view.) Computed from
+     *  the element rect — Fabric's own findTarget caches per event cycle. */
+    hitsPicture(event) {
+        if (!this.canvas) return false;
+        const element = this.canvas.upperCanvasEl || this.canvas.lowerCanvasEl;
+        const rect = element.getBoundingClientRect();
+        if (!rect.width || !rect.height) return false;
+        const vpt = this.canvas.viewportTransform;
+        const x = ((event.clientX - rect.left) * (this.canvas.getWidth() / rect.width) - vpt[4]) / vpt[0];
+        const y = ((event.clientY - rect.top) * (this.canvas.getHeight() / rect.height) - vpt[5]) / vpt[3];
+        return this.canvas.getObjects().some((object) => object._placeholderId && object.evented && object.selectable
+            && object.containsPoint(new Point(x, y)));
     }
 
     _disconnectAdjust() {
@@ -595,6 +643,7 @@ export default class extends Controller {
         if (this._boundAdjustReposition) {
             window.removeEventListener('resize', this._boundAdjustReposition);
             window.removeEventListener('scroll', this._boundAdjustReposition, true);
+            this.element.removeEventListener('fill-viewport:change', this._boundAdjustReposition);
         }
     }
 

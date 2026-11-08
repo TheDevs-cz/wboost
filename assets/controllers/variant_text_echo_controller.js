@@ -45,6 +45,13 @@ export default class extends Controller {
             return;
         }
 
+        // Fabric sizes the echo canvas at the full DESIGN size (2480 px for an
+        // A-format print) until the painter boots and fits it to the preview —
+        // and an invisible element still counts for layout. Keep it out of
+        // layout until then, and for good if the painter never boots (the
+        // 2026-11-06 prod report: a stuck painter's canvas doubled the
+        // preview's scroll range — "scrolls into nowhere").
+        this.canvasTarget.style.display = "none";
         module.create({
             fabric,
             canvasEl: this.canvasTarget,
@@ -205,6 +212,8 @@ export default class extends Controller {
         const width = preview.clientWidth;
         if (width > 0) {
             this._painter.setDisplayWidth(width);
+            // Fitted — it may take part in layout now (see connect).
+            this.canvasTarget.style.removeProperty("display");
         }
     }
 

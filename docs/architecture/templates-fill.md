@@ -137,7 +137,7 @@ tag + cluster by them) and takes the flip-left / tuck-inside decisions against
 the visible rect with an ~18 screen-px margin. The overlay, popovers and
 modals all live in `data-live-ignore` subtrees so a Live re-render never wipes
 open state or the picker's chosen folder — but the **text popovers sit in their
-own `.fill-popovers` wrapper OUTSIDE the zoom-scaled `.fill-stage` / scrolling
+own `.fill-popovers` wrapper OUTSIDE the zoom-scaled `.fill-stage` / panning
 `.fill-viewport`** (still inside the controller root) and are `position: fixed`,
 positioned in viewport coords with an unconditional final clamp fully on-screen
 (below the box → flip above → clamp), so no ancestor overflow/transform can ever
@@ -170,6 +170,51 @@ source of truth also used by the renderer's `alignTextboxInputIds`, so a box a
 consumer draws and the text the export substitutes can never disagree (textbox
 `inputId` props are unreliable post-v7-migration; image placeholders still key by
 their own reliable `inputId`).
+
+**Pan / zoom viewport — no native scrolling (2026-11-09)**
+
+Single page only (`stage` target; the group / document pages do not zoom).
+`.fill-viewport.fill-viewport--pan` is `overflow: clip` (hidden fallback) and
+NEVER scrolls; `assets/controllers/fill_viewport.js` (`FillViewport`, created by
+`variant-fill-overlay#_connectViewport`) places the out-of-flow `.fill-stage`
+with ONE `translate(x, y) scale(z)` transform. Root cause it removes (prod
+report 2026-11-06, "scrolls into nowhere"): with `overflow: auto`, ANY layer in
+the stage widened the scroll range — the echo canvas sits at full design size
+(2480 px) until its painter boots, so a stalled / failed painter doubled the
+range in both axes at "100 %"; a frame bleeding off the canvas added a phantom
+scrollbar at fit. Contracts:
+- **Clamp** (`axisRange`): an axis where the scaled canvas fits is centred and
+  does not move (at fit nothing pans); otherwise the canvas edge may come at
+  most 24 px (`PAN_MARGIN`) inside the viewport edge. The selected picture's
+  axis-aligned box (`variant-image-fill#activePictureBounds`, rotation
+  included) WIDENS the range (convex hull) so its handles stay reachable —
+  selecting/dragging never moves the view; `selection:cleared` /
+  `object:modified` dispatch `variant-image-fill:view-bounds` →
+  `viewBoundsChanged` → `clamp(true)` eases back (220 ms) instead of jumping.
+- **Inputs**: wheel / trackpad pans and calls `preventDefault` ONLY when that
+  axis can still move that way (else the page scrolls); ctrl/⌘+wheel (= Chrome /
+  Firefox pinch) and Safari `gesture*` zoom around the pointer (clamped per
+  event: a mouse notch ≈ 25 %); Space+drag / middle-drag pan (capture-phase
+  pointerdown, never reaches Fabric); plain left-drag NEVER pans (pictures own
+  it); touch: one finger pans only when pannable and not on a picture / tool
+  (`hitsPicture`, `_pressBelongsToContent`), two fingers pinch + pan;
+  `touch-action: pan-x pan-y` at fit (page keeps scrolling), `none` while
+  `.is-pannable`. Focused viewport: arrows pan (unless a picture is selected —
+  its arrows nudge it), `+`/`-` zoom, `0` fits.
+- **Height**: the stage is out of flow, so `_sizeViewport` sets it. Wide:
+  `min(visible band, artwork × max(zoom, fit))` — the band is window height −
+  viewport top − `_chromeBelow` (ancestor bottom padding/border/margin summed
+  from styles; never from `document.scrollHeight`, which spirals). Narrow
+  (< 768 px): the artwork's FIT height at any zoom — zooming pans inside, the
+  page never grows.
+- **Followers**: no scroll event fires on a pan, so every view change calls
+  `_reanchorOpenPopover` and dispatches `fill-viewport:change` (the image
+  adjust panel re-anchors on it); `image_adjust_handles.js` follows by its own
+  per-frame read. Thin position bars (`.fill-viewport__bar`) fade in only while
+  panning an axis that can pan.
+- Belt: the echo canvas stays `display: none` until the painter has fitted it
+  to the preview (`variant_text_echo_controller#_fitToPreview`), and for good
+  if the painter never boots.
 
 **Client-side text echo — instant typing, server truth at rest (2026-09-01)**
 

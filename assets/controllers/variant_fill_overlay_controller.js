@@ -3,6 +3,7 @@ import { Textbox, cache, util } from "fabric";
 import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
 import { fillStateHash, settleSourceFor } from "./fill_state_hash.js";
 import { liveComponentFor } from "./live_component.js";
+import { FillViewport } from "./fill_viewport.js";
 
 /**
  * Click-into-preview placeholder overlay of the fill pages — the ONE editing
@@ -173,11 +174,16 @@ export default class extends Controller {
         this._imagePreviews = this.previewTargets.filter((preview) => preview.tagName === "IMG");
         this._imagePreviews.forEach((preview) => preview.addEventListener("load", this._boundFit));
 
+        this._connectViewport();
         this._fitToScreen();
     }
 
     disconnect() {
         this._disposed = true;
+        if (this._view) {
+            this._view.destroy();
+            this._view = null;
+        }
         if (this._liveComponent) {
             this._liveComponent.off("render:finished", this._onRenderFinished);
             this._liveComponent.off("response:error", this._onResponseError);
@@ -362,23 +368,32 @@ export default class extends Controller {
         this._panelTrigger = null;
     }
 
-    // --- Zoom (whole preview, single page) ---------------------------------------
-    // Visual CSS scale on the stage: the preview + overlay boxes scale together,
-    // so they stay aligned with no re-measuring. reposition() computes the box
-    // scale from the UNSCALED width (divides by this._zoom), so the boxes are
-    // laid out in unscaled coords and the transform scales them. The popovers
-    // live OUTSIDE the stage (position:fixed, viewport coords) so zoom/overflow
-    // never clips them. No `stage` target (the group page) = no zoom, z stays 1.
+    // --- Zoom + pan (whole preview, single page) ---------------------------------
+    // The stage is placed by ONE transform, `translate(x, y) scale(z)`, inside a
+    // `.fill-viewport` that never scrolls natively (fill_viewport.js owns the
+    // pan, its clamp and every input). The preview + overlay boxes scale
+    // together, so they stay aligned with no re-measuring: reposition()
+    // computes the box scale from the UNSCALED width (divides by this._zoom),
+    // lays the boxes out in unscaled coords and the transform scales them. The
+    // popovers live OUTSIDE the stage (position:fixed, viewport coords) and are
+    // re-anchored on every view change. No `stage` target (the group page) =
+    // no zoom, no pan, z stays 1.
+    //
+    // Why no native scroll (2026-11-09): an `overflow: auto` viewport lets
+    // ANYTHING inside the stage widen the scroll range — an invisible echo
+    // canvas still at design size doubled it on prod ("scrolls into nowhere"),
+    // a frame bleeding off the canvas added a phantom scrollbar at fit, and
+    // chrome hanging past the canvas edge would add more. With a transform pan
+    // only the clamp decides where the artwork can go.
     //
     // On a WIDE screen the initial zoom is auto-fit so the WHOLE canvas fits the
-    // visible part of the screen — width AND height — and the viewport's
-    // max-height is capped to that same visible area, so by default nothing
-    // scrolls anywhere (no page scroll, no inner scrollbar). Only a manual
-    // zoom-in past fit makes the viewport pan its content.
+    // visible part of the screen — width AND height — and the viewport grows
+    // with the artwork only up to that visible band, so by default nothing
+    // moves or scrolls anywhere. Zooming in pans INSIDE the band.
     //
-    // On a NARROW screen (the stacked layout) both of those are off: the fit is
-    // by width only and the viewport is uncapped, so the artwork is always fully
-    // visible by scrolling the PAGE. See _isNarrow for why.
+    // On a NARROW screen (the stacked layout) the fit is by width only and the
+    // viewport keeps the FIT height whatever the zoom: zooming in pans inside
+    // that box instead of growing the page under the user. See _isNarrow.
     //
     // We keep re-fitting on load/resize until the user zooms manually
     // (_userZoomed); after that we leave it alone.
@@ -396,11 +411,12 @@ export default class extends Controller {
     }
 
     /** "Přizpůsobit obrazovce": back to the automatic fit (the state the page
-     *  loads in) — the fit then follows resizes again until the next manual
-     *  zoom. */
+     *  loads in) with the artwork centred — the fit then follows resizes
+     *  again until the next manual zoom. */
     zoomFit() {
         this._userZoomed = false;
         this._fitToScreen();
+        if (this._view) this._view.centre();
         this._updateFitButton();
     }
 
@@ -410,6 +426,7 @@ export default class extends Controller {
         });
     }
 
+    /** Button / keyboard zoom: round steps, anchored on the viewport centre. */
     _applyZoom(z) {
         this._userZoomed = true;
         // Low floor so a tall canvas can be zoomed out far enough to see all of it
@@ -420,75 +437,174 @@ export default class extends Controller {
         this.reposition();
     }
 
+    /** The pan viewport (single page only — it needs the `stage` target). */
+    _connectViewport() {
+        if (!this.hasStageTarget || !this.stageTarget.parentElement) return;
+        const viewport = this.stageTarget.parentElement;
+        this._view = new FillViewport({
+            viewport,
+            stage: this.stageTarget,
+            onChange: () => {
+                this._reanchorOpenPopover();
+                // Fixed-position chrome outside the stage (the image adjust
+                // panel) re-anchors on this — a transform pan fires no scroll.
+                this.element.dispatchEvent(new CustomEvent("fill-viewport:change"));
+            },
+            onZoom: (z) => {
+                // Wheel / pinch: continuous, anchored under the cursor/fingers.
+                this._userZoomed = true;
+                this._zoom = z;
+                this._updateZoomLabel();
+                this._updateFitButton();
+                this.reposition();
+            },
+            extraBounds: () => this._selectedPictureBounds(),
+            isInteractive: (event) => this._pressBelongsToContent(event),
+            ownsArrows: () => {
+                const fill = this._imageFill();
+                return Boolean(fill && fill.hasActivePicture());
+            },
+            onKey: (key) => {
+                if (key === "+" || key === "=") { this.zoomIn(); return true; }
+                if (key === "-") { this.zoomOut(); return true; }
+                if (key === "0") { this.zoomFit(); return true; }
+                return false;
+            },
+        });
+    }
+
+    /** The image-fill controller sharing this element (image branch only). */
+    _imageFill() {
+        return this.application.getControllerForElementAndIdentifier(this.element, "variant-image-fill");
+    }
+
+    /** The selected picture's box in UNSCALED stage px (the pan clamp widens
+     *  to it so its handles stay reachable), or null. */
+    _selectedPictureBounds() {
+        const fill = this._imageFill();
+        const box = fill && fill.activePictureBounds();
+        if (!box || !this.hasStageTarget || !fill.canvas) return null;
+        // The canvas element's offset inside the stage, in unscaled px.
+        const z = this._zoom || 1;
+        const stageRect = this.stageTarget.getBoundingClientRect();
+        const canvasRect = fill.canvas.lowerCanvasEl.getBoundingClientRect();
+        const dx = (canvasRect.left - stageRect.left) / z;
+        const dy = (canvasRect.top - stageRect.top) / z;
+        return { left: box.left + dx, top: box.top + dy, right: box.right + dx, bottom: box.bottom + dy };
+    }
+
+    /** A touch press that must stay with the content (drag a picture, tap a
+     *  tool) instead of panning the view. */
+    _pressBelongsToContent(event) {
+        const target = event.target;
+        if (target && typeof target.closest === "function"
+            && target.closest("button, a, input, textarea, select, .fill-box__tools, .fill-box__tool, .fill-adjust-handle")) {
+            return true;
+        }
+        const fill = this._imageFill();
+        return Boolean(fill && fill.hitsPicture(event));
+    }
+
+    /** Image-fill says the selected picture's box settled or went away: ease
+     *  the view back inside the (now tighter) bounds. */
+    viewBoundsChanged() {
+        if (this._view) this._view.clamp(true);
+    }
+
     /** Zoom at which the WHOLE canvas fits the visible viewport box (capped at
      *  100 %) — width and height both, so the full artwork is on screen with no
-     *  scrolling. Measures the preview's on-screen size so it works no matter
+     *  panning. Measures the preview's on-screen size so it works no matter
      *  which branch drew it (img / Fabric canvas). */
     _fitZoom() {
         if (!this.hasPreviewTarget || !this.hasStageTarget) return this._zoom || 1;
         const container = this.stageTarget.parentElement;
         const availW = container ? container.clientWidth : window.innerWidth;
-        // null (narrow screens) = height is not a constraint: fit by width and
-        // let the page scroll, rather than shrinking the artwork into a sliver.
+        // null (narrow screens) = height is not a constraint: fit by width,
+        // rather than shrinking the artwork into a sliver.
         const availH = container ? this._availableHeight(container) : window.innerHeight;
         const rect = this.previewTarget.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0 || availW <= 0) return this._zoom || 1;
         if (availH !== null && availH <= 0) return this._zoom || 1;
 
         // rect already reflects the current zoom, so rescale it to the available
-        // box. Floor (not round): erring a pixel small never creates a scrollbar.
+        // box. Floor (not round) so it errs small — but forgive sub-pixel
+        // measuring noise (a 714.4 px raster in a 714 px box is a fit, not 99 %).
         const fitH = availH === null ? Infinity : availH / rect.height;
         const z = (this._zoom || 1) * Math.min(availW / rect.width, fitH);
-        return Math.min(1, Math.max(0.1, Math.floor(z * 100) / 100));
+        return Math.min(1, Math.max(0.1, Math.floor(z * 100 + 0.1) / 100));
     }
 
     /** Narrow screens = the stacked layout (mirrors the `.fill-body` media
-     *  query in app.css). There the page scrolls by design: everything above
-     *  the preview — title, breadcrumb, the two toggles, the zoom row, publish
-     *  and export — stacks into several hundred px of chrome, so "the space
-     *  left below the preview's top" is a sliver of the screen and capping the
-     *  viewport to it CLIPS the artwork (the bottom of the design vanishing
-     *  behind the Vrstvy panel, and worse on every zoom step in). */
+     *  query in app.css). Everything above the preview — title, breadcrumb,
+     *  the two toggles, the zoom row, publish and export — stacks into several
+     *  hundred px of chrome, so "the space left below the preview's top" is a
+     *  sliver of the screen and fitting into it would shrink the artwork into
+     *  a strip. There the fit is by WIDTH and the page scrolls to reach it. */
     _isNarrow() {
         return typeof window.matchMedia === "function"
             && window.matchMedia("(max-width: 767.98px)").matches;
     }
 
     /** Visible height below the viewport's top edge (document-space, so the
-     *  current scroll position doesn't skew it). The fixed reserve covers the
-     *  theme's content padding below the preview, so fitting into this height
-     *  leaves the PAGE itself scroll-free too; the floor keeps a usable
-     *  preview area on tiny windows.
+     *  current scroll position doesn't skew it), minus the layout chrome that
+     *  sits under the viewport (the card's and the page's bottom padding), so
+     *  fitting into this height leaves the PAGE itself scroll-free too; the
+     *  floor keeps a usable preview area on tiny windows.
      *
      *  `null` on narrow screens: there is no height to fit into — the preview
-     *  is sized by WIDTH and the page scrolls (see _isNarrow). */
+     *  is sized by WIDTH (see _isNarrow). */
     _availableHeight(viewport) {
         if (this._isNarrow()) return null;
         const top = viewport.getBoundingClientRect().top + window.scrollY;
-        return Math.max(220, Math.round(window.innerHeight - top - 72));
+        return Math.max(220, Math.floor(window.innerHeight - top - this._chromeBelow(viewport)));
     }
 
-    /** Cap the viewport to the visible area: at fit zoom nothing scrolls at
-     *  all, and a manual zoom-in pans INSIDE this box instead of stretching
-     *  the page under the user. On narrow screens the cap is REMOVED (and an
-     *  earlier one cleared, so rotating a phone back to a wide layout heals):
-     *  the viewport grows with the artwork and the page scrolls, which is the
-     *  only way the whole canvas stays reachable once zoomed in. */
+    /** Bottom padding + border + margin of every ancestor between the viewport
+     *  and <body> — the space the page keeps below the preview (Nocturne: the
+     *  card's 12 + 1 px and the content column's 72 px). Summed from styles,
+     *  NOT from document.scrollHeight: that includes the viewport itself and
+     *  feeds back into the height it is used to compute. */
+    _chromeBelow(viewport) {
+        let total = 0;
+        for (let el = viewport; el && el !== document.body; el = el.parentElement) {
+            const style = window.getComputedStyle(el);
+            if (el !== viewport) total += parseFloat(style.paddingBottom) || 0;
+            total += (parseFloat(style.borderBottomWidth) || 0) + (parseFloat(style.marginBottom) || 0);
+        }
+        return Math.max(16, Math.ceil(total));
+    }
+
+    /** The viewport never scrolls, so it needs an explicit height (the stage
+     *  is out of flow). Wide: the artwork's current height, capped to the
+     *  visible band — at fit it hugs the artwork, zooming in grows it up to
+     *  the band and pans beyond. Narrow: the artwork's height at the FIT zoom,
+     *  whatever the zoom — zooming pans inside that box, the page never grows. */
     _sizeViewport() {
         const viewport = this.hasStageTarget ? this.stageTarget.parentElement : null;
-        if (!viewport) return;
+        if (!viewport || !this._view) return;
+        const unscaledH = this.stageTarget.offsetHeight;
+        if (!(unscaledH > 0)) return;
         const available = this._availableHeight(viewport);
-        viewport.style.maxHeight = available === null ? "" : `${available}px`;
+        const fitZ = this._fitZ || this._zoom || 1;
+        // Never below the fit height: zooming OUT leaves the box (and the page
+        // layout) alone instead of collapsing it around a tiny artwork.
+        const height = available === null
+            ? unscaledH * fitZ
+            : Math.min(available, unscaledH * Math.max(this._zoom || 1, fitZ));
+        viewport.style.height = `${Math.max(1, Math.ceil(height))}px`;
+        viewport.style.maxHeight = "";
     }
 
     /** Set the auto zoom so the whole canvas fits the screen (until user zooms). */
     _fitToScreen() {
-        this._sizeViewport();
+        const fitZ = this._fitZoom();
+        this._fitZ = fitZ;
         if (!this._userZoomed) {
-            this._zoom = this._fitZoom();
+            this._zoom = fitZ;
             this._updateZoomLabel();
         }
         this.reposition();
+        if (!this._userZoomed && this._view) this._view.centre();
     }
 
     _updateZoomLabel() {
@@ -497,21 +613,21 @@ export default class extends Controller {
         }
     }
 
-    /** Apply the CSS transform + reserve scroll space (margins) for the zoom. */
+    /** Push the zoom into the pan viewport (which re-clamps the pan and writes
+     *  the transform), after sizing the viewport for it. */
     _updateZoomBox() {
         if (!this.hasStageTarget) return;
         const z = this._zoom || 1;
-        const stage = this.stageTarget;
-        stage.style.transformOrigin = "top left";
-        stage.style.transform = z === 1 ? "" : `scale(${z})`;
-        // Expose the zoom so the icon clusters can counter-scale themselves back
-        // to their default size — only the artwork/boxes scale visually.
-        stage.style.setProperty("--fill-zoom", z);
-        // offsetWidth/Height are unaffected by transform — the true unscaled size.
-        const w = stage.offsetWidth;
-        const h = stage.offsetHeight;
-        stage.style.marginRight = z === 1 ? "" : `${w * (z - 1)}px`;
-        stage.style.marginBottom = z === 1 ? "" : `${h * (z - 1)}px`;
+        if (!this._view) {
+            this.stageTarget.style.setProperty("--fill-zoom", z);
+            return;
+        }
+        this._sizeViewport();
+        if (Math.abs(this._view.zoom - z) > 1e-6) {
+            this._view.setZoom(z);
+        } else {
+            this._view.clamp(false);
+        }
     }
 
     // --- Text popover open / close ------------------------------------------

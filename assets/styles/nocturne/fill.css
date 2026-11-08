@@ -114,9 +114,10 @@
 .group-fill-preview-spinner { background: color-mix(in oklab, var(--bg) 35%, transparent); }
 .group-fill-preview-error { background: var(--rose); color: var(--on-accent); font-weight: 600; }
 
-/* Single page: one card around the zoomable viewport; the stage centres in it
-   (inline-block — the fit/zoom math is untouched). The card stays full
-   width: a shrink-wrapped container would feed the fit zoom its own size. */
+/* Single page: one card around the zoomable viewport. With JS the stage is
+   absolutely placed and centred by fill_viewport.js (text-align only matters
+   for the no-JS fallback). The card stays full width: a shrink-wrapped
+   container would feed the fit zoom its own size. */
 .fill-body { gap: 20px; }
 .fi-card--single { flex: 1 1 auto; min-width: 0; }
 .fi-card--single .fill-viewport { text-align: center; border-radius: 8px; }
