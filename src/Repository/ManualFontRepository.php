@@ -40,6 +40,23 @@ readonly final class ManualFontRepository
         $this->entityManager->remove($font);
     }
 
+    /**
+     * @return list<ManualFont>
+     */
+    public function allForFont(UuidInterface $fontId): array
+    {
+        /** @var list<ManualFont> $manualFonts */
+        $manualFonts = $this->entityManager->createQueryBuilder()
+            ->select('manual_font')
+            ->from(ManualFont::class, 'manual_font')
+            ->where('manual_font.font = :fontId')
+            ->setParameter('fontId', $fontId)
+            ->getQuery()
+            ->getResult();
+
+        return $manualFonts;
+    }
+
     public function count(UuidInterface $manualId): int
     {
         $count = $this->entityManager->createQueryBuilder()

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Controller\Font;
 
+use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -68,6 +69,61 @@ final class UploadFontControllerTest extends WebTestCase
         $browser->request('GET', sprintf('/delete-font/%s/face/%s', $font->id->toString(), rawurlencode($face->name)));
         self::assertResponseRedirects();
         self::assertFalse($this->filesystem()->fileExists($face->filePath));
+    }
+
+    /**
+     * A cut uploaded later to a font a manual already presents is switched
+     * on in that manual too (kept in the font's face order); cuts the
+     * designer switched off stay off. Deleting a face drops it from the
+     * manual's list (2026-11-08).
+     */
+    public function testANewFaceIsEnabledInManualsUsingTheFontAndADeletedOneIsDropped(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        $fontId = '00000000-0000-0000-0000-0000000005f2';
+        $manualFontId = '00000000-0000-0000-0000-0000000005f3';
+        $connection = self::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $connection->update('manual', ['type' => 'brand'], ['id' => TestDataFixture::MANUAL_1_ID]);
+        $connection->insert('font', [
+            'id' => $fontId,
+            'project_id' => TestDataFixture::PROJECT_1_ID,
+            'created_at' => '2026-11-08 10:00:00',
+            'name' => 'Open Sans',
+            'faces' => json_encode([
+                ['name' => 'Open Sans Light', 'weight' => 300, 'style' => 'Regular', 'filePath' => 'fixtures/fonts/os-light.ttf', 'fileSize' => null],
+                ['name' => 'Open Sans ExtraBold', 'weight' => 800, 'style' => 'Regular', 'filePath' => 'fixtures/fonts/os-xbold.ttf', 'fileSize' => null],
+            ]),
+        ]);
+        // Light is switched OFF in the manual on purpose.
+        $connection->insert('manual_font', [
+            'id' => $manualFontId,
+            'manual_id' => TestDataFixture::MANUAL_1_ID,
+            'font_id' => $fontId,
+            'type' => 'primary',
+            'color' => null,
+            'position' => 0,
+            'created_at' => '2026-11-08 10:00:00',
+            'font_faces' => json_encode(['Open Sans ExtraBold']),
+        ]);
+
+        $result = $this->upload($browser, self::OPEN_SANS, 'OpenSans-Regular.ttf');
+        self::assertSame('added', $result['status'] ?? null);
+        $newFace = $result['face'] ?? null;
+        self::assertIsString($newFace);
+
+        $enabled = static function () use ($connection, $manualFontId): mixed {
+            $json = $connection->fetchOne('SELECT font_faces FROM manual_font WHERE id = ?', [$manualFontId]);
+            self::assertIsString($json);
+
+            return json_decode($json, true);
+        };
+        self::assertSame([$newFace, 'Open Sans ExtraBold'], $enabled());
+
+        $browser->request('GET', sprintf('/delete-font/%s/face/%s', $fontId, rawurlencode('Open Sans ExtraBold')));
+        self::assertResponseRedirects();
+        self::assertSame([$newFace], $enabled());
     }
 
     public function testWoff2AndNonFontFilesAreRefusedWithAReason(): void

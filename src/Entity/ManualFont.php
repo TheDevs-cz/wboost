@@ -96,6 +96,28 @@ class ManualFont
         $this->fontFaces = $fontFaces;
     }
 
+    /**
+     * A cut uploaded later to this font is switched on here too — the
+     * designer turns cuts OFF on the Fonty page, so a new one shows by
+     * default while the ones switched off stay off. Kept in the font's face
+     * order. Call after the face is on `$this->font` (2026-11-08).
+     */
+    public function enableAddedFontFace(string $faceName): void
+    {
+        $this->fontFaces = array_values(array_filter(
+            $this->font->faceNames(),
+            fn (string $name): bool => $name === $faceName || in_array($name, $this->fontFaces, true),
+        ));
+    }
+
+    public function dropFontFace(string $faceName): void
+    {
+        $this->fontFaces = array_values(array_filter(
+            $this->fontFaces,
+            static fn (string $name): bool => $name !== $faceName,
+        ));
+    }
+
     public function sort(int $position): void
     {
         $this->position = $position;

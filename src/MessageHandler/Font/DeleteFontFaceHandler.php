@@ -11,6 +11,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\FontNotFound;
 use WBoost\Web\Message\Font\DeleteFontFace;
 use WBoost\Web\Repository\FontRepository;
+use WBoost\Web\Repository\ManualFontRepository;
 
 #[AsMessageHandler]
 readonly final class DeleteFontFaceHandler
@@ -19,6 +20,7 @@ readonly final class DeleteFontFaceHandler
         private FontRepository $fontRepository,
         private Filesystem $filesystem,
         private LoggerInterface $logger,
+        private ManualFontRepository $manualFontRepository,
     ) {
     }
 
@@ -37,6 +39,11 @@ readonly final class DeleteFontFaceHandler
         }
 
         $font->removeFontFace($message->fontFaceName);
+
+        // Keep the manuals' enabled-cut lists to faces that exist.
+        foreach ($this->manualFontRepository->allForFont($font->id) as $manualFont) {
+            $manualFont->dropFontFace($message->fontFaceName);
+        }
 
         // The row is what the app reads; the file is only ever reached
         // through it, so a face that is gone from the row is an orphan in the

@@ -20,6 +20,7 @@ use WBoost\Web\Exceptions\UnsupportedFontFile;
 use WBoost\Web\Message\Font\AddFont;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FontRepository;
+use WBoost\Web\Repository\ManualFontRepository;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Value\FontFace;
@@ -46,6 +47,7 @@ readonly final class AddFontHandler
         private FontRepository $fontRepository,
         private GetFonts $getFonts,
         private ProvideIdentity $provideIdentity,
+        private ManualFontRepository $manualFontRepository,
     ) {
     }
 
@@ -88,6 +90,11 @@ readonly final class AddFontHandler
         try {
             $font = $this->getFonts->byName($message->projectId, $fontName);
             $font->addFontFace($fontFace);
+
+            // Manuals presenting this font show the new cut too.
+            foreach ($this->manualFontRepository->allForFont($font->id) as $manualFont) {
+                $manualFont->enableAddedFontFace($fontFace->name);
+            }
         } catch (FontNotFound) {
             $font = new Font(
                 $this->provideIdentity->next(),
