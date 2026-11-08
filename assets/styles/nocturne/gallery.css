@@ -77,11 +77,17 @@
 /* Tile grid */
 .gal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--galmin, 168px), 100%), 1fr)); gap: 12px; }
 .gal-modal .gal-grid { --galmin: 150px; }
-.gal-card { position: relative; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; min-width: 0; transition: border-color .15s, transform .15s, box-shadow .15s; }
+/* No overflow: hidden on the card — it clipped the "…" dropdown menu inside
+   the tile. The thumbnail rounds its own top corners instead (radius minus
+   the 1px border). While a menu is open the card is lifted above its
+   neighbours: the hover translateY makes it a stacking context, which would
+   otherwise trap the menu under the next tiles in the grid. */
+.gal-card { position: relative; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); min-width: 0; transition: border-color .15s, transform .15s, box-shadow .15s; }
 .gal-card[hidden] { display: none; }
 .gal-card:hover { border-color: var(--line-3); transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.gal-card:has(.dropdown-menu.show) { z-index: 5; }
 .gal-card.is-renaming { transform: none; border-color: var(--lav-line); }
-.gal-th { position: relative; display: grid; place-items: center; aspect-ratio: 1; background: var(--surface-2); }
+.gal-th { position: relative; display: grid; place-items: center; aspect-ratio: 1; background: var(--surface-2); border-radius: 17px 17px 0 0; overflow: hidden; }
 .gal-th img { position: absolute; inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px); object-fit: contain; color: transparent; font-size: 0; }
 .gal-th-miss { display: none; color: var(--subtle); }
 .gal-th.is-broken img { display: none; }
