@@ -15,6 +15,7 @@ use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\FileSource;
 
 /**
@@ -53,7 +54,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client->request('POST', $this->wizardUrl(), [
             'template_group_form' => [
                 'name' => 'Wizard Group',
-                'presetDimensions' => ['1:1', '9:16'],
+                'presetDimensions' => ['4:5', '9:16'],
                 // The background picker widget posts the picked GALLERY
                 // file's id — never a raw file upload.
                 'commonBackground' => $this->seedGalleryFile(),
@@ -88,7 +89,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client->request('POST', $this->wizardUrl(), [
             'template_group_form' => [
                 'name' => 'No Background Group',
-                'presetDimensions' => ['1:1'],
+                'presetDimensions' => ['4:5'],
                 '_token' => $token,
             ],
         ]);
@@ -132,6 +133,64 @@ final class AddTemplateGroupControllerTest extends WebTestCase
             'input[name="template_group_form[sourceVariantId]"][value="%s"]',
             TestDataFixture::GROUPED_PRESET_VARIANT_ID,
         ));
+    }
+
+    public function testWizardNoLongerOffersTheSquarePreset(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $crawler = $client->request('GET', $this->wizardUrl());
+        self::assertResponseIsSuccessful();
+
+        self::assertSelectorExists('input[name="template_group_form[presetDimensions][]"][value="4:5"]');
+        self::assertSelectorExists('input[name="template_group_form[presetDimensions][]"][value="9:16"]');
+        self::assertSelectorNotExists('input[name="template_group_form[presetDimensions][]"][value="1:1"]');
+
+        // A hand-posted 1:1 is not a valid choice any more.
+        $token = $crawler->filter('input[name="template_group_form[_token]"]')->attr('value');
+        self::assertIsString($token);
+
+        $client->request('POST', $this->wizardUrl(), [
+            'template_group_form' => [
+                'name' => 'Square Group',
+                'presetDimensions' => ['1:1'],
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function testExistingSquareSourceKeepsItsOwnFormat(): void
+    {
+        $client = self::createClient();
+        self::getContainer()->get(Filesystem::class)->write('fixtures/bg-1.png', 'source-bytes');
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        // GROUPED_PRESET_VARIANT_ID is an existing 1:1 variant.
+        $crawler = $client->request('GET', $this->wizardUrl() . '?sourceVariantId=' . TestDataFixture::GROUPED_PRESET_VARIANT_ID);
+        self::assertResponseIsSuccessful();
+
+        $token = $crawler->filter('input[name="template_group_form[_token]"]')->attr('value');
+        self::assertIsString($token);
+
+        $client->request('POST', $this->wizardUrl(), [
+            'template_group_form' => [
+                'name' => 'Square From Existing',
+                'presetDimensions' => ['1:1'],
+                'sourceVariantId' => TestDataFixture::GROUPED_PRESET_VARIANT_ID,
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects();
+
+        $group = $this->groupByName('Square From Existing');
+        $variants = self::getContainer()->get(GetTemplateGroupMembers::class)->variants($group->id);
+
+        self::assertCount(1, $variants);
+        self::assertSame(DimensionPreset::InstagramPost, $variants[0]->dimension->preset);
     }
 
     public function testCreateFromSourceNeedsNoBackgroundUploads(): void
@@ -186,7 +245,7 @@ final class AddTemplateGroupControllerTest extends WebTestCase
         $client->request('POST', $this->wizardUrl(), [
             'template_group_form' => [
                 'name' => 'Tampered',
-                'presetDimensions' => ['1:1'],
+                'presetDimensions' => ['4:5'],
                 'sourceVariantId' => TestDataFixture::CUSTOM_TEMPLATE_VARIANT_2_ID,
                 '_token' => $token,
             ],

@@ -47,9 +47,20 @@ final class TemplateGroupFormType extends AbstractType
             'choices' => $categoryChoices,
         ]);
 
+        // Only the offered presets — plus a retired one (1:1) when the design
+        // source already is that size, so "create group from existing
+        // template" can keep the source's own format.
+        /** @var list<DimensionPreset> $retainedPresets */
+        $retainedPresets = $options['retained_presets'];
+        $presetChoices = array_values(array_filter(
+            DimensionPreset::cases(),
+            static fn (DimensionPreset $preset): bool => $preset->isOffered() || in_array($preset, $retainedPresets, true),
+        ));
+
         $builder->add('presetDimensions', EnumType::class, [
             'label' => 'Rozměry pro sociální sítě',
             'class' => DimensionPreset::class,
+            'choices' => $presetChoices,
             'multiple' => true,
             'expanded' => true,
             'required' => false,
@@ -97,6 +108,8 @@ final class TemplateGroupFormType extends AbstractType
         $resolver->setDefaults([
             'data_class' => TemplateGroupFormData::class,
             'categories' => [],
+            'retained_presets' => [],
         ]);
+        $resolver->setAllowedTypes('retained_presets', DimensionPreset::class . '[]');
     }
 }

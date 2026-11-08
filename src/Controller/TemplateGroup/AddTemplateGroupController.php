@@ -72,8 +72,20 @@ final class AddTemplateGroupController extends AbstractController
             }
         }
 
+        // A retired preset (1:1) stays selectable only when the design source
+        // already is that format — read from the hidden field on submit,
+        // before the form binds (the tampered-id 404 below still applies).
+        $postedSourceId = $request->isMethod('POST')
+            ? $request->request->all('template_group_form')['sourceVariantId'] ?? null
+            : null;
+        $retainedSource = is_string($postedSourceId) && $postedSourceId !== ''
+            ? $this->resolveSourceVariant($project, $postedSourceId)
+            : $sourceVariant;
+        $retainedPreset = $retainedSource?->dimension->preset;
+
         $form = $this->createForm(TemplateGroupFormType::class, $data, [
             'categories' => $this->getTemplateCategories->allForProject($project->id),
+            'retained_presets' => $retainedPreset !== null && !$retainedPreset->isOffered() ? [$retainedPreset] : [],
         ]);
 
         $form->handleRequest($request);

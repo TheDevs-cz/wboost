@@ -34,9 +34,10 @@ final class TemplateVariantFormType extends AbstractType
         ]);
         $builder->get('preset')->addModelTransformer(new CallbackTransformer(
             static fn (null|DimensionPreset $preset): string => $preset->value ?? '',
+            // A retired preset (1:1) posted by hand is a plain free-form size.
             static fn (null|string $value): null|DimensionPreset => $value === null || $value === ''
                 ? null
-                : DimensionPreset::tryFrom($value),
+                : (DimensionPreset::tryFrom($value)?->isOffered() === true ? DimensionPreset::from($value) : null),
         ));
 
         $builder->add('unit', EnumType::class, [

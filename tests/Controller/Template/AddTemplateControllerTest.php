@@ -37,7 +37,36 @@ final class AddTemplateControllerTest extends WebTestCase
         self::assertSelectorExists('input[name="add_template_form[variant][preset]"]');
         self::assertSelectorExists('select[name="add_template_form[variant][unit]"]');
         // Instagram preset buttons carry the marker param; print presets don't.
-        self::assertSelectorExists('button[data-template-dimension-preset-param="1:1"]');
+        self::assertSelectorExists('button[data-template-dimension-preset-param="4:5"]');
+        self::assertSelectorExists('button[data-template-dimension-preset-param="9:16"]');
+        // 1:1 (1080×1080) is retired for new formats (2026-11-08).
+        self::assertSelectorNotExists('button[data-template-dimension-preset-param="1:1"]');
+    }
+
+    public function testRetiredSquarePresetPostedByHandFallsBackToFreeForm(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $client->request('GET', $this->addUrl());
+        $client->submitForm('Vytvořit', [
+            'add_template_form[template][name]' => 'Čtvercová šablona',
+            'add_template_form[variant][preset]' => '1:1',
+            'add_template_form[variant][unit]' => 'px',
+            'add_template_form[variant][width]' => '1080',
+            'add_template_form[variant][height]' => '1080',
+        ]);
+
+        self::assertResponseRedirects();
+        $variantId = Uuid::fromString(explode('/', (string) $client->getResponse()->headers->get('Location'))[2]);
+        $variant = self::getContainer()->get(EntityManagerInterface::class)
+            ->find(TemplateVariant::class, $variantId);
+
+        self::assertInstanceOf(TemplateVariant::class, $variant);
+        self::assertNull($variant->dimension->preset);
+        self::assertSame(1080, $variant->dimension->width());
+        self::assertSame(1080, $variant->dimension->height());
+        self::assertSame('1080 × 1080 px', $variant->dimension->label());
     }
 
     public function testOneStepCreateWithSocialPresetLandsInVariantEditor(): void

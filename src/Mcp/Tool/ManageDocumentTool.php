@@ -67,7 +67,7 @@ readonly final class ManageDocumentTool
      * Answers the document as it is afterwards, with editorUrl / fillUrl.
      *
      * Actions:
-     * - "create": projectId, name, dimension {unit: "mm"|"cm"|"px", unitWidth, unitHeight, bleedMm?, cropMarks?} or {preset: "1:1"|"4:5"|"9:16"}, templateIds? (existing templates to attach as the first pages — each needs a variant of exactly that size; synchronized/grouped templates and pages of another document are refused).
+     * - "create": projectId, name, dimension {unit: "mm"|"cm"|"px", unitWidth, unitHeight, bleedMm?, cropMarks?} or {preset: "4:5"|"9:16"} (1:1 is retired — use px 1080×1080), templateIds? (existing templates to attach as the first pages — each needs a variant of exactly that size; synchronized/grouped templates and pages of another document are refused).
      * - "rename": documentId, name?, categoryId? (a category of the project — find_templates templates[].categoryId; "" removes it). An omitted one stays.
      * - "set_pages": documentId, templateIds — the WHOLE ordered page list: attach, detach (the template stays, it just leaves the document) and reorder in one call.
      * - "add_page": documentId, name?, position? (0-based; default last) — a BLANK page in the document size. Its variantId is in the answer (the page at that position): design it next with set_design.

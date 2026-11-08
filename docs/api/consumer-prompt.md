@@ -1115,6 +1115,9 @@ hide them from a "templates" list and present the document instead.
   document as it is afterwards:
   - `POST /api/projects/{projectId}/template-documents`
     `{name, categoryId?, dimension {unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}, templateIds?}` → 201.
+    `preset` accepts `"4:5"` / `"9:16"` only — `"1:1"` is retired for new
+    formats (400; send `px` 1080 × 1080 instead). Existing variants still
+    report `preset: "1:1"`.
   - `PATCH /api/template-documents/{id}` `{name?, categoryId?, bleedMm?, cropMarks?}`
     — an absent key is left untouched; `categoryId: null` removes the
     category. `bleedMm` (0–10, clamped) / `cropMarks` apply to the document

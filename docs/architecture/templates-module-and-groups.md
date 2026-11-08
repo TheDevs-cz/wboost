@@ -45,6 +45,19 @@ hidden `preset` field which ANY manual unit/size edit clears
 via `template_group_dimension_controller.js` + `TemplateGroupDimensionFormData`).
 A "social format" is nothing more than a preset dimension now.
 
+**1:1 is retired for NEW formats (2026-11-08).** `DimensionPreset::offered()`
+/ `isOffered()` drive every "new dimension" choice: the shared chip partial
+`_template_dimension_fields.html.twig` (add template / variant / group
+dimension / document), the group wizard checkboxes (`TemplateGroupFormType`),
+and `DocumentWriteInput::dimension()` (MCP `manage_document` create + the
+document API refuse `preset: "1:1"`). A hand-posted `preset=1:1` in the
+variant / group-dimension forms degrades to a free-form px size (preset NULL).
+The enum case is KEPT: 87 prod variants (61 templates) carry `1:1` and keep
+their label, publish gating, rendering and API `preset` value. Exception: the
+group wizard keeps 1:1 selectable when its design source already is 1:1
+(`retained_presets` option, resolved from the query / hidden field before the
+form binds). A square canvas is still possible as a free-form px dimension.
+
 **Publish to FB/IG is preset-gated.** `TemplateVariantPublishController`
 (`POST /template-variant/{variantId}/publish`, route `template_variant_publish`)
 answers 400 when `dimension->preset === null`; the fill page renders its

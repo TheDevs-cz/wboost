@@ -37,6 +37,10 @@ final class DocumentWriteInput
     {
         $preset = is_string($data['preset'] ?? null) ? DimensionPreset::tryFrom($data['preset']) : null;
 
+        if ($preset !== null && !$preset->isOffered()) {
+            throw new \InvalidArgumentException(sprintf('The "%s" preset is no longer offered for new formats — send {unit: "px", unitWidth: %d, unitHeight: %d} for a square page.', $preset->value, $preset->width(), $preset->height()));
+        }
+
         if ($preset !== null) {
             return TemplateDimension::fromPreset($preset);
         }
@@ -46,7 +50,7 @@ final class DocumentWriteInput
         $height = $data['unitHeight'] ?? null;
 
         if ($unit === null || !is_numeric($width) || !is_numeric($height) || (float) $width <= 0 || (float) $height <= 0) {
-            throw new \InvalidArgumentException('"dimension" needs unit (px|mm|cm) + positive unitWidth / unitHeight, or a preset (1:1, 4:5, 9:16).');
+            throw new \InvalidArgumentException('"dimension" needs unit (px|mm|cm) + positive unitWidth / unitHeight, or a preset (4:5, 9:16).');
         }
 
         $bleed = $data['bleedMm'] ?? 0;

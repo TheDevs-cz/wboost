@@ -91,8 +91,8 @@
 
         {{ form_errors(form.presetDimensions) }}
 
-        {% set backgrounds = [form.backgroundInstagramPost, form.backgroundInstagramPortrait, form.backgroundInstagramStory] %}
-        {% set background_labels = ['Pozadí 1:1', 'Pozadí 4:5', 'Pozadí 9:16'] %}
+        {# Keyed by preset value: the offered checkboxes are a subset (1:1 retired). #}
+        {% set backgrounds = {'1:1': form.backgroundInstagramPost, '4:5': form.backgroundInstagramPortrait, '9:16': form.backgroundInstagramStory} %}
         <div class="tp-presetcards">
             {% for checkbox in form.presetDimensions %}
                 <div class="tp-presetcard">
@@ -100,8 +100,8 @@
                         {{ form_widget(checkbox, {'attr': {'class': 'form-check-input'}}) }}
                         {{ form_label(checkbox, null, {'label_attr': {'class': 'form-check-label'}}) }}
                     </div>
-                    {% if backgrounds[loop.index0] is defined %}
-                        {{ include('_background_gallery_picker.html.twig', { field: backgrounds[loop.index0], label: background_labels[loop.index0] }) }}
+                    {% if backgrounds[checkbox.vars.value] is defined %}
+                        {{ include('_background_gallery_picker.html.twig', { field: backgrounds[checkbox.vars.value], label: 'Pozadí ' ~ checkbox.vars.value }) }}
                     {% endif %}
                 </div>
             {% endfor %}

@@ -15,7 +15,7 @@
     <div class="tp-presets">
         <span class="tp-presets-l">{{ social_label }}</span>
         <div class="tp-chips">
-            {% for p in enum('WBoost\\Web\\Value\\DimensionPreset').cases() %}
+            {% for p in enum_cases('WBoost\\Web\\Value\\DimensionPreset')|filter(p => p.isOffered) %}
                 <button type="button" class="tp-chip"
                         data-action="template-dimension#applyPreset"
                         data-template-dimension-unit-param="px"
