@@ -704,7 +704,7 @@ export default class extends Controller {
         row.title = 'Klik vybere kontejner na plátně';
 
         const icon = document.createElement('i');
-        icon.className = 'i i-list s14';
+        icon.className = 'i i-view-agenda s14';
         const text = document.createElement('span');
         text.className = 'text-truncate';
         text.textContent = label;
