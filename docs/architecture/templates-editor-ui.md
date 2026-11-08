@@ -299,6 +299,17 @@ members via `getCoords()` × viewport, dashed). Contracts:
   `applyTextboxDefaults`) made Fabric paint `not-allowed` over the working
   width handles, and the corner/top/bottom/rotate handles were dead. While a
   text is being edited Fabric clears `hasControls` → only its border shows.
+- **Textbox width drag is TOP-anchored** (`anchorWidthHandleTop`, 2026-11):
+  Fabric anchors a side handle at the opposite edge's vertical CENTRE
+  (transform `originY` 'center' / 0.5), so every re-wrap (line-count change)
+  grew the box around its middle — the top jumped half a line per wrap and a
+  container then re-flowed/re-ordered it on release. The `ml`/`mr` action
+  handlers of every textbox run with `originY: 'top'` (originX untouched →
+  Alt stays symmetric): opposite edge + top fixed, height grows down.
+- **Undo snapshots run in a microtask** (`canvas_history_controller`): the
+  container controller normalizes the flow on `object:modified` AFTER the
+  history listener, so a synchronous snapshot stored pre-normalization
+  positions and undo/redo restored a layout never shown on screen.
 - Do not set `cornerSize`/`cornerStyle` on created objects — overwritten anyway.
 
 **Editor chrome layout (Nocturne, 2026-11-02 — P7 of the redesign).** Both
