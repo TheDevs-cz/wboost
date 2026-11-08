@@ -76,8 +76,33 @@ on the canvas through its own floating popover, Canva-style.
   real Fabric `Line` has zero height on one axis, which makes it un-resizable
   there and hands the snapping engine and the container flow a degenerate box.
   As a Rect it snaps, scales, rounds its ends and projects like everything else.
-  `shapeKind` is a custom prop carried only so the layers panel can name the row
-  (a čára and a čtverec are both a `Rect`); nothing renders off it.
+  `shapeKind` is a custom prop carried so the layers panel can name the row
+  (a čára and a čtverec are both a `Rect`) — and, since 2026-11, so a STYLED
+  čára can draw itself (next bullet).
+- **Dotted / dashed čára = the LINE is dotted, not its outline** (2026-11,
+  the IDML "Canned Dotted" caterpillar). Fabric dashes a Rect's border, i.e.
+  the path traced AROUND the bar: on a 4 px bar with a 4 px dotted border that
+  was two rows of overlapping dots over a solid bar. The shared classic
+  patch `assets/editor/fabric_line_style.js` (`WBoostFabricLineStyle.enable(Rect)`)
+  overrides `Rect._render` for `shapeKind === 'line'` + a non-empty
+  `strokeDashArray`: it draws the bar's BODY as round dots (diameter = the
+  bar's displayed short side, centre spacing ≈ 3× = a two-dot gap) or 3 : 2
+  dashes, fitted so the first and last sit flush with the ends, painted with
+  the line's fill (border colour if fill-less); the border itself is not
+  drawn. Only the STYLE is read off the array (first entry 0 = dotted, as
+  `dashStyleOf` / `CanvasShapeStroke::fromDashArray`) — the numbers are
+  ignored, so pre-fix lines with a border-width pattern, resized lines and
+  group-projected copies all draw right without a data repair. Geometry is in
+  displayed units (scale undone) so dots stay round. Loaded on TWO surfaces:
+  the editor (`_editor_scripts.html.twig`, enabled at import in
+  `canvas_shapes.js`) and the render template (inlined by
+  `TemplateVariantImageRenderer`, part of its asset fingerprint) — every
+  export (PNG/WebP, print PDF raster, MCP preview) goes through the latter.
+  The fill pages never draw shapes client-side. For a čára the editor's
+  `_applyDashStyle` and `CanvasShapeStroke::dashArrayFor()` write the pattern
+  at the line's thickness (`[0, 3t]` / `[3t, 2t]`); every other kind keeps
+  dashing its BORDER by stroke width (`[0, 2w]` / `[3w, 2w]`). Gotenberg-pinned
+  by `tests/Golden/DottedLineRenderTest.php`.
 - **Sizes are canvas-relative** (¼ of the short edge), because the same editor
   serves 1080×1080 posts and A4-at-300dpi (2480×3508) — a fixed 300 px default
   is half of one design and a speck in the other. New shapes take the project's

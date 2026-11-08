@@ -607,6 +607,26 @@ export default class extends Controller {
      */
     _applyDashStyle(shape) {
         const style = this.hasStrokeStyleTarget ? this.strokeStyleTarget.value : 'solid';
+
+        if (shape.shapeKind === 'line') {
+            // A čára's style is the LINE's: assets/editor/fabric_line_style.js
+            // draws its body as dots / dashes as thick as the bar (and fits
+            // them to the length at render time). The array records that
+            // pattern — the same one CanvasShapeStroke::dashArrayFor() compiles.
+            const thickness = Math.max(1, Math.min(
+                Math.abs((shape.width || 0) * (shape.scaleX || 1)),
+                Math.abs((shape.height || 0) * (shape.scaleY || 1)),
+            ));
+            if (style === 'dashed') {
+                shape.set({ strokeDashArray: [thickness * 3, thickness * 2], strokeLineCap: 'butt' });
+            } else if (style === 'dotted') {
+                shape.set({ strokeDashArray: [0, thickness * 3], strokeLineCap: 'round' });
+            } else {
+                shape.set({ strokeDashArray: null, strokeLineCap: 'butt' });
+            }
+            return;
+        }
+
         const width = Math.max(1, Number(shape.strokeWidth) || 1);
 
         if (style === 'dashed') {
