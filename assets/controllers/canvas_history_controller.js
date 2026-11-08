@@ -19,10 +19,19 @@ export default class extends Controller {
         this.redoStack = [];
 
         const canvas = outlet.canvas;
+        // Snapshot in a microtask, AFTER every synchronous listener of the
+        // same event: canvas-container re-flows its members on
+        // object:modified (gap / flow normalization) and is registered after
+        // us, so a synchronous snapshot stored the PRE-normalization
+        // positions — undo/redo then restored a layout that was never on
+        // screen and the next edit "jumped" it back into the flow.
         this._snapshotIfClean = () => {
-            if (!outlet.loadingCanvas) {
-                this.addToHistory();
-            }
+            if (outlet.loadingCanvas) return;
+            queueMicrotask(() => {
+                if (!outlet.loadingCanvas) {
+                    this.addToHistory();
+                }
+            });
         };
 
         canvas.on('object:added', this._snapshotIfClean);

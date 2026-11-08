@@ -126,6 +126,38 @@ function prepareObject(obj) {
     if (isTextbox(obj) && typeof obj.setControlsVisibility === 'function') {
         obj.setControlsVisibility(TEXTBOX_HIDDEN);
     }
+    if (isTextbox(obj)) {
+        ['ml', 'mr'].forEach((key) => anchorWidthHandleTop(obj.controls[key]));
+    }
+}
+
+/**
+ * Fabric's width handles keep the transform origin FIXED, and for a side
+ * handle that origin is the opposite edge's vertical CENTRE (`ml`/`mr` →
+ * originY 'center'). A textbox re-wraps while its width changes, so every
+ * line-count change grew/shrank it around its middle: the top jumped by half
+ * a line mid-drag, and a container (gap/flow order derived from member tops)
+ * then re-flowed it on release — the "text jumps when I change its width"
+ * report. Anchoring the call at originY 'top' keeps the opposite edge AND the
+ * top fixed (height grows downward, like the render's reflow); originX stays
+ * Fabric's, so Alt/centred resize is untouched. The transform object is
+ * restored after each call — Fabric re-derives origins on Alt toggles.
+ */
+function anchorWidthHandleTop(control) {
+    if (!control || typeof control.actionHandler !== 'function' || control.wboostTopAnchored) return;
+    const original = control.actionHandler;
+    control.actionHandler = (eventData, transform, x, y) => {
+        const originY = transform ? transform.originY : undefined;
+        // Fabric 7 hands the side-handle origin over as 'center' or 0.5.
+        if (originY !== 'center' && originY !== 0.5) return original(eventData, transform, x, y);
+        transform.originY = 'top';
+        try {
+            return original(eventData, transform, x, y);
+        } finally {
+            transform.originY = originY;
+        }
+    };
+    control.wboostTopAnchored = true;
 }
 
 /**
