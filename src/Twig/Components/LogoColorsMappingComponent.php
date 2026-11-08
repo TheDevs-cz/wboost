@@ -61,10 +61,14 @@ final class LogoColorsMappingComponent extends AbstractController
         assert($this->manual !== null);
 
         $background = $this->manual->logoBackground($this->logoVariant, $this->colorVariant);
-        $mappedColors = $this->manual->logoColorMapping($this->logoVariant, $this->colorVariant);
+        $mappedColors = $this->manual->logoColorTargets($this->logoVariant, $this->colorVariant);
+        $mappedOpacities = $this->manual->logoColorOpacities($this->logoVariant, $this->colorVariant);
 
         $logoVariantType = LogoTypeVariant::from($this->logoVariant);
         $colors = [];
+        $opacities = [];
+        // Re-instantiation after a Live re-render must not append twice.
+        $this->detectedColors = [];
 
         $this->defaultBackground = DefaultLogoColors::background($logoVariantType, LogoColorVariant::from($this->colorVariant), $this->manual);
 
@@ -73,6 +77,7 @@ final class LogoColorsMappingComponent extends AbstractController
             $detectedColor = strtoupper(trim($detectedColor, '#'));
             $this->detectedColors[] = $detectedColor;
             $colors[$detectedColor] = $detectedColor;
+            $opacities[$detectedColor] = $mappedOpacities[$detectedColor] ?? 100;
         }
 
         // Override with already mapped values with custom mapping
@@ -87,7 +92,7 @@ final class LogoColorsMappingComponent extends AbstractController
             $colors[$mapFrom] = strtoupper($mapTo);
         }
 
-        $formData = new LogoColorsFormData($background, $colors);
+        $formData = new LogoColorsFormData($background, $colors, $opacities);
 
         return $this->createForm(LogoColorsFormType::class, $formData);
     }
@@ -110,7 +115,8 @@ final class LogoColorsMappingComponent extends AbstractController
                     LogoTypeVariant::from($this->logoVariant),
                     LogoColorVariant::from($this->colorVariant),
                     $data->background,
-                    $data->colors
+                    $data->colors,
+                    array_filter($data->opacities, is_int(...)),
                 ),
             );
 

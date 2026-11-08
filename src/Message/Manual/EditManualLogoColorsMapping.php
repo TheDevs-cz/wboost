@@ -17,6 +17,8 @@ readonly final class EditManualLogoColorsMapping
         public string $background,
         /** @var array<string, string> */
         public array $mapping,
+        /** @var array<string, int> percent per FROM colour; 100 / absent = opaque */
+        public array $opacities = [],
     ) {
     }
 }

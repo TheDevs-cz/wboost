@@ -17,6 +17,7 @@ use WBoost\Web\Value\SvgImage;
  *     colorsMapping?: array<string, array{
  *          background: null|string,
  *          colors: array<string, string>,
+ *          opacities?: array<string, int>,
  *     }>,
  *     widthInfo?: null|string,
  *     heightInfo?: null|string,

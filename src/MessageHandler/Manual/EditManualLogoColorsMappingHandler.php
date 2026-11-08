@@ -29,6 +29,7 @@ readonly final class EditManualLogoColorsMappingHandler
             $message->logoColorVariant,
             $message->background,
             $message->mapping,
+            $message->opacities,
         );
     }
 }

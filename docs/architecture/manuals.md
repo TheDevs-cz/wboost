@@ -100,6 +100,54 @@ heading and description are admin-editable like any other page's, and its cards
 carry `<page_key>.<variant>.<colorVariant|base>` slot ids for the width
 cascade.
 
+### Logo colour mapping — "Mapování barev loga" + Krytí (opacity, 2026-11-08)
+
+Per logo type × `LogoColorVariant` the pencil modal (`LogoColorsMapping` Live
+component) maps each colour the SVG contains (FROM = the SVG's literal, no `#`
+— the palette's `logo_hex`, see below) to a target HEX, plus one "Pozadí"
+(card background). Stored in the `manual.logo` JSONB as
+`colorsMapping.<colorVariant> = {background, colors: {FROM: HEX}, opacities: {FROM: percent}}`
+(`ColorMapping`). Targets are plain HEX snapshots, NOT palette links — the
+palette only supplies the FROM keys and the defaults (`DefaultLogoColors`,
+`color(1..3)`).
+
+**Krytí (opacity)** is per logo-colour row only — **the background has none
+(decided with Jan 2026-11-08)**. `opacities` keeps ONLY translucent entries
+(0–99, keys upper-cased); absent key / absent `opacities` (every row written
+before) = 100 %, so no migration and old rows render byte-identically.
+
+- `Manual::logoColorTargets()` = HEX map (default overlaid by custom) — what
+  the form edits; `logoColorOpacities()` = the translucent percents;
+  **`logoColorMapping()` = the RENDER map**: an opaque target stays HEX, a
+  translucent one becomes `rgba(r,g,b,a)` (`RgbaColor::fromHex()->css()`).
+  Every surface (manual preview cards incl. own-page variants via
+  `_manual_logo_image.html.twig` → `remap_svg_colors`, and the download links
+  in `DownloadManualImage`) takes that map, so no template had to change.
+- `SvgColorsMapper::map()`: HEX target = the legacy bare-literal
+  `str_ireplace` (the SVG's `#` stays); `rgba()` target replaces the WHOLE
+  literal, `#` included, with a `(?![0-9a-f])` guard. Anything else is
+  dropped — the download route takes the map from the query string and it
+  lands inside the SVG.
+- **Downloads never carry rgba()**: Inkscape 1.4 (our PNG/JPG rasteriser) and
+  desktop editors paint `rgba()` and `#RRGGBBAA` SOLID BLACK (tested). So
+  `DownloadLogoImageController` runs `inlineSvg()` + `SvgPortableAlpha` for
+  every PNG/JPG, and for an SVG download when the map has a translucent
+  target: paint → HEX + `fill-/stroke-/stop-/flood-opacity`, multiplied into
+  an existing opacity. PNG keeps real alpha; **JPG cannot** — it is
+  composited onto the colour variant's background (`?background=`), which is
+  what the card shows anyway. There is no PDF / CMYK logo download, no API or
+  template/canvas use of mapped logos (templates use gallery images).
+- UI: the target swatch is `.logo-map-swatch` — the colour via the
+  `--swatch` custom property (set by `custom_color_controller.js` when the row
+  has an `opacity` target) over a checkerboard. CSS lives in
+  `assets/styles/app.css`, NOT Nocturne: the manual preview uses the
+  `app_plain` entrypoint (always light, Hyper loads after app.css → rules are
+  scoped under `.modal`).
+- Pinned by `tests/Value/RgbaColorTest.php`, `tests/Value/ColorMappingTest.php`,
+  `tests/Services/Manual/SvgColorsMapperTest.php`,
+  `tests/Services/Manual/SvgPortableAlphaTest.php`,
+  `tests/Entity/ManualLogoColorOpacityTest.php`.
+
 ### Manual colours — HEX, CMYK, Pantone, RAL
 
 `ManualColor` (the read-model VO — since F7 R2 built from the palette, see below)
@@ -385,6 +433,14 @@ Fonty page (`FontsController` → `fonts.html.twig`).
   list of cuts, not toggles that are off). The Fonty row now warns
   (`.fn-mrow-warn`) when no cut is on. `Version20261108120000` gave the
   pre-existing empty rows all their font's cuts (one row on prod).
+- **Cuts are switched OFF, never on, by the designer**: a face uploaded later
+  to a font a manual already presents is enabled there too
+  (`AddFontHandler` → `ManualFont::enableAddedFontFace()`, list kept in the
+  font's face order, cuts switched off stay off); deleting a face drops it
+  from every manual's list (`DeleteFontFaceHandler` →
+  `dropFontFace()`). Renaming a font renames only the family — face names, the
+  key of `fontFaces`, do not change. Pinned by
+  `UploadFontControllerTest::testANewFaceIsEnabledInManualsUsingTheFont…`.
 - Pinned by `tests/Controller/Font/FontsPageManualFontsTest.php` (incl. add →
   preview shows every cut), `tests/Entity/ManualFontTest.php`.
 

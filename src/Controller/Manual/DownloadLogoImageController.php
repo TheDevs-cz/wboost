@@ -14,12 +14,15 @@ use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Services\ConvertImage;
 use WBoost\Web\Services\SvgColorsMapper;
+use WBoost\Web\Services\SvgPortableAlpha;
 use WBoost\Web\Value\ImageFormat;
+use WBoost\Web\Value\RgbaColor;
 
 final class DownloadLogoImageController extends AbstractController
 {
     public function __construct(
         readonly private SvgColorsMapper $svgColorsMapper,
+        readonly private SvgPortableAlpha $svgPortableAlpha,
         readonly private ConvertImage $convertImage,
         readonly private TagAwareCacheInterface $cache,
     ) {
@@ -33,8 +36,9 @@ final class DownloadLogoImageController extends AbstractController
         ImageFormat $format,
         Request $request,
     ): Response {
+        // Strings only: the map lands in the SVG ({@see SvgColorsMapper::map()} drops non-colours).
         /** @var array<string, string> $colorsMapping */
-        $colorsMapping = $request->query->all('colorsMapping');
+        $colorsMapping = array_filter($request->query->all('colorsMapping'), is_string(...));
 
         $backgroundQuery = $request->query->get('background');
         $backgroundColor = '#' . ($backgroundQuery ?? 'ffffff');
@@ -61,8 +65,14 @@ final class DownloadLogoImageController extends AbstractController
 
             $imageContent = $this->svgColorsMapper->map($image->filePath, $colorsMapping);
 
-            if ($format !== ImageFormat::SVG) {
-                $imageContent = $this->inlineSvg($imageContent);
+            // A translucent mapping target is rgba() — Inkscape (PNG/JPG) and
+            // desktop editors (the SVG download) paint that solid black, so
+            // downloads carry HEX + *-opacity instead. An opaque SVG download
+            // stays byte-for-byte the recoloured upload.
+            $hasTranslucentColor = array_any($colorsMapping, static fn (string $to): bool => RgbaColor::isCss($to));
+
+            if ($format !== ImageFormat::SVG || $hasTranslucentColor) {
+                $imageContent = $this->svgPortableAlpha->flatten($this->inlineSvg($imageContent));
             }
 
             if ($format === ImageFormat::PNG) {

@@ -32,6 +32,7 @@ use WBoost\Web\Value\ManualColorType;
 use WBoost\Web\Value\ManualPage;
 use WBoost\Web\Value\ManualPageText;
 use WBoost\Web\Value\ManualType;
+use WBoost\Web\Value\RgbaColor;
 
 #[Entity(repositoryClass: ManualDoctrineRepository::class)]
 class Manual
@@ -173,9 +174,37 @@ class Manual
     }
 
     /**
+     * The recolouring a logo is RENDERED with: FROM literal → target, where a
+     * translucent target ("Krytí" < 100 %) is `rgba(r,g,b,a)` and an opaque
+     * one stays the plain HEX (byte-identical to before opacity existed).
+     * {@see \WBoost\Web\Services\SvgColorsMapper} understands both.
+     *
      * @return array<string, string>
      */
     public function logoColorMapping(string $logoType, string $logoColor): array
+    {
+        $opacities = $this->logoColorOpacities($logoType, $logoColor);
+        $mapping = [];
+
+        foreach ($this->logoColorTargets($logoType, $logoColor) as $from => $to) {
+            $from = (string) $from;
+            $opacity = $opacities[$from] ?? 100;
+
+            $mapping[$from] = ($opacity < 100 && Color::isValidHex($to))
+                ? RgbaColor::fromHex($to, $opacity)->css()
+                : $to;
+        }
+
+        return $mapping;
+    }
+
+    /**
+     * The mapping as HEX only (default mapping overlaid by the custom one) —
+     * what the "Mapování barev loga" form edits.
+     *
+     * @return array<string, string>
+     */
+    public function logoColorTargets(string $logoType, string $logoColor): array
     {
         $typeVariant = LogoTypeVariant::from($logoType);
         $colorVariant = LogoColorVariant::from($logoColor);
@@ -195,6 +224,19 @@ class Manual
         }
 
         return $finalMapping;
+    }
+
+    /**
+     * "Krytí" in percent of the translucent targets only (absent = 100 %).
+     *
+     * @return array<string, int>
+     */
+    public function logoColorOpacities(string $logoType, string $logoColor): array
+    {
+        $typeVariant = LogoTypeVariant::from($logoType);
+        $colorVariant = LogoColorVariant::from($logoColor);
+
+        return $this->logo->variant($typeVariant)?->colorsMapping[$colorVariant->value]->opacities ?? [];
     }
 
     /**
@@ -327,12 +369,14 @@ class Manual
 
     /**
      * @param array<string, string> $mapping
+     * @param array<string, int> $opacities percent per FROM colour; 100 / absent = opaque
      */
     public function updateColorMapping(
         LogoTypeVariant $typeVariant,
         LogoColorVariant $colorVariant,
         string $background,
         array $mapping,
+        array $opacities = [],
     ): void
     {
         if ($background === DefaultLogoColors::background($typeVariant, $colorVariant, $this)) {
@@ -344,6 +388,7 @@ class Manual
             $colorVariant,
             $background,
             $mapping,
+            $opacities,
         );
 
         $this->logo = $newLogo;

@@ -31,7 +31,7 @@ final class SvgImage
      * @param array{
      *     filePath: string,
      *     detectedColors: array<string>,
-     *     colorsMapping?: array<string, array{background: null|string, colors: array<string, string>}>,
+     *     colorsMapping?: array<string, array{background: null|string, colors: array<string, string>, opacities?: array<string, int>}>,
      *     widthInfo?: null|string,
      *     heightInfo?: null|string,
      *     displayWidth?: null|int,
@@ -61,7 +61,7 @@ final class SvgImage
      * @return array{
      *     filePath: string,
      *     detectedColors: array<string>,
-     *     colorsMapping: array<string, array{background: null|string, colors: array<string, string>}>,
+     *     colorsMapping: array<string, array{background: null|string, colors: array<string, string>, opacities: array<string, int>}>,
      *     widthInfo: null|string,
      *     heightInfo: null|string,
      *     displayWidth: null|int,
@@ -94,10 +94,11 @@ final class SvgImage
 
     /**
      * @param array<string, string> $colors
+     * @param array<string, int> $opacities percent per FROM colour; 100 / absent = opaque
      */
-    public function updateColorsMapping(LogoColorVariant $colorVariant, null|string $background, array $colors): void
+    public function updateColorsMapping(LogoColorVariant $colorVariant, null|string $background, array $colors, array $opacities = []): void
     {
-        $this->colorsMapping[$colorVariant->value] = new ColorMapping($background, $colors);
+        $this->colorsMapping[$colorVariant->value] = new ColorMapping($background, $colors, $opacities);
     }
 
     public function updateDimensionsInfo(null|string $width, null|string $height): void

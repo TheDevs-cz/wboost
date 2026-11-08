@@ -25,14 +25,14 @@
                     <div class="modal-body text-start">
                         <h5>Pozadí</h5>
 
-                        <div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color">
+                        <div class="form-group d-flex align-items-center justify-content-between mb-2 logo-map-row" data-controller="custom-color">
                             <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ defaultBackground }};"></span>
 
                             <div style="width: 60px;">
                                 <span class="text-muted">HEX</span><br>{{ defaultBackground|upper }}
                             </div>
 
-                            <span class="d-block text-center" style="width: 120px;">
+                            <span class="d-block text-center logo-map-arrow">
                                 <i class="mdi mdi-arrow-right"></i>
                             </span>
 
@@ -42,27 +42,40 @@
                                 {{ form_widget(form.background, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) }}
                                 {{ form_label(form.background) }}
                             </div>
+
+                            {# Keeps the HEX column aligned with the logo colours' (no Krytí for the background). #}
+                            <span class="logo-map-opacity" aria-hidden="true"></span>
                         </div>
 
                         <h5 class="mt-3">Barvy loga</h5>
                         {% for colorForm in form.colors %}
-                            <div class="form-group d-flex align-items-center justify-content-between mb-2" data-controller="custom-color">
+                            {% set opacityForm = form.opacities[colorForm.vars.name] ?? null %}
+                            <div class="form-group d-flex align-items-center justify-content-between mb-2 logo-map-row" data-controller="custom-color">
                                 <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ detectedColors[loop.index0] ?? 'ffffff' }};"></span>
 
                                 <div style="width: 60px;">
                                     <span class="text-muted">HEX</span><br>{{ (detectedColors[loop.index0] ?? 'ffffff')|upper }}
                                 </div>
 
-                                <span class="d-block text-center" style="width: 120px;">
+                                <span class="d-block text-center logo-map-arrow">
                                     <i class="mdi mdi-arrow-right"></i>
                                 </span>
 
-                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm" style="border: 1px solid rgba(0, 0, 0, .1);background: {{ '#' ~ colorForm.vars.value }};" data-custom-color-target="colorDisplay"></span>
+                                {# Checkerboard under the colour so Krytí < 100 % reads as see-through (custom_color_controller sets --swatch). #}
+                                <span class="d-inline-block avatar-sm rounded-circle shadow-sm logo-map-swatch" style="--swatch: {{ '#' ~ colorForm.vars.value }};" data-custom-color-target="colorDisplay"></span>
 
                                 <div class="form-floating" style="width: 100px;">
                                     {{ form_widget(colorForm, {'attr': {'data-custom-color-target': 'input', 'data-action': 'input->custom-color#updateColor'}}) }}
                                     {{ form_label(colorForm) }}
                                 </div>
+
+                                {% if opacityForm %}
+                                    <div class="form-floating logo-map-opacity">
+                                        {{ form_widget(opacityForm, {'attr': {'data-custom-color-target': 'opacity', 'data-action': 'input->custom-color#updateColor'}}) }}
+                                        {{ form_label(opacityForm) }}
+                                        <span class="logo-map-opacity-unit" aria-hidden="true">%</span>
+                                    </div>
+                                {% endif %}
                             </div>
                         {% endfor %}
 
